@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI OS 小酒馆</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="phone-container">
+        
+        <div class="status-bar">
+            <span id="clock-time-small">--:--</span>
+            <div class="status-right">
+                <i class="ri-wifi-line"></i>
+                <i class="ri-signal-tower-fill"></i>
+                <div class="battery-group">
+                    <span id="battery-level">--%</span>
+                    <i id="battery-icon" class="ri-battery-line"></i>
+                </div>
+            </div>
+        </div>
+
+        <div id="lock-screen" class="lock-screen" onclick="unlockPhone()">
+            
+            <div class="ls-header">
+                <div class="ls-clock" id="ls-big-clock">00:00</div>
+                <div class="ls-date" id="ls-date">Loading...</div>
+            </div>
+
+            <div id="ls-notification" class="ls-notification hidden">
+                <div class="notif-icon">
+                    <i class="ri-message-3-fill"></i>
+                </div>
+                <div class="notif-content">
+                    <span class="notif-title">来自酒馆的消息</span>
+                    <p id="notif-text">等待 API 响应...</p>
+                </div>
+            </div>
+
+            <div class="ls-collage">
+                
+                <div class="photo-card photo-left">
+                    <div class="tape"></div> <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1" alt="照片1">
+                    <div class="hand-write">My Vibe</div>
+                </div>
+
+                <div class="photo-card photo-right">
+                    <div class="clip"></div> <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2" alt="照片2">
+                    <i class="ri-star-smile-fill sticker-star"></i>
+                </div>
+
+            </div>
+
+            <div class="ls-widgets">
+                <div class="widget-pill">
+                    <i class="ri-sun-cloudy-line"></i>
+                    <span>24°C</span>
+                </div>
+                <div class="widget-pill music-pill">
+                    <i class="ri-disc-line spin"></i>
+                    <marquee scrollamount="3">Lover Boy - 8-Bit Remix</marquee>
+                </div>
+            </div>
+
+            <div class="ls-footer">
+                <div class="round-btn"><i class="ri-flashlight-fill"></i></div>
+                <div class="swipe-hint"></div> <div class="round-btn"><i class="ri-camera-fill"></i></div>
+            </div>
+
+        </div>
+
+        <div id="home-screen" class="screen-content hidden">
+
+<div id="home-screen" class="screen-content hidden">
+    
+    <div class="desktop-scroll-area">
+        
+        <div class="calendar-widget">
+            <div class="cal-left">
+                <div class="cal-day" id="cal-day-name">Thu</div>
+                <div class="cal-date" id="cal-date-num">16</div>
+            </div>
+            <div class="cal-right">
+                <div class="cal-month" id="cal-month-name">January</div>
+                <div class="cal-grid" id="cal-grid"></div>
+            </div>
+        </div>
+
+        <div class="mixed-grid">
+            
+            <div class="grid-row">
+                <div class="app-group">
+                    <div class="app-item" onclick="openApp('wechat')">
+                        <div class="app-icon icon-black"><i class="ri-wechat-line"></i></div>
+                        <span>微信</span>
+                    </div>
+                    <div class="app-item" onclick="openApp('regex')">
+                        <div class="app-icon icon-black"><i class="ri-code-s-slash-line"></i></div>
+                        <span>正则</span>
+                    </div>
+                </div>
+                <div class="photo-widget widget-wide">
+                    <img src="https://images.unsplash.com/photo-1495360019602-e001c2763753?w=400&auto=format&fit=crop&q=60" class="desktop-img-1">
+                </div>
+            </div>
+
+            <div class="grid-row">
+                <div class="photo-widget widget-square">
+                    <img src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&auto=format&fit=crop&q=60" class="desktop-img-2">
+                </div>
+                <div class="app-group">
+                    <div class="app-item" onclick="openApp('worldbook')">
+                        <div class="app-icon icon-black"><i class="ri-book-read-line"></i></div>
+                        <span>世界书</span>
+                    </div>
+                    <div class="app-item" onclick="openApp('settings')">
+                        <div class="app-icon icon-black"><i class="ri-settings-4-line"></i></div>
+                        <span>设置</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="app-grid-row">
+                <div class="app-item" onclick="openApp('theme')">
+                    <div class="app-icon icon-black"><i class="ri-palette-line"></i></div>
+                    <span>美化</span>
+                </div>
+                <div class="app-item" onclick="openApp('study')">
+                    <div class="app-icon icon-black"><i class="ri-graduation-cap-line"></i></div>
+                    <span>学习天地</span>
+                </div>
+                <div class="app-item" onclick="openApp('money')">
+                    <div class="app-icon icon-black"><i class="ri-money-cny-box-line"></i></div>
+                    <span>记账</span>
+                </div>
+                <div class="app-item" onclick="openApp('game')">
+                    <div class="app-icon icon-black"><i class="ri-gamepad-line"></i></div>
+                    <span>Game</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="dock-bar">
+        <div class="dock-item"><i class="ri-music-2-fill"></i></div>
+        <div class="dock-item"><i class="ri-safari-line"></i></div>
+        <div class="dock-item"><i class="ri-camera-lens-line"></i></div>
+        <div class="dock-item" onclick="alert('小酒馆功能手册：\n1.导入角色卡\n2.正则解析\n3.世界书自动挂载')"><i class="ri-question-mark"></i></div>
+    </div>
+            
+        </div>
+
+        <div class="home-indicator"></div>
+
+    </div>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
