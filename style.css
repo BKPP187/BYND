@@ -300,7 +300,7 @@ body {
     justify-content: center;
 }
 
-/* --- 3. 日历数字样式 (重点修改) --- */
+/* --- 3. 日历数字样式 (最终修正版) --- */
 .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -314,63 +314,37 @@ body {
     width: 18px;
     height: 18px;
     background: transparent;
-    color: #888; /* 平时颜色稍微深一点 */
-    font-size: 10px; /*稍微大一丢丢看得清*/
+    color: #888; /* 平时颜色 */
+    font-size: 11px; /* 稍微大一点点 */
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: sans-serif;
     position: relative;
     
-    /* ▼▼▼ 关键修改：超级加粗 ▼▼▼ */
-    font-weight: 800 !important; 
-    /* ▲▲▲ 修改结束 ▲▲▲ */
+    /* ▼▼▼ 关键修正 ▼▼▼ */
+    /* 必须用 sans-serif，因为 monospace (等宽) 字体通常没有超粗体 */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    font-weight: 900 !important; /* 最强加粗 */
+    /* ▲▲▲ 修正结束 ▲▲▲ */
 }
 
-/* 2. 今天的日期 (高亮) */
+/* 2. 今天的日期文字 (高亮) */
 .cal-dot.active {
     color: white; 
     z-index: 2;
-    transform: scale(1.3); /* 爱心稍微放大一点 */
+    transform: scale(1.3); 
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2); /* 给白字加点阴影，更清楚 */
 }
 
-/* 普通的日期数字（灰色，小圆点） */
-.cal-dot {
-    width: 18px;
-    height: 18px;
-    /* 去掉背景色和边框，只留数字 */
-    background: transparent;
-    border-radius: 0;
-    
-    color: #666; /* 灰色数字 */
-    font-size: 9px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-family: monospace;
-    position: relative; /* 为了放爱心 */
-}
-
-/* --- ❤️ 今天的粉色爱心桃 ❤️ --- */
-.cal-dot.active {
-    /* 把原来那个粉色圆背景去掉 */
-    background: transparent;
-    box-shadow: none;
-    color: white; /* 数字变成白色 */
-    z-index: 2; /* 让数字浮在爱心上面 */
-    transform: scale(1.2); /* 稍微放大一点点 */
-}
-
-/* 3. 粉色爱心桃 (边缘模糊版) */
+/* 3. 粉色爱心桃 (边缘模糊 + 发光版) */
 .cal-dot.active::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 20px;
-    height: 18px;
+    width: 22px; /* 爱心稍微调大一点 */
+    height: 20px;
     background-color: #ff69b4; 
     
     /* 遮罩画出爱心 */
@@ -382,53 +356,92 @@ body {
     mask-position: center;
     z-index: -1;
     
-    /* ▼▼▼ 关键修改：边缘模糊 + 发光 ▼▼▼ */
-    /* blur(1px) 让边缘羽化，drop-shadow 增加发光感 */
-    filter: blur(1.5px) drop-shadow(0 0 2px #ff69b4);
-    opacity: 0.9; /* 稍微透明一点更有氛围感 */
-    /* ▲▲▲ 修改结束 ▲▲▲ */
+    /* ▼▼▼ 模糊滤镜 ▼▼▼ */
+    /* blur(2px) 让边缘变糊，opacity 降低一点增加朦胧感 */
+    filter: blur(2px);
+    opacity: 0.8;
+}
+
+/* 为了让爱心看起来更亮，我们可以加第二层不模糊的爱心垫底 */
+.cal-dot.active::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 18px;
+    background-color: #ff69b4;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    z-index: -1;
+    opacity: 1; /* 这一层不透明，保证颜色实心 */
 }
 
 
-/* --- 4. 便当盒布局 (Bento Box) --- */
+/* --- 4. 便当盒布局 (最终修正版 1:1) --- */
 .bento-box {
     display: flex;
-    gap: 15px; /* 左右两块的间距 */
-    height: 160px; /* 这一行的固定高度 */
+    gap: 15px;           /* 左右之间的间距 */
+    height: 150px;       /* 保持高度 */
+    margin-bottom: 15px; 
 }
 
 /* 左边：四宫格 App */
 .apps-quad {
-    flex: 1; /* 占一半宽度 */
+    flex: 1;             /* 【关键】改为 1 */
+    width: 0;            /* 【关键】强制平分宽度，防止被内容撑大 */
+    
     display: grid;
-    grid-template-columns: 1fr 1fr; /* 两列 */
-    grid-template-rows: 1fr 1fr;    /* 两行 */
-    gap: 10px;
-    background: rgba(255,255,255,0.5); /* 稍微给点背景把它们包起来，也可以去掉 */
-    padding: 10px;
-    border-radius: 20px;
+    grid-template-columns: 1fr 1fr; 
+    grid-template-rows: 1fr 1fr;    
+    gap: 12px;           
+    
+    background: transparent; 
+    padding: 0;
 }
-/* 覆盖一下 App 图标大小，让它们在小格子里合适点 */
+
+/* 修正四宫格内 App 的对齐 */
 .apps-quad .app-item {
-    gap: 2px; /* 图标和文字挨近点 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    gap: 5px;            
 }
+
+/* 修正四宫格内图标的大小 */
 .apps-quad .app-icon {
-    width: 45px; height: 45px; font-size: 20px; /* 稍微缩小一点图标 */
+    width: 48px;         
+    height: 48px; 
+    font-size: 22px; 
+    border-radius: 12px; 
 }
 
 /* 右边：大照片 */
 .photo-large {
-    flex: 1.2; /* 右边稍微宽一点点，或者设为 1 让它等宽 */
+    flex: 1;             /* 【关键】也是 1，和左边完全相等 */
+    width: 0;            /* 【关键】强制平分宽度 */
+    
     background: #eee;
-    border-radius: 25px;
+    border-radius: 25px; 
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
+
 .photo-large img {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* 保证图片铺满不拉伸 */
+    object-fit: cover;   
 }
+
+/* ⚠️ 务必确保后面没有多余的 .apps-quad 代码了 */
 
 /* 底部 App 行 */
 .app-grid-row {
@@ -437,6 +450,8 @@ body {
     gap: 10px;
     padding: 0 5px;
 }
+
+
 /* --- 🚑 补丁：修复日历左侧文字大小 --- */
 
 /* 让左边区域垂直居中 */
@@ -444,23 +459,22 @@ body {
     display: flex; 
     flex-direction: column; 
     justify-content: center;
-    padding-left: 10px; /* 稍微离左边框远一点点 */
+    padding-left: 10px; 
 }
 
 /* 星期 (Sun/Thu) */
 .cal-day { 
-    font-size: 32px;    /* 变大！ */
-    font-weight: 700;   /* 加粗！ */
-    color: white;       /* 纯白 */
-    opacity: 1;
-    margin-bottom: -15px; /* 关键：把下面的数字往上提，让它们挨得紧紧的 */
-    margin-left: 5px;   /* 微调对齐 */
+    font-size: 32px;    
+    font-weight: 700;   
+    color: white;      
+    margin-bottom: -15px; 
+    margin-left: 5px;   
 }
 
 /* 日期数字 (25/16) */
 .cal-date { 
-    font-size: 90px;    /* 变得超级大！ */
-    font-weight: 900;   /* 变得超级粗！ */
-    line-height: 1;     /* 防止撑开太高 */
-    letter-spacing: -4px; /* 数字之间挤一点，更时尚 */
+    font-size: 90px;    
+    font-weight: 900;   
+    line-height: 1;     
+    letter-spacing: -4px; 
 }
