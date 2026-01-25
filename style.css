@@ -265,127 +265,106 @@ body {
     background-position: center;
 }
 
-/* 桌面滚动区 */
+/* --- 桌面布局修正 --- */
+
+/* 1. 顶部间距调整 */
 .desktop-scroll-area {
-    flex: 1;
-    overflow-y: auto; /* 内容多了可以滚 */
     padding: 20px;
-    padding-top: 20px; /* 避开状态栏 */
+    padding-top: 5px; /* 听你的，改成 5px */
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px; /* 组件之间的垂直间距 */
 }
-/* 隐藏滚动条 */
-.desktop-scroll-area::-webkit-scrollbar { display: none; }
 
-/* A. 黑色日历组件 */
+/* 2. 日历组件微调 */
 .calendar-widget {
     background-color: #000;
     color: #fff;
     border-radius: 25px;
-    padding: 20px;
+    padding: 15px 20px; /*稍微改小一点内边距*/
+    height: 150px; /* 固定高度 */
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    height: 160px;
 }
+.cal-right { width: 55%; } /* 右边日历区稍微宽一点 */
 
-.cal-left {
-    display: flex; flex-direction: column; justify-content: center;
-}
-.cal-day { font-size: 24px; font-weight: 600; opacity: 0.9; }
-.cal-date { font-size: 60px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
-
-.cal-right {
-    display: flex; flex-direction: column; align-items: flex-end;
-    width: 50%;
-}
-.cal-month { font-size: 14px; margin-bottom: 8px; font-weight: bold; text-transform: uppercase; }
+/* --- 3. 日历数字样式 (重点修改) --- */
 .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 2px;
     width: 100%;
+    margin-top: 5px;
 }
-/* 日历小格子 */
+
 .cal-dot {
-    width: 6px; height: 6px;
-    background: rgba(255,255,255,0.3);
-    border-radius: 50%;
-    margin: 2px auto;
-}
-.cal-dot.active {
-    background: #ff69b4; /* 今天是粉色爱心色 */
-    transform: scale(1.5);
-    box-shadow: 0 0 5px #ff69b4;
-}
-
-/* B. 混合排版 Grid */
-.mixed-grid {
-    display: flex; flex-direction: column; gap: 20px;
-}
-.grid-row {
-    display: flex; gap: 15px; height: 100px; /* 这一行的高度 */
-}
-
-/* App 分组 (2个App一组) */
-.app-group {
-    flex: 1;
+    width: 18px; 
+    height: 18px;
+    /* 删掉了原来的 background: rgba... */
+    color: #666; /* 平时的日期颜色：灰色 */
+    font-size: 9px; /* 数字小一点 */
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
     align-items: center;
+    border-radius: 50%;
+    font-weight: bold;
+    font-family: monospace; /* 等宽字体，数字对齐更好看 */
 }
 
-/* 黑色极简图标风格 */
-.icon-black {
-    background: #000 !important; /* 强制黑色 */
-    color: #fff !important;
-    border-radius: 50% !important; /* 圆形图标 */
-    font-size: 24px;
+/* 今天的日期高亮 */
+.cal-dot.active {
+    background: #ff69b4; /* 粉色背景 */
+    color: white; /* 白色文字 */
+    box-shadow: 0 0 5px #ff69b4;
+    transform: scale(1.1);
 }
-.icon-black i { color: white; }
 
-/* 照片组件 */
-.photo-widget {
+
+/* --- 4. 便当盒布局 (Bento Box) --- */
+.bento-box {
+    display: flex;
+    gap: 15px; /* 左右两块的间距 */
+    height: 160px; /* 这一行的固定高度 */
+}
+
+/* 左边：四宫格 App */
+.apps-quad {
+    flex: 1; /* 占一半宽度 */
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 两列 */
+    grid-template-rows: 1fr 1fr;    /* 两行 */
+    gap: 10px;
+    background: rgba(255,255,255,0.5); /* 稍微给点背景把它们包起来，也可以去掉 */
+    padding: 10px;
     border-radius: 20px;
+}
+/* 覆盖一下 App 图标大小，让它们在小格子里合适点 */
+.apps-quad .app-item {
+    gap: 2px; /* 图标和文字挨近点 */
+}
+.apps-quad .app-icon {
+    width: 45px; height: 45px; font-size: 20px; /* 稍微缩小一点图标 */
+}
+
+/* 右边：大照片 */
+.photo-large {
+    flex: 1.2; /* 右边稍微宽一点点，或者设为 1 让它等宽 */
+    background: #eee;
+    border-radius: 25px;
     overflow: hidden;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    background: #eee;
 }
-.photo-widget img {
-    width: 100%; height: 100%; object-fit: cover;
+.photo-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 保证图片铺满不拉伸 */
 }
-.widget-wide { flex: 1.5; /* 宽一点 */ }
-.widget-square { width: 100px;      /* 强制宽度 100px */
-    height: 100px;     /* 强制高度 100px，确保是正方形 */
-    flex-shrink: 0;    /* 防止被挤压变形 */
-    /* ▲▲▲ 修改结束 ▲▲▲ */ }
 
-/* 普通 App 排列 (第三排) */
+/* 底部 App 行 */
 .app-grid-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
+    padding: 0 5px;
 }
-
-/* C. 底部 Dock (悬浮胶囊风) */
-.dock-bar {
-    margin: 0 20px 20px 20px;
-    height: 70px;
-    background: #000; /* 黑色 Dock */
-    border-radius: 35px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-.dock-item {
-    font-size: 24px;
-    color: #fff;
-    width: 50px; height: 50px;
-    display: flex; justify-content: center; align-items: center;
-    border-radius: 50%;
-    transition: background 0.2s;
-}
-.dock-item:active { background: rgba(255,255,255,0.2); }

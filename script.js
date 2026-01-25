@@ -102,15 +102,17 @@ function initCalendar() {
     dateNumEl.textContent = now.getDate();
     monthNameEl.textContent = months[now.getMonth()];
 
-    // 2. 生成小格子 (模拟一个月30天)
-    gridEl.innerHTML = ''; // 清空
+// 2. 生成小格子 (带数字)
+    gridEl.innerHTML = ''; 
     const today = now.getDate();
-    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // 获取本月天数
+    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); 
 
     for (let i = 1; i <= totalDays; i++) {
         const dot = document.createElement('div');
         dot.className = 'cal-dot';
-        // 如果是今天，加高亮
+        dot.textContent = i; // <--- 关键修改：把数字 i 填进去
+        
+        // 如果是今天
         if (i === today) {
             dot.classList.add('active');
         }
