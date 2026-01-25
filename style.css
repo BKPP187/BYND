@@ -1,4 +1,8 @@
-/* style.css - 完美修复版 */
+/* style.css - 整理版 */
+/* --- 🔧 核心工具类 (一定要加！) --- */
+.hidden {
+    display: none !important;
+}
 
 :root {
     --bg-color: #f2f4f6;
@@ -30,7 +34,7 @@ body {
     .phone-container { width: 100vw; height: 100vh; border: none; border-radius: 0; }
 }
 
-/* --- 1. 状态栏 --- */
+/* --- 状态栏 --- */
 .status-bar {
     height: 50px; display: flex; justify-content: space-between; align-items: center;
     padding: 0 25px; font-size: 14px; font-weight: 600;
@@ -39,7 +43,7 @@ body {
 }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
-/* --- 2. 锁屏 --- */
+/* --- 锁屏 --- */
 .lock-screen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background-image: radial-gradient(#ccc 1px, transparent 1px);
@@ -53,74 +57,15 @@ body {
 .ls-clock { font-size: 85px; font-weight: 800; line-height: 1; letter-spacing: -3px; color: #222; }
 .ls-date { font-size: 16px; color: #666; margin-top: 5px; font-weight: 500; }
 
-/* --- C. 拼贴画区域 (修复版：强制居中抱团) --- */
-.ls-collage {
-    flex: 1; 
-    position: relative;
-    width: 100%;
-    
-    /* 👇 新增：让这一块区域具有“居中引力” */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.photo-card {
-    position: absolute;
-    background: white;
-    padding: 10px 10px 40px 10px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    transition: transform 0.2s;
-    
-    /* 👇 新增：让所有照片默认都定位在正中心 */
-    top: 50% !important;
-    left: 50% !important;
-    margin: 0 !important;
-}
-
-/* 照片样式保持不变 */
-.photo-card img {
-    width: 140px; height: 140px;
-    object-fit: cover;
-    display: block;
-    background: #eee;
-}
+.ls-collage { flex: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
+.photo-card { position: absolute; background: white; padding: 10px 10px 40px 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s; top: 50% !important; left: 50% !important; margin: 0 !important; }
+.photo-card img { width: 140px; height: 140px; object-fit: cover; display: block; background: #eee; }
 .photo-card:active { transform: scale(0.98); } 
-
-/* --- 关键修改：用 translate 移动位置，而不是 top/left --- */
-/* 原理：先放在正中心(50%)，然后往左上/右下微调，这样它们永远粘在一起 */
-
-/* 左边照片：往左上挪 */
-.photo-left {
-    /* translate(-90%, -80%) 意思是：以中心点为准，往左移90%自身宽度，往上移80%自身高度 */
-    transform: translate(-90%, -80%) rotate(-6deg);
-    z-index: 1;
-}
-
-/* 右边照片：往右下挪 */
-.photo-right {
-    /* unset 清除之前的 right 设置，防止干扰 */
-    right: auto !important; 
-    /* 往左移10%（其实就是靠右了，因为中心点是50%），往上移20% */
-    transform: translate(-10%, -20%) rotate(8deg);
-    z-index: 2;
-}
+.photo-left { transform: translate(-90%, -80%) rotate(-6deg); z-index: 1; }
+.photo-right { right: auto !important; transform: translate(-10%, -20%) rotate(8deg); z-index: 2; }
 .tape { position: absolute; top: -15px; left: 40%; width: 40px; height: 20px; background: rgba(255,255,255,0.4); transform: rotate(-2deg); backdrop-filter: blur(2px); }
 .hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
-/* --- 回旋针样式 --- */
-.clip-paper {
-    position: absolute;
-    
-    /* 👇 把原来的 -15px 改成 -28px，数值越负，位置越靠上 */
-    top: -28px; 
-    
-    left: 40%;
-    z-index: 10;
-    font-size: 32px;
-    color: #444;
-    transform: rotate(-10deg);
-    filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2));
-}
+.clip-paper { position: absolute; top: -28px; left: 40%; z-index: 10; font-size: 32px; color: #444; transform: rotate(-10deg); filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2)); }
 .sticker-star { position: absolute; bottom: -15px; right: -15px; font-size: 35px; color: #ffd700; transform: rotate(15deg); }
 
 .ls-widgets { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
@@ -133,44 +78,13 @@ body {
 .round-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(5px); }
 .swipe-hint { width: 120px; height: 5px; background: #ccc; border-radius: 3px; }
 
-/* --- 3. 桌面层 --- */
-.screen-content {
-    height: 100%; background: #f8f8f8;
-    display: flex; flex-direction: column; justify-content: space-between;
-    padding-top: 55px !important; 
-}
+/* --- 桌面 --- */
+.screen-content { height: 100%; background: #f8f8f8; display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; }
 
-/* style.css 中的修改位置 */
-
-/* --- 桌面滚动区域 --- */
-.desktop-scroll-area {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    
-    padding: 20px;
-    padding-top: 5px; 
-    
-    /* 👇 关键修改：把原来的 100px 改成 20px 或者 10px */
-    /* 只要留一点点缝隙就行，不需要那么大了 */
-    padding-bottom: 20px; 
-    
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
+.desktop-scroll-area { display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; padding-top: 5px; padding-bottom: 20px; scrollbar-width: none; -ms-overflow-style: none; }
 .desktop-scroll-area::-webkit-scrollbar { display: none; }
 
-/* --- 日历组件 --- */
-.calendar-widget {
-    background-color: #000; color: #fff;
-    border-radius: 25px; padding: 15px 20px;
-    height: 180px !important; /* 强制变高 */
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 40px; flex-shrink: 0;
-}
+.calendar-widget { background-color: #000; color: #fff; border-radius: 25px; padding: 15px 20px; height: 180px !important; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
 .cal-left { display: flex; flex-direction: column; justify-content: center; padding-left: 10px; }
 .cal-day { font-size: 32px; font-weight: 700; margin-bottom: -10px; }
 .cal-date { font-size: 90px; font-weight: 900; line-height: 1; letter-spacing: -4px; }
@@ -181,455 +95,124 @@ body {
 .cal-dot.active::before { content: ''; position: absolute; width: 22px; height: 20px; background: #ff69b4; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; filter: blur(2px); opacity: 0.8; z-index: -1; }
 .cal-dot.active::after { content: ''; position: absolute; width: 20px; height: 18px; background: #ff69b4; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 1; z-index: -1; }
 
-/* --- Bento Box 布局 (完全正方形) --- */
-.bento-box {
-    display: flex; gap: 15px; margin-bottom: 15px;
-    /* 不设高度，让aspect-ratio撑开 */
-}
-
-/* 核心：强制正方形 1:1 */
-.apps-quad, .photo-large {
-    flex: 1; width: 0; 
-    aspect-ratio: 1 / 1; /* 无论怎么拉伸，永远正方形 */
-}
-
-.apps-quad {
-    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
-    gap: 12px; background: transparent; padding: 0;
-}
-.apps-quad .app-item {
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    width: 100%; height: 100%; gap: 5px;
-    /* 👇 关键修改：加上这行，字体瞬间变精致 */
-    font-size: 12px; 
-    font-weight: 500; /* 稍微有一点点加粗，清晰 */
-    color: #333;      /* 文字颜色 */
-}
-.apps-quad .app-icon {
-    width: 48px; height: 48px; font-size: 22px; border-radius: 12px;
-    background: white; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-
-.photo-large {
-    background: #eee; border-radius: 25px; overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
+.bento-box { display: flex; gap: 15px; margin-bottom: 15px; }
+.apps-quad, .photo-large { flex: 1; width: 0; aspect-ratio: 1 / 1; }
+.apps-quad { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; background: transparent; padding: 0; }
+.apps-quad .app-item { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; height: 100%; gap: 5px; font-size: 12px; font-weight: 500; color: #333; }
+.apps-quad .app-icon { width: 48px; height: 48px; font-size: 22px; border-radius: 12px; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.photo-large { background: #eee; border-radius: 25px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 .photo-large img { width: 100%; height: 100%; object-fit: cover; }
 
-/* --- Dock 栏 (修复版：完美居中) --- */
-.dock-bar {
-    margin: 15px;
-    
-    /* 👇 高度微调：让它更紧凑，不用那么高 */
-    height: 84px; 
-    
-    background: rgba(255,255,255,0.4);
-    backdrop-filter: blur(20px);
-    border-radius: 30px;
-    display: flex;
-    justify-content: space-around;
-    
-    /* 👇 关键：垂直居中，不要加 padding-bottom 了 */
-    align-items: center; 
-    
-    flex-shrink: 0;
-    
-    /* 增加一个很小的底部阴影，增加层次感 */
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-}
+.dock-bar { margin: 15px; height: 84px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: space-around; align-items: center; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+.dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 60px; cursor: pointer; }
+.dock-icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #333; transition: transform 0.1s; }
+.dock-item:active .dock-icon-box { transform: scale(0.9); }
+.dock-label { font-size: 11px; color: #333; font-weight: 500; opacity: 0.9; }
 
-.dock-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    
-    /* 图标和文字的间距 */
-    gap: 4px; 
-    
-    width: 60px;
-    cursor: pointer;
-}
-
-/* 专门包裹图标的盒子 */
-.dock-icon-box {
-    width: 45px;
-    height: 45px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    color: #333;
-    transition: transform 0.1s;
-}
-
-.dock-item:active .dock-icon-box {
-    transform: scale(0.9);
-}
-
-/* 文字样式 */
-.dock-label {
-    font-size: 11px;
-    color: #333;
-    font-weight: 500;
-    opacity: 0.9;
-}
-
-/* --- ✨ Ins风美化窗口 (重制版) ✨ --- */
-
-.app-window {
-    position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
-    background: #fafafa; /* 更纯净的白 */
-    z-index: 2000;
-    display: flex; flex-direction: column;
-    transform: translateY(110%); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); /* 更有弹性的动画 */
-}
-
+/* --- 窗口通用 --- */
+.app-window { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: #fafafa; z-index: 2000; display: flex; flex-direction: column; transform: translateY(110%); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .app-window.active { transform: translateY(0); }
-
-/* 顶部栏 */
-.window-header {
-    display: flex !important; justify-content: space-between; align-items: center;
-    height: 90px !important; padding-top: 45px !important; padding-left: 25px; padding-right: 25px;
-    background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
-    position: sticky; top: 0; z-index: 10;
-    border-bottom: 1px solid rgba(0,0,0,0.03);
-}
-
-.window-header h3 { font-size: 17px; font-weight: 700; color: #333; letter-spacing: 0.5px; }
-.close-btn { color: #999; font-size: 15px; }
-/* 原来的 .save-btn 被替换为以下内容 */
-.save-btn {
-    color: #ff758c; /* 只保留一个粉色文字，显眼但不突兀 */
-    font-size: 16px;
-    font-weight: 700; /* 加粗表示强调 */
-    cursor: pointer;
-    /* 去掉了之前的 background, padding, box-shadow 等 */
-}
-/* 内容区 */
+.window-header { display: flex !important; justify-content: space-between; align-items: center; height: 90px !important; padding-top: 45px !important; padding-left: 25px; padding-right: 25px; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.03); flex-shrink: 0; }
+.window-header h3 { font-size: 17px; font-weight: 700; margin: 0; color: #333; letter-spacing: 0.5px; }
+.close-btn, .save-btn { font-size: 16px; cursor: pointer; min-width: 40px; }
+.close-btn { color: #999; }
+.save-btn { color: #ff758c; font-weight: 700; text-align: right; }
 .window-content { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
 .window-content::-webkit-scrollbar { width: 0; background: transparent; }
 
-/* --- 修复：美化窗口图标太挤的问题 --- */
-
-/* 1. 减小卡片的内边距，给内容留出更多空间 */
-.setting-card {
-    background: white;
-    border-radius: 24px;
-    
-    /* 👇 这一行是原来的，我们保留左右和上方的间距 */
-    padding: 15px; 
-    
-    /* 👇 新增这一行：专门给底部多加点空间，防止文字被切掉 */
-    padding-bottom: 30px; 
-    
-    margin-bottom: 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
-    border: 1px solid #f7f7f7;
-}
-
-/* 2. 调整图标宫格的间距 */
-.icon-grid-pretty {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 保持4列 */
-    
-    /* 👇 把原来的 12px 改小一点，改成 8px */
-    gap: 8px; 
-}
-
-/* --- 🚑 最终修复：防止文字被遮挡 --- */
-
-/* 1. 调整小格子内部布局 */
-.pretty-icon-item {
-    background: #f9f9f9;
-    
-    /* 👇 关键修改：不再强制 1:1 正方形，改成稍微高一点的长方形 */
-    /* 这样能保证不管字多大，都能塞得下 */
-    aspect-ratio: auto; 
-    height: 80px; /* 给一个固定的舒适高度 */
-    
-    border-radius: 18px;
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center;
-    position: relative; 
-    cursor: pointer; 
-    border: 1px solid transparent;
-    
-    /* 防止文字太贴边 */
-    padding: 5px 0;
-}
-
-/* 2. 把中间的图标稍微改小，给文字留空间 */
-.icon-preview { 
-    /* 原来是 42px，改成 36px */
-    width: 36px; 
-    height: 36px;
-    
-    /* 字体图标也同步改小 */
-    font-size: 20px; 
-    
-    color: #555; 
-    margin-bottom: 6px; /* 增加图标和文字的距离 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-/* 图片也同步适配 */
-.icon-preview img {
-    border-radius: 8px;
-}
-
-/* 3. 调整文字大小和位置 */
-.icon-name { 
-    font-size: 11px; /* 字体稍微改大一点点更清晰 */
-    color: #888; 
-    line-height: 1.2;
-    text-align: center;
-    
-    /* 防止长文字换行导致布局乱 */
-    white-space: nowrap; 
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 90%;
-}
-
-/* 4. 拉长最外面的大白框 */
-.setting-card {
-    background: white;
-    border-radius: 24px;
-    padding: 15px;
-    
-    /* 👇 关键修改：底部加厚！改成 50px */
-    padding-bottom: 50px !important; 
-    
-    margin-bottom: 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
-    border: 1px solid #f7f7f7;
-}
-
-.card-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
-    color: #444; font-weight: 600; font-size: 14px;
-}
-.card-icon {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: #fff0f3; color: #ff758c; /* 粉色图标底 */
-    display: flex; align-items: center; justify-content: center; font-size: 16px;
-}
-
-/* 气泡输入框 */
-.input-bubble {
-    background: #f9f9f9; border-radius: 16px; padding: 12px 15px;
-    display: flex; align-items: center; gap: 10px;
-    transition: all 0.2s;
-}
+/* --- 美化 App --- */
+.setting-card { background: white; border-radius: 24px; padding: 15px; padding-bottom: 60px !important; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.02); border: 1px solid #f7f7f7; }
+.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #444; font-weight: 600; font-size: 14px; }
+.card-icon { width: 28px; height: 28px; border-radius: 8px; background: #fff0f3; color: #ff758c; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.input-bubble { background: #f9f9f9; border-radius: 16px; padding: 12px 15px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
 .input-bubble:focus-within { background: white; box-shadow: 0 0 0 2px #ffe0e6; }
 .bubble-label { font-size: 12px; color: #aaa; font-weight: bold; }
-.input-bubble input {
-    border: none; background: transparent; outline: none; flex: 1;
-    font-size: 14px; color: #333;
-}
-
-/* 上传区域布局 */
+.input-bubble input { border: none; background: transparent; outline: none; flex: 1; font-size: 14px; color: #333; }
 .upload-row { display: flex; gap: 15px; margin-top: 15px; }
 .upload-item { flex: 1; }
 .sub-label { display: block; font-size: 11px; color: #bbb; margin-bottom: 6px; margin-left: 5px; }
-
-/* 上传按钮盒子 (核心美化) */
-.upload-box {
-    background: #f9f9f9; border-radius: 18px; height: 50px;
-    display: flex; align-items: center; padding: 0 6px 0 15px;
-    cursor: pointer; position: relative; overflow: hidden;
-    transition: transform 0.1s; border: 1px dashed transparent;
-}
+.upload-box { background: #f9f9f9; border-radius: 18px; height: 50px; display: flex; align-items: center; padding: 0 6px 0 15px; cursor: pointer; position: relative; overflow: hidden; transition: transform 0.1s; border: 1px dashed transparent; }
 .upload-box:active { transform: scale(0.98); }
 .upload-box:hover { border-color: #ffc2d1; background: #fff5f7; }
-
-.upload-box input {
-    border: none; background: transparent; width: 100%; outline: none;
-    font-size: 12px; color: #888; pointer-events: none; /* 让点击穿透给父级 */
-}
-/* 当有内容时，让文字变淡，不再是一大坨乱码的感觉 */
+.upload-box input { border: none; background: transparent; width: 100%; outline: none; font-size: 12px; color: #888; pointer-events: none; }
 .upload-box input:valid { color: #000; font-weight: 500; }
-
-.upload-icon {
-    width: 38px; height: 38px; background: white; border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    color: #ff758c; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    flex-shrink: 0; margin-left: 5px;
-}
-
-/* 宽版上传条 */
+.upload-icon { width: 38px; height: 38px; background: white; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #ff758c; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex-shrink: 0; margin-left: 5px; }
 .upload-stack { display: flex; flex-direction: column; gap: 10px; }
 .upload-box.wide { padding-left: 15px; }
 .prefix { font-size: 12px; color: #aaa; margin-right: 10px; font-weight: bold; }
-
-/* 宫格图标选择器 */
-.icon-grid-pretty {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-}
-.pretty-icon-item {
-    background: #f9f9f9; aspect-ratio: 1; border-radius: 18px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    position: relative; cursor: pointer; transition: all 0.2s;
-}
+.icon-grid-pretty { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pretty-icon-item { background: #f9f9f9; aspect-ratio: auto !important; height: 90px !important; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; padding: 10px 0; overflow: hidden; }
 .pretty-icon-item:active { transform: scale(0.95); background: #ffe0e6; }
-
-.icon-preview { font-size: 24px; color: #555; margin-bottom: 4px; }
-.icon-name { font-size: 10px; color: #999; }
-
-.mini-add {
-    position: absolute; bottom: 4px; right: 4px;
-    width: 16px; height: 16px; background: white; border-radius: 50%;
-    font-size: 10px; color: #ff758c; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
+.icon-preview { width: 44px !important; height: 44px !important; font-size: 24px; color: #555; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.icon-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.icon-name { font-size: 11px; color: #666; line-height: 1.2; text-align: center; width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .icon-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f0f0f0; border-top: 1px solid #f0f0f0; }
 .icon-input-group { background: white; padding: 10px; display: flex; align-items: center; gap: 8px; }
 .icon-input-group i { width: 25px; text-align: center; }
 .icon-input-group input { width: 100%; border: none; outline: none; font-size: 12px; }
 
-/* --- 修复：顶部标题栏布局 --- */
-.window-header {
-    /* 1. 关键：找回横向排列 */
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center;
-    
-    /* 2. 关键：增加高度和内边距，避开手机顶部状态栏 */
-    height: 90px !important;  /* 变高 */
-    padding-top: 45px !important; /* 内容往下压，留出时间电量的位置 */
-    padding-left: 20px;
-    padding-right: 20px;
-    
-    background: rgba(255,255,255,0.95); /* 微透明背景 */
-    backdrop-filter: blur(10px); /* 毛玻璃效果 */
-    border-bottom: 1px solid #e5e5e5;
-    flex-shrink: 0;
-    
-    /* 确保在最上层 */
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+/* --- 微信 App 样式 --- */
+.wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
+.wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; }
+.wc-header-left i { font-size: 24px; color: #111; }
+.wc-header-right i { font-size: 24px; margin-left: 15px; cursor: pointer; }
+.wechat-content { flex: 1; overflow-y: auto; background: white; padding-bottom: 60px; }
+.wc-search-box { padding: 10px; background: #ededed; }
+.wc-search-inner { background: white; border-radius: 6px; height: 36px; display: flex; align-items: center; justify-content: center; color: #b2b2b2; font-size: 14px; gap: 5px; }
+.wc-chat-item { display: flex; height: 72px; align-items: center; padding: 0 16px; background: white; cursor: pointer; }
+.wc-chat-item:active { background: #dcdcdc; }
+.wc-avatar { width: 48px; height: 48px; border-radius: 6px; overflow: hidden; margin-right: 12px; flex-shrink: 0; }
+.wc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wc-info { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid #f0f0f0; }
+.wc-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.wc-name { font-size: 16px; font-weight: 500; color: #111; }
+.wc-time { font-size: 10px; color: #b2b2b2; }
+.wc-bottom { display: flex; }
+.wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 25px; }
+.wc-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #111; gap: 2px; }
+.wc-tab i { font-size: 24px; margin-bottom: -2px; }
+.wc-tab span { font-size: 10px; transform: scale(0.85); font-weight: 500; }
+.wc-tab.active { color: #07c160; }
+.wc-chat-room { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #ededed; z-index: 20; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.wc-chat-room.active { transform: translateX(0); }
+.wc-room-header { height: 90px; padding-top: 45px; padding-left: 10px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dcdcdc; flex-shrink: 0; }
+.wc-room-title { font-size: 16px; font-weight: 600; }
+.wc-room-header i { font-size: 26px; padding: 5px; cursor: pointer; }
+.wc-room-content { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+.msg-row { display: flex; gap: 10px; width: 100%; }
+.msg-row.right { flex-direction: row-reverse; }
+.msg-avatar { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+.msg-bubble { padding: 10px 14px; border-radius: 4px; font-size: 15px; line-height: 1.5; color: #111; max-width: 70%; word-break: break-all; position: relative; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.msg-bubble.green { background: #95ec69; }
+.msg-row.left .msg-bubble::before { content: ''; position: absolute; left: -6px; top: 14px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 6px solid white; }
+.msg-row.right .msg-bubble::before { content: ''; position: absolute; right: -6px; top: 14px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 6px solid #95ec69; }
+.msg-row.center-regex { justify-content: center; padding: 0 10px; }
+.regex-container-demo { width: 100%; }
+.wc-room-footer { min-height: 60px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; align-items: center; padding: 10px; gap: 10px; padding-bottom: 25px; }
+.wc-room-footer i { font-size: 26px; color: #111; }
+.wc-input { flex: 1; height: 36px; border: none; border-radius: 4px; padding: 0 10px; font-size: 16px; outline: none; background: white; }
 
-/* 修复标题文字大小 */
-.window-header h3 {
-    font-size: 17px;
-    font-weight: 600;
-    margin: 0;
-    color: #000;
-}
-
-/* 修复按钮样式 */
-.close-btn, .save-btn {
-    font-size: 16px;
-    color: #007aff;
-    cursor: pointer;
-    min-width: 40px; /* 增加点击区域 */
-}
-.save-btn {
-    font-weight: 600;
-    text-align: right;
-}
-/* --- style.css 更新 --- */
-
-/* 1. 限制预览框的大小，保证图片是正方形 */
-.icon-preview { 
-    font-size: 24px; 
-    color: #555; 
-    margin-bottom: 4px;
-    
-    /* 👇 新增：固定大小，方便放图片 */
-    width: 48px; 
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* 2. 让上传后的图片完美适应 */
-.icon-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* 铺满不变形 */
-    border-radius: 10px; /* 和桌面图标一样的圆角 */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-/* 3. 调整一下整个格子，让它更像一个App展示位 */
-.pretty-icon-item {
-    background: #f9f9f9; 
-    aspect-ratio: 1; /* 正方形格子 */
-    border-radius: 18px;
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center;
-    position: relative; 
-    cursor: pointer; 
-    transition: all 0.2s;
-    border: 1px solid transparent;
-}
-.pretty-icon-item:hover {
-    background: white;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-/* --- 🚑 终极融合修复 (粘贴到文件最后) --- */
-
-/* 1. 强制拉长白卡片底部，兜住所有内容 */
-.setting-card {
-    padding-bottom: 60px !important; /* 给足底部空间 */
-}
-
-/* 2. 修复图标格子：变回长方形，不再是正方形 */
-.pretty-icon-item {
-    aspect-ratio: auto !important; /* 解除正方形限制 */
-    height: 90px !important;       /* 给一个固定的、足够高的高度 */
-    background: #f9f9f9;
-    border-radius: 18px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 0;
-    overflow: hidden; /* 防止万一溢出 */
-}
-
-/* 3. 调整图标/图片预览框的大小 */
-.icon-preview {
-    width: 44px !important;  /* 稍微大一点，看图清楚 */
-    height: 44px !important;
-    font-size: 24px;
-    color: #555;
-    margin-bottom: 8px; /* 拉开和文字的距离 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0; /* 禁止被压缩 */
-}
-
-/* 4. 图片完美填充 */
-.icon-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* 5. 文字样式优化 */
-.icon-name {
-    font-size: 11px;
-    color: #666;
-    line-height: 1.2;
-    text-align: center;
-    width: 90%;
-    white-space: nowrap;      /* 不换行 */
-    overflow: hidden;         /* 超出隐藏 */
-    text-overflow: ellipsis;  /* 超出显示省略号... */
-}
+/* 微信交互弹窗 */
+.wc-action-sheet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; display: flex; flex-direction: column; justify-content: flex-end; }
+.wc-sheet-content { background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.wc-sheet-item, .wc-sheet-cancel { background: white; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #111; gap: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+.wc-sheet-item:active, .wc-sheet-cancel:active { background: #eee; }
+.wc-sheet-cancel { margin-top: 8px; border-bottom: none; font-weight: 600; }
+.wc-modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+.wc-char-card { width: 85%; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden; animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.wc-card-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px; border-bottom: 1px solid #f0f0f0; }
+.wc-card-header i { font-size: 24px; color: #999; cursor: pointer; }
+.wc-card-body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.wc-card-avatar-upload { width: 80px; height: 80px; border-radius: 50%; background: #f0f0f0; position: relative; overflow: hidden; cursor: pointer; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.wc-card-avatar-upload img { width: 100%; height: 100%; object-fit: cover; }
+.upload-hint { position: absolute; bottom: 0; left: 0; width: 100%; height: 30px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
+.wc-form-group { width: 100%; }
+.wc-form-group label { font-size: 12px; color: #888; margin-bottom: 5px; display: block; }
+.wc-form-group input, .wc-form-group textarea { width: 100%; background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 10px; font-size: 14px; outline: none; resize: none; }
+.wc-form-group input:focus, .wc-form-group textarea:focus { background: white; border-color: #07c160; }
+.wc-card-footer { padding: 20px; padding-top: 0; }
+.btn-confirm { width: 100%; height: 44px; background: #07c160; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; }
+.btn-confirm:active { opacity: 0.9; }

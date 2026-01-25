@@ -38,7 +38,6 @@
 
                 <div class="photo-card photo-right">
                     <div class="clip-paper"><i class="ri-attachment-line"></i></div>
-                    
                     <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
                     <i class="ri-star-smile-fill sticker-star"></i>
                 </div>
@@ -122,7 +121,7 @@
                 </div>
             </div> 
 
-<div class="dock-bar">
+            <div class="dock-bar">
                 <div class="dock-item">
                     <div class="dock-icon-box"><i class="ri-music-2-fill"></i></div>
                     <span class="dock-label">音乐</span>
@@ -135,13 +134,14 @@
                     <div class="dock-icon-box"><i class="ri-camera-lens-line"></i></div>
                     <span class="dock-label">相机</span>
                 </div>
-                <div class="dock-item" onclick="alert('小酒馆功能手册：\n1.导入角色卡\n2.正则解析\n3.世界书自动挂载')">
-                    <div class="dock-icon-box"><i class="ri-question-mark"></i></div>
-                    <span class="dock-label">说明</span>
+                <div class="dock-item" onclick="openApp('preset')">
+                    <div class="dock-icon-box"><i class="ri-equalizer-line"></i></div>
+                    <span class="dock-label">预设</span>
                 </div>
             </div>
+        </div>
 
-<div id="app-theme-window" class="app-window hidden">
+        <div id="app-theme-window" class="app-window hidden">
             <div class="window-header">
                 <span onclick="closeApp('theme')" class="close-btn">取消</span>
                 <h3>个性化设置</h3>
@@ -149,7 +149,6 @@
             </div>
 
             <div class="window-content">
-                
                 <div class="setting-card">
                     <div class="card-header">
                         <i class="ri-music-2-line card-icon"></i>
@@ -165,12 +164,10 @@
                         <i class="ri-lock-heart-line card-icon"></i>
                         <span>锁屏拍立得</span>
                     </div>
-                    
                     <div class="input-bubble">
                         <span class="bubble-label">文字</span>
                         <input type="text" id="input-vibe-text" placeholder="My Vibe">
                     </div>
-
                     <div class="upload-row">
                         <div class="upload-item">
                             <span class="sub-label">左图</span>
@@ -180,7 +177,6 @@
                             </div>
                             <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
                         </div>
-
                         <div class="upload-item">
                             <span class="sub-label">右图</span>
                             <div class="upload-box" onclick="document.getElementById('file-lock-2').click()">
@@ -197,7 +193,6 @@
                         <i class="ri-image-line card-icon"></i>
                         <span>桌面大组件</span>
                     </div>
-                    
                     <div class="upload-stack">
                         <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()">
                             <span class="prefix">上图</span>
@@ -222,10 +217,99 @@
                     </div>
                     <div class="icon-grid-pretty" id="icon-grid-container"></div>
                 </div>
-                
                 <div style="height: 50px;"></div>
             </div>
         </div>
+
+        <div id="app-wechat-window" class="app-window hidden" style="background: #ededed;">
+            
+            <div class="wechat-header">
+                <div class="wc-header-left" onclick="closeApp('wechat')">
+                    <i class="ri-arrow-left-s-line"></i>
+                    <span>微信</span> 
+                </div>
+                <span class="wc-header-title">消息</span>
+                <div class="wc-header-right">
+                    <i class="ri-add-circle-line" onclick="testAddCharacter()"></i>
+                </div>
+            </div>
+
+            <div id="wc-action-sheet" class="wc-action-sheet hidden">
+                <div class="wc-sheet-content">
+                    <div class="wc-sheet-item" onclick="triggerImport()">
+                        <i class="ri-file-upload-line" style="color: #07c160;"></i>
+                        <span>导入角色卡 (PNG)</span>
+                        <input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
+                    </div>
+                    <div class="wc-sheet-item" onclick="openCreateModal()">
+                        <i class="ri-user-add-line" style="color: #2b2b2b;"></i>
+                        <span>手动新建角色</span>
+                    </div>
+                    <div class="wc-sheet-cancel" onclick="hideActionSheet()">取消</div>
+                </div>
+            </div>
+
+            <div id="wc-char-modal" class="wc-modal-overlay hidden">
+                <div class="wc-char-card">
+                    <div class="wc-card-header">
+                        <span id="modal-title">新角色</span>
+                        <i class="ri-close-line" onclick="closeCharModal()"></i>
+                    </div>
+                    <div class="wc-card-body">
+                        <div class="wc-card-avatar-upload" onclick="document.getElementById('manual-avatar-input').click()">
+                            <img id="modal-avatar-preview" src="">
+                            <div class="upload-hint"><i class="ri-camera-fill"></i></div>
+                            <input type="file" id="manual-avatar-input" accept="image/*" style="display:none" onchange="previewModalAvatar(this)">
+                        </div>
+                        <div class="wc-form-group">
+                            <label>名字</label>
+                            <input type="text" id="modal-char-name" placeholder="角色名字">
+                        </div>
+                        <div class="wc-form-group">
+                            <label>开场白</label>
+                            <textarea id="modal-char-intro" rows="3" placeholder="打个招呼吧..."></textarea>
+                        </div>
+                    </div>
+                    <div class="wc-card-footer">
+                        <button class="btn-confirm" onclick="confirmSaveCharacter()">确认添加</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wechat-content">
+                <div class="wc-search-box">
+                    <div class="wc-search-inner"><i class="ri-search-line"></i> 搜索</div>
+                </div>
+                <div class="wc-chat-list" id="wc-chat-list"></div>
+            </div>
+
+            <div class="wc-tab-bar">
+                <div class="wc-tab active"><i class="ri-message-3-fill"></i><span>微信</span></div>
+                <div class="wc-tab"><i class="ri-contacts-book-2-line"></i><span>通讯录</span></div>
+                <div class="wc-tab"><i class="ri-compass-3-line"></i><span>发现</span></div>
+                <div class="wc-tab"><i class="ri-user-line"></i><span>我</span></div>
+            </div>
+
+            <div id="wechat-chat-room" class="wc-chat-room hidden">
+                <div class="wc-room-header">
+                    <i class="ri-arrow-left-s-line" onclick="closeChat()"></i>
+                    <span class="wc-room-title" id="chat-room-title">...</span>
+                    <i class="ri-more-fill"></i>
+                </div>
+                
+                <div class="wc-room-content" id="chat-room-content"></div>
+
+                <div class="wc-room-footer">
+                    <i class="ri-voiceprint-line"></i>
+                    <input type="text" class="wc-input">
+                    <i class="ri-emotion-line"></i>
+                    <i class="ri-add-circle-line"></i>
+                </div>
+            </div>
+
+        </div>
+        <div class="home-indicator"></div>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>
