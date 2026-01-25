@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDate();
     initLockScreen();
     initCalendar();
-    initTheme(); // 初始化加载主题
+    initTheme(); 
 });
 
 // --- 基础功能 ---
@@ -82,7 +82,7 @@ function initCalendar() {
     }
 }
 
-// --- ⭐ 修复重点：美化 App 逻辑 ---
+// --- 美化 App 逻辑 ---
 
 function openApp(appName) {
     if (appName === 'theme') {
@@ -90,9 +90,7 @@ function openApp(appName) {
         if (win) {
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10);
-            
-            // 👇 关键：每次打开时，把保存的数据填回输入框
-            loadSavedSettings();
+            loadSavedSettings(); // 加载数据
         }
     } else {
         alert("正在打开: " + appName);
@@ -109,45 +107,54 @@ function closeApp(appName) {
     }
 }
 
+// ⭐ 更新：选择文件后，直接在设置界面显示图片预览
 function convertFile(input, targetInputId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
+            // 1. 填入隐藏的 input (用于保存)
             const inputEl = document.getElementById(targetInputId);
             inputEl.value = e.target.result;
             
-            // 👇 让输入框变色反馈一下
-            inputEl.parentElement.style.background = "#fff0f3"; // 变粉
-            inputEl.parentElement.style.borderColor = "#ffc2d1";
+            // 2. 找到对应的预览图标区域
+            // ID 规律：input-icon-0 -> preview-icon-0
+            const previewId = targetInputId.replace('input-', 'preview-');
+            const previewEl = document.getElementById(previewId);
             
-            // 💡 这里虽然值是 Base64，但我们可以利用 placeholder 机制让它看起来干净点
-            // (稍微复杂点，暂时保持这样，UI 上已经用了 overflow hidden 截断文字)
+            // 3. 直接把图片显示出来
+            if(previewEl) {
+                previewEl.innerHTML = `<img src="${e.target.result}">`;
+            }
         };
         reader.readAsDataURL(input.files[0]);
     }
 }
 
-// ⭐ 新增函数：把 localStorage 的数据读取到输入框里
+// ⭐ 更新：加载数据时，也要把图片显示在设置界面里
 function loadSavedSettings() {
     const data = JSON.parse(localStorage.getItem('my_theme_data'));
-    if (!data) return; // 如果没有保存过，就什么都不做
+    if (!data) return;
 
-    // 1. 回填文字
     if (data.music) document.getElementById('input-music-text').value = data.music;
     if (data.vibe) document.getElementById('input-vibe-text').value = data.vibe;
 
-    // 2. 回填图片 URL
     if (data.l1) document.getElementById('input-lock-img-1').value = data.l1;
     if (data.l2) document.getElementById('input-lock-img-2').value = data.l2;
     if (data.d1) document.getElementById('input-desk-img-1').value = data.d1;
     if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
 
-    // 3. 回填图标 URL
     if (data.icons) {
         data.icons.forEach((url, index) => {
             const inputEl = document.getElementById('input-icon-' + index);
             if (inputEl) {
                 inputEl.value = url;
+                // 如果有保存的图片 URL，直接显示在设置格子里
+                if(url && url.length > 0) {
+                    const previewEl = document.getElementById('preview-icon-' + index);
+                    if(previewEl) {
+                        previewEl.innerHTML = `<img src="${url}">`;
+                    }
+                }
             }
         });
     }
@@ -162,7 +169,6 @@ function saveTheme() {
     const deskImg1 = document.getElementById('input-desk-img-1').value;
     const deskImg2 = document.getElementById('input-desk-img-2').value;
 
-    // 应用修改
     if(musicText) {
         const marquee = document.querySelector('.music-pill marquee');
         if(marquee) marquee.textContent = musicText;
@@ -211,7 +217,6 @@ function saveTheme() {
         }
     });
 
-    // 保存到本地
     const themeData = {
         music: musicText,
         vibe: vibeText, 

@@ -259,11 +259,102 @@ body {
 .window-content { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
 .window-content::-webkit-scrollbar { width: 0; background: transparent; }
 
-/* 卡片通用样式 */
+/* --- 修复：美化窗口图标太挤的问题 --- */
+
+/* 1. 减小卡片的内边距，给内容留出更多空间 */
 .setting-card {
-    background: white; border-radius: 24px; padding: 20px;
+    background: white;
+    border-radius: 24px;
+    
+    /* 👇 这一行是原来的，我们保留左右和上方的间距 */
+    padding: 15px; 
+    
+    /* 👇 新增这一行：专门给底部多加点空间，防止文字被切掉 */
+    padding-bottom: 30px; 
+    
     margin-bottom: 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.02); /* 超柔和阴影 */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+    border: 1px solid #f7f7f7;
+}
+
+/* 2. 调整图标宫格的间距 */
+.icon-grid-pretty {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 保持4列 */
+    
+    /* 👇 把原来的 12px 改小一点，改成 8px */
+    gap: 8px; 
+}
+
+/* --- 🚑 最终修复：防止文字被遮挡 --- */
+
+/* 1. 调整小格子内部布局 */
+.pretty-icon-item {
+    background: #f9f9f9;
+    
+    /* 👇 关键修改：不再强制 1:1 正方形，改成稍微高一点的长方形 */
+    /* 这样能保证不管字多大，都能塞得下 */
+    aspect-ratio: auto; 
+    height: 80px; /* 给一个固定的舒适高度 */
+    
+    border-radius: 18px;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    position: relative; 
+    cursor: pointer; 
+    border: 1px solid transparent;
+    
+    /* 防止文字太贴边 */
+    padding: 5px 0;
+}
+
+/* 2. 把中间的图标稍微改小，给文字留空间 */
+.icon-preview { 
+    /* 原来是 42px，改成 36px */
+    width: 36px; 
+    height: 36px;
+    
+    /* 字体图标也同步改小 */
+    font-size: 20px; 
+    
+    color: #555; 
+    margin-bottom: 6px; /* 增加图标和文字的距离 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* 图片也同步适配 */
+.icon-preview img {
+    border-radius: 8px;
+}
+
+/* 3. 调整文字大小和位置 */
+.icon-name { 
+    font-size: 11px; /* 字体稍微改大一点点更清晰 */
+    color: #888; 
+    line-height: 1.2;
+    text-align: center;
+    
+    /* 防止长文字换行导致布局乱 */
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90%;
+}
+
+/* 4. 拉长最外面的大白框 */
+.setting-card {
+    background: white;
+    border-radius: 24px;
+    padding: 15px;
+    
+    /* 👇 关键修改：底部加厚！改成 50px */
+    padding-bottom: 50px !important; 
+    
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
     border: 1px solid #f7f7f7;
 }
 
@@ -392,4 +483,101 @@ body {
 .save-btn {
     font-weight: 600;
     text-align: right;
+}
+/* --- style.css 更新 --- */
+
+/* 1. 限制预览框的大小，保证图片是正方形 */
+.icon-preview { 
+    font-size: 24px; 
+    color: #555; 
+    margin-bottom: 4px;
+    
+    /* 👇 新增：固定大小，方便放图片 */
+    width: 48px; 
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 2. 让上传后的图片完美适应 */
+.icon-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 铺满不变形 */
+    border-radius: 10px; /* 和桌面图标一样的圆角 */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* 3. 调整一下整个格子，让它更像一个App展示位 */
+.pretty-icon-item {
+    background: #f9f9f9; 
+    aspect-ratio: 1; /* 正方形格子 */
+    border-radius: 18px;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    position: relative; 
+    cursor: pointer; 
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+.pretty-icon-item:hover {
+    background: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+/* --- 🚑 终极融合修复 (粘贴到文件最后) --- */
+
+/* 1. 强制拉长白卡片底部，兜住所有内容 */
+.setting-card {
+    padding-bottom: 60px !important; /* 给足底部空间 */
+}
+
+/* 2. 修复图标格子：变回长方形，不再是正方形 */
+.pretty-icon-item {
+    aspect-ratio: auto !important; /* 解除正方形限制 */
+    height: 90px !important;       /* 给一个固定的、足够高的高度 */
+    background: #f9f9f9;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+    overflow: hidden; /* 防止万一溢出 */
+}
+
+/* 3. 调整图标/图片预览框的大小 */
+.icon-preview {
+    width: 44px !important;  /* 稍微大一点，看图清楚 */
+    height: 44px !important;
+    font-size: 24px;
+    color: #555;
+    margin-bottom: 8px; /* 拉开和文字的距离 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* 禁止被压缩 */
+}
+
+/* 4. 图片完美填充 */
+.icon-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 5. 文字样式优化 */
+.icon-name {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.2;
+    text-align: center;
+    width: 90%;
+    white-space: nowrap;      /* 不换行 */
+    overflow: hidden;         /* 超出隐藏 */
+    text-overflow: ellipsis;  /* 超出显示省略号... */
 }
