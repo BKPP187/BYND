@@ -152,10 +152,44 @@ body {
 .icon-input-group input { width: 100%; border: none; outline: none; font-size: 12px; }
 
 /* --- 微信 App 样式 --- */
-.wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
-.wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; }
+/* 头部 - 修复居中 */
+.wechat-header {
+    height: 90px; 
+    padding-top: 45px; 
+    padding-left: 15px; 
+    padding-right: 15px;
+    background: #ededed; 
+    
+    /* 布局方式 */
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* 左右两边贴边 */
+    
+    font-size: 16px; 
+    color: #111; 
+    font-weight: 600;
+    
+    /* 定位 */
+    position: sticky; 
+    top: 0; 
+    z-index: 10;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+/* 👇 新增：强制标题绝对居中 */
+.wc-header-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 17px;
+    font-weight: 600;
+    z-index: 1; /* 确保不被遮挡 */
+}
+
+/* 左右按钮保持原样 */
+.wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }
 .wc-header-left i { font-size: 24px; color: #111; }
-.wc-header-right i { font-size: 24px; margin-left: 15px; cursor: pointer; }
+.wc-header-right i { font-size: 24px; margin-left: 15px; cursor: pointer; z-index: 2; }
 .wechat-content { flex: 1; overflow-y: auto; background: white; padding-bottom: 60px; }
 .wc-search-box { padding: 10px; background: #ededed; }
 .wc-search-inner { background: white; border-radius: 6px; height: 36px; display: flex; align-items: center; justify-content: center; color: #b2b2b2; font-size: 14px; gap: 5px; }
@@ -169,7 +203,17 @@ body {
 .wc-time { font-size: 10px; color: #b2b2b2; }
 .wc-bottom { display: flex; }
 .wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-.wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 25px; }
+/* --- style.css --- */
+
+/* 底部 Tab 栏 */
+.wc-tab-bar {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 80px;
+    background: #f7f7f7; border-top: 1px solid #dcdcdc;
+    display: flex; 
+    
+    /* 👇 关键修改：把原来的 25px 改成 10px 或 12px */
+    padding-bottom: 12px; 
+}
 .wc-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #111; gap: 2px; }
 .wc-tab i { font-size: 24px; margin-bottom: -2px; }
 .wc-tab span { font-size: 10px; transform: scale(0.85); font-weight: 500; }
