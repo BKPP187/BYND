@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDate();
     initLockScreen();
     initCalendar();
-    initTheme(); 
+    initTheme(); // 初始化加载主题
 });
 
 // --- 基础功能 ---
@@ -82,7 +82,7 @@ function initCalendar() {
     }
 }
 
-// --- 美化 App 逻辑 ---
+// --- ⭐ 修复重点：美化 App 逻辑 ---
 
 function openApp(appName) {
     if (appName === 'theme') {
@@ -91,12 +91,8 @@ function openApp(appName) {
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10);
             
-            // 回填数据
-            const data = JSON.parse(localStorage.getItem('my_theme_data'));
-            if(data) {
-                if(data.music) document.getElementById('input-music-text').value = data.music;
-                if(data.vibe) document.getElementById('input-vibe-text').value = data.vibe; // 回填 My Vibe
-            }
+            // 👇 关键：每次打开时，把保存的数据填回输入框
+            loadSavedSettings();
         }
     } else {
         alert("正在打开: " + appName);
@@ -125,9 +121,35 @@ function convertFile(input, targetInputId) {
     }
 }
 
+// ⭐ 新增函数：把 localStorage 的数据读取到输入框里
+function loadSavedSettings() {
+    const data = JSON.parse(localStorage.getItem('my_theme_data'));
+    if (!data) return; // 如果没有保存过，就什么都不做
+
+    // 1. 回填文字
+    if (data.music) document.getElementById('input-music-text').value = data.music;
+    if (data.vibe) document.getElementById('input-vibe-text').value = data.vibe;
+
+    // 2. 回填图片 URL
+    if (data.l1) document.getElementById('input-lock-img-1').value = data.l1;
+    if (data.l2) document.getElementById('input-lock-img-2').value = data.l2;
+    if (data.d1) document.getElementById('input-desk-img-1').value = data.d1;
+    if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
+
+    // 3. 回填图标 URL
+    if (data.icons) {
+        data.icons.forEach((url, index) => {
+            const inputEl = document.getElementById('input-icon-' + index);
+            if (inputEl) {
+                inputEl.value = url;
+            }
+        });
+    }
+}
+
 function saveTheme() {
     const musicText = document.getElementById('input-music-text').value;
-    const vibeText = document.getElementById('input-vibe-text').value; // 获取 My Vibe 文字
+    const vibeText = document.getElementById('input-vibe-text').value; 
     
     const lockImg1 = document.getElementById('input-lock-img-1').value;
     const lockImg2 = document.getElementById('input-lock-img-2').value;
@@ -140,7 +162,6 @@ function saveTheme() {
         if(marquee) marquee.textContent = musicText;
     }
     
-    // 应用 My Vibe 文字
     if(vibeText) {
         const vibeEl = document.getElementById('ls-vibe-text');
         if(vibeEl) vibeEl.textContent = vibeText;
@@ -187,7 +208,7 @@ function saveTheme() {
     // 保存到本地
     const themeData = {
         music: musicText,
-        vibe: vibeText, // 保存 My Vibe
+        vibe: vibeText, 
         l1: lockImg1, l2: lockImg2,
         d1: deskImg1, d2: deskImg2,
         icons: iconInputs
@@ -207,7 +228,6 @@ function initTheme() {
         if(marquee) marquee.textContent = data.music;
     }
     
-    // 加载 My Vibe
     if(data.vibe) {
         const vibeEl = document.getElementById('ls-vibe-text');
         if(vibeEl) vibeEl.textContent = data.vibe;
