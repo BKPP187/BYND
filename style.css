@@ -287,7 +287,18 @@ body {
     justify-content: space-between;
     align-items: center;
 }
-.cal-right { width: 55%; } /* 右边日历区稍微宽一点 */
+/* 右边的日历区域 */
+.cal-right {
+    width: 55%; 
+    display: flex;
+    flex-direction: column;
+    
+    /* ▼▼▼ 关键修改：让里面的东西全部靠右 ▼▼▼ */
+    align-items: flex-end; 
+    /* ▲▲▲ 修改结束 ▲▲▲ */
+    
+    justify-content: center;
+}
 
 /* --- 3. 日历数字样式 (重点修改) --- */
 .cal-grid {
