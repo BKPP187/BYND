@@ -107,20 +107,19 @@ body {
 }
 .tape { position: absolute; top: -15px; left: 40%; width: 40px; height: 20px; background: rgba(255,255,255,0.4); transform: rotate(-2deg); backdrop-filter: blur(2px); }
 .hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
-/* --- 新增：回旋针样式 --- */
+/* --- 回旋针样式 --- */
 .clip-paper {
     position: absolute;
-    top: -15px; /* 稍微往上提一点 */
-    left: 45%;
+    
+    /* 👇 把原来的 -15px 改成 -28px，数值越负，位置越靠上 */
+    top: -28px; 
+    
+    left: 40%;
     z-index: 10;
-    
-    /* 图标样式 */
-    font-size: 32px; /* 大小 */
-    color: #444;     /* 深灰色金属感 */
-    transform: rotate(-10deg); /* 自然倾斜 */
-    
-    /* 加一点投影，更有立体感 */
-    filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2)); 
+    font-size: 32px;
+    color: #444;
+    transform: rotate(-10deg);
+    filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2));
 }
 .sticker-star { position: absolute; bottom: -15px; right: -15px; font-size: 35px; color: #ffd700; transform: rotate(15deg); }
 
