@@ -368,3 +368,30 @@ body {
     gap: 10px;
     padding: 0 5px;
 }
+/* --- 🚑 补丁：修复日历左侧文字大小 --- */
+
+/* 让左边区域垂直居中 */
+.cal-left {
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center;
+    padding-left: 10px; /* 稍微离左边框远一点点 */
+}
+
+/* 星期 (Sun/Thu) */
+.cal-day { 
+    font-size: 32px;    /* 变大！ */
+    font-weight: 700;   /* 加粗！ */
+    color: white;       /* 纯白 */
+    opacity: 1;
+    margin-bottom: -15px; /* 关键：把下面的数字往上提，让它们挨得紧紧的 */
+    margin-left: 5px;   /* 微调对齐 */
+}
+
+/* 日期数字 (25/16) */
+.cal-date { 
+    font-size: 90px;    /* 变得超级大！ */
+    font-weight: 900;   /* 变得超级粗！ */
+    line-height: 1;     /* 防止撑开太高 */
+    letter-spacing: -4px; /* 数字之间挤一点，更时尚 */
+}
