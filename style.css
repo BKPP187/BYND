@@ -1,14 +1,12 @@
-/* style.css - 纯净 Y2K 拼贴风 (完整版) */
+/* style.css - 完美修复版 */
 
-/* --- 基础设置 --- */
 :root {
-    --bg-color: #f2f4f6; /* 干净的灰白底 */
+    --bg-color: #f2f4f6;
     --accent-color: #333;
 }
 
 * {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     user-select: none;
@@ -16,465 +14,175 @@
 
 body {
     background-color: #ddd;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; overflow: hidden;
 }
 
-/* 手机容器 */
 .phone-container {
-    width: 375px;
-    height: 812px;
+    width: 375px; height: 812px;
     background: var(--bg-color); 
-    border-radius: 40px;
-    position: relative;
+    border-radius: 40px; position: relative;
     border: 8px solid #111;
     box-shadow: 0 30px 60px rgba(0,0,0,0.3);
     overflow: hidden; 
 }
-
-/* 适配手机屏幕 */
 @media (max-width: 600px) {
     .phone-container { width: 100vw; height: 100vh; border: none; border-radius: 0; }
 }
 
-/* --- 1. 状态栏 (共用) --- */
+/* --- 1. 状态栏 --- */
 .status-bar {
-    height: 50px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 25px;
-    font-size: 14px;
-    font-weight: 600;
-    z-index: 1000;
-    color: var(--accent-color);
-    position: absolute;
-    top: 0;
-    width: 100%;
+    height: 50px; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 25px; font-size: 14px; font-weight: 600;
+    z-index: 1000; color: var(--accent-color);
+    position: absolute; top: 0; width: 100%;
 }
-.status-right { display: flex; gap: 8px; align-items: center; }
-.battery-group { display: flex; align-items: center; gap: 4px; }
+.status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
-/* --- 2. 锁屏层 (Lock Screen) --- */
+/* --- 2. 锁屏 --- */
 .lock-screen {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: radial-gradient(#ccc 1px, transparent 1px); /* 点阵背景 */
-    background-size: 20px 20px;
-    background-color: #fcfcfc;
-    z-index: 900;
-    display: flex;
-    flex-direction: column;
-    padding-top: 80px;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: radial-gradient(#ccc 1px, transparent 1px);
+    background-size: 20px 20px; background-color: #fcfcfc;
+    z-index: 900; display: flex; flex-direction: column; padding-top: 80px;
     transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
+.lock-screen.unlocked { transform: translateY(-100%); }
 
-.lock-screen.unlocked {
-    transform: translateY(-100%); /* 上滑消失 */
-}
-
-/* A. 顶部大时钟 */
 .ls-header { text-align: center; margin-bottom: 20px; }
-.ls-clock {
-    font-size: 85px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -3px;
-    color: #222;
-    font-family: 'Arial Black', sans-serif;
-}
-.ls-date {
-    font-size: 16px;
-    color: #666;
-    margin-top: 5px;
-    font-weight: 500;
-}
+.ls-clock { font-size: 85px; font-weight: 800; line-height: 1; letter-spacing: -3px; color: #222; }
+.ls-date { font-size: 16px; color: #666; margin-top: 5px; font-weight: 500; }
 
-/* B. 消息通知条 */
-.ls-notification {
-    margin: 0 20px 20px 20px;
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(10px);
-    border-radius: 18px;
-    padding: 15px;
-    display: flex;
-    gap: 12px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-    border: 1px solid rgba(0,0,0,0.05);
-}
-.hidden { display: none; } /* 工具类：隐藏元素 */
-
-.notif-icon {
-    width: 40px; height: 40px;
-    background: #e1f5fe;
-    color: #0288d1;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-}
-.notif-content p { font-size: 13px; color: #444; margin-top: 2px; }
-.notif-title { font-size: 12px; color: #888; font-weight: bold; }
-
-/* C. 拼贴画区域 (核心美化) */
-.ls-collage {
-    flex: 1; /* 占满中间 */
-    position: relative;
-    width: 100%;
-}
-
+.ls-collage { flex: 1; position: relative; width: 100%; }
 .photo-card {
-    position: absolute;
-    background: white;
-    padding: 10px 10px 40px 10px; /* 底部留白，像拍立得 */
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    transition: transform 0.2s;
+    position: absolute; background: white; padding: 10px 10px 40px 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s;
 }
-/* 图片样式 */
-.photo-card img {
-    width: 140px; height: 140px;
-    object-fit: cover;
-    display: block;
-    background: #eee;
-}
-.photo-card:active { transform: scale(0.98); } 
+.photo-card img { width: 140px; height: 140px; object-fit: cover; background: #eee; }
+.photo-left { top: 20px; left: 30px; transform: rotate(-6deg); z-index: 1; }
+.photo-right { top: 100px; right: 30px; transform: rotate(8deg); z-index: 2; }
+.tape { position: absolute; top: -15px; left: 40%; width: 40px; height: 20px; background: rgba(255,255,255,0.4); transform: rotate(-2deg); backdrop-filter: blur(2px); }
+.hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
+.clip { position: absolute; top: -10px; left: 45%; width: 15px; height: 30px; background: #444; border-radius: 10px; }
+.sticker-star { position: absolute; bottom: -15px; right: -15px; font-size: 35px; color: #ffd700; transform: rotate(15deg); }
 
-/* 照片 1：左倾斜 */
-.photo-left {
-    top: 20px; left: 30px;
-    transform: rotate(-6deg);
-    z-index: 1;
-}
-/* 胶带效果 */
-.tape {
-    position: absolute; top: -15px; left: 40%;
-    width: 40px; height: 20px;
-    background: rgba(255,255,255,0.4);
-    border: 1px solid rgba(0,0,0,0.1);
-    transform: rotate(-2deg);
-    backdrop-filter: blur(2px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-.hand-write {
-    position: absolute; bottom: 10px; left: 0; width: 100%;
-    text-align: center;
-    font-family: cursive;
-    color: #555; font-size: 14px;
-}
-
-/* 照片 2：右倾斜 */
-.photo-right {
-    top: 100px; right: 30px;
-    transform: rotate(8deg);
-    z-index: 2;
-}
-/* 夹子效果 */
-.clip {
-    position: absolute; top: -10px; left: 45%;
-    width: 15px; height: 30px;
-    background: #444;
-    border-radius: 10px;
-}
-/* 星星贴纸 */
-.sticker-star {
-    position: absolute; bottom: -15px; right: -15px;
-    font-size: 35px; color: #ffd700;
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
-    transform: rotate(15deg);
-}
-
-/* D. 小组件栏 */
-.ls-widgets {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 20px;
-}
-.widget-pill {
-    background: rgba(255,255,255,0.7);
-    border: 1px solid #fff;
-    padding: 8px 16px;
-    border-radius: 30px;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: #444;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
+.ls-widgets { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+.widget-pill { background: rgba(255,255,255,0.7); border: 1px solid #fff; padding: 8px 16px; border-radius: 30px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #444; }
 .music-pill { width: 160px; overflow: hidden; white-space: nowrap; }
 .spin { animation: spin 4s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* E. 底部按钮 */
-.ls-footer {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0 40px 40px 40px;
-}
-.round-btn {
-    width: 50px; height: 50px;
-    background: rgba(0,0,0,0.05);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: #333;
-    backdrop-filter: blur(5px);
-}
-.swipe-hint {
-    width: 120px; height: 5px;
-    background: #ccc;
-    border-radius: 3px;
-}
+.ls-footer { display: flex; justify-content: space-between; align-items: center; padding: 0 40px 40px 40px; }
+.round-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(5px); }
+.swipe-hint { width: 120px; height: 5px; background: #ccc; border-radius: 3px; }
 
-/* --- 3. 桌面层 (简单版) --- */
+/* --- 3. 桌面层 --- */
 .screen-content {
-    height: 100%;
-    /* 桌面壁纸 */
-    background: linear-gradient(to top, #fff1eb 0%, #ace0f9 100%); 
+    height: 100%; background: #f8f8f8;
     display: flex; flex-direction: column; justify-content: space-between;
-    padding-top: 60px;
-}
-.app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 20px; }
-.app-item { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; }
-.app-icon {
-    width: 55px; height: 55px; background: white; border-radius: 15px;
-    display: flex; align-items: center; justify-content: center; font-size: 28px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-/* 给不同app上色 */
-.icon-chat { background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; }
-.icon-book { background: linear-gradient(135deg, #fa709a, #fee140); color: white; }
-.icon-settings { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color: white; }
-.icon-theme { background: linear-gradient(135deg, #84fab0, #8fd3f4); color: white; }
-
-.dock-bar {
-    margin: 15px; height: 80px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px);
-    border-radius: 30px; display: flex; justify-content: space-around; align-items: center;
-}
-.dock-item { font-size: 24px; color: #333; }
-.home-indicator { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 130px; height: 5px; background: rgba(0,0,0,0.2); border-radius: 3px; }
-
-/* --- 🖤 桌面新装修 (参考图风格) --- */
-
-/* 桌面壁纸 (默认) - 可以是白色或者浅色，方便衬托黑色组件 */
-.screen-content {
-    background: #f8f8f8; /* 干净的米白底 */
-    /* 如果要支持用户换壁纸，以后 JS 会改这个属性 */
-    background-size: cover;
-    background-position: center;
+    padding-top: 55px !important; 
 }
 
-/* --- 桌面布局修正 --- */
-
-/* 1. 顶部间距调整 */
 .desktop-scroll-area {
-    padding: 20px;
-    padding-top: 5px; /* 听你的，改成 5px */
-    display: flex;
-    flex-direction: column;
-    gap: 15px; /* 组件之间的垂直间距 */
+    padding: 20px; padding-top: 5px;
+    display: flex; flex-direction: column;
+    overflow-y: auto; 
+    gap: 15px;
 }
+.desktop-scroll-area::-webkit-scrollbar { display: none; }
 
-/* 2. 日历组件微调 */
+/* --- 日历组件 --- */
 .calendar-widget {
-    background-color: #000;
-    color: #fff;
-    border-radius: 25px;
-    padding: 15px 20px; /*稍微改小一点内边距*/
-    height: 150px; /* 固定高度 */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    background-color: #000; color: #fff;
+    border-radius: 25px; padding: 15px 20px;
+    height: 180px !important; /* 强制变高 */
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px; flex-shrink: 0;
 }
-/* 右边的日历区域 */
-.cal-right {
-    width: 55%; 
-    display: flex;
-    flex-direction: column;
-    
-    /* ▼▼▼ 关键修改：让里面的东西全部靠右 ▼▼▼ */
-    align-items: flex-end; 
-    /* ▲▲▲ 修改结束 ▲▲▲ */
-    
-    justify-content: center;
-}
+.cal-left { display: flex; flex-direction: column; justify-content: center; padding-left: 10px; }
+.cal-day { font-size: 32px; font-weight: 700; margin-bottom: -10px; }
+.cal-date { font-size: 90px; font-weight: 900; line-height: 1; letter-spacing: -4px; }
+.cal-right { width: 55%; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; width: 100%; margin-top: 5px; }
+.cal-dot { width: 18px; height: 18px; color: #888; font-size: 11px; display: flex; justify-content: center; align-items: center; font-weight: 900; position: relative; }
+.cal-dot.active { color: white; transform: scale(1.3); z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+.cal-dot.active::before { content: ''; position: absolute; width: 22px; height: 20px; background: #ff69b4; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; filter: blur(2px); opacity: 0.8; z-index: -1; }
+.cal-dot.active::after { content: ''; position: absolute; width: 20px; height: 18px; background: #ff69b4; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 1; z-index: -1; }
 
-/* --- 3. 日历数字样式 (最终修正版) --- */
-.cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
-    width: 100%;
-    margin-top: 5px;
-}
-
-/* 1. 日历下方的小数字 (1-31) */
-.cal-dot {
-    width: 18px;
-    height: 18px;
-    background: transparent;
-    color: #888; /* 平时颜色 */
-    font-size: 11px; /* 稍微大一点点 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    
-    /* ▼▼▼ 关键修正 ▼▼▼ */
-    /* 必须用 sans-serif，因为 monospace (等宽) 字体通常没有超粗体 */
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-    font-weight: 900 !important; /* 最强加粗 */
-    /* ▲▲▲ 修正结束 ▲▲▲ */
-}
-
-/* 2. 今天的日期文字 (高亮) */
-.cal-dot.active {
-    color: white; 
-    z-index: 2;
-    transform: scale(1.3); 
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2); /* 给白字加点阴影，更清楚 */
-}
-
-/* 3. 粉色爱心桃 (边缘模糊 + 发光版) */
-.cal-dot.active::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 22px; /* 爱心稍微调大一点 */
-    height: 20px;
-    background-color: #ff69b4; 
-    
-    /* 遮罩画出爱心 */
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    z-index: -1;
-    
-    /* ▼▼▼ 模糊滤镜 ▼▼▼ */
-    /* blur(2px) 让边缘变糊，opacity 降低一点增加朦胧感 */
-    filter: blur(2px);
-    opacity: 0.8;
-}
-
-/* 为了让爱心看起来更亮，我们可以加第二层不模糊的爱心垫底 */
-.cal-dot.active::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20px;
-    height: 18px;
-    background-color: #ff69b4;
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    z-index: -1;
-    opacity: 1; /* 这一层不透明，保证颜色实心 */
-}
-
-
-/* --- 4. 便当盒布局 (最终修正版 1:1) --- */
+/* --- Bento Box 布局 (完全正方形) --- */
 .bento-box {
-    display: flex;
-    gap: 15px;           /* 左右之间的间距 */
-    height: 150px;       /* 保持高度 */
-    margin-bottom: 15px; 
+    display: flex; gap: 15px; margin-bottom: 15px;
+    /* 不设高度，让aspect-ratio撑开 */
 }
 
-/* 左边：四宫格 App */
+/* 核心：强制正方形 1:1 */
+.apps-quad, .photo-large {
+    flex: 1; width: 0; 
+    aspect-ratio: 1 / 1; /* 无论怎么拉伸，永远正方形 */
+}
+
 .apps-quad {
-    flex: 1;             /* 【关键】改为 1 */
-    width: 0;            /* 【关键】强制平分宽度，防止被内容撑大 */
-    
-    display: grid;
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr 1fr;    
-    gap: 12px;           
-    
-    background: transparent; 
-    padding: 0;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 12px; background: transparent; padding: 0;
 }
-
-/* 修正四宫格内 App 的对齐 */
 .apps-quad .app-item {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
-    gap: 5px;            
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    width: 100%; height: 100%; gap: 5px;
 }
-
-/* 修正四宫格内图标的大小 */
 .apps-quad .app-icon {
-    width: 48px;         
-    height: 48px; 
-    font-size: 22px; 
-    border-radius: 12px; 
-}
-
-/* 右边：大照片 */
-.photo-large {
-    flex: 1;             /* 【关键】也是 1，和左边完全相等 */
-    width: 0;            /* 【关键】强制平分宽度 */
-    
-    background: #eee;
-    border-radius: 25px; 
-    overflow: hidden;
+    width: 48px; height: 48px; font-size: 22px; border-radius: 12px;
+    background: white; display: flex; align-items: center; justify-content: center;
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-.photo-large img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;   
+.photo-large {
+    background: #eee; border-radius: 25px; overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
+.photo-large img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ⚠️ 务必确保后面没有多余的 .apps-quad 代码了 */
-
-/* 底部 App 行 */
-.app-grid-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 0 5px;
+/* --- Dock 栏 --- */
+.dock-bar {
+    margin: 15px; height: 80px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px);
+    border-radius: 30px; display: flex; justify-content: space-around; align-items: center;
+    flex-shrink: 0;
 }
+.dock-item { font-size: 24px; color: #333; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+.home-indicator { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 130px; height: 5px; background: rgba(0,0,0,0.2); border-radius: 3px; }
 
-
-/* --- 🚑 补丁：修复日历左侧文字大小 --- */
-
-/* 让左边区域垂直居中 */
-.cal-left {
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center;
-    padding-left: 10px; 
+/* --- 美化设置窗口 (关键修复：绝对定位) --- */
+.app-window {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 90%;
+    background: #f2f2f7; border-radius: 20px 20px 0 0; z-index: 2000;
+    display: flex; flex-direction: column;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+    transform: translateY(110%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.app-window.active { transform: translateY(0); }
+.hidden { display: none !important; }
+.app-window.active { display: flex !important; }
 
-/* 星期 (Sun/Thu) */
-.cal-day { 
-    font-size: 32px;    
-    font-weight: 700;   
-    color: white;      
-    margin-bottom: -15px; 
-    margin-left: 5px;   
+.window-header {
+    height: 50px; background: white; border-radius: 20px 20px 0 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 20px; border-bottom: 1px solid #e5e5e5; flex-shrink: 0;
 }
+.window-content { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 50px; }
 
-/* 日期数字 (25/16) */
-.cal-date { 
-    font-size: 90px;    
-    font-weight: 900;   
-    line-height: 1;     
-    letter-spacing: -4px; 
+.setting-card {
+    background: white; border-radius: 12px; overflow: hidden; margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
 }
+.card-title { font-size: 13px; color: #666; padding: 12px 15px 5px 15px; font-weight: 600; background: #f9f9f9; text-transform: uppercase; }
+.input-row { display: flex; align-items: center; padding: 12px 15px; background: white; gap: 10px; }
+.border-top { border-top: 1px solid #f0f0f0; }
+.input-row .label { font-size: 14px; width: 40px; color: #333; }
+.input-row input { flex: 1; border: none; font-size: 14px; color: #007aff; outline: none; background: transparent; }
+.upload-btn, .mini-upload { background: #f0f0f0; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.upload-btn { width: 30px; height: 30px; }
+.mini-upload { padding: 2px 6px; font-size: 12px; }
+
+.icon-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f0f0f0; border-top: 1px solid #f0f0f0; }
+.icon-input-group { background: white; padding: 10px; display: flex; align-items: center; gap: 8px; }
+.icon-input-group i { width: 25px; text-align: center; }
+.icon-input-group input { width: 100%; border: none; outline: none; font-size: 12px; }

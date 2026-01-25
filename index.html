@@ -24,41 +24,24 @@
         </div>
 
         <div id="lock-screen" class="lock-screen" onclick="unlockPhone()">
-            
             <div class="ls-header">
                 <div class="ls-clock" id="ls-big-clock">00:00</div>
                 <div class="ls-date" id="ls-date">Loading...</div>
             </div>
 
-            <div id="ls-notification" class="ls-notification hidden">
-                <div class="notif-icon">
-                    <i class="ri-message-3-fill"></i>
-                </div>
-                <div class="notif-content">
-                    <span class="notif-title">来自酒馆的消息</span>
-                    <p id="notif-text">等待 API 响应...</p>
-                </div>
-            </div>
-
             <div class="ls-collage">
-                
                 <div class="photo-card photo-left">
-                    <div class="tape"></div> <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1" alt="照片1">
+                    <div class="tape"></div> <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1">
                     <div class="hand-write">My Vibe</div>
                 </div>
-
                 <div class="photo-card photo-right">
-                    <div class="clip"></div> <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2" alt="照片2">
+                    <div class="clip"></div> <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
                     <i class="ri-star-smile-fill sticker-star"></i>
                 </div>
-
             </div>
 
             <div class="ls-widgets">
-                <div class="widget-pill">
-                    <i class="ri-sun-cloudy-line"></i>
-                    <span>24°C</span>
-                </div>
+                <div class="widget-pill"><i class="ri-sun-cloudy-line"></i><span>24°C</span></div>
                 <div class="widget-pill music-pill">
                     <i class="ri-disc-line spin"></i>
                     <marquee scrollamount="3">Lover Boy - 8-Bit Remix</marquee>
@@ -67,14 +50,12 @@
 
             <div class="ls-footer">
                 <div class="round-btn"><i class="ri-flashlight-fill"></i></div>
-                <div class="swipe-hint"></div> <div class="round-btn"><i class="ri-camera-fill"></i></div>
+                <div class="swipe-hint"></div> 
+                <div class="round-btn"><i class="ri-camera-fill"></i></div>
             </div>
-
         </div>
 
         <div id="home-screen" class="screen-content hidden">
-
-<div id="home-screen" class="screen-content hidden">
             
             <div class="desktop-scroll-area">
                 
@@ -109,13 +90,13 @@
                         </div>
                     </div>
                     <div class="photo-large">
-                        <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=500&auto=format&fit=crop&q=60" class="desktop-img-1">
+                        <img src="https://images.unsplash.com/photo-1555679427-1f6dfcce943b?w=500&auto=format&fit=crop&q=60" class="desktop-img-1">
                     </div>
                 </div>
 
                 <div class="bento-box">
                     <div class="photo-large">
-                        <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=500&auto=format&fit=crop&q=60" alt="风景">
+                        <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=500&auto=format&fit=crop&q=60" alt="风景" class="desktop-img-2">
                     </div>
 
                     <div class="apps-quad">
@@ -138,7 +119,9 @@
                     </div>
                 </div>
                 
-            </div> <div class="dock-bar">
+                <div style="height: 100px;"></div> </div> 
+
+            <div class="dock-bar">
                 <div class="dock-item"><i class="ri-music-2-fill"></i></div>
                 <div class="dock-item"><i class="ri-safari-line"></i></div>
                 <div class="dock-item"><i class="ri-camera-lens-line"></i></div>
@@ -147,11 +130,85 @@
             
         </div>
 
+        <div id="app-theme-window" class="app-window hidden">
+            <div class="window-header">
+                <span onclick="closeApp('theme')" class="close-btn">取消</span>
+                <h3>个性化设置</h3>
+                <span onclick="saveTheme()" class="save-btn">保存</span>
+            </div>
+
+            <div class="window-content">
+                <div class="setting-card">
+                    <div class="card-title">🎵 灵动岛文字</div>
+                    <div class="input-row">
+                        <input type="text" id="input-music-text" placeholder="输入你想滚动的文字...">
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <div class="card-title">🔒 锁屏照片墙</div>
+                    <div class="input-row">
+                        <span class="label">左图</span>
+                        <input type="text" id="input-lock-img-1" placeholder="链接 或 点击上传 ->">
+                        <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
+                        <button class="upload-btn" onclick="document.getElementById('file-lock-1').click()">📂</button>
+                    </div>
+                    <div class="input-row border-top">
+                        <span class="label">右图</span>
+                        <input type="text" id="input-lock-img-2" placeholder="链接 或 点击上传 ->">
+                        <input type="file" id="file-lock-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-2')">
+                        <button class="upload-btn" onclick="document.getElementById('file-lock-2').click()">📂</button>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <div class="card-title">🖼️ 桌面大组件</div>
+                    <div class="input-row">
+                        <span class="label">上图</span>
+                        <input type="text" id="input-desk-img-1" placeholder="链接 或 点击上传 ->">
+                        <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
+                        <button class="upload-btn" onclick="document.getElementById('file-desk-1').click()">📂</button>
+                    </div>
+                    <div class="input-row border-top">
+                        <span class="label">下图</span>
+                        <input type="text" id="input-desk-img-2" placeholder="链接 或 点击上传 ->">
+                        <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
+                        <button class="upload-btn" onclick="document.getElementById('file-desk-2').click()">📂</button>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <div class="card-title">📱 图标替换 (支持上传)</div>
+                    <div class="icon-list">
+                        <script>
+                            const icons = [
+                                {i:'ri-wechat-line', n:'微信'}, {i:'ri-code-s-slash-line', n:'正则'}, 
+                                {i:'ri-book-read-line', n:'世界书'}, {i:'ri-settings-4-line', n:'设置'},
+                                {i:'ri-palette-line', n:'美化'}, {i:'ri-graduation-cap-line', n:'学习'},
+                                {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
+                                {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-safari-line', n:'浏览器'},
+                                {i:'ri-camera-lens-line', n:'相机'}, {i:'ri-question-mark', n:'说明'}
+                            ];
+                            icons.forEach((item, index) => {
+                                document.write(`
+                                    <div class="icon-input-group">
+                                        <i class="${item.i}"></i>
+                                        <input type="text" id="input-icon-${index}" placeholder="${item.n}">
+                                        <input type="file" id="file-icon-${index}" accept="image/*" style="display:none" onchange="convertFile(this, 'input-icon-${index}')">
+                                        <button class="mini-upload" onclick="document.getElementById('file-icon-${index}').click()">📂</button>
+                                    </div>
+                                `);
+                            });
+                        </script>
+                    </div>
+                </div>
+                <div style="height: 50px;"></div>
+            </div>
+        </div>
+
         <div class="home-indicator"></div>
-
     </div>
-
-    <script src="data.js"></script>
+    
     <script src="script.js"></script>
 </body>
 </html>
