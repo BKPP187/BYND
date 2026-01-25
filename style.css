@@ -53,14 +53,58 @@ body {
 .ls-clock { font-size: 85px; font-weight: 800; line-height: 1; letter-spacing: -3px; color: #222; }
 .ls-date { font-size: 16px; color: #666; margin-top: 5px; font-weight: 500; }
 
-.ls-collage { flex: 1; position: relative; width: 100%; }
-.photo-card {
-    position: absolute; background: white; padding: 10px 10px 40px 10px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s;
+/* --- C. 拼贴画区域 (修复版：强制居中抱团) --- */
+.ls-collage {
+    flex: 1; 
+    position: relative;
+    width: 100%;
+    
+    /* 👇 新增：让这一块区域具有“居中引力” */
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
-.photo-card img { width: 140px; height: 140px; object-fit: cover; background: #eee; }
-.photo-left { top: 20px; left: 30px; transform: rotate(-6deg); z-index: 1; }
-.photo-right { top: 100px; right: 30px; transform: rotate(8deg); z-index: 2; }
+
+.photo-card {
+    position: absolute;
+    background: white;
+    padding: 10px 10px 40px 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
+    
+    /* 👇 新增：让所有照片默认都定位在正中心 */
+    top: 50% !important;
+    left: 50% !important;
+    margin: 0 !important;
+}
+
+/* 照片样式保持不变 */
+.photo-card img {
+    width: 140px; height: 140px;
+    object-fit: cover;
+    display: block;
+    background: #eee;
+}
+.photo-card:active { transform: scale(0.98); } 
+
+/* --- 关键修改：用 translate 移动位置，而不是 top/left --- */
+/* 原理：先放在正中心(50%)，然后往左上/右下微调，这样它们永远粘在一起 */
+
+/* 左边照片：往左上挪 */
+.photo-left {
+    /* translate(-90%, -80%) 意思是：以中心点为准，往左移90%自身宽度，往上移80%自身高度 */
+    transform: translate(-90%, -80%) rotate(-6deg);
+    z-index: 1;
+}
+
+/* 右边照片：往右下挪 */
+.photo-right {
+    /* unset 清除之前的 right 设置，防止干扰 */
+    right: auto !important; 
+    /* 往左移10%（其实就是靠右了，因为中心点是50%），往上移20% */
+    transform: translate(-10%, -20%) rotate(8deg);
+    z-index: 2;
+}
 .tape { position: absolute; top: -15px; left: 40%; width: 40px; height: 20px; background: rgba(255,255,255,0.4); transform: rotate(-2deg); backdrop-filter: blur(2px); }
 .hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
 /* --- 新增：回旋针样式 --- */
