@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDate();
     initLockScreen();
     initCalendar();
+    initIconGrid(); // 👈 新增：初始化图标网格
     initTheme(); 
 });
 
@@ -82,6 +83,38 @@ function initCalendar() {
     }
 }
 
+// --- ⭐ 新增：生成图标网格 (解决 F12 闪屏问题) ---
+function initIconGrid() {
+    const container = document.getElementById('icon-grid-container');
+    if (!container) return;
+
+    const icons = [
+        {i:'ri-wechat-line', n:'微信'}, {i:'ri-code-s-slash-line', n:'正则'}, 
+        {i:'ri-book-read-line', n:'世界书'}, {i:'ri-settings-4-line', n:'设置'},
+        {i:'ri-palette-line', n:'美化'}, {i:'ri-graduation-cap-line', n:'学习'},
+        {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
+        {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-safari-line', n:'浏览器'},
+        {i:'ri-camera-lens-line', n:'相机'}, {i:'ri-question-mark', n:'说明'}
+    ];
+
+    let htmlContent = '';
+    icons.forEach((item, index) => {
+        htmlContent += `
+            <div class="pretty-icon-item" onclick="document.getElementById('file-icon-${index}').click()">
+                <div class="icon-preview" id="preview-icon-${index}">
+                    <i class="${item.i}"></i>
+                </div>
+                <span class="icon-name">${item.n}</span>
+                
+                <input type="text" id="input-icon-${index}" style="display:none">
+                <input type="file" id="file-icon-${index}" accept="image/*" style="display:none" onchange="convertFile(this, 'input-icon-${index}')">
+            </div>
+        `;
+    });
+    
+    container.innerHTML = htmlContent;
+}
+
 // --- 美化 App 逻辑 ---
 
 function openApp(appName) {
@@ -114,12 +147,10 @@ function convertFile(input, targetInputId) {
             const inputEl = document.getElementById(targetInputId);
             inputEl.value = e.target.result;
             
-            // 预览逻辑
             const previewId = targetInputId.replace('input-', 'preview-');
             const previewEl = document.getElementById(previewId);
             if(previewEl) previewEl.innerHTML = `<img src="${e.target.result}">`;
 
-            // UI 反馈
             inputEl.parentElement.style.background = "#fff0f3"; 
             inputEl.parentElement.style.borderColor = "#ffc2d1";
         };
@@ -186,7 +217,7 @@ function saveTheme() {
     }
 
     const desktopIcons = document.querySelectorAll('.apps-quad .app-icon');
-    const dockIcons = document.querySelectorAll('.dock-item'); // 获取所有 dock item
+    const dockIcons = document.querySelectorAll('.dock-item');
 
     iconInputs.forEach((url, index) => {
         if (!url) return; 
@@ -198,13 +229,10 @@ function saveTheme() {
                 desktopIcons[index].style.background = "transparent";
             }
         } else { 
-            // --- 👇 Dock 栏处理逻辑更新 👇 ---
             const dockIndex = index - 8;
             if (dockIcons[dockIndex]) {
-                // 找到里面的图标盒子 .dock-icon-box
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                 if (iconBox) {
-                    // 只替换盒子里的内容，保留下面的文字 span
                     iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">`;
                 }
             }
@@ -256,7 +284,6 @@ function initTheme() {
                 desktopIcons[index].style.padding = "0"; 
                 desktopIcons[index].style.background = "transparent";
             } else if (index >= 8) {
-                // --- 👇 Dock 栏加载逻辑更新 👇 ---
                 const dockIndex = index - 8;
                 if(dockIcons[dockIndex]) {
                     const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');

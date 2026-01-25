@@ -120,7 +120,6 @@
                         </div>
                     </div>
                 </div>
-                <div style="height: 100px;"></div>
             </div> 
 
 <div class="dock-bar">
@@ -219,41 +218,14 @@
                 <div class="setting-card">
                     <div class="card-header">
                         <i class="ri-apps-line card-icon"></i>
-                        <span>图标</span>
+                        <span>图标更换</span>
                     </div>
-                    <div class="icon-grid-pretty">
-<script>
-    const icons = [
-        {i:'ri-wechat-line', n:'微信'}, {i:'ri-code-s-slash-line', n:'正则'}, 
-        {i:'ri-book-read-line', n:'世界书'}, {i:'ri-settings-4-line', n:'设置'},
-        {i:'ri-palette-line', n:'美化'}, {i:'ri-graduation-cap-line', n:'学习'},
-        {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
-        {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-safari-line', n:'浏览器'},
-        {i:'ri-camera-lens-line', n:'相机'}, {i:'ri-question-mark', n:'说明'}
-    ];
-    icons.forEach((item, index) => {
-        document.write(`
-            <div class="pretty-icon-item" onclick="document.getElementById('file-icon-${index}').click()">
-                <div class="icon-preview" id="preview-icon-${index}">
-                    <i class="${item.i}"></i>
-                </div>
-                <span class="icon-name">${item.n}</span>
-                
-                <input type="text" id="input-icon-${index}" style="display:none">
-                <input type="file" id="file-icon-${index}" accept="image/*" style="display:none" onchange="convertFile(this, 'input-icon-${index}')">
-            </div>
-        `);
-    });
-</script>
-                    </div>
+                    <div class="icon-grid-pretty" id="icon-grid-container"></div>
                 </div>
                 
-                <div style="height: 100px;"></div>
+                <div style="height: 50px;"></div>
             </div>
         </div>
-
-        <div class="home-indicator"></div>
-    </div>
     <script src="script.js"></script>
 </body>
 </html>
