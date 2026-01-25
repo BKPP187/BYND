@@ -83,11 +83,21 @@ body {
     padding-top: 55px !important; 
 }
 
+/* style.css 中的修改位置 */
+
 .desktop-scroll-area {
-    padding: 20px; padding-top: 5px;
-    display: flex; flex-direction: column;
+    padding: 20px;
+    padding-top: 5px;
+    display: flex;
+    flex-direction: column;
+    /* 移除固定高度，让它能滚动 */
     overflow-y: auto; 
     gap: 15px;
+
+    /* 👇👇👇 新增这三行关键代码！👇👇👇 */
+    width: 100%;        /* 默认占满 */
+    max-width: 400px;   /* 🛑 紧箍咒：最宽只允许到 400px，不许再大了 */
+    margin: 0 auto;     /* 如果屏幕很宽，就自动居中显示 */
 }
 .desktop-scroll-area::-webkit-scrollbar { display: none; }
 
@@ -97,7 +107,7 @@ body {
     border-radius: 25px; padding: 15px 20px;
     height: 180px !important; /* 强制变高 */
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 10px; flex-shrink: 0;
+    margin-bottom: 40px; flex-shrink: 0;
 }
 .cal-left { display: flex; flex-direction: column; justify-content: center; padding-left: 10px; }
 .cal-day { font-size: 32px; font-weight: 700; margin-bottom: -10px; }
