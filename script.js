@@ -90,7 +90,7 @@ function openApp(appName) {
         if (win) {
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10);
-            loadSavedSettings(); // 加载数据
+            loadSavedSettings();
         }
     } else {
         alert("正在打开: " + appName);
@@ -107,30 +107,26 @@ function closeApp(appName) {
     }
 }
 
-// ⭐ 更新：选择文件后，直接在设置界面显示图片预览
 function convertFile(input, targetInputId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            // 1. 填入隐藏的 input (用于保存)
             const inputEl = document.getElementById(targetInputId);
             inputEl.value = e.target.result;
             
-            // 2. 找到对应的预览图标区域
-            // ID 规律：input-icon-0 -> preview-icon-0
+            // 预览逻辑
             const previewId = targetInputId.replace('input-', 'preview-');
             const previewEl = document.getElementById(previewId);
-            
-            // 3. 直接把图片显示出来
-            if(previewEl) {
-                previewEl.innerHTML = `<img src="${e.target.result}">`;
-            }
+            if(previewEl) previewEl.innerHTML = `<img src="${e.target.result}">`;
+
+            // UI 反馈
+            inputEl.parentElement.style.background = "#fff0f3"; 
+            inputEl.parentElement.style.borderColor = "#ffc2d1";
         };
         reader.readAsDataURL(input.files[0]);
     }
 }
 
-// ⭐ 更新：加载数据时，也要把图片显示在设置界面里
 function loadSavedSettings() {
     const data = JSON.parse(localStorage.getItem('my_theme_data'));
     if (!data) return;
@@ -148,12 +144,9 @@ function loadSavedSettings() {
             const inputEl = document.getElementById('input-icon-' + index);
             if (inputEl) {
                 inputEl.value = url;
-                // 如果有保存的图片 URL，直接显示在设置格子里
                 if(url && url.length > 0) {
                     const previewEl = document.getElementById('preview-icon-' + index);
-                    if(previewEl) {
-                        previewEl.innerHTML = `<img src="${url}">`;
-                    }
+                    if(previewEl) previewEl.innerHTML = `<img src="${url}">`;
                 }
             }
         });
@@ -173,12 +166,10 @@ function saveTheme() {
         const marquee = document.querySelector('.music-pill marquee');
         if(marquee) marquee.textContent = musicText;
     }
-    
     if(vibeText) {
         const vibeEl = document.getElementById('ls-vibe-text');
         if(vibeEl) vibeEl.textContent = vibeText;
     }
-
     if(lockImg1) document.querySelector('.user-img-1').src = lockImg1;
     if(lockImg2) document.querySelector('.user-img-2').src = lockImg2;
     if(deskImg1) document.querySelector('.desktop-img-1').src = deskImg1;
@@ -195,7 +186,7 @@ function saveTheme() {
     }
 
     const desktopIcons = document.querySelectorAll('.apps-quad .app-icon');
-    const dockIcons = document.querySelectorAll('.dock-item');
+    const dockIcons = document.querySelectorAll('.dock-item'); // 获取所有 dock item
 
     iconInputs.forEach((url, index) => {
         if (!url) return; 
@@ -207,12 +198,15 @@ function saveTheme() {
                 desktopIcons[index].style.background = "transparent";
             }
         } else { 
+            // --- 👇 Dock 栏处理逻辑更新 👇 ---
             const dockIndex = index - 8;
             if (dockIcons[dockIndex]) {
-                dockIcons[dockIndex].innerHTML = `<img src="${url}" style="width:45px; height:45px; border-radius:10px; object-fit:cover;">`;
-                dockIcons[dockIndex].style.display = "flex";
-                dockIcons[dockIndex].style.alignItems = "center";
-                dockIcons[dockIndex].style.justifyContent = "center";
+                // 找到里面的图标盒子 .dock-icon-box
+                const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
+                if (iconBox) {
+                    // 只替换盒子里的内容，保留下面的文字 span
+                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">`;
+                }
             }
         }
     });
@@ -238,12 +232,10 @@ function initTheme() {
         const marquee = document.querySelector('.music-pill marquee');
         if(marquee) marquee.textContent = data.music;
     }
-    
     if(data.vibe) {
         const vibeEl = document.getElementById('ls-vibe-text');
         if(vibeEl) vibeEl.textContent = data.vibe;
     }
-
     if(data.l1) document.querySelector('.user-img-1').src = data.l1;
     if(data.l2) document.querySelector('.user-img-2').src = data.l2;
     if(data.d1) document.querySelector('.desktop-img-1').src = data.d1;
@@ -264,12 +256,13 @@ function initTheme() {
                 desktopIcons[index].style.padding = "0"; 
                 desktopIcons[index].style.background = "transparent";
             } else if (index >= 8) {
+                // --- 👇 Dock 栏加载逻辑更新 👇 ---
                 const dockIndex = index - 8;
                 if(dockIcons[dockIndex]) {
-                    dockIcons[dockIndex].innerHTML = `<img src="${url}" style="width:45px; height:45px; border-radius:10px; object-fit:cover;">`;
-                    dockIcons[dockIndex].style.display = "flex";
-                    dockIcons[dockIndex].style.alignItems = "center";
-                    dockIcons[dockIndex].style.justifyContent = "center";
+                    const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
+                    if (iconBox) {
+                        iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">`;
+                    }
                 }
             }
         });
