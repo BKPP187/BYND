@@ -31,11 +31,15 @@
 
             <div class="ls-collage">
                 <div class="photo-card photo-left">
-                    <div class="tape"></div> <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1">
-                    <div class="hand-write">My Vibe</div>
+                    <div class="tape"></div> 
+                    <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1">
+                    <div class="hand-write" id="ls-vibe-text">My Vibe</div>
                 </div>
+
                 <div class="photo-card photo-right">
-                    <div class="clip"></div> <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
+                    <div class="clip-paper"><i class="ri-attachment-line"></i></div>
+                    
+                    <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
                     <i class="ri-star-smile-fill sticker-star"></i>
                 </div>
             </div>
@@ -56,9 +60,7 @@
         </div>
 
         <div id="home-screen" class="screen-content hidden">
-            
             <div class="desktop-scroll-area">
-                
                 <div class="calendar-widget">
                     <div class="cal-left">
                         <div class="cal-day" id="cal-day-name">Thu</div>
@@ -118,8 +120,8 @@
                         </div>
                     </div>
                 </div>
-                
-                <div style="height: 100px;"></div> </div> 
+                <div style="height: 100px;"></div>
+            </div> 
 
             <div class="dock-bar">
                 <div class="dock-item"><i class="ri-music-2-fill"></i></div>
@@ -127,7 +129,6 @@
                 <div class="dock-item"><i class="ri-camera-lens-line"></i></div>
                 <div class="dock-item" onclick="alert('小酒馆功能手册：\n1.导入角色卡\n2.正则解析\n3.世界书自动挂载')"><i class="ri-question-mark"></i></div>
             </div>
-            
         </div>
 
         <div id="app-theme-window" class="app-window hidden">
@@ -147,7 +148,13 @@
 
                 <div class="setting-card">
                     <div class="card-title">🔒 锁屏照片墙</div>
+                    
                     <div class="input-row">
+                        <span class="label">文字</span>
+                        <input type="text" id="input-vibe-text" placeholder="照片下的文字 (默认: My Vibe)">
+                    </div>
+
+                    <div class="input-row border-top">
                         <span class="label">左图</span>
                         <input type="text" id="input-lock-img-1" placeholder="链接 或 点击上传 ->">
                         <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
@@ -178,7 +185,7 @@
                 </div>
 
                 <div class="setting-card">
-                    <div class="card-title">📱 图标替换 (支持上传)</div>
+                    <div class="card-title">📱 图标替换</div>
                     <div class="icon-list">
                         <script>
                             const icons = [
@@ -208,7 +215,6 @@
 
         <div class="home-indicator"></div>
     </div>
-    
     <script src="script.js"></script>
 </body>
 </html>

@@ -33,7 +33,6 @@ function initBattery() {
     }
 }
 
-// --- 锁屏逻辑 ---
 function initLockScreen() {
     const bigClock = document.getElementById('ls-big-clock');
     const updateTime = () => {
@@ -54,7 +53,6 @@ function unlockPhone() {
     document.getElementById('home-screen').classList.remove('hidden');
 }
 
-// --- 日历逻辑 ---
 function initCalendar() {
     const dayNameEl = document.getElementById('cal-day-name');
     const dateNumEl = document.getElementById('cal-date-num');
@@ -84,7 +82,7 @@ function initCalendar() {
     }
 }
 
-// --- ⭐ 美化 App 核心逻辑 ---
+// --- 美化 App 逻辑 ---
 
 function openApp(appName) {
     if (appName === 'theme') {
@@ -97,6 +95,7 @@ function openApp(appName) {
             const data = JSON.parse(localStorage.getItem('my_theme_data'));
             if(data) {
                 if(data.music) document.getElementById('input-music-text').value = data.music;
+                if(data.vibe) document.getElementById('input-vibe-text').value = data.vibe; // 回填 My Vibe
             }
         }
     } else {
@@ -128,20 +127,29 @@ function convertFile(input, targetInputId) {
 
 function saveTheme() {
     const musicText = document.getElementById('input-music-text').value;
+    const vibeText = document.getElementById('input-vibe-text').value; // 获取 My Vibe 文字
+    
     const lockImg1 = document.getElementById('input-lock-img-1').value;
     const lockImg2 = document.getElementById('input-lock-img-2').value;
     const deskImg1 = document.getElementById('input-desk-img-1').value;
     const deskImg2 = document.getElementById('input-desk-img-2').value;
 
+    // 应用修改
     if(musicText) {
         const marquee = document.querySelector('.music-pill marquee');
         if(marquee) marquee.textContent = musicText;
     }
+    
+    // 应用 My Vibe 文字
+    if(vibeText) {
+        const vibeEl = document.getElementById('ls-vibe-text');
+        if(vibeEl) vibeEl.textContent = vibeText;
+    }
+
     if(lockImg1) document.querySelector('.user-img-1').src = lockImg1;
     if(lockImg2) document.querySelector('.user-img-2').src = lockImg2;
     if(deskImg1) document.querySelector('.desktop-img-1').src = deskImg1;
     
-    // 注意：如果有两张大图，这里要分别处理
     const allDeskImgs = document.querySelectorAll('.photo-large img');
     if(allDeskImgs.length > 1 && deskImg2) {
         allDeskImgs[1].src = deskImg2;
@@ -176,8 +184,10 @@ function saveTheme() {
         }
     });
 
+    // 保存到本地
     const themeData = {
         music: musicText,
+        vibe: vibeText, // 保存 My Vibe
         l1: lockImg1, l2: lockImg2,
         d1: deskImg1, d2: deskImg2,
         icons: iconInputs
@@ -196,6 +206,13 @@ function initTheme() {
         const marquee = document.querySelector('.music-pill marquee');
         if(marquee) marquee.textContent = data.music;
     }
+    
+    // 加载 My Vibe
+    if(data.vibe) {
+        const vibeEl = document.getElementById('ls-vibe-text');
+        if(vibeEl) vibeEl.textContent = data.vibe;
+    }
+
     if(data.l1) document.querySelector('.user-img-1').src = data.l1;
     if(data.l2) document.querySelector('.user-img-2').src = data.l2;
     if(data.d1) document.querySelector('.desktop-img-1').src = data.d1;
