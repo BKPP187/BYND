@@ -224,57 +224,125 @@ body {
 
 /* --- style.css 修正部分 --- */
 
-/* 1. 美化窗口：改为全屏 */
+/* --- ✨ Ins风美化窗口 (重制版) ✨ --- */
+
 .app-window {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    
-    /* 👇 改成 100% 就是全屏了 */
-    height: 100%; 
-    
-    background: #f2f2f7;
-    
-    /* 👇 全屏就不需要顶部的圆角了，改成 0 */
-    border-radius: 0; 
-    
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
+    background: #fafafa; /* 更纯净的白 */
     z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    transform: translateY(110%);
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex; flex-direction: column;
+    transform: translateY(110%); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); /* 更有弹性的动画 */
 }
 
-.app-window.active {
-    transform: translateY(0);
+.app-window.active { transform: translateY(0); }
+
+/* 顶部栏 */
+.window-header {
+    display: flex !important; justify-content: space-between; align-items: center;
+    height: 90px !important; padding-top: 45px !important; padding-left: 25px; padding-right: 25px;
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
 }
 
-/* 2. 隐藏右边的滚动条 (透明) */
-.window-content::-webkit-scrollbar {
-    width: 0px;  /* 宽度设为 0，直接隐藏 */
-    background: transparent; /* 背景透明 */
+.window-header h3 { font-size: 17px; font-weight: 700; color: #333; letter-spacing: 0.5px; }
+.close-btn { color: #999; font-size: 15px; }
+.save-btn { 
+    color: white; font-size: 13px; font-weight: bold; 
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); /* 🌸 少女心渐变 */
+    padding: 6px 16px; border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(255, 154, 158, 0.4);
 }
 
-.window-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    /* 增加底部留白，防止被手机底部黑条挡住 */
-    padding-bottom: 80px; 
-}
+/* 内容区 */
+.window-content { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
+.window-content::-webkit-scrollbar { width: 0; background: transparent; }
+
+/* 卡片通用样式 */
 .setting-card {
-    background: white; border-radius: 12px; overflow: hidden; margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    background: white; border-radius: 24px; padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.02); /* 超柔和阴影 */
+    border: 1px solid #f7f7f7;
 }
-.card-title { font-size: 13px; color: #666; padding: 12px 15px 5px 15px; font-weight: 600; background: #f9f9f9; text-transform: uppercase; }
-.input-row { display: flex; align-items: center; padding: 12px 15px; background: white; gap: 10px; }
-.border-top { border-top: 1px solid #f0f0f0; }
-.input-row .label { font-size: 14px; width: 40px; color: #333; }
-.input-row input { flex: 1; border: none; font-size: 14px; color: #007aff; outline: none; background: transparent; }
-.upload-btn, .mini-upload { background: #f0f0f0; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.upload-btn { width: 30px; height: 30px; }
-.mini-upload { padding: 2px 6px; font-size: 12px; }
+
+.card-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
+    color: #444; font-weight: 600; font-size: 14px;
+}
+.card-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: #fff0f3; color: #ff758c; /* 粉色图标底 */
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+
+/* 气泡输入框 */
+.input-bubble {
+    background: #f9f9f9; border-radius: 16px; padding: 12px 15px;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 0.2s;
+}
+.input-bubble:focus-within { background: white; box-shadow: 0 0 0 2px #ffe0e6; }
+.bubble-label { font-size: 12px; color: #aaa; font-weight: bold; }
+.input-bubble input {
+    border: none; background: transparent; outline: none; flex: 1;
+    font-size: 14px; color: #333;
+}
+
+/* 上传区域布局 */
+.upload-row { display: flex; gap: 15px; margin-top: 15px; }
+.upload-item { flex: 1; }
+.sub-label { display: block; font-size: 11px; color: #bbb; margin-bottom: 6px; margin-left: 5px; }
+
+/* 上传按钮盒子 (核心美化) */
+.upload-box {
+    background: #f9f9f9; border-radius: 18px; height: 50px;
+    display: flex; align-items: center; padding: 0 6px 0 15px;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: transform 0.1s; border: 1px dashed transparent;
+}
+.upload-box:active { transform: scale(0.98); }
+.upload-box:hover { border-color: #ffc2d1; background: #fff5f7; }
+
+.upload-box input {
+    border: none; background: transparent; width: 100%; outline: none;
+    font-size: 12px; color: #888; pointer-events: none; /* 让点击穿透给父级 */
+}
+/* 当有内容时，让文字变淡，不再是一大坨乱码的感觉 */
+.upload-box input:valid { color: #000; font-weight: 500; }
+
+.upload-icon {
+    width: 38px; height: 38px; background: white; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: #ff758c; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    flex-shrink: 0; margin-left: 5px;
+}
+
+/* 宽版上传条 */
+.upload-stack { display: flex; flex-direction: column; gap: 10px; }
+.upload-box.wide { padding-left: 15px; }
+.prefix { font-size: 12px; color: #aaa; margin-right: 10px; font-weight: bold; }
+
+/* 宫格图标选择器 */
+.icon-grid-pretty {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.pretty-icon-item {
+    background: #f9f9f9; aspect-ratio: 1; border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; cursor: pointer; transition: all 0.2s;
+}
+.pretty-icon-item:active { transform: scale(0.95); background: #ffe0e6; }
+
+.icon-preview { font-size: 24px; color: #555; margin-bottom: 4px; }
+.icon-name { font-size: 10px; color: #999; }
+
+.mini-add {
+    position: absolute; bottom: 4px; right: 4px;
+    width: 16px; height: 16px; background: white; border-radius: 50%;
+    font-size: 10px; color: #ff758c; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
 
 .icon-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f0f0f0; border-top: 1px solid #f0f0f0; }
 .icon-input-group { background: white; padding: 10px; display: flex; align-items: center; gap: 8px; }

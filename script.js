@@ -113,9 +113,15 @@ function convertFile(input, targetInputId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            document.getElementById(targetInputId).value = e.target.result;
-            input.parentElement.style.background = "#e6ffe6"; 
-            setTimeout(() => input.parentElement.style.background = "white", 500);
+            const inputEl = document.getElementById(targetInputId);
+            inputEl.value = e.target.result;
+            
+            // 👇 让输入框变色反馈一下
+            inputEl.parentElement.style.background = "#fff0f3"; // 变粉
+            inputEl.parentElement.style.borderColor = "#ffc2d1";
+            
+            // 💡 这里虽然值是 Base64，但我们可以利用 placeholder 机制让它看起来干净点
+            // (稍微复杂点，暂时保持这样，UI 上已经用了 overflow hidden 截断文字)
         };
         reader.readAsDataURL(input.files[0]);
     }

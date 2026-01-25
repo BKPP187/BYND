@@ -131,7 +131,7 @@
             </div>
         </div>
 
-        <div id="app-theme-window" class="app-window hidden">
+<div id="app-theme-window" class="app-window hidden">
             <div class="window-header">
                 <span onclick="closeApp('theme')" class="close-btn">取消</span>
                 <h3>个性化设置</h3>
@@ -139,54 +139,78 @@
             </div>
 
             <div class="window-content">
+                
                 <div class="setting-card">
-                    <div class="card-title">🎵 灵动岛文字</div>
-                    <div class="input-row">
-                        <input type="text" id="input-music-text" placeholder="输入你想滚动的文字...">
+                    <div class="card-header">
+                        <i class="ri-music-2-line card-icon"></i>
+                        <span>底部滚动文字</span>
+                    </div>
+                    <div class="input-bubble">
+                        <input type="text" id="input-music-text" placeholder="写一句你喜欢的歌词...">
                     </div>
                 </div>
 
                 <div class="setting-card">
-                    <div class="card-title">🔒 锁屏照片墙</div>
+                    <div class="card-header">
+                        <i class="ri-lock-heart-line card-icon"></i>
+                        <span>锁屏拍立得</span>
+                    </div>
                     
-                    <div class="input-row">
-                        <span class="label">文字</span>
-                        <input type="text" id="input-vibe-text" placeholder="照片下的文字 (默认: My Vibe)">
+                    <div class="input-bubble">
+                        <span class="bubble-label">文字</span>
+                        <input type="text" id="input-vibe-text" placeholder="My Vibe">
                     </div>
 
-                    <div class="input-row border-top">
-                        <span class="label">左图</span>
-                        <input type="text" id="input-lock-img-1" placeholder="链接 或 点击上传 ->">
-                        <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
-                        <button class="upload-btn" onclick="document.getElementById('file-lock-1').click()">📂</button>
-                    </div>
-                    <div class="input-row border-top">
-                        <span class="label">右图</span>
-                        <input type="text" id="input-lock-img-2" placeholder="链接 或 点击上传 ->">
-                        <input type="file" id="file-lock-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-2')">
-                        <button class="upload-btn" onclick="document.getElementById('file-lock-2').click()">📂</button>
+                    <div class="upload-row">
+                        <div class="upload-item">
+                            <span class="sub-label">左图</span>
+                            <div class="upload-box" onclick="document.getElementById('file-lock-1').click()">
+                                <input type="text" id="input-lock-img-1" placeholder="链接 / 上传" readonly>
+                                <div class="upload-icon"><i class="ri-image-add-line"></i></div>
+                            </div>
+                            <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
+                        </div>
+
+                        <div class="upload-item">
+                            <span class="sub-label">右图</span>
+                            <div class="upload-box" onclick="document.getElementById('file-lock-2').click()">
+                                <input type="text" id="input-lock-img-2" placeholder="链接 / 上传" readonly>
+                                <div class="upload-icon"><i class="ri-image-add-line"></i></div>
+                            </div>
+                            <input type="file" id="file-lock-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-2')">
+                        </div>
                     </div>
                 </div>
 
                 <div class="setting-card">
-                    <div class="card-title">🖼️ 桌面大组件</div>
-                    <div class="input-row">
-                        <span class="label">上图</span>
-                        <input type="text" id="input-desk-img-1" placeholder="链接 或 点击上传 ->">
+                    <div class="card-header">
+                        <i class="ri-image-line card-icon"></i>
+                        <span>桌面大组件</span>
+                    </div>
+                    
+                    <div class="upload-stack">
+                        <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()">
+                            <span class="prefix">上图</span>
+                            <input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly>
+                            <div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div>
+                        </div>
                         <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
-                        <button class="upload-btn" onclick="document.getElementById('file-desk-1').click()">📂</button>
-                    </div>
-                    <div class="input-row border-top">
-                        <span class="label">下图</span>
-                        <input type="text" id="input-desk-img-2" placeholder="链接 或 点击上传 ->">
+
+                        <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()">
+                            <span class="prefix">下图</span>
+                            <input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly>
+                            <div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div>
+                        </div>
                         <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
-                        <button class="upload-btn" onclick="document.getElementById('file-desk-2').click()">📂</button>
                     </div>
                 </div>
 
                 <div class="setting-card">
-                    <div class="card-title">📱 图标替换</div>
-                    <div class="icon-list">
+                    <div class="card-header">
+                        <i class="ri-apps-line card-icon"></i>
+                        <span>图标</span>
+                    </div>
+                    <div class="icon-grid-pretty">
                         <script>
                             const icons = [
                                 {i:'ri-wechat-line', n:'微信'}, {i:'ri-code-s-slash-line', n:'正则'}, 
@@ -198,18 +222,20 @@
                             ];
                             icons.forEach((item, index) => {
                                 document.write(`
-                                    <div class="icon-input-group">
-                                        <i class="${item.i}"></i>
-                                        <input type="text" id="input-icon-${index}" placeholder="${item.n}">
+                                    <div class="pretty-icon-item" onclick="document.getElementById('file-icon-${index}').click()">
+                                        <div class="icon-preview"><i class="${item.i}"></i></div>
+                                        <span class="icon-name">${item.n}</span>
+                                        <input type="text" id="input-icon-${index}" style="display:none">
                                         <input type="file" id="file-icon-${index}" accept="image/*" style="display:none" onchange="convertFile(this, 'input-icon-${index}')">
-                                        <button class="mini-upload" onclick="document.getElementById('file-icon-${index}').click()">📂</button>
+                                        <div class="mini-add"><i class="ri-add-line"></i></div>
                                     </div>
                                 `);
                             });
                         </script>
                     </div>
                 </div>
-                <div style="height: 50px;"></div>
+                
+                <div style="height: 100px;"></div>
             </div>
         </div>
 
