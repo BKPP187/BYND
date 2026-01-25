@@ -128,6 +128,10 @@ body {
 .apps-quad .app-item {
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     width: 100%; height: 100%; gap: 5px;
+    /* 👇 关键修改：加上这行，字体瞬间变精致 */
+    font-size: 12px; 
+    font-weight: 500; /* 稍微有一点点加粗，清晰 */
+    color: #333;      /* 文字颜色 */
 }
 .apps-quad .app-icon {
     width: 48px; height: 48px; font-size: 22px; border-radius: 12px;
