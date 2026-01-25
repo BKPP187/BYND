@@ -324,11 +324,59 @@ body {
 }
 
 /* 今天的日期高亮 */
+/* style.css */
+
+/* 普通的日期数字（灰色，小圆点） */
+.cal-dot {
+    width: 18px;
+    height: 18px;
+    /* 去掉背景色和边框，只留数字 */
+    background: transparent;
+    border-radius: 0;
+    
+    color: #666; /* 灰色数字 */
+    font-size: 9px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-family: monospace;
+    position: relative; /* 为了放爱心 */
+}
+
+/* --- ❤️ 今天的粉色爱心桃 ❤️ --- */
 .cal-dot.active {
-    background: #ff69b4; /* 粉色背景 */
-    color: white; /* 白色文字 */
-    box-shadow: 0 0 5px #ff69b4;
-    transform: scale(1.1);
+    /* 把原来那个粉色圆背景去掉 */
+    background: transparent;
+    box-shadow: none;
+    color: white; /* 数字变成白色 */
+    z-index: 2; /* 让数字浮在爱心上面 */
+    transform: scale(1.2); /* 稍微放大一点点 */
+}
+
+/* 用 CSS 画一个爱心桃 */
+.cal-dot.active::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px;
+    height: 20px;
+    /* 爱心的颜色 */
+    background-color: #ff69b4; 
+    /* 核心：用 mask（遮罩）画出爱心形状 */
+    /* 这是一个爱心形状的 SVG 路径 */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    z-index: -1; /* 放在数字下面 */
+    
+    /* 加个粉色发光效果 */
+    filter: drop-shadow(0 0 4px #ff69b4);
 }
 
 
