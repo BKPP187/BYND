@@ -1,4 +1,4 @@
-// --- 🎨 theme.js: 顶格大图版 (修复图标过小问题) ---
+// --- 🎨 theme.js: 终极完美版 (大图标 + 圆角修复) ---
 
 // 1. 初始化图标网格
 function initIconGrid() {
@@ -30,7 +30,7 @@ function initIconGrid() {
     container.innerHTML = htmlContent;
 }
 
-// 2. 🔧 强力压缩函数 (保留之前的防报错优化)
+// 2. 🔧 强力压缩函数
 function convertFile(input, targetInputId) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
@@ -41,13 +41,12 @@ function convertFile(input, targetInputId) {
             img.src = e.target.result;
 
             img.onload = function() {
-                // 压缩参数
                 let maxWidth = 720;  
-                let quality = 0.5;   // 强力压缩，防止存不下
+                let quality = 0.5;   
                 let isIcon = targetInputId.includes('icon');
 
                 if (isIcon) {
-                    maxWidth = 120;  // 稍微给大一点点，保证清晰
+                    maxWidth = 150;  
                     quality = 0.8;   
                 }
 
@@ -66,7 +65,7 @@ function convertFile(input, targetInputId) {
 
                 let outputType = 'image/jpeg';
                 if (isIcon) {
-                    outputType = 'image/png'; // 图标保持透明
+                    outputType = 'image/png'; 
                     ctx.clearRect(0, 0, width, height); 
                 } else {
                     ctx.fillStyle = "#ffffff"; 
@@ -122,7 +121,7 @@ function loadSavedSettings() {
     } catch (e) { console.error(e); }
 }
 
-// 4. 💾 保存设置 (✨ 重点修复：去掉了Padding，恢复最大尺寸！)
+// 4. 💾 保存设置 (✨ 修复：改回 12px 圆角！)
 function saveTheme() {
     const wpLock = document.getElementById('input-wp-lock').value;
     const wpHome = document.getElementById('input-wp-home').value;
@@ -172,10 +171,8 @@ function saveTheme() {
         if (!url) return; 
         if (index < 8) { 
             if (desktopIcons[index]) {
-                // 👇👇👇 这里的改动把“小”修好了！
-                // Padding: 0 -> 图标贴边显示，最大化！
-                // contain -> 保证你的兔子耳朵不被切掉
-                desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:0; object-fit:contain;">`;
+                // 👇👇👇 这里的改动！border-radius: 12px
+                desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                 desktopIcons[index].style.padding = "0"; 
                 desktopIcons[index].style.background = "transparent";
             }
@@ -184,7 +181,7 @@ function saveTheme() {
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                 if (iconBox) {
-                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:contain;">`;
+                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                 }
             }
         }
@@ -196,14 +193,14 @@ function saveTheme() {
     };
     
     try {
-        localStorage.removeItem('my_theme_data'); // 先清理旧的
+        localStorage.removeItem('my_theme_data'); 
         localStorage.setItem('my_theme_data', JSON.stringify(themeData));
         
-        alert("✅ 尺寸已恢复！(已自动清理缓存)");
+        alert("✅ 图标已变圆！(缓存已清理)");
         if (typeof closeApp === 'function') closeApp('theme');
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
-             alert("❌ 空间不足！请重新点一下上传按钮，触发压缩逻辑！");
+             alert("❌ 空间不足！请重新点击上传按钮，触发压缩逻辑！");
         } else {
              alert("❌ 错误: " + e.message);
         }
@@ -244,7 +241,7 @@ function initTheme() {
             data.icons.forEach((url, index) => {
                 if (!url) return;
                 if (index < 8 && desktopIcons[index]) {
-                    // 👇 初始化时也要保持 0 padding
+                    // 👇 初始化时也要圆角 12px
                     desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                     desktopIcons[index].style.padding = "0"; 
                     desktopIcons[index].style.background = "transparent";
@@ -253,7 +250,7 @@ function initTheme() {
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                         if (iconBox) {
-                            iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:contain;">`;
+                            iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                         }
                     }
                 }
