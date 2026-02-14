@@ -1,9 +1,11 @@
-// --- 🟢 wechat.js: 微信 & 酒馆角色系统 (完美适配版) ---
+// --- 🟢 wechat.js: 核心数据源 & 微信 App 逻辑 ---
 
+// 1. 全局数据中心 (所有 App 共用)
 window.myCharacters = window.myCharacters || []; 
 window.TEMP_PARSED_DATA = null;
+window.currentChatCharId = null;
 
-// --- A. 界面渲染 ---
+// --- A. 微信界面渲染 ---
 
 function renderChatList() {
     const listEl = document.getElementById('wc-chat-list');
@@ -26,8 +28,8 @@ function renderChatList() {
         item.className = 'wc-chat-item';
         item.onclick = () => openChat(char.id); 
         
-        let previewMsg = char.lastMsg || "";
-        previewMsg = previewMsg.replace(/\{\{char\}\}/gi, char.name).replace(/\{\{user\}\}/gi, "我");
+        // 🔥 微信列表：强制隐藏内容，只显示名字和头像
+        let previewMsg = ""; 
 
         item.innerHTML = `
             <div class="wc-avatar"><img src="${char.avatar}"></div>
@@ -45,6 +47,7 @@ function renderChatList() {
     });
 }
 
+// 🔥 通用工具：正则替换 + Markdown清洗 (供 Wechat 和 SillyTavern 共用)
 function processMsgContent(content, char) {
     if (!content) return "";
     let text = content;
@@ -52,6 +55,7 @@ function processMsgContent(content, char) {
     text = text.replace(/\{\{char\}\}/gi, char.name);
     text = text.replace(/\{\{user\}\}/gi, "我");
 
+    // 1. 执行正则脚本
     const globalScripts = window.globalRegexScripts || [];
     const charScripts = char.regex || [];
     const allScripts = [...globalScripts, ...charScripts];
@@ -60,62 +64,46 @@ function processMsgContent(content, char) {
         try {
             const regexStr = script.regex;
             let replaceStr = script.replace || "";
-
             if (regexStr) {
                 let pattern = regexStr;
                 let flags = 'g'; 
-                
-                // 处理 /abc/gim 格式
                 if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
                     const lastSlash = pattern.lastIndexOf('/');
-                    const flagStr = pattern.substring(lastSlash + 1);
-                    flags = flagStr.replace(/[^gimsuy]/g, '');
+                    flags = pattern.substring(lastSlash + 1).replace(/[^gimsuy]/g, '');
                     pattern = pattern.substring(1, lastSlash);
                 }
-
                 const re = new RegExp(pattern, flags);
-
-                // 酒馆语法 {{match}} 转 JS 语法 $&
                 if (replaceStr && typeof replaceStr === 'string') {
                     replaceStr = replaceStr.replace(/\{\{match\}\}/gi, '$&');
                 }
-
                 text = text.replace(re, replaceStr);
             }
-        } catch (e) {
-            console.warn("正则执行失败:", script.name, e);
-        }
+        } catch (e) { console.warn("正则执行失败:", script.name, e); }
     });
 
-    text = text.replace(/\n/g, '<br>');
-    return text;
+    // 2. 剥离 Markdown 代码块包装
+    const codeBlockRegex = /^```(?:html|xml|markdown)?\s*([\s\S]*?)\s*```$/i;
+    const match = text.trim().match(codeBlockRegex);
+
+    if (match) {
+        return match[1]; 
+    } else {
+        return text.replace(/\n/g, '<br>'); 
+    }
 }
 
+// 微信聊天窗口
 function openChat(charId) {
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char) return;
+
+    window.currentChatCharId = charId;
 
     document.getElementById('chat-room-title').textContent = char.name;
     const contentEl = document.getElementById('chat-room-content');
     contentEl.innerHTML = ''; 
 
-    const wbCount = char.worldBook ? (Array.isArray(char.worldBook) ? char.worldBook.length : 0) : 0;
-    const reCount = char.regex ? char.regex.length : 0;
-    
-    if (wbCount > 0 || reCount > 0) {
-        const configDiv = document.createElement('div');
-        configDiv.style.textAlign = 'center';
-        configDiv.innerHTML = `
-            <div class="chat-config-pill">
-                <span><i class="ri-book-read-line"></i> 世界书: ${wbCount}</span>
-                <span style="width:1px; height:10px; background:#ccc;"></span>
-                <span><i class="ri-code-s-slash-line"></i> 正则: ${reCount}</span>
-            </div>
-        `;
-        contentEl.appendChild(configDiv);
-    }
-
-    char.history.forEach(msg => {
+    char.history.forEach((msg, index) => {
         renderMessageBubble(contentEl, msg, char.avatar, char);
     });
 
@@ -124,20 +112,73 @@ function openChat(charId) {
     setTimeout(() => room.classList.add('active'), 10);
 }
 
+// 2. 修复切换开场白导致微信也变的问题 (数据分离)
+function switchGreeting(direction) {
+    const charId = window.currentChatCharId;
+    if (!charId) return;
+    const char = window.myCharacters.find(c => c.id === charId);
+    if (!char) return;
+
+    const allGreetings = [char.first_mes_original || char.first_mes, ...(char.alternates || [])].filter(t => t);
+    
+    if (typeof char.currentGreetingIndex === 'undefined') char.currentGreetingIndex = 0;
+
+    let newIndex = char.currentGreetingIndex + direction;
+    if (newIndex < 0) newIndex = allGreetings.length - 1; 
+    if (newIndex >= allGreetings.length) newIndex = 0; 
+
+    // 🔥 核心修改：只更新“索引”，绝对不去改 history 里的内容！
+    // 微信读取的是 history，所以微信永远不变。
+    // 酒馆读取的是 currentGreetingIndex，所以酒馆会变。
+    char.currentGreetingIndex = newIndex;
+    
+    // 注意：这里不再调用 openChat 刷新微信，因为微信不需要变
+}
+
+// 🔥 微信渲染逻辑：只显示纯文本 (Clean & Simple)
 function renderMessageBubble(container, msg, avatarUrl, charObj) {
     const row = document.createElement('div');
-    const displayContent = processMsgContent(msg.content, charObj);
+    
+    // 1. 获取原始内容
+    let rawContent = processMsgContent(msg.content, charObj);
+    
+    // 2. ✂️ 暴力去除所有 HTML 标签，只保留文字
+    let cleanText = rawContent.replace(/<[^>]+>/g, "").trim();
+    
+    if (!cleanText && rawContent.includes('<')) {
+        cleanText = "📄 [交互式剧情卡片]";
+    }
 
     row.className = `msg-row ${msg.isMe ? 'right' : 'left'}`;
     const myAvatar = 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&auto=format&fit=crop&q=60';
     const currentAvatar = msg.isMe ? myAvatar : avatarUrl;
 
+    let bubbleHtml = '';
+    
     if (msg.isMe) {
-        row.innerHTML = `<div class="msg-bubble green">${displayContent}</div><img class="msg-avatar" src="${currentAvatar}">`;
+        bubbleHtml = `<div class="msg-bubble green">${cleanText}</div><img class="msg-avatar" src="${currentAvatar}">`;
     } else {
-        row.innerHTML = `<img class="msg-avatar" src="${currentAvatar}"><div class="msg-bubble">${displayContent}</div>`;
+        bubbleHtml = `
+            <img class="msg-avatar" src="${currentAvatar}">
+            <div style="display:flex; flex-direction:column; max-width:70%;">
+                <div class="msg-bubble">${cleanText}</div>
+            </div>
+        `;
     }
+    
+    row.innerHTML = bubbleHtml;
     container.appendChild(row);
+}
+
+// 🔥 通用工具：JS 脚本激活器 (供所有 App 使用)
+function executeScriptsInElement(element) {
+    const scripts = element.querySelectorAll('script');
+    scripts.forEach(oldScript => {
+        const newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
 }
 
 function closeChat() {
@@ -146,9 +187,10 @@ function closeChat() {
         room.classList.remove('active');
         setTimeout(() => room.classList.add('hidden'), 300);
     }
+    window.currentChatCharId = null;
 }
 
-// --- B. PNG 解析器 (已适配 findRegex / replaceString) ---
+// --- B. PNG 解析器 ---
 const TavernCardParser = {
     decodeBase64ToUtf8: function(base64) {
         try {
@@ -159,7 +201,6 @@ const TavernCardParser = {
         } catch (e) { return null; }
     },
 
-    // 辅助：查找任意匹配的键值
     findField: function(obj, targets) {
         if (!obj || typeof obj !== 'object') return null;
         const keys = Object.keys(obj);
@@ -208,7 +249,6 @@ const TavernCardParser = {
                                 const raw = JSON.parse(jsonStr);
                                 const d = raw.data || raw; 
                                 
-                                // 解包 extensions
                                 let searchTargets = [raw];
                                 if (raw.data) searchTargets.push(raw.data);
                                 searchTargets.forEach(target => {
@@ -219,20 +259,15 @@ const TavernCardParser = {
 
                                 let rawScripts = [];
 
-                                // 递归查找脚本数组
                                 function findRegexArray(obj, depth = 0) {
                                     if (depth > 6 || !obj || typeof obj !== 'object') return null;
-                                    
-                                    // 优先匹配标准键
                                     const keys = Object.keys(obj);
                                     const scriptKey = keys.find(k => k.toLowerCase() === 'regex_scripts' || k.toLowerCase() === 'regexscripts');
                                     if (scriptKey && Array.isArray(obj[scriptKey])) return obj[scriptKey];
                                     
-                                    // 遍历
                                     for (let key in obj) {
-                                        if (['character_book', 'history', 'story_string'].includes(key)) continue;
+                                        if (['character_book', 'history', 'story_string', 'alternate_greetings'].includes(key)) continue;
                                         const val = obj[key];
-                                        // 鸭子类型：检查数组元素是否包含 'findRegex' 或 'regex'
                                         if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object') {
                                             const firstKeys = Object.keys(val[0]).map(k => k.toLowerCase());
                                             if (firstKeys.some(k => k.includes('regex') || k.includes('pattern'))) {
@@ -249,31 +284,24 @@ const TavernCardParser = {
                                 const found = findRegexArray(raw);
                                 if (found) rawScripts = found;
 
-                                // 🔥 映射逻辑：加入 findRegex 和 replaceString
                                 const normalizedScripts = rawScripts.map((s, idx) => {
                                     const get = (arr) => this.findField(s, arr) || "";
-                                    
                                     return {
                                         name: get(['scriptName', 'name', 'label']) || `Script #${idx+1}`,
-                                        // 这里加入了 findRegex
                                         regex: get(['findRegex', 'regex', 'regex_pattern', 'regexPattern', 'pattern']), 
-                                        // 这里加入了 replaceString
                                         replace: get(['replaceString', 'regexReplace', 'replace', 'replacement', 'substituteRegex']),
-                                        // 简单的位置判断
                                         placement: "Global"
                                     };
-                                });
-
-                                // 过滤无效项
-                                const validScripts = normalizedScripts.filter(s => s.regex && s.regex.trim() !== "");
+                                }).filter(s => s.regex && s.regex.trim() !== "");
 
                                 charData = {
                                     name: d.name,
                                     description: d.description,
                                     first_mes: d.first_mes,
+                                    alternates: d.alternate_greetings || [],
                                     avatar: "", 
                                     worldBook: d.character_book?.entries || d.character_book || [],
-                                    regex: validScripts 
+                                    regex: normalizedScripts 
                                 };
                             } catch(e) { console.error("JSON解析失败", e); }
                         }
@@ -287,7 +315,7 @@ const TavernCardParser = {
     }
 };
 
-// --- C. 交互系统 ---
+// --- C. 交互与导入系统 ---
 
 function testAddCharacter() {
     const sheet = document.getElementById('wc-action-sheet');
@@ -356,19 +384,18 @@ function handleFileSelect(input) {
                 
                 window.TEMP_PARSED_DATA = {
                     worldBook: charData.worldBook || [],
-                    regex: charData.regex || []
+                    regex: charData.regex || [],
+                    alternates: charData.alternates || [],
+                    first_mes_original: charData.first_mes 
                 };
 
-                const wbCount = window.TEMP_PARSED_DATA.worldBook.length;
-                const reCount = window.TEMP_PARSED_DATA.regex.length;
-
+                const altCount = window.TEMP_PARSED_DATA.alternates.length;
                 const infoHtml = `
                     <div style="color:#07c160; font-size:14px; margin-bottom:8px; font-weight:bold; display:flex; align-items:center; gap:5px;">
                         <i class="ri-check-double-line"></i> 数据提取成功
                     </div>
                     <div class="detected-tags">
-                        ${wbCount > 0 ? `<div class="d-tag wb"><i class="ri-book-read-line"></i> WorldBook: ${wbCount}</div>` : ''}
-                        ${reCount > 0 ? `<div class="d-tag re"><i class="ri-code-s-slash-line"></i> Regex: ${reCount}</div>` : ''}
+                        ${altCount > 0 ? `<div class="d-tag" style="background:#e8eaf6; color:#3f51b5;"><i class="ri-chat-history-line"></i> 备选开场: ${altCount}</div>` : ''}
                     </div>
                 `;
                 const infoBox = document.getElementById('parse-extra-info');
@@ -386,17 +413,26 @@ function handleFileSelect(input) {
     reader.readAsArrayBuffer(file);
 }
 
+// --- 🟢 wechat.js 修改部分 ---
+
+// 1. 修复导入后酒馆不显示的问题
 function confirmSaveCharacter() {
     const name = document.getElementById('modal-char-name').value;
-    const intro = document.getElementById('modal-char-intro').value;
+    const intro = document.getElementById('modal-char-intro').value; 
     const avatar = document.getElementById('modal-avatar-preview').src;
+    
     if (!name) { alert("起个名字吧！"); return; }
     
     let wb = [];
     let re = [];
+    let alts = [];
+    let originalFirst = "";
+    
     if (window.TEMP_PARSED_DATA) {
         wb = window.TEMP_PARSED_DATA.worldBook || [];
         re = window.TEMP_PARSED_DATA.regex || [];
+        alts = window.TEMP_PARSED_DATA.alternates || [];
+        originalFirst = window.TEMP_PARSED_DATA.first_mes_original || intro;
     }
 
     const newChar = {
@@ -406,11 +442,22 @@ function confirmSaveCharacter() {
         lastMsg: intro, 
         worldBook: wb,
         regex: re, 
+        alternates: alts,
+        first_mes_original: originalFirst,
+        currentGreetingIndex: 0,
         history: [{ type: 'text', isMe: false, content: intro }]
     };
     
     window.myCharacters.push(newChar);
     window.TEMP_PARSED_DATA = null;
+    
+    // 刷新微信列表
     renderChatList();
+    
+    // 🔥 新增：如果酒馆的初始化函数存在，强制刷新酒馆列表！
+    if (typeof window.initSillyTavern === 'function') {
+        window.initSillyTavern();
+    }
+    
     closeCharModal();
 }

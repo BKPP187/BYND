@@ -120,9 +120,11 @@
                     <div class="dock-icon-box"><i class="ri-music-2-fill"></i></div>
                     <span class="dock-label">音乐</span>
                 </div>
-                <div class="dock-item">
-                    <div class="dock-icon-box"><i class="ri-safari-line"></i></div>
-                    <span class="dock-label">浏览器</span>
+                <div class="dock-item" onclick="openApp('sillytavern')">
+                    <div class="dock-icon-box" style="background: #1a1b1e; border-radius: 12px; border: 1px solid #444;">
+                        <i class="ri-goblet-fill" style="color: #9f7aea;"></i>
+                    </div>
+                    <span class="dock-label">酒馆</span>
                 </div>
                 <div class="dock-item">
                     <div class="dock-icon-box"><i class="ri-camera-lens-line"></i></div>
@@ -222,48 +224,36 @@
             <div class="window-content" id="re-content-area" style="padding: 15px;"></div>
         </div>
 
+        <div id="app-sillytavern-window" class="app-window hidden" style="background: #0b0c15; color: #ccc;">
+            <div class="st-header">
+                <div class="st-header-left" onclick="closeApp('sillytavern')">
+                    <i class="ri-menu-line"></i>
+                </div>
+                <span class="st-header-title">SillyTavern</span>
+                <div class="st-header-right">
+                    <i class="ri-user-add-line" onclick="triggerImport()" style="color: #9f7aea;"></i>
+                </div>
+            </div>
+
+            <div id="st-content-container" class="st-container">
+                <div id="st-char-list" class="st-char-grid"></div>
+
+                <div id="st-chat-view" class="st-chat-view hidden">
+                    <div id="st-chat-log" class="st-chat-log"></div>
+                    <div class="st-input-bar">
+                        <i class="ri-menu-add-line"></i>
+                        <textarea id="st-input" rows="1" placeholder="Type a message..."></textarea>
+                        <i class="ri-send-plane-fill" style="color: #9f7aea;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="app-wechat-window" class="app-window hidden" style="background: #ededed;">
             <div class="wechat-header">
                 <div class="wc-header-left" onclick="closeApp('wechat')"><i class="ri-arrow-left-s-line"></i><span>微信</span></div>
                 <span class="wc-header-title">消息</span>
                 <div class="wc-header-right"><i class="ri-add-line" onclick="testAddCharacter()" style="font-size: 26px;"></i></div>
-            </div>
-            <div id="wc-action-sheet" class="wc-action-sheet hidden">
-                <div class="wc-sheet-content">
-                    <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
-                    <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
-                    <div class="wc-sheet-cancel" onclick="hideActionSheet()">取消</div>
-                </div>
-            </div>
-            
-            <div id="wc-char-modal" class="wc-modal-overlay hidden">
-                <div class="wc-char-card">
-                    <div class="wc-card-header">
-                        <span id="modal-title">新角色</span>
-                        <i class="ri-close-line" onclick="closeCharModal()"></i>
-                    </div>
-                    <div class="wc-card-body">
-                        <div class="wc-card-avatar-upload" onclick="document.getElementById('manual-avatar-input').click()">
-                            <img id="modal-avatar-preview" src="">
-                            <div class="upload-hint"><i class="ri-camera-fill"></i></div>
-                            <input type="file" id="manual-avatar-input" accept="image/*" style="display:none" onchange="previewModalAvatar(this)">
-                        </div>
-                        
-                        <div class="wc-form-group">
-                            <label>名字</label>
-                            <input type="text" id="modal-char-name" placeholder="角色名字">
-                        </div>
-                        <div class="wc-form-group">
-                            <label>开场白</label>
-                            <textarea id="modal-char-intro" rows="3" placeholder="打个招呼吧..."></textarea>
-                        </div>
-
-                        <div id="parse-extra-info" style="width: 100%; margin-top: 5px;"></div>
-                    </div>
-                    <div class="wc-card-footer">
-                        <button class="btn-confirm" onclick="confirmSaveCharacter()">确认添加</button>
-                    </div>
-                </div>
             </div>
             
             <div class="wechat-content">
@@ -282,7 +272,46 @@
                 <div class="wc-room-footer"><i class="ri-voiceprint-line"></i><input type="text" class="wc-input"><i class="ri-emotion-line"></i><i class="ri-add-circle-line"></i></div>
             </div>
         </div>
-<div id="wb-detail-modal" class="wc-modal-overlay hidden" style="z-index: 2200;">
+
+        <div id="wc-action-sheet" class="wc-action-sheet hidden">
+            <div class="wc-sheet-content">
+                <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
+                <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
+                <div class="wc-sheet-cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+        </div>
+        
+        <div id="wc-char-modal" class="wc-modal-overlay hidden">
+            <div class="wc-char-card">
+                <div class="wc-card-header">
+                    <span id="modal-title">新角色</span>
+                    <i class="ri-close-line" onclick="closeCharModal()"></i>
+                </div>
+                <div class="wc-card-body">
+                    <div class="wc-card-avatar-upload" onclick="document.getElementById('manual-avatar-input').click()">
+                        <img id="modal-avatar-preview" src="">
+                        <div class="upload-hint"><i class="ri-camera-fill"></i></div>
+                        <input type="file" id="manual-avatar-input" accept="image/*" style="display:none" onchange="previewModalAvatar(this)">
+                    </div>
+                    
+                    <div class="wc-form-group">
+                        <label>名字</label>
+                        <input type="text" id="modal-char-name" placeholder="角色名字">
+                    </div>
+                    <div class="wc-form-group">
+                        <label>开场白</label>
+                        <textarea id="modal-char-intro" rows="3" placeholder="打个招呼吧..."></textarea>
+                    </div>
+
+                    <div id="parse-extra-info" style="width: 100%; margin-top: 5px;"></div>
+                </div>
+                <div class="wc-card-footer">
+                    <button class="btn-confirm" onclick="confirmSaveCharacter()">确认添加</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="wb-detail-modal" class="wc-modal-overlay hidden" style="z-index: 2200;">
             <div class="wc-char-card" style="background: #fffcf5; border: 1px solid #d7ccc8;">
                 <div class="wc-card-header" style="border-bottom-color: #eee;">
                     <span style="color:#5d4037;">编辑条目</span>
@@ -389,6 +418,7 @@
     </div>
     
     <script src="wechat.js"></script>
+    <script src="sillytavern.js"></script>
     <script src="theme.js"></script>
     <script src="script.js"></script>
     <script src="WorldBook.js"></script>

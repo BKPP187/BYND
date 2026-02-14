@@ -105,6 +105,16 @@ function openApp(appName) {
             if (typeof loadSavedSettings === 'function') loadSavedSettings();
         }
     } 
+    // 在 openApp 函数的 else if 链中添加：
+    else if (appName === 'sillytavern') {
+        const win = document.getElementById('app-sillytavern-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            // 调用 wechat.js 里的新函数来渲染酒馆首页
+            if (typeof initSillyTavern === 'function') initSillyTavern();
+        }
+    }
     // 2. 微信 App
     else if (appName === 'wechat') {
         const win = document.getElementById('app-wechat-window');
@@ -144,7 +154,8 @@ function closeApp(appName) {
     else if (appName === 'wechat') winId = 'app-wechat-window';
     else if (appName === 'worldbook') winId = 'app-worldbook-window';
     else if (appName === 'regex') winId = 'app-regex-window';
-
+// 在 closeApp 函数的 if 判断中添加：
+    else if (appName === 'sillytavern') winId = 'app-sillytavern-window';
     const win = document.getElementById(winId);
     if (win) { 
         win.classList.remove('active'); 
