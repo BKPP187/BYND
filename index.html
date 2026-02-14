@@ -28,21 +28,18 @@
                 <div class="ls-clock" id="ls-big-clock">00:00</div>
                 <div class="ls-date" id="ls-date">Loading...</div>
             </div>
-
             <div class="ls-collage">
                 <div class="photo-card photo-left">
                     <div class="tape"></div> 
                     <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1">
                     <div class="hand-write" id="ls-vibe-text">My Vibe</div>
                 </div>
-
                 <div class="photo-card photo-right">
                     <div class="clip-paper"><i class="ri-attachment-line"></i></div>
                     <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
                     <i class="ri-star-smile-fill sticker-star"></i>
                 </div>
             </div>
-
             <div class="ls-widgets">
                 <div class="widget-pill"><i class="ri-sun-cloudy-line"></i><span>24°C</span></div>
                 <div class="widget-pill music-pill">
@@ -50,7 +47,6 @@
                     <marquee scrollamount="3">Lover Boy - 8-Bit Remix</marquee>
                 </div>
             </div>
-
             <div class="ls-footer">
                 <div class="round-btn"><i class="ri-flashlight-fill"></i></div>
                 <div class="swipe-hint"></div> 
@@ -99,7 +95,6 @@
                     <div class="photo-large">
                         <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=500&auto=format&fit=crop&q=60" alt="风景" class="desktop-img-2">
                     </div>
-
                     <div class="apps-quad">
                         <div class="app-item" onclick="openApp('theme')">
                             <div class="app-icon icon-black"><i class="ri-palette-line"></i></div>
@@ -120,7 +115,6 @@
                     </div>
                 </div>
             </div> 
-
             <div class="dock-bar">
                 <div class="dock-item">
                     <div class="dock-icon-box"><i class="ri-music-2-fill"></i></div>
@@ -147,14 +141,9 @@
                 <h3>个性化设置</h3>
                 <span onclick="saveTheme()" class="save-btn">保存</span>
             </div>
-
             <div class="window-content">
-                
                 <div class="setting-card">
-                    <div class="card-header">
-                        <i class="ri-image-2-line card-icon"></i>
-                        <span>全局壁纸设置</span>
-                    </div>
+                    <div class="card-header"><i class="ri-image-2-line card-icon"></i><span>全局壁纸设置</span></div>
                     <div class="upload-stack">
                         <div class="upload-box wide" onclick="document.getElementById('file-wp-lock').click()">
                             <span class="prefix">锁屏</span>
@@ -162,7 +151,6 @@
                             <div class="upload-icon"><i class="ri-image-add-line"></i></div>
                         </div>
                         <input type="file" id="file-wp-lock" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-lock')">
-
                         <div class="upload-box wide" onclick="document.getElementById('file-wp-home').click()">
                             <span class="prefix">桌面</span>
                             <input type="text" id="input-wp-home" placeholder="默认灰色 (点击上传)" readonly>
@@ -171,73 +159,37 @@
                         <input type="file" id="file-wp-home" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-home')">
                     </div>
                 </div>
-
                 <div class="setting-card">
-                    <div class="card-header">
-                        <i class="ri-music-2-line card-icon"></i>
-                        <span>底部滚动文字</span>
-                    </div>
-                    <div class="input-bubble">
-                        <input type="text" id="input-music-text" placeholder="写一句你喜欢的歌词...">
-                    </div>
+                    <div class="card-header"><i class="ri-music-2-line card-icon"></i><span>底部滚动文字</span></div>
+                    <div class="input-bubble"><input type="text" id="input-music-text" placeholder="写一句你喜欢的歌词..."></div>
                 </div>
-
                 <div class="setting-card">
-                    <div class="card-header">
-                        <i class="ri-lock-heart-line card-icon"></i>
-                        <span>锁屏拍立得</span>
-                    </div>
-                    <div class="input-bubble">
-                        <span class="bubble-label">文字</span>
-                        <input type="text" id="input-vibe-text" placeholder="My Vibe">
-                    </div>
+                    <div class="card-header"><i class="ri-lock-heart-line card-icon"></i><span>锁屏拍立得</span></div>
+                    <div class="input-bubble"><span class="bubble-label">文字</span><input type="text" id="input-vibe-text" placeholder="My Vibe"></div>
                     <div class="upload-row">
                         <div class="upload-item">
                             <span class="sub-label">左图</span>
-                            <div class="upload-box" onclick="document.getElementById('file-lock-1').click()">
-                                <input type="text" id="input-lock-img-1" placeholder="链接 / 上传" readonly>
-                                <div class="upload-icon"><i class="ri-image-add-line"></i></div>
-                            </div>
+                            <div class="upload-box" onclick="document.getElementById('file-lock-1').click()"><input type="text" id="input-lock-img-1" placeholder="链接 / 上传" readonly><div class="upload-icon"><i class="ri-image-add-line"></i></div></div>
                             <input type="file" id="file-lock-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-1')">
                         </div>
                         <div class="upload-item">
                             <span class="sub-label">右图</span>
-                            <div class="upload-box" onclick="document.getElementById('file-lock-2').click()">
-                                <input type="text" id="input-lock-img-2" placeholder="链接 / 上传" readonly>
-                                <div class="upload-icon"><i class="ri-image-add-line"></i></div>
-                            </div>
+                            <div class="upload-box" onclick="document.getElementById('file-lock-2').click()"><input type="text" id="input-lock-img-2" placeholder="链接 / 上传" readonly><div class="upload-icon"><i class="ri-image-add-line"></i></div></div>
                             <input type="file" id="file-lock-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-lock-img-2')">
                         </div>
                     </div>
                 </div>
-
                 <div class="setting-card">
-                    <div class="card-header">
-                        <i class="ri-image-line card-icon"></i>
-                        <span>桌面大组件</span>
-                    </div>
+                    <div class="card-header"><i class="ri-image-line card-icon"></i><span>桌面大组件</span></div>
                     <div class="upload-stack">
-                        <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()">
-                            <span class="prefix">上图</span>
-                            <input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly>
-                            <div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div>
-                        </div>
+                        <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()"><span class="prefix">上图</span><input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
                         <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
-
-                        <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()">
-                            <span class="prefix">下图</span>
-                            <input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly>
-                            <div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div>
-                        </div>
+                        <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()"><span class="prefix">下图</span><input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
                         <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
                     </div>
                 </div>
-
                 <div class="setting-card">
-                    <div class="card-header">
-                        <i class="ri-apps-line card-icon"></i>
-                        <span>图标更换</span>
-                    </div>
+                    <div class="card-header"><i class="ri-apps-line card-icon"></i><span>图标更换</span></div>
                     <div class="icon-grid-pretty" id="icon-grid-container"></div>
                 </div>
                 <div style="height: 50px;"></div>
@@ -245,16 +197,20 @@
         </div>
 
         <div id="app-worldbook-window" class="app-window hidden" style="background: #f5f1e8;">
+            <div class="window-header" style="background: rgba(245, 241, 232, 0.95); border-bottom: 1px solid #d7ccc8;">
+                <span onclick="closeApp('worldbook')" class="close-btn" style="color: #5d4037;">关闭</span>
+                <h3 style="color: #3e2723;">世界书</h3>
+                <i class="ri-add-line" onclick="openCreateWBModal()" style="font-size: 24px; color: #5d4037; cursor: pointer;"></i>
+            </div>
             <div class="window-content" id="wb-content-area" style="padding: 0; height: 100%;"></div>
         </div>
 
         <div id="app-regex-window" class="app-window hidden" style="background: #1e1e1e;">
-            <div class="window-header" style="background: rgba(30, 30, 30, 0.9); color: white; border-bottom: 1px solid #333;">
+            <div class="window-header" style="background: rgba(30, 30, 30, 0.95); color: white; border-bottom: 1px solid #333;">
                 <span onclick="closeApp('regex')" class="close-btn" style="color: #aaa;">关闭</span>
                 <h3 style="color: #fff;">正则脚本</h3>
-                <span style="width: 30px;"></span>
+                <i class="ri-add-line" onclick="openCreateRegexModal()" style="font-size: 24px; color: #07c160; cursor: pointer;"></i>
             </div>
-            
             <div class="regex-tab-bar">
                 <div class="re-tab active" data-tab="global" onclick="switchRegexTab('global')">
                     <i class="ri-earth-line"></i> 全局
@@ -263,37 +219,23 @@
                     <i class="ri-user-settings-line"></i> 角色
                 </div>
             </div>
-
             <div class="window-content" id="re-content-area" style="padding: 15px;"></div>
         </div>
 
         <div id="app-wechat-window" class="app-window hidden" style="background: #ededed;">
             <div class="wechat-header">
-                <div class="wc-header-left" onclick="closeApp('wechat')">
-                    <i class="ri-arrow-left-s-line"></i>
-                    <span>微信</span> 
-                </div>
+                <div class="wc-header-left" onclick="closeApp('wechat')"><i class="ri-arrow-left-s-line"></i><span>微信</span></div>
                 <span class="wc-header-title">消息</span>
-                <div class="wc-header-right">
-                    <i class="ri-add-line" onclick="testAddCharacter()" style="font-size: 26px;"></i>
-                </div>
+                <div class="wc-header-right"><i class="ri-add-line" onclick="testAddCharacter()" style="font-size: 26px;"></i></div>
             </div>
-
             <div id="wc-action-sheet" class="wc-action-sheet hidden">
                 <div class="wc-sheet-content">
-                    <div class="wc-sheet-item" onclick="triggerImport()">
-                        <i class="ri-file-upload-line" style="color: #07c160;"></i>
-                        <span>导入角色卡 (PNG)</span>
-                        <input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
-                    </div>
-                    <div class="wc-sheet-item" onclick="openCreateModal()">
-                        <i class="ri-user-add-line" style="color: #2b2b2b;"></i>
-                        <span>手动新建角色</span>
-                    </div>
+                    <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
+                    <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
                     <div class="wc-sheet-cancel" onclick="hideActionSheet()">取消</div>
                 </div>
             </div>
-
+            
             <div id="wc-char-modal" class="wc-modal-overlay hidden">
                 <div class="wc-char-card">
                     <div class="wc-card-header">
@@ -306,6 +248,7 @@
                             <div class="upload-hint"><i class="ri-camera-fill"></i></div>
                             <input type="file" id="manual-avatar-input" accept="image/*" style="display:none" onchange="previewModalAvatar(this)">
                         </div>
+                        
                         <div class="wc-form-group">
                             <label>名字</label>
                             <input type="text" id="modal-char-name" placeholder="角色名字">
@@ -314,53 +257,140 @@
                             <label>开场白</label>
                             <textarea id="modal-char-intro" rows="3" placeholder="打个招呼吧..."></textarea>
                         </div>
+
+                        <div id="parse-extra-info" style="width: 100%; margin-top: 5px;"></div>
                     </div>
                     <div class="wc-card-footer">
                         <button class="btn-confirm" onclick="confirmSaveCharacter()">确认添加</button>
                     </div>
                 </div>
             </div>
-
+            
             <div class="wechat-content">
-                <div class="wc-search-box">
-                    <div class="wc-search-inner"><i class="ri-search-line"></i> 搜索</div>
-                </div>
+                <div class="wc-search-box"><div class="wc-search-inner"><i class="ri-search-line"></i> 搜索</div></div>
                 <div class="wc-chat-list" id="wc-chat-list"></div>
             </div>
-
             <div class="wc-tab-bar">
                 <div class="wc-tab active"><i class="ri-message-3-fill"></i><span>微信</span></div>
                 <div class="wc-tab"><i class="ri-contacts-book-2-line"></i><span>通讯录</span></div>
                 <div class="wc-tab"><i class="ri-compass-3-line"></i><span>发现</span></div>
                 <div class="wc-tab"><i class="ri-user-line"></i><span>我</span></div>
             </div>
-
             <div id="wechat-chat-room" class="wc-chat-room hidden">
-                <div class="wc-room-header">
-                    <i class="ri-arrow-left-s-line" onclick="closeChat()"></i>
-                    <span class="wc-room-title" id="chat-room-title">...</span>
-                    <i class="ri-more-fill"></i>
-                </div>
-                
+                <div class="wc-room-header"><i class="ri-arrow-left-s-line" onclick="closeChat()"></i><span class="wc-room-title" id="chat-room-title">...</span><i class="ri-more-fill"></i></div>
                 <div class="wc-room-content" id="chat-room-content"></div>
-
-                <div class="wc-room-footer">
-                    <i class="ri-voiceprint-line"></i>
-                    <input type="text" class="wc-input">
-                    <i class="ri-emotion-line"></i>
-                    <i class="ri-add-circle-line"></i>
+                <div class="wc-room-footer"><i class="ri-voiceprint-line"></i><input type="text" class="wc-input"><i class="ri-emotion-line"></i><i class="ri-add-circle-line"></i></div>
+            </div>
+        </div>
+<div id="wb-detail-modal" class="wc-modal-overlay hidden" style="z-index: 2200;">
+            <div class="wc-char-card" style="background: #fffcf5; border: 1px solid #d7ccc8;">
+                <div class="wc-card-header" style="border-bottom-color: #eee;">
+                    <span style="color:#5d4037;">编辑条目</span>
+                    <i class="ri-close-line" onclick="closeWBDetailModal()"></i>
+                </div>
+                <div class="wc-card-body">
+                    <div class="wc-form-group">
+                        <label>关键词 (Keys)</label>
+                        <input type="text" id="wb-detail-key" placeholder="例如: 帝国, 魔法">
+                    </div>
+                    <div class="wc-form-group">
+                        <label>内容 (Entry)</label>
+                        <textarea id="wb-detail-content" rows="8" style="background: white; border:1px solid #e0e0e0;"></textarea>
+                    </div>
+                </div>
+                <div class="wc-card-footer">
+                    <button class="btn-confirm" onclick="saveEntryDetail()" style="background: #8d6e63;">保存修改</button>
                 </div>
             </div>
-
         </div>
-        
+        <div id="wb-add-entry-modal" class="wc-modal-overlay hidden" style="z-index: 2100;">
+            <div class="wc-char-card" style="background: #fffcf5; border: 1px solid #d7ccc8;">
+                <div class="wc-card-header" style="border-bottom-color: #eee;">
+                    <span style="color:#5d4037;">添加设定</span>
+                    <i class="ri-close-line" onclick="document.getElementById('wb-add-entry-modal').classList.add('hidden')"></i>
+                </div>
+                <div class="wc-card-body">
+                    <div class="wc-form-group">
+                        <label>关键词 (Keys)</label>
+                        <input type="text" id="wb-new-key" placeholder="例如: 帝国, 魔法">
+                    </div>
+                    <div class="wc-form-group">
+                        <label>内容 (Entry)</label>
+                        <textarea id="wb-new-content" rows="5" placeholder="输入详细设定..."></textarea>
+                    </div>
+                </div>
+                <div class="wc-card-footer">
+                    <button class="btn-confirm" onclick="saveNewWBEntry()" style="background: #8d6e63;">保存条目</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="wb-create-book-modal" class="wc-modal-overlay hidden" style="z-index: 2100;">
+            <div class="wc-char-card" style="background: #fffcf5; border: 1px solid #d7ccc8;">
+                <div class="wc-card-header" style="border-bottom-color: #eee;">
+                    <span style="color:#5d4037;">新建书本 (创建角色)</span>
+                    <i class="ri-close-line" onclick="document.getElementById('wb-create-book-modal').classList.add('hidden')"></i>
+                </div>
+                <div class="wc-card-body">
+                    <div class="wc-form-group">
+                        <label>书名 / 角色名</label>
+                        <input type="text" id="wb-book-name" placeholder="例如: 哈利波特">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="font-size:10px; color:#aaa;">这也会在微信里创建一个新角色</label>
+                    </div>
+                </div>
+                <div class="wc-card-footer">
+                    <button class="btn-confirm" onclick="confirmCreateBook()" style="background: #8d6e63;">创建新书</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="re-add-modal" class="wc-modal-overlay hidden" style="z-index: 2100;">
+            <div class="wc-char-card" style="background: #252526; color: #fff; border: 1px solid #444;">
+                <div class="wc-card-header" style="border-bottom-color: #333;">
+                    <span style="color:#fff;">新建 Regex</span>
+                    <i class="ri-close-line" onclick="document.getElementById('re-add-modal').classList.add('hidden')"></i>
+                </div>
+                <div class="wc-card-body">
+                    <div class="wc-form-group">
+                        <label>作用域</label>
+                        <select id="re-new-scope" onchange="toggleReCharSelect()" style="width:100%; padding:8px; border-radius:6px; background:#333; color:white; border:1px solid #444; outline:none;">
+                            <option value="global">🌐 全局通用</option>
+                            <option value="local">👤 角色专属</option>
+                        </select>
+                    </div>
+                    <div class="wc-form-group hidden" id="re-char-select-group">
+                        <label>选择角色</label>
+                        <select id="re-new-char-select" style="width:100%; padding:8px; border-radius:6px; background:#333; color:white; border:1px solid #444; outline:none;">
+                            </select>
+                    </div>
+
+                    <div class="wc-form-group">
+                        <label>脚本名称</label>
+                        <input type="text" id="re-new-name" placeholder="例如: 去除括号" style="background:#333; color:white; border-color:#444;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label>正则 (Regex)</label>
+                        <input type="text" id="re-new-regex" placeholder="\((.*?)\)" style="background:#333; color:#ce9178; border-color:#444; font-family:monospace;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label>替换 (Replacement)</label>
+                        <input type="text" id="re-new-repl" placeholder="留空则删除" style="background:#333; color:#ce9178; border-color:#444; font-family:monospace;">
+                    </div>
+                </div>
+                <div class="wc-card-footer">
+                    <button class="btn-confirm" onclick="saveNewRegex()" style="background: #07c160;">保存脚本</button>
+                </div>
+            </div>
+        </div>
+
         <div class="home-indicator"></div>
     </div>
     
     <script src="wechat.js"></script>
     <script src="theme.js"></script>
     <script src="script.js"></script>
-    
     <script src="WorldBook.js"></script>
     <script src="regular.js"></script>
 </body>

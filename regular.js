@@ -1,139 +1,199 @@
-// --- 🛠️ regular.js: 正则脚本管理器 ---
+// --- 🛠️ regular.js: 正则脚本管理器 (可编辑版) ---
 
-// 预设的全局正则 (你可以自己加)
-const globalRegexScripts = [
-    { name: "Markdown 加粗优化", regex: "\\*\\*", replace: "<b>", placement: "Global" },
-    { name: "去除多余空行", regex: "\\n\\n+", replace: "\\n", placement: "Global" }
+window.globalRegexScripts = [
+    { name: "Markdown 加粗", regex: "\\*\\*", replace: "<b>", placement: "Global" },
 ];
 
-let currentRegexTab = 'global'; // 当前标签页: 'global' 或 'local'
-let selectedLocalCharId = null; // 当前查看的角色 ID
+let currentRegexTab = 'global'; 
+let selectedLocalCharId = null; 
+let editingScriptIndex = -1; // 记录正在编辑哪一个
 
-// 1. 初始化正则 App
 function initRegexApp() {
-    // 默认打开全局
     switchRegexTab('global');
 }
 
-// 2. 切换标签页
 function switchRegexTab(tab) {
     currentRegexTab = tab;
-    
-    // 更新顶部按钮样式
-    const tabs = document.querySelectorAll('.re-tab');
-    if(tabs.length > 0) {
-        tabs.forEach(t => t.classList.remove('active'));
-        const activeBtn = document.querySelector(`.re-tab[data-tab="${tab}"]`);
-        if(activeBtn) activeBtn.classList.add('active');
-    }
-
+    document.querySelectorAll('.re-tab').forEach(t => t.classList.remove('active'));
+    const btn = document.querySelector(`.re-tab[data-tab="${tab}"]`);
+    if(btn) btn.classList.add('active');
     renderRegexContent();
 }
 
-// 3. 渲染内容区
 function renderRegexContent() {
     const container = document.getElementById('re-content-area');
     if (!container) return;
     container.innerHTML = '';
 
-    // --- A. 全局模式 ---
     if (currentRegexTab === 'global') {
-        renderScriptList(container, globalRegexScripts, "全局脚本");
-    } 
-    // --- B. 局部模式 (角色专属) ---
-    else {
-        // 如果没有角色
+        renderScriptList(container, window.globalRegexScripts, "全局脚本", true);
+    } else {
         if (!window.myCharacters || window.myCharacters.length === 0) {
             container.innerHTML = `<div class="re-empty">请先在微信导入角色</div>`;
             return;
         }
 
-        // 1. 渲染角色选择器 (类似酒馆顶部的头像栏)
         const charSelector = document.createElement('div');
         charSelector.className = 're-char-selector';
         
-        // 默认选中第一个角色，或者之前选中的
         if (!selectedLocalCharId && window.myCharacters.length > 0) {
             selectedLocalCharId = window.myCharacters[0].id;
         }
 
-        let avatarsHtml = '';
         window.myCharacters.forEach(char => {
             const isActive = char.id === selectedLocalCharId ? 'active' : '';
-            avatarsHtml += `
+            charSelector.innerHTML += `
                 <img src="${char.avatar}" 
                      class="re-char-avatar ${isActive}" 
-                     onclick="selectRegexChar('${char.id}')"
-                     title="${char.name}">
+                     onclick="selectRegexChar('${char.id}')">
             `;
         });
-        charSelector.innerHTML = avatarsHtml;
         container.appendChild(charSelector);
 
-        // 2. 获取当前选中角色的脚本
         const currentChar = window.myCharacters.find(c => c.id === selectedLocalCharId);
         if (currentChar) {
             const scripts = currentChar.regex || [];
             if (scripts.length === 0) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 're-empty';
-                emptyMsg.innerText = `${currentChar.name} 没有携带正则脚本`;
-                container.appendChild(emptyMsg);
+                container.innerHTML += `<div class="re-empty">${currentChar.name} 无脚本<br><span onclick="openCreateRegexModal()" style="color:#07c160">新建</span></div>`;
             } else {
-                renderScriptList(container, scripts, `${currentChar.name} 的专属脚本`);
+                renderScriptList(container, scripts, `${currentChar.name} 的脚本`, false);
             }
         }
     }
 }
 
-// 4. 切换查看的角色
 window.selectRegexChar = function(charId) {
     selectedLocalCharId = charId;
-    renderRegexContent(); // 重新渲染
+    renderRegexContent(); 
 }
 
-// 5. 通用：渲染脚本卡片列表
-function renderScriptList(container, scripts, title) {
-    // 标题
+// ⚡️ 渲染列表 (加了 onclick 事件)
+function renderScriptList(container, scripts, title, isGlobal) {
     const titleEl = document.createElement('div');
     titleEl.className = 're-list-title';
     titleEl.innerText = title;
     container.appendChild(titleEl);
 
-    scripts.forEach(script => {
-        // 兼容不同格式 (SillyTavern 格式 vs 简化格式)
-        const name = script.scriptName || script.name || "未命名脚本";
+    scripts.forEach((script, index) => {
+        const name = script.name || "未命名";
+        // 确保显示为字符串，防止显示 undefined
         const regexStr = script.regex || "";
         const replaceStr = script.replace || "";
-        const placement = script.placement ? `<span class="re-tag">${script.placement}</span>` : '';
-
+        
         const card = document.createElement('div');
         card.className = 're-script-card';
+        // 👇 点击卡片 -> 打开编辑
+        card.onclick = () => openEditRegex(index, isGlobal);
+        
         card.innerHTML = `
             <div class="re-card-header">
                 <span class="re-name">${name}</span>
-                ${placement}
+                <span class="re-tag">${script.placement || 'Script'}</span>
             </div>
             <div class="re-code-row">
-                <span class="re-label">Regex:</span>
-                <code class="re-code">/${escapeHtml(regexStr)}/g</code>
-            </div>
-            <div class="re-code-row">
-                <span class="re-label">Repl:</span>
-                <code class="re-code">"${escapeHtml(replaceStr)}"</code>
+                <span class="re-label">Re:</span>
+                <code class="re-code">/${escapeHtml(regexStr.toString().substring(0, 30))}.../</code>
             </div>
         `;
         container.appendChild(card);
     });
 }
 
-// 辅助：防止 HTML 注入
 function escapeHtml(text) {
     if (!text) return "";
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;");
+}
+
+// --- 编辑/新建 逻辑 ---
+
+function openCreateRegexModal() {
+    editingScriptIndex = -1; // -1 代表新建
+    document.getElementById('re-new-name').value = '';
+    document.getElementById('re-new-regex').value = '';
+    document.getElementById('re-new-repl').value = '';
+    document.getElementById('re-add-modal').classList.remove('hidden');
+}
+
+// ⚡️ 打开编辑弹窗
+function openEditRegex(index, isGlobal) {
+    editingScriptIndex = index;
+    // 找到对应的数据
+    let script;
+    if (isGlobal) script = window.globalRegexScripts[index];
+    else {
+        const char = window.myCharacters.find(c => c.id === selectedLocalCharId);
+        script = char.regex[index];
+    }
+
+    document.getElementById('re-new-name').value = script.name;
+    document.getElementById('re-new-regex').value = script.regex;
+    document.getElementById('re-new-repl').value = script.replace;
+    
+    // 顺便把作用域选对
+    document.getElementById('re-new-scope').value = isGlobal ? 'global' : 'local';
+    toggleReCharSelect();
+    
+    document.getElementById('re-add-modal').classList.remove('hidden');
+}
+
+function saveNewRegex() {
+    const scope = document.getElementById('re-new-scope').value;
+    const name = document.getElementById('re-new-name').value;
+    const regex = document.getElementById('re-new-regex').value;
+    const repl = document.getElementById('re-new-repl').value;
+    
+    if (!regex) { alert("正则不能为空"); return; }
+
+    const scriptData = {
+        name: name,
+        regex: regex,
+        replace: repl,
+        placement: scope === 'global' ? 'Global' : 'Character'
+    };
+
+    // 保存逻辑：新建 vs 更新
+    if (scope === 'global') {
+        if (editingScriptIndex > -1 && currentRegexTab === 'global') {
+            window.globalRegexScripts[editingScriptIndex] = scriptData; // 更新
+        } else {
+            window.globalRegexScripts.push(scriptData); // 新增
+        }
+    } else {
+        const charId = document.getElementById('re-new-char-select').value || selectedLocalCharId;
+        const char = window.myCharacters.find(c => c.id === charId);
+        if (char) {
+            if (!char.regex) char.regex = [];
+            if (editingScriptIndex > -1 && currentRegexTab === 'local') {
+                char.regex[editingScriptIndex] = scriptData; // 更新
+            } else {
+                char.regex.push(scriptData); // 新增
+            }
+        }
+    }
+    
+    document.getElementById('re-add-modal').classList.add('hidden');
+    renderRegexContent();
+}
+
+// 辅助：切换下拉框显隐 (需要 HTML 配合)
+window.toggleReCharSelect = function() {
+    const scope = document.getElementById('re-new-scope').value;
+    const charGroup = document.getElementById('re-char-select-group');
+    const charSelect = document.getElementById('re-new-char-select');
+
+    if (scope === 'local') {
+        charGroup.classList.remove('hidden');
+        charSelect.innerHTML = '';
+        if (window.myCharacters && window.myCharacters.length > 0) {
+            window.myCharacters.forEach(char => {
+                const opt = document.createElement('option');
+                opt.value = char.id;
+                opt.innerText = char.name;
+                charSelect.appendChild(opt);
+            });
+            if (selectedLocalCharId) charSelect.value = selectedLocalCharId;
+        }
+    } else {
+        charGroup.classList.add('hidden');
+    }
 }
