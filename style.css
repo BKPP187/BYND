@@ -198,3 +198,22 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 .chat-config-pill { margin: 10px auto 0; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; font-size: 10px; color: #999; display: flex; gap: 10px; }
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
+/* --- style.css 追加内容：自动深色模式 --- */
+
+/* 当父容器 (桌面或锁屏) 判定为深色背景时 */
+.dark-mode .app-item span,       /* 桌面图标文字 */
+.dark-mode .dock-label,          /* 底部 Dock 栏文字 */
+.dark-mode .ls-date,             /* 锁屏日期 */
+.dark-mode .ls-vibe-text {       /* 锁屏个性签名 */
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8); /* 加重阴影，防止壁纸太花看不清 */
+    font-weight: 500;
+}
+
+/* 顺便让日历组件也适配一下 (如果需要) */
+.dark-mode .cal-day, 
+.dark-mode .cal-date,
+.dark-mode .cal-month {
+    /* 你的日历背景是黑的，文字本来就是白的，这里可以不动 */
+    /* 或者如果你把日历背景改透明了，这里也能自动变白 */
+}

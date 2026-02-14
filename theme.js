@@ -1,4 +1,4 @@
-// --- 🎨 theme.js: 终极完美版 (大图标 + 圆角修复) ---
+// --- 🎨 theme.js: 最终增强版 (全屏亮度检测 + 自动白字) ---
 
 // 1. 初始化图标网格
 function initIconGrid() {
@@ -121,7 +121,7 @@ function loadSavedSettings() {
     } catch (e) { console.error(e); }
 }
 
-// 4. 💾 保存设置 (✨ 修复：改回 12px 圆角！)
+// 4. 💾 保存设置
 function saveTheme() {
     const wpLock = document.getElementById('input-wp-lock').value;
     const wpHome = document.getElementById('input-wp-home').value;
@@ -144,6 +144,7 @@ function saveTheme() {
         homeScreen.style.backgroundSize = "cover";
     }
 
+    // 检测亮度
     if (wpLock) checkImageBrightness(wpLock, 'lock');
     else checkImageBrightness("", 'lock');
     if (wpHome) checkImageBrightness(wpHome, 'home');
@@ -171,7 +172,6 @@ function saveTheme() {
         if (!url) return; 
         if (index < 8) { 
             if (desktopIcons[index]) {
-                // 👇👇👇 这里的改动！border-radius: 12px
                 desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                 desktopIcons[index].style.padding = "0"; 
                 desktopIcons[index].style.background = "transparent";
@@ -196,7 +196,7 @@ function saveTheme() {
         localStorage.removeItem('my_theme_data'); 
         localStorage.setItem('my_theme_data', JSON.stringify(themeData));
         
-        alert("✅ 图标已变圆！(缓存已清理)");
+        alert("✅ 保存成功！文字颜色已自动适配");
         if (typeof closeApp === 'function') closeApp('theme');
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
@@ -241,7 +241,6 @@ function initTheme() {
             data.icons.forEach((url, index) => {
                 if (!url) return;
                 if (index < 8 && desktopIcons[index]) {
-                    // 👇 初始化时也要圆角 12px
                     desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                     desktopIcons[index].style.padding = "0"; 
                     desktopIcons[index].style.background = "transparent";
@@ -259,7 +258,7 @@ function initTheme() {
     } catch(e) { console.error(e); }
 }
 
-// 6. 自动变色大脑
+// 6. 🧠 自动变色大脑 (升级版：检测全图)
 window.lockIsDark = false; 
 window.homeIsDark = false;
 
@@ -275,33 +274,53 @@ function checkImageBrightness(src, type) {
     img.onload = function() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
+        // 👇 关键修改：采样整张图片 (缩略为 50x50 以提高性能)
+        canvas.width = 50;
         canvas.height = 50; 
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, 50, 50);
+        
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         let r, g, b, avg;
         let colorSum = 0;
+        
         for (let i = 0, len = data.length; i < len; i += 4) {
             r = data[i]; g = data[i + 1]; b = data[i + 2];
             avg = Math.floor((r + g + b) / 3);
             colorSum += avg;
         }
+        
         const brightness = Math.floor(colorSum / (canvas.width * canvas.height));
-        applyBrightnessResult(brightness < 150, type);
+        // 阈值：亮度 < 140 算深色 (可以根据需要调整)
+        applyBrightnessResult(brightness < 140, type);
     }
 }
 
 function applyBrightnessResult(isDark, type) {
     const statusBar = document.querySelector('.status-bar');
+    
     if (type === 'lock') {
         window.lockIsDark = isDark;
         const lockScreen = document.getElementById('lock-screen');
+        if (isDark) {
+            lockScreen.classList.add('dark-mode'); // 给锁屏加深色标记
+        } else {
+            lockScreen.classList.remove('dark-mode');
+        }
+        
         if (!lockScreen.classList.contains('unlocked')) {
             isDark ? statusBar.classList.add('white-text') : statusBar.classList.remove('white-text');
         }
-    } else if (type === 'home') {
+    } 
+    else if (type === 'home') {
         window.homeIsDark = isDark;
+        const homeScreen = document.getElementById('home-screen');
+        if (isDark) {
+            homeScreen.classList.add('dark-mode'); // ✨ 给桌面加深色标记
+        } else {
+            homeScreen.classList.remove('dark-mode');
+        }
+
         const lockScreen = document.getElementById('lock-screen');
         if (lockScreen.classList.contains('unlocked')) {
             isDark ? statusBar.classList.add('white-text') : statusBar.classList.remove('white-text');
