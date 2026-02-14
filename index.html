@@ -171,6 +171,7 @@
                         <input type="file" id="file-wp-home" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-home')">
                     </div>
                 </div>
+
                 <div class="setting-card">
                     <div class="card-header">
                         <i class="ri-music-2-line card-icon"></i>
@@ -241,6 +242,29 @@
                 </div>
                 <div style="height: 50px;"></div>
             </div>
+        </div>
+
+        <div id="app-worldbook-window" class="app-window hidden" style="background: #f5f1e8;">
+            <div class="window-content" id="wb-content-area" style="padding: 0; height: 100%;"></div>
+        </div>
+
+        <div id="app-regex-window" class="app-window hidden" style="background: #1e1e1e;">
+            <div class="window-header" style="background: rgba(30, 30, 30, 0.9); color: white; border-bottom: 1px solid #333;">
+                <span onclick="closeApp('regex')" class="close-btn" style="color: #aaa;">关闭</span>
+                <h3 style="color: #fff;">正则脚本</h3>
+                <span style="width: 30px;"></span>
+            </div>
+            
+            <div class="regex-tab-bar">
+                <div class="re-tab active" data-tab="global" onclick="switchRegexTab('global')">
+                    <i class="ri-earth-line"></i> 全局
+                </div>
+                <div class="re-tab" data-tab="local" onclick="switchRegexTab('local')">
+                    <i class="ri-user-settings-line"></i> 角色
+                </div>
+            </div>
+
+            <div class="window-content" id="re-content-area" style="padding: 15px;"></div>
         </div>
 
         <div id="app-wechat-window" class="app-window hidden" style="background: #ededed;">
@@ -329,11 +353,15 @@
             </div>
 
         </div>
+        
         <div class="home-indicator"></div>
     </div>
     
     <script src="wechat.js"></script>
     <script src="theme.js"></script>
     <script src="script.js"></script>
+    
+    <script src="WorldBook.js"></script>
+    <script src="regular.js"></script>
 </body>
 </html>

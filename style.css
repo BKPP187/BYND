@@ -217,3 +217,48 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     /* 你的日历背景是黑的，文字本来就是白的，这里可以不动 */
     /* 或者如果你把日历背景改透明了，这里也能自动变白 */
 }
+/* === 📖 WorldBook 样式 === */
+.wb-shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 30px 20px; }
+.wb-book { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; animation: popIn 0.3s ease; }
+.wb-cover { width: 85px; height: 115px; background: #5d4037; border-radius: 4px 8px 8px 4px; box-shadow: 4px 4px 12px rgba(0,0,0,0.3), inset 3px 0 10px rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+.wb-cover::before { content: ''; position: absolute; left: 5px; top: 0; width: 2px; height: 100%; background: rgba(0,0,0,0.2); z-index: 1; }
+.wb-cover img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+.wb-title { font-size: 12px; font-weight: bold; color: #5d4037; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 5px; }
+.wb-empty { text-align: center; color: #a1887f; margin-top: 60px; }
+
+/* 书本详情 */
+.wb-nav-bar { height: 60px; padding: 0 15px; display: flex; align-items: center; justify-content: space-between; background: #ece6d8; border-bottom: 1px solid #d7ccc8; color: #5d4037; font-weight: bold; font-size: 16px; }
+.wb-nav-bar i { font-size: 24px; cursor: pointer; padding: 5px; }
+.wb-detail-scroll { flex: 1; overflow-y: auto; padding: 20px; background: #f5f1e8; }
+.wb-entry-list { display: flex; flex-direction: column; gap: 15px; padding-bottom: 40px; }
+.wb-entry-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); position: relative; }
+.wb-entry-card::before { content: ''; position: absolute; top: 15px; left: 0; width: 3px; height: 20px; background: #8d6e63; border-radius: 0 3px 3px 0; }
+.wb-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.wb-card-title { font-weight: bold; color: #3e2723; font-size: 14px; }
+.wb-keys { font-size: 11px; background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffe0b2; }
+.wb-text { font-size: 13px; color: #4e342e; line-height: 1.6; white-space: pre-wrap; text-align: justify; }
+
+/* === 🛠️ Regex 样式 === */
+.regex-tab-bar { display: flex; background: #252526; border-bottom: 1px solid #333; }
+.re-tab { flex: 1; text-align: center; padding: 12px 0; font-size: 13px; color: #888; cursor: pointer; transition: all 0.2s; font-weight: 500;display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px; }
+    .re-tab i {
+    font-size: 16px; /* 图标稍微大一点点 */
+}
+.re-tab.active { background: #1e1e1e; color: #fff; border-bottom: 2px solid #07c160; }
+
+.re-char-selector { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; border-bottom: 1px solid #333; }
+.re-char-avatar { width: 45px; height: 45px; border-radius: 10px; object-fit: cover; opacity: 0.5; border: 2px solid transparent; transition: all 0.2s; }
+.re-char-avatar.active { opacity: 1; border-color: #07c160; transform: scale(1.1); }
+
+.re-list-title { color: #555; font-size: 12px; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+.re-script-card { background: #252526; border-left: 3px solid #07c160; border-radius: 4px; padding: 12px; margin-bottom: 12px; font-family: 'Consolas', monospace; }
+.re-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
+.re-name { font-size: 14px; color: #e0e0e0; font-weight: bold; }
+.re-tag { font-size: 10px; background: #333; color: #aaa; padding: 2px 6px; border-radius: 3px; }
+.re-code-row { display: flex; gap: 8px; margin-top: 4px; align-items: baseline; }
+.re-label { color: #569cd6; font-size: 11px; font-weight: bold; min-width: 40px; }
+.re-code { font-size: 11px; color: #ce9178; background: #1e1e1e; padding: 2px 4px; border-radius: 3px; word-break: break-all; font-family: monospace; }
+.re-empty { text-align: center; color: #666; margin-top: 50px; font-size: 13px; }

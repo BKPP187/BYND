@@ -1,14 +1,12 @@
-// --- 📱 script.js: 核心系统与路由 (修复版) ---
+// --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. 初始化核心功能
     initClock();
     initBattery();
     initDate();
     initLockScreen();
     initCalendar();
     
-    // 2. 初始化其他模块
     if (typeof initIconGrid === 'function') initIconGrid();
     if (typeof initTheme === 'function') initTheme(); 
 });
@@ -57,16 +55,12 @@ function initDate() {
 function unlockPhone() {
     document.getElementById('lock-screen').classList.add('unlocked');
     document.getElementById('home-screen').classList.remove('hidden');
-
-    // 👇 修复：这段逻辑必须在函数肚子里面！
+    
+    // 触发变色检查
     const statusBar = document.querySelector('.status-bar');
-    // 检查 theme.js 是否计算出了结果
     if (typeof window.homeIsDark !== 'undefined') {
-        if (window.homeIsDark) {
-            statusBar.classList.add('white-text');
-        } else {
-            statusBar.classList.remove('white-text');
-        }
+        if (window.homeIsDark) statusBar.classList.add('white-text');
+        else statusBar.classList.remove('white-text');
     }
 }
 
@@ -99,9 +93,10 @@ function initCalendar() {
     }
 }
 
-// --- 统一路由控制 (App Switcher) ---
+// --- 🌟 路由控制 (这里修复了！) ---
 
 function openApp(appName) {
+    // 1. 美化 App
     if (appName === 'theme') {
         const win = document.getElementById('app-theme-window');
         if (win) { 
@@ -110,6 +105,7 @@ function openApp(appName) {
             if (typeof loadSavedSettings === 'function') loadSavedSettings();
         }
     } 
+    // 2. 微信 App
     else if (appName === 'wechat') {
         const win = document.getElementById('app-wechat-window');
         if (win) { 
@@ -118,27 +114,45 @@ function openApp(appName) {
             if (typeof renderChatList === 'function') renderChatList(); 
         }
     } 
-    else if (appName === 'preset') {
-        alert("预设功能开发中... \n这里将配置正则和API！");
-    } 
+    // 3. 📖 世界书 App (新增)
+    else if (appName === 'worldbook') {
+        const win = document.getElementById('app-worldbook-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            if (typeof initWorldBook === 'function') initWorldBook();
+        }
+    }
+    // 4. 🛠️ 正则 App (新增)
+    else if (appName === 'regex') {
+        const win = document.getElementById('app-regex-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            if (typeof initRegexApp === 'function') initRegexApp();
+        }
+    }
+    // 其他未开发
     else {
-        alert("正在打开: " + appName);
+        alert("正在打开: " + appName + " (功能开发中...)");
     }
 }
 
 function closeApp(appName) {
-    if (appName === 'theme') {
-        const win = document.getElementById('app-theme-window');
-        if (win) { win.classList.remove('active'); setTimeout(() => win.classList.add('hidden'), 300); }
-    } 
-    else if (appName === 'wechat') {
-        const win = document.getElementById('app-wechat-window');
-        if (win) { 
-            win.classList.remove('active'); 
-            setTimeout(() => win.classList.add('hidden'), 300);
-            setTimeout(() => {
-                if (typeof closeChat === 'function') closeChat();
-            }, 300);
+    let winId = '';
+    if (appName === 'theme') winId = 'app-theme-window';
+    else if (appName === 'wechat') winId = 'app-wechat-window';
+    else if (appName === 'worldbook') winId = 'app-worldbook-window';
+    else if (appName === 'regex') winId = 'app-regex-window';
+
+    const win = document.getElementById(winId);
+    if (win) { 
+        win.classList.remove('active'); 
+        setTimeout(() => win.classList.add('hidden'), 300); 
+        
+        // 如果是微信，还要顺便关掉聊天房
+        if (appName === 'wechat' && typeof closeChat === 'function') {
+            setTimeout(closeChat, 300);
         }
     }
 }
