@@ -1,12 +1,9 @@
-// --- 🟢 wechat.js: 微信 & 酒馆角色系统 (内存保险箱版) ---
+// --- 🟢 wechat.js: 微信 & 酒馆角色系统 (完美适配版) ---
 
-// 1. 角色数据库
 window.myCharacters = window.myCharacters || []; 
-
-// 🔥 核心修复：使用全局变量代替 DOM 元素，100% 保证数据不丢失
 window.TEMP_PARSED_DATA = null;
 
-// --- A. 界面渲染与聊天逻辑 ---
+// --- A. 界面渲染 ---
 
 function renderChatList() {
     const listEl = document.getElementById('wc-chat-list');
@@ -52,128 +49,37 @@ function processMsgContent(content, char) {
     if (!content) return "";
     let text = content;
 
-    // 1. 基础宏替换 ({{char}} 和 {{user}})
     text = text.replace(/\{\{char\}\}/gi, char.name);
     text = text.replace(/\{\{user\}\}/gi, "我");
 
-    // 2. 获取所有脚本 (全局 + 角色专属)
     const globalScripts = window.globalRegexScripts || [];
     const charScripts = char.regex || [];
     const allScripts = [...globalScripts, ...charScripts];
 
-    // 3. 逐个执行正则脚本
     allScripts.forEach(script => {
         try {
-            // 兼容各种字段名 (不同版本的酒馆卡字段可能不同)
-            const regexStr = script.regex || script.regex_pattern || script.pattern;
-            let replaceStr = script.replace || script.replace_pattern || script.replacement || "";
+            const regexStr = script.regex;
+            let replaceStr = script.replace || "";
 
             if (regexStr) {
-                // A. 处理正则 Flag (例如 /abc/gim)
                 let pattern = regexStr;
-                let flags = 'g'; // 默认全局匹配
+                let flags = 'g'; 
                 
-                // 如果是 /pattern/flags 格式
+                // 处理 /abc/gim 格式
                 if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
                     const lastSlash = pattern.lastIndexOf('/');
                     const flagStr = pattern.substring(lastSlash + 1);
-                    // 过滤掉 JS 不支持的 flag，保留 g, i, m, s, u, y
                     flags = flagStr.replace(/[^gimsuy]/g, '');
                     pattern = pattern.substring(1, lastSlash);
                 }
 
                 const re = new RegExp(pattern, flags);
 
-                // B. 🔥 核心修复：SillyTavern 语法转 JS 语法
-                // 酒馆使用 {{match}} 代表匹配到的内容，JS 使用 $&
-                if (replaceStr && typeof replaceStr === 'string') {
-                    // 将 {{match}} 替换为 $&
-                    replaceStr = replaceStr.replace(/\{\{match\}\}/gi, '$&');
-                    
-                    // 注意：酒馆的 $1, $2 等捕获组在 JS 里是原生支持的，无需修改
-                }
-
-                // C. 执行替换
-                text = text.replace(re, replaceStr);
-            }
-        } catch (e) {
-            console.warn("正则执行失败:", script.name, e);
-        }
-    });
-
-    // 4. 换行转 HTML
-    text = text.replace(/\n/g, '<br>');
-    return text;
-}
-
-function renderChatList() {
-    const listEl = document.getElementById('wc-chat-list');
-    if (!listEl) return;
-    listEl.innerHTML = ''; 
-
-    if (window.myCharacters.length === 0) {
-        listEl.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:300px; color:#ccc;">
-                <i class="ri-chat-smile-2-line" style="font-size:48px; margin-bottom:10px;"></i>
-                <span style="font-size:14px;">暂无消息</span>
-                <span style="font-size:12px; margin-top:5px;">点击右上角 + 导入真实酒馆卡</span>
-            </div>
-        `;
-        return;
-    }
-
-    window.myCharacters.forEach(char => {
-        const item = document.createElement('div');
-        item.className = 'wc-chat-item';
-        item.onclick = () => openChat(char.id); 
-        
-        let previewMsg = char.lastMsg || "";
-        previewMsg = previewMsg.replace(/\{\{char\}\}/gi, char.name).replace(/\{\{user\}\}/gi, "我");
-
-        item.innerHTML = `
-            <div class="wc-avatar"><img src="${char.avatar}"></div>
-            <div class="wc-info">
-                <div class="wc-top">
-                    <span class="wc-name">${char.name}</span>
-                    <span class="wc-time">刚刚</span>
-                </div>
-                <div class="wc-bottom">
-                    <span class="wc-msg">${previewMsg}</span>
-                </div>
-            </div>
-        `;
-        listEl.appendChild(item);
-    });
-}
-
-function processMsgContent(content, char) {
-    if (!content) return "";
-    let text = content;
-
-    text = text.replace(/\{\{char\}\}/gi, char.name);
-    text = text.replace(/\{\{user\}\}/gi, "我");
-
-    const globalScripts = window.globalRegexScripts || [];
-    const charScripts = char.regex || [];
-    const allScripts = [...globalScripts, ...charScripts];
-
-    allScripts.forEach(script => {
-        try {
-            const regexStr = script.regex || script.regex_pattern || script.pattern;
-            let replaceStr = script.replace || script.replace_pattern || script.replacement || "";
-            
-            if (regexStr) {
-                let pattern = regexStr;
-                let flags = 'g'; 
-                if (pattern.startsWith('/') && pattern.lastIndexOf('/') > 0) {
-                    const lastSlash = pattern.lastIndexOf('/');
-                    flags = pattern.substring(lastSlash + 1).replace(/[^gimsuy]/g, '');
-                    pattern = pattern.substring(1, lastSlash);
-                }
-                const re = new RegExp(pattern, flags);
+                // 酒馆语法 {{match}} 转 JS 语法 $&
                 if (replaceStr && typeof replaceStr === 'string') {
                     replaceStr = replaceStr.replace(/\{\{match\}\}/gi, '$&');
                 }
+
                 text = text.replace(re, replaceStr);
             }
         } catch (e) {
@@ -242,7 +148,7 @@ function closeChat() {
     }
 }
 
-// --- B. PNG 解析器 (TavernCardParser) - 🔥 强力修复版 ---
+// --- B. PNG 解析器 (已适配 findRegex / replaceString) ---
 const TavernCardParser = {
     decodeBase64ToUtf8: function(base64) {
         try {
@@ -251,6 +157,19 @@ const TavernCardParser = {
             for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
             return new TextDecoder('utf-8').decode(bytes);
         } catch (e) { return null; }
+    },
+
+    // 辅助：查找任意匹配的键值
+    findField: function(obj, targets) {
+        if (!obj || typeof obj !== 'object') return null;
+        const keys = Object.keys(obj);
+        for (let target of targets) {
+            if (obj[target] !== undefined) return obj[target];
+            const lowerTarget = target.toLowerCase();
+            const foundKey = keys.find(k => k.toLowerCase() === lowerTarget);
+            if (foundKey) return obj[foundKey];
+        }
+        return null;
     },
 
     parse: function(arrayBuffer) {
@@ -289,37 +208,37 @@ const TavernCardParser = {
                                 const raw = JSON.parse(jsonStr);
                                 const d = raw.data || raw; 
                                 
-                                // 🔥 修复1：如果 extensions 是字符串，先解开它
-                                if (d.extensions && typeof d.extensions === 'string') {
-                                    try { d.extensions = JSON.parse(d.extensions); } catch(e) {}
-                                }
+                                // 解包 extensions
+                                let searchTargets = [raw];
+                                if (raw.data) searchTargets.push(raw.data);
+                                searchTargets.forEach(target => {
+                                    if (target.extensions && typeof target.extensions === 'string') {
+                                        try { target.extensions = JSON.parse(target.extensions); } catch(e) {}
+                                    }
+                                });
 
-                                let scripts = [];
+                                let rawScripts = [];
 
-                                // 🔥 修复2：递归查找 regex_scripts，防止藏在深层对象里
+                                // 递归查找脚本数组
                                 function findRegexArray(obj, depth = 0) {
-                                    if (depth > 4 || !obj || typeof obj !== 'object') return null;
+                                    if (depth > 6 || !obj || typeof obj !== 'object') return null;
                                     
-                                    // 直接命中
-                                    if (Array.isArray(obj.regex_scripts)) return obj.regex_scripts;
+                                    // 优先匹配标准键
+                                    const keys = Object.keys(obj);
+                                    const scriptKey = keys.find(k => k.toLowerCase() === 'regex_scripts' || k.toLowerCase() === 'regexscripts');
+                                    if (scriptKey && Array.isArray(obj[scriptKey])) return obj[scriptKey];
                                     
-                                    // 遍历属性寻找
+                                    // 遍历
                                     for (let key in obj) {
-                                        // 跳过大内容字段优化性能
-                                        if (key === 'character_book' || key === 'history' || key === 'story_string') continue;
-
+                                        if (['character_book', 'history', 'story_string'].includes(key)) continue;
                                         const val = obj[key];
-                                        // 可能是数组
-                                        if (Array.isArray(val) && val.length > 0) {
-                                            const first = val[0];
-                                            // 鸭子类型判断：如果看起来像脚本（有 scriptName 或 regex）
-                                            if (first && typeof first === 'object' && 
-                                               (first.scriptName || first.regex || first.regex_pattern || first.regexPattern || first.pattern)) {
+                                        // 鸭子类型：检查数组元素是否包含 'findRegex' 或 'regex'
+                                        if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object') {
+                                            const firstKeys = Object.keys(val[0]).map(k => k.toLowerCase());
+                                            if (firstKeys.some(k => k.includes('regex') || k.includes('pattern'))) {
                                                 return val;
                                             }
-                                        } 
-                                        // 可能是嵌套对象
-                                        else if (typeof val === 'object') {
+                                        } else if (typeof val === 'object') {
                                             const found = findRegexArray(val, depth + 1);
                                             if (found) return found;
                                         }
@@ -327,19 +246,26 @@ const TavernCardParser = {
                                     return null;
                                 }
 
-                                const foundScripts = findRegexArray(d);
-                                if (foundScripts) scripts = foundScripts;
+                                const found = findRegexArray(raw);
+                                if (found) rawScripts = found;
 
-                                scripts = scripts.map((s, idx) => ({
-                                    name: s.scriptName || s.name || s.label || `Script #${idx+1}`,
-                                    // 兼容 regexPattern 写法
-                                    regex: s.regex || s.regex_pattern || s.regexPattern || s.pattern || s.field_regex || "",
-                                    replace: s.replace || s.replace_pattern || s.replacement || s.field_replacement || "",
-                                    placement: (s.placement === 2 || s.placement === "Global" || s.runOnPlaceholders) ? "Global" : "Character"
-                                }));
+                                // 🔥 映射逻辑：加入 findRegex 和 replaceString
+                                const normalizedScripts = rawScripts.map((s, idx) => {
+                                    const get = (arr) => this.findField(s, arr) || "";
+                                    
+                                    return {
+                                        name: get(['scriptName', 'name', 'label']) || `Script #${idx+1}`,
+                                        // 这里加入了 findRegex
+                                        regex: get(['findRegex', 'regex', 'regex_pattern', 'regexPattern', 'pattern']), 
+                                        // 这里加入了 replaceString
+                                        replace: get(['replaceString', 'regexReplace', 'replace', 'replacement', 'substituteRegex']),
+                                        // 简单的位置判断
+                                        placement: "Global"
+                                    };
+                                });
 
-                                // 过滤无效脚本
-                                scripts = scripts.filter(s => s.regex && s.regex.trim() !== "");
+                                // 过滤无效项
+                                const validScripts = normalizedScripts.filter(s => s.regex && s.regex.trim() !== "");
 
                                 charData = {
                                     name: d.name,
@@ -347,7 +273,7 @@ const TavernCardParser = {
                                     first_mes: d.first_mes,
                                     avatar: "", 
                                     worldBook: d.character_book?.entries || d.character_book || [],
-                                    regex: scripts 
+                                    regex: validScripts 
                                 };
                             } catch(e) { console.error("JSON解析失败", e); }
                         }
@@ -361,7 +287,7 @@ const TavernCardParser = {
     }
 };
 
-// --- C. 交互与导入系统 (内存存储版) ---
+// --- C. 交互系统 ---
 
 function testAddCharacter() {
     const sheet = document.getElementById('wc-action-sheet');
@@ -382,17 +308,13 @@ function triggerImport() {
 function openCreateModal() {
     hideActionSheet();
     const modal = document.getElementById('wc-char-modal');
-    
     document.getElementById('modal-title').innerText = "新角色";
     document.getElementById('modal-char-name').value = "";
     document.getElementById('modal-char-intro').value = "";
     document.getElementById('modal-avatar-preview').src = "";
-    
     const infoBox = document.getElementById('parse-extra-info');
     if(infoBox) infoBox.innerHTML = "";
-    
     window.TEMP_PARSED_DATA = null;
-    
     if (modal) modal.classList.remove('hidden');
 }
 
@@ -414,7 +336,6 @@ function previewModalAvatar(input) {
 function handleFileSelect(input) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -457,7 +378,6 @@ function handleFileSelect(input) {
                 input.value = '';
             };
             imgReader.readAsDataURL(file);
-
         } catch (err) {
             console.error(err);
             alert("解析出错: " + err.message);
@@ -470,12 +390,10 @@ function confirmSaveCharacter() {
     const name = document.getElementById('modal-char-name').value;
     const intro = document.getElementById('modal-char-intro').value;
     const avatar = document.getElementById('modal-avatar-preview').src;
-    
     if (!name) { alert("起个名字吧！"); return; }
     
     let wb = [];
     let re = [];
-    
     if (window.TEMP_PARSED_DATA) {
         wb = window.TEMP_PARSED_DATA.worldBook || [];
         re = window.TEMP_PARSED_DATA.regex || [];
@@ -493,7 +411,6 @@ function confirmSaveCharacter() {
     
     window.myCharacters.push(newChar);
     window.TEMP_PARSED_DATA = null;
-    
     renderChatList();
     closeCharModal();
 }
