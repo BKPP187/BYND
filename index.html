@@ -149,6 +149,28 @@
             </div>
 
             <div class="window-content">
+                
+                <div class="setting-card">
+                    <div class="card-header">
+                        <i class="ri-image-2-line card-icon"></i>
+                        <span>全局壁纸设置</span>
+                    </div>
+                    <div class="upload-stack">
+                        <div class="upload-box wide" onclick="document.getElementById('file-wp-lock').click()">
+                            <span class="prefix">锁屏</span>
+                            <input type="text" id="input-wp-lock" placeholder="默认点阵 (点击上传)" readonly>
+                            <div class="upload-icon"><i class="ri-image-add-line"></i></div>
+                        </div>
+                        <input type="file" id="file-wp-lock" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-lock')">
+
+                        <div class="upload-box wide" onclick="document.getElementById('file-wp-home').click()">
+                            <span class="prefix">桌面</span>
+                            <input type="text" id="input-wp-home" placeholder="默认灰色 (点击上传)" readonly>
+                            <div class="upload-icon"><i class="ri-image-add-line"></i></div>
+                        </div>
+                        <input type="file" id="file-wp-home" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-home')">
+                    </div>
+                </div>
                 <div class="setting-card">
                     <div class="card-header">
                         <i class="ri-music-2-line card-icon"></i>
@@ -222,7 +244,6 @@
         </div>
 
         <div id="app-wechat-window" class="app-window hidden" style="background: #ededed;">
-            
             <div class="wechat-header">
                 <div class="wc-header-left" onclick="closeApp('wechat')">
                     <i class="ri-arrow-left-s-line"></i>

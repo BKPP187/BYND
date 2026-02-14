@@ -1,4 +1,4 @@
-// --- 📱 script.js: 核心系统与路由 ---
+// --- 📱 script.js: 核心系统与路由 (修复版) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. 初始化核心功能
@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLockScreen();
     initCalendar();
     
-    // 2. 初始化其他模块 (如果在 html 中引入了)
+    // 2. 初始化其他模块
     if (typeof initIconGrid === 'function') initIconGrid();
     if (typeof initTheme === 'function') initTheme(); 
 });
@@ -57,6 +57,17 @@ function initDate() {
 function unlockPhone() {
     document.getElementById('lock-screen').classList.add('unlocked');
     document.getElementById('home-screen').classList.remove('hidden');
+
+    // 👇 修复：这段逻辑必须在函数肚子里面！
+    const statusBar = document.querySelector('.status-bar');
+    // 检查 theme.js 是否计算出了结果
+    if (typeof window.homeIsDark !== 'undefined') {
+        if (window.homeIsDark) {
+            statusBar.classList.add('white-text');
+        } else {
+            statusBar.classList.remove('white-text');
+        }
+    }
 }
 
 function initCalendar() {
@@ -96,7 +107,6 @@ function openApp(appName) {
         if (win) { 
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10); 
-            // 调用 theme.js 里的读取设置
             if (typeof loadSavedSettings === 'function') loadSavedSettings();
         }
     } 
@@ -105,7 +115,6 @@ function openApp(appName) {
         if (win) { 
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10);
-            // 调用 wechat.js 里的渲染列表
             if (typeof renderChatList === 'function') renderChatList(); 
         }
     } 
@@ -127,7 +136,6 @@ function closeApp(appName) {
         if (win) { 
             win.classList.remove('active'); 
             setTimeout(() => win.classList.add('hidden'), 300);
-            // 退出微信时关闭子窗口
             setTimeout(() => {
                 if (typeof closeChat === 'function') closeChat();
             }, 300);

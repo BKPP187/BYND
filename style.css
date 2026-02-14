@@ -39,15 +39,34 @@ body {
     height: 50px; display: flex; justify-content: space-between; align-items: center;
     padding: 0 25px; font-size: 14px; font-weight: 600;
     z-index: 1000; color: var(--accent-color);
+    /* 👇 1. 增加颜色过渡动画，让变化更丝滑 */
+    color: #333; /* 默认黑色 */
+    transition: color 0.3s ease;
     position: absolute; top: 0; width: 100%;
+}
+/* 👇 2. 新增：白色文字模式 */
+.status-bar.white-text {
+    color: #ffffff;
+    /* 加一点点阴影，防止壁纸是白云或者雪景时看不清 */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
+}
+
+/* 👇 3. 顺便处理一下右边的电池图标，让它也能变白 */
+.status-bar.white-text i {
+    color: #ffffff;
 }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
 /* --- 锁屏 --- */
 .lock-screen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    /* 👇 1. 修改这里：保留原来的点阵作为默认，但增加 cover 属性以支持图片 */
     background-image: radial-gradient(#ccc 1px, transparent 1px);
-    background-size: 20px 20px; background-color: #fcfcfc;
+    background-size: cover; /* 改为 cover，原点阵大小会在JS中被覆盖，或通过 background-size 覆盖 */
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #fcfcfc;
+    
     z-index: 900; display: flex; flex-direction: column; padding-top: 80px;
     transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -79,7 +98,14 @@ body {
 .swipe-hint { width: 120px; height: 5px; background: #ccc; border-radius: 3px; }
 
 /* --- 桌面 --- */
-.screen-content { height: 100%; background: #f8f8f8; display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; }
+.screen-content { height: 100%; background: #f8f8f8; 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; 
+}
+    display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; }
 
 .desktop-scroll-area { display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; padding-top: 5px; padding-bottom: 20px; scrollbar-width: none; -ms-overflow-style: none; }
 .desktop-scroll-area::-webkit-scrollbar { display: none; }
@@ -260,3 +286,43 @@ body {
 .wc-card-footer { padding: 20px; padding-top: 0; }
 .btn-confirm { width: 100%; height: 44px; background: #07c160; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; }
 .btn-confirm:active { opacity: 0.9; }
+/* --- 🟢 角色卡解析特效 --- */
+
+/* 解析中的遮罩层 */
+.parsing-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,255,255,0.9); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 20px;
+}
+
+/* 旋转的加载圈 */
+.parsing-spinner {
+    width: 40px; height: 40px; border: 4px solid #f3f3f3;
+    border-top: 4px solid #07c160; border-radius: 50%;
+    animation: spin 1s linear infinite; margin-bottom: 15px;
+}
+
+/* 解析文字 */
+.parsing-text { font-size: 14px; color: #333; font-weight: 600; }
+.parsing-sub { font-size: 12px; color: #999; margin-top: 5px; font-family: monospace; }
+
+/* 识别到的数据标签 (WorldBook & Regex) */
+.detected-tags {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; width: 100%;
+}
+.d-tag {
+    font-size: 10px; padding: 4px 8px; border-radius: 4px;
+    font-weight: 600; display: flex; align-items: center; gap: 4px;
+}
+.d-tag.wb { background: #e3f2fd; color: #1976d2; } /* 世界书蓝 */
+.d-tag.re { background: #fce4ec; color: #c2185b; } /* 正则红 */
+
+/* 聊天窗口里的“当前生效配置”胶囊 */
+.chat-config-pill {
+    margin: 10px auto 0;
+    background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px;
+    font-size: 10px; color: #999; display: flex; gap: 10px;
+}
+.chat-config-pill span { display: flex; align-items: center; gap: 3px; }
+.chat-config-pill i { font-size: 12px; }
