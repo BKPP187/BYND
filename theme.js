@@ -1,4 +1,4 @@
-// --- 🎨 theme.js: 终极整合版 (含自动压缩 + 亮度检测 + 防爆保险) ---
+// --- 🎨 theme.js: 顶格大图版 (修复图标过小问题) ---
 
 // 1. 初始化图标网格
 function initIconGrid() {
@@ -30,7 +30,7 @@ function initIconGrid() {
     container.innerHTML = htmlContent;
 }
 
-// 2. 🔧 智能压缩上传函数 (核心修改：防止 localStorage 爆满)
+// 2. 🔧 强力压缩函数 (保留之前的防报错优化)
 function convertFile(input, targetInputId) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
@@ -41,17 +41,16 @@ function convertFile(input, targetInputId) {
             img.src = e.target.result;
 
             img.onload = function() {
-                // --- 定义压缩规则 ---
-                let maxWidth = 1080; // 壁纸限制宽度
-                let quality = 0.7;   // 壁纸压缩质量 (0-1)
+                // 压缩参数
+                let maxWidth = 720;  
+                let quality = 0.5;   // 强力压缩，防止存不下
                 let isIcon = targetInputId.includes('icon');
 
-                // 如果是图标，压得更小
                 if (isIcon) {
-                    maxWidth = 150; // 图标只要这么大就够了
+                    maxWidth = 120;  // 稍微给大一点点，保证清晰
+                    quality = 0.8;   
                 }
 
-                // --- 计算新尺寸 ---
                 let width = img.width;
                 let height = img.height;
                 
@@ -60,29 +59,23 @@ function convertFile(input, targetInputId) {
                     width = maxWidth;
                 }
 
-                // --- Canvas 绘图压缩 ---
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
 
-                // 如果不是图标（是壁纸），铺个白底，转成 JPG 节省空间
-                // 如果是图标，保持透明背景，转成 PNG
                 let outputType = 'image/jpeg';
-                
-                if (!isIcon) {
+                if (isIcon) {
+                    outputType = 'image/png'; // 图标保持透明
+                    ctx.clearRect(0, 0, width, height); 
+                } else {
                     ctx.fillStyle = "#ffffff"; 
                     ctx.fillRect(0, 0, width, height);
-                } else {
-                    outputType = 'image/png'; // 图标保持透明
                 }
                 
                 ctx.drawImage(img, 0, 0, width, height);
-
-                // 导出压缩后的 Base64
                 const compressedData = canvas.toDataURL(outputType, quality);
 
-                // --- 赋值 ---
                 const inputEl = document.getElementById(targetInputId);
                 inputEl.value = compressedData;
 
@@ -90,14 +83,9 @@ function convertFile(input, targetInputId) {
                 const previewEl = document.getElementById(previewId);
                 if(previewEl) previewEl.innerHTML = `<img src="${compressedData}">`;
                 
-                // 成功提示色
                 if(inputEl.parentElement) {
                     inputEl.parentElement.style.background = "#e6fffa"; 
-                    inputEl.parentElement.style.borderColor = "#38b2ac";
                 }
-                
-                // 调试信息
-                console.log(`压缩前: ${(e.target.result.length/1024).toFixed(2)}KB, 压缩后: ${(compressedData.length/1024).toFixed(2)}KB`);
             }
         };
         reader.readAsDataURL(file);
@@ -106,7 +94,6 @@ function convertFile(input, targetInputId) {
 
 // 3. 读取设置
 function loadSavedSettings() {
-    // 加个容错，万一数据坏了不报错
     try {
         const data = JSON.parse(localStorage.getItem('my_theme_data'));
         if (!data) return;
@@ -132,12 +119,10 @@ function loadSavedSettings() {
                 }
             });
         }
-    } catch (e) {
-        console.error("读取存档失败，可能数据已损坏", e);
-    }
+    } catch (e) { console.error(e); }
 }
 
-// 4. 💾 安全保存设置 (含防爆保险)
+// 4. 💾 保存设置 (✨ 重点修复：去掉了Padding，恢复最大尺寸！)
 function saveTheme() {
     const wpLock = document.getElementById('input-wp-lock').value;
     const wpHome = document.getElementById('input-wp-home').value;
@@ -149,7 +134,6 @@ function saveTheme() {
     const deskImg1 = document.getElementById('input-desk-img-1').value;
     const deskImg2 = document.getElementById('input-desk-img-2').value;
 
-    // 立即应用壁纸
     if (wpLock) {
         const lockScreen = document.getElementById('lock-screen');
         lockScreen.style.backgroundImage = `url('${wpLock}')`;
@@ -161,30 +145,19 @@ function saveTheme() {
         homeScreen.style.backgroundSize = "cover";
     }
 
-    // 触发亮度检测 (自动黑白字)
     if (wpLock) checkImageBrightness(wpLock, 'lock');
     else checkImageBrightness("", 'lock');
-
     if (wpHome) checkImageBrightness(wpHome, 'home');
     else checkImageBrightness("", 'home');
 
-    // 应用其他元素
-    if(musicText) {
-        const marquee = document.querySelector('.music-pill marquee');
-        if(marquee) marquee.textContent = musicText;
-    }
-    if(vibeText) {
-        const vibeEl = document.getElementById('ls-vibe-text');
-        if(vibeEl) vibeEl.textContent = vibeText;
-    }
+    if(musicText) document.querySelector('.music-pill marquee').textContent = musicText;
+    if(vibeText) document.getElementById('ls-vibe-text').textContent = vibeText;
     if(lockImg1) document.querySelector('.user-img-1').src = lockImg1;
     if(lockImg2) document.querySelector('.user-img-2').src = lockImg2;
     if(deskImg1) document.querySelector('.desktop-img-1').src = deskImg1;
     
     const allDeskImgs = document.querySelectorAll('.photo-large img');
-    if(allDeskImgs.length > 1 && deskImg2) {
-        allDeskImgs[1].src = deskImg2;
-    }
+    if(allDeskImgs.length > 1 && deskImg2) allDeskImgs[1].src = deskImg2;
 
     const iconInputs = [];
     for(let i=0; i<12; i++) {
@@ -199,8 +172,11 @@ function saveTheme() {
         if (!url) return; 
         if (index < 8) { 
             if (desktopIcons[index]) {
-                desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">`;
-                desktopIcons[index].style.padding = "0";
+                // 👇👇👇 这里的改动把“小”修好了！
+                // Padding: 0 -> 图标贴边显示，最大化！
+                // contain -> 保证你的兔子耳朵不被切掉
+                desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:0; object-fit:contain;">`;
+                desktopIcons[index].style.padding = "0"; 
                 desktopIcons[index].style.background = "transparent";
             }
         } else { 
@@ -208,36 +184,28 @@ function saveTheme() {
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                 if (iconBox) {
-                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">`;
+                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:contain;">`;
                 }
             }
         }
     });
 
     const themeData = {
-        wpLock: wpLock,
-        wpHome: wpHome,
-        music: musicText,
-        vibe: vibeText, 
-        l1: lockImg1, l2: lockImg2,
-        d1: deskImg1, d2: deskImg2,
-        icons: iconInputs
+        wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText, 
+        l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs
     };
     
-    // --- 🚨 核心防爆逻辑 ---
     try {
+        localStorage.removeItem('my_theme_data'); // 先清理旧的
         localStorage.setItem('my_theme_data', JSON.stringify(themeData));
-        alert("✅ 设置已保存！");
-        if (typeof closeApp === 'function') {
-            closeApp('theme');
-        }
+        
+        alert("✅ 尺寸已恢复！(已自动清理缓存)");
+        if (typeof closeApp === 'function') closeApp('theme');
     } catch (e) {
-        // 如果存储满了，弹出提示而不是报错死机
         if (e.name === 'QuotaExceededError') {
-             alert("❌ 保存失败：图片总大小超过浏览器限制！\n\n请【重新上传】一次壁纸或大图标，新代码会自动压缩它们。");
-             console.error("Storage full:", e);
+             alert("❌ 空间不足！请重新点一下上传按钮，触发压缩逻辑！");
         } else {
-             alert("❌ 未知错误: " + e.message);
+             alert("❌ 错误: " + e.message);
         }
     }
 }
@@ -254,7 +222,6 @@ function initTheme() {
             lockScreen.style.backgroundSize = "cover";
             checkImageBrightness(data.wpLock, 'lock');
         }
-        
         if (data.wpHome) {
             const homeScreen = document.getElementById('home-screen');
             homeScreen.style.backgroundImage = `url('${data.wpHome}')`;
@@ -262,23 +229,13 @@ function initTheme() {
             checkImageBrightness(data.wpHome, 'home');
         }
 
-        if(data.music) {
-            const marquee = document.querySelector('.music-pill marquee');
-            if(marquee) marquee.textContent = data.music;
-        }
-        if(data.vibe) {
-            const vibeEl = document.getElementById('ls-vibe-text');
-            if(vibeEl) vibeEl.textContent = data.vibe;
-        }
-
+        if(data.music) document.querySelector('.music-pill marquee').textContent = data.music;
+        if(data.vibe) document.getElementById('ls-vibe-text').textContent = data.vibe;
         if(data.l1) document.querySelector('.user-img-1').src = data.l1;
         if(data.l2) document.querySelector('.user-img-2').src = data.l2;
         if(data.d1) document.querySelector('.desktop-img-1').src = data.d1;
-        
         const allDeskImgs = document.querySelectorAll('.photo-large img');
-        if(allDeskImgs.length > 1 && data.d2) {
-            allDeskImgs[1].src = data.d2;
-        }
+        if(allDeskImgs.length > 1 && data.d2) allDeskImgs[1].src = data.d2;
 
         const desktopIcons = document.querySelectorAll('.apps-quad .app-icon');
         const dockIcons = document.querySelectorAll('.dock-item');
@@ -287,7 +244,8 @@ function initTheme() {
             data.icons.forEach((url, index) => {
                 if (!url) return;
                 if (index < 8 && desktopIcons[index]) {
-                    desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">`;
+                    // 👇 初始化时也要保持 0 padding
+                    desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:contain;">`;
                     desktopIcons[index].style.padding = "0"; 
                     desktopIcons[index].style.background = "transparent";
                 } else if (index >= 8) {
@@ -295,18 +253,16 @@ function initTheme() {
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                         if (iconBox) {
-                            iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:cover;">`;
+                            iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:10px; object-fit:contain;">`;
                         }
                     }
                 }
             });
         }
-    } catch(e) {
-        console.error("初始化加载失败", e);
-    }
+    } catch(e) { console.error(e); }
 }
 
-// 6. 🧠 自动变色大脑 (亮度计算)
+// 6. 自动变色大脑
 window.lockIsDark = false; 
 window.homeIsDark = false;
 
@@ -316,53 +272,42 @@ function checkImageBrightness(src, type) {
         applyBrightnessResult(false, type);
         return;
     }
-
     const img = new Image();
     img.crossOrigin = "Anonymous"; 
     img.src = src;
-
     img.onload = function() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = img.width;
         canvas.height = 50; 
         ctx.drawImage(img, 0, 0);
-
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         let r, g, b, avg;
         let colorSum = 0;
-
         for (let i = 0, len = data.length; i < len; i += 4) {
-            r = data[i];
-            g = data[i + 1];
-            b = data[i + 2];
+            r = data[i]; g = data[i + 1]; b = data[i + 2];
             avg = Math.floor((r + g + b) / 3);
             colorSum += avg;
         }
-
         const brightness = Math.floor(colorSum / (canvas.width * canvas.height));
-        const isDark = brightness < 150; 
-        applyBrightnessResult(isDark, type);
+        applyBrightnessResult(brightness < 150, type);
     }
 }
 
 function applyBrightnessResult(isDark, type) {
     const statusBar = document.querySelector('.status-bar');
-    
     if (type === 'lock') {
         window.lockIsDark = isDark;
         const lockScreen = document.getElementById('lock-screen');
         if (!lockScreen.classList.contains('unlocked')) {
-            if (isDark) statusBar.classList.add('white-text');
-            else statusBar.classList.remove('white-text');
+            isDark ? statusBar.classList.add('white-text') : statusBar.classList.remove('white-text');
         }
     } else if (type === 'home') {
         window.homeIsDark = isDark;
         const lockScreen = document.getElementById('lock-screen');
         if (lockScreen.classList.contains('unlocked')) {
-            if (isDark) statusBar.classList.add('white-text');
-            else statusBar.classList.remove('white-text');
+            isDark ? statusBar.classList.add('white-text') : statusBar.classList.remove('white-text');
         }
     }
 }

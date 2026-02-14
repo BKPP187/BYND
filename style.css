@@ -1,81 +1,28 @@
-/* style.css - 整理版 */
-/* --- 🔧 核心工具类 (一定要加！) --- */
-.hidden {
-    display: none !important;
-}
+/* style.css - 终极修复版 */
+/* --- 🔧 核心工具类 --- */
+.hidden { display: none !important; }
 
-:root {
-    --bg-color: #f2f4f6;
-    --accent-color: #333;
-}
+:root { --bg-color: #f2f4f6; --accent-color: #333; }
 
-* {
-    margin: 0; padding: 0;
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    user-select: none;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
 
-body {
-    background-color: #ddd;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; overflow: hidden;
-}
+body { background-color: #ddd; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-.phone-container {
-    width: 375px; height: 812px;
-    background: var(--bg-color); 
-    border-radius: 40px; position: relative;
-    border: 8px solid #111;
-    box-shadow: 0 30px 60px rgba(0,0,0,0.3);
-    overflow: hidden; 
-}
-@media (max-width: 600px) {
-    .phone-container { width: 100vw; height: 100vh; border: none; border-radius: 0; }
-}
+.phone-container { width: 375px; height: 812px; background: var(--bg-color); border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
+@media (max-width: 600px) { .phone-container { width: 100vw; height: 100vh; border: none; border-radius: 0; } }
 
 /* --- 状态栏 --- */
-.status-bar {
-    height: 50px; display: flex; justify-content: space-between; align-items: center;
-    padding: 0 25px; font-size: 14px; font-weight: 600;
-    z-index: 1000; color: var(--accent-color);
-    /* 👇 1. 增加颜色过渡动画，让变化更丝滑 */
-    color: #333; /* 默认黑色 */
-    transition: color 0.3s ease;
-    position: absolute; top: 0; width: 100%;
-}
-/* 👇 2. 新增：白色文字模式 */
-.status-bar.white-text {
-    color: #ffffff;
-    /* 加一点点阴影，防止壁纸是白云或者雪景时看不清 */
-    text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
-}
-
-/* 👇 3. 顺便处理一下右边的电池图标，让它也能变白 */
-.status-bar.white-text i {
-    color: #ffffff;
-}
+.status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
+.status-bar.white-text { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.status-bar.white-text i { color: #ffffff; }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
 /* --- 锁屏 --- */
-.lock-screen {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    /* 👇 1. 修改这里：保留原来的点阵作为默认，但增加 cover 属性以支持图片 */
-    background-image: radial-gradient(#ccc 1px, transparent 1px);
-    background-size: cover; /* 改为 cover，原点阵大小会在JS中被覆盖，或通过 background-size 覆盖 */
-    background-position: center;
-    background-repeat: no-repeat;
-    background-color: #fcfcfc;
-    
-    z-index: 900; display: flex; flex-direction: column; padding-top: 80px;
-    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
+.lock-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #fcfcfc; z-index: 900; display: flex; flex-direction: column; padding-top: 80px; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
 .lock-screen.unlocked { transform: translateY(-100%); }
-
 .ls-header { text-align: center; margin-bottom: 20px; }
 .ls-clock { font-size: 85px; font-weight: 800; line-height: 1; letter-spacing: -3px; color: #222; }
 .ls-date { font-size: 16px; color: #666; margin-top: 5px; font-weight: 500; }
-
 .ls-collage { flex: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
 .photo-card { position: absolute; background: white; padding: 10px 10px 40px 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s; top: 50% !important; left: 50% !important; margin: 0 !important; }
 .photo-card img { width: 140px; height: 140px; object-fit: cover; display: block; background: #eee; }
@@ -86,31 +33,35 @@ body {
 .hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
 .clip-paper { position: absolute; top: -28px; left: 40%; z-index: 10; font-size: 32px; color: #444; transform: rotate(-10deg); filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2)); }
 .sticker-star { position: absolute; bottom: -15px; right: -15px; font-size: 35px; color: #ffd700; transform: rotate(15deg); }
-
 .ls-widgets { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
 .widget-pill { background: rgba(255,255,255,0.7); border: 1px solid #fff; padding: 8px 16px; border-radius: 30px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #444; }
 .music-pill { width: 160px; overflow: hidden; white-space: nowrap; }
 .spin { animation: spin 4s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
-
 .ls-footer { display: flex; justify-content: space-between; align-items: center; padding: 0 40px 40px 40px; }
 .round-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(5px); }
 .swipe-hint { width: 120px; height: 5px; background: #ccc; border-radius: 3px; }
 
-/* --- 桌面 --- */
-.screen-content { height: 100%; background: #f8f8f8; 
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    
-    display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; 
+/* --- 桌面 (修复重点区域) --- */
+.screen-content { 
+    height: 100%; 
+    background: #f8f8f8; 
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    display: flex; flex-direction: column; justify-content: space-between; 
+    padding-top: 55px !important; 
 }
-    display: flex; flex-direction: column; justify-content: space-between; padding-top: 55px !important; }
 
-.desktop-scroll-area { display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; padding-top: 5px; padding-bottom: 20px; scrollbar-width: none; -ms-overflow-style: none; }
+/* 👇 这里的内边距之前被那行乱码搞丢了，现在加回来了！ */
+.desktop-scroll-area { 
+    display: flex; flex-direction: column; gap: 15px; 
+    flex: 1; overflow-y: auto; overflow-x: hidden; 
+    padding: 20px; /* ✨ 关键内边距 */
+    padding-top: 5px; padding-bottom: 20px; 
+    scrollbar-width: none; -ms-overflow-style: none; 
+}
 .desktop-scroll-area::-webkit-scrollbar { display: none; }
 
-.calendar-widget { background-color: #000; color: #fff; border-radius: 25px; padding: 15px 20px; height: 180px !important; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+.calendar-widget { background-color: #000; color: #fff; border-radius: 25px; padding: 15px 20px; height: 180px !important; min-height: 180px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
 .cal-left { display: flex; flex-direction: column; justify-content: center; padding-left: 10px; }
 .cal-day { font-size: 32px; font-weight: 700; margin-bottom: -10px; }
 .cal-date { font-size: 90px; font-weight: 900; line-height: 1; letter-spacing: -4px; }
@@ -128,7 +79,6 @@ body {
 .apps-quad .app-icon { width: 48px; height: 48px; font-size: 22px; border-radius: 12px; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 .photo-large { background: #eee; border-radius: 25px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 .photo-large img { width: 100%; height: 100%; object-fit: cover; }
-
 .dock-bar { margin: 15px; height: 84px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: space-around; align-items: center; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 .dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 60px; cursor: pointer; }
 .dock-icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #333; transition: transform 0.1s; }
@@ -172,47 +122,10 @@ body {
 .icon-preview { width: 44px !important; height: 44px !important; font-size: 24px; color: #555; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .icon-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .icon-name { font-size: 11px; color: #666; line-height: 1.2; text-align: center; width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.icon-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f0f0f0; border-top: 1px solid #f0f0f0; }
-.icon-input-group { background: white; padding: 10px; display: flex; align-items: center; gap: 8px; }
-.icon-input-group i { width: 25px; text-align: center; }
-.icon-input-group input { width: 100%; border: none; outline: none; font-size: 12px; }
 
 /* --- 微信 App 样式 --- */
-/* 头部 - 修复居中 */
-.wechat-header {
-    height: 90px; 
-    padding-top: 45px; 
-    padding-left: 15px; 
-    padding-right: 15px;
-    background: #ededed; 
-    
-    /* 布局方式 */
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; /* 左右两边贴边 */
-    
-    font-size: 16px; 
-    color: #111; 
-    font-weight: 600;
-    
-    /* 定位 */
-    position: sticky; 
-    top: 0; 
-    z-index: 10;
-    border-bottom: 1px solid rgba(0,0,0,0.1);
-}
-
-/* 👇 新增：强制标题绝对居中 */
-.wc-header-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 17px;
-    font-weight: 600;
-    z-index: 1; /* 确保不被遮挡 */
-}
-
-/* 左右按钮保持原样 */
+.wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
+.wc-header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; z-index: 1; }
 .wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }
 .wc-header-left i { font-size: 24px; color: #111; }
 .wc-header-right i { font-size: 24px; margin-left: 15px; cursor: pointer; z-index: 2; }
@@ -229,17 +142,7 @@ body {
 .wc-time { font-size: 10px; color: #b2b2b2; }
 .wc-bottom { display: flex; }
 .wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-/* --- style.css --- */
-
-/* 底部 Tab 栏 */
-.wc-tab-bar {
-    position: absolute; bottom: 0; left: 0; width: 100%; height: 80px;
-    background: #f7f7f7; border-top: 1px solid #dcdcdc;
-    display: flex; 
-    
-    /* 👇 关键修改：把原来的 25px 改成 10px 或 12px */
-    padding-bottom: 12px; 
-}
+.wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 12px; }
 .wc-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #111; gap: 2px; }
 .wc-tab i { font-size: 24px; margin-bottom: -2px; }
 .wc-tab span { font-size: 10px; transform: scale(0.85); font-weight: 500; }
@@ -262,8 +165,6 @@ body {
 .wc-room-footer { min-height: 60px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; align-items: center; padding: 10px; gap: 10px; padding-bottom: 25px; }
 .wc-room-footer i { font-size: 26px; color: #111; }
 .wc-input { flex: 1; height: 36px; border: none; border-radius: 4px; padding: 0 10px; font-size: 16px; outline: none; background: white; }
-
-/* 微信交互弹窗 */
 .wc-action-sheet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; display: flex; flex-direction: column; justify-content: flex-end; }
 .wc-sheet-content { background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; animation: slideUp 0.3s ease; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -286,43 +187,14 @@ body {
 .wc-card-footer { padding: 20px; padding-top: 0; }
 .btn-confirm { width: 100%; height: 44px; background: #07c160; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; }
 .btn-confirm:active { opacity: 0.9; }
-/* --- 🟢 角色卡解析特效 --- */
-
-/* 解析中的遮罩层 */
-.parsing-overlay {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(255,255,255,0.9); z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: 20px;
-}
-
-/* 旋转的加载圈 */
-.parsing-spinner {
-    width: 40px; height: 40px; border: 4px solid #f3f3f3;
-    border-top: 4px solid #07c160; border-radius: 50%;
-    animation: spin 1s linear infinite; margin-bottom: 15px;
-}
-
-/* 解析文字 */
+.parsing-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px; }
+.parsing-spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #07c160; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
 .parsing-text { font-size: 14px; color: #333; font-weight: 600; }
 .parsing-sub { font-size: 12px; color: #999; margin-top: 5px; font-family: monospace; }
-
-/* 识别到的数据标签 (WorldBook & Regex) */
-.detected-tags {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; width: 100%;
-}
-.d-tag {
-    font-size: 10px; padding: 4px 8px; border-radius: 4px;
-    font-weight: 600; display: flex; align-items: center; gap: 4px;
-}
-.d-tag.wb { background: #e3f2fd; color: #1976d2; } /* 世界书蓝 */
-.d-tag.re { background: #fce4ec; color: #c2185b; } /* 正则红 */
-
-/* 聊天窗口里的“当前生效配置”胶囊 */
-.chat-config-pill {
-    margin: 10px auto 0;
-    background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px;
-    font-size: 10px; color: #999; display: flex; gap: 10px;
-}
+.detected-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; width: 100%; }
+.d-tag { font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.d-tag.wb { background: #e3f2fd; color: #1976d2; }
+.d-tag.re { background: #fce4ec; color: #c2185b; }
+.chat-config-pill { margin: 10px auto 0; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; font-size: 10px; color: #999; display: flex; gap: 10px; }
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
