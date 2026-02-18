@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initCalendar();
     
     if (typeof initIconGrid === 'function') initIconGrid();
-    if (typeof initTheme === 'function') initTheme(); 
+    if (typeof initTheme === 'function') initTheme();
+    if (typeof loadCharactersFromStorage === 'function') loadCharactersFromStorage(); 
 });
 
 // --- 基础功能 ---

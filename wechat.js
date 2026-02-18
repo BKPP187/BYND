@@ -464,5 +464,53 @@ function confirmSaveCharacter() {
         window.initSillyTavern();
     }
     
+    // 🔥 保存角色数据到本地存储
+    saveCharactersToStorage();
+    
     closeCharModal();
+}
+
+// --- D. 本地存储：角色数据持久化 ---
+
+function saveCharactersToStorage() {
+    try {
+        const data = window.myCharacters.map(char => ({
+            id: char.id,
+            name: char.name,
+            avatar: char.avatar,
+            lastMsg: char.lastMsg,
+            worldBook: char.worldBook || [],
+            regex: char.regex || [],
+            alternates: char.alternates || [],
+            first_mes_original: char.first_mes_original || '',
+            first_mes: char.first_mes || '',
+            currentGreetingIndex: char.currentGreetingIndex || 0,
+            tavernHistory: char.tavernHistory || [],
+            history: char.history || []
+        }));
+        localStorage.setItem('my_characters_data', JSON.stringify(data));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            console.warn("存储空间不足，角色数据未保存");
+        } else {
+            console.error("保存角色数据失败:", e);
+        }
+    }
+}
+
+function loadCharactersFromStorage() {
+    try {
+        const raw = localStorage.getItem('my_characters_data');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (Array.isArray(data) && data.length > 0) {
+            window.myCharacters = data;
+            renderChatList();
+            if (typeof window.initSillyTavern === 'function') {
+                window.initSillyTavern();
+            }
+        }
+    } catch (e) {
+        console.error("加载角色数据失败:", e);
+    }
 }
