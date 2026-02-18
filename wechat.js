@@ -81,12 +81,15 @@ function processMsgContent(content, char) {
         } catch (e) { console.warn("正则执行失败:", script.name, e); }
     });
 
-    // 2. 剥离 Markdown 代码块包装
-    const codeBlockRegex = /^```(?:html|xml|markdown)?\s*([\s\S]*?)\s*```$/i;
-    const match = text.trim().match(codeBlockRegex);
+    // 2. 剥离 Markdown 代码块包装（支持混合内容：文本 + 代码块）
+    // 先处理内嵌的 ```html...``` 代码块，提取其中的HTML
+    text = text.replace(/```(?:html|xml|markdown)?\s*([\s\S]*?)```/gi, function(match, code) {
+        return code.trim();
+    });
 
-    if (match) {
-        return match[1]; 
+    // 如果处理后包含HTML标签，直接返回（不做换行转换，避免破坏HTML结构）
+    if (/<(div|style|script|table|iframe|img|span|section|header|article|button)/i.test(text)) {
+        return text;
     } else {
         return text.replace(/\n/g, '<br>'); 
     }
