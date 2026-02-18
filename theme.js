@@ -10,8 +10,8 @@ function initIconGrid() {
         {i:'ri-book-read-line', n:'世界书'}, {i:'ri-settings-4-line', n:'设置'},
         {i:'ri-palette-line', n:'美化'}, {i:'ri-graduation-cap-line', n:'学习'},
         {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
-        {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-safari-line', n:'浏览器'},
-        {i:'ri-camera-lens-line', n:'相机'}, {i:'ri-question-mark', n:'说明'}
+        {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-goblet-fill', n:'酒馆'},
+        {i:'ri-camera-lens-line', n:'相机'}, {i:'ri-equalizer-line', n:'预设'}
     ];
 
     let htmlContent = '';
