@@ -44,8 +44,9 @@ function openTavernChat(charId) {
     const logEl = document.getElementById('st-chat-log');
     logEl.innerHTML = '';
 
-    // 渲染历史记录 (使用酒馆风格)
-    char.history.forEach((msg, index) => {
+    // 🔥 使用酒馆专用历史记录（tavernHistory），与微信隔离
+    const tavernHistory = char.tavernHistory || char.history || [];
+    tavernHistory.forEach((msg, index) => {
         // 第一条消息如果是角色发的，且有备选开场白，显示切换按钮
         const showControls = (index === 0 && !msg.isMe);
         renderTavernMessage(logEl, msg, char, showControls);

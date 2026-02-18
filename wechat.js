@@ -445,7 +445,9 @@ function confirmSaveCharacter() {
         alternates: alts,
         first_mes_original: originalFirst,
         currentGreetingIndex: 0,
-        history: [{ type: 'text', isMe: false, content: intro }]
+        first_mes: intro,
+        tavernHistory: [{ type: 'text', isMe: false, content: intro }],
+        history: []
     };
     
     window.myCharacters.push(newChar);
