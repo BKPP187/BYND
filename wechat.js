@@ -61,6 +61,7 @@ function processMsgContent(content, char) {
     const allScripts = [...globalScripts, ...charScripts];
 
     allScripts.forEach(script => {
+        if (script.enabled === false) return; // 🔥 跳过已关闭的脚本
         try {
             const regexStr = script.regex;
             let replaceStr = script.replace || "";

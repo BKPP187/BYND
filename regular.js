@@ -67,7 +67,7 @@ window.selectRegexChar = function(charId) {
     renderRegexContent(); 
 }
 
-// ⚡️ 渲染列表 (加了 onclick 事件)
+// ⚡️ 渲染列表 (加了 onclick 事件 + 开关)
 function renderScriptList(container, scripts, title, isGlobal) {
     const titleEl = document.createElement('div');
     titleEl.className = 're-list-title';
@@ -75,28 +75,47 @@ function renderScriptList(container, scripts, title, isGlobal) {
     container.appendChild(titleEl);
 
     scripts.forEach((script, index) => {
+        if (typeof script.enabled === 'undefined') script.enabled = true;
+        
         const name = script.name || "未命名";
-        // 确保显示为字符串，防止显示 undefined
         const regexStr = script.regex || "";
         const replaceStr = script.replace || "";
+        const isOn = script.enabled !== false;
         
         const card = document.createElement('div');
         card.className = 're-script-card';
-        // 👇 点击卡片 -> 打开编辑
-        card.onclick = () => openEditRegex(index, isGlobal);
+        card.style.opacity = isOn ? '1' : '0.5';
         
         card.innerHTML = `
             <div class="re-card-header">
-                <span class="re-name">${name}</span>
-                <span class="re-tag">${script.placement || 'Script'}</span>
+                <span class="re-name" style="flex:1; cursor:pointer;">${name}</span>
+                <label class="re-switch" onclick="event.stopPropagation()">
+                    <input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleRegexScript(${index}, ${isGlobal}, this.checked)">
+                    <span class="re-slider"></span>
+                </label>
             </div>
-            <div class="re-code-row">
+            <div class="re-code-row" onclick="openEditRegex(${index}, ${isGlobal})" style="cursor:pointer;">
                 <span class="re-label">Re:</span>
                 <code class="re-code">/${escapeHtml(regexStr.toString().substring(0, 30))}.../</code>
             </div>
         `;
         container.appendChild(card);
     });
+}
+
+// 🔥 开关切换
+function toggleRegexScript(index, isGlobal, enabled) {
+    let script;
+    if (isGlobal) {
+        script = window.globalRegexScripts[index];
+    } else {
+        const char = window.myCharacters.find(c => c.id === selectedLocalCharId);
+        if (char && char.regex) script = char.regex[index];
+    }
+    if (script) {
+        script.enabled = enabled;
+    }
+    renderRegexContent();
 }
 
 function escapeHtml(text) {

@@ -68,13 +68,16 @@ function renderBookDetail(char) {
     `;
 }
 
-// ✨ 生成紧凑列表 HTML
+// ✨ 生成紧凑列表 HTML (带开关)
 function generateListHtml(entries) {
     if (!entries || entries.length === 0) {
         return `<div class="wb-empty">这本书是空白的...<br>点击右上角 + 添加设定</div>`;
     }
     
     return entries.map((entry, index) => {
+        if (typeof entry.enabled === 'undefined') entry.enabled = true;
+        const isOn = entry.enabled !== false;
+        
         // 兼容 keys 可能是数组或字符串
         let keys = entry.keys || entry.key || [];
         if (Array.isArray(keys)) keys = keys.join(", ");
@@ -86,17 +89,27 @@ function generateListHtml(entries) {
         }
 
         return `
-            <div class="wb-list-item" onclick="openEntryDetail(${index})">
-                <div class="wb-item-left">
+            <div class="wb-list-item" style="opacity:${isOn ? '1' : '0.5'};">
+                <div class="wb-item-left" onclick="openEntryDetail(${index})">
                     <span class="wb-item-title">${title}</span>
                     <span class="wb-item-keys">🔑 ${keys}</span>
                 </div>
-                <div class="wb-item-right">
-                    <i class="ri-edit-2-line" style="font-size:16px; color:#ccc;"></i>
+                <div class="wb-item-right" style="display:flex; align-items:center; gap:8px;">
+                    <label class="re-switch" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${isOn ? 'checked' : ''} onchange="toggleWBEntry(${index}, this.checked)">
+                        <span class="re-slider"></span>
+                    </label>
                 </div>
             </div>
         `;
     }).join('');
+}
+
+// 🔥 世界书条目开关
+function toggleWBEntry(index, enabled) {
+    if (!currentReadingChar || !currentReadingChar.worldBook[index]) return;
+    currentReadingChar.worldBook[index].enabled = enabled;
+    renderBookDetail(currentReadingChar);
 }
 
 // 4. 打开详情编辑弹窗

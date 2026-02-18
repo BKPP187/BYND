@@ -247,6 +247,13 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 .re-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
 .re-name { font-size: 14px; color: #e0e0e0; font-weight: bold; }
 .re-tag { font-size: 10px; background: #333; color: #aaa; padding: 2px 6px; border-radius: 3px; }
+/* 🔥 正则开关样式 */
+.re-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+.re-switch input { opacity: 0; width: 0; height: 0; }
+.re-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .3s; border-radius: 22px; }
+.re-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+.re-switch input:checked + .re-slider { background-color: #07c160; }
+.re-switch input:checked + .re-slider:before { transform: translateX(18px); }
 .re-code-row { display: flex; gap: 8px; margin-top: 4px; align-items: baseline; }
 .re-label { color: #569cd6; font-size: 11px; font-weight: bold; min-width: 40px; }
 .re-code { font-size: 11px; color: #ce9178; background: #1e1e1e; padding: 2px 4px; border-radius: 3px; word-break: break-all; font-family: monospace; }
