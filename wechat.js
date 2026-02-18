@@ -380,10 +380,22 @@ function handleFileSelect(input) {
 
             const imgReader = new FileReader();
             imgReader.onload = function(evt) {
-                document.getElementById('modal-char-name').value = charData.name || "";
-                document.getElementById('modal-char-intro').value = charData.first_mes || "";
-                document.getElementById('modal-avatar-preview').src = evt.target.result;
-                document.getElementById('modal-title').innerText = "解析成功";
+                // 🔥 压缩头像到200x200 JPEG，避免localStorage爆
+                const origSrc = evt.target.result;
+                const compImg = new Image();
+                compImg.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const size = 200;
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(compImg, 0, 0, size, size);
+                    const compressedAvatar = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    document.getElementById('modal-char-name').value = charData.name || "";
+                    document.getElementById('modal-char-intro').value = charData.first_mes || "";
+                    document.getElementById('modal-avatar-preview').src = compressedAvatar;
+                    document.getElementById('modal-title').innerText = "解析成功";
                 
                 window.TEMP_PARSED_DATA = {
                     worldBook: charData.worldBook || [],
@@ -406,6 +418,8 @@ function handleFileSelect(input) {
 
                 document.getElementById('wc-char-modal').classList.remove('hidden');
                 input.value = '';
+                };
+                compImg.src = origSrc;
             };
             imgReader.readAsDataURL(file);
         } catch (err) {
@@ -464,8 +478,8 @@ function confirmSaveCharacter() {
         window.initSillyTavern();
     }
     
-    // 🔥 保存角色数据到本地存储
-    saveCharactersToStorage();
+    // 🔥 压缩头像后保存到本地存储
+    compressAndSaveCharacters();
     
     closeCharModal();
 }
@@ -477,7 +491,7 @@ function saveCharactersToStorage() {
         const data = window.myCharacters.map(char => ({
             id: char.id,
             name: char.name,
-            avatar: char.avatar,
+            avatar: char._smallAvatar || char.avatar || '',
             lastMsg: char.lastMsg,
             worldBook: char.worldBook || [],
             regex: char.regex || [],
@@ -488,23 +502,70 @@ function saveCharactersToStorage() {
             tavernHistory: char.tavernHistory || [],
             history: char.history || []
         }));
-        localStorage.setItem('my_characters_data', JSON.stringify(data));
+        const jsonStr = JSON.stringify(data);
+        localStorage.setItem('my_characters_data', jsonStr);
+        console.log("✅ 角色数据已保存，大小:", (jsonStr.length / 1024).toFixed(1) + "KB");
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
-            console.warn("存储空间不足，角色数据未保存");
-        } else {
-            console.error("保存角色数据失败:", e);
-        }
+            try {
+                const data = window.myCharacters.map(char => ({
+                    id: char.id, name: char.name, avatar: '',
+                    lastMsg: char.lastMsg, worldBook: [], regex: char.regex || [],
+                    alternates: char.alternates || [],
+                    first_mes_original: char.first_mes_original || '',
+                    first_mes: char.first_mes || '',
+                    currentGreetingIndex: char.currentGreetingIndex || 0,
+                    tavernHistory: char.tavernHistory || [], history: char.history || []
+                }));
+                localStorage.setItem('my_characters_data', JSON.stringify(data));
+                console.warn("⚠️ 存储空间紧张，头像和世界书已省略");
+            } catch (e2) {
+                alert("❌ 存储空间不足，角色数据无法保存");
+            }
+        } else { console.error("保存角色数据失败:", e); }
     }
+}
+
+// 异步压缩所有角色头像后再保存
+function compressAndSaveCharacters() {
+    let pending = 0;
+    let hasLarge = false;
+    
+    window.myCharacters.forEach(char => {
+        const av = char.avatar || '';
+        if (av.length > 50000 && !char._smallAvatar) {
+            hasLarge = true;
+            pending++;
+            const img = new Image();
+            img.onload = function() {
+                const c = document.createElement('canvas');
+                c.width = 200; c.height = 200;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, 200, 200);
+                char._smallAvatar = c.toDataURL('image/jpeg', 0.7);
+                pending--;
+                if (pending === 0) saveCharactersToStorage();
+            };
+            img.onerror = function() {
+                char._smallAvatar = '';
+                pending--;
+                if (pending === 0) saveCharactersToStorage();
+            };
+            img.src = av;
+        }
+    });
+    
+    if (!hasLarge) saveCharactersToStorage();
 }
 
 function loadCharactersFromStorage() {
     try {
         const raw = localStorage.getItem('my_characters_data');
-        if (!raw) return;
+        if (!raw) { console.log("无已保存的角色数据"); return; }
         const data = JSON.parse(raw);
         if (Array.isArray(data) && data.length > 0) {
             window.myCharacters = data;
+            console.log("✅ 已加载", data.length, "个角色");
             renderChatList();
             if (typeof window.initSillyTavern === 'function') {
                 window.initSillyTavern();
