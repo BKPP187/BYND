@@ -1,0 +1,15 @@
+name = "bynd-push"
+main = "bynd-push-worker.js"
+compatibility_date = "2026-05-21"
+
+kv_namespaces = [
+  { binding = "BYND_PUSH", id = "replace_with_kv_namespace_id" }
+]
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Required secrets:
+# wrangler secret put VAPID_PUBLIC_KEY
+# wrangler secret put VAPID_PRIVATE_KEY
+# wrangler secret put VAPID_SUBJECT

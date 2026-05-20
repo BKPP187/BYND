@@ -1424,6 +1424,7 @@ function sendWechatMessage() {
     const userMsg = { type: 'text', isMe: true, content: text, timestamp: createMessageTimestamp() };
     if (!char.history) char.history = [];
     char.history.push(userMsg);
+    if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
     maybeCaptureWechatMemoryCommand(char, text);
 
     refreshChatView(char);
@@ -1449,6 +1450,7 @@ async function triggerAiReply() {
         inputEl.value = '';
         const userMsg = { type: 'text', isMe: true, content: text, timestamp: createMessageTimestamp() };
         char.history.push(userMsg);
+        if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
         maybeCaptureWechatMemoryCommand(char, text);
         refreshChatView(char);
         saveCharactersToStorage();
@@ -4379,6 +4381,7 @@ function sendWechatTextToChar(charId, text) {
     if (!char) return;
     if (!char.history) char.history = [];
     char.history.push({ type: 'text', isMe: true, content: text, timestamp: createMessageTimestamp() });
+    if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
     saveCharactersToStorage();
     renderChatList();
     closeWechatFeatureScreen();
@@ -5001,6 +5004,7 @@ function sendImageMessage(imageUrl) {
     const userMsg = { type: 'image', isMe: true, content: imageUrl, description: '[用户发送了一张图片]', timestamp: createMessageTimestamp() };
     if (!char.history) char.history = [];
     char.history.push(userMsg);
+    if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
 
     refreshChatView(char);
     saveCharactersToStorage();
@@ -5050,6 +5054,7 @@ function appendWechatMessage(msg) {
     ensureMessageTimestamp(msg);
     syncWechatMessageDescription(msg);
     char.history.push(msg);
+    if (msg.isMe && typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
 
     refreshChatView(char);
     saveCharactersToStorage();
@@ -6454,6 +6459,7 @@ function sendSticker(url, name) {
     const msg = { type: 'sticker', isMe: true, content: url, stickerName: name || '', timestamp: createMessageTimestamp() };
     if (!char.history) char.history = [];
     char.history.push(msg);
+    if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
 
     refreshChatView(char);
     closeStickerPicker();

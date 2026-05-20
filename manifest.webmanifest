@@ -1,0 +1,22 @@
+{
+  "name": "Beyond Screen",
+  "short_name": "BYND",
+  "description": "BYND phone-style AI companion app.",
+  "start_url": "/?v=20260521-study-game2",
+  "scope": "/",
+  "display": "standalone",
+  "id": "/",
+  "background_color": "#f5f6f8",
+  "theme_color": "#111318",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "bynd-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "entertainment"],
+  "lang": "zh-CN"
+}

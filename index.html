@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BYND</title>
+    <link rel="manifest" href="manifest.webmanifest?v=20260521-study-game2">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260520-bynd-adaptive1">
+    <link rel="stylesheet" href="style.css?v=20260521-study-game2">
 </head>
 <body>
 
@@ -153,6 +154,199 @@
             </div>
         </div>
 
+        <div id="app-music-window" class="app-window hidden music-window">
+            <div class="music-header">
+                <button type="button" onclick="closeApp('music')" aria-label="关闭音乐"><i class="ri-arrow-left-s-line"></i></button>
+                <div>
+                    <span>BYND Music</span>
+                    <strong>Beyond the Screen</strong>
+                </div>
+                <a id="music-source-link" class="music-source-link hidden" href="#" target="_blank" rel="noopener">Archive</a>
+            </div>
+            <div class="music-content">
+                <div class="music-search">
+                    <i class="ri-search-line"></i>
+                    <input type="search" id="music-search-input" value="周杰伦" placeholder="搜索中文 / 英文 / 歌手 / 专辑" oninput="handleMusicSearchInput(this.value)">
+                </div>
+                <div class="music-source-panel">
+                    <div class="music-source-chips" id="music-source-chips">
+                        <button type="button" data-source="smart" class="active" onclick="setMusicSourceMode('smart')">多源</button>
+                        <button type="button" data-source="netease" onclick="setMusicSourceMode('netease')">网易云</button>
+                        <button type="button" data-source="tencent" onclick="setMusicSourceMode('tencent')">QQ</button>
+                        <button type="button" data-source="kugou" onclick="setMusicSourceMode('kugou')">酷狗</button>
+                        <button type="button" data-source="kuwo" onclick="setMusicSourceMode('kuwo')">酷我</button>
+                        <button type="button" data-source="baidu" onclick="setMusicSourceMode('baidu')">百度</button>
+                        <button type="button" data-source="archive" onclick="setMusicSourceMode('archive')">公开</button>
+                    </div>
+                    <button type="button" class="music-source-config-toggle" onclick="toggleMusicSourceConfig()" aria-label="音乐源设置"><i class="ri-equalizer-3-line"></i></button>
+                </div>
+                <div class="music-source-config hidden" id="music-source-config">
+                    <label>
+                        <span>Meting API</span>
+                        <textarea id="music-meting-bases" rows="3" spellcheck="false"></textarea>
+                    </label>
+                    <label>
+                        <span>go-music-api</span>
+                        <input type="url" id="music-go-api-base" placeholder="http://127.0.0.1:8080">
+                    </label>
+                    <p>中文平台建议填自己的后端地址；不要把会员 Cookie 写进前端。</p>
+                    <div class="music-source-config-row">
+                        <label>
+                            <span>网易无损</span>
+                            <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:5000">
+                        </label>
+                        <label>
+                            <span>QQ解析</span>
+                            <input type="url" id="music-qq-api-base" placeholder="http://127.0.0.1:5001">
+                        </label>
+                    </div>
+                    <div class="music-playlist-import">
+                        <div>
+                            <span>导入歌单</span>
+                            <select id="music-playlist-platform">
+                                <option value="netease">网易云</option>
+                                <option value="tencent">QQ音乐</option>
+                                <option value="kugou">酷狗</option>
+                                <option value="kuwo">酷我</option>
+                            </select>
+                        </div>
+                        <input type="text" id="music-playlist-url" placeholder="粘贴歌单链接或 ID">
+                        <button type="button" onclick="importMusicPlaylist()">导入到音乐</button>
+                    </div>
+                    <div class="music-imported-playlists" id="music-imported-playlists"></div>
+                    <button type="button" onclick="saveMusicSourceSettingsFromUI()">保存并重搜</button>
+                </div>
+                <section class="music-now-card">
+                    <div class="music-cover" id="music-now-cover"></div>
+                    <div class="music-now-meta">
+                        <span id="music-now-album">Quiet Playlist</span>
+                        <strong id="music-now-title">Beyond the Screen</strong>
+                        <em id="music-now-artist">BYND Radio</em>
+                    </div>
+                    <div class="music-wave" aria-hidden="true">
+                        <span style="--h:18%"></span><span style="--h:62%"></span><span style="--h:38%"></span><span style="--h:82%"></span>
+                        <span style="--h:48%"></span><span style="--h:70%"></span><span style="--h:28%"></span><span style="--h:58%"></span>
+                        <span style="--h:88%"></span><span style="--h:34%"></span><span style="--h:64%"></span><span style="--h:42%"></span>
+                        <span style="--h:76%"></span><span style="--h:26%"></span><span style="--h:54%"></span><span style="--h:72%"></span>
+                    </div>
+                    <button type="button" class="music-progress" onclick="seekMusic(event)" aria-label="调整播放进度">
+                        <span id="music-progress-fill"></span>
+                    </button>
+                    <div class="music-time-row"><span id="music-time-elapsed">0:00</span><span id="music-time-duration">0:30</span></div>
+                    <div class="music-controls">
+                        <button type="button" onclick="playPrevMusicTrack()" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
+                        <button type="button" class="music-play-btn" onclick="toggleMusicPlayback()" aria-label="播放或暂停"><i id="music-play-icon" class="ri-play-fill"></i></button>
+                        <button type="button" onclick="playNextMusicTrack()" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
+                    </div>
+                </section>
+                <section class="music-list-section">
+                    <div class="music-list-title">
+                        <strong>完整音频</strong>
+                        <span id="music-status">Source: Internet Archive.</span>
+                    </div>
+                    <div class="music-track-list" id="music-track-list"></div>
+                </section>
+            </div>
+            <div class="music-detail-view hidden" id="music-detail-view">
+                <div class="music-detail-header">
+                    <button type="button" onclick="closeMusicDetail()" aria-label="返回音乐列表"><i class="ri-arrow-left-s-line"></i></button>
+                    <strong>歌词与评论</strong>
+                    <button type="button" onclick="toggleMusicPlayback()" aria-label="播放或暂停"><i class="ri-play-fill" id="music-detail-play-icon"></i></button>
+                </div>
+                <div class="music-detail-content">
+                    <div class="music-detail-hero">
+                        <div class="music-detail-cover" id="music-detail-cover"></div>
+                        <div>
+                            <span id="music-detail-source">Full track</span>
+                            <strong id="music-detail-title">Beyond the Screen</strong>
+                            <em id="music-detail-artist">BYND Radio</em>
+                        </div>
+                    </div>
+                    <div class="music-detail-actions">
+                        <button type="button" id="music-favorite-btn" onclick="toggleMusicFavorite()"><i class="ri-heart-3-line"></i><span>收藏</span></button>
+                        <button type="button" id="music-ai-listen-btn" onclick="toggleMusicCoListen()"><i class="ri-user-heart-line"></i><span>共同听歌</span></button>
+                    </div>
+                    <div class="music-ai-panel hidden" id="music-ai-panel"></div>
+                    <div class="music-detail-tabs">
+                        <button type="button" class="active" data-tab="lyrics" onclick="switchMusicDetailTab('lyrics')">歌词</button>
+                        <button type="button" data-tab="comments" onclick="switchMusicDetailTab('comments')">评论</button>
+                    </div>
+                    <section class="music-detail-panel active" id="music-lyrics-panel">
+                        <div class="music-lyrics-toolbar">
+                            <span id="music-lyrics-status">正在准备歌词...</span>
+                            <button type="button" onclick="refreshMusicLyrics()">重新匹配</button>
+                        </div>
+                        <div class="music-lyrics-box" id="music-lyrics-box"></div>
+                    </section>
+                    <section class="music-detail-panel" id="music-comments-panel">
+                        <div class="music-comments-list" id="music-comments-list"></div>
+                        <div class="music-comment-compose">
+                            <input type="text" id="music-comment-input" placeholder="写一条留言..." onkeydown="if(event.key==='Enter'){event.preventDefault();addMusicComment();}">
+                            <button type="button" onclick="addMusicComment()">发送</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div class="music-bottom-nav">
+                <button type="button" class="active" data-music-tab="home" onclick="switchMusicMainTab('home')"><i class="ri-home-5-fill"></i><span>主页</span></button>
+                <button type="button" data-music-tab="albums" onclick="switchMusicMainTab('albums')"><i class="ri-album-line"></i><span>专辑</span></button>
+                <button type="button" data-music-tab="favorites" onclick="switchMusicMainTab('favorites')"><i class="ri-heart-3-line"></i><span>收藏</span></button>
+            </div>
+        </div>
+
+        <div id="app-study-window" class="app-window hidden study-window">
+            <div class="study-header">
+                <button type="button" onclick="closeApp('study')" aria-label="关闭学习"><i class="ri-arrow-left-s-line"></i></button>
+                <div>
+                    <span>BYND Study</span>
+                    <strong>语言训练</strong>
+                </div>
+                <button type="button" onclick="askStudySupervisor()" aria-label="AI监督"><i class="ri-sparkling-2-line"></i></button>
+            </div>
+            <div class="study-content">
+                <section class="study-hero-card">
+                    <div class="study-hero-copy">
+                        <span id="study-supervisor-label">AI Supervisor</span>
+                        <strong id="study-hero-title">中文 / 日本語 / ไทย</strong>
+                        <p id="study-supervisor-text">自定义要学的语言，把同一句话拆成多语言行，再让当前聊天角色监督你。</p>
+                    </div>
+                    <div class="study-hero-mark"><i class="ri-graduation-cap-line"></i></div>
+                </section>
+                <section class="study-language-card">
+                    <div class="study-section-head">
+                        <div><span>Languages</span><strong>学习语言</strong></div>
+                        <button type="button" onclick="addStudyLanguage()"><i class="ri-add-line"></i> 添加</button>
+                    </div>
+                    <div class="study-language-list" id="study-language-list"></div>
+                </section>
+                <section class="study-editor-card">
+                    <input type="hidden" id="study-edit-id">
+                    <div class="study-editor-fields" id="study-editor-fields"></div>
+                    <label class="study-editor-wide"><span>解释 / 例句</span><textarea id="study-note" rows="3" placeholder="解释语气、常用场景、易错点，或者再写一个例句。"></textarea></label>
+                    <div class="study-editor-actions">
+                        <button type="button" onclick="clearStudyEditor()">清空</button>
+                        <button type="button" onclick="saveStudyCard()">保存学习卡</button>
+                    </div>
+                </section>
+                <section class="study-check-card" id="study-check-card"></section>
+                <section class="study-card-list" id="study-card-list"></section>
+            </div>
+        </div>
+
+        <div id="app-game-window" class="app-window hidden game-window">
+            <div class="game-shell">
+                <div class="game-header">
+                    <button type="button" onclick="closeApp('game')" aria-label="关闭游戏"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span id="game-header-kicker">GAME HUB</span>
+                        <strong id="game-header-title">小游戏</strong>
+                    </div>
+                    <button type="button" onclick="openGameHub()" aria-label="返回大厅"><i class="ri-apps-2-line"></i></button>
+                </div>
+                <div class="game-content" id="game-content"></div>
+            </div>
+        </div>
+
         <div id="app-theme-window" class="app-window hidden">
             <div class="window-header">
                 <span onclick="closeApp('theme')" class="close-btn">取消</span>
@@ -177,6 +371,16 @@
                         </div>
                         <input type="file" id="file-wp-home" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-home')">
                     </div>
+                </div>
+                <div class="setting-card">
+                    <div class="card-header"><i class="ri-stack-line card-icon"></i><span>主题库</span></div>
+                    <div class="theme-section-note">保存当前壁纸、图标、锁屏拍立得、日历配色和桌面布局；下次可以一键套用。</div>
+                    <div class="theme-library-save">
+                        <input type="text" id="theme-library-name" placeholder="给这套主题起个名字">
+                        <button type="button" id="theme-library-save-btn" onclick="saveCurrentThemeLibraryItem()">保存当前主题</button>
+                    </div>
+                    <div class="theme-library-status" id="theme-library-status" aria-live="polite"></div>
+                    <div class="theme-library-list" id="theme-library-list"></div>
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-music-2-line card-icon"></i><span>底部滚动文字</span></div>
@@ -460,6 +664,34 @@
                     <i class="ri-add-line"></i> 添加 API
                 </div>
 
+                <div style="margin-top: 25px;">
+                    <div class="set-section-title"><i class="ri-notification-3-line"></i> 主动消息提醒</div>
+                    <div class="notify-card">
+                        <div class="notify-card-head">
+                            <div>
+                                <strong>角色主动找你</strong>
+                                <span>网页开着时可本地提醒；退出网页后的真手机推送需要 Cloudflare Worker / Web Push 后端。</span>
+                            </div>
+                            <label class="notify-switch">
+                                <input type="checkbox" id="notify-enabled">
+                                <span></span>
+                            </label>
+                        </div>
+                        <div class="notify-grid">
+                            <label><span>监督角色</span><select id="notify-char"></select></label>
+                            <label><span>多久没联系</span><input type="number" id="notify-interval" min="0.1" max="720" step="0.5" value="24"></label>
+                        </div>
+                        <label class="notify-field"><span>Worker 推送接口</span><input type="url" id="notify-worker-endpoint" placeholder="https://bynd-push.xxx.workers.dev"></label>
+                        <label class="notify-field"><span>VAPID Public Key</span><input type="text" id="notify-vapid-key" placeholder="Web Push 公钥"></label>
+                        <div class="notify-actions">
+                            <button type="button" onclick="requestByndNotificationPermission()">授权通知</button>
+                            <button type="button" onclick="sendTestByndNotification()">测试通知</button>
+                            <button type="button" onclick="saveProactiveNotifySettingsFromUI()">保存设置</button>
+                        </div>
+                        <p id="notify-status"></p>
+                    </div>
+                </div>
+
                 <!-- 字体设置 -->
                 <div style="margin-top: 25px;">
                     <div class="set-section-title"><i class="ri-font-size-2"></i> 字体设置</div>
@@ -526,7 +758,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.0.3
+                    Beyond Screen v1.0.6
                 </div>
             </div>
         </div>
@@ -1044,12 +1276,12 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260520-bynd-adaptive1"></script>
-    <script src="wechat.js?v=20260520-bynd-adaptive1"></script>
-    <script src="theme.js?v=20260520-bynd-adaptive1"></script>
-    <script src="settings.js?v=20260520-bynd-adaptive1"></script>
-    <script src="script.js?v=20260520-bynd-adaptive1"></script>
-    <script src="WorldBook.js?v=20260520-bynd-adaptive1"></script>
-    <script src="regular.js?v=20260520-bynd-adaptive1"></script>
+    <script src="chat-api.js?v=20260521-study-game2"></script>
+    <script src="wechat.js?v=20260521-study-game2"></script>
+    <script src="theme.js?v=20260521-study-game2"></script>
+    <script src="settings.js?v=20260521-study-game2"></script>
+    <script src="script.js?v=20260521-study-game2"></script>
+    <script src="WorldBook.js?v=20260521-study-game2"></script>
+    <script src="regular.js?v=20260521-study-game2"></script>
 </body>
 </html>

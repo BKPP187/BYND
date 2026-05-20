@@ -8,6 +8,7 @@ const THEME_ICON_TARGETS = [
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
     {i:'ri-equalizer-line', n:'预设'}
 ];
+const THEME_LIBRARY_KEY = 'bynd_theme_library_v1';
 
 // 1. 初始化图标网格
 function initIconGrid() {
@@ -246,6 +247,74 @@ function applyByndAdaptiveTheme(src) {
 }
 window.applyByndAdaptiveTheme = applyByndAdaptiveTheme;
 
+function applyLockscreenAdaptivePalette(average, accent) {
+    average = average || [246, 247, 249];
+    accent = accent || [45, 58, 74];
+    const root = document.documentElement;
+    const isDark = byndBrightness(average) < 132;
+    const quietAccent = isDark ? byndMix(accent, [255, 255, 255], 0.34) : byndMix(accent, [12, 16, 24], 0.22);
+    const textColor = isDark ? '#ffffff' : '#17191f';
+    const mutedColor = isDark ? 'rgba(255,255,255,0.78)' : 'rgba(23,25,31,0.68)';
+
+    root.classList.add('lock-adaptive');
+    root.dataset.lockTone = isDark ? 'dark' : 'light';
+    root.style.setProperty('--lock-text', textColor);
+    root.style.setProperty('--lock-muted', mutedColor);
+    root.style.setProperty('--lock-text-shadow', isDark ? '0 2px 14px rgba(0,0,0,0.45)' : '0 1px 12px rgba(255,255,255,0.55)');
+    root.style.setProperty('--lock-chip-bg', isDark ? 'rgba(8,10,14,0.34)' : 'rgba(255,255,255,0.58)');
+    root.style.setProperty('--lock-chip-border', isDark ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.72)');
+    root.style.setProperty('--lock-chip-text', isDark ? '#ffffff' : byndRgb(byndMix(quietAccent, [0, 0, 0], 0.18)));
+    root.style.setProperty('--lock-control-bg', isDark ? 'rgba(0,0,0,0.26)' : 'rgba(255,255,255,0.48)');
+    root.style.setProperty('--lock-control-text', textColor);
+    root.style.setProperty('--lock-swipe-bg', isDark ? 'rgba(255,255,255,0.58)' : 'rgba(23,25,31,0.32)');
+    root.style.setProperty('--lock-glass-shadow', isDark ? '0 12px 30px rgba(0,0,0,0.22)' : '0 12px 30px rgba(90,112,140,0.12)');
+}
+
+function applyLockscreenAdaptiveTheme(src) {
+    const saved = getSavedThemeData();
+    src = src || saved.wpLock || '';
+    if (!src) {
+        applyLockscreenAdaptivePalette(window.lockIsDark ? [38, 42, 48] : [246, 247, 249], window.lockIsDark ? [185, 205, 232] : [48, 60, 76]);
+        return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = function() {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 54;
+            canvas.height = 54;
+            ctx.drawImage(img, 0, 0, 54, 54);
+            const pixels = ctx.getImageData(0, 0, 54, 54).data;
+            const samples = [];
+            let total = [0, 0, 0];
+            let count = 0;
+            for (let i = 0; i < pixels.length; i += 16) {
+                const alpha = pixels[i + 3];
+                if (alpha < 80) continue;
+                const color = [pixels[i], pixels[i + 1], pixels[i + 2]];
+                total[0] += color[0];
+                total[1] += color[1];
+                total[2] += color[2];
+                count++;
+                samples.push(color);
+            }
+            if (!count) throw new Error('empty lock palette');
+            const average = [total[0] / count, total[1] / count, total[2] / count];
+            applyLockscreenAdaptivePalette(average, byndPickAccent(samples, average));
+        } catch (e) {
+            applyLockscreenAdaptivePalette(window.lockIsDark ? [38, 42, 48] : [246, 247, 249], window.lockIsDark ? [185, 205, 232] : [48, 60, 76]);
+        }
+    };
+    img.onerror = function() {
+        applyLockscreenAdaptivePalette(window.lockIsDark ? [38, 42, 48] : [246, 247, 249], window.lockIsDark ? [185, 205, 232] : [48, 60, 76]);
+    };
+    img.src = src;
+}
+window.applyLockscreenAdaptiveTheme = applyLockscreenAdaptiveTheme;
+
 const CAL_TRANSPARENCY_DEFAULT = 36;
 
 function normalizeCalTransparency(value) {
@@ -381,6 +450,9 @@ function convertFile(input, targetInputId) {
                 const previewId = targetInputId.replace('input-', 'preview-');
                 const previewEl = document.getElementById(previewId);
                 if(previewEl) previewEl.innerHTML = `<img src="${compressedData}">`;
+
+                if (targetInputId === 'input-wp-lock') applyLockscreenAdaptiveTheme(compressedData);
+                if (targetInputId === 'input-wp-home') applyByndAdaptiveTheme(compressedData);
                 
                 if(inputEl.parentElement) {
                     inputEl.parentElement.style.background = "#e6fffa"; 
@@ -395,6 +467,7 @@ function convertFile(input, targetInputId) {
 function loadSavedSettings() {
     try {
         const data = JSON.parse(localStorage.getItem('my_theme_data'));
+        renderThemeLibrary();
         if (!data) return;
 
         if (data.wpLock) document.getElementById('input-wp-lock').value = data.wpLock;
@@ -463,6 +536,272 @@ function loadSavedSettings() {
     } catch (e) { console.error(e); }
 }
 
+function collectThemeDataFromInputs() {
+    const fallback = getSavedThemeData();
+    const readValue = (id, fallbackValue) => {
+        const el = document.getElementById(id);
+        return el ? el.value : (fallbackValue || '');
+    };
+    const widgetData = (slot, fallbackWidget, fallbackAccent) => ({
+        type: readValue('widget-type-' + slot, fallbackWidget?.type || 'photo'),
+        cdTitle: readValue('widget-cd-title-' + slot, fallbackWidget?.cdTitle || ''),
+        cdDate: readValue('widget-cd-date-' + slot, fallbackWidget?.cdDate || ''),
+        quote: readValue('widget-quote-' + slot, fallbackWidget?.quote || ''),
+        style: normalizeThemeWidgetStyle(readValue('widget-style-' + slot, fallbackWidget?.style || 'frost')),
+        accent: normalizeThemeAccent(readValue('widget-accent-' + slot, fallbackWidget?.accent || fallbackAccent), fallbackAccent)
+    });
+    const iconInputs = [];
+    for (let i = 0; i < THEME_ICON_TARGETS.length; i++) {
+        iconInputs.push(readValue('input-icon-' + i, fallback.icons?.[i] || ''));
+    }
+    const calMode = document.querySelector('.cal-mode-btn.active')?.dataset.mode || fallback.calMode || 'manual';
+    return {
+        wpLock: readValue('input-wp-lock', fallback.wpLock),
+        wpHome: readValue('input-wp-home', fallback.wpHome),
+        music: readValue('input-music-text', fallback.music),
+        vibe: readValue('input-vibe-text', fallback.vibe),
+        l1: readValue('input-lock-img-1', fallback.l1),
+        l2: readValue('input-lock-img-2', fallback.l2),
+        d1: readValue('input-desk-img-1', fallback.d1),
+        d2: readValue('input-desk-img-2', fallback.d2),
+        icons: iconInputs,
+        lockShowLeft: getThemeCheckbox('lock-show-left'),
+        lockShowRight: getThemeCheckbox('lock-show-right'),
+        lockShowText: getThemeCheckbox('lock-show-text'),
+        lockShowTopDeco: getThemeCheckbox('lock-show-top-deco'),
+        lockShowBottomDeco: getThemeCheckbox('lock-show-bottom-deco'),
+        lockTopIcon: normalizeLockDecoIcon(readValue('lock-top-icon', fallback.lockTopIcon), 'ri-attachment-line'),
+        lockBottomIcon: normalizeLockDecoIcon(readValue('lock-bottom-icon', fallback.lockBottomIcon), 'ri-star-smile-fill'),
+        lockWeather: readValue('input-lock-weather', fallback.lockWeather).trim(),
+        calMode,
+        calBg: readValue('cal-color-bg', fallback.calBg || '#1f2937'),
+        calText: readValue('cal-color-text', fallback.calText || '#ffffff'),
+        calDim: readValue('cal-color-dim', fallback.calDim || '#888888'),
+        calAccent: readValue('cal-color-accent', fallback.calAccent || '#ff69b4'),
+        calTransparency: getCalTransparencyValue(),
+        lsLeft: normalizeLsShortcutAction(readValue('ls-shortcut-left', fallback.lsLeft || 'flashlight'), 'flashlight'),
+        lsRight: normalizeLsShortcutAction(readValue('ls-shortcut-right', fallback.lsRight || 'camera'), 'camera'),
+        widget1: widgetData(1, fallback.widget1, '#0a84ff'),
+        widget2: widgetData(2, fallback.widget2, '#ff9f0a')
+    };
+}
+
+function getSavedDesktopLayoutSnapshot() {
+    if (window._editMode && typeof collectDesktopLayout === 'function') {
+        return { items: collectDesktopLayout(), savedAt: Date.now() };
+    }
+    try {
+        return JSON.parse(localStorage.getItem('desktop_layout_v2') || '{}') || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+const THEME_LIBRARY_DB_NAME = 'bynd_theme_library_db';
+const THEME_LIBRARY_DB_VERSION = 1;
+const THEME_LIBRARY_STORE_NAME = 'themes';
+const THEME_LIBRARY_LIMIT = 24;
+let themeLibrarySaving = false;
+
+function setThemeLibraryStatus(text, type) {
+    const el = document.getElementById('theme-library-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'theme-library-status' + (type ? ' ' + type : '');
+}
+
+function getThemeLibrarySaveButton() {
+    return document.getElementById('theme-library-save-btn') || document.querySelector('.theme-library-save button');
+}
+
+function setThemeLibrarySaving(active) {
+    themeLibrarySaving = !!active;
+    const btn = getThemeLibrarySaveButton();
+    if (!btn) return;
+    btn.disabled = !!active;
+    btn.textContent = active ? '保存中...' : '保存当前主题';
+}
+
+function openThemeLibraryDb() {
+    if (!('indexedDB' in window)) return Promise.resolve(null);
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(THEME_LIBRARY_DB_NAME, THEME_LIBRARY_DB_VERSION);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(THEME_LIBRARY_STORE_NAME)) {
+                db.createObjectStore(THEME_LIBRARY_STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('theme library db failed'));
+    });
+}
+
+function readThemeLibraryFromDb() {
+    return openThemeLibraryDb().then(db => new Promise((resolve, reject) => {
+        if (!db) { resolve(null); return; }
+        const tx = db.transaction(THEME_LIBRARY_STORE_NAME, 'readonly');
+        const req = tx.objectStore(THEME_LIBRARY_STORE_NAME).getAll();
+        req.onsuccess = () => {
+            db.close();
+            resolve((req.result || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+        };
+        req.onerror = () => {
+            db.close();
+            reject(req.error || new Error('theme library read failed'));
+        };
+    }));
+}
+
+function writeThemeLibraryToDb(list) {
+    return openThemeLibraryDb().then(db => new Promise((resolve, reject) => {
+        if (!db) { resolve(false); return; }
+        const tx = db.transaction(THEME_LIBRARY_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(THEME_LIBRARY_STORE_NAME);
+        store.clear();
+        (Array.isArray(list) ? list : []).forEach(item => store.put(item));
+        tx.oncomplete = () => {
+            db.close();
+            resolve(true);
+        };
+        tx.onerror = () => {
+            db.close();
+            reject(tx.error || new Error('theme library write failed'));
+        };
+    }));
+}
+
+async function getThemeLibraryStore() {
+    try {
+        const idbList = await readThemeLibraryFromDb();
+        if (Array.isArray(idbList) && idbList.length) return idbList.filter(item => item && item.id && item.themeData);
+    } catch (e) {
+        console.warn('theme library idb read failed:', e);
+    }
+    try {
+        const list = JSON.parse(localStorage.getItem(THEME_LIBRARY_KEY) || '[]');
+        const safeList = Array.isArray(list) ? list.filter(item => item && item.id && item.themeData) : [];
+        if (safeList.length) {
+            writeThemeLibraryToDb(safeList).catch(() => {});
+            localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(safeList.map(item => ({
+                id: item.id,
+                name: item.name,
+                createdAt: item.createdAt
+            }))));
+        }
+        return safeList;
+    } catch (e) {
+        return [];
+    }
+}
+
+async function saveThemeLibraryStore(list) {
+    const safeList = Array.isArray(list) ? list : [];
+    let wroteToDb = false;
+    let idbError = null;
+    try {
+        wroteToDb = await writeThemeLibraryToDb(safeList);
+    } catch (e) {
+        idbError = e;
+    }
+    const localStorePayload = wroteToDb ? safeList.map(item => ({
+        id: item.id,
+        name: item.name,
+        createdAt: item.createdAt
+    })) : safeList;
+    try {
+        localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(localStorePayload));
+    } catch (e) {
+        if (!wroteToDb) throw e;
+    }
+    if (!wroteToDb && idbError) console.warn('theme library idb write failed:', idbError);
+}
+
+async function saveCurrentThemeLibraryItem() {
+    if (themeLibrarySaving) return;
+    setThemeLibraryStatus('正在保存当前主题...', '');
+    setThemeLibrarySaving(true);
+    const input = document.getElementById('theme-library-name');
+    try {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const list = await getThemeLibraryStore();
+        const name = (input?.value || '').trim() || `主题 ${list.length + 1}`;
+        const themeData = collectThemeDataFromInputs();
+        const item = {
+            id: 'theme_' + Date.now(),
+            name: name.slice(0, 28),
+            createdAt: Date.now(),
+            themeData,
+            desktopLayout: getSavedDesktopLayoutSnapshot()
+        };
+        list.unshift(item);
+        await saveThemeLibraryStore(list.slice(0, THEME_LIBRARY_LIMIT));
+        if (input) input.value = '';
+        await renderThemeLibrary();
+        setThemeLibraryStatus('已保存到主题库。', 'ok');
+    } catch (e) {
+        console.error('save theme library failed:', e);
+        setThemeLibraryStatus('保存失败：' + (e && e.message ? e.message : '存储空间不足或浏览器拒绝写入'), 'error');
+    } finally {
+        setThemeLibrarySaving(false);
+    }
+}
+window.saveCurrentThemeLibraryItem = saveCurrentThemeLibraryItem;
+
+async function applyThemeLibraryItem(id) {
+    const item = (await getThemeLibraryStore()).find(entry => entry.id === id);
+    if (!item) return;
+    localStorage.setItem('my_theme_data', JSON.stringify(item.themeData || {}));
+    if (item.desktopLayout && Array.isArray(item.desktopLayout.items) && item.desktopLayout.items.length) {
+        localStorage.setItem('desktop_layout_v2', JSON.stringify(item.desktopLayout));
+    } else {
+        localStorage.removeItem('desktop_layout_v2');
+    }
+    window.location.href = window.location.pathname + '?v=theme-' + Date.now();
+}
+window.applyThemeLibraryItem = applyThemeLibraryItem;
+
+async function deleteThemeLibraryItem(id) {
+    const next = (await getThemeLibraryStore()).filter(item => item.id !== id);
+    await saveThemeLibraryStore(next);
+    await renderThemeLibrary();
+    setThemeLibraryStatus('已删除主题。', 'ok');
+}
+window.deleteThemeLibraryItem = deleteThemeLibraryItem;
+
+async function renderThemeLibrary() {
+    const listEl = document.getElementById('theme-library-list');
+    if (!listEl) return;
+    const list = await getThemeLibraryStore();
+    if (!list.length) {
+        listEl.innerHTML = `
+            <div class="theme-library-empty">
+                <strong>还没有保存的主题</strong>
+                <span>调好壁纸、图标、锁屏、日历和桌面布局后点上方保存。</span>
+            </div>
+        `;
+        return;
+    }
+    listEl.innerHTML = list.map(item => {
+        const data = item.themeData || {};
+        const preview = data.wpHome || data.wpLock || data.d1 || data.l1 || '';
+        const iconCount = Array.isArray(data.icons) ? data.icons.filter(Boolean).length : 0;
+        const layoutCount = Array.isArray(item.desktopLayout?.items) ? item.desktopLayout.items.length : 0;
+        const time = new Date(item.createdAt || Date.now()).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+        return `
+            <div class="theme-library-item">
+                <div class="theme-library-preview">${preview ? `<img src="${themeEscapeHtml(preview)}" alt="">` : '<i class="ri-palette-line"></i>'}</div>
+                <div class="theme-library-meta">
+                    <strong>${themeEscapeHtml(item.name || '未命名主题')}</strong>
+                    <span>${time} · 图标 ${iconCount} · 布局 ${layoutCount}</span>
+                </div>
+                <button type="button" class="apply" onclick="applyThemeLibraryItem('${themeEscapeHtml(item.id)}')">套用</button>
+                <button type="button" class="delete" onclick="deleteThemeLibraryItem('${themeEscapeHtml(item.id)}')" aria-label="删除主题"><i class="ri-delete-bin-line"></i></button>
+            </div>
+        `;
+    }).join('');
+}
+
 // 4. 💾 保存设置
 function saveTheme() {
     const wpLock = document.getElementById('input-wp-lock').value;
@@ -499,6 +838,7 @@ function saveTheme() {
     else checkImageBrightness("", 'lock');
     if (wpHome) checkImageBrightness(wpHome, 'home');
     else checkImageBrightness("", 'home');
+    applyLockscreenAdaptiveTheme(wpLock);
     applyByndAdaptiveTheme(wpHome);
 
     if(musicText) document.querySelector('.music-pill marquee').textContent = musicText;
@@ -602,7 +942,11 @@ function saveTheme() {
 function initTheme() {
     try {
         const data = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+        const saveBtn = getThemeLibrarySaveButton();
+        if (saveBtn) saveBtn.onclick = saveCurrentThemeLibraryItem;
+        renderThemeLibrary();
         applyByndAdaptiveTheme(data.wpHome || '');
+        applyLockscreenAdaptiveTheme(data.wpLock || '');
         if (Object.keys(data).length === 0) return;
 
         if (data.wpLock) {
