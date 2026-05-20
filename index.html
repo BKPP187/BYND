@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI OS 小酒馆</title>
+    <title>BYND</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260520-bynd-adaptive1">
 </head>
 <body>
 
@@ -29,104 +29,120 @@
                 <div class="ls-date" id="ls-date">Loading...</div>
             </div>
             <div class="ls-collage">
-                <div class="photo-card photo-left">
+                <div class="photo-card photo-left" id="lock-photo-left">
                     <div class="tape"></div> 
                     <img src="https://images.unsplash.com/photo-1620662736427-b8a198f52a4d?w=400&auto=format&fit=crop&q=60" class="user-img-1">
                     <div class="hand-write" id="ls-vibe-text">My Vibe</div>
                 </div>
-                <div class="photo-card photo-right">
-                    <div class="clip-paper"><i class="ri-attachment-line"></i></div>
+                <div class="photo-card photo-right" id="lock-photo-right">
+                    <div class="clip-paper" id="ls-top-deco"><i id="ls-top-deco-icon" class="ri-attachment-line"></i></div>
                     <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&auto=format&fit=crop&q=60" class="user-img-2">
-                    <i class="ri-star-smile-fill sticker-star"></i>
+                    <i id="ls-bottom-deco" class="ri-star-smile-fill sticker-star"></i>
                 </div>
             </div>
             <div class="ls-widgets">
-                <div class="widget-pill"><i class="ri-sun-cloudy-line"></i><span>24°C</span></div>
+                <div class="widget-pill"><i class="ri-sun-cloudy-line"></i><span id="ls-weather-pill-text">24°C</span></div>
                 <div class="widget-pill music-pill">
                     <i class="ri-disc-line spin"></i>
                     <marquee scrollamount="3">Lover Boy - 8-Bit Remix</marquee>
                 </div>
             </div>
             <div class="ls-footer">
-                <div class="round-btn"><i class="ri-flashlight-fill"></i></div>
-                <div class="swipe-hint"></div> 
-                <div class="round-btn"><i class="ri-camera-fill"></i></div>
+                <div class="round-btn" id="ls-btn-left" onclick="event.stopPropagation(); lsShortcutAction('left')"><i class="ri-flashlight-fill"></i></div>
+                <div class="swipe-hint"></div>
+                <div class="round-btn" id="ls-btn-right" onclick="event.stopPropagation(); lsShortcutAction('right')"><i class="ri-camera-fill"></i></div>
             </div>
         </div>
 
         <div id="home-screen" class="screen-content hidden">
-            <div class="desktop-scroll-area">
-                <div class="calendar-widget">
-                    <div class="cal-left">
-                        <div class="cal-day" id="cal-day-name">Thu</div>
-                        <div class="cal-date" id="cal-date-num">16</div>
-                    </div>
-                    <div class="cal-right">
-                        <div class="cal-month" id="cal-month-name">January</div>
-                        <div class="cal-grid" id="cal-grid"></div>
-                    </div>
-                </div>
+            <div class="pages-container" id="pages-container">
+                <div class="desktop-page" data-page="0">
+                    <div class="desktop-scroll-area">
+                        <div class="calendar-widget">
+                            <div class="cal-left">
+                                <div class="cal-day" id="cal-day-name">Thu</div>
+                                <div class="cal-date" id="cal-date-num">16</div>
+                            </div>
+                            <div class="cal-right">
+                                <div class="cal-month" id="cal-month-name">January</div>
+                                <div class="cal-grid" id="cal-grid"></div>
+                            </div>
+                        </div>
 
-                <div class="bento-box">
-                    <div class="apps-quad">
-                        <div class="app-item" onclick="openApp('wechat')">
-                            <div class="app-icon icon-black"><i class="ri-wechat-line"></i></div>
-                            <span>微信</span>
+                        <div class="bento-box">
+                            <div class="apps-quad">
+                                <div class="app-item" onclick="openApp('wechat')">
+                                    <div class="app-icon icon-black"><i class="ri-wechat-line"></i></div>
+                                    <span>微信</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('regex')">
+                                    <div class="app-icon icon-black"><i class="ri-code-s-slash-line"></i></div>
+                                    <span>正则</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('worldbook')">
+                                    <div class="app-icon icon-black"><i class="ri-book-read-line"></i></div>
+                                    <span>世界书</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('settings')">
+                                    <div class="app-icon icon-black"><i class="ri-settings-4-line"></i></div>
+                                    <span>设置</span>
+                                </div>
+                            </div>
+                            <div class="photo-large">
+                                <img src="https://images.unsplash.com/photo-1555679427-1f6dfcce943b?w=500&auto=format&fit=crop&q=60" class="desktop-img-1">
+                            </div>
                         </div>
-                        <div class="app-item" onclick="openApp('regex')">
-                            <div class="app-icon icon-black"><i class="ri-code-s-slash-line"></i></div>
-                            <span>正则</span>
-                        </div>
-                        <div class="app-item" onclick="openApp('worldbook')">
-                            <div class="app-icon icon-black"><i class="ri-book-read-line"></i></div>
-                            <span>世界书</span>
-                        </div>
-                        <div class="app-item" onclick="openApp('settings')">
-                            <div class="app-icon icon-black"><i class="ri-settings-4-line"></i></div>
-                            <span>设置</span>
-                        </div>
-                    </div>
-                    <div class="photo-large">
-                        <img src="https://images.unsplash.com/photo-1555679427-1f6dfcce943b?w=500&auto=format&fit=crop&q=60" class="desktop-img-1">
-                    </div>
-                </div>
 
-                <div class="bento-box">
-                    <div class="photo-large">
-                        <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=500&auto=format&fit=crop&q=60" alt="风景" class="desktop-img-2">
-                    </div>
-                    <div class="apps-quad">
-                        <div class="app-item" onclick="openApp('theme')">
-                            <div class="app-icon icon-black"><i class="ri-palette-line"></i></div>
-                            <span>美化</span>
-                        </div>
-                        <div class="app-item" onclick="openApp('study')">
-                            <div class="app-icon icon-black"><i class="ri-graduation-cap-line"></i></div>
-                            <span>学习</span>
-                        </div>
-                        <div class="app-item" onclick="openApp('money')">
-                            <div class="app-icon icon-black"><i class="ri-money-cny-box-line"></i></div>
-                            <span>记账</span>
-                        </div>
-                        <div class="app-item" onclick="openApp('game')">
-                            <div class="app-icon icon-black"><i class="ri-gamepad-line"></i></div>
-                            <span>Game</span>
+                        <div class="bento-box">
+                            <div class="photo-large">
+                                <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=500&auto=format&fit=crop&q=60" alt="风景" class="desktop-img-2">
+                            </div>
+                            <div class="apps-quad">
+                                <div class="app-item" onclick="openApp('theme')">
+                                    <div class="app-icon icon-black"><i class="ri-palette-line"></i></div>
+                                    <span>美化</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('study')">
+                                    <div class="app-icon icon-black"><i class="ri-graduation-cap-line"></i></div>
+                                    <span>学习</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('money')">
+                                    <div class="app-icon icon-black"><i class="ri-money-cny-box-line"></i></div>
+                                    <span>记账</span>
+                                </div>
+                                <div class="app-item" onclick="openApp('game')">
+                                    <div class="app-icon icon-black"><i class="ri-gamepad-line"></i></div>
+                                    <span>Game</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div> 
+                <div class="desktop-page" data-page="1">
+                    <div class="desktop-scroll-area page2-content">
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#999; gap:10px;">
+                            <i class="ri-add-circle-line" style="font-size:40px; opacity:0.4;"></i>
+                            <span style="font-size:13px;">第二屏 (可自定义)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-dots" id="page-dots">
+                <div class="page-dot active"></div>
+                <div class="page-dot"></div>
+            </div>
+            <div id="folder-overlay" class="folder-overlay hidden" onclick="closeFolderOverlay(event)">
+                <div class="folder-popup">
+                    <input class="folder-name-input" id="folder-name-input" placeholder="文件夹" onclick="event.stopPropagation()">
+                    <div class="folder-grid" id="folder-grid"></div>
+                </div>
+            </div>
             <div class="dock-bar">
-                <div class="dock-item">
+                <div class="dock-item" onclick="openApp('music')">
                     <div class="dock-icon-box"><i class="ri-music-2-fill"></i></div>
                     <span class="dock-label">音乐</span>
                 </div>
-                <div class="dock-item" onclick="openApp('sillytavern')">
-                    <div class="dock-icon-box">
-                        <i class="ri-goblet-fill" style="color: #9f7aea;"></i>
-                    </div>
-                    <span class="dock-label">酒馆</span>
-                </div>
-                <div class="dock-item">
+                <div class="dock-item" onclick="openApp('camera')">
                     <div class="dock-icon-box"><i class="ri-camera-lens-line"></i></div>
                     <span class="dock-label">相机</span>
                 </div>
@@ -146,6 +162,7 @@
             <div class="window-content">
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-image-2-line card-icon"></i><span>全局壁纸设置</span></div>
+                    <div class="theme-section-note">分别控制锁屏和桌面背景，支持本地图片上传。</div>
                     <div class="upload-stack">
                         <div class="upload-box wide" onclick="document.getElementById('file-wp-lock').click()">
                             <span class="prefix">锁屏</span>
@@ -163,11 +180,43 @@
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-music-2-line card-icon"></i><span>底部滚动文字</span></div>
+                    <div class="theme-section-note">显示在锁屏底部，适合放一句短歌词或状态。</div>
                     <div class="input-bubble"><input type="text" id="input-music-text" placeholder="写一句你喜欢的歌词..."></div>
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-lock-heart-line card-icon"></i><span>锁屏拍立得</span></div>
+                    <div class="theme-section-note">图片、装饰和文字都可以独立开关，不需要的元素可以隐藏。</div>
                     <div class="input-bubble"><span class="bubble-label">文字</span><input type="text" id="input-vibe-text" placeholder="My Vibe"></div>
+                    <div class="lock-visibility-grid">
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-left" checked><span>左图</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-right" checked><span>右图</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-text" checked><span>底部文字</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-top-deco" checked><span>顶部装饰</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-bottom-deco" checked><span>角标装饰</span></label>
+                    </div>
+                    <div class="lock-deco-row">
+                        <label>
+                            <span class="sub-label">顶部装饰</span>
+                            <select id="lock-top-icon" class="ls-shortcut-select">
+                                <option value="ri-attachment-line">回形针</option>
+                                <option value="ri-heart-3-fill">爱心</option>
+                                <option value="ri-sparkling-2-fill">闪光</option>
+                                <option value="ri-flower-fill">小花</option>
+                                <option value="ri-bookmark-3-fill">书签</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="sub-label">角标装饰</span>
+                            <select id="lock-bottom-icon" class="ls-shortcut-select">
+                                <option value="ri-star-smile-fill">星星</option>
+                                <option value="ri-heart-3-fill">爱心</option>
+                                <option value="ri-sparkling-2-fill">闪光</option>
+                                <option value="ri-flower-fill">小花</option>
+                                <option value="ri-moon-clear-fill">月亮</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="input-bubble lock-weather-input"><span class="bubble-label">日期旁</span><input type="text" id="input-lock-weather" placeholder="24°C"></div>
                     <div class="upload-row">
                         <div class="upload-item">
                             <span class="sub-label">左图</span>
@@ -183,15 +232,174 @@
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-image-line card-icon"></i><span>桌面大组件</span></div>
-                    <div class="upload-stack">
-                        <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()"><span class="prefix">上图</span><input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
-                        <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
-                        <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()"><span class="prefix">下图</span><input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
-                        <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
+                    <div class="theme-section-note">推荐直接进入桌面编辑模式后拖动摆放，旧组件设置会作为默认内容保留。</div>
+                    <div class="desktop-layout-entry">
+                        <div>
+                            <strong>桌面长按摆放</strong>
+                            <span>拖动图标和组件，缩放组件，也可以放到第二屏。</span>
+                        </div>
+                        <button type="button" onclick="startDesktopLayoutFromTheme()">开始编辑</button>
+                    </div>
+                    <div class="widget-config-row widget-config-legacy">
+                        <div class="widget-config-item">
+                            <span class="sub-label">上方组件</span>
+                            <select id="widget-type-1" class="ls-shortcut-select" onchange="toggleWidgetOptions(1)">
+                                <option value="photo">照片</option>
+                                <option value="clock">时钟</option>
+                                <option value="countdown">倒计时</option>
+                                <option value="quote">文字卡片</option>
+                            </select>
+                            <div class="widget-style-row">
+                                <select id="widget-style-1" class="ls-shortcut-select compact">
+                                    <option value="frost">玻璃</option>
+                                    <option value="midnight">深色</option>
+                                    <option value="aurora">彩色</option>
+                                    <option value="paper">浅色</option>
+                                </select>
+                                <label class="widget-accent-picker">
+                                    <span>强调色</span>
+                                    <input type="color" id="widget-accent-1" value="#0a84ff">
+                                </label>
+                            </div>
+                            <div id="widget-opts-1" class="widget-opts">
+                                <div class="widget-opt-photo">
+                                    <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()"><span class="prefix">图片</span><input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
+                                    <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
+                                </div>
+                                <div class="widget-opt-countdown hidden">
+                                    <input type="text" id="widget-cd-title-1" class="widget-text-input" placeholder="倒计时标题 (如: 生日)">
+                                    <input type="date" id="widget-cd-date-1" class="widget-text-input">
+                                </div>
+                                <div class="widget-opt-quote hidden">
+                                    <input type="text" id="widget-quote-1" class="widget-text-input" placeholder="写一句话...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="widget-config-item">
+                            <span class="sub-label">下方组件</span>
+                            <select id="widget-type-2" class="ls-shortcut-select" onchange="toggleWidgetOptions(2)">
+                                <option value="photo">照片</option>
+                                <option value="clock">时钟</option>
+                                <option value="countdown">倒计时</option>
+                                <option value="quote">文字卡片</option>
+                            </select>
+                            <div class="widget-style-row">
+                                <select id="widget-style-2" class="ls-shortcut-select compact">
+                                    <option value="frost">玻璃</option>
+                                    <option value="midnight">深色</option>
+                                    <option value="aurora">彩色</option>
+                                    <option value="paper">浅色</option>
+                                </select>
+                                <label class="widget-accent-picker">
+                                    <span>强调色</span>
+                                    <input type="color" id="widget-accent-2" value="#ff9f0a">
+                                </label>
+                            </div>
+                            <div id="widget-opts-2" class="widget-opts">
+                                <div class="widget-opt-photo">
+                                    <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()"><span class="prefix">图片</span><input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
+                                    <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
+                                </div>
+                                <div class="widget-opt-countdown hidden">
+                                    <input type="text" id="widget-cd-title-2" class="widget-text-input" placeholder="倒计时标题 (如: 生日)">
+                                    <input type="date" id="widget-cd-date-2" class="widget-text-input">
+                                </div>
+                                <div class="widget-opt-quote hidden">
+                                    <input type="text" id="widget-quote-2" class="widget-text-input" placeholder="写一句话...">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="setting-card">
+                    <div class="card-header"><i class="ri-calendar-heart-line card-icon"></i><span>日历配色</span></div>
+                    <div class="theme-section-note">透明模式会根据桌面背景自动切换文字深浅，滑条控制底色存在感。</div>
+                    <div class="cal-mode-toggle">
+                        <div class="cal-mode-btn active" data-mode="manual" onclick="switchCalMode('manual')">手动调色</div>
+                        <div class="cal-mode-btn" data-mode="auto" onclick="switchCalMode('auto')">自动取色</div>
+                        <div class="cal-mode-btn" data-mode="transparent" onclick="switchCalMode('transparent')">透明</div>
+                    </div>
+                    <div id="cal-manual-panel">
+                        <div class="cal-color-row">
+                            <div class="cal-color-item">
+                                <label>背景</label>
+                                <input type="color" class="cal-color-input" id="cal-color-bg" value="#000000" onchange="previewCalColors()">
+                            </div>
+                            <div class="cal-color-item">
+                                <label>文字</label>
+                                <input type="color" class="cal-color-input" id="cal-color-text" value="#ffffff" onchange="previewCalColors()">
+                            </div>
+                            <div class="cal-color-item">
+                                <label>日期</label>
+                                <input type="color" class="cal-color-input" id="cal-color-dim" value="#888888" onchange="previewCalColors()">
+                            </div>
+                            <div class="cal-color-item">
+                                <label>爱心</label>
+                                <input type="color" class="cal-color-input" id="cal-color-accent" value="#ff69b4" onchange="previewCalColors()">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="cal-auto-panel" class="hidden">
+                        <div style="text-align:center; padding: 15px 0; color:#aaa; font-size:12px;">
+                            <i class="ri-magic-line" style="font-size:24px; color:#ff758c; display:block; margin-bottom:6px;"></i>
+                            根据桌面壁纸自动提取主色调配色
+                        </div>
+                    </div>
+                    <div id="cal-transparent-panel" class="hidden">
+                        <div class="cal-transparent-note">
+                            <i class="ri-contrast-drop-2-line"></i>
+                            <span>透明底会跟随桌面背景自动切换深浅文字。</span>
+                        </div>
+                        <label class="cal-alpha-control">
+                            <div>
+                                <span>透明度</span>
+                                <em id="cal-transparency-value">36%</em>
+                            </div>
+                            <input type="range" id="cal-transparency" min="0" max="78" value="36" oninput="previewCalTransparency(this.value)">
+                        </label>
+                    </div>
+                    <div class="cal-preview-mini" id="cal-preview">
+                        <div class="cal-preview-left">9</div>
+                        <div class="cal-preview-dots">
+                            <div class="cal-preview-dot"></div><div class="cal-preview-dot"></div><div class="cal-preview-dot"></div>
+                            <div class="cal-preview-dot active"></div><div class="cal-preview-dot"></div><div class="cal-preview-dot"></div>
+                            <div class="cal-preview-dot"></div><div class="cal-preview-dot"></div><div class="cal-preview-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <div class="card-header"><i class="ri-flashlight-line card-icon"></i><span>锁屏快捷按钮</span></div>
+                    <div class="theme-section-note">设置锁屏底部左右按钮，保存后会立即应用到锁屏。</div>
+                    <div class="ls-shortcut-row">
+                        <div class="ls-shortcut-item">
+                            <span class="sub-label">左按钮</span>
+                            <select id="ls-shortcut-left" class="ls-shortcut-select">
+                                <option value="flashlight">手电筒</option>
+                                <option value="wechat">微信</option>
+                                <option value="camera">相机</option>
+                                <option value="music">音乐</option>
+                                <option value="settings">设置</option>
+                                <option value="theme">美化</option>
+                            </select>
+                        </div>
+                        <div class="ls-shortcut-item">
+                            <span class="sub-label">右按钮</span>
+                            <select id="ls-shortcut-right" class="ls-shortcut-select">
+                                <option value="camera">相机</option>
+                                <option value="wechat">微信</option>
+                                <option value="flashlight">手电筒</option>
+                                <option value="music">音乐</option>
+                                <option value="settings">设置</option>
+                                <option value="theme">美化</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-card">
                     <div class="card-header"><i class="ri-apps-line card-icon"></i><span>图标更换</span></div>
+                    <div class="theme-section-note">点击图标可以替换外观，未设置的图标继续使用默认样式。</div>
                     <div class="icon-grid-pretty" id="icon-grid-container"></div>
                 </div>
                 <div style="height: 50px;"></div>
@@ -207,11 +415,11 @@
             <div class="window-content" id="wb-content-area" style="padding: 0; height: 100%;"></div>
         </div>
 
-        <div id="app-regex-window" class="app-window hidden" style="background: #1e1e1e;">
-            <div class="window-header" style="background: rgba(30, 30, 30, 0.95); color: white; border-bottom: 1px solid #333;">
-                <span onclick="closeApp('regex')" class="close-btn" style="color: #aaa;">关闭</span>
-                <h3 style="color: #fff;">正则脚本</h3>
-                <i class="ri-add-line" onclick="openCreateRegexModal()" style="font-size: 24px; color: #07c160; cursor: pointer;"></i>
+        <div id="app-regex-window" class="app-window hidden regex-window">
+            <div class="window-header regex-window-header">
+                <span onclick="closeApp('regex')" class="close-btn">关闭</span>
+                <h3>正则脚本</h3>
+                <button class="regex-add-btn" onclick="openCreateRegexModal()" title="新建规则"><i class="ri-add-line"></i></button>
             </div>
             <div class="regex-tab-bar">
                 <div class="re-tab active" data-tab="global" onclick="switchRegexTab('global')">
@@ -221,31 +429,140 @@
                     <i class="ri-user-settings-line"></i> 角色
                 </div>
             </div>
-            <div class="window-content" id="re-content-area" style="padding: 15px;"></div>
+            <div class="window-content regex-content" id="re-content-area"></div>
         </div>
 
-        <div id="app-sillytavern-window" class="app-window hidden" style="background: #0b0c15; color: #ccc;">
-            <div class="st-header">
-                <div class="st-header-left" onclick="closeApp('sillytavern')">
-                    <i class="ri-menu-line"></i>
-                </div>
-                <span class="st-header-title">SillyTavern</span>
-                <div class="st-header-right">
-                    <i class="ri-user-add-line" onclick="triggerImport()" style="color: #9f7aea;"></i>
-                </div>
+        <div id="app-preset-window" class="app-window hidden" style="background: #faf5f0;">
+            <div class="window-header" style="background: linear-gradient(135deg, #fff5f5, #fef0f5, #f5f0ff); border-bottom: 1px solid rgba(248,164,184,0.2);">
+                <span onclick="closeApp('preset')" class="close-btn" style="color: #c9a0b5;">关闭</span>
+                <h3 style="color: #d4749a;">预设</h3>
+                <span style="min-width:40px;"></span>
             </div>
+            <div class="window-content" style="padding: 20px;">
+                <div id="preset-list-container"></div>
+                <div class="set-add-btn" onclick="document.getElementById('import-preset-file').click()" style="margin-top:12px;">
+                    <i class="ri-add-line"></i> 导入预设 (.json)
+                </div>
+                <input type="file" id="import-preset-file" accept=".json" style="display:none" onchange="importPresetFile(this)">
+            </div>
+        </div>
 
-            <div id="st-content-container" class="st-container">
-                <div id="st-char-list" class="st-char-grid"></div>
+        <div id="app-settings-window" class="app-window hidden" style="background: #faf5f0;">
+            <div class="window-header" style="background: linear-gradient(135deg, #fff5f5, #fef0f5, #f5f0ff); border-bottom: 1px solid rgba(248,164,184,0.2);">
+                <span onclick="closeApp('settings')" class="close-btn" style="color: #c9a0b5;">关闭</span>
+                <h3 style="color: #d4749a;">设置</h3>
+                <span style="width:40px;"></span>
+            </div>
+            <div class="window-content" style="padding: 20px; background: #faf5f0;">
+                <div class="set-section-title"><i class="ri-link"></i> API 连接</div>
+                <div id="api-list-container"></div>
+                <div class="set-add-btn" onclick="openApiModal()">
+                    <i class="ri-add-line"></i> 添加 API
+                </div>
 
-                <div id="st-chat-view" class="st-chat-view hidden">
-                    <div id="st-chat-log" class="st-chat-log"></div>
-                    <div class="st-input-bar">
-                        <i class="ri-menu-add-line"></i>
-                        <textarea id="st-input" rows="1" placeholder="Type a message..."></textarea>
-                        <i class="ri-send-plane-fill" style="color: #9f7aea;"></i>
+                <!-- 字体设置 -->
+                <div style="margin-top: 25px;">
+                    <div class="set-section-title"><i class="ri-font-size-2"></i> 字体设置</div>
+
+                    <!-- 字体下拉选择 -->
+                    <div class="font-select-wrap">
+                        <select id="font-select" class="font-select" onchange="selectFontFromDropdown(this.value)">
+                            <option value="">系统默认</option>
+                        </select>
+                        <i class="ri-delete-bin-6-line font-del-icon" title="删除当前字体" onclick="deleteSelectedFont()"></i>
+                    </div>
+
+                    <!-- 添加字体区域 -->
+                    <div style="margin-top: 12px;">
+                        <div class="font-upload-box" onclick="document.getElementById('font-file-input').click()">
+                            <i class="ri-upload-cloud-2-line"></i>
+                            <span>上传本地字体 (.ttf/.woff/.woff2/.otf)</span>
+                        </div>
+                        <input type="file" id="font-file-input" accept=".ttf,.woff,.woff2,.otf" style="display:none" onchange="handleFontFileUpload(this)">
+
+                        <div class="font-url-row">
+                            <input type="text" id="font-url-input" placeholder="粘贴字体文件链接...">
+                            <button class="font-url-apply" onclick="addFontFromUrl()">添加</button>
+                        </div>
+                    </div>
+
+                    <!-- 预览框 -->
+                    <div class="font-preview-box" id="font-preview-box">
+                        <div class="font-preview-text" id="font-preview-text">你好世界 Hello World 1234567890</div>
+                        <div class="font-preview-label" id="font-preview-label">当前：系统默认字体</div>
+                    </div>
+
+                    <div class="font-reset-row">
+                        <span class="font-reset-btn" onclick="resetFont()">恢复默认字体</span>
                     </div>
                 </div>
+
+                <!-- 数据管理 -->
+                <div style="margin-top: 25px;">
+                    <div class="set-section-title"><i class="ri-database-2-line"></i> 数据管理</div>
+
+                    <div class="set-data-actions">
+                        <div class="set-data-btn" onclick="exportAllData()">
+                            <i class="ri-download-2-line"></i>
+                            <span>导出数据</span>
+                            <div class="set-data-hint">导出所有角色、设置、聊天记录</div>
+                        </div>
+                        <div class="set-data-btn" onclick="document.getElementById('import-data-file').click()">
+                            <i class="ri-upload-2-line"></i>
+                            <span>导入数据</span>
+                            <div class="set-data-hint">从 JSON 文件恢复数据</div>
+                        </div>
+                        <input type="file" id="import-data-file" accept=".json" style="display:none" onchange="importAllData(this)">
+                    </div>
+
+                    <div class="set-data-actions" style="margin-top: 8px;">
+                        <div class="set-data-btn set-data-btn-warn" onclick="clearInvalidCache()">
+                            <i class="ri-delete-bin-line"></i>
+                            <span>清理无效缓存</span>
+                            <div class="set-data-hint">清除过期数据，释放存储空间</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 版本号 -->
+                <div class="set-version">
+                    Beyond Screen v1.0.3
+                </div>
+            </div>
+        </div>
+
+        <div id="api-edit-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card" style="background: #fffcf8; border: 1.5px solid rgba(248,164,184,0.25); border-radius: 24px;">
+                <div class="wc-card-header" style="border-bottom-color: rgba(248,164,184,0.15);">
+                    <span id="api-modal-title" style="color:#d4749a; font-weight:700;">添加 API</span>
+                    <i class="ri-close-line" onclick="closeApiModal()" style="color:#c9a0b5;"></i>
+                </div>
+                <div class="wc-card-body" style="gap: 12px;">
+                    <input type="hidden" id="api-edit-id">
+                    <div class="wc-form-group">
+                        <label style="color:#c9a0b5;">名称</label>
+                        <input type="text" id="api-edit-name" placeholder="给它取个名字吧~" style="background:#faf5f0; border-color:rgba(248,164,184,0.2); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#c9a0b5;">Base URL</label>
+                        <input type="text" id="api-edit-url" placeholder="https://api.example.com/v1" style="background:#faf5f0; border-color:rgba(248,164,184,0.2); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#c9a0b5;">API Key</label>
+                        <input type="password" id="api-edit-key" placeholder="sk-xxx 或留空" style="background:#faf5f0; border-color:rgba(248,164,184,0.2); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#c9a0b5;">模型 <span id="api-model-hint" style="font-size:10px; color:#ddd; font-weight:400;">先测试连接再选~</span></label>
+                        <select id="api-edit-model" disabled style="width:100%; background:#f0ebe6; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#999; outline:none; appearance:none; -webkit-appearance:none; cursor:not-allowed;">
+                            <option value="">请先点测试按钮</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testApiFromModal()" style="background:transparent; color:#d4749a; border:1.5px solid #f0b8cc; flex:1; border-radius:14px;">测试</button>
+                    <button class="btn-confirm" onclick="saveApi()" style="background:linear-gradient(135deg,#f8a4b8,#d4749a); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
             </div>
         </div>
 
@@ -256,20 +573,330 @@
                 <div class="wc-header-right"><i class="ri-add-line" onclick="testAddCharacter()" style="font-size: 26px;"></i></div>
             </div>
             
-            <div class="wechat-content">
-                <div class="wc-search-box"><div class="wc-search-inner"><i class="ri-search-line"></i> 搜索</div></div>
+            <div class="wechat-content wc-tab-view active" id="wc-view-chat">
+                <div class="wc-search-box"><div class="wc-search-inner"><i class="ri-search-line"></i><input type="text" class="wc-search-input" id="wc-search-input" placeholder="搜索" oninput="filterChatList(this.value)"></div></div>
                 <div class="wc-chat-list" id="wc-chat-list"></div>
             </div>
+
+            <div class="wc-tab-view" id="wc-view-contacts">
+                <div class="wc-contacts-list" id="wc-contacts-list"></div>
+            </div>
+
+            <div class="wc-tab-view" id="wc-view-discover">
+                <div class="wc-discover-page">
+                    <div class="wc-discover-item" onclick="openWechatMoments()">
+                        <svg class="wc-discover-icon" viewBox="0 0 48 48" fill="none" stroke="#7C6EF7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="8"/><path d="M24 4v4M24 40v4M4 24h4M40 24h4"/></svg>
+                        <span class="wc-discover-name">朋友圈</span>
+                        <svg class="wc-discover-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                    </div>
+                    <div class="wc-discover-item" onclick="openWechatChannels()">
+                        <svg class="wc-discover-icon" viewBox="0 0 48 48" fill="none" stroke="#F97066" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="10" width="36" height="28" rx="4"/><path d="M20 19v10l9-5-9-5z" fill="#F97066" stroke="none"/></svg>
+                        <span class="wc-discover-name">视频号</span>
+                        <svg class="wc-discover-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                    </div>
+                    <div class="wc-discover-item" onclick="openWechatLive()">
+                        <svg class="wc-discover-icon" viewBox="0 0 48 48" fill="none" stroke="#F472B6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="28" r="6"/><path d="M14 18a14 14 0 0 1 20 0"/><path d="M10 13a20 20 0 0 1 28 0"/></svg>
+                        <span class="wc-discover-name">直播</span>
+                        <svg class="wc-discover-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                    </div>
+                    <div class="wc-discover-item" onclick="openWechatShop()">
+                        <svg class="wc-discover-icon" viewBox="0 0 48 48" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18l-4 22h28l-4-22H14z"/><path d="M18 18V14a6 6 0 0 1 12 0v4"/></svg>
+                        <span class="wc-discover-name">购物</span>
+                        <svg class="wc-discover-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wc-tab-view" id="wc-view-me">
+                <div class="wc-me-page" id="wc-me-page"></div>
+            </div>
+
             <div class="wc-tab-bar">
-                <div class="wc-tab active"><i class="ri-message-3-fill"></i><span>微信</span></div>
-                <div class="wc-tab"><i class="ri-contacts-book-2-line"></i><span>通讯录</span></div>
-                <div class="wc-tab"><i class="ri-compass-3-line"></i><span>发现</span></div>
-                <div class="wc-tab"><i class="ri-user-line"></i><span>我</span></div>
+                <div class="wc-tab active" onclick="switchWcTab('chat')"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M44 24c0 11-9 18-20 18-3 0-6-.5-8.5-1.5L6 44l3-8C6 32.5 4 28.5 4 24 4 13 13 6 24 6s20 7 20 18z"/><circle cx="16" cy="24" r="2" fill="currentColor" stroke="none"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/><circle cx="32" cy="24" r="2" fill="currentColor" stroke="none"/></svg><span>微信</span></div>
+                <div class="wc-tab" onclick="switchWcTab('contacts')"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="16" r="8"/><path d="M8 42c0-8.8 7.2-16 16-16s16 7.2 16 16"/></svg><span>通讯录</span></div>
+                <div class="wc-tab" onclick="switchWcTab('discover')"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="20"/><polygon points="20,14 34,24 20,34" fill="currentColor" stroke="none"/></svg><span>发现</span></div>
+                <div class="wc-tab" onclick="switchWcTab('me')"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="14" r="8"/><path d="M10 42c0-7.7 6.3-14 14-14s14 6.3 14 14"/><path d="M36 18l4 4 6-8"/></svg><span>我</span></div>
             </div>
             <div id="wechat-chat-room" class="wc-chat-room hidden">
-                <div class="wc-room-header"><i class="ri-arrow-left-s-line" onclick="closeChat()"></i><span class="wc-room-title" id="chat-room-title">...</span><i class="ri-more-fill"></i></div>
+                <div class="wc-room-header"><i class="ri-arrow-left-s-line" onclick="closeChat()"></i><span class="wc-room-title" id="chat-room-title">...</span><i class="ri-more-fill" onclick="openChatSettings()"></i></div>
+                <i class="ri-arrow-left-s-line wc-float-back" onclick="closeChat()"></i>
+                <div class="wc-floating-avatar" id="wc-floating-avatar" onclick="openChatSettings()">
+                    <img id="wc-float-avatar-img" src="">
+                    <span class="wc-float-name" id="wc-float-name"></span>
+                </div>
+                <i class="ri-more-2-fill wc-float-more" onclick="openChatSettings()"></i>
                 <div class="wc-room-content" id="chat-room-content"></div>
-                <div class="wc-room-footer"><i class="ri-voiceprint-line"></i><input type="text" class="wc-input"><i class="ri-emotion-line"></i><i class="ri-add-circle-line"></i></div>
+                <div class="wc-room-footer">
+                    <div class="wc-add-btn" onclick="toggleChatToolbar()">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </div>
+                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}">
+                    <svg class="wc-ai-btn" onclick="triggerAiReply()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6z"/></svg>
+                    <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()"></i>
+                </div>
+
+                <!-- + 工具栏 -->
+                <div id="wc-chat-toolbar" class="wc-chat-toolbar hidden">
+                    <div class="wc-toolbar-grid">
+                        <div class="wc-toolbar-item" onclick="openStickerPicker()">
+                            <div class="wc-toolbar-icon"><i class="ri-emotion-happy-line"></i></div>
+                            <span>表情</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('voice')">
+                            <div class="wc-toolbar-icon"><i class="ri-mic-line"></i></div>
+                            <span>语音</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('transfer')">
+                            <div class="wc-toolbar-icon"><i class="ri-money-cny-circle-line"></i></div>
+                            <span>转账</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('redpacket')">
+                            <div class="wc-toolbar-icon"><i class="ri-red-packet-line"></i></div>
+                            <span>红包</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="startWechatCall('videoCall')">
+                            <div class="wc-toolbar-icon"><i class="ri-video-chat-line"></i></div>
+                            <span>视频通话</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="startWechatCall('voiceCall')">
+                            <div class="wc-toolbar-icon"><i class="ri-phone-line"></i></div>
+                            <span>语音通话</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="triggerCamera()">
+                            <div class="wc-toolbar-icon"><i class="ri-camera-line"></i></div>
+                            <span>拍照</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="triggerImagePick()">
+                            <div class="wc-toolbar-icon"><i class="ri-image-line"></i></div>
+                            <span>图片</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="openStickerManager()">
+                            <div class="wc-toolbar-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/><path d="M21 12a9 9 0 0 1-9 9c0-4.97 4.03-9 9-9z"/></svg>
+                            </div>
+                            <span>贴纸管理</span>
+                        </div>
+                        <div class="wc-toolbar-item" onclick="openWechatMemoryManager()">
+                            <div class="wc-toolbar-icon"><i class="ri-brain-line"></i></div>
+                            <span>记忆</span>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
+                <input type="file" id="wc-image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
+
+                <!-- 表情选择器 -->
+                <div id="wc-sticker-picker" class="wc-sticker-picker hidden">
+                    <div class="wc-sticker-picker-header">
+                        <span>表情</span>
+                        <div style="display:flex;gap:8px;">
+                            <i class="ri-settings-3-line" onclick="openStickerManager()"></i>
+                            <i class="ri-close-line" onclick="closeStickerPicker()"></i>
+                        </div>
+                    </div>
+                    <div class="wc-sticker-tabs" id="wc-sticker-tabs"></div>
+                    <div class="wc-sticker-grid" id="wc-sticker-grid"></div>
+                </div>
+
+                <!-- 贴纸包管理 -->
+                <div id="wc-sticker-manager" class="wc-modal-overlay hidden" style="z-index:3100;">
+                    <div class="wc-char-card" style="max-height:80%;display:flex;flex-direction:column;background:#fffcf8;border:1.5px solid rgba(248,164,184,0.25);border-radius:24px;">
+                        <div class="wc-card-header" style="border-bottom-color:rgba(248,164,184,0.15);">
+                            <span style="color:#d4749a;font-weight:700;">贴纸包管理</span>
+                            <i class="ri-close-line" onclick="closeStickerManager()" style="color:#c9a0b5;"></i>
+                        </div>
+                        <div class="wc-card-body" style="overflow-y:auto;flex:1;align-items:stretch;gap:8px;">
+                            <div id="sticker-pack-list"></div>
+                            <div style="padding:8px 0;">
+                                <button onclick="createStickerPack()" style="width:100%;height:40px;background:#07c160;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;"><i class="ri-add-line"></i> 新建贴纸包</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 💬 聊天设置面板 -->
+                <div id="wc-chat-settings-panel" class="wc-chat-settings">
+                    <div class="wcs-header">
+                        <i class="ri-arrow-left-s-line" onclick="closeChatSettings()"></i>
+                        <span>聊天设置</span>
+                        <span style="width:36px;"></span>
+                    </div>
+                    <div class="wcs-body">
+                        <!-- 聊天外观 -->
+                        <div class="wcs-section-title">聊天外观</div>
+                        <div class="wcs-section">
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-image-line"></i> 背景图片</div>
+                                <div class="wcs-row-value">
+                                    <span style="font-size:13px; color:#999;" id="wcs-bg-img-hint">未设置</span>
+                                    <i class="ri-upload-2-line" style="font-size:18px; color:#07c160; cursor:pointer;" onclick="document.getElementById('wcs-bg-img-file').click()"></i>
+                                    <input type="file" id="wcs-bg-img-file" accept="image/*" style="display:none" onchange="uploadChatBgImage(this)">
+                                </div>
+                            </div>
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-font-size"></i> 字体大小</div>
+                                <div class="wcs-row-value">
+                                    <input type="range" class="wcs-range" id="wcs-font-size" min="12" max="22" value="15" oninput="document.getElementById('wcs-font-val').textContent=this.value+'px'">
+                                    <span class="wcs-range-val" id="wcs-font-val">15px</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 气泡样式 CSS -->
+                        <div class="wcs-section-title">气泡样式 CSS</div>
+                        <div class="wcs-section">
+                            <div class="wcs-preset-bar">
+                                <select id="wcs-bubble-preset" class="wcs-select" onchange="applyBubblePreset(this.value)"></select>
+                                <button class="wcs-mini-btn" onclick="saveCurrentCssAsPreset()"><i class="ri-bookmark-line"></i>保存</button>
+                                <button class="wcs-mini-btn subtle" onclick="deleteSelectedPreset()"><i class="ri-delete-bin-6-line"></i></button>
+                            </div>
+                            <div class="wcs-bubble-preview">
+                                <div class="wcs-preview-row">
+                                    <div class="wcs-preview-bubble ai">角色气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
+                                </div>
+                                <div class="wcs-preview-row right">
+                                    <div class="wcs-preview-bubble user">我的气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
+                                </div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>自定义 CSS <span style="font-weight:normal;color:#bbb;font-size:11px;">（作用于 .msg-bubble）</span></label>
+                                <textarea class="wcs-textarea wcs-css-editor" id="wcs-custom-css" placeholder="例如：&#10;.msg-bubble { border-radius: 18px; border: 2px dashed pink; }&#10;.msg-bubble.green { border-radius: 18px 18px 4px 18px; }" rows="6" oninput="previewBubbleCss(this.value)"></textarea>
+                            </div>
+                            <div class="wcs-row-actions">
+                                <button class="wcs-mini-btn subtle" onclick="document.getElementById('wcs-custom-css').value=''; previewBubbleCss(''); document.getElementById('wcs-bubble-preset').value='default';"><i class="ri-eraser-line"></i>清除 CSS</button>
+                            </div>
+                        </div>
+
+                        <!-- 我的资料 -->
+                        <div class="wcs-section-title">我的资料</div>
+                        <div class="wcs-section">
+                            <div class="wcs-avatar-row">
+                                <img class="wcs-avatar-img" id="wcs-user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f8c8dc'/%3E%3Cstop offset='100%25' stop-color='%23d4a5f5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='200' rx='100' fill='url(%23bg)'/%3E%3Ccircle cx='100' cy='80' r='35' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='155' rx='50' ry='35' fill='%23fff' opacity='0.9'/%3E%3Ccircle cx='88' cy='75' r='4' fill='%23555'/%3E%3Ccircle cx='112' cy='75' r='4' fill='%23555'/%3E%3Cpath d='M92 90 Q100 98 108 90' stroke='%23e88' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" onclick="document.getElementById('wcs-user-avatar-file').click()">
+                                <input type="file" id="wcs-user-avatar-file" accept="image/*" style="display:none" onchange="uploadUserAvatar(this)">
+                                <div class="wcs-avatar-info">
+                                    <div class="wcs-avatar-name">点击头像更换</div>
+                                    <div class="wcs-avatar-bio">设置你的形象</div>
+                                </div>
+                            </div>
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-user-line"></i> 名字</div>
+                                <div class="wcs-row-value"><input type="text" class="wcs-input" id="wcs-user-name" placeholder="我" value="我"></div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>个人简介</label>
+                                <textarea class="wcs-textarea" id="wcs-user-bio" placeholder="写点什么介绍自己..." rows="2"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 角色资料 -->
+                        <div class="wcs-section-title">角色资料</div>
+                        <div class="wcs-section">
+                            <div class="wcs-avatar-row">
+                                <img class="wcs-avatar-img" id="wcs-char-avatar" src="" style="cursor:pointer;" onclick="document.getElementById('wcs-char-avatar-input').click()">
+                                <input type="file" id="wcs-char-avatar-input" accept="image/*" style="display:none" onchange="uploadCharAvatar(this)">
+                                <div class="wcs-avatar-info">
+                                    <div class="wcs-avatar-name" id="wcs-char-name">角色名</div>
+                                    <div class="wcs-avatar-bio" id="wcs-char-bio-preview">无简介</div>
+                                </div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>角色简介 (来自角色卡)</label>
+                                <textarea class="wcs-textarea" id="wcs-char-desc" placeholder="角色卡中的描述会自动填入这里..." rows="4"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 称呼设置 -->
+                        <div class="wcs-section-title">互动设定</div>
+                        <div class="wcs-section">
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-heart-line"></i> 角色对你的称呼</div>
+                                <div class="wcs-row-value"><input type="text" class="wcs-input" id="wcs-user-title" placeholder="我" value="我" style="width:100px;"></div>
+                            </div>
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-edit-line"></i> 你对角色的备注</div>
+                                <div class="wcs-row-value"><input type="text" class="wcs-input" id="wcs-char-nickname" placeholder="不填则用原名" style="width:100px;"></div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>时间模式</label>
+                                <div class="wcs-time-mode">
+                                    <button type="button" id="wcs-time-real" onclick="toggleWechatTimeMode('real')"><i class="ri-global-line"></i>真实世界</button>
+                                    <button type="button" id="wcs-time-virtual" onclick="toggleWechatTimeMode('virtual')"><i class="ri-time-line"></i>虚拟时间</button>
+                                </div>
+                                <div class="wcs-time-virtual-row hidden" id="wcs-time-virtual-row">
+                                    <input type="datetime-local" class="wcs-datetime" id="wcs-virtual-time" onchange="refreshWechatTimePreview()">
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="setWechatVirtualTimeNow()">现在</button>
+                                </div>
+                                <div class="wcs-time-preview" id="wcs-time-preview"></div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>记忆阈值</label>
+                                <div class="wcs-memory-grid">
+                                    <div>
+                                        <span>分段上限</span>
+                                        <input type="number" id="wcs-memory-segment" min="3" max="50" value="8">
+                                    </div>
+                                    <div>
+                                        <span>长期上限</span>
+                                        <input type="number" id="wcs-memory-long" min="3" max="50" value="8">
+                                    </div>
+                                    <div>
+                                        <span>保留最近</span>
+                                        <input type="number" id="wcs-memory-keep" min="1" max="50" value="5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 角色头像集 -->
+                        <div class="wcs-section-title">角色头像集</div>
+                        <div class="wcs-section">
+                            <div class="wcs-full-row">
+                                <div class="wcs-avatar-gallery" id="wcs-avatar-gallery"></div>
+                                <div style="padding:8px 0;">
+                                    <span class="font-reset-btn" onclick="document.getElementById('wcs-add-avatar-file').click()">+ 添加头像</span>
+                                    <input type="file" id="wcs-add-avatar-file" accept="image/*" style="display:none" onchange="addCharAvatarToGallery(this)">
+                                </div>
+                                <div style="font-size:11px;color:#999;">AI 可根据情绪自行切换头像</div>
+                            </div>
+                        </div>
+
+                        <div class="wcs-section-title">AI 朋友圈</div>
+                        <div class="wcs-section">
+                            <div class="wcs-full-row">
+                                <label>个性签名</label>
+                                <div class="wcs-inline-action">
+                                    <input type="text" class="wcs-input" id="wcs-char-signature" placeholder="可手写，也可让 AI 自己写">
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="generateWechatSignature()">AI 写</button>
+                                </div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>朋友圈背景图</label>
+                                <div class="wcs-cover-gallery" id="wcs-moment-cover-list"></div>
+                                <div style="padding:8px 0 0;">
+                                    <span class="font-reset-btn" onclick="document.getElementById('wcs-add-moment-cover-file').click()">+ 添加背景图</span>
+                                    <input type="file" id="wcs-add-moment-cover-file" accept="image/*" multiple style="display:none" onchange="addWechatMomentCovers(this)">
+                                </div>
+                                <div style="font-size:11px;color:#999;">可添加多张，AI 资料页会按天自动挑一张。</div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>朋友圈动态</label>
+                                <div class="wcs-moment-editor">
+                                    <textarea id="wcs-ai-moment-text" placeholder="帮这个角色写一条朋友圈..."></textarea>
+                                    <div class="wcs-moment-editor-actions">
+                                        <button type="button" class="wcs-mini-btn subtle" onclick="generateWechatAiMoment()">AI 写</button>
+                                        <button type="button" class="wcs-mini-btn" onclick="addWechatAiMomentFromSettings()">添加</button>
+                                    </div>
+                                </div>
+                                <div id="wcs-ai-moment-list" class="wcs-ai-moment-list"></div>
+                            </div>
+                        </div>
+
+                        <!-- 保存按钮 -->
+                        <div style="padding: 20px 16px 40px;">
+                            <button class="wcs-save-btn" onclick="saveChatSettings()">保存设置</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -375,41 +1002,41 @@
             </div>
         </div>
 
-        <div id="re-add-modal" class="wc-modal-overlay hidden" style="z-index: 2100;">
-            <div class="wc-char-card" style="background: #252526; color: #fff; border: 1px solid #444;">
-                <div class="wc-card-header" style="border-bottom-color: #333;">
-                    <span style="color:#fff;">新建 Regex</span>
+        <div id="re-add-modal" class="wc-modal-overlay hidden re-modal-overlay" style="z-index: 2100;">
+            <div class="wc-char-card re-modal-card">
+                <div class="wc-card-header re-modal-header">
+                    <span id="re-modal-title">新建规则</span>
                     <i class="ri-close-line" onclick="document.getElementById('re-add-modal').classList.add('hidden')"></i>
                 </div>
                 <div class="wc-card-body">
                     <div class="wc-form-group">
                         <label>作用域</label>
-                        <select id="re-new-scope" onchange="toggleReCharSelect()" style="width:100%; padding:8px; border-radius:6px; background:#333; color:white; border:1px solid #444; outline:none;">
+                        <select id="re-new-scope" onchange="toggleReCharSelect()">
                             <option value="global">🌐 全局通用</option>
                             <option value="local">👤 角色专属</option>
                         </select>
                     </div>
                     <div class="wc-form-group hidden" id="re-char-select-group">
                         <label>选择角色</label>
-                        <select id="re-new-char-select" style="width:100%; padding:8px; border-radius:6px; background:#333; color:white; border:1px solid #444; outline:none;">
+                        <select id="re-new-char-select">
                             </select>
                     </div>
 
                     <div class="wc-form-group">
                         <label>脚本名称</label>
-                        <input type="text" id="re-new-name" placeholder="例如: 去除括号" style="background:#333; color:white; border-color:#444;">
+                        <input type="text" id="re-new-name" placeholder="例如：隐藏思考过程">
                     </div>
                     <div class="wc-form-group">
                         <label>正则 (Regex)</label>
-                        <input type="text" id="re-new-regex" placeholder="\((.*?)\)" style="background:#333; color:#ce9178; border-color:#444; font-family:monospace;">
+                        <input type="text" id="re-new-regex" placeholder="\((.*?)\)">
                     </div>
                     <div class="wc-form-group">
                         <label>替换 (Replacement)</label>
-                        <input type="text" id="re-new-repl" placeholder="留空则删除" style="background:#333; color:#ce9178; border-color:#444; font-family:monospace;">
+                        <input type="text" id="re-new-repl" placeholder="留空则删除">
                     </div>
                 </div>
                 <div class="wc-card-footer">
-                    <button class="btn-confirm" onclick="saveNewRegex()" style="background: #07c160;">保存脚本</button>
+                    <button class="btn-confirm" onclick="saveNewRegex()">保存规则</button>
                 </div>
             </div>
         </div>
@@ -417,11 +1044,12 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="wechat.js"></script>
-    <script src="sillytavern.js"></script>
-    <script src="theme.js"></script>
-    <script src="script.js"></script>
-    <script src="WorldBook.js"></script>
-    <script src="regular.js"></script>
+    <script src="chat-api.js?v=20260520-bynd-adaptive1"></script>
+    <script src="wechat.js?v=20260520-bynd-adaptive1"></script>
+    <script src="theme.js?v=20260520-bynd-adaptive1"></script>
+    <script src="settings.js?v=20260520-bynd-adaptive1"></script>
+    <script src="script.js?v=20260520-bynd-adaptive1"></script>
+    <script src="WorldBook.js?v=20260520-bynd-adaptive1"></script>
+    <script src="regular.js?v=20260520-bynd-adaptive1"></script>
 </body>
 </html>
