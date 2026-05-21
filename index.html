@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#111318">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#111318">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111318">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BYND">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <meta name="format-detection" content="telephone=no">
     <script>
         (function () {
             var ua = navigator.userAgent || '';
@@ -20,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260521-mobile-fullscreen1">
+    <link rel="manifest" href="manifest.webmanifest?v=20260522-ledger-game2">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260521-mobile-fullscreen1">
+    <link rel="stylesheet" href="style.css?v=20260522-ledger-game2">
 </head>
 <body>
 
@@ -363,6 +368,52 @@
             </div>
         </div>
 
+        <div id="app-money-window" class="app-window hidden money-window">
+            <div class="money-shell">
+                <div class="money-topbar">
+                    <button type="button" onclick="closeApp('money')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>BYND LEDGER</span>
+                        <strong>记账</strong>
+                    </div>
+                    <button type="button" onclick="addManualMoneyRecord()" aria-label="手动记账"><i class="ri-add-line"></i></button>
+                </div>
+                <div class="money-content">
+                    <section class="money-hello">
+                        <div>
+                            <span>HELLO, <b id="money-user-name">BYND</b></span>
+                            <strong>今天的消费已经整理好了</strong>
+                        </div>
+                        <em id="money-record-count">0 笔</em>
+                    </section>
+                    <section class="money-id-card">
+                        <div class="money-id-main">
+                            <span>MONTHLY SPEND</span>
+                            <strong id="money-month-total">￥0.00</strong>
+                            <p id="money-today-total">今日 ￥0.00</p>
+                        </div>
+                        <div class="money-id-side">
+                            <i class="ri-wallet-3-line"></i>
+                            <div class="money-barcode"><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                    </section>
+                    <section class="money-list-card">
+                        <div class="money-section-head">
+                            <div><span>RECORDS</span><strong>消费记录</strong></div>
+                            <button type="button" onclick="addManualMoneyRecord()">+ 记一笔</button>
+                        </div>
+                        <div class="money-record-list" id="money-record-list"></div>
+                    </section>
+                </div>
+                <div class="money-tabbar">
+                    <button type="button" class="active"><i class="ri-home-5-fill"></i><span>首页</span></button>
+                    <button type="button"><i class="ri-list-check-3"></i><span>明细</span></button>
+                    <button type="button"><i class="ri-pie-chart-2-line"></i><span>统计</span></button>
+                    <button type="button"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                </div>
+            </div>
+        </div>
+
         <div id="app-theme-window" class="app-window hidden">
             <div class="window-header">
                 <span onclick="closeApp('theme')" class="close-btn">取消</span>
@@ -373,6 +424,13 @@
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-image-2-line card-icon"></i><span>全局壁纸设置</span></div>
                     <div class="theme-section-note">分别控制锁屏和桌面背景，支持本地图片上传。</div>
+                    <div class="lockscreen-mode-row">
+                        <label class="lockscreen-mode-card">
+                            <input type="checkbox" id="lock-enabled" checked onchange="applyLockscreenEnabled(this.checked)">
+                            <i class="ri-lock-2-line"></i>
+                            <span>启用锁屏页面</span>
+                        </label>
+                    </div>
                     <div class="upload-stack">
                         <div class="upload-box wide" onclick="document.getElementById('file-wp-lock').click()">
                             <span class="prefix">锁屏</span>
@@ -386,6 +444,19 @@
                             <div class="upload-icon"><i class="ri-image-add-line"></i></div>
                         </div>
                         <input type="file" id="file-wp-home" accept="image/*" style="display:none" onchange="convertFile(this, 'input-wp-home')">
+                    </div>
+                    <div class="lock-clock-color-box">
+                        <div class="lock-clock-color-head">
+                            <div>
+                                <strong>锁屏时间颜色</strong>
+                                <span>上传锁屏背景后会自动取色，也可以手动指定。</span>
+                            </div>
+                            <button type="button" onclick="resetLockClockColorAuto()">自动</button>
+                        </div>
+                        <div class="lock-clock-color-row">
+                            <label><span>自定义</span><input type="color" id="lock-clock-color" value="#ffffff" onchange="setLockClockCustomColor(this.value)"></label>
+                            <div class="lock-clock-swatches" id="lock-clock-swatches"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="setting-card">
@@ -404,15 +475,15 @@
                     <div class="input-bubble"><input type="text" id="input-music-text" placeholder="写一句你喜欢的歌词..."></div>
                 </div>
                 <div class="setting-card">
-                    <div class="card-header"><i class="ri-lock-heart-line card-icon"></i><span>锁屏拍立得</span></div>
+                    <div class="card-header"><span class="card-icon css-lock-icon" aria-hidden="true"></span><span>锁屏拍立得</span></div>
                     <div class="theme-section-note">图片、装饰和文字都可以独立开关，不需要的元素可以隐藏。</div>
                     <div class="input-bubble"><span class="bubble-label">文字</span><input type="text" id="input-vibe-text" placeholder="My Vibe"></div>
                     <div class="lock-visibility-grid">
-                        <label class="theme-check-card"><input type="checkbox" id="lock-show-left" checked><span>左图</span></label>
-                        <label class="theme-check-card"><input type="checkbox" id="lock-show-right" checked><span>右图</span></label>
-                        <label class="theme-check-card"><input type="checkbox" id="lock-show-text" checked><span>底部文字</span></label>
-                        <label class="theme-check-card"><input type="checkbox" id="lock-show-top-deco" checked><span>顶部装饰</span></label>
-                        <label class="theme-check-card"><input type="checkbox" id="lock-show-bottom-deco" checked><span>角标装饰</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-left" checked><i class="ri-image-line"></i><span>左图</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-right" checked><i class="ri-image-2-line"></i><span>右图</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-text" checked><i class="ri-font-size-2"></i><span>底部文字</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-top-deco" checked><i class="ri-attachment-line"></i><span>顶部装饰</span></label>
+                        <label class="theme-check-card"><input type="checkbox" id="lock-show-bottom-deco" checked><i class="ri-sparkling-2-line"></i><span>角标装饰</span></label>
                     </div>
                     <div class="lock-deco-row">
                         <label>
@@ -452,7 +523,7 @@
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-image-line card-icon"></i><span>桌面大组件</span></div>
-                    <div class="theme-section-note">推荐直接进入桌面编辑模式后拖动摆放，旧组件设置会作为默认内容保留。</div>
+                    <div class="theme-section-note">保留照片组件，推荐进入桌面编辑模式后直接拖动、缩放和摆放。</div>
                     <div class="desktop-layout-entry">
                         <div>
                             <strong>桌面长按摆放</strong>
@@ -465,9 +536,6 @@
                             <span class="sub-label">上方组件</span>
                             <select id="widget-type-1" class="ls-shortcut-select" onchange="toggleWidgetOptions(1)">
                                 <option value="photo">照片</option>
-                                <option value="clock">时钟</option>
-                                <option value="countdown">倒计时</option>
-                                <option value="quote">文字卡片</option>
                             </select>
                             <div class="widget-style-row">
                                 <select id="widget-style-1" class="ls-shortcut-select compact">
@@ -486,22 +554,12 @@
                                     <div class="upload-box wide" onclick="document.getElementById('file-desk-1').click()"><span class="prefix">图片</span><input type="text" id="input-desk-img-1" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
                                     <input type="file" id="file-desk-1" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-1')">
                                 </div>
-                                <div class="widget-opt-countdown hidden">
-                                    <input type="text" id="widget-cd-title-1" class="widget-text-input" placeholder="倒计时标题 (如: 生日)">
-                                    <input type="date" id="widget-cd-date-1" class="widget-text-input">
-                                </div>
-                                <div class="widget-opt-quote hidden">
-                                    <input type="text" id="widget-quote-1" class="widget-text-input" placeholder="写一句话...">
-                                </div>
                             </div>
                         </div>
                         <div class="widget-config-item">
                             <span class="sub-label">下方组件</span>
                             <select id="widget-type-2" class="ls-shortcut-select" onchange="toggleWidgetOptions(2)">
                                 <option value="photo">照片</option>
-                                <option value="clock">时钟</option>
-                                <option value="countdown">倒计时</option>
-                                <option value="quote">文字卡片</option>
                             </select>
                             <div class="widget-style-row">
                                 <select id="widget-style-2" class="ls-shortcut-select compact">
@@ -520,19 +578,12 @@
                                     <div class="upload-box wide" onclick="document.getElementById('file-desk-2').click()"><span class="prefix">图片</span><input type="text" id="input-desk-img-2" placeholder="点击更换图片..." readonly><div class="upload-icon"><i class="ri-upload-cloud-2-line"></i></div></div>
                                     <input type="file" id="file-desk-2" accept="image/*" style="display:none" onchange="convertFile(this, 'input-desk-img-2')">
                                 </div>
-                                <div class="widget-opt-countdown hidden">
-                                    <input type="text" id="widget-cd-title-2" class="widget-text-input" placeholder="倒计时标题 (如: 生日)">
-                                    <input type="date" id="widget-cd-date-2" class="widget-text-input">
-                                </div>
-                                <div class="widget-opt-quote hidden">
-                                    <input type="text" id="widget-quote-2" class="widget-text-input" placeholder="写一句话...">
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="setting-card">
-                    <div class="card-header"><i class="ri-calendar-heart-line card-icon"></i><span>日历配色</span></div>
+                    <div class="card-header"><span class="card-icon css-calendar-icon" aria-hidden="true"></span><span>日历配色</span></div>
                     <div class="theme-section-note">透明模式会根据桌面背景自动切换文字深浅，滑条控制底色存在感。</div>
                     <div class="cal-mode-toggle">
                         <div class="cal-mode-btn active" data-mode="manual" onclick="switchCalMode('manual')">手动调色</div>
@@ -573,9 +624,9 @@
                         <label class="cal-alpha-control">
                             <div>
                                 <span>透明度</span>
-                                <em id="cal-transparency-value">36%</em>
+                                <em id="cal-transparency-value">0%</em>
                             </div>
-                            <input type="range" id="cal-transparency" min="0" max="78" value="36" oninput="previewCalTransparency(this.value)">
+                            <input type="range" id="cal-transparency" min="0" max="78" value="0" oninput="previewCalTransparency(this.value)">
                         </label>
                     </div>
                     <div class="cal-preview-mini" id="cal-preview">
@@ -675,6 +726,7 @@
             </div>
             <div class="window-content" style="padding: 20px; background: #faf5f0;">
                 <div class="set-section-title"><i class="ri-link"></i> API 连接</div>
+                <div id="api-route-panel" class="api-route-panel"></div>
                 <div id="api-list-container"></div>
                 <div class="set-add-btn" onclick="openApiModal()">
                     <i class="ri-add-line"></i> 添加 API
@@ -693,6 +745,11 @@
                                 <span></span>
                             </label>
                         </div>
+                        <div class="notify-guide">
+                            <strong>新手教程</strong>
+                            <span>1. 先选角色和多久没联系。2. 点“授权通知”。3. 只想网页开着提醒，可以直接测试；想退出网页后也收到，就填 Worker 接口和 VAPID 公钥。4. 点“保存设置”和“测试通知”。</span>
+                            <button type="button" onclick="openProactiveNotifyGuide()">查看详细说明</button>
+                        </div>
                         <div class="notify-grid">
                             <label><span>监督角色</span><select id="notify-char"></select></label>
                             <label><span>多久没联系</span><input type="number" id="notify-interval" min="0.1" max="720" step="0.5" value="24"></label>
@@ -703,6 +760,7 @@
                             <button type="button" onclick="requestByndNotificationPermission()">授权通知</button>
                             <button type="button" onclick="sendTestByndNotification()">测试通知</button>
                             <button type="button" onclick="saveProactiveNotifySettingsFromUI()">保存设置</button>
+                            <button type="button" onclick="explainByndPushLimit()">全屏/推送说明</button>
                         </div>
                         <p id="notify-status"></p>
                     </div>
@@ -774,7 +832,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.0.8
+                    Beyond Screen v1.1.9
                 </div>
             </div>
         </div>
@@ -804,6 +862,13 @@
                         <select id="api-edit-model" disabled style="width:100%; background:#f0ebe6; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#999; outline:none; appearance:none; -webkit-appearance:none; cursor:not-allowed;">
                             <option value="">请先点测试按钮</option>
                         </select>
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#c9a0b5;">生图模型 <span id="api-image-model-hint" style="font-size:10px; color:#ddd; font-weight:400;">测试后从下拉列表选择</span></label>
+                        <select id="api-edit-image-model" disabled style="width:100%; background:#f0ebe6; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#999; outline:none; appearance:none; -webkit-appearance:none; cursor:not-allowed;">
+                            <option value="">请先点测试按钮</option>
+                        </select>
+                        <div class="api-image-fallback-note">如果这个站点只有聊天模型，就再添加一个生图 API，并在上方“默认用途”里把它设成生图备用。</div>
                     </div>
                 </div>
                 <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
@@ -932,6 +997,7 @@
                 </div>
                 <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
                 <input type="file" id="wc-image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
+                <input type="file" id="bynd-system-camera-input" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleSystemCameraCapture(this)">
 
                 <!-- 表情选择器 -->
                 <div id="wc-sticker-picker" class="wc-sticker-picker hidden">
@@ -1051,6 +1117,20 @@
                                 <label>角色简介 (来自角色卡)</label>
                                 <textarea class="wcs-textarea" id="wcs-char-desc" placeholder="角色卡中的描述会自动填入这里..." rows="4"></textarea>
                             </div>
+                            <div class="wcs-full-row">
+                                <label>AI 自画像参考图</label>
+                                <div class="wcs-ref-image-row">
+                                    <img id="wcs-portrait-ref-preview" src="" alt="">
+                                    <div class="wcs-ref-image-actions">
+                                        <span>用于生图 API 保持角色外观一致。</span>
+                                        <div>
+                                            <button type="button" class="wcs-mini-btn subtle" onclick="document.getElementById('wcs-portrait-ref-input').click()">上传参考图</button>
+                                            <button type="button" class="wcs-mini-btn subtle" onclick="clearCharPortraitReference()">清除</button>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="wcs-portrait-ref-input" accept="image/*" style="display:none" onchange="uploadCharPortraitReference(this)">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- 称呼设置 -->
@@ -1091,6 +1171,24 @@
                                         <span>保留最近</span>
                                         <input type="number" id="wcs-memory-keep" min="1" max="50" value="5">
                                     </div>
+                                </div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>视频通话画面</label>
+                                <div class="wcs-video-call-grid">
+                                    <div class="wcs-video-bg-card" onclick="document.getElementById('wcs-video-bg-input').click()">
+                                        <img id="wcs-video-bg-preview" src="" alt="">
+                                        <span id="wcs-video-bg-hint">上传视频通话背景</span>
+                                    </div>
+                                    <div class="wcs-video-call-controls">
+                                        <label class="wcs-toggle-line">
+                                            <input type="checkbox" id="wcs-video-real-camera">
+                                            <span>通话时打开真实前置相机</span>
+                                        </label>
+                                        <button type="button" class="wcs-mini-btn subtle" onclick="clearCharVideoCallBg()">清除背景</button>
+                                        <small>接通视频通话后会调用生图 API 生成 AI 画面。</small>
+                                    </div>
+                                    <input type="file" id="wcs-video-bg-input" accept="image/*" style="display:none" onchange="uploadCharVideoCallBg(this)">
                                 </div>
                             </div>
                         </div>
@@ -1292,12 +1390,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="wechat.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="theme.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="settings.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="script.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="WorldBook.js?v=20260521-mobile-fullscreen1"></script>
-    <script src="regular.js?v=20260521-mobile-fullscreen1"></script>
+    <script src="chat-api.js?v=20260522-ledger-game2"></script>
+    <script src="stickers-boltp-share.js?v=20260522-ledger-game2"></script>
+    <script src="wechat.js?v=20260522-ledger-game2"></script>
+    <script src="theme.js?v=20260522-ledger-game2"></script>
+    <script src="settings.js?v=20260522-ledger-game2"></script>
+    <script src="script.js?v=20260522-ledger-game2"></script>
+    <script src="WorldBook.js?v=20260522-ledger-game2"></script>
+    <script src="regular.js?v=20260522-ledger-game2"></script>
 </body>
 </html>

@@ -64,8 +64,8 @@ function initDate() {
 }
 
 function unlockPhone() {
-    document.getElementById('lock-screen').classList.add('unlocked');
-    document.getElementById('home-screen').classList.remove('hidden');
+    document.getElementById('lock-screen')?.classList.add('unlocked');
+    document.getElementById('home-screen')?.classList.remove('hidden');
     resetDesktopToFirstPage();
     
     // 触发变色检查
@@ -193,11 +193,56 @@ function openApp(appName) {
             initGameApp();
         }
     }
+    // 10. 记账 App
+    else if (appName === 'money') {
+        const win = document.getElementById('app-money-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            initMoneyApp();
+        }
+    }
+    // 11. System Camera
+    else if (appName === 'camera') {
+        openSystemCamera();
+    }
     // 其他未开发
     else {
         alert("正在打开: " + appName + " (功能开发中...)");
     }
 }
+
+function openSystemCamera() {
+    let input = document.getElementById('bynd-system-camera-input')
+        || document.getElementById('wc-camera-input');
+    if (!input) {
+        input = document.createElement('input');
+        input.id = 'bynd-system-camera-input';
+        input.type = 'file';
+        input.accept = 'image/*,video/*';
+        input.setAttribute('capture', 'environment');
+        input.style.display = 'none';
+        input.onchange = () => handleSystemCameraCapture(input);
+        document.body.appendChild(input);
+    }
+    if (!input) {
+        alert('当前页面没有找到相机入口');
+        return;
+    }
+    input.value = '';
+    input.click();
+}
+window.openSystemCamera = openSystemCamera;
+
+function handleSystemCameraCapture(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    const kind = /^video\//i.test(file.type) ? '视频' : '照片';
+    const msg = `已拍摄${kind}：${file.name || 'camera capture'}`;
+    if (typeof showWechatToast === 'function') showWechatToast(msg);
+    else alert(msg);
+}
+window.handleSystemCameraCapture = handleSystemCameraCapture;
 
 function closeApp(appName) {
     let winId = '';
@@ -210,6 +255,7 @@ function closeApp(appName) {
     else if (appName === 'music') winId = 'app-music-window';
     else if (appName === 'study') winId = 'app-study-window';
     else if (appName === 'game') winId = 'app-game-window';
+    else if (appName === 'money') winId = 'app-money-window';
     const win = document.getElementById(winId);
     if (win) {
         resetDesktopToFirstPage();
@@ -251,16 +297,9 @@ function markByndDisplayMode() {
 
 function tryByndFullscreen() {
     if (!isByndMobileRuntime() || document.fullscreenElement) return;
-    const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
-    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
-    const iosStandalone = window.navigator?.standalone === true;
-    if (standalone || fullscreen || iosStandalone) {
-        document.documentElement.classList.add('bynd-display-fullscreen');
-        return;
-    }
     const target = document.documentElement;
     const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
-    if (request) Promise.resolve(request.call(target)).catch(() => {});
+    if (request) Promise.resolve(request.call(target)).then(markByndDisplayMode).catch(markByndDisplayMode);
 }
 
 function initByndFullscreenRuntime() {
@@ -289,7 +328,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260521-mobile-fullscreen1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260522-ledger-game2').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -444,6 +483,59 @@ function updateProactiveNotifyStatus(text) {
         ? `已开启，浏览器权限：${permission}，${pushReady}。网页关闭后的准时通知需要云端推送。`
         : `未开启。iPhone 需要先把 bynd.ccwu.cc 添加到主屏幕再授权通知。`;
 }
+
+function explainByndPushLimit() {
+    alert('网页本地提醒只能在页面或浏览器后台仍可运行时触发。退出网页、清理后台甚至关机后还要准时收到，必须接 Web Push 云端后端；iOS 也必须先添加到主屏幕并授权通知。');
+}
+window.explainByndPushLimit = explainByndPushLimit;
+
+function openProactiveNotifyGuide() {
+    let modal = document.getElementById('bynd-notify-guide-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'bynd-notify-guide-modal';
+        modal.className = 'bynd-guide-modal hidden';
+        modal.setAttribute('onclick', 'if(event.target===this) closeProactiveNotifyGuide()');
+        modal.innerHTML = `
+            <div class="bynd-guide-card">
+                <div class="bynd-guide-head">
+                    <div>
+                        <strong>主动消息新手教程</strong>
+                        <span>先本地跑通，再接云端推送。</span>
+                    </div>
+                    <button type="button" onclick="closeProactiveNotifyGuide()" aria-label="关闭"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="bynd-guide-steps">
+                    <section>
+                        <b>1. 选择谁来找你</b>
+                        <p>选择当前聊天角色、所有角色，或者指定某一个角色，再设置“多久没联系”。这个时间从用户最后一次主动发消息开始计算。</p>
+                    </section>
+                    <section>
+                        <b>2. 先测试本机提醒</b>
+                        <p>打开开关，点“授权通知”，再点“测试通知”。网页开着或浏览器仍允许后台运行时，这一步就能验证提醒样式。</p>
+                    </section>
+                    <section>
+                        <b>3. 真手机后台推送</b>
+                        <p>退出网页、清理后台甚至关机后还要准时收到，需要 Cloudflare Worker 保存订阅并按时发送 Web Push。这里要填 Worker 推送接口和 VAPID Public Key。</p>
+                    </section>
+                    <section>
+                        <b>4. 保存并同步</b>
+                        <p>填完后点“保存设置”。状态显示“云端推送订阅已同步”才说明手机端订阅发给后端了。</p>
+                    </section>
+                </div>
+                <div class="bynd-guide-note">提示：iPhone 需要先把站点添加到主屏幕再授权通知；安卓不同浏览器对后台策略不同，云端 Web Push 是最稳的方向。</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+}
+window.openProactiveNotifyGuide = openProactiveNotifyGuide;
+
+function closeProactiveNotifyGuide() {
+    document.getElementById('bynd-notify-guide-modal')?.classList.add('hidden');
+}
+window.closeProactiveNotifyGuide = closeProactiveNotifyGuide;
 
 function saveProactiveNotifySettingsFromUI() {
     const next = {
@@ -2550,14 +2642,207 @@ async function askStudySupervisor() {
 }
 window.askStudySupervisor = askStudySupervisor;
 
+// --- Money App / 记账 ---
+const MONEY_RECORDS_KEY = 'bynd_money_records_v1';
+
+function getMoneyRecords() {
+    try {
+        const records = JSON.parse(localStorage.getItem(MONEY_RECORDS_KEY) || '[]');
+        return Array.isArray(records) ? records : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveMoneyRecords(records) {
+    localStorage.setItem(MONEY_RECORDS_KEY, JSON.stringify(Array.isArray(records) ? records : []));
+}
+
+function formatMoneyDate(value, mode = 'time') {
+    const date = value ? new Date(value) : new Date();
+    const safe = Number.isNaN(date.getTime()) ? new Date() : date;
+    if (mode === 'day') return `${safe.getMonth() + 1}月${safe.getDate()}日`;
+    if (mode === 'month') return `${safe.getFullYear()}-${String(safe.getMonth() + 1).padStart(2, '0')}`;
+    return `${String(safe.getHours()).padStart(2, '0')}:${String(safe.getMinutes()).padStart(2, '0')}`;
+}
+
+function getMoneyCategory(title) {
+    const text = String(title || '');
+    if (/奶|咖啡|茶|包子|饭|餐|吃|面|粉|鸡|肉|菜|水果|早餐|午餐|晚餐|夜宵/.test(text)) return { name: '餐饮', icon: 'ri-restaurant-line' };
+    if (/车|打车|地铁|公交|高铁|机票|油/.test(text)) return { name: '交通', icon: 'ri-taxi-line' };
+    if (/衣|鞋|包|化妆|美妆|护肤|口红/.test(text)) return { name: '购物', icon: 'ri-shopping-bag-3-line' };
+    if (/药|医院|挂号|牙|检查/.test(text)) return { name: '医疗', icon: 'ri-heart-pulse-line' };
+    if (/房租|水电|电费|话费|网费/.test(text)) return { name: '生活', icon: 'ri-home-5-line' };
+    return { name: '日常', icon: 'ri-wallet-3-line' };
+}
+
+function cleanupMoneyItemName(raw) {
+    let text = String(raw || '')
+        .replace(/[，,。；;、]/g, ' ')
+        .replace(/\d+(?:\.\d+)?\s*(元|块|rmb|RMB)?/g, ' ')
+        .replace(/(今天|早上|上午|中午|下午|晚上|夜里|刚刚|然后|还有|另外|我|给|在|去|了|的)/g, ' ')
+        .replace(/(吃了|买了|花了|花|用了|消费|支出|付款|付了|付|买|吃|喝)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const parts = text.split(/\s+/).filter(Boolean);
+    text = parts[parts.length - 1] || text;
+    return text.slice(-10) || '消费';
+}
+
+function parseMoneyExpenses(text) {
+    const source = String(text || '').replace(/[¥￥]/g, '元');
+    const records = [];
+    const pattern = /([\u4e00-\u9fa5A-Za-z0-9_·\s，,。；;、]{0,24}?)(花了|花|用了|消费|支出|付款|付了|付|买了|买)?\s*(\d+(?:\.\d+)?)(\s*(元|块|rmb|RMB))?/g;
+    let match;
+    while ((match = pattern.exec(source))) {
+        const hasSpendVerb = !!match[2];
+        const hasCurrencyUnit = !!match[5];
+        if (!hasSpendVerb && !hasCurrencyUnit) continue;
+        const amount = Number(match[3]);
+        if (!Number.isFinite(amount) || amount <= 0 || amount > 999999) continue;
+        const before = source.slice(0, match.index + match[1].length);
+        const chunk = before.split(/[，,。；;、\n]/).pop() || match[1] || '';
+        const title = cleanupMoneyItemName(chunk);
+        if (!title || /^\d+$/.test(title)) continue;
+        records.push({ title, amount });
+    }
+    const deduped = [];
+    records.forEach(item => {
+        const key = `${item.title}-${item.amount}`;
+        if (!deduped.some(old => `${old.title}-${old.amount}` === key)) deduped.push(item);
+    });
+    return deduped.slice(0, 8);
+}
+
+function addMoneyRecord(record) {
+    const records = getMoneyRecords();
+    const amount = Number(record?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const category = record.category || getMoneyCategory(record.title);
+    const next = {
+        id: record.id || `money_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
+        title: String(record.title || '消费').trim().slice(0, 24),
+        amount: Math.round(amount * 100) / 100,
+        category: category.name || '日常',
+        icon: category.icon || 'ri-wallet-3-line',
+        source: record.source || 'manual',
+        charId: record.charId || '',
+        charName: record.charName || '',
+        note: record.note || '',
+        createdAt: record.createdAt || Date.now(),
+        done: !!record.done
+    };
+    records.unshift(next);
+    saveMoneyRecords(records.slice(0, 500));
+    if (document.getElementById('app-money-window')?.classList.contains('active')) renderMoneyApp();
+    return next;
+}
+
+function captureMoneyExpensesFromText(text, source = {}) {
+    const expenses = parseMoneyExpenses(text);
+    if (!expenses.length) return [];
+    const added = expenses.map(item => addMoneyRecord({
+        ...item,
+        source: source.source || 'wechat',
+        charId: source.charId || '',
+        charName: source.charName || '',
+        note: String(text || '').slice(0, 120)
+    })).filter(Boolean);
+    if (added.length && typeof showWechatToast === 'function') {
+        showWechatToast(`已记账 ${added.length} 笔`);
+    }
+    return added;
+}
+window.captureMoneyExpensesFromText = captureMoneyExpensesFromText;
+
+function getMoneySummary(records) {
+    const now = new Date();
+    const monthKey = formatMoneyDate(now, 'month');
+    const todayKey = now.toDateString();
+    return records.reduce((acc, item) => {
+        const date = new Date(item.createdAt || Date.now());
+        if (formatMoneyDate(date, 'month') === monthKey) acc.month += Number(item.amount) || 0;
+        if (date.toDateString() === todayKey) {
+            acc.today += Number(item.amount) || 0;
+            acc.todayCount += 1;
+        }
+        acc.total += Number(item.amount) || 0;
+        return acc;
+    }, { month: 0, today: 0, total: 0, todayCount: 0 });
+}
+
+function renderMoneyApp() {
+    const list = document.getElementById('money-record-list');
+    const monthEl = document.getElementById('money-month-total');
+    const todayEl = document.getElementById('money-today-total');
+    const countEl = document.getElementById('money-record-count');
+    const nameEl = document.getElementById('money-user-name');
+    if (!list) return;
+    const records = getMoneyRecords();
+    const summary = getMoneySummary(records);
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    if (nameEl) nameEl.textContent = profile.name || 'BYND';
+    if (monthEl) monthEl.textContent = `￥${summary.month.toFixed(2)}`;
+    if (todayEl) todayEl.textContent = `今日 ￥${summary.today.toFixed(2)}`;
+    if (countEl) countEl.textContent = `${summary.todayCount} 笔`;
+    const todayRecords = records.filter(item => new Date(item.createdAt || Date.now()).toDateString() === new Date().toDateString());
+    const visible = todayRecords.length ? todayRecords : records.slice(0, 12);
+    list.innerHTML = visible.length ? visible.map(item => `
+        <button type="button" class="money-record-item ${item.done ? 'done' : ''}" onclick="toggleMoneyRecord('${musicEscapeAttr(item.id)}')">
+            <i class="${musicEscapeAttr(item.icon || 'ri-wallet-3-line')}"></i>
+            <div>
+                <strong>${musicEscapeHtml(item.title)}</strong>
+                <span>${musicEscapeHtml(item.category || '日常')} · ${musicEscapeHtml(formatMoneyDate(item.createdAt))}${item.charName ? ` · 来自 ${musicEscapeHtml(item.charName)}` : ''}</span>
+            </div>
+            <em>-￥${Number(item.amount || 0).toFixed(2)}</em>
+        </button>
+    `).join('') : `
+        <div class="money-empty">
+            <i class="ri-chat-quote-line"></i>
+            <strong>还没有账单</strong>
+            <span>在微信里说“早餐包子花了4.5，牛奶3块”，这里会自动出现。</span>
+        </div>
+    `;
+}
+
+function initMoneyApp() {
+    renderMoneyApp();
+}
+window.initMoneyApp = initMoneyApp;
+
+function toggleMoneyRecord(id) {
+    const records = getMoneyRecords();
+    const item = records.find(record => record.id === id);
+    if (item) item.done = !item.done;
+    saveMoneyRecords(records);
+    renderMoneyApp();
+}
+window.toggleMoneyRecord = toggleMoneyRecord;
+
+function addManualMoneyRecord() {
+    const title = prompt('这笔钱花在什么上？');
+    if (!title || !title.trim()) return;
+    const amount = prompt('花了多少钱？');
+    addMoneyRecord({ title: title.trim(), amount: Number(amount), source: 'manual' });
+    renderMoneyApp();
+}
+window.addManualMoneyRecord = addManualMoneyRecord;
+
 // --- Game App / 小游戏大厅 + 狼人杀 ---
 const GAME_STATE_KEY = 'bynd_game_wolfcha_state_v1';
 const GAME_ACTIVE_KEY = 'bynd_game_active_v1';
+const WOLFCHA_SETUP_KEY = 'bynd_game_wolfcha_setup_v1';
+const GAME_HUB_FILTER_KEY = 'bynd_game_hub_filter_v1';
+const SYNC_GAME_CHAR_KEY = 'bynd_game_sync_char_v1';
+const CARDMATCH_RULES_SKIP_KEY = 'bynd_game_cardmatch_rules_skip_date_v1';
 const GAME_ROLES = ['狼人', '预言家', '女巫', '守卫', '村民', '村民', '村民', '村民', '村民', '猎人'];
 const GAME_LIBRARY = [
-    { id: 'wolfcha', title: 'Wolfcha 狼人杀', tag: '多人推理', icon: 'ri-shield-star-fill', desc: '和现有角色一起发言、投票、入夜，角色会按人设参与。' },
-    { id: 'sync', title: '默契问答', tag: 'AI互动', icon: 'ri-chat-smile-3-line', desc: '抽一个问题，让当前角色猜你会怎么回答。' },
-    { id: 'cardmatch', title: '语言翻牌', tag: '学习联动', icon: 'ri-flashlight-line', desc: '用学习卡做小游戏，随机抽一张多语言卡来回忆。' }
+    { id: 'wolfcha', title: 'BYND 狼人杀', tag: '多人推理', icon: 'ri-shield-star-fill', genre: 'Social deduction', category: 'role', accent: '#e5484d', desc: '先选择陪玩的角色，再随机身份开局。角色会按人设参与发言。' },
+    { id: 'chicken', title: '肥鸡大冒险', tag: '像素飞行', icon: 'ri-flight-takeoff-line', genre: 'Tap arcade', category: 'arcade', accent: '#22b8ff', desc: '点击让小角色飞起来，穿过砖墙空隙，吃金币刷新纪录。' },
+    { id: 'sync', title: '默契问答', tag: 'AI互动', icon: 'ri-chat-smile-3-line', genre: 'Co-op talk', category: 'role', accent: '#5b7cfa', desc: '抽一个问题，让当前角色猜你会怎么回答。' },
+    { id: 'cardmatch', title: '语言翻牌', tag: '学习联动', icon: 'ri-flashlight-line', genre: 'Study arcade', category: 'study', accent: '#34a853', desc: '用学习卡做小游戏，随机抽一张多语言卡来回忆。' },
+    { id: 'coming-board', title: '桌游房间', tag: '即将开放', icon: 'ri-dice-5-line', genre: 'Board games', category: 'role', accent: '#ff9f0a', desc: '预留给真心话、抽卡、跑团类玩法，后续接入角色列表。', comingSoon: true },
+    { id: 'coming-puzzle', title: '解谜档案', tag: '即将开放', icon: 'ri-folder-shield-2-line', genre: 'Mystery', category: 'role', accent: '#8e8e93', desc: '预留给多角色剧情推理和线索收集，不会只固定成狼人杀。', comingSoon: true }
 ];
 
 function getActiveGame() {
@@ -2571,7 +2856,7 @@ function setActiveGame(gameId) {
 function getGamePlayers() {
     const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
     const userAvatar = profile.avatar || '';
-    const chars = (window.myCharacters || []).slice(0, 9).map((char, index) => ({
+    const chars = getWolfchaCharacters().slice(0, 9).map((char, index) => ({
         id: char.id,
         name: getMusicCharName(char),
         avatar: char.avatar || '',
@@ -2587,6 +2872,52 @@ function getGamePlayers() {
         isUser: true,
         role: ''
     }, ...chars];
+}
+
+function getWolfchaCharacters() {
+    return Array.isArray(window.myCharacters) ? window.myCharacters.filter(char => char && char.id) : [];
+}
+
+function getWolfchaSetupIds() {
+    const chars = getWolfchaCharacters();
+    const allIds = chars.map(char => char.id);
+    try {
+        const saved = JSON.parse(localStorage.getItem(WOLFCHA_SETUP_KEY) || '[]');
+        const valid = Array.isArray(saved) ? saved.filter(id => allIds.includes(id)) : [];
+        if (valid.length) return valid.slice(0, 9);
+    } catch (e) {}
+    return allIds.slice(0, Math.min(5, allIds.length));
+}
+
+function saveWolfchaSetupIds(ids) {
+    const allIds = getWolfchaCharacters().map(char => char.id);
+    const valid = Array.isArray(ids) ? ids.filter((id, index) => allIds.includes(id) && ids.indexOf(id) === index).slice(0, 9) : [];
+    localStorage.setItem(WOLFCHA_SETUP_KEY, JSON.stringify(valid));
+}
+
+function shuffleWolfchaList(list) {
+    const copy = [...list];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+}
+
+function normalizeWolfchaLogEntry(entry) {
+    if (entry && typeof entry === 'object') return entry;
+    return { type: 'narrator', name: '旁白', text: String(entry || '') };
+}
+
+function getWolfchaLastLog(state) {
+    const logs = Array.isArray(state?.log) ? state.log.map(normalizeWolfchaLogEntry) : [];
+    return logs[logs.length - 1] || { type: 'narrator', name: '旁白', text: '人到齐了，开始吧。' };
+}
+
+function pushWolfchaLog(state, entry) {
+    if (!Array.isArray(state.log)) state.log = [];
+    state.log.push(normalizeWolfchaLogEntry(entry));
+    if (state.log.length > 80) state.log = state.log.slice(-80);
 }
 
 function getGameState() {
@@ -2614,8 +2945,15 @@ function openGameHub() {
 window.openGameHub = openGameHub;
 
 function openMiniGame(gameId) {
+    const game = GAME_LIBRARY.find(item => item.id === gameId);
+    if (game?.comingSoon) {
+        if (typeof showWechatToast === 'function') showWechatToast('这个游戏位已经留好，后续可以继续接玩法。');
+        return;
+    }
     setActiveGame(gameId);
-    if (gameId === 'wolfcha' && !getGameState()) resetWolfchaGame(false);
+    if (gameId === 'wolfcha') {
+        localStorage.removeItem(GAME_STATE_KEY);
+    }
     renderGameApp();
 }
 window.openMiniGame = openMiniGame;
@@ -2628,25 +2966,153 @@ function updateGameHeader(mode) {
 }
 
 function resetWolfchaGame(shouldRender = true) {
-    const players = getGamePlayers().slice(0, 10);
-    const roles = [...GAME_ROLES].slice(0, players.length).sort(() => Math.random() - 0.5);
+    startWolfchaGame(getWolfchaSetupIds(), shouldRender);
+}
+
+function startWolfchaGame(charIds = getWolfchaSetupIds(), shouldRender = true) {
+    const chars = getWolfchaCharacters();
+    const selectedIds = Array.isArray(charIds) ? charIds : [];
+    const selectedChars = selectedIds
+        .map(id => chars.find(char => char.id === id))
+        .filter(Boolean)
+        .slice(0, 9);
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    const players = [{
+        id: 'user',
+        name: profile.name || '你',
+        avatar: profile.avatar || '',
+        number: 1,
+        isUser: true,
+        role: '',
+        alive: true
+    }, ...selectedChars.map((char, index) => ({
+        id: char.id,
+        name: getMusicCharName(char),
+        avatar: char.avatar || '',
+        number: index + 2,
+        isUser: false,
+        role: '',
+        alive: true
+    }))];
+    const roles = shuffleWolfchaList([...GAME_ROLES]).slice(0, players.length);
     const state = {
-        phase: 'lobby',
+        phase: 'day',
         day: 1,
-        action: '契约待签署',
-        selectedId: '',
-        log: ['我自愿加入这场关于谎言与真相的游戏。'],
+        action: '警徽竞选发言',
+        selectedId: players[0]?.id || 'user',
+        currentSpeakerId: players[0]?.id || 'user',
+        log: [
+            { type: 'narrator', name: '旁白', text: `人到齐了，${players.length} 名玩家入场，身份已随机分配。` },
+            { type: 'narrator', name: '旁白', text: '警徽竞选开始，请候选人依次发言。' }
+        ],
         players: players.map((player, index) => ({ ...player, role: roles[index] || '村民', alive: true }))
     };
+    saveWolfchaSetupIds(selectedChars.map(char => char.id));
     saveGameState(state);
     if (shouldRender) renderGameApp();
 }
 window.resetWolfchaGame = resetWolfchaGame;
+window.startWolfchaGame = startWolfchaGame;
+
+function getGameHubFilter() {
+    const saved = localStorage.getItem(GAME_HUB_FILTER_KEY);
+    return ['all', 'role', 'study', 'arcade'].includes(saved) ? saved : 'all';
+}
+
+function setGameHubFilter(filter) {
+    localStorage.setItem(GAME_HUB_FILTER_KEY, ['all', 'role', 'study', 'arcade'].includes(filter) ? filter : 'all');
+    renderGameApp();
+}
+window.setGameHubFilter = setGameHubFilter;
+
+function renderWolfchaSetup(el) {
+    const chars = getWolfchaCharacters();
+    const selectedIds = getWolfchaSetupIds();
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    el.innerHTML = `
+        <section class="wolfcha-setup">
+            <div class="wolfcha-setup-hero">
+                <button type="button" class="wolfcha-setup-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i></button>
+                <span>BYND WEREWOLF</span>
+                <strong>选择陪你入局的角色</strong>
+                <p>你会自动加入牌局。选择角色后随机分配身份，开局后由旁白推进，角色发言会按人设调用 API。</p>
+            </div>
+            <div class="wolfcha-user-card">
+                <div>${profile.avatar ? `<img src="${musicEscapeAttr(profile.avatar)}" alt="${musicEscapeAttr(profile.name || '你')}">` : '<i class="ri-user-smile-line"></i>'}</div>
+                <span>玩家 1</span>
+                <strong>${musicEscapeHtml(profile.name || '你')}</strong>
+                <em>固定加入</em>
+            </div>
+            <div class="wolfcha-setup-head">
+                <strong>AI 玩家</strong>
+                <span>${selectedIds.length}/${Math.min(chars.length, 9)} 已选择</span>
+            </div>
+            <div class="wolfcha-setup-list">
+                ${chars.length ? chars.map((char, index) => {
+                    const selected = selectedIds.includes(char.id);
+                    return `
+                        <button type="button" class="wolfcha-setup-char ${selected ? 'selected' : ''}" onclick="toggleWolfchaSetupChar('${musicEscapeAttr(char.id)}')">
+                            <div class="wolfcha-setup-avatar">${char.avatar ? `<img src="${musicEscapeAttr(char.avatar)}" alt="${musicEscapeAttr(getMusicCharName(char))}">` : '<i class="ri-user-line"></i>'}</div>
+                            <div>
+                                <span>玩家 ${index + 2}</span>
+                                <strong>${musicEscapeHtml(getMusicCharName(char))}</strong>
+                            </div>
+                            <i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-add-circle-line'}"></i>
+                        </button>
+                    `;
+                }).join('') : '<div class="wolfcha-setup-empty">先在微信里导入角色，再回来选择陪玩的 AI。</div>'}
+            </div>
+            <div class="wolfcha-setup-actions">
+                <button type="button" onclick="selectFirstWolfchaChars()"><i class="ri-group-line"></i> 选前九个</button>
+                <button type="button" class="primary" onclick="startWolfchaGameFromSetup()" ${selectedIds.length ? '' : 'disabled'}><i class="ri-play-fill"></i> 开始游戏</button>
+            </div>
+        </section>
+    `;
+}
+window.renderWolfchaSetup = renderWolfchaSetup;
+
+function openWolfchaSetup() {
+    localStorage.removeItem(GAME_STATE_KEY);
+    setActiveGame('wolfcha');
+    renderGameApp();
+}
+window.openWolfchaSetup = openWolfchaSetup;
+
+function toggleWolfchaSetupChar(id) {
+    const selected = getWolfchaSetupIds();
+    const exists = selected.includes(id);
+    const next = exists ? selected.filter(item => item !== id) : [...selected, id].slice(0, 9);
+    saveWolfchaSetupIds(next);
+    renderGameApp();
+}
+window.toggleWolfchaSetupChar = toggleWolfchaSetupChar;
+
+function selectFirstWolfchaChars() {
+    saveWolfchaSetupIds(getWolfchaCharacters().slice(0, 9).map(char => char.id));
+    renderGameApp();
+}
+window.selectFirstWolfchaChars = selectFirstWolfchaChars;
+
+function startWolfchaGameFromSetup() {
+    const selected = getWolfchaSetupIds();
+    if (!selected.length) {
+        if (typeof showWechatToast === 'function') showWechatToast('至少选择一个 AI 角色');
+        return;
+    }
+    startWolfchaGame(selected, true);
+}
+window.startWolfchaGameFromSetup = startWolfchaGameFromSetup;
 
 function renderGameApp() {
     const el = document.getElementById('game-content');
     if (!el) return;
     const activeGame = getActiveGame();
+    const gameWindow = document.getElementById('app-game-window');
+    if (gameWindow) {
+        Array.from(gameWindow.classList).forEach(cls => { if (cls.startsWith('game-mode-')) gameWindow.classList.remove(cls); });
+        gameWindow.classList.add(`game-mode-${activeGame}`);
+    }
+    if (activeGame !== 'chicken') stopChickenGame(false);
     updateGameHeader(activeGame);
     if (activeGame === 'hub') {
         renderGameHub(el);
@@ -2660,31 +3126,45 @@ function renderGameApp() {
         renderCardMatchGame(el);
         return;
     }
+    if (activeGame === 'chicken') {
+        renderChickenGame(el);
+        return;
+    }
+    if (activeGame === 'wolfcha' && !getGameState()) {
+        renderWolfchaSetup(el);
+        return;
+    }
     const state = getGameState() || { players: getGamePlayers(), log: [] };
     const players = state.players || getGamePlayers();
     const alive = players.filter(player => player.alive !== false).length;
-    const selected = players.find(player => player.id === state.selectedId) || players[0];
+    const selected = players.find(player => player.id === state.currentSpeakerId) || players.find(player => player.id === state.selectedId) || players[0];
+    const lastLog = getWolfchaLastLog(state);
+    const narratorLogs = (state.log || []).map(normalizeWolfchaLogEntry).filter(item => item.type === 'narrator').slice(-4);
     el.innerHTML = `
         <section class="wolfcha-stage ${state.phase === 'night' ? 'night' : ''}">
             <div class="wolfcha-topline">
-                <div class="wolfcha-brand"><i class="ri-shield-star-fill"></i><span>WOLFCHA</span></div>
+                <div class="wolfcha-brand"><i class="ri-shield-star-fill"></i><span>BYND</span></div>
                 <div class="wolfcha-status">DAY <b>${String(state.day || 1).padStart(2, '0')}</b> ALIVE <b>${alive}/${players.length}</b></div>
                 <button type="button" onclick="openGameHub()"><i class="ri-apps-2-line"></i> 大厅</button>
-                <button type="button" onclick="resetWolfchaGame(true)"><i class="ri-restart-line"></i> 重开</button>
+                <button type="button" onclick="openWolfchaSetup()"><i class="ri-group-line"></i> 换人</button>
             </div>
             <div class="wolfcha-action-pill"><i class="ri-eye-line"></i><span>${musicEscapeHtml(state.action || '等待开始')}</span></div>
+            <div class="wolfcha-narrator-feed">
+                ${narratorLogs.map(item => `<span>${musicEscapeHtml(item.text)}</span>`).join('')}
+            </div>
             <div class="wolfcha-center">
                 <div class="wolfcha-avatar-large">${selected?.avatar ? `<img src="${musicEscapeAttr(selected.avatar)}" alt="${musicEscapeAttr(selected.name)}">` : '<i class="ri-user-smile-line"></i>'}</div>
                 <div class="wolfcha-dialog">
-                    <strong>${musicEscapeHtml(selected?.name || '主持人')}</strong>
-                    <p>${musicEscapeHtml((state.log || []).slice(-1)[0] || '人到齐了，开始吧。')}</p>
+                    <strong>${musicEscapeHtml(lastLog.name || selected?.name || '旁白')}</strong>
+                    <p>${musicEscapeHtml(lastLog.text || '人到齐了，开始吧。')}</p>
                     <span>${(state.log || []).length} 条消息</span>
                 </div>
             </div>
             <div class="wolfcha-actions">
-                <button type="button" onclick="startWolfchaNight()"><i class="ri-moon-clear-line"></i> 入夜</button>
+                <button type="button" onclick="wolfchaNarratorStep()"><i class="ri-scroll-to-bottom-line"></i> 旁白</button>
                 <button type="button" onclick="wolfchaNextSpeech()"><i class="ri-chat-voice-line"></i> 发言</button>
-                <button type="button" onclick="wolfchaVoteSelected()"><i class="ri-skull-2-line"></i> 投票</button>
+                <button type="button" onclick="startWolfchaNight()"><i class="ri-moon-clear-line"></i> 入夜</button>
+                <button type="button" onclick="wolfchaVoteSelected()"><i class="ri-skull-2-line"></i> 放逐</button>
             </div>
         </section>
         <section class="wolfcha-player-rail">
@@ -2702,23 +3182,48 @@ window.renderGameApp = renderGameApp;
 
 function renderGameHub(el) {
     const chars = window.myCharacters || [];
+    const featured = GAME_LIBRARY[0];
+    const playableCount = GAME_LIBRARY.filter(game => !game.comingSoon).length;
+    const filter = getGameHubFilter();
+    const tabs = [
+        { id: 'all', label: '全部' },
+        { id: 'role', label: '角色联机' },
+        { id: 'study', label: '学习联动' },
+        { id: 'arcade', label: '街机' }
+    ];
+    const games = GAME_LIBRARY.filter(game => filter === 'all' || game.category === filter);
     el.innerHTML = `
         <section class="game-hub">
-            <div class="game-hub-hero">
-                <span>WITH ${chars.length || 0} CHARACTERS</span>
-                <strong>选择一个小游戏</strong>
-                <p>游戏会尽量调用当前角色和角色列表；狼人杀已经接入角色玩家。</p>
+            <div class="game-hub-hero appstore-hero" onclick="openMiniGame('${musicEscapeAttr(featured.id)}')">
+                <div class="appstore-hero-copy">
+                    <span>BYND GAME LIBRARY</span>
+                    <strong>${musicEscapeHtml(featured.title)}</strong>
+                    <p>${musicEscapeHtml(featured.desc)}</p>
+                    <button type="button"><i class="ri-play-fill"></i> 开始游戏</button>
+                </div>
+                <div class="appstore-hero-art" style="--game-accent:${musicEscapeAttr(featured.accent || '#0a84ff')}">
+                    <i class="${musicEscapeAttr(featured.icon)}"></i>
+                    <em>${chars.length || 0} CHARS</em>
+                </div>
+            </div>
+            <div class="game-hub-tabs">
+                ${tabs.map(tab => `<button type="button" class="${filter === tab.id ? 'active' : ''}" onclick="setGameHubFilter('${musicEscapeAttr(tab.id)}')">${musicEscapeHtml(tab.label)}</button>`).join('')}
+            </div>
+            <div class="game-section-title">
+                <strong>游戏库</strong>
+                <span>${playableCount} playable · ${GAME_LIBRARY.length} slots</span>
             </div>
             <div class="game-library">
-                ${GAME_LIBRARY.map(game => `
-                    <button type="button" class="game-library-card" onclick="openMiniGame('${musicEscapeAttr(game.id)}')">
-                        <i class="${musicEscapeAttr(game.icon)}"></i>
+                ${games.map(game => `
+                    <button type="button" class="game-library-card ${game.comingSoon ? 'coming' : ''}" style="--game-accent:${musicEscapeAttr(game.accent || '#0a84ff')}" onclick="openMiniGame('${musicEscapeAttr(game.id)}')">
+                        <div class="game-card-cover"><i class="${musicEscapeAttr(game.icon)}"></i></div>
                         <div>
                             <span>${musicEscapeHtml(game.tag)}</span>
                             <strong>${musicEscapeHtml(game.title)}</strong>
                             <p>${musicEscapeHtml(game.desc)}</p>
+                            <small>${musicEscapeHtml(game.genre || '')}</small>
                         </div>
-                        <em class="ri-arrow-right-s-line"></em>
+                        <em class="${game.comingSoon ? 'ri-lock-2-line' : 'ri-arrow-right-s-line'}"></em>
                     </button>
                 `).join('')}
             </div>
@@ -2726,16 +3231,47 @@ function renderGameHub(el) {
     `;
 }
 
+function getSyncGameCharId() {
+    const chars = getWolfchaCharacters();
+    const saved = localStorage.getItem(SYNC_GAME_CHAR_KEY);
+    return chars.some(char => char.id === saved) ? saved : '';
+}
+
+function getSyncGameChar() {
+    const selectedId = getSyncGameCharId();
+    return getWolfchaCharacters().find(char => char.id === selectedId) || null;
+}
+
+function selectSyncGameChar(id) {
+    if (!getWolfchaCharacters().some(char => char.id === id)) return;
+    localStorage.setItem(SYNC_GAME_CHAR_KEY, id);
+    renderGameApp();
+}
+window.selectSyncGameChar = selectSyncGameChar;
+
 function renderSyncGame(el) {
-    const char = getStudySupervisor();
+    const chars = getWolfchaCharacters();
+    const selectedId = getSyncGameCharId();
+    const char = getSyncGameChar();
     el.innerHTML = `
         <section class="mini-game-panel">
             <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
+            <div class="sync-player-card">
+                <span>选择陪玩的角色</span>
+                <div class="sync-player-list">
+                    ${chars.length ? chars.map(item => `
+                        <button type="button" class="${item.id === selectedId ? 'active' : ''}" onclick="selectSyncGameChar('${musicEscapeAttr(item.id)}')">
+                            <div>${item.avatar ? `<img src="${musicEscapeAttr(item.avatar)}" alt="${musicEscapeAttr(getMusicCharName(item))}">` : '<i class="ri-user-smile-line"></i>'}</div>
+                            <strong>${musicEscapeHtml(getMusicCharName(item))}</strong>
+                        </button>
+                    `).join('') : '<p>先在微信导入角色，再一起玩默契问答。</p>'}
+                </div>
+            </div>
             <div class="mini-game-card">
                 <span>默契问答</span>
-                <strong>${musicEscapeHtml(char ? getMusicCharName(char) : 'AI')} 会猜你怎么回答</strong>
-                <p id="sync-game-text">点开始后，角色会抛一个轻问题并给出自己的猜测。</p>
-                <button type="button" onclick="startSyncMiniGame()"><i class="ri-sparkling-2-line"></i> 开始一题</button>
+                <strong>${musicEscapeHtml(char ? getMusicCharName(char) : '先选择一个角色')} 会猜你怎么回答</strong>
+                <p id="sync-game-text">选好角色后，对方会抛一个轻问题并猜你的答案。</p>
+                <button type="button" onclick="startSyncMiniGame()" ${char ? '' : 'disabled'}><i class="ri-sparkling-2-line"></i> 开始一题</button>
             </div>
         </section>
     `;
@@ -2743,8 +3279,8 @@ function renderSyncGame(el) {
 
 async function startSyncMiniGame() {
     const box = document.getElementById('sync-game-text');
-    const char = getStudySupervisor();
-    if (box) box.textContent = char ? `${getMusicCharName(char)} 正在想题目...` : '先导入角色并配置 API，会更像和角色一起玩。';
+    const char = getSyncGameChar();
+    if (box) box.textContent = char ? `${getMusicCharName(char)} 正在想题目...` : '先选择一个陪你玩的角色。';
     if (!char || typeof callChatApi !== 'function') return;
     try {
         const messages = typeof buildMessages === 'function'
@@ -2759,10 +3295,26 @@ async function startSyncMiniGame() {
 }
 window.startSyncMiniGame = startSyncMiniGame;
 
+function getTodayDateKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function shouldShowCardMatchRules() {
+    return localStorage.getItem(CARDMATCH_RULES_SKIP_KEY) !== getTodayDateKey();
+}
+
+function closeCardMatchRules(skipToday = false) {
+    if (skipToday) localStorage.setItem(CARDMATCH_RULES_SKIP_KEY, getTodayDateKey());
+    document.getElementById('cardmatch-rules-overlay')?.classList.add('hidden');
+}
+window.closeCardMatchRules = closeCardMatchRules;
+
 function renderCardMatchGame(el) {
     const cards = getStudyCards();
     const card = cards.length ? cards[Math.floor(Math.random() * cards.length)] : null;
     const languages = getStudyLanguages().filter(lang => card?.lines?.[lang.id]);
+    const showRules = shouldShowCardMatchRules();
     el.innerHTML = `
         <section class="mini-game-panel">
             <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
@@ -2776,10 +3328,463 @@ function renderCardMatchGame(el) {
                 </div>
                 <button type="button" onclick="renderGameApp()"><i class="ri-refresh-line"></i> 换一张</button>
             </div>
+            <div id="cardmatch-rules-overlay" class="cardmatch-rules-overlay ${showRules ? '' : 'hidden'}">
+                <div class="cardmatch-rules-card">
+                    <span>语言翻牌规则</span>
+                    <strong>先看第一行，再自己回忆其他语言</strong>
+                    <p>每次随机抽一张学习卡。第一行会显示出来，其他行先遮住，你先在心里回忆，再点换一张继续练习。</p>
+                    <div>
+                        <button type="button" onclick="closeCardMatchRules(false)">开始游戏</button>
+                        <button type="button" class="primary" onclick="closeCardMatchRules(true)">今日不再提示</button>
+                    </div>
+                </div>
+            </div>
         </section>
     `;
 }
 
+
+const CHICKEN_GAME_BEST_KEY = 'bynd_game_chicken_best_v1';
+const CHICKEN_AVATAR_KEY = 'bynd_game_chicken_avatar_v1';
+let chickenGame = null;
+let chickenRaf = 0;
+
+const CHICKEN_AVATARS = [
+    { id: 'chicken', label: '肥鸡', icon: '🐔', body: '#ffd25a', accent: '#f05a28' },
+    { id: 'cat', label: '小猫', icon: '🐱', body: '#ffcf8a', accent: '#3d2b1f' },
+    { id: 'dog', label: '小狗', icon: '🐶', body: '#d99b5f', accent: '#5a3927' },
+    { id: 'bird', label: '小鸟', icon: '🐦', body: '#62c7ff', accent: '#245b8c' },
+    { id: 'mushroom', label: '蘑菇', icon: '🍄', body: '#fff1d0', accent: '#e94444' }
+];
+
+function getChickenAvatarId() {
+    const saved = localStorage.getItem(CHICKEN_AVATAR_KEY);
+    return CHICKEN_AVATARS.some(item => item.id === saved) ? saved : 'chicken';
+}
+
+function setChickenAvatar(id) {
+    if (!CHICKEN_AVATARS.some(item => item.id === id)) return;
+    localStorage.setItem(CHICKEN_AVATAR_KEY, id);
+    if (chickenGame) chickenGame.avatarId = id;
+    renderGameApp();
+}
+window.setChickenAvatar = setChickenAvatar;
+
+function getChickenBest() {
+    return Math.max(0, parseInt(localStorage.getItem(CHICKEN_GAME_BEST_KEY) || '0', 10) || 0);
+}
+
+function stopChickenGame(clearState = false) {
+    if (chickenRaf) cancelAnimationFrame(chickenRaf);
+    chickenRaf = 0;
+    if (chickenGame) chickenGame.running = false;
+    if (clearState) chickenGame = null;
+}
+window.stopChickenGame = stopChickenGame;
+
+function createChickenGameState(canvas) {
+    const ratio = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(320, Math.round(rect.width || 320));
+    const height = Math.max(480, Math.round(rect.height || 520));
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    return {
+        canvas,
+        ctx,
+        width,
+        height,
+        avatarId: getChickenAvatarId(),
+        bird: { x: 74, y: height * 0.48, size: 30, vy: 0, angle: 0 },
+        gravity: 0.34,
+        flap: -6.2,
+        speed: 2.25,
+        score: 0,
+        coins: 0,
+        distance: 0,
+        best: getChickenBest(),
+        obstacles: [],
+        particles: [],
+        clouds: [
+            { x: 36, y: 78, s: 0.76 },
+            { x: 186, y: 132, s: 1.12 },
+            { x: 284, y: 258, s: 0.78 },
+            { x: 92, y: 360, s: 1.0 }
+        ],
+        lastTime: 0,
+        running: false,
+        started: false,
+        over: false,
+        spawnX: width + 80
+    };
+}
+
+function resetChickenGame(canvas) {
+    stopChickenGame(false);
+    const target = canvas || document.getElementById('chicken-canvas');
+    if (!target) return;
+    chickenGame = createChickenGameState(target);
+    drawChickenFrame(chickenGame);
+    updateChickenHud();
+}
+
+function startChickenGame() {
+    const canvas = document.getElementById('chicken-canvas');
+    if (!canvas) return;
+    if (!chickenGame || chickenGame.canvas !== canvas || chickenGame.over) {
+        resetChickenGame(canvas);
+    }
+    chickenGame.started = true;
+    chickenGame.running = true;
+    chickenGame.over = false;
+    chickenGame.lastTime = performance.now();
+    chickenGame.bird.vy = chickenGame.flap;
+    chickenGameLoop(chickenGame.lastTime);
+    updateChickenHud();
+}
+window.startChickenGame = startChickenGame;
+
+function flapChickenGame() {
+    if (!chickenGame) return;
+    if (chickenGame.over) {
+        resetChickenGame(chickenGame.canvas);
+        startChickenGame();
+        return;
+    }
+    if (!chickenGame.started) {
+        startChickenGame();
+        return;
+    }
+    chickenGame.bird.vy = chickenGame.flap;
+    chickenGame.particles.push({ x: chickenGame.bird.x - 11, y: chickenGame.bird.y + 8, life: 18, color: 'rgba(255,255,255,0.82)' });
+}
+window.flapChickenGame = flapChickenGame;
+
+function createChickenCoins(game, top, gap) {
+    const count = 3 + Math.floor(Math.random() * 3);
+    const center = top + gap / 2;
+    const coins = [];
+    const bigIndex = Math.floor(Math.random() * count);
+    for (let i = 0; i < count; i += 1) {
+        const big = i === bigIndex;
+        const yOffset = (Math.sin(i * 0.85 + Math.random() * 0.7) * 34) + (Math.random() * 16 - 8);
+        coins.push({
+            x: game.width + 72 + i * 32,
+            y: Math.max(top + 24, Math.min(top + gap - 24, center + yOffset)),
+            taken: false,
+            big,
+            value: big ? 3 : 1,
+            scale: big ? 1.18 : 0.78 + Math.random() * 0.12
+        });
+    }
+    return coins;
+}
+
+function spawnChickenObstacle(game) {
+    const gap = Math.max(138, Math.min(178, game.height * 0.31));
+    const topMin = 82;
+    const topMax = Math.max(topMin + 20, game.height - gap - 120);
+    const top = Math.round(topMin + Math.random() * (topMax - topMin));
+    game.obstacles.push({
+        x: game.width + 26,
+        width: 46,
+        top,
+        gap,
+        passed: false,
+        coins: createChickenCoins(game, top, gap)
+    });
+}
+
+function chickenGameLoop(time) {
+    if (!chickenGame || !chickenGame.running) return;
+    const game = chickenGame;
+    const delta = Math.min(34, time - (game.lastTime || time));
+    game.lastTime = time;
+    const step = delta / 16.67;
+    updateChickenGame(game, step);
+    drawChickenFrame(game);
+    updateChickenHud();
+    if (game.running) chickenRaf = requestAnimationFrame(chickenGameLoop);
+}
+
+function updateChickenGame(game, step) {
+    const bird = game.bird;
+    bird.vy += game.gravity * step;
+    bird.y += bird.vy * step;
+    bird.angle = Math.max(-0.45, Math.min(0.72, bird.vy / 10));
+    game.distance += game.speed * step;
+    game.spawnX -= game.speed * step;
+    if (game.spawnX < game.width - 130) {
+        spawnChickenObstacle(game);
+        game.spawnX = game.width + 116 + Math.random() * 42;
+    }
+    game.obstacles.forEach(ob => {
+        ob.x -= game.speed * step;
+        const coins = Array.isArray(ob.coins) ? ob.coins : (ob.coin ? [ob.coin] : []);
+        ob.coins = coins;
+        coins.forEach(coin => { coin.x -= game.speed * step; });
+        if (!ob.passed && ob.x + ob.width < bird.x - bird.size * 0.35) {
+            ob.passed = true;
+            game.score += 1;
+        }
+        coins.forEach(coin => {
+            if (!coin.taken) {
+                const dx = coin.x - bird.x;
+                const dy = coin.y - bird.y;
+                const radius = bird.size * 0.66 + (coin.big ? 9 : 3);
+                if (Math.sqrt(dx * dx + dy * dy) < radius) {
+                    coin.taken = true;
+                    const value = coin.value || (coin.big ? 3 : 1);
+                    game.coins += value;
+                    game.score += value * 2;
+                    game.particles.push({ x: coin.x, y: coin.y, life: coin.big ? 32 : 24, color: coin.big ? '#ffb21f' : '#ffe16a' });
+                }
+            }
+        });
+    });
+    game.obstacles = game.obstacles.filter(ob => ob.x + ob.width > -40);
+    game.clouds.forEach(cloud => {
+        cloud.x -= (0.25 + cloud.s * 0.12) * step;
+        if (cloud.x < -90) {
+            cloud.x = game.width + 40 + Math.random() * 120;
+            cloud.y = 64 + Math.random() * (game.height - 190);
+        }
+    });
+    game.particles.forEach(p => {
+        p.x -= 0.7 * step;
+        p.y -= 0.4 * step;
+        p.life -= step;
+    });
+    game.particles = game.particles.filter(p => p.life > 0);
+    const groundY = game.height - 36;
+    if (bird.y + bird.size * 0.5 > groundY || bird.y - bird.size * 0.5 < 12) endChickenGame();
+    const hit = game.obstacles.some(ob => chickenHitObstacle(game, ob));
+    if (hit) endChickenGame();
+}
+
+function chickenHitObstacle(game, ob) {
+    const b = game.bird;
+    const pad = 7;
+    const left = b.x - b.size * 0.38 + pad;
+    const right = b.x + b.size * 0.42 - pad;
+    const top = b.y - b.size * 0.42 + pad;
+    const bottom = b.y + b.size * 0.42 - pad;
+    const withinX = right > ob.x && left < ob.x + ob.width;
+    if (!withinX) return false;
+    return top < ob.top || bottom > ob.top + ob.gap;
+}
+
+function endChickenGame() {
+    if (!chickenGame || chickenGame.over) return;
+    chickenGame.running = false;
+    chickenGame.over = true;
+    const best = Math.max(chickenGame.best, chickenGame.score);
+    chickenGame.best = best;
+    localStorage.setItem(CHICKEN_GAME_BEST_KEY, String(best));
+    drawChickenFrame(chickenGame);
+    updateChickenHud();
+}
+
+function drawPixelRect(ctx, x, y, w, h, fill, stroke) {
+    ctx.fillStyle = fill;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(Math.round(x) + 1, Math.round(y) + 1, Math.round(w) - 2, Math.round(h) - 2);
+    }
+}
+
+function drawChickenCloud(ctx, x, y, s, face = true) {
+    const blocks = [[0,14,58,24], [12,0,36,30], [44,10,34,26], [-10,22,25,20]];
+    blocks.forEach(b => drawPixelRect(ctx, x + b[0] * s, y + b[1] * s, b[2] * s, b[3] * s, 'rgba(255,255,255,0.94)'));
+    drawPixelRect(ctx, x + 2 * s, y + 34 * s, 70 * s, 7 * s, 'rgba(180,238,255,0.42)');
+    if (face) {
+        drawPixelRect(ctx, x + 23 * s, y + 24 * s, 5 * s, 10 * s, '#315577');
+        drawPixelRect(ctx, x + 46 * s, y + 24 * s, 5 * s, 10 * s, '#315577');
+        drawPixelRect(ctx, x + 34 * s, y + 34 * s, 9 * s, 4 * s, '#315577');
+        drawPixelRect(ctx, x + 16 * s, y + 35 * s, 7 * s, 4 * s, 'rgba(255,160,176,0.55)');
+        drawPixelRect(ctx, x + 53 * s, y + 35 * s, 7 * s, 4 * s, 'rgba(255,160,176,0.55)');
+    }
+}
+
+function drawChickenBrickColumn(ctx, x, y, w, h) {
+    drawPixelRect(ctx, x - 3, y, w + 6, h, '#2f2a34');
+    const brickH = 18;
+    for (let row = 0; row < Math.ceil(h / brickH); row += 1) {
+        const by = y + row * brickH;
+        const offset = row % 2 ? -13 : 0;
+        for (let bx = x + offset; bx < x + w; bx += 26) {
+            drawPixelRect(ctx, bx, by + 2, 24, brickH - 4, '#b9563e', '#70372e');
+            drawPixelRect(ctx, bx + 3, by + 5, 13, 3, 'rgba(255,164,97,0.38)');
+        }
+    }
+}
+
+function drawChickenCoin(ctx, x, y, scale = 1) {
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    drawPixelRect(ctx, -9 * scale, -9 * scale, 18 * scale, 18 * scale, '#ffcf2f', '#9c6d14');
+    drawPixelRect(ctx, -5 * scale, -5 * scale, 10 * scale, 10 * scale, '#ffe572');
+    drawPixelRect(ctx, -1 * scale, -6 * scale, 3 * scale, 12 * scale, '#c98d18');
+    ctx.restore();
+}
+
+function drawChickenAvatar(ctx, avatarId, x, y, size, angle) {
+    const avatar = CHICKEN_AVATARS.find(item => item.id === avatarId) || CHICKEN_AVATARS[0];
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle || 0);
+    const s = size / 32;
+    if (avatar.id === 'mushroom') {
+        drawPixelRect(ctx, -11*s, -3*s, 22*s, 18*s, '#fff1d0', '#5b3626');
+        drawPixelRect(ctx, -16*s, -15*s, 32*s, 17*s, avatar.accent, '#5b1e1e');
+        drawPixelRect(ctx, -10*s, -12*s, 7*s, 7*s, '#fff6dc');
+        drawPixelRect(ctx, 5*s, -10*s, 7*s, 7*s, '#fff6dc');
+        drawPixelRect(ctx, -5*s, 4*s, 3*s, 7*s, '#3c2b24');
+        drawPixelRect(ctx, 5*s, 4*s, 3*s, 7*s, '#3c2b24');
+    } else if (avatar.id === 'cat' || avatar.id === 'dog') {
+        drawPixelRect(ctx, -13*s, -10*s, 26*s, 24*s, avatar.body, '#5b3626');
+        if (avatar.id === 'cat') {
+            drawPixelRect(ctx, -14*s, -17*s, 8*s, 10*s, avatar.body, '#5b3626');
+            drawPixelRect(ctx, 6*s, -17*s, 8*s, 10*s, avatar.body, '#5b3626');
+        } else {
+            drawPixelRect(ctx, -18*s, -8*s, 8*s, 14*s, '#8b5b3a', '#5b3626');
+            drawPixelRect(ctx, 10*s, -8*s, 8*s, 14*s, '#8b5b3a', '#5b3626');
+        }
+        drawPixelRect(ctx, -6*s, -1*s, 4*s, 6*s, '#1e293b');
+        drawPixelRect(ctx, 5*s, -1*s, 4*s, 6*s, '#1e293b');
+        drawPixelRect(ctx, -1*s, 6*s, 5*s, 3*s, avatar.accent);
+    } else {
+        drawPixelRect(ctx, -14*s, -10*s, 28*s, 22*s, avatar.body, '#4a3425');
+        drawPixelRect(ctx, -22*s, -4*s, 12*s, 13*s, avatar.id === 'bird' ? '#b7e9ff' : '#fff0a6', '#4a3425');
+        drawPixelRect(ctx, 10*s, -1*s, 11*s, 8*s, '#ff9f1a', '#6b3d10');
+        drawPixelRect(ctx, -7*s, -1*s, 4*s, 7*s, '#1f2937');
+        drawPixelRect(ctx, 4*s, -1*s, 4*s, 7*s, '#1f2937');
+        if (avatar.id === 'chicken') {
+            drawPixelRect(ctx, -8*s, -18*s, 6*s, 8*s, avatar.accent, '#692114');
+            drawPixelRect(ctx, -2*s, -20*s, 6*s, 10*s, avatar.accent, '#692114');
+            drawPixelRect(ctx, 4*s, -17*s, 6*s, 7*s, avatar.accent, '#692114');
+        }
+    }
+    ctx.restore();
+}
+
+function drawChickenFrame(game) {
+    const { ctx, width, height } = game;
+    ctx.clearRect(0, 0, width, height);
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#47c8ff');
+    sky.addColorStop(0.58, '#5ed7ff');
+    sky.addColorStop(1, '#9befff');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    for (let x = 0; x < width; x += 8) ctx.fillRect(x, 0, 1, height);
+    for (let y = 0; y < height; y += 8) ctx.fillRect(0, y, width, 1);
+    game.clouds.forEach((cloud, index) => drawChickenCloud(ctx, cloud.x, cloud.y, cloud.s, index % 2 === 1));
+    game.obstacles.forEach(ob => {
+        drawChickenBrickColumn(ctx, ob.x, 0, ob.width, ob.top);
+        drawChickenBrickColumn(ctx, ob.x, ob.top + ob.gap, ob.width, height - ob.top - ob.gap - 34);
+        (Array.isArray(ob.coins) ? ob.coins : (ob.coin ? [ob.coin] : [])).forEach(coin => {
+            if (!coin.taken) drawChickenCoin(ctx, coin.x, coin.y, coin.scale || (coin.big ? 1.18 : 0.86));
+        });
+    });
+    game.particles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.life / 24);
+        drawPixelRect(ctx, p.x, p.y, 8, 8, p.color || '#fff');
+        ctx.globalAlpha = 1;
+    });
+    drawChickenAvatar(ctx, game.avatarId, game.bird.x, game.bird.y, game.bird.size, game.bird.angle);
+    const groundY = height - 36;
+    drawPixelRect(ctx, 0, groundY, width, 36, '#72df3b');
+    drawPixelRect(ctx, 0, groundY + 10, width, 26, '#38b92b');
+    for (let x = -20; x < width; x += 18) {
+        drawPixelRect(ctx, x + ((Math.floor(game.distance / 10) % 18)), groundY + 20, 12, 5, '#11662a');
+    }
+    if (!game.started || game.over) drawChickenOverlay(game);
+}
+
+function drawChickenOverlay(game) {
+    const { ctx, width, height } = game;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,20,32,0.18)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = game.over ? '#ffdf4c' : '#ffffff';
+    ctx.strokeStyle = '#2a2f3a';
+    ctx.lineWidth = 4;
+    ctx.textAlign = 'center';
+    ctx.font = '900 30px system-ui, sans-serif';
+    const title = game.over ? '撞墙啦' : '点击屏幕开始';
+    ctx.strokeText(title, width / 2, height * 0.44);
+    ctx.fillText(title, width / 2, height * 0.44);
+    ctx.font = '800 14px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillText(game.over ? '再点一下重新起飞' : '吃金币，穿过砖墙，不要落地', width / 2, height * 0.44 + 30);
+    ctx.restore();
+}
+
+function updateChickenHud() {
+    if (!chickenGame) return;
+    const coinEl = document.getElementById('chicken-coin-count');
+    const scoreEl = document.getElementById('chicken-score-count');
+    const bestEl = document.getElementById('chicken-best-count');
+    const startBtn = document.querySelector('.chicken-start-btn');
+    if (coinEl) coinEl.textContent = String(chickenGame.coins || 0);
+    if (scoreEl) scoreEl.textContent = String(chickenGame.score || 0);
+    if (bestEl) bestEl.textContent = String(chickenGame.best || getChickenBest());
+    if (startBtn) {
+        startBtn.classList.toggle('is-playing', chickenGame.started && chickenGame.running && !chickenGame.over);
+        startBtn.textContent = chickenGame.over ? '重新开始' : '点击起飞';
+    }
+}
+
+function renderChickenGame(el) {
+    const activeAvatar = getChickenAvatarId();
+    const best = getChickenBest();
+    stopChickenGame(false);
+    el.innerHTML = `
+        <section class="chicken-game-shell">
+            <div class="chicken-game-canvas-wrap">
+                <canvas id="chicken-canvas" aria-label="肥鸡大冒险"></canvas>
+                <div class="chicken-hud left"><i class="ri-coin-fill"></i><b id="chicken-coin-count">0</b></div>
+                <div class="chicken-hud right"><i class="ri-trophy-fill"></i><b id="chicken-best-count">${best}</b></div>
+                <button type="button" class="chicken-start-btn" onclick="flapChickenGame()">点击屏幕开始</button>
+                <div class="chicken-avatar-row">
+                    ${CHICKEN_AVATARS.map(item => `
+                        <button type="button" class="${item.id === activeAvatar ? 'active' : ''}" onclick="setChickenAvatar('${musicEscapeAttr(item.id)}')">
+                            <span>${item.icon}</span><b>${musicEscapeHtml(item.label)}</b>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </section>
+    `;
+    const canvas = document.getElementById('chicken-canvas');
+    if (!canvas) return;
+    resetChickenGame(canvas);
+    const wrap = canvas.closest('.chicken-game-canvas-wrap');
+    const onTap = (ev) => {
+        if (ev.target.closest('.chicken-start-btn, .chicken-avatar-row')) return;
+        ev.preventDefault();
+        flapChickenGame();
+    };
+    wrap?.addEventListener('pointerdown', onTap);
+    if (!window._chickenKeyboardReady) {
+        window._chickenKeyboardReady = true;
+        window.addEventListener('keydown', (ev) => {
+            if (getActiveGame() !== 'chicken') return;
+            if (ev.code === 'Space' || ev.key === ' ') {
+                ev.preventDefault();
+                flapChickenGame();
+            }
+        });
+    }
+    requestAnimationFrame(() => resetChickenGame(canvas));
+}
+window.renderChickenGame = renderChickenGame;
 function updateWolfchaState(mutator) {
     const state = getGameState();
     if (!state) return;
@@ -2797,11 +3802,51 @@ function selectWolfchaPlayer(id) {
 }
 window.selectWolfchaPlayer = selectWolfchaPlayer;
 
+function getWolfchaNextAlivePlayer(state) {
+    const players = Array.isArray(state?.players) ? state.players : [];
+    const alive = players.filter(player => player.alive !== false);
+    if (!alive.length) return null;
+    const currentId = state.currentSpeakerId || state.selectedId;
+    const index = alive.findIndex(player => player.id === currentId);
+    return alive[(index + 1 + alive.length) % alive.length] || alive[0];
+}
+
+function getWolfchaRecentText(state) {
+    return (state.log || [])
+        .map(normalizeWolfchaLogEntry)
+        .slice(-8)
+        .map(item => `${item.name || '旁白'}：${item.text || ''}`)
+        .join('\n');
+}
+
+function wolfchaNarratorStep() {
+    updateWolfchaState(state => {
+        const alive = (state.players || []).filter(player => player.alive !== false);
+        const next = getWolfchaNextAlivePlayer(state);
+        const night = state.phase === 'night';
+        state.currentSpeakerId = next?.id || state.currentSpeakerId || state.selectedId;
+        state.selectedId = state.currentSpeakerId;
+        state.action = night ? `第 ${state.day || 1} 夜，等待行动` : `第 ${state.day || 1} 天，轮到 ${next?.number || '?'} 号`;
+        pushWolfchaLog(state, {
+            type: 'narrator',
+            name: '旁白',
+            text: night
+                ? '夜间行动结算中。等你确认后，可以进入白天发言。'
+                : `场上还剩 ${alive.length} 人。请 ${next?.name || '下一位玩家'} 准备发言。`
+        });
+    });
+}
+window.wolfchaNarratorStep = wolfchaNarratorStep;
+
 function startWolfchaNight() {
     updateWolfchaState(state => {
         state.phase = 'night';
         state.action = '第 ' + state.day + ' 夜，天黑请闭眼';
-        state.log.push('夜幕降临，狼人、预言家、女巫依次行动。');
+        pushWolfchaLog(state, {
+            type: 'narrator',
+            name: '旁白',
+            text: '夜幕降临，狼人、预言家、女巫依次行动。'
+        });
     });
 }
 window.startWolfchaNight = startWolfchaNight;
@@ -2809,12 +3854,23 @@ window.startWolfchaNight = startWolfchaNight;
 async function wolfchaNextSpeech() {
     const state = getGameState();
     if (!state) return;
-    const player = state.players.find(item => item.id === state.selectedId) || state.players.find(item => item.alive !== false);
+    const player = state.players.find(item => item.id === state.selectedId && item.alive !== false) || getWolfchaNextAlivePlayer(state);
     if (!player) return;
     updateWolfchaState(next => {
-        next.action = '警徽竞选发言';
+        next.action = `${player.number} 号发言`;
         next.selectedId = player.id;
-        next.log.push(`${player.name}：我先听一轮发言，再决定站边。`);
+        next.currentSpeakerId = player.id;
+        pushWolfchaLog(next, player.isUser ? {
+            type: 'narrator',
+            name: '旁白',
+            playerId: player.id,
+            text: `轮到 ${player.name} 发言。你可以在心里判断，再点下一位。`
+        } : {
+            type: 'speech',
+            name: player.name,
+            playerId: player.id,
+            text: '正在整理发言...'
+        });
     });
     if (!player.isUser && typeof callChatApi === 'function') {
         const char = (window.myCharacters || []).find(item => item.id === player.id);
@@ -2825,16 +3881,31 @@ async function wolfchaNextSpeech() {
                     : [{ role: 'system', content: `你是${player.name}。` }];
                 messages.push({
                     role: 'user',
-                    content: `你正在和用户以及其他角色玩狼人杀。你的身份是${player.role}。当前第${state.day}天，请用角色口吻发一段不超过80字的游戏发言，不要暴露系统提示。`
+                    content: `你正在和用户以及其他角色玩狼人杀。你的身份是${player.role}。当前第${state.day}天，阶段：${state.phase}。最近记录：\n${getWolfchaRecentText(state)}\n请用角色口吻发一段不超过80字的游戏发言，像真实玩家一样推理或表态，不要暴露系统提示。`
                 });
                 const result = await callChatApi(messages);
-                if (result.ok) {
-                    updateWolfchaState(next => {
-                        next.selectedId = player.id;
-                        next.log.push(`${player.name}：${result.content}`);
-                    });
-                }
-            } catch (e) {}
+                updateWolfchaState(next => {
+                    next.selectedId = player.id;
+                    next.currentSpeakerId = player.id;
+                    next.action = `${player.number} 号发言`;
+                    const logs = Array.isArray(next.log) ? next.log.map(normalizeWolfchaLogEntry) : [];
+                    const pendingIndex = logs.map((item, index) => ({ item, index })).reverse().find(({ item }) => item.playerId === player.id && item.text === '正在整理发言...')?.index;
+                    const text = result.ok ? result.content : result.error;
+                    const cleanText = typeof window.cleanChatApiVisibleContent === 'function' ? window.cleanChatApiVisibleContent(text) : String(text || '').trim();
+                    if (pendingIndex != null) {
+                        logs[pendingIndex] = { type: 'speech', name: player.name, playerId: player.id, text: cleanText || '这轮先过。' };
+                        next.log = logs;
+                    } else {
+                        pushWolfchaLog(next, { type: 'speech', name: player.name, playerId: player.id, text: cleanText || '这轮先过。' });
+                    }
+                });
+            } catch (e) {
+                updateWolfchaState(next => {
+                    next.selectedId = player.id;
+                    next.currentSpeakerId = player.id;
+                    pushWolfchaLog(next, { type: 'speech', name: player.name, playerId: player.id, text: '这一轮 API 没接上，先保留发言位。' });
+                });
+            }
         }
     }
 }
@@ -2843,12 +3914,21 @@ window.wolfchaNextSpeech = wolfchaNextSpeech;
 function wolfchaVoteSelected() {
     updateWolfchaState(state => {
         const player = state.players.find(item => item.id === state.selectedId);
-        if (!player) return;
+        if (!player || player.alive === false) {
+            pushWolfchaLog(state, { type: 'narrator', name: '旁白', text: '请选择一名仍在场的玩家再放逐。' });
+            return;
+        }
         player.alive = false;
         state.phase = 'day';
         state.day += 1;
         state.action = `${player.number} 号被放逐`;
-        state.log.push(`${player.name} 被投票出局，身份是 ${player.role}。`);
+        state.currentSpeakerId = getWolfchaNextAlivePlayer(state)?.id || 'user';
+        pushWolfchaLog(state, {
+            type: 'narrator',
+            name: '旁白',
+            playerId: player.id,
+            text: `${player.name} 被投票出局，身份是 ${player.role}。`
+        });
     });
 }
 window.wolfchaVoteSelected = wolfchaVoteSelected;
@@ -3039,14 +4119,15 @@ function initPageSwipe() {
     const container = document.getElementById('pages-container');
     if (!container) return;
 
-    const pages = container.querySelectorAll('.desktop-page');
-    const totalPages = pages.length;
     let currentPage = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
     let startX = 0;
     let currentX = 0;
     let isDragging = false;
+    const getPages = () => Array.from(container.querySelectorAll('.desktop-page'));
 
     function goToPage(idx) {
+        const pages = getPages();
+        const totalPages = Math.max(1, pages.length);
         idx = Math.max(0, Math.min(idx, totalPages - 1));
         currentPage = idx;
         window._desktopCurrentPage = currentPage;
@@ -3073,6 +4154,7 @@ function initPageSwipe() {
     container.addEventListener('touchmove', (e) => {
         if (window._editMode) return;
         if (!isDragging) return;
+        const pages = getPages();
         currentX = e.touches[0].clientX;
         const diff = currentX - startX;
         const offset = -currentPage * 100 + (diff / container.offsetWidth) * 100;
@@ -3090,6 +4172,8 @@ function initPageSwipe() {
         if (!isDragging) return;
         isDragging = false;
         const diff = currentX - startX;
+        const pages = getPages();
+        const totalPages = Math.max(1, pages.length);
         pages.forEach(p => p.style.transition = '');
 
         if (Math.abs(diff) > 60) {
@@ -3116,6 +4200,7 @@ let _desktopDefaultLayoutHtml = '';
 let _desktopLongPressStart = null;
 let _desktopLongPressTriggered = false;
 let _desktopLongPressActive = false;
+let _desktopLayoutApplied = false;
 
 function getDesktopPointerPoint(e) {
     const touch = e && e.touches && e.touches[0];
@@ -3187,32 +4272,104 @@ function normalizeDesktopLayoutRect(item, pageArea) {
 function prepareDesktopLayoutItem(item, pageArea, rect) {
     if (!item || !pageArea) return;
     const id = getDesktopItemId(item);
+    const safeRect = clampDesktopLayoutRect(rect, pageArea);
     item.dataset.layoutId = id;
     item.dataset.layoutType = item.dataset.layoutType || (id.startsWith('app-') ? 'app' : 'builtin');
     item.classList.add('desktop-layout-item');
-    if (item.classList.contains('app-item')) item.classList.add('layout-app');
+    if (item.classList.contains('app-item')) {
+        item.classList.add('layout-app');
+        item.setAttribute('draggable', 'false');
+    }
     pageArea.classList.add('layout-canvas');
     if (item.parentElement !== pageArea) pageArea.appendChild(item);
-    item.style.left = `${Math.round(rect.left)}px`;
-    item.style.top = `${Math.round(rect.top)}px`;
-    item.style.width = `${Math.round(rect.width)}px`;
-    item.style.height = `${Math.round(rect.height)}px`;
+    item.style.left = `${Math.round(safeRect.left)}px`;
+    item.style.top = `${Math.round(safeRect.top)}px`;
+    item.style.width = `${Math.round(safeRect.width)}px`;
+    item.style.height = `${Math.round(safeRect.height)}px`;
     setupDesktopLayoutItem(item);
+}
+
+function clampDesktopLayoutRect(rect, pageArea) {
+    const source = rect || {};
+    const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
+    const areaHeight = Math.max(520, pageArea?.clientHeight || 590);
+    const minWidth = Math.min(220, Math.max(54, Number(source.width) || 96));
+    const minHeight = Math.min(140, Math.max(58, Number(source.height) || 96));
+    const width = Math.max(54, Math.min(areaWidth - 16, Number(source.width) || minWidth));
+    const height = Math.max(58, Math.min(areaHeight - 16, Number(source.height) || minHeight));
+    return {
+        left: Math.max(8, Math.min(areaWidth - width - 8, Number(source.left) || 8)),
+        top: Math.max(8, Math.min(areaHeight - height - 8, Number(source.top) || 8)),
+        width,
+        height
+    };
+}
+
+function getDesktopDirectLayoutItems(pageArea) {
+    const items = [];
+    pageArea.querySelectorAll(':scope > .calendar-widget, :scope > .photo-large, :scope > .app-item, :scope > .desktop-custom-widget').forEach(item => items.push(item));
+    pageArea.querySelectorAll(':scope > .bento-box > .photo-large, :scope > .bento-box > .apps-quad > .app-item').forEach(item => items.push(item));
+    return items.filter((item, index, arr) => arr.indexOf(item) === index);
 }
 
 function materializeDesktopPage(page) {
     const pageArea = page.querySelector('.desktop-scroll-area');
     if (!pageArea) return;
-    const items = Array.from(page.querySelectorAll('.calendar-widget, .photo-large, .app-item, .desktop-custom-widget'));
-    items.forEach(item => {
-        const rect = normalizeDesktopLayoutRect(item, pageArea);
-        prepareDesktopLayoutItem(item, pageArea, rect);
-    });
+    pageArea.scrollTop = 0;
+    pageArea.scrollLeft = 0;
+    const items = getDesktopDirectLayoutItems(pageArea);
+    const snapshots = items.map(item => ({
+        item,
+        rect: normalizeDesktopLayoutRect(item, pageArea)
+    }));
+    snapshots.forEach(({ item, rect }) => prepareDesktopLayoutItem(item, pageArea, rect));
     page.querySelectorAll('.bento-box, .desktop-empty-placeholder').forEach(el => el.classList.add('layout-source-hidden'));
 }
 
 function materializeExistingDesktopForLayout() {
     document.querySelectorAll('#pages-container .desktop-page').forEach(materializeDesktopPage);
+}
+
+function getDesktopPages() {
+    return Array.from(document.querySelectorAll('#pages-container .desktop-page'));
+}
+
+function createDesktopScreenPage(index) {
+    const page = document.createElement('div');
+    page.className = 'desktop-page';
+    page.dataset.page = String(index);
+    page.innerHTML = `
+        <div class="desktop-scroll-area page-extra-content">
+            <div class="desktop-empty-placeholder">
+                <i class="ri-add-circle-line"></i>
+                <span>第 ${index + 1} 屏</span>
+                <small>长按编辑后可以把图标和组件放到这里。</small>
+            </div>
+        </div>
+    `;
+    return page;
+}
+
+function syncDesktopPagesAndDots(activeIndex) {
+    const pages = getDesktopPages();
+    pages.forEach((page, index) => { page.dataset.page = String(index); });
+    const dots = document.getElementById('page-dots');
+    if (dots) {
+        dots.innerHTML = pages.map((_, index) => `<div class="page-dot ${index === activeIndex ? 'active' : ''}"></div>`).join('');
+    }
+}
+
+function ensureDesktopPage(index) {
+    const container = document.getElementById('pages-container');
+    if (!container) return null;
+    let pages = getDesktopPages();
+    while (pages.length <= index) {
+        const page = createDesktopScreenPage(pages.length);
+        container.appendChild(page);
+        pages.push(page);
+    }
+    syncDesktopPagesAndDots(Math.min(index, pages.length - 1));
+    return pages[index] || null;
 }
 
 function setupDesktopLayoutItem(item) {
@@ -3266,19 +4423,21 @@ function startDesktopItemDrag(e) {
         try { item.setPointerCapture(e.pointerId); } catch (err) {}
     }
     selectDesktopLayoutItem(item);
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const startPoint = getDesktopPointerPoint(e);
+    const startX = startPoint.x;
+    const startY = startPoint.y;
     const startLeft = parseFloat(item.style.left) || 0;
     const startTop = parseFloat(item.style.top) || 0;
     const scale = getDesktopEditScale();
 
     const move = (ev) => {
-        const maxLeft = Math.max(0, pageArea.clientWidth - item.offsetWidth);
-        const maxTop = Math.max(0, Math.max(pageArea.scrollHeight, pageArea.clientHeight) - item.offsetHeight);
-        const dx = (ev.clientX - startX) / scale;
-        const dy = (ev.clientY - startY) / scale;
-        item.style.left = `${Math.max(0, Math.min(maxLeft, startLeft + dx))}px`;
-        item.style.top = `${Math.max(0, Math.min(maxTop, startTop + dy))}px`;
+        const point = getDesktopPointerPoint(ev);
+        const maxLeft = Math.max(8, pageArea.clientWidth - item.offsetWidth - 8);
+        const maxTop = Math.max(8, pageArea.clientHeight - item.offsetHeight - 8);
+        const dx = (point.x - startX) / scale;
+        const dy = (point.y - startY) / scale;
+        item.style.left = `${Math.max(8, Math.min(maxLeft, startLeft + dx))}px`;
+        item.style.top = `${Math.max(8, Math.min(maxTop, startTop + dy))}px`;
     };
     const up = () => {
         if (typeof item.releasePointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
@@ -3308,11 +4467,13 @@ function startDesktopItemResize(e) {
 
     const move = (ev) => {
         const left = parseFloat(item.style.left) || 0;
+        const top = parseFloat(item.style.top) || 0;
         const maxWidth = pageArea.clientWidth - left;
+        const maxHeight = pageArea.clientHeight - top;
         const dx = (ev.clientX - startX) / scale;
         const dy = (ev.clientY - startY) / scale;
         item.style.width = `${Math.max(minWidth, Math.min(maxWidth, startWidth + dx))}px`;
-        item.style.height = `${Math.max(minHeight, startHeight + dy)}px`;
+        item.style.height = `${Math.max(minHeight, Math.min(maxHeight, startHeight + dy))}px`;
     };
     const up = () => {
         window.removeEventListener('pointermove', move);
@@ -3340,7 +4501,7 @@ function createDesktopCustomWidget(kind, id) {
 function addDesktopCustomWidget(kind) {
     if (!window._editMode) enterEditMode();
     const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
-    const page = document.querySelectorAll('#pages-container .desktop-page')[pageIndex] || document.querySelector('#pages-container .desktop-page');
+    const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
     const pageArea = page?.querySelector('.desktop-scroll-area');
     if (!pageArea) return;
     const item = createDesktopCustomWidget(kind);
@@ -3354,14 +4515,34 @@ function addDesktopCustomWidget(kind) {
     selectDesktopLayoutItem(item);
 }
 
+function addDesktopScreen() {
+    if (!window._editMode) enterEditMode();
+    const pages = getDesktopPages();
+    const nextIndex = pages.length;
+    const page = ensureDesktopPage(nextIndex);
+    const pageArea = page?.querySelector('.desktop-scroll-area');
+    if (pageArea) {
+        pageArea.classList.add('layout-canvas');
+        pageArea.querySelector('.desktop-empty-placeholder')?.classList.remove('layout-source-hidden');
+    }
+    if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(nextIndex);
+    if (typeof showWechatToast === 'function') showWechatToast(`已添加第 ${nextIndex + 1} 屏`);
+}
+window.addDesktopScreen = addDesktopScreen;
+
 function moveSelectedDesktopItemToOtherPage() {
     const item = window._desktopSelectedLayoutItem;
     if (!item) return;
-    const pages = Array.from(document.querySelectorAll('#pages-container .desktop-page'));
+    let pages = getDesktopPages();
+    if (pages.length < 2) {
+        ensureDesktopPage(1);
+        pages = getDesktopPages();
+    }
     const currentPage = item.closest('.desktop-page');
     const currentIndex = getDesktopPageIndex(currentPage);
-    const nextIndex = currentIndex === 0 ? 1 : 0;
-    const targetArea = pages[nextIndex]?.querySelector('.desktop-scroll-area');
+    const nextIndex = (currentIndex + 1) % Math.max(1, pages.length);
+    const targetPage = ensureDesktopPage(nextIndex);
+    const targetArea = targetPage?.querySelector('.desktop-scroll-area');
     if (!targetArea) return;
     targetArea.classList.add('layout-canvas');
     targetArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
@@ -3387,6 +4568,7 @@ function renderDesktopEditChrome() {
             <button type="button" onclick="addDesktopCustomWidget('music')"><i class="ri-music-2-line"></i><span>音乐</span></button>
             <button type="button" onclick="addDesktopCustomWidget('camera')"><i class="ri-camera-3-line"></i><span>相机</span></button>
             <button type="button" onclick="addDesktopCustomWidget('album')"><i class="ri-image-2-line"></i><span>相册</span></button>
+            <button type="button" onclick="addDesktopScreen()"><i class="ri-layout-row-line"></i><span>屏幕</span></button>
         </div>
         <div class="desktop-edit-actions">
             <button type="button" class="restore" onclick="promptRestoreDefaultDesktopLayout()">恢复原始</button>
@@ -3490,26 +4672,38 @@ function promptRestoreDefaultDesktopLayout() {
 function collectDesktopLayout() {
     return Array.from(document.querySelectorAll('.desktop-layout-item')).map(item => {
         const page = item.closest('.desktop-page');
+        const area = item.closest('.desktop-scroll-area');
+        const rect = clampDesktopLayoutRect({
+            left: parseFloat(item.style.left) || 0,
+            top: parseFloat(item.style.top) || 0,
+            width: item.offsetWidth,
+            height: item.offsetHeight
+        }, area);
         return {
             id: item.dataset.layoutId,
             type: item.dataset.layoutType || 'builtin',
             kind: item.dataset.widgetKind || '',
             page: getDesktopPageIndex(page),
-            left: Math.round(parseFloat(item.style.left) || 0),
-            top: Math.round(parseFloat(item.style.top) || 0),
-            width: Math.round(item.offsetWidth),
-            height: Math.round(item.offsetHeight)
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height)
         };
     });
 }
 
 function saveDesktopLayout() {
-    localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({ items: collectDesktopLayout(), savedAt: Date.now() }));
+    localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
+        items: collectDesktopLayout(),
+        pageCount: getDesktopPages().length,
+        savedAt: Date.now()
+    }));
     exitEditMode(true);
 }
 
 function restoreDefaultDesktopLayout() {
     localStorage.removeItem(DESKTOP_LAYOUT_KEY);
+    _desktopLayoutApplied = false;
     document.getElementById('desktop-save-modal')?.remove();
     const pages = document.getElementById('pages-container');
     const template = _desktopDefaultLayoutHtml || _desktopLayoutBackupHtml;
@@ -3548,6 +4742,7 @@ function exitEditMode(saveChanges) {
         const newPages = oldPages.cloneNode(false);
         newPages.innerHTML = _desktopLayoutBackupHtml;
         oldPages.replaceWith(newPages);
+        _desktopLayoutApplied = false;
         setTimeout(() => {
             initFolderDrag();
             initPageSwipe();
@@ -3560,6 +4755,7 @@ function exitEditMode(saveChanges) {
 }
 
 function applySavedDesktopLayout() {
+    if (_desktopLayoutApplied) return;
     let saved;
     try {
         saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}');
@@ -3567,7 +4763,11 @@ function applySavedDesktopLayout() {
         return;
     }
     if (!Array.isArray(saved.items) || !saved.items.length) return;
-    const pages = Array.from(document.querySelectorAll('#pages-container .desktop-page'));
+    _desktopLayoutApplied = true;
+    const pageCount = Math.max(saved.pageCount || 0, ...saved.items.map(item => (item.page || 0) + 1), 1);
+    for (let i = 0; i < pageCount; i += 1) ensureDesktopPage(i);
+    const pages = getDesktopPages();
+    pages.forEach(page => page.querySelector('.desktop-scroll-area')?.classList.add('layout-canvas'));
     saved.items.forEach(record => {
         const page = pages[Math.max(0, Math.min(pages.length - 1, record.page || 0))];
         const area = page?.querySelector('.desktop-scroll-area');
@@ -3587,6 +4787,7 @@ function startDesktopLayoutFromTheme() {
     if (typeof closeApp === 'function') closeApp('theme');
     setTimeout(() => {
         if (typeof unlockPhone === 'function') unlockPhone();
+        if (!_desktopLayoutApplied) applySavedDesktopLayout();
         enterEditMode();
     }, 360);
 }

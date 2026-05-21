@@ -61,6 +61,10 @@ function normalizeThemeWidgetStyle(value) {
     return ['frost', 'midnight', 'aurora', 'paper'].includes(value) ? value : 'frost';
 }
 
+function normalizeThemeWidgetType(value) {
+    return value === 'photo' ? 'photo' : 'photo';
+}
+
 function normalizeThemeAccent(value, fallback) {
     const text = String(value || '').trim();
     return /^#[0-9a-f]{6}$/i.test(text) ? text : fallback;
@@ -97,6 +101,27 @@ function getSavedThemeData() {
         return {};
     }
 }
+
+function applyLockscreenEnabled(enabled) {
+    const isEnabled = enabled !== false;
+    const root = document.documentElement;
+    const lockScreen = document.getElementById('lock-screen');
+    const homeScreen = document.getElementById('home-screen');
+    root.classList.toggle('lockscreen-disabled', !isEnabled);
+    if (!lockScreen || !homeScreen) return;
+    if (!isEnabled) {
+        lockScreen.classList.add('hidden', 'unlocked');
+        homeScreen.classList.remove('hidden');
+        if (typeof resetDesktopToFirstPage === 'function') resetDesktopToFirstPage();
+        const statusBar = document.querySelector('.status-bar');
+        if (statusBar && typeof window.homeIsDark !== 'undefined') {
+            statusBar.classList.toggle('white-text', !!window.homeIsDark);
+        }
+        return;
+    }
+    lockScreen.classList.remove('hidden');
+}
+window.applyLockscreenEnabled = applyLockscreenEnabled;
 
 function byndClamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -268,6 +293,75 @@ function applyLockscreenAdaptivePalette(average, accent) {
     root.style.setProperty('--lock-control-text', textColor);
     root.style.setProperty('--lock-swipe-bg', isDark ? 'rgba(255,255,255,0.58)' : 'rgba(23,25,31,0.32)');
     root.style.setProperty('--lock-glass-shadow', isDark ? '0 12px 30px rgba(0,0,0,0.22)' : '0 12px 30px rgba(90,112,140,0.12)');
+    const swatches = [
+        textColor,
+        rgbToHex(...byndMix(quietAccent, isDark ? [255, 255, 255] : [0, 0, 0], 0.08).map(Math.round)),
+        rgbToHex(...byndMix(average, isDark ? [240, 248, 255] : [24, 28, 34], 0.42).map(Math.round)),
+        isDark ? '#d8e6ff' : '#111318'
+    ];
+    renderLockClockSwatches(swatches);
+    applyLockClockColorPreference(textColor, isDark);
+}
+
+function getLockClockColorInput() {
+    return document.getElementById('lock-clock-color');
+}
+
+function getSavedLockClockColorMode() {
+    const input = getLockClockColorInput();
+    if (input && input.dataset.auto) return input.dataset.auto === '1' ? 'auto' : 'custom';
+    const saved = getSavedThemeData();
+    return saved.lockClockColorMode === 'custom' ? 'custom' : 'auto';
+}
+
+function applyLockClockCustomColor(value) {
+    const color = normalizeThemeAccent(value, '#ffffff');
+    const root = document.documentElement;
+    const isDarkColor = byndBrightness([
+        parseInt(color.slice(1, 3), 16),
+        parseInt(color.slice(3, 5), 16),
+        parseInt(color.slice(5, 7), 16)
+    ]) < 132;
+    root.style.setProperty('--lock-text', color);
+    root.style.setProperty('--lock-muted', hexToThemeRgba(color, 0.72));
+    root.style.setProperty('--lock-text-shadow', isDarkColor ? '0 1px 12px rgba(255,255,255,0.36)' : '0 2px 14px rgba(0,0,0,0.42)');
+}
+
+function applyLockClockColorPreference(autoColor, isDark) {
+    const input = getLockClockColorInput();
+    const saved = getSavedThemeData();
+    const mode = getSavedLockClockColorMode();
+    const custom = input?.value || saved.lockClockColor || '';
+    if (mode === 'custom' && custom) {
+        applyLockClockCustomColor(custom);
+    } else if (input) {
+        input.dataset.auto = '1';
+        input.value = normalizeThemeAccent(autoColor, isDark ? '#ffffff' : '#17191f');
+    }
+}
+
+function setLockClockCustomColor(value) {
+    const input = getLockClockColorInput();
+    if (input) {
+        input.dataset.auto = '0';
+        input.value = normalizeThemeAccent(value, '#ffffff');
+    }
+    applyLockClockCustomColor(value);
+}
+window.setLockClockCustomColor = setLockClockCustomColor;
+
+function resetLockClockColorAuto() {
+    const input = getLockClockColorInput();
+    if (input) input.dataset.auto = '1';
+    applyLockscreenAdaptiveTheme();
+}
+window.resetLockClockColorAuto = resetLockClockColorAuto;
+
+function renderLockClockSwatches(colors) {
+    const wrap = document.getElementById('lock-clock-swatches');
+    if (!wrap) return;
+    const unique = [...new Set((colors || []).map(c => normalizeThemeAccent(c, '')).filter(Boolean))].slice(0, 5);
+    wrap.innerHTML = unique.map(color => `<button type="button" style="--swatch:${color}" onclick="setLockClockCustomColor('${color}')" aria-label="选择 ${color}"></button>`).join('');
 }
 
 function applyLockscreenAdaptiveTheme(src) {
@@ -315,7 +409,7 @@ function applyLockscreenAdaptiveTheme(src) {
 }
 window.applyLockscreenAdaptiveTheme = applyLockscreenAdaptiveTheme;
 
-const CAL_TRANSPARENCY_DEFAULT = 36;
+const CAL_TRANSPARENCY_DEFAULT = 0;
 
 function normalizeCalTransparency(value) {
     const n = Number.parseInt(value, 10);
@@ -372,6 +466,7 @@ window.updateLockDateDisplay = updateLockDateDisplay;
 
 function applyLockscreenOptions(data) {
     data = data || getSavedThemeData();
+    applyLockscreenEnabled(data.lockEnabled !== false);
     const leftPhoto = document.getElementById('lock-photo-left');
     const rightPhoto = document.getElementById('lock-photo-right');
     const vibeText = document.getElementById('ls-vibe-text');
@@ -388,6 +483,9 @@ function applyLockscreenOptions(data) {
     if (topIcon) topIcon.className = normalizeLockDecoIcon(data.lockTopIcon, 'ri-attachment-line');
     if (bottomDeco) {
         bottomDeco.className = `${normalizeLockDecoIcon(data.lockBottomIcon, 'ri-star-smile-fill')} sticker-star`;
+    }
+    if (data.lockClockColorMode === 'custom' && data.lockClockColor) {
+        applyLockClockCustomColor(data.lockClockColor);
     }
     updateLockDateDisplay(data);
 }
@@ -478,6 +576,7 @@ function loadSavedSettings() {
         if (data.l2) document.getElementById('input-lock-img-2').value = data.l2;
         if (data.d1) document.getElementById('input-desk-img-1').value = data.d1;
         if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
+        setThemeCheckbox('lock-enabled', data.lockEnabled);
         setThemeCheckbox('lock-show-left', data.lockShowLeft);
         setThemeCheckbox('lock-show-right', data.lockShowRight);
         setThemeCheckbox('lock-show-text', data.lockShowText);
@@ -486,6 +585,12 @@ function loadSavedSettings() {
         if (document.getElementById('lock-top-icon')) document.getElementById('lock-top-icon').value = normalizeLockDecoIcon(data.lockTopIcon, 'ri-attachment-line');
         if (document.getElementById('lock-bottom-icon')) document.getElementById('lock-bottom-icon').value = normalizeLockDecoIcon(data.lockBottomIcon, 'ri-star-smile-fill');
         if (document.getElementById('input-lock-weather')) document.getElementById('input-lock-weather').value = getLockWeatherText(data);
+        const lockClockInput = getLockClockColorInput();
+        if (lockClockInput) {
+            lockClockInput.dataset.auto = data.lockClockColorMode === 'custom' ? '0' : '1';
+            lockClockInput.value = normalizeThemeAccent(data.lockClockColor, '#ffffff');
+            if (data.lockClockColorMode === 'custom' && data.lockClockColor) applyLockClockCustomColor(data.lockClockColor);
+        }
 
         if (data.icons) {
             migrateThemeIconData(data).forEach((url, index) => {
@@ -517,19 +622,13 @@ function loadSavedSettings() {
         // 加载组件设置
         if (data.widget1) {
             const sel1 = document.getElementById('widget-type-1');
-            if (sel1) { sel1.value = data.widget1.type || 'photo'; toggleWidgetOptions(1); }
-            if (data.widget1.cdTitle) document.getElementById('widget-cd-title-1').value = data.widget1.cdTitle;
-            if (data.widget1.cdDate) document.getElementById('widget-cd-date-1').value = data.widget1.cdDate;
-            if (data.widget1.quote) document.getElementById('widget-quote-1').value = data.widget1.quote;
+            if (sel1) { sel1.value = normalizeThemeWidgetType(data.widget1.type); toggleWidgetOptions(1); }
             if (data.widget1.style && document.getElementById('widget-style-1')) document.getElementById('widget-style-1').value = normalizeThemeWidgetStyle(data.widget1.style);
             if (data.widget1.accent && document.getElementById('widget-accent-1')) document.getElementById('widget-accent-1').value = normalizeThemeAccent(data.widget1.accent, '#0a84ff');
         }
         if (data.widget2) {
             const sel2 = document.getElementById('widget-type-2');
-            if (sel2) { sel2.value = data.widget2.type || 'photo'; toggleWidgetOptions(2); }
-            if (data.widget2.cdTitle) document.getElementById('widget-cd-title-2').value = data.widget2.cdTitle;
-            if (data.widget2.cdDate) document.getElementById('widget-cd-date-2').value = data.widget2.cdDate;
-            if (data.widget2.quote) document.getElementById('widget-quote-2').value = data.widget2.quote;
+            if (sel2) { sel2.value = normalizeThemeWidgetType(data.widget2.type); toggleWidgetOptions(2); }
             if (data.widget2.style && document.getElementById('widget-style-2')) document.getElementById('widget-style-2').value = normalizeThemeWidgetStyle(data.widget2.style);
             if (data.widget2.accent && document.getElementById('widget-accent-2')) document.getElementById('widget-accent-2').value = normalizeThemeAccent(data.widget2.accent, '#ff9f0a');
         }
@@ -543,10 +642,10 @@ function collectThemeDataFromInputs() {
         return el ? el.value : (fallbackValue || '');
     };
     const widgetData = (slot, fallbackWidget, fallbackAccent) => ({
-        type: readValue('widget-type-' + slot, fallbackWidget?.type || 'photo'),
-        cdTitle: readValue('widget-cd-title-' + slot, fallbackWidget?.cdTitle || ''),
-        cdDate: readValue('widget-cd-date-' + slot, fallbackWidget?.cdDate || ''),
-        quote: readValue('widget-quote-' + slot, fallbackWidget?.quote || ''),
+        type: 'photo',
+        cdTitle: '',
+        cdDate: '',
+        quote: '',
         style: normalizeThemeWidgetStyle(readValue('widget-style-' + slot, fallbackWidget?.style || 'frost')),
         accent: normalizeThemeAccent(readValue('widget-accent-' + slot, fallbackWidget?.accent || fallbackAccent), fallbackAccent)
     });
@@ -565,6 +664,7 @@ function collectThemeDataFromInputs() {
         d1: readValue('input-desk-img-1', fallback.d1),
         d2: readValue('input-desk-img-2', fallback.d2),
         icons: iconInputs,
+        lockEnabled: getThemeCheckbox('lock-enabled'),
         lockShowLeft: getThemeCheckbox('lock-show-left'),
         lockShowRight: getThemeCheckbox('lock-show-right'),
         lockShowText: getThemeCheckbox('lock-show-text'),
@@ -573,6 +673,8 @@ function collectThemeDataFromInputs() {
         lockTopIcon: normalizeLockDecoIcon(readValue('lock-top-icon', fallback.lockTopIcon), 'ri-attachment-line'),
         lockBottomIcon: normalizeLockDecoIcon(readValue('lock-bottom-icon', fallback.lockBottomIcon), 'ri-star-smile-fill'),
         lockWeather: readValue('input-lock-weather', fallback.lockWeather).trim(),
+        lockClockColorMode: getSavedLockClockColorMode(),
+        lockClockColor: readValue('lock-clock-color', fallback.lockClockColor || '#ffffff'),
         calMode,
         calBg: readValue('cal-color-bg', fallback.calBg || '#1f2937'),
         calText: readValue('cal-color-text', fallback.calText || '#ffffff'),
@@ -813,6 +915,7 @@ function saveTheme() {
     const lockImg2 = document.getElementById('input-lock-img-2').value;
     const deskImg1 = document.getElementById('input-desk-img-1').value;
     const deskImg2 = document.getElementById('input-desk-img-2').value;
+    const lockEnabled = getThemeCheckbox('lock-enabled');
     const lockShowLeft = getThemeCheckbox('lock-show-left');
     const lockShowRight = getThemeCheckbox('lock-show-right');
     const lockShowText = getThemeCheckbox('lock-show-text');
@@ -821,6 +924,8 @@ function saveTheme() {
     const lockTopIcon = normalizeLockDecoIcon(document.getElementById('lock-top-icon')?.value, 'ri-attachment-line');
     const lockBottomIcon = normalizeLockDecoIcon(document.getElementById('lock-bottom-icon')?.value, 'ri-star-smile-fill');
     const lockWeather = (document.getElementById('input-lock-weather')?.value || '').trim();
+    const lockClockColorMode = getSavedLockClockColorMode();
+    const lockClockColor = normalizeThemeAccent(document.getElementById('lock-clock-color')?.value || '#ffffff', '#ffffff');
 
     if (wpLock) {
         const lockScreen = document.getElementById('lock-screen');
@@ -846,6 +951,7 @@ function saveTheme() {
     if(lockImg1) document.querySelector('.user-img-1').src = lockImg1;
     if(lockImg2) document.querySelector('.user-img-2').src = lockImg2;
     applyLockscreenOptions({
+        lockEnabled,
         lockShowLeft,
         lockShowRight,
         lockShowText,
@@ -853,17 +959,19 @@ function saveTheme() {
         lockShowBottomDeco,
         lockTopIcon,
         lockBottomIcon,
-        lockWeather
+        lockWeather,
+        lockClockColorMode,
+        lockClockColor
     });
     // 组件系统
-    const widgetType1 = document.getElementById('widget-type-1')?.value || 'photo';
-    const widgetType2 = document.getElementById('widget-type-2')?.value || 'photo';
-    const widgetCdTitle1 = document.getElementById('widget-cd-title-1')?.value || '';
-    const widgetCdDate1 = document.getElementById('widget-cd-date-1')?.value || '';
-    const widgetCdTitle2 = document.getElementById('widget-cd-title-2')?.value || '';
-    const widgetCdDate2 = document.getElementById('widget-cd-date-2')?.value || '';
-    const widgetQuote1 = document.getElementById('widget-quote-1')?.value || '';
-    const widgetQuote2 = document.getElementById('widget-quote-2')?.value || '';
+    const widgetType1 = 'photo';
+    const widgetType2 = 'photo';
+    const widgetCdTitle1 = '';
+    const widgetCdDate1 = '';
+    const widgetCdTitle2 = '';
+    const widgetCdDate2 = '';
+    const widgetQuote1 = '';
+    const widgetQuote2 = '';
     const widgetStyle1 = normalizeThemeWidgetStyle(document.getElementById('widget-style-1')?.value || 'frost');
     const widgetStyle2 = normalizeThemeWidgetStyle(document.getElementById('widget-style-2')?.value || 'frost');
     const widgetAccent1 = normalizeThemeAccent(document.getElementById('widget-accent-1')?.value || '#0a84ff', '#0a84ff');
@@ -914,8 +1022,9 @@ function saveTheme() {
     const themeData = {
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
         l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs,
+        lockEnabled,
         lockShowLeft, lockShowRight, lockShowText, lockShowTopDeco, lockShowBottomDeco,
-        lockTopIcon, lockBottomIcon, lockWeather,
+        lockTopIcon, lockBottomIcon, lockWeather, lockClockColorMode, lockClockColor,
         calMode: calMode, calBg: calBg, calText: calText, calDim: calDim, calAccent: calAccent, calTransparency: calTransparency,
         lsLeft: lsLeft, lsRight: lsRight,
         widget1: { type: widgetType1, cdTitle: widgetCdTitle1, cdDate: widgetCdDate1, quote: widgetQuote1, style: widgetStyle1, accent: widgetAccent1 },
@@ -947,6 +1056,7 @@ function initTheme() {
         renderThemeLibrary();
         applyByndAdaptiveTheme(data.wpHome || '');
         applyLockscreenAdaptiveTheme(data.wpLock || '');
+        applyLockscreenEnabled(data.lockEnabled !== false);
         if (Object.keys(data).length === 0) return;
 
         if (data.wpLock) {
@@ -967,14 +1077,20 @@ function initTheme() {
         if(data.l1) document.querySelector('.user-img-1').src = data.l1;
         if(data.l2) document.querySelector('.user-img-2').src = data.l2;
         applyLockscreenOptions(data);
+        const lockClockInput = getLockClockColorInput();
+        if (lockClockInput) {
+            lockClockInput.dataset.auto = data.lockClockColorMode === 'custom' ? '0' : '1';
+            lockClockInput.value = normalizeThemeAccent(data.lockClockColor, '#ffffff');
+            if (data.lockClockColorMode === 'custom' && data.lockClockColor) applyLockClockCustomColor(data.lockClockColor);
+        }
         // 桌面组件
         if (data.widget1) {
-            renderWidget(1, data.widget1.type, { img: data.d1, title: data.widget1.cdTitle, date: data.widget1.cdDate, text: data.widget1.quote, style: data.widget1.style, accent: data.widget1.accent });
+            renderWidget(1, normalizeThemeWidgetType(data.widget1.type), { img: data.d1, style: data.widget1.style, accent: data.widget1.accent });
         } else if (data.d1) {
             document.querySelector('.desktop-img-1').src = data.d1;
         }
         if (data.widget2) {
-            renderWidget(2, data.widget2.type, { img: data.d2, title: data.widget2.cdTitle, date: data.widget2.cdDate, text: data.widget2.quote, style: data.widget2.style, accent: data.widget2.accent });
+            renderWidget(2, normalizeThemeWidgetType(data.widget2.type), { img: data.d2, style: data.widget2.style, accent: data.widget2.accent });
         } else {
             const allDeskImgs = document.querySelectorAll('.photo-large img');
             if(allDeskImgs.length > 1 && data.d2) allDeskImgs[1].src = data.d2;
@@ -1258,6 +1374,10 @@ function lsShortcutAction(side) {
     }
 
     unlockPhone();
+    if (action === 'camera' && typeof openSystemCamera === 'function') {
+        openSystemCamera();
+        return;
+    }
     setTimeout(() => {
         if (typeof openApp === 'function') openApp(action);
     }, 300);
@@ -1288,12 +1408,10 @@ function initLsShortcuts() {
 
 // 8. 桌面组件系统
 function toggleWidgetOptions(idx) {
-    const type = document.getElementById('widget-type-' + idx).value;
+    const type = normalizeThemeWidgetType(document.getElementById('widget-type-' + idx)?.value);
     const container = document.getElementById('widget-opts-' + idx);
     if (!container) return;
-    container.querySelector('.widget-opt-photo').classList.toggle('hidden', type !== 'photo');
-    container.querySelector('.widget-opt-countdown').classList.toggle('hidden', type !== 'countdown');
-    container.querySelector('.widget-opt-quote').classList.toggle('hidden', type !== 'quote');
+    container.querySelector('.widget-opt-photo')?.classList.toggle('hidden', type !== 'photo');
 }
 
 function renderWidget(slot, type, data) {
@@ -1302,57 +1420,15 @@ function renderWidget(slot, type, data) {
     const container = containers[slot - 1];
     if (!container) return;
     data = data || {};
+    type = normalizeThemeWidgetType(type);
     const styleName = normalizeThemeWidgetStyle(data.style || document.getElementById('widget-style-' + slot)?.value || 'frost');
     const accent = normalizeThemeAccent(data.accent || document.getElementById('widget-accent-' + slot)?.value || '#0a84ff', slot === 2 ? '#ff9f0a' : '#0a84ff');
     container.className = `photo-large ios-widget-host ios-widget-${styleName}`;
     container.style.setProperty('--widget-accent', accent);
     container.style.setProperty('--widget-accent-soft', hexToThemeRgba(accent, 0.18));
 
-    if (type === 'photo') {
-        const imgSrc = data.img || container.querySelector('img')?.src || '';
-        container.innerHTML = `<img src="${themeEscapeHtml(imgSrc)}" class="desktop-img-${slot} ios-photo-widget">`;
-    } else if (type === 'clock') {
-        container.innerHTML = `
-            <div class="widget-clock ios-widget-card">
-                <div class="ios-widget-head"><i class="ri-time-line"></i><span>Clock</span></div>
-                <div class="wc-time" id="widget-clock-${slot}">00:00</div>
-                <div class="wc-date" id="widget-clock-date-${slot}"></div>
-                <div class="ios-widget-ring"></div>
-            </div>
-        `;
-        updateWidgetClock(slot);
-        if (!window._widgetClockInterval) {
-            window._widgetClockInterval = setInterval(() => {
-                updateWidgetClock(1);
-                updateWidgetClock(2);
-            }, 1000);
-        }
-    } else if (type === 'countdown') {
-        const title = data.title || '倒计时';
-        const target = data.date ? new Date(data.date) : new Date();
-        const now = new Date();
-        const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
-        const display = diff > 0 ? diff : 0;
-        const targetText = data.date ? data.date.replace(/-/g, '.') : '未设置日期';
-        container.innerHTML = `
-            <div class="widget-countdown ios-widget-card">
-                <div class="ios-widget-head"><i class="ri-calendar-event-line"></i><span>${themeEscapeHtml(targetText)}</span></div>
-                <div class="cd-title">${themeEscapeHtml(title)}</div>
-                <div class="cd-days">${display}</div>
-                <div class="cd-label">days left</div>
-                <div class="ios-widget-progress"><span style="width:${Math.max(8, Math.min(100, 100 - display))}%"></span></div>
-            </div>
-        `;
-    } else if (type === 'quote') {
-        const text = data.text || '今天也要加油鸭~';
-        container.innerHTML = `
-            <div class="widget-quote-card ios-widget-card">
-                <div class="ios-widget-head"><i class="ri-double-quotes-l"></i><span>Note</span></div>
-                <div class="qt-text">${themeEscapeHtml(text)}</div>
-                <div class="qt-mark">“</div>
-            </div>
-        `;
-    }
+    const imgSrc = data.img || container.querySelector('img')?.src || '';
+    container.innerHTML = `<img src="${themeEscapeHtml(imgSrc)}" class="desktop-img-${slot} ios-photo-widget">`;
 }
 
 function applyTransparentCalColors(value) {

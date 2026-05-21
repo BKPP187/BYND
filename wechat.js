@@ -1426,6 +1426,13 @@ function sendWechatMessage() {
     char.history.push(userMsg);
     if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
     maybeCaptureWechatMemoryCommand(char, text);
+    if (typeof window.captureMoneyExpensesFromText === 'function') {
+        window.captureMoneyExpensesFromText(text, {
+            source: 'wechat',
+            charId: char.id,
+            charName: (char.chatConfig && char.chatConfig.nickname) || char.name || ''
+        });
+    }
 
     refreshChatView(char);
     saveCharactersToStorage();
@@ -1452,6 +1459,13 @@ async function triggerAiReply() {
         char.history.push(userMsg);
         if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
         maybeCaptureWechatMemoryCommand(char, text);
+        if (typeof window.captureMoneyExpensesFromText === 'function') {
+            window.captureMoneyExpensesFromText(text, {
+                source: 'wechat',
+                charId: char.id,
+                charName: (char.chatConfig && char.chatConfig.nickname) || char.name || ''
+            });
+        }
         refreshChatView(char);
         saveCharactersToStorage();
         renderChatList();
@@ -1603,6 +1617,11 @@ function ensureWechatCallScreen() {
     screen.innerHTML = `
         <div class="wc-call-bg"><img id="wc-call-bg-img" src="" alt=""></div>
         <div class="wc-call-shade"></div>
+        <video id="wc-call-camera-preview" class="wc-call-camera-preview hidden" autoplay muted playsinline></video>
+        <div id="wc-call-ai-portrait" class="wc-call-ai-portrait hidden">
+            <img id="wc-call-ai-portrait-img" src="" alt="">
+            <span id="wc-call-ai-portrait-status">正在生成 AI 画面...</span>
+        </div>
         <div class="wc-call-top">
             <img class="wc-call-avatar" id="wc-call-avatar" src="" alt="">
             <div class="wc-call-name" id="wc-call-name"></div>
@@ -1761,13 +1780,25 @@ async function startWechatCall(type) {
 
 function setupWechatCallScreen(call, char) {
     ensureWechatCallScreen();
-    document.getElementById('wc-call-bg-img').src = char.avatar || DEFAULT_AVATAR;
+    const config = char.chatConfig || {};
+    const bg = call.type === 'videoCall' ? (config.videoCallBg || config.imageReference || char.avatar || DEFAULT_AVATAR) : (char.avatar || DEFAULT_AVATAR);
+    document.getElementById('wc-call-bg-img').src = bg;
     document.getElementById('wc-call-avatar').src = char.avatar || DEFAULT_AVATAR;
     document.getElementById('wc-call-name').textContent = (char.chatConfig && char.chatConfig.nickname) || char.name;
     document.getElementById('wc-call-kind-icon').className = getWechatCallIcon(call.type);
     document.getElementById('wc-call-kind-label').textContent = call.type === 'videoCall' ? '视频' : '语音';
     document.getElementById('wc-call-log').innerHTML = '';
     document.getElementById('wc-call-input').value = '';
+    const screen = ensureWechatCallScreen();
+    screen.classList.toggle('is-video-call', call.type === 'videoCall');
+    const camera = document.getElementById('wc-call-camera-preview');
+    const portrait = document.getElementById('wc-call-ai-portrait');
+    if (camera) camera.classList.add('hidden');
+    if (portrait) portrait.classList.toggle('hidden', call.type !== 'videoCall');
+    const portraitImg = document.getElementById('wc-call-ai-portrait-img');
+    const portraitStatus = document.getElementById('wc-call-ai-portrait-status');
+    if (portraitImg) portraitImg.src = config.imageReference || char.avatar || DEFAULT_AVATAR;
+    if (portraitStatus) portraitStatus.textContent = call.type === 'videoCall' ? '等待接通后生成 AI 画面' : '';
     setWechatCallMode('ringing');
 }
 
@@ -1824,6 +1855,67 @@ function acceptWechatCall(call, firstMessage) {
     if (firstMessage) addWechatCallLine('assistant', firstMessage);
     const input = document.getElementById('wc-call-input');
     if (input) input.focus();
+    if (call.type === 'videoCall') activateWechatVideoCallFeatures(call);
+}
+
+async function activateWechatVideoCallFeatures(call) {
+    const char = getWechatActiveCallChar();
+    if (!call || !char || call.ended) return;
+    const config = char.chatConfig || {};
+    const portraitStatus = document.getElementById('wc-call-ai-portrait-status');
+    const portraitImg = document.getElementById('wc-call-ai-portrait-img');
+    if (config.videoCallUseCamera) {
+        startWechatCallCameraStream().catch(err => {
+            addWechatCallLine('system', '真实相机没有打开：' + (err && err.message ? err.message : '浏览器未授权'));
+        });
+    }
+    if (portraitStatus) portraitStatus.textContent = '正在生成 AI 视频画面...';
+    const reference = config.imageReference || char.avatar || '';
+    const prompt = [
+        `生成${getWechatCharDisplayName(char)}正在视频通话中的实时画面。`,
+        '手机竖屏自拍视角，真实光线，表情自然，像正在看着用户说话。',
+        char.description ? `角色设定：${char.description.slice(0, 700)}` : '',
+        config.signature ? `个性签名/气质：${config.signature}` : ''
+    ].filter(Boolean).join('\n');
+    const result = await callWechatImageGenerationApi(prompt, { referenceImage: reference, size: '1024x1024' });
+    if (window._wechatActiveCall?.id !== call.id || call.ended) return;
+    if (result.ok && result.url) {
+        if (portraitImg) portraitImg.src = result.url;
+        const bgImg = document.getElementById('wc-call-bg-img');
+        if (bgImg && !config.videoCallBg) bgImg.src = result.url;
+        if (portraitStatus) portraitStatus.textContent = 'AI 画面已生成';
+    } else if (portraitStatus) {
+        portraitStatus.textContent = result.error ? `生图失败：${String(result.error).slice(0, 42)}` : '未生成 AI 画面';
+    }
+}
+
+async function startWechatCallCameraStream() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('当前浏览器不支持真实相机');
+    }
+    const video = document.getElementById('wc-call-camera-preview');
+    if (!video) return;
+    stopWechatCallCameraStream();
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false
+    });
+    window._wechatCallCameraStream = stream;
+    video.srcObject = stream;
+    video.classList.remove('hidden');
+}
+
+function stopWechatCallCameraStream() {
+    const stream = window._wechatCallCameraStream;
+    if (stream && typeof stream.getTracks === 'function') {
+        stream.getTracks().forEach(track => track.stop());
+    }
+    window._wechatCallCameraStream = null;
+    const video = document.getElementById('wc-call-camera-preview');
+    if (video) {
+        video.srcObject = null;
+        video.classList.add('hidden');
+    }
 }
 
 function openWechatIncomingCallScreen(call) {
@@ -1933,6 +2025,7 @@ function closeWechatCallScreen(callId) {
     }
     const screen = document.getElementById('wc-call-screen');
     if (screen) screen.classList.add('hidden');
+    stopWechatCallCameraStream();
     window._wechatActiveCall = null;
     window._wechatAiBusy = false;
     setWechatBusyState(false);
@@ -3295,6 +3388,13 @@ function openWechatStickerStore() {
                     <i class="ri-link-m"></i>
                     <div><strong>从图床导入</strong><span>选择分组，粘贴链接或输入新分组名</span></div>
                 </div>
+                <div class="wc-sticker-boltp-ready">
+                    <div>
+                        <strong>这狗</strong>
+                        <span>已内置 Boltp 分享包，当前默认包会自动补到 176 张。</span>
+                    </div>
+                    <button onclick="importBoltpStickerShare()"><i class="ri-refresh-line"></i> 同步</button>
+                </div>
                 <div class="wc-sticker-import-target">
                     <select id="wc-sticker-import-pack" onchange="window._wechatStickerImportPackId=this.value">${packOptions}</select>
                     <input id="wc-sticker-new-pack-name" maxlength="24" placeholder="新贴纸包名">
@@ -3303,6 +3403,10 @@ function openWechatStickerStore() {
                 <div class="wc-sticker-import-actions">
                     <button onclick="importWechatStickerUrls()"><i class="ri-link"></i><span>导入 URL</span></button>
                     <label><i class="ri-image-add-line"></i><span>本地图片</span><input type="file" accept="image/*" multiple onchange="importWechatStickerLocalFiles(this)"></label>
+                </div>
+                <div class="wc-sticker-share-import">
+                    <input id="wc-sticker-share-url" value="https://www.boltp.com/shares/26c3884813ed4f4999b78e49d448f2e6" placeholder="粘贴 Boltp 分享链接">
+                    <button onclick="importBoltpStickerShare()"><i class="ri-cloud-line"></i><span>导入图床分享</span></button>
                 </div>
             </div>
             <div class="wc-sticker-pack-summary">
@@ -3363,13 +3467,91 @@ function appendWechatStickersToPack(packId, stickers) {
     const pack = data.packs.find(item => item.id === packId);
     if (!pack) return false;
     pack.stickers = Array.isArray(pack.stickers) ? pack.stickers : [];
-    pack.stickers.push(...stickers);
+    const existingUrls = new Set(pack.stickers.map(item => item.url));
+    const fresh = stickers.filter(item => item && item.url && !existingUrls.has(item.url));
+    if (!fresh.length) {
+        window._wechatStickerImportPackId = pack.id;
+        window._activeStickerPackId = pack.id;
+        refreshStickerSurfaces();
+        return false;
+    }
+    pack.stickers.push(...fresh);
     saveStickerPacks(data);
     window._wechatStickerImportPackId = pack.id;
     window._activeStickerPackId = pack.id;
     refreshStickerSurfaces();
     return true;
 }
+
+function ensureWechatNamedStickerPack(name) {
+    const data = getStickerPacks();
+    data.packs = Array.isArray(data.packs) ? data.packs : [];
+    const packName = (name || '图床贴纸包').trim().slice(0, 24);
+    let pack = data.packs.find(item => item.name === packName);
+    if (!pack) {
+        pack = { id: 'pack_' + Date.now(), name: packName, stickers: [] };
+        data.packs.push(pack);
+        saveStickerPacks(data);
+    }
+    window._wechatStickerImportPackId = pack.id;
+    window._activeStickerPackId = pack.id;
+    return pack;
+}
+
+function getBoltpShareSlug(url) {
+    const text = String(url || '').trim();
+    const match = text.match(/boltp\.com\/shares\/([^/?#]+)/i) || text.match(/^([a-f0-9]{24,64})$/i);
+    return match ? match[1] : '';
+}
+
+async function importBoltpStickerShare() {
+    const input = document.getElementById('wc-sticker-share-url');
+    const rawUrl = input?.value || 'https://www.boltp.com/shares/26c3884813ed4f4999b78e49d448f2e6';
+    const slug = getBoltpShareSlug(rawUrl);
+    if (!slug) {
+        showWechatToast('没有识别到 Boltp 分享链接');
+        return;
+    }
+    showWechatToast('正在读取图床分享...');
+    try {
+        const detailRes = await fetch(`https://www.boltp.com/api/v2/shares/${encodeURIComponent(slug)}`, { credentials: 'omit' });
+        const detail = await detailRes.json();
+        const share = detail?.data || {};
+        if (detail?.status === 'error' || share.is_valid === false) throw new Error(detail?.message || '分享不可访问');
+        const packName = share.album?.name || share.content || '图床贴纸包';
+        const stickers = [];
+        let page = 1;
+        let lastPage = 1;
+        do {
+            const res = await fetch(`https://www.boltp.com/api/v2/shares/${encodeURIComponent(slug)}/photos?page=${page}&per_page=100`, { credentials: 'omit' });
+            const json = await res.json();
+            if (json?.status === 'error') throw new Error(json?.message || '图片列表读取失败');
+            const box = json?.data || {};
+            const photos = Array.isArray(box.data) ? box.data : [];
+            photos.forEach(photo => {
+                const url = photo.public_url || photo.thumbnail_url;
+                if (!url) return;
+                stickers.push({
+                    id: 'stk_boltp_' + photo.id,
+                    name: photo.name || `贴纸${stickers.length + 1}`,
+                    url
+                });
+            });
+            lastPage = Number(box.meta?.last_page) || page;
+            page += 1;
+        } while (page <= lastPage && stickers.length < 500);
+        if (!stickers.length) throw new Error('分享里没有可导入图片');
+        const pack = ensureWechatNamedStickerPack(packName);
+        const before = (pack.stickers || []).length;
+        appendWechatStickersToPack(pack.id, stickers);
+        const after = (getStickerPacks().packs.find(item => item.id === pack.id)?.stickers || []).length;
+        showWechatToast(`已导入 ${Math.max(0, after - before)} 张到「${packName}」`);
+        openWechatStickerStore();
+    } catch (e) {
+        showWechatToast(e.message || '图床分享导入失败');
+    }
+}
+window.importBoltpStickerShare = importBoltpStickerShare;
 
 function importWechatStickerUrls() {
     const textEl = document.getElementById('wc-sticker-url-import');
@@ -3925,6 +4107,12 @@ function getWechatGeneratedGradient(seed = '') {
     ];
 }
 
+function getWechatMediaFrameStyle(frame) {
+    const value = String(frame || '').trim();
+    if (/^(https?:|data:image)/i.test(value)) return `background-image:${getWechatCssUrl(value)}`;
+    return `background:${wcEscapeHtml(value || getWechatGeneratedGradient('media')[0])}`;
+}
+
 function normalizeWechatChannelVideos(data) {
     const raw = Array.isArray(data) ? data : (data && (data.videos || data.items)) || [];
     return raw.slice(0, 4).map((item, index) => {
@@ -3932,12 +4120,13 @@ function normalizeWechatChannelVideos(data) {
         const author = String(item.author || item.creator || 'AI 视频号').trim();
         const description = String(item.description || item.desc || item.copy || '').trim();
         const bullets = Array.isArray(item.bullets) ? item.bullets : (Array.isArray(item.danmaku) ? item.danmaku : []);
+        const thumb = String(item.thumbnail || item.cover || item.image || '').trim();
         return {
             id: item.id || ('v_ai_' + Date.now() + '_' + index),
             author,
             title: title || `AI 生成视频 ${index + 1}`,
             description,
-            frames: Array.isArray(item.frames) && item.frames.length ? item.frames.slice(0, 3) : getWechatGeneratedGradient(title + author + index),
+            frames: Array.isArray(item.frames) && item.frames.length ? item.frames.slice(0, 3) : (thumb ? [thumb, thumb, thumb] : getWechatGeneratedGradient(title + author + index)),
             bullets: bullets.map(b => String(b).trim()).filter(Boolean).slice(0, 5)
         };
     }).filter(video => video.title);
@@ -3966,7 +4155,7 @@ function openWechatChannels(force = true) {
 function renderWechatChannels(status = {}) {
     const state = getWechatVideoState();
     const body = status.loading ? `
-        <div class="wc-ai-loading"><i class="ri-sparkling-2-line"></i><span>正在调用 AI 生成视频号内容...</span></div>
+        <div class="wc-ai-loading"><i class="ri-sparkling-2-line"></i><span>正在生成本次视频号内容...</span></div>
     ` : state.error ? `
         <div class="wc-ai-loading error"><i class="ri-error-warning-line"></i><span>${wcEscapeHtml(state.error)}</span><button onclick="openWechatChannels(true)">重新生成</button></div>
     ` : !state.videos.length ? `
@@ -3976,7 +4165,7 @@ function renderWechatChannels(status = {}) {
             ${state.videos.map(video => `
                 <div class="wc-channel-card">
                     <div class="wc-channel-stage">
-                        ${video.frames.map(bg => `<div class="wc-channel-frame" style="background:${wcEscapeHtml(bg)}"></div>`).join('')}
+                        ${video.frames.map(bg => `<div class="wc-channel-frame" style="${getWechatMediaFrameStyle(bg)}"></div>`).join('')}
                         <div class="wc-channel-progress"></div>
                         <div class="wc-channel-danmaku">${(video.bullets || []).map((b, i) => `<span style="--i:${i}">${wcEscapeHtml(b)}</span>`).join('')}</div>
                     </div>
@@ -4062,6 +4251,7 @@ function normalizeWechatLiveRooms(data, category) {
         const title = String(item.title || item.name || '').trim();
         const host = String(item.host || item.anchor || item.author || 'AI 主播').trim();
         const lines = Array.isArray(item.lines) ? item.lines : (Array.isArray(item.chat) ? item.chat : []);
+        const cover = String(item.cover || item.thumbnail || item.image || '').trim();
         return {
             id: item.id || ('live_ai_' + Date.now() + '_' + index),
             title: title || `${category}直播 ${index + 1}`,
@@ -4069,6 +4259,7 @@ function normalizeWechatLiveRooms(data, category) {
             category,
             viewers: String(item.viewers || (1.1 + Math.random() * 3).toFixed(1) + '万人观看'),
             lines: lines.map(line => String(line).trim()).filter(Boolean).slice(0, 4),
+            cover,
             gradient: getWechatGeneratedGradient(title + host + category)[0]
         };
     }).filter(room => room.title);
@@ -4084,7 +4275,7 @@ function renderWechatLive(category = '美妆', status = {}) {
     const state = getWechatLiveState();
     const rooms = state.rooms[category] || [];
     const body = status.loading ? `
-        <div class="wc-ai-loading"><i class="ri-broadcast-line"></i><span>正在调用 AI 生成 ${wcEscapeHtml(category)} 直播间...</span></div>
+        <div class="wc-ai-loading"><i class="ri-broadcast-line"></i><span>正在生成 ${wcEscapeHtml(category)} 直播间...</span></div>
     ` : state.error ? `
         <div class="wc-ai-loading error"><i class="ri-error-warning-line"></i><span>${wcEscapeHtml(state.error)}</span><button onclick="openWechatLive(${quoteWechatJsString(category)}, true)">重新生成</button></div>
     ` : !rooms.length ? `
@@ -4093,7 +4284,7 @@ function renderWechatLive(category = '美妆', status = {}) {
         <div class="wc-live-grid">
             ${rooms.map(room => `
                 <div class="wc-live-card">
-                    <div class="wc-live-cover" style="background:${wcEscapeHtml(room.gradient)}"><span>LIVE</span><strong>${wcEscapeHtml(room.title)}</strong></div>
+                    <div class="wc-live-cover" style="${getWechatMediaFrameStyle(room.cover || room.gradient)}"><span>LIVE</span><strong>${wcEscapeHtml(room.title)}</strong></div>
                     <div class="wc-live-meta"><span>${wcEscapeHtml(room.host)} · ${wcEscapeHtml(room.category)}</span><b>${wcEscapeHtml(room.viewers)}</b></div>
                     <div class="wc-live-chat">${(room.lines || []).map(line => `<span>${wcEscapeHtml(line)}</span>`).join('')}</div>
                     <div class="wc-live-actions">
@@ -4324,30 +4515,63 @@ async function generateWechatShopProduct() {
     renderWechatShop('home');
 }
 
-async function callWechatImageGenerationApi(prompt) {
-    const api = typeof getDefaultApi === 'function' ? getDefaultApi() : null;
-    if (!api || !api.baseUrl) return { ok: false, error: '未配置 API' };
+async function callWechatImageGenerationApi(prompt, options = {}) {
+    const api = typeof getDefaultImageApi === 'function'
+        ? getDefaultImageApi()
+        : (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
+    if (!api || !api.baseUrl) return { ok: false, error: '未配置生图 API' };
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const headers = { 'Content-Type': 'application/json' };
     if (api.apiKey) headers.Authorization = `Bearer ${api.apiKey}`;
-    try {
-        const resp = await fetch(baseUrl + '/images/generations', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                model: api.imageModel || 'gpt-image-1',
-                prompt,
-                size: '1024x1024',
-                response_format: 'b64_json'
-            }),
-            signal: AbortSignal.timeout(45000)
-        });
-        if (!resp.ok) return { ok: false, error: await resp.text().catch(() => '图片生成失败') };
+    const imageModel = String(api.imageModel || '').trim();
+    if (!imageModel) {
+        return { ok: false, error: '当前默认生图 API 没有选择生图模型。请在设置里测试 API 后从生图模型下拉选择，或单独添加一个生图 API。' };
+    }
+    const referenceImage = String(options.referenceImage || '').trim();
+    const enhancedPrompt = [
+        String(prompt || '').trim(),
+        referenceImage ? '需要尽量保持参考图中的角色脸型、发型、气质和整体辨识度。' : ''
+    ].filter(Boolean).join('\n');
+    const buildBody = includeReference => {
+        const body = {
+            model: imageModel,
+            prompt: enhancedPrompt,
+            size: options.size || '1024x1024',
+            response_format: 'b64_json'
+        };
+        if (includeReference && referenceImage) {
+            body.image = referenceImage;
+            body.reference_image = referenceImage;
+            body.images = [referenceImage];
+        }
+        return body;
+    };
+    const parseImageResponse = async resp => {
+        if (!resp.ok) return { ok: false, status: resp.status, error: await resp.text().catch(() => '图片生成失败') };
         const json = await resp.json();
         const first = json.data && json.data[0];
         if (first?.url) return { ok: true, url: first.url };
         if (first?.b64_json) return { ok: true, url: 'data:image/png;base64,' + first.b64_json };
         return { ok: false, error: '图片接口没有返回图片' };
+    };
+    try {
+        const resp = await fetch(baseUrl + '/images/generations', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(buildBody(!!referenceImage)),
+            signal: AbortSignal.timeout(45000)
+        });
+        const result = await parseImageResponse(resp);
+        if (!result.ok && referenceImage && result.status === 400) {
+            const retry = await fetch(baseUrl + '/images/generations', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(buildBody(false)),
+                signal: AbortSignal.timeout(45000)
+            });
+            return parseImageResponse(retry);
+        }
+        return result;
     } catch (e) {
         return { ok: false, error: e.message || '图片生成失败' };
     }
@@ -4671,6 +4895,7 @@ function openChatSettings() {
     const descText = char.description || '';
     document.getElementById('wcs-char-desc').value = descText;
     document.getElementById('wcs-char-bio-preview').textContent = descText ? descText.slice(0, 50) + (descText.length > 50 ? '...' : '') : '无简介';
+    updateWechatSettingsImagePreview('wcs-portrait-ref-preview', config.imageReference || '', '未设置参考图');
 
     // 称呼 & 备注
     document.getElementById('wcs-user-title').value = config.userTitle || '我';
@@ -4688,6 +4913,11 @@ function openChatSettings() {
     const virtualInput = document.getElementById('wcs-virtual-time');
     if (virtualInput) virtualInput.value = toWechatDatetimeLocalValue(config.virtualTime || new Date());
     setWechatTimeModeControls(timeMode);
+    updateWechatSettingsImagePreview('wcs-video-bg-preview', config.videoCallBg || '', '未设置视频通话背景');
+    const videoBgHint = document.getElementById('wcs-video-bg-hint');
+    if (videoBgHint) videoBgHint.textContent = config.videoCallBg ? '已设置视频通话背景' : '上传视频通话背景';
+    const realCamera = document.getElementById('wcs-video-real-camera');
+    if (realCamera) realCamera.checked = !!config.videoCallUseCamera;
 
     // 头像集
     renderAvatarGallery(char);
@@ -4779,6 +5009,89 @@ function uploadCharAvatar(input) {
     input.value = '';
 }
 
+function compressWechatSettingsImage(file, maxWidth = 720, quality = 0.72) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onerror = () => reject(new Error('图片加载失败'));
+            img.onload = function() {
+                const scale = Math.min(maxWidth / img.width, 1);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function updateWechatSettingsImagePreview(id, src, emptyText) {
+    const img = document.getElementById(id);
+    if (!img) return;
+    const placeholder = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><rect width="160" height="160" rx="36" fill="#eef2f7"/><path d="M48 98l22-24 17 16 12-12 25 25" fill="none" stroke="#9aa8ba" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="60" cy="56" r="12" fill="#c8d1df"/></svg>');
+    img.src = src || placeholder;
+    img.classList.toggle('empty', !src);
+    if (!src && emptyText) img.alt = emptyText;
+}
+
+async function uploadCharPortraitReference(input) {
+    if (!input.files || !input.files[0]) return;
+    const char = getCurrentChatChar();
+    if (!char) return;
+    try {
+        const compressed = await compressWechatSettingsImage(input.files[0], 640, 0.76);
+        char.chatConfig = char.chatConfig || {};
+        char.chatConfig.imageReference = compressed;
+        saveCharactersToStorage();
+        updateWechatSettingsImagePreview('wcs-portrait-ref-preview', compressed, '未设置参考图');
+    } finally {
+        input.value = '';
+    }
+}
+
+function clearCharPortraitReference() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.imageReference = '';
+    saveCharactersToStorage();
+    updateWechatSettingsImagePreview('wcs-portrait-ref-preview', '', '未设置参考图');
+}
+
+async function uploadCharVideoCallBg(input) {
+    if (!input.files || !input.files[0]) return;
+    const char = getCurrentChatChar();
+    if (!char) return;
+    try {
+        const compressed = await compressWechatSettingsImage(input.files[0], 900, 0.68);
+        char.chatConfig = char.chatConfig || {};
+        char.chatConfig.videoCallBg = compressed;
+        saveCharactersToStorage();
+        updateWechatSettingsImagePreview('wcs-video-bg-preview', compressed, '未设置视频通话背景');
+        const hint = document.getElementById('wcs-video-bg-hint');
+        if (hint) hint.textContent = '已设置视频通话背景';
+    } finally {
+        input.value = '';
+    }
+}
+
+function clearCharVideoCallBg() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.videoCallBg = '';
+    saveCharactersToStorage();
+    updateWechatSettingsImagePreview('wcs-video-bg-preview', '', '未设置视频通话背景');
+    const hint = document.getElementById('wcs-video-bg-hint');
+    if (hint) hint.textContent = '上传视频通话背景';
+}
+
 // --- 角色头像集 ---
 function renderAvatarGallery(char) {
     const gallery = document.getElementById('wcs-avatar-gallery');
@@ -4864,6 +5177,9 @@ function saveChatSettings() {
         memoryLongTermLimit: normalizeWechatMemoryNumber(document.getElementById('wcs-memory-long')?.value, prevConfig.memoryLongTermLimit || WECHAT_MEMORY_DEFAULTS.longTermLimit, 3, 50),
         memoryKeepRecent: normalizeWechatMemoryNumber(document.getElementById('wcs-memory-keep')?.value, prevConfig.memoryKeepRecent || WECHAT_MEMORY_DEFAULTS.keepRecent, 1, 50),
         signature: document.getElementById('wcs-char-signature')?.value.trim() || prevConfig.signature || '',
+        imageReference: prevConfig.imageReference || '',
+        videoCallBg: prevConfig.videoCallBg || '',
+        videoCallUseCamera: !!document.getElementById('wcs-video-real-camera')?.checked,
         momentCovers: Array.isArray(prevConfig.momentCovers) ? prevConfig.momentCovers : [],
         contactProfile: prevConfig.contactProfile || null,
         contactProfileError: prevConfig.contactProfileError || '',
@@ -6378,13 +6694,54 @@ const STICKER_STORAGE_KEY = 'my_sticker_packs';
 function getStickerPacks() {
     try {
         const raw = localStorage.getItem(STICKER_STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) return ensureDefaultBoltpStickerPack(JSON.parse(raw));
     } catch (e) {}
-    return { packs: [] };
+    return ensureDefaultBoltpStickerPack({ packs: [] });
 }
 
 function saveStickerPacks(data) {
     localStorage.setItem(STICKER_STORAGE_KEY, JSON.stringify(data));
+}
+
+function buildBoltpStickerList() {
+    const share = window.BYND_BOLTP_STICKER_SHARE;
+    const stickers = Array.isArray(share?.stickers) ? share.stickers : [];
+    return stickers.map(item => ({
+        id: 'stk_boltp_' + item.id,
+        name: item.name || '贴纸',
+        url: item.url
+    })).filter(item => item.url);
+}
+
+function ensureDefaultBoltpStickerPack(data) {
+    data = data && typeof data === 'object' ? data : { packs: [] };
+    data.packs = Array.isArray(data.packs) ? data.packs : [];
+    const share = window.BYND_BOLTP_STICKER_SHARE;
+    const stickers = buildBoltpStickerList();
+    if (!share || !stickers.length) return data;
+    const packName = share.name || '图床贴纸包';
+    let pack = data.packs.find(item => item.id === 'pack_boltp_26c3884813ed4f4999b78e49d448f2e6')
+        || data.packs.find(item => item.name === packName);
+    if (!pack) {
+        pack = {
+            id: 'pack_boltp_26c3884813ed4f4999b78e49d448f2e6',
+            name: packName,
+            total: Number(share.total) || stickers.length,
+            stickers
+        };
+        data.packs.unshift(pack);
+        localStorage.setItem(STICKER_STORAGE_KEY, JSON.stringify(data));
+        return data;
+    }
+    pack.stickers = Array.isArray(pack.stickers) ? pack.stickers : [];
+    const existing = new Set(pack.stickers.map(item => item.url));
+    const fresh = stickers.filter(item => !existing.has(item.url));
+    if (fresh.length) {
+        pack.stickers.push(...fresh);
+        localStorage.setItem(STICKER_STORAGE_KEY, JSON.stringify(data));
+    }
+    pack.total = Math.max(Number(pack.total) || 0, Number(share.total) || stickers.length, pack.stickers.length);
+    return data;
 }
 
 function isWechatStickerStoreOpen() {

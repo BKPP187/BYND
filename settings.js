@@ -25,13 +25,32 @@ function initSettings() {
 function getApiData() {
     try {
         const raw = localStorage.getItem(API_STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) return normalizeApiData(JSON.parse(raw));
     } catch (e) { console.error(e); }
-    return { apis: [], defaultId: null };
+    return normalizeApiData({ apis: [], defaultId: null, imageDefaultId: null });
 }
 
 function saveApiData(data) {
-    localStorage.setItem(API_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(API_STORAGE_KEY, JSON.stringify(normalizeApiData(data)));
+}
+
+function normalizeApiData(data) {
+    data = data && typeof data === 'object' ? data : {};
+    const apis = Array.isArray(data.apis) ? data.apis : [];
+    const firstId = apis[0] && apis[0].id ? apis[0].id : null;
+    let defaultId = data.defaultId || firstId || null;
+    if (defaultId && !apis.some(api => api.id === defaultId)) defaultId = firstId || null;
+    const firstImageApi = apis.find(api => api && api.id && api.imageModel);
+    let imageDefaultId = data.imageDefaultId || data.imageApiId || (firstImageApi && firstImageApi.id) || null;
+    if (imageDefaultId && !apis.some(api => api.id === imageDefaultId && api.imageModel)) {
+        imageDefaultId = firstImageApi ? firstImageApi.id : null;
+    }
+    return {
+        ...data,
+        apis,
+        defaultId,
+        imageDefaultId
+    };
 }
 
 // 3. 渲染 API 列表
@@ -40,6 +59,7 @@ function renderApiList() {
     if (!container) return;
 
     const data = getApiData();
+    renderApiRoutePanel(data);
 
     if (!data.apis || data.apis.length === 0) {
         container.innerHTML = `
@@ -53,26 +73,227 @@ function renderApiList() {
 
     container.innerHTML = data.apis.map(api => {
         const isDefault = api.id === data.defaultId;
+        const isImageDefault = api.imageModel && api.id === data.imageDefaultId;
         const statusClass = api._status || ''; // online / offline / testing / ''
         return `
-            <div class="api-card ${isDefault ? 'is-default' : ''}" data-id="${api.id}">
+            <div class="api-card ${isDefault ? 'is-default' : ''} ${isImageDefault ? 'is-image-default' : ''}" data-id="${api.id}">
                 <div class="api-status-dot ${statusClass}"></div>
                 <div class="api-card-info" onclick="openApiModal('${api.id}')">
                     <div class="api-card-name">
                         ${isDefault ? '<span class="crown">♛</span>' : ''}
+                        ${isImageDefault ? '<span class="api-image-badge"><i class="ri-image-2-fill"></i></span>' : ''}
                         ${escapeHtml(api.name || '未命名')}
                     </div>
                     <div class="api-card-url">${escapeHtml(api.baseUrl || '')}</div>
-                    ${api.model ? `<span class="api-card-model">${escapeHtml(api.model)}</span>` : ''}
+                    <div class="api-card-tags">
+                        ${api.model ? `<span class="api-card-model">聊天 ${escapeHtml(api.model)}</span>` : ''}
+                        ${api.imageModel ? `<span class="api-card-model image">生图 ${escapeHtml(api.imageModel)}</span>` : ''}
+                    </div>
                 </div>
                 <div class="api-card-actions">
                     <i class="ri-signal-tower-line" title="测试" onclick="testApiById('${api.id}')"></i>
-                    <i class="ri-star-${isDefault ? 'fill' : 'line'}" title="设为默认" onclick="setDefaultApi('${api.id}')" style="${isDefault ? 'color:#f8a4b8;' : ''}"></i>
+                    <i class="ri-star-${isDefault ? 'fill' : 'line'}" title="设为聊天默认" onclick="setDefaultApi('${api.id}')" style="${isDefault ? 'color:#f8a4b8;' : ''}"></i>
+                    <i class="ri-image-${isImageDefault ? 'fill' : 'line'}" title="设为生图默认" onclick="setDefaultImageApi('${api.id}')" style="${isImageDefault ? 'color:#6ea8ff;' : ''}"></i>
                     <i class="ri-delete-bin-6-line del-btn" title="删除" onclick="deleteApi('${api.id}')"></i>
                 </div>
             </div>
         `;
     }).join('');
+}
+
+function renderApiRoutePanel(data = getApiData()) {
+    const panel = document.getElementById('api-route-panel');
+    if (!panel) return;
+    if (!data.apis || data.apis.length === 0) {
+        panel.innerHTML = '';
+        return;
+    }
+    const chatApi = data.apis.find(api => api.id === data.defaultId) || data.apis[0];
+    const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
+    panel.innerHTML = `
+        <div class="api-route-head">
+            <div>
+                <strong>API 工作台</strong>
+                <span>把聊天和生图拆开管理。一个站支持两种能力就共用；只有聊天模型时，再添加一个生图 API。</span>
+            </div>
+            <button type="button" onclick="openApiModal()"><i class="ri-add-line"></i> 添加</button>
+        </div>
+        <div class="api-route-grid">
+            <div class="api-route-card chat">
+                <i class="ri-chat-smile-3-line"></i>
+                <span>聊天 API</span>
+                ${renderApiRoutePicker('chat', chatApi, data.apis, data.defaultId)}
+            </div>
+            <div class="api-route-card image">
+                <i class="ri-image-2-line"></i>
+                <span>生图 API</span>
+                ${renderApiRoutePicker('image', imageApi, data.apis.filter(api => api.imageModel), data.imageDefaultId)}
+            </div>
+        </div>
+    `;
+}
+
+function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
+    const isImage = type === 'image';
+    const emptyText = isImage ? '先选择生图模型' : '请选择聊天 API';
+    const modelText = selectedApi
+        ? (isImage ? (selectedApi.imageModel || '未选生图模型') : (selectedApi.model || '未选聊天模型'))
+        : emptyText;
+    const list = Array.isArray(apis) ? apis : [];
+    const menu = list.length ? list.map(api => {
+        const active = api.id === selectedId;
+        const model = isImage ? api.imageModel : api.model;
+        const tags = [
+            api.model ? `聊天 ${api.model}` : '',
+            api.imageModel ? `生图 ${api.imageModel}` : ''
+        ].filter(Boolean).join(' · ') || '未选择模型';
+        return `
+            <button type="button" class="api-route-option ${active ? 'active' : ''}" onclick="chooseApiRoute('${type}', '${escapeJsString(api.id)}')">
+                <span class="api-route-option-dot ${api._status || ''}"></span>
+                <span class="api-route-option-main">
+                    <b>${escapeHtml(api.name || '未命名')}</b>
+                    <em>${escapeHtml(tags)}</em>
+                </span>
+                ${active ? '<i class="ri-check-line"></i>' : ''}
+            </button>
+        `;
+    }).join('') : `
+        <div class="api-route-empty">${isImage ? '还没有配置生图模型。编辑 API，测试后从生图模型下拉里选一个。' : '还没有可用 API。'}</div>
+    `;
+    return `
+        <div class="api-route-picker" data-route-type="${type}">
+            <button type="button" class="api-route-trigger" onclick="toggleApiRouteMenu('${type}')">
+                <span>
+                    <b>${selectedApi ? escapeHtml(selectedApi.name || '未命名') : escapeHtml(emptyText)}</b>
+                    <em>${escapeHtml(modelText)}</em>
+                </span>
+                <i class="ri-arrow-down-s-line"></i>
+            </button>
+            <div class="api-route-menu">
+                ${menu}
+            </div>
+        </div>
+    `;
+}
+
+function escapeJsString(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function toggleApiRouteMenu(type) {
+    closeApiFloatingPickers();
+    document.querySelectorAll('.api-route-picker').forEach(picker => {
+        picker.classList.toggle('open', picker.dataset.routeType === type && !picker.classList.contains('open'));
+    });
+}
+
+function chooseApiRoute(type, apiId) {
+    if (type === 'image') setDefaultImageApi(apiId);
+    else setDefaultApi(apiId);
+}
+
+function closeApiFloatingPickers() {
+    document.querySelectorAll('.api-route-picker.open, .api-model-picker.open').forEach(picker => picker.classList.remove('open'));
+}
+
+document.addEventListener('click', event => {
+    if (event.target.closest('.api-route-picker') || event.target.closest('.api-model-picker')) return;
+    closeApiFloatingPickers();
+});
+
+function refreshApiModelPickers() {
+    renderApiModelPicker('api-edit-model', {
+        title: '聊天模型',
+        emptyText: '请先点测试按钮',
+        disabledText: '测试连接后选择聊天模型',
+        noneText: '不在这个 API 使用聊天'
+    });
+    renderApiModelPicker('api-edit-image-model', {
+        title: '生图模型',
+        emptyText: '请先点测试按钮',
+        disabledText: '测试连接后选择生图模型',
+        noneText: '不在这个 API 使用生图'
+    });
+}
+
+function renderApiModelPicker(selectId, config = {}) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl || selectEl.tagName !== 'SELECT') {
+        removeApiModelPicker(selectId);
+        return;
+    }
+
+    selectEl.classList.add('api-native-hidden');
+    let picker = document.querySelector(`.api-model-picker[data-model-picker-for="${selectId}"]`);
+    if (!picker) {
+        picker = document.createElement('div');
+        picker.className = 'api-model-picker';
+        picker.dataset.modelPickerFor = selectId;
+        selectEl.insertAdjacentElement('afterend', picker);
+    }
+
+    const options = Array.from(selectEl.options || []).map(option => ({
+        value: option.value,
+        text: option.textContent || option.value || config.emptyText || '未选择',
+        selected: option.selected,
+        disabled: option.disabled
+    }));
+    const selected = options.find(option => option.selected) || options[0] || null;
+    const isDisabled = !!selectEl.disabled;
+    const selectedLabel = selected ? selected.text : (config.emptyText || '未选择');
+    const selectedDetail = isDisabled
+        ? (config.disabledText || selectedLabel)
+        : (selected && selected.value ? selected.value : (config.noneText || selectedLabel));
+    const availableOptions = options.filter(option => !option.disabled);
+
+    picker.classList.toggle('disabled', isDisabled);
+    picker.innerHTML = `
+        <button type="button" class="api-model-trigger" onclick="toggleApiModelMenu('${selectId}')" ${isDisabled ? 'disabled' : ''}>
+            <span>
+                <small>${escapeHtml(config.title || '模型')}</small>
+                <b>${escapeHtml(selectedLabel)}</b>
+                <em>${escapeHtml(selectedDetail)}</em>
+            </span>
+            <i class="ri-arrow-down-s-line"></i>
+        </button>
+        <div class="api-model-menu">
+            <div class="api-model-menu-title">${escapeHtml(config.title || '选择模型')}</div>
+            ${availableOptions.length ? availableOptions.map(option => `
+                <button type="button" class="api-model-option ${option.value === selectEl.value ? 'active' : ''}" onclick="chooseApiModelOption('${selectId}', '${escapeJsString(option.value)}')">
+                    <span>
+                        <b>${escapeHtml(option.text)}</b>
+                        <em>${escapeHtml(option.value || config.noneText || '留空')}</em>
+                    </span>
+                    ${option.value === selectEl.value ? '<i class="ri-check-line"></i>' : ''}
+                </button>
+            `).join('') : `<div class="api-route-empty">${escapeHtml(config.disabledText || config.emptyText || '暂无可选模型')}</div>`}
+        </div>
+    `;
+}
+
+function toggleApiModelMenu(selectId) {
+    const picker = document.querySelector(`.api-model-picker[data-model-picker-for="${selectId}"]`);
+    if (!picker || picker.classList.contains('disabled')) return;
+    document.querySelectorAll('.api-route-picker.open').forEach(routePicker => routePicker.classList.remove('open'));
+    document.querySelectorAll('.api-model-picker').forEach(item => {
+        item.classList.toggle('open', item === picker && !item.classList.contains('open'));
+    });
+}
+
+function chooseApiModelOption(selectId, value) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl || selectEl.tagName !== 'SELECT') return;
+    selectEl.value = value;
+    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+    refreshApiModelPickers();
+    closeApiFloatingPickers();
+}
+
+function removeApiModelPicker(selectId) {
+    const picker = document.querySelector(`.api-model-picker[data-model-picker-for="${selectId}"]`);
+    if (picker) picker.remove();
+    const el = document.getElementById(selectId);
+    if (el) el.classList.remove('api-native-hidden');
 }
 
 // 4. 打开编辑弹窗
@@ -94,6 +315,7 @@ function openApiModal(editId) {
         document.getElementById('api-edit-key').value = api.apiKey || '';
         // 模型：先恢复为 select，显示已保存的值
         restoreModelSelect();
+        restoreImageModelSelect();
         const modelEl = document.getElementById('api-edit-model');
         modelEl.dataset.savedModel = api.model || '';
         if (api.model) {
@@ -105,6 +327,17 @@ function openApiModal(editId) {
             const hintEl = document.getElementById('api-model-hint');
             if (hintEl) hintEl.textContent = '重新测试可刷新列表';
         }
+        const imageModelEl = document.getElementById('api-edit-image-model');
+        imageModelEl.dataset.savedModel = api.imageModel || '';
+        if (api.imageModel) {
+            imageModelEl.innerHTML = `<option value="${escapeHtml(api.imageModel)}" selected>${escapeHtml(api.imageModel)}</option><option value="" disabled>重新测试可刷新列表</option>`;
+            imageModelEl.disabled = false;
+            imageModelEl.style.color = '#5a4a52';
+            imageModelEl.style.background = '#faf5f0';
+            imageModelEl.style.cursor = 'pointer';
+            const hintEl = document.getElementById('api-image-model-hint');
+            if (hintEl) hintEl.textContent = '重新测试可刷新列表';
+        }
     } else {
         // 新增模式
         titleEl.textContent = '添加 API';
@@ -113,6 +346,7 @@ function openApiModal(editId) {
         document.getElementById('api-edit-url').value = '';
         document.getElementById('api-edit-key').value = '';
         restoreModelSelect();
+        restoreImageModelSelect();
         const modelEl2 = document.getElementById('api-edit-model');
         modelEl2.dataset.savedModel = '';
         modelEl2.innerHTML = '<option value="">请先点测试按钮</option>';
@@ -122,12 +356,23 @@ function openApiModal(editId) {
         modelEl2.style.cursor = 'not-allowed';
         const hintEl2 = document.getElementById('api-model-hint');
         if (hintEl2) hintEl2.textContent = '先测试连接再选~';
+        const imageModelEl2 = document.getElementById('api-edit-image-model');
+        imageModelEl2.dataset.savedModel = '';
+        imageModelEl2.innerHTML = '<option value="">请先点测试按钮</option>';
+        imageModelEl2.disabled = true;
+        imageModelEl2.style.color = '#999';
+        imageModelEl2.style.background = '#f0ebe6';
+        imageModelEl2.style.cursor = 'not-allowed';
+        const imageHintEl2 = document.getElementById('api-image-model-hint');
+        if (imageHintEl2) imageHintEl2.textContent = '测试后从下拉列表选择';
     }
 
     modal.classList.remove('hidden');
+    refreshApiModelPickers();
 }
 
 function closeApiModal() {
+    closeApiFloatingPickers();
     document.getElementById('api-edit-modal').classList.add('hidden');
 }
 
@@ -139,6 +384,8 @@ function saveApi() {
     const apiKey = document.getElementById('api-edit-key').value.trim();
     const modelEl = document.getElementById('api-edit-model');
     const model = (modelEl.value || '').trim();
+    const imageModelEl = document.getElementById('api-edit-image-model');
+    const imageModel = (imageModelEl?.value || '').trim();
 
     if (!name) { alert('请填写名称'); return; }
     if (!baseUrl) { alert('请填写 Base URL'); return; }
@@ -149,19 +396,21 @@ function saveApi() {
         // 更新
         const idx = data.apis.findIndex(a => a.id === id);
         if (idx >= 0) {
-            data.apis[idx] = { ...data.apis[idx], name, baseUrl, apiKey, model };
+            data.apis[idx] = { ...data.apis[idx], name, baseUrl, apiKey, model, imageModel };
         }
     } else {
         // 新增
         const newApi = {
             id: 'api_' + Date.now(),
-            name, baseUrl, apiKey, model
+            name, baseUrl, apiKey, model, imageModel
         };
         data.apis.push(newApi);
         // 第一个自动设为默认
         if (data.apis.length === 1) {
             data.defaultId = newApi.id;
+            if (newApi.imageModel) data.imageDefaultId = newApi.id;
         }
+        if (newApi.imageModel && !data.imageDefaultId) data.imageDefaultId = newApi.id;
     }
 
     saveApiData(data);
@@ -178,6 +427,9 @@ function deleteApi(apiId) {
     if (data.defaultId === apiId) {
         data.defaultId = data.apis.length > 0 ? data.apis[0].id : null;
     }
+    if (data.imageDefaultId === apiId) {
+        data.imageDefaultId = data.apis.length > 0 ? data.apis[0].id : null;
+    }
     saveApiData(data);
     renderApiList();
 }
@@ -186,6 +438,19 @@ function deleteApi(apiId) {
 function setDefaultApi(apiId) {
     const data = getApiData();
     data.defaultId = apiId;
+    saveApiData(data);
+    renderApiList();
+}
+
+function setDefaultImageApi(apiId) {
+    const data = getApiData();
+    const api = data.apis.find(a => a.id === apiId);
+    if (!api || !api.imageModel) {
+        alert('这个 API 还没有选择生图模型。请先编辑它，测试后从“生图模型”下拉里选一个，或者单独添加生图 API。');
+        renderApiList();
+        return;
+    }
+    data.imageDefaultId = apiId;
     saveApiData(data);
     renderApiList();
 }
@@ -216,8 +481,10 @@ async function testApiFromModal() {
     const baseUrl = document.getElementById('api-edit-url').value.trim();
     const apiKey = document.getElementById('api-edit-key').value.trim();
     const resultEl = document.getElementById('api-test-result');
-    const selectEl = document.getElementById('api-edit-model');
+    let selectEl = document.getElementById('api-edit-model');
+    let imageSelectEl = document.getElementById('api-edit-image-model');
     const hintEl = document.getElementById('api-model-hint');
+    const imageHintEl = document.getElementById('api-image-model-hint');
 
     if (!baseUrl) {
         resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Base URL</span>';
@@ -225,9 +492,17 @@ async function testApiFromModal() {
     }
 
     resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 测试中...</span>';
+    restoreModelSelect();
+    restoreImageModelSelect();
+    selectEl = document.getElementById('api-edit-model');
+    imageSelectEl = document.getElementById('api-edit-image-model');
     selectEl.disabled = true;
     selectEl.innerHTML = '<option value="">拉取中...</option>';
     selectEl.style.cursor = 'wait';
+    imageSelectEl.disabled = true;
+    imageSelectEl.innerHTML = '<option value="">拉取中...</option>';
+    imageSelectEl.style.cursor = 'wait';
+    refreshApiModelPickers();
 
     const result = await doTestApi(baseUrl, apiKey);
 
@@ -236,37 +511,92 @@ async function testApiFromModal() {
 
         const models = result.models || [];
         if (models.length > 0) {
-            const prevModel = selectEl.dataset.savedModel || '';
-            selectEl.innerHTML = models.map(m =>
-                `<option value="${escapeHtml(m)}" ${m === prevModel ? 'selected' : ''}>${escapeHtml(m)}</option>`
-            ).join('');
+            const prevModel = selectEl.dataset.savedModel || result.chatModel || '';
+            const allowNoChat = !result.chatModel;
+            selectEl.innerHTML = [
+                allowNoChat ? `<option value="" ${prevModel ? '' : 'selected'}>不在这个 API 使用聊天</option>` : '',
+                ...models.map(m => `<option value="${escapeHtml(m)}" ${m === prevModel ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+            ].join('');
             selectEl.disabled = false;
             selectEl.style.background = '#faf5f0';
             selectEl.style.color = '#5a4a52';
             selectEl.style.cursor = 'pointer';
-            if (hintEl) hintEl.textContent = `${models.length} 个模型可选`;
+            if (hintEl) hintEl.textContent = result.chatModel ? `${models.length} 个模型可选` : '未测到聊天能力，可只做生图 API';
+            fillImageModelSelect(models);
+            refreshApiModelPickers();
         } else {
             selectEl.innerHTML = '<option value="">未获取到模型列表</option>';
             if (hintEl) hintEl.textContent = '获取模型列表失败，可手动输入';
             convertModelToInput();
+            convertImageModelToInput();
         }
     } else {
         resultEl.innerHTML = `<span style="color:#f87171;">❌ ${result.error || '连接失败'}</span>`;
         selectEl.innerHTML = '<option value="">连接失败</option>';
         selectEl.disabled = true;
         selectEl.style.cursor = 'not-allowed';
+        imageSelectEl.innerHTML = '<option value="">连接失败</option>';
+        imageSelectEl.disabled = true;
+        imageSelectEl.style.cursor = 'not-allowed';
+        if (imageHintEl) imageHintEl.textContent = '这个站点暂时不可用';
+        refreshApiModelPickers();
     }
+}
+
+function getImageModelCandidates(models) {
+    const list = Array.isArray(models) ? models.filter(Boolean) : [];
+    const imageLike = list.filter(m => /(image|gpt-image|imagen|flux|dall|dall-e|stable|sdxl|sd-|seedream|jimeng|kolors|hidream|recraft|ideogram|qwen-image|wan)/i.test(m));
+    return [...imageLike, ...list.filter(m => !imageLike.includes(m))];
+}
+
+function fillImageModelSelect(models) {
+    const imageSelectEl = document.getElementById('api-edit-image-model');
+    if (!imageSelectEl) return;
+    const imageHintEl = document.getElementById('api-image-model-hint');
+    const sorted = getImageModelCandidates(models);
+    const prevModel = imageSelectEl.dataset.savedModel || '';
+    if (!sorted.length) {
+        convertImageModelToInput();
+        if (imageHintEl) imageHintEl.textContent = '没有模型列表，可手动输入或另加生图 API';
+        return;
+    }
+    const hasImageLike = sorted.some(m => /(image|gpt-image|imagen|flux|dall|dall-e|stable|sdxl|sd-|seedream|jimeng|kolors|hidream|recraft|ideogram|qwen-image|wan)/i.test(m));
+    imageSelectEl.innerHTML = [
+        '<option value="">不在这个 API 使用生图</option>',
+        ...sorted.map(m => `<option value="${escapeHtml(m)}" ${m === prevModel ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+    ].join('');
+    imageSelectEl.disabled = false;
+    imageSelectEl.style.background = '#faf5f0';
+    imageSelectEl.style.color = '#5a4a52';
+    imageSelectEl.style.cursor = 'pointer';
+    if (imageHintEl) imageHintEl.textContent = hasImageLike ? '已把疑似生图模型排在前面' : '未识别到明显生图模型，可另加生图 API';
+    refreshApiModelPickers();
 }
 
 // 降级：模型选择框变成输入框
 function convertModelToInput() {
     const selectEl = document.getElementById('api-edit-model');
     if (!selectEl || selectEl.tagName === 'INPUT') return;
+    removeApiModelPicker('api-edit-model');
     const parent = selectEl.parentNode;
     const input = document.createElement('input');
     input.type = 'text';
     input.id = 'api-edit-model';
     input.placeholder = '手动输入模型名';
+    input.style.cssText = 'width:100%; background:#faf5f0; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#5a4a52; outline:none;';
+    input.value = selectEl.dataset.savedModel || '';
+    parent.replaceChild(input, selectEl);
+}
+
+function convertImageModelToInput() {
+    const selectEl = document.getElementById('api-edit-image-model');
+    if (!selectEl || selectEl.tagName === 'INPUT') return;
+    removeApiModelPicker('api-edit-image-model');
+    const parent = selectEl.parentNode;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'api-edit-image-model';
+    input.placeholder = '手动输入生图模型名，或留空后另加生图 API';
     input.style.cssText = 'width:100%; background:#faf5f0; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#5a4a52; outline:none;';
     input.value = selectEl.dataset.savedModel || '';
     parent.replaceChild(input, selectEl);
@@ -300,9 +630,14 @@ async function doTestApi(baseUrl, apiKey) {
             const probe = await probeChatModels(baseUrl, apiKey, models);
             if (probe.ok) {
                 const sortedModels = [probe.model, ...models.filter(m => m !== probe.model)];
-                return { ok: true, detail: `(${count} 个模型，可聊天: ${probe.model})`, models: sortedModels };
+                return { ok: true, detail: `(${count} 个模型，可聊天: ${probe.model})`, models: sortedModels, chatModel: probe.model };
             }
-            return { ok: false, error: probe.error || '模型列表可用，但聊天测试失败', models: models };
+            const imageCandidates = getImageModelCandidates(models);
+            const hasImageLike = imageCandidates.some(m => /(image|gpt-image|imagen|flux|dall|dall-e|stable|sdxl|sd-|seedream|jimeng|kolors|hidream|recraft|ideogram|qwen-image|wan)/i.test(m));
+            if (hasImageLike) {
+                return { ok: true, detail: `(${count} 个模型，未测到聊天模型，可作为生图 API)`, models: imageCandidates, chatModel: '' };
+            }
+            return { ok: true, detail: `(${count} 个模型，聊天探测未通过，可手动选择)`, models: models, chatModel: '' };
         }
         if (resp.status === 401) return { ok: false, error: 'API Key 无效 (401)', models: [] };
         if (resp.status === 403) return { ok: false, error: '没有权限 (403)', models: [] };
@@ -377,6 +712,20 @@ function restoreModelSelect() {
     }
 }
 
+function restoreImageModelSelect() {
+    const el = document.getElementById('api-edit-image-model');
+    if (el && el.tagName === 'INPUT') {
+        const parent = el.parentNode;
+        const select = document.createElement('select');
+        select.id = 'api-edit-image-model';
+        select.style.cssText = 'width:100%; background:#f0ebe6; border:1px solid rgba(248,164,184,0.2); border-radius:14px; padding:10px; font-size:14px; color:#999; outline:none; appearance:none; -webkit-appearance:none; cursor:not-allowed;';
+        select.disabled = true;
+        select.dataset.savedModel = el.value || '';
+        select.innerHTML = '<option value="">请先点测试按钮</option>';
+        parent.replaceChild(select, el);
+    }
+}
+
 // 工具函数
 function escapeHtml(str) {
     const div = document.createElement('div');
@@ -389,6 +738,16 @@ function getDefaultApi() {
     const data = getApiData();
     if (!data.defaultId || !data.apis.length) return null;
     return data.apis.find(a => a.id === data.defaultId) || data.apis[0];
+}
+
+function getDefaultImageApi() {
+    const data = getApiData();
+    if (!data.apis.length) return null;
+    if (data.imageDefaultId) {
+        const selected = data.apis.find(a => a.id === data.imageDefaultId);
+        if (selected && selected.imageModel) return selected;
+    }
+    return data.apis.find(a => a.imageModel) || null;
 }
 
 // ========== 预设管理 ==========
@@ -640,8 +999,8 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.0.8';
-const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data'];
+const APP_VERSION = 'v1.1.9';
+const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'bynd_money_records_v1'];
 
 // 导出所有数据
 async function exportAllData() {
