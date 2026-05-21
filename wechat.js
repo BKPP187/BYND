@@ -150,16 +150,19 @@ function renderChatList() {
 
         const item = document.createElement('div');
         item.className = 'wc-chat-item';
+        const isGroup = !!char.isGroupChat;
+        const displayName = isGroup ? (char.name || '群聊') : ((char.chatConfig && char.chatConfig.nickname) || char.name);
+        const avatar = char.avatar || (isGroup ? buildWechatGroupAvatar(char) : DEFAULT_AVATAR);
 
         item.innerHTML = `
-            <div class="wc-avatar"><img src="${char.avatar}"></div>
+            <div class="wc-avatar ${isGroup ? 'wc-group-avatar' : ''}"><img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'"></div>
             <div class="wc-info">
                 <div class="wc-top">
-                    <span class="wc-name">${(char.chatConfig && char.chatConfig.nickname) || char.name}</span>
+                    <span class="wc-name">${escapeHtml(displayName)}</span>
                     <span class="wc-time">刚刚</span>
                 </div>
                 <div class="wc-bottom">
-                    <span class="wc-msg">${escapeHtml(getChatPreview(char))}</span>
+                    <span class="wc-msg">${isGroup ? `[${(char.groupMembers || []).length}人] ` : ''}${escapeHtml(getChatPreview(char))}</span>
                 </div>
             </div>
         `;
@@ -176,6 +179,127 @@ function renderChatList() {
 
     initSwipeHandlers();
 }
+
+function getWechatGroupContacts() {
+    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat);
+}
+
+function buildWechatGroupAvatar(group) {
+    const members = Array.isArray(group?.groupMembers) ? group.groupMembers : [];
+    const hue = Math.abs(String(group?.id || group?.name || 'group').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % 360;
+    const label = members.length ? members.length : 'G';
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+            <rect width="120" height="120" rx="24" fill="hsl(${hue},70%,92%)"/>
+            <rect x="18" y="18" width="38" height="38" rx="12" fill="hsl(${hue},70%,58%)"/>
+            <rect x="64" y="18" width="38" height="38" rx="12" fill="hsl(${(hue + 36) % 360},70%,66%)"/>
+            <rect x="18" y="64" width="38" height="38" rx="12" fill="hsl(${(hue + 72) % 360},68%,72%)"/>
+            <rect x="64" y="64" width="38" height="38" rx="12" fill="#ffffff"/>
+            <text x="83" y="88" text-anchor="middle" font-family="Arial" font-size="24" font-weight="800" fill="hsl(${hue},54%,34%)">${label}</text>
+        </svg>
+    `);
+}
+
+function closeWechatPlusMenu() {
+    document.getElementById('wc-plus-menu')?.remove();
+}
+
+function openWechatPlusMenu(event) {
+    event?.stopPropagation?.();
+    const old = document.getElementById('wc-plus-menu');
+    if (old) {
+        old.remove();
+        return;
+    }
+    const root = document.getElementById('app-wechat-window');
+    if (!root) return;
+    const menu = document.createElement('div');
+    menu.id = 'wc-plus-menu';
+    menu.className = 'wc-plus-menu';
+    menu.innerHTML = `
+        <button type="button" onclick="closeWechatPlusMenu();testAddCharacter()"><i class="ri-user-add-line"></i><span>导入角色</span></button>
+        <button type="button" onclick="openWechatGroupCreator()"><i class="ri-group-line"></i><span>发起群聊</span></button>
+    `;
+    root.appendChild(menu);
+    setTimeout(() => {
+        const closer = (ev) => {
+            if (!ev.target.closest('#wc-plus-menu, .wc-header-right')) {
+                closeWechatPlusMenu();
+                document.removeEventListener('click', closer, true);
+            }
+        };
+        document.addEventListener('click', closer, true);
+    }, 0);
+}
+window.openWechatPlusMenu = openWechatPlusMenu;
+window.closeWechatPlusMenu = closeWechatPlusMenu;
+
+function openWechatGroupCreator() {
+    closeWechatPlusMenu();
+    const contacts = getWechatGroupContacts();
+    window._wechatGroupDraftIds = Array.isArray(window._wechatGroupDraftIds) ? window._wechatGroupDraftIds.filter(id => contacts.some(c => c.id === id)) : [];
+    const html = `
+        <div class="wc-group-create">
+            <div class="wc-group-create-top">
+                <strong>选择联系人</strong>
+                <span>从现有 AI 联系人里拉进群聊，至少选择 2 个。</span>
+            </div>
+            <input id="wc-group-name-input" class="wc-group-name-input" maxlength="24" placeholder="群聊名称，可留空自动生成">
+            <div class="wc-group-select-list">
+                ${contacts.length ? contacts.map(char => `
+                    <button type="button" class="wc-group-select-item ${window._wechatGroupDraftIds.includes(char.id) ? 'active' : ''}" onclick="toggleWechatGroupDraftMember(${quoteWechatJsString(char.id)})">
+                        <img src="${wcEscapeHtml(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <span>${wcEscapeHtml((char.chatConfig && char.chatConfig.nickname) || char.name || '未命名')}</span>
+                        <i class="${window._wechatGroupDraftIds.includes(char.id) ? 'ri-checkbox-circle-fill' : 'ri-add-circle-line'}"></i>
+                    </button>
+                `).join('') : '<div class="wc-contacts-empty">还没有可拉入群聊的联系人</div>'}
+            </div>
+            <button type="button" class="wc-group-create-btn" onclick="createWechatGroupChat()">创建群聊</button>
+        </div>
+    `;
+    openWechatFeatureScreen('发起群聊', html);
+}
+window.openWechatGroupCreator = openWechatGroupCreator;
+
+function toggleWechatGroupDraftMember(charId) {
+    const ids = Array.isArray(window._wechatGroupDraftIds) ? window._wechatGroupDraftIds : [];
+    window._wechatGroupDraftIds = ids.includes(charId) ? ids.filter(id => id !== charId) : [...ids, charId];
+    openWechatGroupCreator();
+}
+window.toggleWechatGroupDraftMember = toggleWechatGroupDraftMember;
+
+function createWechatGroupChat() {
+    const ids = Array.isArray(window._wechatGroupDraftIds) ? window._wechatGroupDraftIds : [];
+    const members = ids.map(id => getWechatGroupContacts().find(char => char.id === id)).filter(Boolean);
+    if (members.length < 2) {
+        if (typeof showWechatToast === 'function') showWechatToast('至少选择 2 个联系人');
+        return;
+    }
+    const inputName = (document.getElementById('wc-group-name-input')?.value || '').trim();
+    const name = inputName || members.slice(0, 3).map(char => (char.chatConfig && char.chatConfig.nickname) || char.name || '好友').join('、') + (members.length > 3 ? ` 等${members.length}人` : '');
+    const group = {
+        id: 'group_' + Date.now(),
+        name,
+        description: '微信联系人群聊',
+        avatar: '',
+        isGroupChat: true,
+        groupMembers: members.map(char => char.id),
+        groupCreatedAt: Date.now(),
+        chatConfig: {},
+        history: [
+            { type: 'system_notice', isMe: false, content: `你邀请 ${members.map(char => (char.chatConfig && char.chatConfig.nickname) || char.name || '好友').join('、')} 加入了群聊`, timestamp: createMessageTimestamp() }
+        ]
+    };
+    group.avatar = buildWechatGroupAvatar(group);
+    window.myCharacters.unshift(group);
+    window._wechatGroupDraftIds = [];
+    saveCharactersToStorage();
+    closeWechatFeatureScreen();
+    switchWcTab('chat');
+    renderChatList();
+    openChat(group.id);
+}
+window.createWechatGroupChat = createWechatGroupChat;
 
 function getChatPreview(char) {
     const history = char.history || [];
@@ -2501,6 +2625,9 @@ function saveCharactersToStorage() {
             first_mes_original: char.first_mes_original || '',
             first_mes: char.first_mes || '',
             currentGreetingIndex: char.currentGreetingIndex || 0,
+            isGroupChat: !!char.isGroupChat,
+            groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
+            groupCreatedAt: char.groupCreatedAt || 0,
             chatConfig: char.chatConfig || {},
             history: char.history || []
         }));
@@ -2517,6 +2644,9 @@ function saveCharactersToStorage() {
                     first_mes_original: char.first_mes_original || '',
                     first_mes: char.first_mes || '',
                     currentGreetingIndex: char.currentGreetingIndex || 0,
+                    isGroupChat: !!char.isGroupChat,
+                    groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
+                    groupCreatedAt: char.groupCreatedAt || 0,
                     chatConfig: char.chatConfig || {},
                     history: char.history || []
                 }));
@@ -2611,7 +2741,7 @@ function switchWcTab(tabName) {
 function renderContacts() {
     const list = document.getElementById('wc-contacts-list');
     if (!list) return;
-    const chars = window.myCharacters || [];
+    const chars = getWechatGroupContacts();
     if (chars.length === 0) {
         list.innerHTML = '<div class="wc-contacts-empty">还没有联系人<br>导入角色卡添加好友吧~</div>';
         return;

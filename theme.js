@@ -986,18 +986,11 @@ function saveTheme() {
         iconInputs.push(el ? el.value : "");
     }
 
-    const desktopIcons = document.querySelectorAll('.apps-quad .app-icon');
     const dockIcons = document.querySelectorAll('.dock-item');
 
     iconInputs.forEach((url, index) => {
         if (!url) return; 
-        if (index < 8) { 
-            if (desktopIcons[index]) {
-                desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
-                desktopIcons[index].style.padding = "0"; 
-                desktopIcons[index].style.background = "transparent";
-            }
-        } else { 
+        if (index >= 8) {
             const dockIndex = index - 8;
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
@@ -1030,6 +1023,7 @@ function saveTheme() {
         widget1: { type: widgetType1, cdTitle: widgetCdTitle1, cdDate: widgetCdDate1, quote: widgetQuote1, style: widgetStyle1, accent: widgetAccent1 },
         widget2: { type: widgetType2, cdTitle: widgetCdTitle2, cdDate: widgetCdDate2, quote: widgetQuote2, style: widgetStyle2, accent: widgetAccent2 }
     };
+    if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons(themeData);
     
     try {
         localStorage.removeItem('my_theme_data');
@@ -1107,17 +1101,14 @@ function initTheme() {
             applyCalColors(data.calBg, data.calText || '#ffffff', data.calDim || '#888888', data.calAccent || '#ff69b4');
         }
 
-        const desktopIcons = document.querySelectorAll('.apps-quad .app-icon');
         const dockIcons = document.querySelectorAll('.dock-item');
 
         if (data.icons) {
-            migrateThemeIconData(data).forEach((url, index) => {
+            const normalizedIcons = migrateThemeIconData(data);
+            if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons({ ...data, icons: normalizedIcons });
+            normalizedIcons.forEach((url, index) => {
                 if (!url) return;
-                if (index < 8 && desktopIcons[index]) {
-                    desktopIcons[index].innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
-                    desktopIcons[index].style.padding = "0"; 
-                    desktopIcons[index].style.background = "transparent";
-                } else if (index >= 8) {
+                if (index >= 8) {
                     const dockIndex = index - 8;
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');

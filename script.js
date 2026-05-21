@@ -328,7 +328,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260522-money-sheet1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260522-music-sources1').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -672,21 +672,15 @@ const MUSIC_SOURCE_DEFAULTS = {
         'https://meting.mikus.ink/api',
         'https://meting.elysium-stack.cn/api'
     ],
-    goApiBase: '',
-    neteaseApiBase: 'https://wyapi.toubiec.cn',
-    qqApiBase: ''
+    goApiBase: ''
 };
 const MUSIC_PLATFORM_LABELS = {
     smart: '多源',
     netease: '网易云',
-    tencent: 'QQ音乐',
-    kugou: '酷狗',
-    kuwo: '酷我',
-    baidu: '百度音乐',
     archive: '公开曲库',
     local: '本地'
 };
-const MUSIC_PLATFORM_ORDER = ['netease', 'tencent', 'kugou', 'kuwo', 'baidu'];
+const MUSIC_PLATFORM_ORDER = ['netease'];
 const MUSIC_FALLBACK_TRACKS = [
     {
         id: 'archive:GeorgeFridericHandelHallelujah:Handel__Messiah__44_Hallelujah.mp3',
@@ -786,9 +780,7 @@ function loadMusicSourceSettings() {
         const metingBases = Array.isArray(saved.metingBases) ? saved.metingBases : String(saved.metingBases || '').split(/\n|,/);
         return {
             metingBases: metingBases.map(url => cleanMusicBaseUrl(url)).filter(Boolean),
-            goApiBase: cleanMusicBaseUrl(saved.goApiBase || ''),
-            neteaseApiBase: cleanMusicBaseUrl(saved.neteaseApiBase || MUSIC_SOURCE_DEFAULTS.neteaseApiBase),
-            qqApiBase: cleanMusicBaseUrl(saved.qqApiBase || '')
+            goApiBase: cleanMusicBaseUrl(saved.goApiBase || '')
         };
     } catch (e) {
         return { ...MUSIC_SOURCE_DEFAULTS };
@@ -798,7 +790,6 @@ function loadMusicSourceSettings() {
 function getMusicSourceSettings() {
     const settings = loadMusicSourceSettings();
     if (!settings.metingBases.length) settings.metingBases = [...MUSIC_SOURCE_DEFAULTS.metingBases];
-    if (!settings.neteaseApiBase) settings.neteaseApiBase = MUSIC_SOURCE_DEFAULTS.neteaseApiBase;
     return settings;
 }
 
@@ -807,7 +798,8 @@ function cleanMusicBaseUrl(value) {
 }
 
 function getMusicSourceMode() {
-    return localStorage.getItem(MUSIC_SOURCE_MODE_KEY) || 'smart';
+    const mode = localStorage.getItem(MUSIC_SOURCE_MODE_KEY) || 'smart';
+    return MUSIC_PLATFORM_LABELS[mode] ? mode : 'smart';
 }
 
 function setMusicSourceMode(mode) {
@@ -835,12 +827,8 @@ function syncMusicSourceUI() {
     const settings = getMusicSourceSettings();
     const metingInput = document.getElementById('music-meting-bases');
     const goInput = document.getElementById('music-go-api-base');
-    const neteaseInput = document.getElementById('music-netease-api-base');
-    const qqInput = document.getElementById('music-qq-api-base');
     if (metingInput) metingInput.value = settings.metingBases.join('\n');
     if (goInput) goInput.value = settings.goApiBase || '';
-    if (neteaseInput) neteaseInput.value = settings.neteaseApiBase || '';
-    if (qqInput) qqInput.value = settings.qqApiBase || '';
     renderMusicImportedPlaylists();
 }
 
@@ -851,9 +839,7 @@ function saveMusicSourceSettingsFromUI() {
         .filter(Boolean);
     const settings = {
         metingBases,
-        goApiBase: cleanMusicBaseUrl(document.getElementById('music-go-api-base')?.value || ''),
-        neteaseApiBase: cleanMusicBaseUrl(document.getElementById('music-netease-api-base')?.value || ''),
-        qqApiBase: cleanMusicBaseUrl(document.getElementById('music-qq-api-base')?.value || '')
+        goApiBase: cleanMusicBaseUrl(document.getElementById('music-go-api-base')?.value || '')
     };
     localStorage.setItem(MUSIC_SOURCE_SETTINGS_KEY, JSON.stringify(settings));
     syncMusicSourceUI();
@@ -861,6 +847,14 @@ function saveMusicSourceSettingsFromUI() {
     searchMusic(input?.value || '周杰伦');
 }
 window.saveMusicSourceSettingsFromUI = saveMusicSourceSettingsFromUI;
+
+function openGequhaiMusicSearch() {
+    const input = document.getElementById('music-search-input');
+    const query = String(input?.value || '周杰伦').trim() || '周杰伦';
+    window.open(`https://www.gequhai.com/s/${encodeURIComponent(query)}`, '_blank', 'noopener');
+    showMusicStatus('已打开歌曲海外部搜索；它不是稳定播放器 API。');
+}
+window.openGequhaiMusicSearch = openGequhaiMusicSearch;
 
 function getMusicPlaylistsStore() {
     try {
@@ -880,7 +874,7 @@ function renderMusicImportedPlaylists() {
     if (!el) return;
     const list = getMusicPlaylistsStore();
     if (!list.length) {
-        el.innerHTML = '<div class="music-import-empty">还没有导入歌单，粘贴网易云 / QQ / 酷狗链接试试。</div>';
+        el.innerHTML = '<div class="music-import-empty">还没有导入歌单，粘贴网易云歌单链接或纯数字 ID 试试。</div>';
         return;
     }
     el.innerHTML = list.map(item => `
@@ -897,12 +891,7 @@ function renderMusicImportedPlaylists() {
 
 function extractMusicPlaylistInfo(raw, fallbackPlatform) {
     const text = String(raw || '').trim();
-    const platform = fallbackPlatform || (
-        /y\.qq\.com|qq\.com/i.test(text) ? 'tencent' :
-        /kugou\.com/i.test(text) ? 'kugou' :
-        /kuwo\.cn/i.test(text) ? 'kuwo' :
-        'netease'
-    );
+    const platform = fallbackPlatform || 'netease';
     let id = '';
     const patterns = [
         /[?&]id=(\d+)/i,
@@ -976,21 +965,6 @@ async function fetchMetingPlaylist(platform, playlistId) {
 
 async function fetchCustomMusicPlaylist(platform, playlistId) {
     const settings = getMusicSourceSettings();
-    if (platform === 'netease' && settings.neteaseApiBase) {
-        const base = settings.neteaseApiBase;
-        try {
-            const json = await fetchMusicJsonFlexible([
-                `${base}/playlist?${new URLSearchParams({ id: String(playlistId) }).toString()}`,
-                `${base}/api/playlist?${new URLSearchParams({ id: String(playlistId) }).toString()}`,
-                `${base}/playlist`
-            ], { id: String(playlistId) });
-            const rows = extractMusicRows(json).slice(0, 80);
-            const settled = await Promise.allSettled(rows.map(song => hydrateNeteaseMusicApiTrack(base, song)));
-            const tracks = settled.flatMap(item => item.status === 'fulfilled' && item.value ? [item.value] : []);
-            if (tracks.length) return dedupeMusicTracks(tracks);
-        } catch (e) {}
-    }
-
     if (settings.goApiBase) {
         const base = settings.goApiBase;
         const urls = [
@@ -1446,8 +1420,6 @@ async function searchAcrossMusicSources(query, mode) {
     platforms.filter(platform => platform !== 'archive').forEach(platform => {
         tasks.push(searchMetingMusic(query, platform, settings));
         if (settings.goApiBase) tasks.push(searchGoMusicApi(query, platform, settings));
-        if (platform === 'netease' && settings.neteaseApiBase) tasks.push(searchNeteaseMusicApi(query, settings));
-        if (platform === 'tencent' && settings.qqApiBase) tasks.push(searchTencentParserMusic(query, settings));
     });
 
     if (mode === 'archive' || mode === 'smart') {
@@ -1560,79 +1532,6 @@ async function fetchMetingAsset(base, platform, type, id, extra = {}) {
     return '';
 }
 
-async function searchNeteaseMusicApi(query, settings) {
-    const base = settings.neteaseApiBase;
-    if (!base) return [];
-    const json = await fetchMusicJsonFlexible([
-        `${base}/search?${new URLSearchParams({ keywords: query, limit: '10' }).toString()}`,
-        `${base}/search?${new URLSearchParams({ keyword: query, limit: '10' }).toString()}`,
-        `${base}/cloudsearch?${new URLSearchParams({ keywords: query, limit: '10' }).toString()}`,
-        `${base}/api/search?${new URLSearchParams({ keywords: query, keyword: query, limit: '10' }).toString()}`,
-        `${base}/api/cloudsearch?${new URLSearchParams({ keywords: query, limit: '10' }).toString()}`,
-        `${base}/search`
-    ], { keywords: query, keyword: query, limit: 10 });
-    const songs = extractMusicRows(json?.result?.songs || json?.songs || json?.data || json).slice(0, 8);
-    const settled = await Promise.allSettled(songs.map(song => hydrateNeteaseMusicApiTrack(base, song)));
-    return settled.flatMap(item => item.status === 'fulfilled' && item.value ? [item.value] : []);
-}
-
-async function hydrateNeteaseMusicApiTrack(base, song) {
-    const id = song.id || song.songId || song.song_id;
-    if (!id) return null;
-    let detail = null;
-    try {
-        detail = await fetchMusicJsonFlexible([
-            `${base}/song?${new URLSearchParams({ id: String(id) }).toString()}`,
-            `${base}/song/url/v1?${new URLSearchParams({ id: String(id), level: 'exhigh' }).toString()}`,
-            `${base}/song/url?${new URLSearchParams({ id: String(id), br: '320000' }).toString()}`,
-            `${base}/api/song/url/v1?${new URLSearchParams({ id: String(id), level: 'exhigh' }).toString()}`,
-            `${base}/api/song/url?${new URLSearchParams({ id: String(id), br: '320000' }).toString()}`,
-            `${base}/parse?${new URLSearchParams({ id: String(id) }).toString()}`,
-            `${base}/song`
-        ], { id: String(id), level: 'exhigh' });
-    } catch (e) {}
-    const merged = { ...song, ...flattenMusicPayload(detail) };
-    const audioUrl = pickMusicUrl(merged);
-    if (!audioUrl) return null;
-    return normalizeMusicTrack({
-        id: `netease-api:${id}:${audioUrl}`,
-        remoteId: String(id),
-        trackName: merged.name || merged.title || song.name || 'Untitled',
-        artistName: normalizeMusicArtist(merged.artists || merged.artist || song.artists || song.artist),
-        collectionName: merged.album || merged.albumName || song.album || '网易云',
-        artworkUrl100: merged.pic || merged.cover || merged.image || merged.picUrl || '',
-        audioUrl,
-        trackViewUrl: `https://music.163.com/song?id=${encodeURIComponent(id)}`,
-        sourceName: '网易无损',
-        sourceKey: 'netease-api',
-        lyricsText: pickMusicLyrics(merged),
-        duration: normalizeMusicDuration(merged.duration || song.duration)
-    });
-}
-
-async function searchTencentParserMusic(query, settings) {
-    const base = settings.qqApiBase;
-    if (!base || !/y\.qq\.com|qq\.com|songmid=|songid=/i.test(query)) return [];
-    const url = `${base}/song?${new URLSearchParams({ url: query }).toString()}`;
-    const json = await fetchJsonWithTimeout(url);
-    const data = flattenMusicPayload(json);
-    const audioUrl = pickMusicUrl(data);
-    if (!audioUrl) return [];
-    return [normalizeMusicTrack({
-        id: `qq-parser:${data.id || data.mid || query}`,
-        remoteId: String(data.id || data.mid || ''),
-        trackName: data.name || data.title || data.songname || 'QQ Music',
-        artistName: normalizeMusicArtist(data.artist || data.singer || data.artists),
-        collectionName: data.album || data.albumname || 'QQ音乐',
-        artworkUrl100: data.image || data.pic || data.cover || '',
-        audioUrl,
-        trackViewUrl: query,
-        sourceName: 'QQ解析',
-        sourceKey: 'qq-parser',
-        lyricsText: pickMusicLyrics(data)
-    })];
-}
-
 async function searchGoMusicApi(query, platform, settings) {
     const base = settings.goApiBase;
     if (!base) return [];
@@ -1668,29 +1567,6 @@ function normalizeGenericMusicTrack(item, platform, sourceName) {
         lyricsText: pickMusicLyrics(item),
         duration: normalizeMusicDuration(item.duration || item.interval)
     });
-}
-
-async function postMusicJson(url, body) {
-    return fetchJsonWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body || {})
-    });
-}
-
-async function fetchMusicJsonFlexible(urls, body) {
-    let lastError = null;
-    for (const url of urls) {
-        try {
-            if (url.endsWith('/search') || url.endsWith('/song')) {
-                return await postMusicJson(url, body);
-            }
-            return await fetchJsonWithTimeout(url);
-        } catch (e) {
-            lastError = e;
-        }
-    }
-    throw lastError || new Error('music source unavailable');
 }
 
 function extractMusicRows(json) {
@@ -1790,9 +1666,6 @@ function getMusicPlatformUrl(platform, id) {
     if (!id) return '';
     const encoded = encodeURIComponent(id);
     if (platform === 'netease') return `https://music.163.com/song?id=${encoded}`;
-    if (platform === 'tencent') return `https://y.qq.com/n/ryqq/songDetail/${encoded}`;
-    if (platform === 'kuwo') return `https://www.kuwo.cn/play_detail/${encoded}`;
-    if (platform === 'kugou') return `https://www.kugou.com/song/#hash=${encoded}`;
     return '';
 }
 
@@ -2329,6 +2202,7 @@ window.addMusicComment = addMusicComment;
 const STUDY_CARDS_KEY = 'bynd_study_cards_v1';
 const STUDY_PROGRESS_KEY = 'bynd_study_progress_v1';
 const STUDY_LANGUAGES_KEY = 'bynd_study_languages_v1';
+const STUDY_CHECKINS_KEY = 'bynd_study_checkins_v1';
 const DEFAULT_STUDY_LANGUAGES = [
     { id: 'cn', label: '中文', short: '中', placeholder: '我今天想认真学习。' },
     { id: 'ja', label: '日本語', short: '日', placeholder: '今日は真面目に勉強したい。' },
@@ -2401,6 +2275,58 @@ function getStudyProgress() {
 
 function saveStudyProgress(progress) {
     localStorage.setItem(STUDY_PROGRESS_KEY, JSON.stringify(progress || {}));
+}
+
+function getStudyCheckins() {
+    try {
+        const data = JSON.parse(localStorage.getItem(STUDY_CHECKINS_KEY) || '{}');
+        return data && typeof data === 'object' ? data : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveStudyCheckins(data) {
+    localStorage.setItem(STUDY_CHECKINS_KEY, JSON.stringify(data && typeof data === 'object' ? data : {}));
+}
+
+function getStudyDateKey(date = new Date()) {
+    const safe = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+    return `${safe.getFullYear()}-${String(safe.getMonth() + 1).padStart(2, '0')}-${String(safe.getDate()).padStart(2, '0')}`;
+}
+
+function getStudyDayLabel(date) {
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function getStudyMoodOptions() {
+    return [
+        { id: 'clear', label: '开心', tone: '#ff9f43' },
+        { id: 'calm', label: '平稳', tone: '#34c759' },
+        { id: 'tired', label: '疲惫', tone: '#8e8e93' },
+        { id: 'focus', label: '燃起', tone: '#5b7cfa' }
+    ];
+}
+
+function buildStudyRecentDays(count = 21) {
+    return Array.from({ length: count }, (_, index) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (count - 1 - index));
+        return { date, key: getStudyDateKey(date) };
+    });
+}
+
+function buildStudyCurvePath(days, checkins) {
+    if (!days.length) return '';
+    const width = 290;
+    const height = 88;
+    return days.map((day, index) => {
+        const item = checkins[day.key] || {};
+        const progress = Math.max(0, Math.min(100, Number(item.progress || 0)));
+        const x = days.length === 1 ? width / 2 : (index / (days.length - 1)) * width;
+        const y = height - (progress / 100) * 68 - 10;
+        return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join(' ');
 }
 
 function getStudySupervisor() {
@@ -2482,15 +2408,95 @@ function renderStudyCheckCard() {
     const progress = getStudyProgress();
     const today = new Date().toLocaleDateString('zh-CN');
     const todayCount = progress[today] || 0;
+    const checkins = getStudyCheckins();
+    const todayKey = getStudyDateKey();
+    const todayCheck = checkins[todayKey] || {};
+    const moods = getStudyMoodOptions();
+    const days = buildStudyRecentDays(21);
+    const curvePath = buildStudyCurvePath(days, checkins);
+    const checkedDays = days.filter(day => checkins[day.key]).length;
+    const progressValue = Math.max(0, Math.min(100, Number(todayCheck.progress || 0)));
     el.innerHTML = `
-        <div>
-            <span>今日进度</span>
-            <strong>${todayCount}/${Math.max(cards.length, 1)}</strong>
-            <p>像闯关一样每天刷几张卡，当前聊天角色可以抽查、监督和追问。</p>
+        <div class="study-check-head">
+            <div>
+                <span>Daily Check-in</span>
+                <strong>${todayCheck.done ? '今日已打卡' : '今日还未打卡'}</strong>
+                <p>${todayCount}/${Math.max(cards.length, 1)} 张卡 · 最近 21 天打卡 ${checkedDays} 天</p>
+            </div>
+            <button type="button" onclick="startStudyQuiz()"><i class="ri-question-answer-line"></i> 抽查</button>
         </div>
-        <button type="button" onclick="startStudyQuiz()"><i class="ri-question-answer-line"></i> 抽查</button>
+        <div class="study-check-calendar">
+            ${days.map(day => {
+                const item = checkins[day.key];
+                return `<button type="button" class="${item ? 'active' : ''} ${day.key === todayKey ? 'today' : ''}" title="${day.key}">
+                    <b>${getStudyDayLabel(day.date)}</b>
+                    <span style="--mood:${musicEscapeAttr(getStudyMoodOptions().find(m => m.id === item?.mood)?.tone || '#d0d5dd')}"></span>
+                </button>`;
+            }).join('')}
+        </div>
+        <div class="study-check-moods">
+            ${moods.map(mood => `
+                <button type="button" class="${todayCheck.mood === mood.id ? 'active' : ''}" style="--mood:${musicEscapeAttr(mood.tone)}" onclick="setStudyTodayMood('${musicEscapeAttr(mood.id)}')">
+                    <i></i><span>${musicEscapeHtml(mood.label)}</span>
+                </button>
+            `).join('')}
+        </div>
+        <div class="study-check-progress">
+            <div><span>学习进度</span><b id="study-progress-value">${progressValue}%</b></div>
+            <input id="study-check-progress-input" type="range" min="0" max="100" step="5" value="${progressValue}" oninput="updateStudyProgressPreview(this.value)">
+        </div>
+        <div class="study-check-curve">
+            <div><span>记忆曲线</span><b>${checkedDays}/21</b></div>
+            <svg viewBox="0 0 290 88" preserveAspectRatio="none" aria-hidden="true">
+                <path class="study-curve-bg" d="M0 78 C46 44 84 72 126 46 C172 18 216 48 290 22"></path>
+                <path class="study-curve-main" d="${curvePath || 'M0 78 L290 78'}"></path>
+            </svg>
+        </div>
+        <textarea id="study-check-note" class="study-check-note" maxlength="120" placeholder="今天学了什么、心情如何，可以写一句。">${musicEscapeHtml(todayCheck.note || '')}</textarea>
+        <div class="study-check-actions">
+            <button type="button" onclick="saveStudyTodayCheckin()"><i class="ri-check-line"></i> 保存打卡</button>
+            <button type="button" onclick="askStudySupervisor()"><i class="ri-sparkling-2-line"></i> 让 AI 监督</button>
+        </div>
     `;
 }
+
+function updateStudyProgressPreview(value) {
+    const el = document.getElementById('study-progress-value');
+    if (el) el.textContent = `${Math.max(0, Math.min(100, Number(value) || 0))}%`;
+}
+window.updateStudyProgressPreview = updateStudyProgressPreview;
+
+function setStudyTodayMood(moodId) {
+    const moods = getStudyMoodOptions();
+    if (!moods.some(mood => mood.id === moodId)) return;
+    const checkins = getStudyCheckins();
+    const key = getStudyDateKey();
+    checkins[key] = { ...(checkins[key] || {}), mood: moodId, updatedAt: Date.now() };
+    saveStudyCheckins(checkins);
+    renderStudyCheckCard();
+}
+window.setStudyTodayMood = setStudyTodayMood;
+
+function saveStudyTodayCheckin() {
+    const checkins = getStudyCheckins();
+    const key = getStudyDateKey();
+    const prev = checkins[key] || {};
+    const progressValue = Math.max(0, Math.min(100, Number(document.getElementById('study-check-progress-input')?.value || prev.progress || 0)));
+    const note = (document.getElementById('study-check-note')?.value || '').trim();
+    checkins[key] = {
+        ...prev,
+        done: true,
+        mood: prev.mood || 'calm',
+        progress: progressValue,
+        note,
+        updatedAt: Date.now()
+    };
+    saveStudyCheckins(checkins);
+    const box = document.getElementById('study-supervisor-text');
+    if (box) box.textContent = `今日学习打卡已保存：进度 ${progressValue}%。`;
+    renderStudyCheckCard();
+}
+window.saveStudyTodayCheckin = saveStudyTodayCheckin;
 
 function renderStudyCardList() {
     const el = document.getElementById('study-card-list');
@@ -3221,10 +3227,20 @@ const WOLFCHA_SETUP_KEY = 'bynd_game_wolfcha_setup_v1';
 const GAME_HUB_FILTER_KEY = 'bynd_game_hub_filter_v1';
 const SYNC_GAME_CHAR_KEY = 'bynd_game_sync_char_v1';
 const CARDMATCH_RULES_SKIP_KEY = 'bynd_game_cardmatch_rules_skip_date_v1';
+const GAME_2048_STATE_KEY = 'bynd_game_2048_state_v1';
+const GOMOKU_STATE_KEY = 'bynd_game_gomoku_state_v1';
+const BOARD_GAME_STATE_PREFIX = 'bynd_game_board_state_';
+const BOARD_GAME_CHAR_KEY_PREFIX = 'bynd_game_board_char_';
+const BOARD_GAME_READY_KEY_PREFIX = 'bynd_game_board_ready_';
+const BOARD_GAME_CHAT_KEY_PREFIX = 'bynd_game_board_chat_';
 const GAME_ROLES = ['狼人', '预言家', '女巫', '守卫', '村民', '村民', '村民', '村民', '村民', '猎人'];
 const GAME_LIBRARY = [
     { id: 'wolfcha', title: 'BYND 狼人杀', tag: '多人推理', icon: 'ri-shield-star-fill', genre: 'Social deduction', category: 'role', accent: '#e5484d', desc: '先选择陪玩的角色，再随机身份开局。角色会按人设参与发言。' },
     { id: 'chicken', title: '肥鸡大冒险', tag: '像素飞行', icon: 'ri-flight-takeoff-line', genre: 'Tap arcade', category: 'arcade', accent: '#22b8ff', desc: '点击让小角色飞起来，穿过砖墙空隙，吃金币刷新纪录。' },
+    { id: '2048', title: '2048', tag: '数字合成', icon: 'ri-layout-grid-fill', genre: 'Number puzzle', category: 'board', accent: '#ffb02e', desc: '上下左右推动方块，合成更高数字，随时可重新开局。' },
+    { id: 'gomoku', title: '五子棋', tag: '双人落子', icon: 'ri-grid-line', genre: 'Board duel', category: 'board', accent: '#111318', desc: '黑白双方轮流落子，任意方向先连成五子获胜。' },
+    { id: 'chess', title: '国际象棋', tag: '棋盘对弈', icon: 'ri-vip-crown-2-line', genre: 'Classic board', category: 'board', accent: '#7c5cff', desc: '轻量棋盘模式，可选择棋子并移动，先用于角色共玩流程。' },
+    { id: 'xiangqi', title: '中国象棋', tag: '楚河汉界', icon: 'ri-shield-cross-line', genre: 'Classic board', category: 'board', accent: '#d94b3d', desc: '九路十行棋盘，可选择棋子移动，后续可继续补完整规则。' },
     { id: 'sync', title: '默契问答', tag: 'AI互动', icon: 'ri-chat-smile-3-line', genre: 'Co-op talk', category: 'role', accent: '#5b7cfa', desc: '抽一个问题，让当前角色猜你会怎么回答。' },
     { id: 'cardmatch', title: '语言翻牌', tag: '学习联动', icon: 'ri-flashlight-line', genre: 'Study arcade', category: 'study', accent: '#34a853', desc: '用学习卡做小游戏，随机抽一张多语言卡来回忆。' },
     { id: 'coming-board', title: '桌游房间', tag: '即将开放', icon: 'ri-dice-5-line', genre: 'Board games', category: 'role', accent: '#ff9f0a', desc: '预留给真心话、抽卡、跑团类玩法，后续接入角色列表。', comingSoon: true },
@@ -3261,7 +3277,7 @@ function getGamePlayers() {
 }
 
 function getWolfchaCharacters() {
-    return Array.isArray(window.myCharacters) ? window.myCharacters.filter(char => char && char.id) : [];
+    return Array.isArray(window.myCharacters) ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat) : [];
 }
 
 function getWolfchaSetupIds() {
@@ -3340,6 +3356,9 @@ function openMiniGame(gameId) {
     if (gameId === 'wolfcha') {
         localStorage.removeItem(GAME_STATE_KEY);
     }
+    if (isBoardCompanionGame(gameId)) {
+        localStorage.removeItem(BOARD_GAME_READY_KEY_PREFIX + gameId);
+    }
     renderGameApp();
 }
 window.openMiniGame = openMiniGame;
@@ -3402,11 +3421,11 @@ window.startWolfchaGame = startWolfchaGame;
 
 function getGameHubFilter() {
     const saved = localStorage.getItem(GAME_HUB_FILTER_KEY);
-    return ['all', 'role', 'study', 'arcade'].includes(saved) ? saved : 'all';
+    return ['all', 'role', 'study', 'arcade', 'board'].includes(saved) ? saved : 'all';
 }
 
 function setGameHubFilter(filter) {
-    localStorage.setItem(GAME_HUB_FILTER_KEY, ['all', 'role', 'study', 'arcade'].includes(filter) ? filter : 'all');
+    localStorage.setItem(GAME_HUB_FILTER_KEY, ['all', 'role', 'study', 'arcade', 'board'].includes(filter) ? filter : 'all');
     renderGameApp();
 }
 window.setGameHubFilter = setGameHubFilter;
@@ -3516,6 +3535,26 @@ function renderGameApp() {
         renderChickenGame(el);
         return;
     }
+    if (activeGame === '2048') {
+        render2048Game(el);
+        return;
+    }
+    if (activeGame === 'gomoku') {
+        if (!isBoardGameReady(activeGame)) {
+            renderBoardGameCompanionSetup(el, activeGame);
+            return;
+        }
+        renderGomokuGame(el);
+        return;
+    }
+    if (activeGame === 'chess' || activeGame === 'xiangqi') {
+        if (!isBoardGameReady(activeGame)) {
+            renderBoardGameCompanionSetup(el, activeGame);
+            return;
+        }
+        renderBoardGame(el, activeGame);
+        return;
+    }
     if (activeGame === 'wolfcha' && !getGameState()) {
         renderWolfchaSetup(el);
         return;
@@ -3575,7 +3614,8 @@ function renderGameHub(el) {
         { id: 'all', label: '全部' },
         { id: 'role', label: '角色联机' },
         { id: 'study', label: '学习联动' },
-        { id: 'arcade', label: '街机' }
+        { id: 'arcade', label: '街机' },
+        { id: 'board', label: '棋盘' }
     ];
     const games = GAME_LIBRARY.filter(game => filter === 'all' || game.category === filter);
     el.innerHTML = `
@@ -3724,6 +3764,532 @@ function renderCardMatchGame(el) {
                         <button type="button" class="primary" onclick="closeCardMatchRules(true)">今日不再提示</button>
                     </div>
                 </div>
+            </div>
+        </section>
+    `;
+}
+
+function create2048State() {
+    const state = { board: Array.from({ length: 4 }, () => Array(4).fill(0)), score: 0, moves: 0, over: false };
+    add2048Tile(state);
+    add2048Tile(state);
+    return state;
+}
+
+function get2048State() {
+    try {
+        const state = JSON.parse(localStorage.getItem(GAME_2048_STATE_KEY) || '{}');
+        if (Array.isArray(state.board) && state.board.length === 4) return state;
+    } catch (e) {}
+    const state = create2048State();
+    save2048State(state);
+    return state;
+}
+
+function save2048State(state) {
+    localStorage.setItem(GAME_2048_STATE_KEY, JSON.stringify(state));
+}
+
+function add2048Tile(state) {
+    const empty = [];
+    state.board.forEach((row, r) => row.forEach((value, c) => { if (!value) empty.push([r, c]); }));
+    if (!empty.length) return false;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    state.board[r][c] = Math.random() < 0.9 ? 2 : 4;
+    return true;
+}
+
+function compress2048Line(line, state) {
+    const nums = line.filter(Boolean);
+    const result = [];
+    for (let i = 0; i < nums.length; i += 1) {
+        if (nums[i] && nums[i] === nums[i + 1]) {
+            const merged = nums[i] * 2;
+            result.push(merged);
+            state.score += merged;
+            i += 1;
+        } else {
+            result.push(nums[i]);
+        }
+    }
+    while (result.length < 4) result.push(0);
+    return result;
+}
+
+function canMove2048(state) {
+    for (let r = 0; r < 4; r += 1) {
+        for (let c = 0; c < 4; c += 1) {
+            if (!state.board[r][c]) return true;
+            if (r < 3 && state.board[r][c] === state.board[r + 1][c]) return true;
+            if (c < 3 && state.board[r][c] === state.board[r][c + 1]) return true;
+        }
+    }
+    return false;
+}
+
+function move2048(direction) {
+    const state = get2048State();
+    if (state.over) return;
+    const before = JSON.stringify(state.board);
+    if (direction === 'left' || direction === 'right') {
+        state.board = state.board.map(row => {
+            const source = direction === 'right' ? [...row].reverse() : [...row];
+            const merged = compress2048Line(source, state);
+            return direction === 'right' ? merged.reverse() : merged;
+        });
+    } else {
+        for (let c = 0; c < 4; c += 1) {
+            const source = [];
+            for (let r = 0; r < 4; r += 1) source.push(state.board[r][c]);
+            const merged = compress2048Line(direction === 'down' ? source.reverse() : source, state);
+            const finalLine = direction === 'down' ? merged.reverse() : merged;
+            for (let r = 0; r < 4; r += 1) state.board[r][c] = finalLine[r];
+        }
+    }
+    if (JSON.stringify(state.board) !== before) {
+        state.moves += 1;
+        add2048Tile(state);
+        state.over = !canMove2048(state);
+        save2048State(state);
+        renderGameApp();
+    }
+}
+window.move2048 = move2048;
+
+function reset2048Game() {
+    const state = create2048State();
+    save2048State(state);
+    renderGameApp();
+}
+window.reset2048Game = reset2048Game;
+
+function bind2048Gestures() {
+    const board = document.getElementById('game-2048-board');
+    if (!board || board.dataset.bound) return;
+    board.dataset.bound = '1';
+    let sx = 0;
+    let sy = 0;
+    board.addEventListener('pointerdown', event => {
+        sx = event.clientX;
+        sy = event.clientY;
+    });
+    board.addEventListener('pointerup', event => {
+        const dx = event.clientX - sx;
+        const dy = event.clientY - sy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+        move2048(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    });
+    if (!window._bynd2048KeyboardBound) {
+        window._bynd2048KeyboardBound = true;
+        window.addEventListener('keydown', event => {
+            if (getActiveGame() !== '2048') return;
+            const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+            if (!map[event.key]) return;
+            event.preventDefault();
+            move2048(map[event.key]);
+        });
+    }
+}
+
+function render2048Game(el) {
+    const state = get2048State();
+    const maxTile = Math.max(...state.board.flat(), 0);
+    el.innerHTML = `
+        <section class="mini-game-panel game2048-panel">
+            <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
+            <div class="game2048-top">
+                <div><span>2048</span><strong>${state.over ? '本局结束' : '合成更高数字'}</strong><p>滑动棋盘或点方向键移动。</p></div>
+                <button type="button" onclick="reset2048Game()"><i class="ri-refresh-line"></i> 新局</button>
+            </div>
+            <div class="game2048-stats"><span>分数 <b>${state.score || 0}</b></span><span>最高 <b>${maxTile}</b></span><span>步数 <b>${state.moves || 0}</b></span></div>
+            <div id="game-2048-board" class="game2048-board">
+                ${state.board.flat().map(value => `<div class="tile-${value || 0}">${value || ''}</div>`).join('')}
+            </div>
+            <div class="game2048-controls">
+                <button type="button" onclick="move2048('up')"><i class="ri-arrow-up-s-line"></i></button>
+                <button type="button" onclick="move2048('left')"><i class="ri-arrow-left-s-line"></i></button>
+                <button type="button" onclick="move2048('down')"><i class="ri-arrow-down-s-line"></i></button>
+                <button type="button" onclick="move2048('right')"><i class="ri-arrow-right-s-line"></i></button>
+            </div>
+        </section>
+    `;
+    requestAnimationFrame(bind2048Gestures);
+}
+
+function isBoardCompanionGame(type) {
+    return ['gomoku', 'chess', 'xiangqi'].includes(type);
+}
+
+function getBoardGameMeta(type) {
+    return GAME_LIBRARY.find(game => game.id === type) || { id: type, title: '棋盘游戏', tag: 'Board duel', accent: '#171a22' };
+}
+
+function getBoardGameCharId(type) {
+    const chars = getWolfchaCharacters();
+    const saved = localStorage.getItem(BOARD_GAME_CHAR_KEY_PREFIX + type);
+    return chars.some(char => char.id === saved) ? saved : '';
+}
+
+function getBoardGameChar(type) {
+    const selectedId = getBoardGameCharId(type);
+    return getWolfchaCharacters().find(char => char.id === selectedId) || null;
+}
+
+function isBoardGameReady(type) {
+    return isBoardCompanionGame(type) && localStorage.getItem(BOARD_GAME_READY_KEY_PREFIX + type) === '1' && !!getBoardGameChar(type);
+}
+
+function selectBoardGameChar(type, id) {
+    if (!isBoardCompanionGame(type)) return;
+    if (!getWolfchaCharacters().some(char => char.id === id)) return;
+    localStorage.setItem(BOARD_GAME_CHAR_KEY_PREFIX + type, id);
+    renderGameApp();
+}
+window.selectBoardGameChar = selectBoardGameChar;
+
+function openBoardGameCompanionSetup(type) {
+    if (!isBoardCompanionGame(type)) return;
+    localStorage.removeItem(BOARD_GAME_READY_KEY_PREFIX + type);
+    setActiveGame(type);
+    renderGameApp();
+}
+window.openBoardGameCompanionSetup = openBoardGameCompanionSetup;
+
+function startBoardGameWithChar(type) {
+    const char = getBoardGameChar(type);
+    if (!char) {
+        if (typeof showWechatToast === 'function') showWechatToast('先选择一位陪玩的角色');
+        return;
+    }
+    localStorage.setItem(BOARD_GAME_READY_KEY_PREFIX + type, '1');
+    saveBoardGameChat(type, {
+        status: 'idle',
+        text: `${getMusicCharName(char)} 已入局，落子后会按人设回应。`,
+        updatedAt: Date.now()
+    });
+    renderGameApp();
+    requestBoardGameAiComment(type, 'start', { action: `刚进入${getBoardGameMeta(type).title}棋局，请开局说一句话。` });
+}
+window.startBoardGameWithChar = startBoardGameWithChar;
+
+function getBoardGameChat(type) {
+    try {
+        const data = JSON.parse(localStorage.getItem(BOARD_GAME_CHAT_KEY_PREFIX + type) || '{}');
+        if (data && typeof data === 'object') return data;
+    } catch (e) {}
+    return { status: 'idle', text: '选好角色后，对方会在棋局里按人设说话。', updatedAt: 0 };
+}
+
+function saveBoardGameChat(type, data) {
+    localStorage.setItem(BOARD_GAME_CHAT_KEY_PREFIX + type, JSON.stringify(data || {}));
+}
+
+function summarizeBoardGame(type, payload = {}) {
+    if (type === 'gomoku') {
+        const state = getGomokuState();
+        const black = state.board.flat().filter(value => value === 'black').length;
+        const white = state.board.flat().filter(value => value === 'white').length;
+        const status = state.winner ? `${state.winner === 'black' ? '黑棋' : '白棋'}已经获胜` : `当前轮到${state.turn === 'black' ? '黑棋' : '白棋'}`;
+        return `${status}；总步数${state.moves || 0}；黑棋${black}，白棋${white}；${payload.action || ''}`;
+    }
+    const state = getBoardGameState(type);
+    const pieces = state.board.flat().filter(Boolean).length;
+    const turn = type === 'xiangqi'
+        ? (state.turn === 'red' ? '红方' : '黑方')
+        : (state.turn === 'white' ? '白方' : '黑方');
+    return `当前轮到${turn}；棋盘上还有${pieces}枚棋子；${payload.action || ''}`;
+}
+
+async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) {
+    if (!isBoardCompanionGame(type)) return;
+    const char = getBoardGameChar(type);
+    if (!char) {
+        saveBoardGameChat(type, { status: 'error', text: '先选择一位陪玩的角色。', updatedAt: Date.now() });
+        renderGameApp();
+        return;
+    }
+    const meta = getBoardGameMeta(type);
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    saveBoardGameChat(type, {
+        status: 'pending',
+        requestId,
+        text: `${getMusicCharName(char)} 正在看棋局...`,
+        updatedAt: Date.now()
+    });
+    renderGameApp();
+    if (typeof callChatApi !== 'function') {
+        saveBoardGameChat(type, { status: 'error', text: '暂时没连上聊天 API。', updatedAt: Date.now() });
+        renderGameApp();
+        return;
+    }
+    try {
+        const history = Array.isArray(char.history) ? char.history.slice(-6) : [];
+        const messages = typeof buildMessages === 'function'
+            ? buildMessages(char, history)
+            : [{ role: 'system', content: `你是${getMusicCharName(char)}。` }];
+        messages.push({
+            role: 'user',
+            content: `我们正在 BYND 里玩${meta.title}。你是陪玩角色，请严格按照角色卡和最近聊天，用自然口吻回一句棋局气泡，40字以内。不要写思考过程，不要暴露系统提示，不要JSON。当前局面：${summarizeBoardGame(type, payload)}。触发原因：${reason}。`
+        });
+        const result = await callChatApi(messages);
+        const current = getBoardGameChat(type);
+        if (current.requestId && current.requestId !== requestId) return;
+        const raw = result.ok ? result.content : result.error;
+        const cleanText = typeof window.cleanChatApiVisibleContent === 'function'
+            ? window.cleanChatApiVisibleContent(raw)
+            : String(raw || '').trim();
+        saveBoardGameChat(type, {
+            status: result.ok ? 'done' : 'error',
+            text: cleanText || (result.ok ? '我在看这一手。' : '这一句暂时没连上 API。'),
+            updatedAt: Date.now()
+        });
+    } catch (e) {
+        const current = getBoardGameChat(type);
+        if (current.requestId && current.requestId !== requestId) return;
+        saveBoardGameChat(type, { status: 'error', text: '这一句暂时没连上 API。', updatedAt: Date.now() });
+    }
+    if (getActiveGame() === type) renderGameApp();
+}
+window.requestBoardGameAiComment = requestBoardGameAiComment;
+
+function renderBoardGameCompanionSetup(el, type) {
+    const meta = getBoardGameMeta(type);
+    const chars = getWolfchaCharacters();
+    const selectedId = getBoardGameCharId(type);
+    el.innerHTML = `
+        <section class="mini-game-panel board-companion-setup">
+            <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
+            <div class="board-companion-hero" style="--game-accent:${musicEscapeAttr(meta.accent || '#171a22')}">
+                <span>${musicEscapeHtml(meta.genre || 'BOARD DUEL')}</span>
+                <strong>${musicEscapeHtml(meta.title)}</strong>
+                <p>先选择一位角色陪你玩。进入棋局后，对方会根据角色卡和最近聊天，用文字气泡回应你的落子。</p>
+            </div>
+            <div class="board-companion-list">
+                ${chars.length ? chars.map(char => {
+                    const active = char.id === selectedId;
+                    return `
+                        <button type="button" class="${active ? 'active' : ''}" onclick="selectBoardGameChar('${musicEscapeAttr(type)}','${musicEscapeAttr(char.id)}')">
+                            <div>${char.avatar ? `<img src="${musicEscapeAttr(char.avatar)}" alt="${musicEscapeAttr(getMusicCharName(char))}">` : '<i class="ri-user-smile-line"></i>'}</div>
+                            <strong>${musicEscapeHtml(getMusicCharName(char))}</strong>
+                            <span>${active ? '已选择' : '选择陪玩'}</span>
+                        </button>
+                    `;
+                }).join('') : '<div class="board-companion-empty">先在微信导入角色，再回来选择陪玩的 AI。</div>'}
+            </div>
+            <div class="board-companion-actions">
+                <button type="button" onclick="openGameHub()">先返回</button>
+                <button type="button" class="primary" onclick="startBoardGameWithChar('${musicEscapeAttr(type)}')" ${selectedId ? '' : 'disabled'}><i class="ri-play-fill"></i> 进入棋局</button>
+            </div>
+        </section>
+    `;
+}
+
+function renderBoardGameCompanionBar(type) {
+    const char = getBoardGameChar(type);
+    const chat = getBoardGameChat(type);
+    const name = char ? getMusicCharName(char) : 'AI 陪玩';
+    const text = chat.text || '落子后，对方会在这里按人设回复。';
+    return `
+        <div class="board-companion-card">
+            <div class="board-companion-avatar">${char?.avatar ? `<img src="${musicEscapeAttr(char.avatar)}" alt="${musicEscapeAttr(name)}">` : '<i class="ri-user-smile-line"></i>'}</div>
+            <div class="board-companion-copy">
+                <span>陪玩角色</span>
+                <strong>${musicEscapeHtml(name)}</strong>
+            </div>
+            <button type="button" onclick="openBoardGameCompanionSetup('${musicEscapeAttr(type)}')">换人</button>
+        </div>
+        <div class="board-ai-bubble ${chat.status === 'pending' ? 'thinking' : ''} ${chat.status === 'error' ? 'error' : ''}">
+            <strong>${musicEscapeHtml(name)}</strong>
+            <p>${musicEscapeHtml(text)}</p>
+            <button type="button" onclick="requestBoardGameAiComment('${musicEscapeAttr(type)}','manual',{ action: '用户想听你对当前棋局说一句话。' })"><i class="ri-chat-smile-3-line"></i></button>
+        </div>
+    `;
+}
+
+function createGomokuState() {
+    return { board: Array.from({ length: 15 }, () => Array(15).fill('')), turn: 'black', winner: '', moves: 0 };
+}
+
+function getGomokuState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(GOMOKU_STATE_KEY) || '{}');
+        if (Array.isArray(state.board) && state.board.length === 15) return state;
+    } catch (e) {}
+    const state = createGomokuState();
+    saveGomokuState(state);
+    return state;
+}
+
+function saveGomokuState(state) {
+    localStorage.setItem(GOMOKU_STATE_KEY, JSON.stringify(state));
+}
+
+function checkGomokuWin(board, row, col, stone) {
+    const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    return dirs.some(([dr, dc]) => {
+        let count = 1;
+        for (const sign of [-1, 1]) {
+            let r = row + dr * sign;
+            let c = col + dc * sign;
+            while (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === stone) {
+                count += 1;
+                r += dr * sign;
+                c += dc * sign;
+            }
+        }
+        return count >= 5;
+    });
+}
+
+function placeGomokuStone(row, col) {
+    const state = getGomokuState();
+    if (state.winner || state.board[row]?.[col]) return;
+    const placedStone = state.turn;
+    state.board[row][col] = placedStone;
+    state.moves += 1;
+    if (checkGomokuWin(state.board, row, col, placedStone)) {
+        state.winner = placedStone;
+    } else {
+        state.turn = state.turn === 'black' ? 'white' : 'black';
+    }
+    saveGomokuState(state);
+    renderGameApp();
+    requestBoardGameAiComment('gomoku', state.winner ? 'win' : 'move', {
+        action: `用户在第${row + 1}行第${col + 1}列落下${placedStone === 'black' ? '黑棋' : '白棋'}。${state.winner ? '棋局已经分出胜负。' : '请评价这一手或自然回应。'}`
+    });
+}
+window.placeGomokuStone = placeGomokuStone;
+
+function resetGomokuGame() {
+    saveGomokuState(createGomokuState());
+    saveBoardGameChat('gomoku', { status: 'idle', text: '新局开始，第一手落下后我再看棋。', updatedAt: Date.now() });
+    renderGameApp();
+    requestBoardGameAiComment('gomoku', 'reset', { action: '五子棋重新开局，请说一句开局气泡。' });
+}
+window.resetGomokuGame = resetGomokuGame;
+
+function renderGomokuGame(el) {
+    const state = getGomokuState();
+    const label = state.winner ? `${state.winner === 'black' ? '黑棋' : '白棋'}获胜` : `${state.turn === 'black' ? '黑棋' : '白棋'}落子`;
+    el.innerHTML = `
+        <section class="mini-game-panel board-panel gomoku-panel">
+            <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
+            ${renderBoardGameCompanionBar('gomoku')}
+            <div class="board-game-top"><div><span>GOMOKU</span><strong>${label}</strong><p>先连成五子的一方获胜。</p></div><button type="button" onclick="resetGomokuGame()">重开</button></div>
+            <div class="gomoku-board">
+                ${state.board.map((row, r) => row.map((stone, c) => `
+                    <button type="button" class="${stone || ''}" onclick="placeGomokuStone(${r},${c})">${stone ? '<i></i>' : ''}</button>
+                `).join('')).join('')}
+            </div>
+        </section>
+    `;
+}
+
+function getInitialBoardGameState(type) {
+    if (type === 'xiangqi') {
+        return {
+            selected: null,
+            turn: 'red',
+            board: [
+                ['車','馬','相','仕','帥','仕','相','馬','車'],
+                ['', '', '', '', '', '', '', '', ''],
+                ['', '炮', '', '', '', '', '', '炮', ''],
+                ['兵', '', '兵', '', '兵', '', '兵', '', '兵'],
+                ['', '', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', '', ''],
+                ['卒', '', '卒', '', '卒', '', '卒', '', '卒'],
+                ['', '砲', '', '', '', '', '', '砲', ''],
+                ['', '', '', '', '', '', '', '', ''],
+                ['車','馬','象','士','將','士','象','馬','車']
+            ]
+        };
+    }
+    return {
+        selected: null,
+        turn: 'white',
+        board: [
+            ['♜','♞','♝','♛','♚','♝','♞','♜'],
+            ['♟','♟','♟','♟','♟','♟','♟','♟'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['♙','♙','♙','♙','♙','♙','♙','♙'],
+            ['♖','♘','♗','♕','♔','♗','♘','♖']
+        ]
+    };
+}
+
+function getBoardGameState(type) {
+    const key = BOARD_GAME_STATE_PREFIX + type;
+    try {
+        const state = JSON.parse(localStorage.getItem(key) || '{}');
+        if (Array.isArray(state.board)) return state;
+    } catch (e) {}
+    const state = getInitialBoardGameState(type);
+    localStorage.setItem(key, JSON.stringify(state));
+    return state;
+}
+
+function saveBoardGameState(type, state) {
+    localStorage.setItem(BOARD_GAME_STATE_PREFIX + type, JSON.stringify(state));
+}
+
+function clickBoardGameCell(type, row, col) {
+    const state = getBoardGameState(type);
+    const piece = state.board[row]?.[col] || '';
+    let moved = null;
+    if (!state.selected) {
+        if (piece) state.selected = { row, col };
+    } else {
+        const { row: sr, col: sc } = state.selected;
+        if (sr === row && sc === col) {
+            state.selected = null;
+        } else {
+            const movingPiece = state.board[sr][sc];
+            const capturedPiece = state.board[row][col] || '';
+            state.board[row][col] = state.board[sr][sc];
+            state.board[sr][sc] = '';
+            state.selected = null;
+            state.turn = type === 'xiangqi'
+                ? (state.turn === 'red' ? 'black' : 'red')
+                : (state.turn === 'white' ? 'black' : 'white');
+            moved = { movingPiece, capturedPiece, from: [sr, sc], to: [row, col] };
+        }
+    }
+    saveBoardGameState(type, state);
+    renderGameApp();
+    if (moved) {
+        requestBoardGameAiComment(type, 'move', {
+            action: `用户把${moved.movingPiece || '棋子'}从${moved.from[0] + 1}行${moved.from[1] + 1}列移动到${moved.to[0] + 1}行${moved.to[1] + 1}列${moved.capturedPiece ? `，吃掉${moved.capturedPiece}` : ''}。请自然评价这一手。`
+        });
+    }
+}
+window.clickBoardGameCell = clickBoardGameCell;
+
+function resetBoardGame(type) {
+    saveBoardGameState(type, getInitialBoardGameState(type));
+    saveBoardGameChat(type, { status: 'idle', text: '棋盘已经重开，等你走第一手。', updatedAt: Date.now() });
+    renderGameApp();
+    requestBoardGameAiComment(type, 'reset', { action: `${getBoardGameMeta(type).title}重新开局，请说一句开局气泡。` });
+}
+window.resetBoardGame = resetBoardGame;
+
+function renderBoardGame(el, type) {
+    const state = getBoardGameState(type);
+    const isXiangqi = type === 'xiangqi';
+    const title = isXiangqi ? '中国象棋' : '国际象棋';
+    const cols = isXiangqi ? 9 : 8;
+    el.innerHTML = `
+        <section class="mini-game-panel board-panel ${isXiangqi ? 'xiangqi-panel' : 'chess-panel'}">
+            <button type="button" class="mini-game-back" onclick="openGameHub()"><i class="ri-arrow-left-s-line"></i> 返回大厅</button>
+            ${renderBoardGameCompanionBar(type)}
+            <div class="board-game-top"><div><span>${isXiangqi ? 'XIANGQI' : 'CHESS'}</span><strong>${title}</strong><p>点击棋子选中，再点击目标格移动。完整规则后续可以继续补。</p></div><button type="button" onclick="resetBoardGame('${type}')">重开</button></div>
+            <div class="classic-board ${isXiangqi ? 'xiangqi' : 'chess'}" style="--cols:${cols}">
+                ${state.board.map((row, r) => row.map((piece, c) => {
+                    const selected = state.selected && state.selected.row === r && state.selected.col === c;
+                    return `<button type="button" class="${selected ? 'selected' : ''} ${piece ? 'has-piece' : ''}" onclick="clickBoardGameCell('${type}',${r},${c})"><span>${musicEscapeHtml(piece)}</span></button>`;
+                }).join('')).join('')}
             </div>
         </section>
     `;
@@ -4337,17 +4903,205 @@ function resetDesktopToFirstPage() {
 }
 
 // --- 📁 文件夹系统 ---
-window._folders = JSON.parse(localStorage.getItem('desktop_folders') || '[]');
+const DESKTOP_FOLDER_STORAGE_KEY = 'desktop_folders';
+window._folders = JSON.parse(localStorage.getItem(DESKTOP_FOLDER_STORAGE_KEY) || '[]');
 
 function saveFolders() {
-    localStorage.setItem('desktop_folders', JSON.stringify(window._folders));
+    localStorage.setItem(DESKTOP_FOLDER_STORAGE_KEY, JSON.stringify(window._folders));
+}
+
+function desktopEscapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
+
+function desktopEscapeAttr(value) {
+    return desktopEscapeHtml(value).replace(/"/g, '&quot;');
+}
+
+function getDesktopAppDefinition(appRef) {
+    const id = typeof appRef === 'string' ? appRef : appRef?.id;
+    const name = typeof appRef === 'object' ? appRef?.name : '';
+    const base = DESKTOP_APPS.find(app => app.id === id) || DESKTOP_APPS.find(app => app.name === name);
+    return {
+        id: base?.id || id || name || '',
+        name: base?.name || name || '应用',
+        icon: base?.icon || appRef?.icon || 'ri-apps-line'
+    };
+}
+
+function normalizeDesktopAppRef(appRef) {
+    const app = getDesktopAppDefinition(appRef);
+    return app.id ? { id: app.id } : app;
+}
+
+function normalizeDesktopFolder(folder) {
+    const safe = folder && typeof folder === 'object' ? folder : {};
+    const apps = Array.isArray(safe.apps) ? safe.apps.map(normalizeDesktopAppRef).filter(app => app.id) : [];
+    return {
+        id: safe.id || `folder_${Date.now()}`,
+        name: String(safe.name || '文件夹').trim() || '文件夹',
+        apps,
+        width: Number(safe.width) || null,
+        height: Number(safe.height) || null
+    };
+}
+
+function normalizeDesktopFolders() {
+    window._folders = (Array.isArray(window._folders) ? window._folders : []).map(normalizeDesktopFolder).filter(folder => folder.apps.length > 0);
+}
+
+function getDesktopFolderApps(folder) {
+    return (Array.isArray(folder?.apps) ? folder.apps : []).map(getDesktopAppDefinition).filter(app => app.id);
+}
+
+function getDesktopThemeData(source) {
+    if (source && typeof source === 'object') return source;
+    try {
+        return JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function getDesktopThemeIconUrl(appId, source) {
+    const data = getDesktopThemeData(source);
+    const appIndex = DESKTOP_APPS.findIndex(app => app.id === appId);
+    let icons = Array.isArray(data.icons) ? data.icons : [];
+    if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);
+    return appIndex >= 0 ? String(icons[appIndex] || '').trim() : '';
+}
+
+function renderDesktopAppIcon(appRef, options = {}) {
+    const app = getDesktopAppDefinition(appRef);
+    const url = getDesktopThemeIconUrl(app.id, options.themeData);
+    if (url) return `<img src="${desktopEscapeAttr(url)}" alt="">`;
+    return `<i class="${desktopEscapeAttr(app.icon)}"></i>`;
+}
+
+function getDesktopAppIdFromElement(item) {
+    if (!item) return '';
+    if (item.dataset.appId) return item.dataset.appId;
+    const onclick = item.getAttribute('onclick') || '';
+    const match = onclick.match(/openApp\(['"]([^'"]+)['"]\)/);
+    if (match?.[1]) return match[1];
+    const label = item.querySelector('span')?.textContent?.trim();
+    return DESKTOP_APPS.find(app => app.name === label)?.id || '';
+}
+
+function hydrateDesktopAppElement(item) {
+    const appId = getDesktopAppIdFromElement(item);
+    if (!appId) return null;
+    const app = getDesktopAppDefinition(appId);
+    item.dataset.appId = app.id;
+    if (!item.dataset.layoutId) item.dataset.layoutId = `app-${app.id}`;
+    return app;
+}
+
+function syncDesktopFolderIcon(folderId) {
+    const folder = window._folders.find(item => item.id === folderId);
+    document.querySelectorAll('.app-item.is-folder').forEach(item => {
+        if (item.dataset.folderId !== folderId || !folder) return;
+        const icon = item.querySelector('.app-icon');
+        const label = item.querySelector('span');
+        if (icon) icon.innerHTML = renderDesktopFolderMiniIcons(folder);
+        if (label) label.textContent = folder.name;
+    });
+}
+
+function refreshDesktopThemedIcons(themeData) {
+    document.querySelectorAll('.apps-quad .app-item:not(.is-folder), .desktop-layout-item.app-item:not(.is-folder)').forEach(item => {
+        const app = hydrateDesktopAppElement(item);
+        if (!app) return;
+        const icon = item.querySelector('.app-icon');
+        const label = item.querySelector('span');
+        if (icon) icon.innerHTML = renderDesktopAppIcon(app, { themeData });
+        if (label) label.textContent = app.name;
+    });
+    document.querySelectorAll('.app-item.is-folder').forEach(item => {
+        const folder = window._folders.find(folderItem => folderItem.id === item.dataset.folderId);
+        const icon = item.querySelector('.app-icon');
+        const label = item.querySelector('span');
+        if (icon && folder) icon.innerHTML = renderDesktopFolderMiniIcons(folder, { themeData });
+        if (label && folder) label.textContent = folder.name;
+    });
+    document.querySelectorAll('#folder-grid .folder-grid-item[data-app-id]').forEach(item => {
+        const app = getDesktopAppDefinition(item.dataset.appId);
+        const icon = item.querySelector('.app-icon');
+        const label = item.querySelector('span');
+        if (icon) icon.innerHTML = renderDesktopAppIcon(app, { themeData });
+        if (label) label.textContent = app.name;
+    });
+}
+window.refreshDesktopThemedIcons = refreshDesktopThemedIcons;
+
+function applyFolderPopupSize(folder, popup) {
+    if (!folder || !popup) return;
+    const width = Math.max(240, Math.min(340, Number(folder.width) || 260));
+    const height = Math.max(250, Math.min(520, Number(folder.height) || 0));
+    popup.style.width = `${width}px`;
+    popup.style.height = folder.height ? `${height}px` : '';
+}
+
+function saveFolderPopupSize(folderId, popup) {
+    const folder = window._folders.find(item => item.id === folderId);
+    if (!folder || !popup) return;
+    folder.width = Math.round(popup.offsetWidth || 260);
+    folder.height = Math.round(popup.offsetHeight || 0);
+    saveFolders();
+}
+
+function ensureFolderResizeHandle(popup) {
+    if (!popup || popup.querySelector('.folder-resize-handle')) return;
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'folder-resize-handle';
+    handle.setAttribute('aria-label', '调整文件夹大小');
+    handle.innerHTML = '<i class="ri-drag-move-2-line"></i>';
+    handle.addEventListener('click', event => event.stopPropagation());
+    handle.addEventListener('pointerdown', startFolderPopupResize);
+    popup.appendChild(handle);
+}
+
+function startFolderPopupResize(e) {
+    const popup = e.currentTarget.closest('.folder-popup');
+    const overlay = popup?.closest('.folder-overlay');
+    const folderId = popup?.dataset.folderId;
+    if (!popup || !overlay || !folderId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = popup.offsetWidth;
+    const startHeight = popup.offsetHeight;
+    const maxWidth = Math.max(260, overlay.clientWidth - 34);
+    const maxHeight = Math.max(300, overlay.clientHeight - 120);
+    if (typeof e.currentTarget.setPointerCapture === 'function') {
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    const move = ev => {
+        const width = Math.max(240, Math.min(maxWidth, startWidth + ev.clientX - startX));
+        const height = Math.max(250, Math.min(maxHeight, startHeight + ev.clientY - startY));
+        popup.style.width = `${Math.round(width)}px`;
+        popup.style.height = `${Math.round(height)}px`;
+    };
+    const up = () => {
+        saveFolderPopupSize(folderId, popup);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
 }
 
 function createFolder(app1, app2) {
     const folder = {
         id: 'folder_' + Date.now(),
         name: '文件夹',
-        apps: [app1, app2]
+        apps: [normalizeDesktopAppRef(app1), normalizeDesktopAppRef(app2)],
+        width: null,
+        height: null
     };
     window._folders.push(folder);
     saveFolders();
@@ -4362,19 +5116,37 @@ function openFolder(folderId) {
     const overlay = document.getElementById('folder-overlay');
     const grid = document.getElementById('folder-grid');
     const nameInput = document.getElementById('folder-name-input');
+    const popup = overlay?.querySelector('.folder-popup');
+    if (!overlay || !grid || !nameInput || !popup) return;
 
+    popup.dataset.folderId = folderId;
+    applyFolderPopupSize(folder, popup);
+    ensureFolderResizeHandle(popup);
     nameInput.value = folder.name;
-    nameInput.oninput = () => { folder.name = nameInput.value; saveFolders(); };
+    nameInput.oninput = () => {
+        folder.name = nameInput.value.trim() || '文件夹';
+        saveFolders();
+        syncDesktopFolderIcon(folderId);
+    };
 
     grid.innerHTML = '';
-    folder.apps.forEach(app => {
+    getDesktopFolderApps(folder).forEach(app => {
         const item = document.createElement('div');
-        item.className = 'app-item';
+        item.className = 'app-item folder-grid-item';
+        item.dataset.appId = app.id;
+        item.dataset.folderId = folderId;
         item.onclick = (e) => { e.stopPropagation(); closeFolderOverlay(); openApp(app.id); };
         item.innerHTML = `
-            <div class="app-icon icon-black"><i class="${app.icon}"></i></div>
-            <span>${app.name}</span>
+            <div class="app-icon icon-black">${renderDesktopAppIcon(app)}</div>
+            <span>${desktopEscapeHtml(app.name)}</span>
+            <button type="button" class="folder-move-out-btn" aria-label="移出到桌面">
+                <i class="ri-logout-box-r-line"></i>
+            </button>
         `;
+        item.querySelector('.folder-move-out-btn')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            moveAppOutOfFolder(folderId, app.id);
+        });
         grid.appendChild(item);
     });
 
@@ -4389,8 +5161,9 @@ function closeFolderOverlay(e) {
 function addToFolder(folderId, app) {
     const folder = window._folders.find(f => f.id === folderId);
     if (!folder) return;
-    if (!folder.apps.find(a => a.id === app.id)) {
-        folder.apps.push(app);
+    const appRef = normalizeDesktopAppRef(app);
+    if (!folder.apps.find(a => a.id === appRef.id)) {
+        folder.apps.push(appRef);
         saveFolders();
         rebuildDesktop();
     }
@@ -4417,6 +5190,34 @@ const DESKTOP_APPS = [
     { id: 'money', name: '记账', icon: 'ri-money-cny-box-line' },
     { id: 'game', name: 'Game', icon: 'ri-gamepad-line' }
 ];
+normalizeDesktopFolders();
+saveFolders();
+
+function renderDesktopFolderMiniIcons(folder, options = {}) {
+    return getDesktopFolderApps(folder).slice(0, 4).map(app => `<div class="folder-mini-icon">${renderDesktopAppIcon(app, options)}</div>`).join('');
+}
+
+function createDesktopAppElement(app) {
+    const safeApp = getDesktopAppDefinition(app);
+    const el = document.createElement('div');
+    el.className = 'app-item';
+    el.dataset.appId = safeApp.id;
+    el.dataset.layoutId = `app-${safeApp.id}`;
+    el.onclick = () => openApp(safeApp.id);
+    el.innerHTML = `<div class="app-icon icon-black">${renderDesktopAppIcon(safeApp)}</div><span>${desktopEscapeHtml(safeApp.name)}</span>`;
+    return el;
+}
+
+function createDesktopFolderElement(folder) {
+    const el = document.createElement('div');
+    el.className = 'app-item is-folder';
+    el.dataset.folderId = folder.id;
+    el.dataset.layoutId = `folder-${folder.id}`;
+    el.dataset.layoutType = 'folder';
+    el.onclick = () => openFolder(folder.id);
+    el.innerHTML = `<div class="app-icon">${renderDesktopFolderMiniIcons(folder)}</div><span>${desktopEscapeHtml(folder.name)}</span>`;
+    return el;
+}
 
 function rebuildDesktop() {
     const quads = document.querySelectorAll('.apps-quad');
@@ -4434,20 +5235,9 @@ function rebuildDesktop() {
         const slice = allItems.slice(start, start + 4);
         slice.forEach(item => {
             if (item.type === 'folder') {
-                const f = item.data;
-                const el = document.createElement('div');
-                el.className = 'app-item is-folder';
-                el.onclick = () => openFolder(f.id);
-                const minis = f.apps.slice(0, 4).map(a => `<div class="folder-mini-icon"><i class="${a.icon}" style="font-size:9px;"></i></div>`).join('');
-                el.innerHTML = `<div class="app-icon">${minis}</div><span>${f.name}</span>`;
-                quad.appendChild(el);
+                quad.appendChild(createDesktopFolderElement(item.data));
             } else {
-                const a = item.data;
-                const el = document.createElement('div');
-                el.className = 'app-item';
-                el.onclick = () => openApp(a.id);
-                el.innerHTML = `<div class="app-icon icon-black"><i class="${a.icon}"></i></div><span>${a.name}</span>`;
-                quad.appendChild(el);
+                quad.appendChild(createDesktopAppElement(item.data));
             }
         });
     });
@@ -4462,8 +5252,9 @@ function initFolderDrag() {
         quad.querySelectorAll('.app-item:not(.is-folder)').forEach(item => {
             item.setAttribute('draggable', 'true');
             item.addEventListener('dragstart', (e) => {
+                const appId = item.dataset.appId;
                 const appName = item.querySelector('span')?.textContent;
-                const app = DESKTOP_APPS.find(a => a.name === appName);
+                const app = DESKTOP_APPS.find(a => a.id === appId) || DESKTOP_APPS.find(a => a.name === appName);
                 if (app) {
                     dragSrc = app;
                     e.dataTransfer.setData('text/plain', app.id);
@@ -4477,8 +5268,9 @@ function initFolderDrag() {
                 e.preventDefault();
                 item.style.transform = '';
                 if (!dragSrc) return;
+                const targetId = item.dataset.appId;
                 const targetName = item.querySelector('span')?.textContent;
-                const targetApp = DESKTOP_APPS.find(a => a.name === targetName);
+                const targetApp = DESKTOP_APPS.find(a => a.id === targetId) || DESKTOP_APPS.find(a => a.name === targetName);
                 if (targetApp && targetApp.id !== dragSrc.id) {
                     createFolder(dragSrc, targetApp);
                 }
@@ -4499,6 +5291,72 @@ if (document.readyState === 'loading') {
     setTimeout(initFolderDrag, 500);
     initPageSwipe();
 }
+
+function addDesktopAppToCurrentPage(app, offsetIndex = 0) {
+    const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+    const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
+    const pageArea = page?.querySelector('.desktop-scroll-area');
+    if (!pageArea) return null;
+    pageArea.classList.add('layout-canvas');
+    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+    const item = createDesktopAppElement(app);
+    pageArea.appendChild(item);
+    prepareDesktopLayoutItem(item, pageArea, {
+        left: 24 + (offsetIndex % 3) * 82,
+        top: 78 + Math.floor(offsetIndex / 3) * 88,
+        width: 72,
+        height: 76
+    });
+    return item;
+}
+
+function moveAppOutOfFolder(folderId, appId) {
+    const folder = window._folders.find(f => f.id === folderId);
+    if (!folder) return;
+    const originalApps = [...folder.apps];
+    const movedApp = originalApps.find(app => app.id === appId);
+    if (!movedApp) return;
+    const movedAppInfo = getDesktopAppDefinition(movedApp);
+    const nextApps = originalApps.filter(app => app.id !== appId);
+    const shouldDissolveFolder = nextApps.length <= 1;
+    const appsToPlace = shouldDissolveFolder ? originalApps : [movedApp];
+
+    if (shouldDissolveFolder) {
+        window._folders = window._folders.filter(f => f.id !== folderId);
+    } else {
+        folder.apps = nextApps;
+    }
+    saveFolders();
+    closeFolderOverlay();
+
+    const hasLayoutCanvas = !!document.querySelector('#pages-container .desktop-scroll-area.layout-canvas');
+    if (window._editMode || hasLayoutCanvas) {
+        const folderItem = Array.from(document.querySelectorAll('.app-item.is-folder')).find(item => item.dataset.folderId === folderId);
+        if (shouldDissolveFolder) {
+            folderItem?.remove();
+        } else if (folderItem) {
+            const currentFolder = window._folders.find(f => f.id === folderId);
+            const icon = folderItem.querySelector('.app-icon');
+            if (icon && currentFolder) icon.innerHTML = renderDesktopFolderMiniIcons(currentFolder);
+        }
+        let lastItem = null;
+        appsToPlace.forEach((app, index) => { lastItem = addDesktopAppToCurrentPage(app, index); });
+        if (window._editMode && lastItem) selectDesktopLayoutItem(lastItem);
+        if (!window._editMode) {
+            localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
+                items: collectDesktopLayout(),
+                pageCount: getDesktopPages().length,
+                savedAt: Date.now()
+            }));
+        }
+    } else {
+        rebuildDesktop();
+        setTimeout(initFolderDrag, 0);
+    }
+
+    if (typeof showWechatToast === 'function') showWechatToast(`${movedAppInfo.name} 已移到桌面`);
+}
+window.moveAppOutOfFolder = moveAppOutOfFolder;
 
 // --- 📄 页面滑动系统 ---
 function initPageSwipe() {
@@ -4578,6 +5436,9 @@ function initPageSwipe() {
 
 // --- 桌面长按布局编辑 ---
 const DESKTOP_LAYOUT_KEY = 'desktop_layout_v2';
+const DESKTOP_STICKY_NOTES_KEY = 'desktop_sticky_notes_v1';
+const DESKTOP_SNAP_GRID = 12;
+const DESKTOP_SNAP_TOLERANCE = 9;
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
 let _editLongPressTimer = null;
@@ -4621,6 +5482,8 @@ function getDesktopItemId(el) {
         return 'widget-photo-' + Date.now();
     }
     if (el.classList.contains('app-item')) {
+        if (el.classList.contains('is-folder') && el.dataset.folderId) return `folder-${el.dataset.folderId}`;
+        if (el.dataset.appId) return `app-${el.dataset.appId}`;
         const onclick = el.getAttribute('onclick') || '';
         const match = onclick.match(/openApp\('([^']+)'\)/);
         if (match) return 'app-' + match[1];
@@ -4634,8 +5497,15 @@ function findDesktopBuiltinElement(id) {
     if (id === 'widget-calendar') return document.querySelector('.calendar-widget');
     if (id === 'widget-photo-1') return document.querySelector('.desktop-img-1')?.closest('.photo-large') || document.querySelectorAll('.photo-large')[0];
     if (id === 'widget-photo-2') return document.querySelector('.desktop-img-2')?.closest('.photo-large') || document.querySelectorAll('.photo-large')[1];
+    if (id.startsWith('folder-')) {
+        const folderId = id.slice(7);
+        const folder = window._folders.find(f => f.id === folderId);
+        return folder ? createDesktopFolderElement(folder) : null;
+    }
     if (id.startsWith('app-')) {
         const appId = id.slice(4);
+        const app = DESKTOP_APPS.find(item => item.id === appId);
+        if (app) return createDesktopAppElement(app);
         return Array.from(document.querySelectorAll('.app-item')).find(item => {
             const onclick = item.getAttribute('onclick') || '';
             return onclick.includes(`openApp('${appId}')`);
@@ -4764,6 +5634,7 @@ function setupDesktopLayoutItem(item) {
     item.dataset.layoutReady = '1';
     item.addEventListener('pointerdown', startDesktopItemDrag);
     item.addEventListener('click', (e) => {
+        if (e.target.closest('.pw-note')) return;
         if (!window._editMode) return;
         e.preventDefault();
         e.stopPropagation();
@@ -4800,6 +5671,7 @@ function selectDesktopLayoutItem(item) {
 
 function startDesktopItemDrag(e) {
     if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-move-page')) return;
+    if (e.target.closest('.pw-note')) return;
     const item = e.currentTarget;
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
@@ -4822,13 +5694,18 @@ function startDesktopItemDrag(e) {
         const maxTop = Math.max(8, pageArea.clientHeight - item.offsetHeight - 8);
         const dx = (point.x - startX) / scale;
         const dy = (point.y - startY) / scale;
-        item.style.left = `${Math.max(8, Math.min(maxLeft, startLeft + dx))}px`;
-        item.style.top = `${Math.max(8, Math.min(maxTop, startTop + dy))}px`;
+        applyDesktopLayoutRect(item, pageArea, {
+            left: Math.max(8, Math.min(maxLeft, startLeft + dx)),
+            top: Math.max(8, Math.min(maxTop, startTop + dy)),
+            width: item.offsetWidth,
+            height: item.offsetHeight
+        }, { mode: 'move' });
     };
     const up = () => {
         if (typeof item.releasePointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
             try { item.releasePointerCapture(e.pointerId); } catch (err) {}
         }
+        hideDesktopSnapGuides(pageArea);
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
     };
@@ -4858,10 +5735,15 @@ function startDesktopItemResize(e) {
         const maxHeight = pageArea.clientHeight - top;
         const dx = (ev.clientX - startX) / scale;
         const dy = (ev.clientY - startY) / scale;
-        item.style.width = `${Math.max(minWidth, Math.min(maxWidth, startWidth + dx))}px`;
-        item.style.height = `${Math.max(minHeight, Math.min(maxHeight, startHeight + dy))}px`;
+        applyDesktopLayoutRect(item, pageArea, {
+            left,
+            top,
+            width: Math.max(minWidth, Math.min(maxWidth, startWidth + dx)),
+            height: Math.max(minHeight, Math.min(maxHeight, startHeight + dy))
+        }, { mode: 'resize' });
     };
     const up = () => {
+        hideDesktopSnapGuides(pageArea);
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
     };
@@ -4871,35 +5753,264 @@ function startDesktopItemResize(e) {
 
 function createDesktopCustomWidget(kind, id) {
     const el = document.createElement('div');
-    el.className = `desktop-custom-widget desktop-widget-${kind}`;
+    const safeKind = 'princess';
+    const layoutId = id || `custom-${safeKind}-${Date.now()}`;
+    const noteText = getDesktopStickyNoteValue(layoutId);
+    el.className = 'desktop-custom-widget desktop-widget-princess';
     el.dataset.layoutType = 'custom';
-    el.dataset.widgetKind = kind;
-    el.dataset.layoutId = id || `custom-${kind}-${Date.now()}`;
+    el.dataset.widgetKind = safeKind;
+    el.dataset.layoutId = layoutId;
     const templates = {
-        music: `<div class="dw-mp3-screen"><i class="ri-disc-line"></i><span>playlist</span><strong>soft blue</strong></div><div class="dw-mp3-pad"><i class="ri-skip-back-fill"></i><b></b><i class="ri-skip-forward-fill"></i></div>`,
-        camera: `<div class="dw-camera-lens"><i class="ri-camera-3-line"></i></div><strong>camera</strong><span>daily snaps</span>`,
-        album: `<div class="dw-album-grid"><span></span><span></span><span></span><span></span></div><strong>gallery</strong><em>4 photos</em>`
+        princess: `
+            <div class="pw-card">
+                <div class="pw-bow pw-bow-main"><span></span></div>
+                <div class="pw-date">07/05/22</div>
+                <div class="pw-love">love forever</div>
+                <div class="pw-vertical">For appreciation only</div>
+                <div class="pw-stamp">SAMPLE</div>
+                <span class="pw-star s1">✦</span>
+                <span class="pw-star s2">✦</span>
+                <span class="pw-star s3">✦</span>
+                <span class="pw-star s4">✦</span>
+                <span class="pw-star s5">✦</span>
+                <textarea class="pw-note" maxlength="220" placeholder="写一点今天想记住的事" oninput="saveDesktopStickyNote(this)">${musicEscapeHtml(noteText || 'Around the\ngalaxy, there are no\nbrighter stars than you.')}</textarea>
+                <div class="pw-title">The princess</div>
+                <div class="pw-script">You are my highness</div>
+                <div class="pw-bow-stack">
+                    <span class="pw-mini-bow"></span>
+                    <span class="pw-mini-bow"></span>
+                    <span class="pw-mini-bow"></span>
+                </div>
+            </div>
+        `
     };
-    el.innerHTML = templates[kind] || templates.album;
+    el.innerHTML = templates[safeKind];
     return el;
 }
 
+function getDesktopStickyNotes() {
+    try {
+        const notes = JSON.parse(localStorage.getItem(DESKTOP_STICKY_NOTES_KEY) || '{}');
+        return notes && typeof notes === 'object' ? notes : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function setDesktopStickyNoteValue(id, text) {
+    if (!id) return;
+    const notes = getDesktopStickyNotes();
+    notes[id] = String(text || '').slice(0, 220);
+    localStorage.setItem(DESKTOP_STICKY_NOTES_KEY, JSON.stringify(notes));
+}
+
+function getDesktopStickyNoteValue(id) {
+    const notes = getDesktopStickyNotes();
+    return notes[id] || '';
+}
+
+function saveDesktopStickyNote(input) {
+    const widget = input?.closest?.('.desktop-custom-widget');
+    if (!widget) return;
+    setDesktopStickyNoteValue(widget.dataset.layoutId, input.value || '');
+}
+window.saveDesktopStickyNote = saveDesktopStickyNote;
+
+function syncDesktopStickyNotesFromDom() {
+    document.querySelectorAll('.desktop-widget-princess .pw-note').forEach(input => saveDesktopStickyNote(input));
+}
+
+function snapDesktopNumber(value, step = DESKTOP_SNAP_GRID) {
+    return Math.round(Number(value || 0) / step) * step;
+}
+
+function getDesktopSnapTargets(pageArea, activeItem) {
+    const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
+    const areaHeight = Math.max(520, pageArea?.clientHeight || 590);
+    const vertical = [{ value: Math.round(areaWidth / 2), type: 'center' }];
+    const horizontal = [{ value: Math.round(areaHeight / 2), type: 'center' }];
+    pageArea?.querySelectorAll?.(':scope > .desktop-layout-item')?.forEach(item => {
+        if (!item || item === activeItem) return;
+        const left = parseFloat(item.style.left) || item.offsetLeft || 0;
+        const top = parseFloat(item.style.top) || item.offsetTop || 0;
+        const width = item.offsetWidth || parseFloat(item.style.width) || 0;
+        const height = item.offsetHeight || parseFloat(item.style.height) || 0;
+        vertical.push(
+            { value: Math.round(left), type: 'peer' },
+            { value: Math.round(left + width / 2), type: 'peer' },
+            { value: Math.round(left + width), type: 'peer' }
+        );
+        horizontal.push(
+            { value: Math.round(top), type: 'peer' },
+            { value: Math.round(top + height / 2), type: 'peer' },
+            { value: Math.round(top + height), type: 'peer' }
+        );
+    });
+    return { vertical, horizontal };
+}
+
+function findDesktopSnapMatch(targets, points) {
+    let best = null;
+    targets.forEach(target => {
+        points.forEach(point => {
+            const distance = Math.abs(point.value - target.value);
+            if (distance > DESKTOP_SNAP_TOLERANCE) return;
+            if (!best || distance < best.distance || (distance === best.distance && target.type === 'center')) {
+                best = { ...target, offset: point.offset, distance };
+            }
+        });
+    });
+    return best;
+}
+
+function snapDesktopLayoutRect(rect, pageArea, options = {}) {
+    const source = rect || {};
+    const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
+    const areaHeight = Math.max(520, pageArea?.clientHeight || 590);
+    let width = Math.max(54, snapDesktopNumber(source.width || 72));
+    let height = Math.max(58, snapDesktopNumber(source.height || 76));
+    let left = snapDesktopNumber(source.left);
+    let top = snapDesktopNumber(source.top);
+    let guideX = left;
+    let guideY = top;
+    let snapXType = '';
+    let snapYType = '';
+    const mode = options.mode || 'move';
+    const targets = getDesktopSnapTargets(pageArea, options.item || null);
+
+    if (mode === 'resize') {
+        const rightMatch = findDesktopSnapMatch(targets.vertical, [{ value: left + width, offset: 0 }]);
+        const bottomMatch = findDesktopSnapMatch(targets.horizontal, [{ value: top + height, offset: 0 }]);
+        if (rightMatch) {
+            width = Math.max(54, rightMatch.value - left);
+            guideX = rightMatch.value;
+            snapXType = rightMatch.type;
+        } else {
+            guideX = left + width;
+        }
+        if (bottomMatch) {
+            height = Math.max(58, bottomMatch.value - top);
+            guideY = bottomMatch.value;
+            snapYType = bottomMatch.type;
+        } else {
+            guideY = top + height;
+        }
+    } else {
+        const xMatch = findDesktopSnapMatch(targets.vertical, [
+            { value: left, offset: 0 },
+            { value: left + width / 2, offset: width / 2 },
+            { value: left + width, offset: width }
+        ]);
+        const yMatch = findDesktopSnapMatch(targets.horizontal, [
+            { value: top, offset: 0 },
+            { value: top + height / 2, offset: height / 2 },
+            { value: top + height, offset: height }
+        ]);
+        if (xMatch) {
+            left = Math.round(xMatch.value - xMatch.offset);
+            guideX = xMatch.value;
+            snapXType = xMatch.type;
+        }
+        if (yMatch) {
+            top = Math.round(yMatch.value - yMatch.offset);
+            guideY = yMatch.value;
+            snapYType = yMatch.type;
+        }
+    }
+
+    const safe = clampDesktopLayoutRect({ ...source, left, top, width, height }, pageArea);
+    return {
+        ...safe,
+        guideX: Math.max(0, Math.min(areaWidth, guideX)),
+        guideY: Math.max(0, Math.min(areaHeight, guideY)),
+        centerX: snapXType === 'center',
+        centerY: snapYType === 'center',
+        peerX: snapXType === 'peer',
+        peerY: snapYType === 'peer',
+        mode
+    };
+}
+
+function ensureDesktopSnapGuides(pageArea) {
+    if (!pageArea) return null;
+    let guide = pageArea.querySelector(':scope > .desktop-snap-guides');
+    if (!guide) {
+        guide = document.createElement('div');
+        guide.className = 'desktop-snap-guides';
+        guide.innerHTML = '<span class="desktop-snap-guide vertical"></span><span class="desktop-snap-guide horizontal"></span>';
+        pageArea.appendChild(guide);
+    }
+    return guide;
+}
+
+function showDesktopSnapGuides(pageArea, rect) {
+    const guide = ensureDesktopSnapGuides(pageArea);
+    if (!guide || !rect) return;
+    const vertical = guide.querySelector('.vertical');
+    const horizontal = guide.querySelector('.horizontal');
+    if (vertical) {
+        vertical.style.left = `${Math.round(rect.mode === 'resize' ? rect.left + rect.width : rect.guideX)}px`;
+        vertical.classList.toggle('center', !!rect.centerX);
+        vertical.classList.toggle('peer', !!rect.peerX);
+    }
+    if (horizontal) {
+        horizontal.style.top = `${Math.round(rect.mode === 'resize' ? rect.top + rect.height : rect.guideY)}px`;
+        horizontal.classList.toggle('center', !!rect.centerY);
+        horizontal.classList.toggle('peer', !!rect.peerY);
+    }
+    guide.classList.add('visible');
+}
+
+function hideDesktopSnapGuides(pageArea) {
+    const scope = pageArea || document;
+    scope.querySelectorAll('.desktop-snap-guides.visible').forEach(guide => guide.classList.remove('visible'));
+}
+
+function applyDesktopLayoutRect(item, pageArea, rect, options = {}) {
+    const safe = snapDesktopLayoutRect(rect, pageArea, { ...options, item });
+    item.style.left = `${Math.round(safe.left)}px`;
+    item.style.top = `${Math.round(safe.top)}px`;
+    item.style.width = `${Math.round(safe.width)}px`;
+    item.style.height = `${Math.round(safe.height)}px`;
+    showDesktopSnapGuides(pageArea, safe);
+    return safe;
+}
+
+function getDesktopCustomWidgetSize(kind) {
+    if (kind === 'princess') return { width: 310, height: 310 };
+    return { width: 310, height: 310 };
+}
+
 function addDesktopCustomWidget(kind) {
+    if (kind !== 'princess') return;
     if (!window._editMode) enterEditMode();
     const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
     const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
     const pageArea = page?.querySelector('.desktop-scroll-area');
     if (!pageArea) return;
     const item = createDesktopCustomWidget(kind);
+    const size = getDesktopCustomWidgetSize(kind);
     pageArea.appendChild(item);
     prepareDesktopLayoutItem(item, pageArea, {
         left: 22,
         top: 70 + pageArea.querySelectorAll('.desktop-custom-widget').length * 18,
-        width: kind === 'music' ? 300 : 142,
-        height: kind === 'music' ? 132 : 142
+        width: size.width,
+        height: size.height
     });
     selectDesktopLayoutItem(item);
 }
+
+function ensureDesktopPrincessWidget() {
+    const page = ensureDesktopPage(1);
+    const pageArea = page?.querySelector('.desktop-scroll-area');
+    if (!pageArea || pageArea.querySelector('.desktop-widget-princess')) return;
+    const item = createDesktopCustomWidget('princess', 'custom-princess-default');
+    pageArea.insertBefore(item, pageArea.firstChild);
+    pageArea.scrollTop = 0;
+    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+    syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
+}
+window.ensureDesktopPrincessWidget = ensureDesktopPrincessWidget;
 
 function addDesktopScreen() {
     if (!window._editMode) enterEditMode();
@@ -4951,10 +6062,8 @@ function renderDesktopEditChrome() {
             <span>拖动图标或组件，点选后可缩放、换屏。</span>
         </div>
         <div class="desktop-widget-tray">
-            <button type="button" onclick="addDesktopCustomWidget('music')"><i class="ri-music-2-line"></i><span>音乐</span></button>
-            <button type="button" onclick="addDesktopCustomWidget('camera')"><i class="ri-camera-3-line"></i><span>相机</span></button>
-            <button type="button" onclick="addDesktopCustomWidget('album')"><i class="ri-image-2-line"></i><span>相册</span></button>
-            <button type="button" onclick="addDesktopScreen()"><i class="ri-layout-row-line"></i><span>屏幕</span></button>
+            <button type="button" onclick="addDesktopCustomWidget('princess')"><b class="desktop-tray-symbol">✦</b><span>蝴蝶结</span></button>
+            <button type="button" onclick="addDesktopScreen()"><i class="ri-layout-row-line"></i><span>加屏</span></button>
         </div>
         <div class="desktop-edit-actions">
             <button type="button" class="restore" onclick="promptRestoreDefaultDesktopLayout()">恢复原始</button>
@@ -5056,6 +6165,7 @@ function promptRestoreDefaultDesktopLayout() {
 }
 
 function collectDesktopLayout() {
+    syncDesktopStickyNotesFromDom();
     return Array.from(document.querySelectorAll('.desktop-layout-item')).map(item => {
         const page = item.closest('.desktop-page');
         const area = item.closest('.desktop-scroll-area');
@@ -5079,6 +6189,7 @@ function collectDesktopLayout() {
 }
 
 function saveDesktopLayout() {
+    syncDesktopStickyNotesFromDom();
     localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
         items: collectDesktopLayout(),
         pageCount: getDesktopPages().length,
@@ -5114,6 +6225,7 @@ function clearDesktopEditChrome() {
     document.getElementById('desktop-edit-toolbar')?.remove();
     document.getElementById('desktop-save-modal')?.remove();
     document.querySelectorAll('.desktop-resize-handle, .desktop-item-move-page').forEach(el => el.remove());
+    document.querySelectorAll('.desktop-snap-guides').forEach(el => el.remove());
     document.querySelectorAll('.desktop-layout-item.selected').forEach(el => el.classList.remove('selected'));
 }
 
@@ -5155,6 +6267,7 @@ function applySavedDesktopLayout() {
     const pages = getDesktopPages();
     pages.forEach(page => page.querySelector('.desktop-scroll-area')?.classList.add('layout-canvas'));
     saved.items.forEach(record => {
+        if (record.type === 'custom' && record.kind !== 'princess') return;
         const page = pages[Math.max(0, Math.min(pages.length - 1, record.page || 0))];
         const area = page?.querySelector('.desktop-scroll-area');
         if (!area) return;
@@ -5198,7 +6311,11 @@ function initEditMode() {
         e.stopPropagation();
         _desktopLongPressTriggered = false;
     }, true);
-    setTimeout(applySavedDesktopLayout, 50);
+    setTimeout(() => {
+        applySavedDesktopLayout();
+        ensureDesktopPrincessWidget();
+        syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
+    }, 50);
 }
 
 if (document.readyState === 'loading') {

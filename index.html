@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260522-money-sheet1">
+    <link rel="manifest" href="manifest.webmanifest?v=20260522-music-sources1">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260522-money-sheet1">
+    <link rel="stylesheet" href="style.css?v=20260522-music-sources1">
 </head>
 <body>
 
@@ -142,7 +142,7 @@
                 </div>
                 <div class="desktop-page" data-page="1">
                     <div class="desktop-scroll-area page2-content">
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#999; gap:10px;">
+                        <div class="desktop-empty-placeholder">
                             <i class="ri-add-circle-line" style="font-size:40px; opacity:0.4;"></i>
                             <span style="font-size:13px;">第二屏 (可自定义)</span>
                         </div>
@@ -193,42 +193,26 @@
                     <div class="music-source-chips" id="music-source-chips">
                         <button type="button" data-source="smart" class="active" onclick="setMusicSourceMode('smart')">多源</button>
                         <button type="button" data-source="netease" onclick="setMusicSourceMode('netease')">网易云</button>
-                        <button type="button" data-source="tencent" onclick="setMusicSourceMode('tencent')">QQ</button>
-                        <button type="button" data-source="kugou" onclick="setMusicSourceMode('kugou')">酷狗</button>
-                        <button type="button" data-source="kuwo" onclick="setMusicSourceMode('kuwo')">酷我</button>
-                        <button type="button" data-source="baidu" onclick="setMusicSourceMode('baidu')">百度</button>
                         <button type="button" data-source="archive" onclick="setMusicSourceMode('archive')">公开</button>
+                        <button type="button" data-source="gequhai" onclick="openGequhaiMusicSearch()">歌曲海</button>
                     </div>
                     <button type="button" class="music-source-config-toggle" onclick="toggleMusicSourceConfig()" aria-label="音乐源设置"><i class="ri-equalizer-3-line"></i></button>
                 </div>
                 <div class="music-source-config hidden" id="music-source-config">
                     <label>
-                        <span>Meting API</span>
+                        <span>Meting API（网易云）</span>
                         <textarea id="music-meting-bases" rows="3" spellcheck="false"></textarea>
                     </label>
                     <label>
-                        <span>go-music-api</span>
+                        <span>自定义聚合后端</span>
                         <input type="url" id="music-go-api-base" placeholder="http://127.0.0.1:8080">
                     </label>
-                    <p>中文平台建议填自己的后端地址；不要把会员 Cookie 写进前端。</p>
-                    <div class="music-source-config-row">
-                        <label>
-                            <span>网易无损</span>
-                            <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:5000">
-                        </label>
-                        <label>
-                            <span>QQ解析</span>
-                            <input type="url" id="music-qq-api-base" placeholder="http://127.0.0.1:5001">
-                        </label>
-                    </div>
+                    <p>已移除当前不可用的内置解析源；歌曲海只作为外部搜索打开。</p>
                     <div class="music-playlist-import">
                         <div>
                             <span>导入歌单</span>
                             <select id="music-playlist-platform">
                                 <option value="netease">网易云</option>
-                                <option value="tencent">QQ音乐</option>
-                                <option value="kugou">酷狗</option>
-                                <option value="kuwo">酷我</option>
                             </select>
                         </div>
                         <input type="text" id="music-playlist-url" placeholder="粘贴歌单链接或 ID">
@@ -832,7 +816,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.11
+                    Beyond Screen v1.1.20
                 </div>
             </div>
         </div>
@@ -883,7 +867,7 @@
             <div class="wechat-header">
                 <div class="wc-header-left" onclick="closeApp('wechat')"><i class="ri-arrow-left-s-line"></i><span>微信</span></div>
                 <span class="wc-header-title">消息</span>
-                <div class="wc-header-right"><i class="ri-add-line" onclick="testAddCharacter()" style="font-size: 26px;"></i></div>
+                <div class="wc-header-right"><i class="ri-add-line" onclick="openWechatPlusMenu(event)" style="font-size: 26px;"></i></div>
             </div>
             
             <div class="wechat-content wc-tab-view active" id="wc-view-chat">
@@ -1390,13 +1374,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260522-money-sheet1"></script>
-    <script src="stickers-boltp-share.js?v=20260522-money-sheet1"></script>
-    <script src="wechat.js?v=20260522-money-sheet1"></script>
-    <script src="theme.js?v=20260522-money-sheet1"></script>
-    <script src="settings.js?v=20260522-money-sheet1"></script>
-    <script src="script.js?v=20260522-money-sheet1"></script>
-    <script src="WorldBook.js?v=20260522-money-sheet1"></script>
-    <script src="regular.js?v=20260522-money-sheet1"></script>
+    <script src="chat-api.js?v=20260522-music-sources1"></script>
+    <script src="stickers-boltp-share.js?v=20260522-music-sources1"></script>
+    <script src="wechat.js?v=20260522-music-sources1"></script>
+    <script src="theme.js?v=20260522-music-sources1"></script>
+    <script src="settings.js?v=20260522-music-sources1"></script>
+    <script src="script.js?v=20260522-music-sources1"></script>
+    <script src="WorldBook.js?v=20260522-music-sources1"></script>
+    <script src="regular.js?v=20260522-music-sources1"></script>
 </body>
 </html>
