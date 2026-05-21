@@ -5958,27 +5958,33 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .money-shell {
     height: 100%;
+    position: relative;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 .money-topbar {
-    height: 108px;
-    padding: 50px 22px 14px;
+    height: 100px;
+    padding: 48px 20px 12px;
     display: grid;
-    grid-template-columns: 46px minmax(0, 1fr) 46px;
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
     align-items: center;
     gap: 12px;
     background: rgba(248,249,251,0.92);
     border-bottom: 1px solid rgba(22,26,34,0.07);
 }
 .money-topbar button {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     border: none;
-    border-radius: 17px;
-    background: #fff;
+    border-radius: 15px;
+    background: rgba(255,255,255,0.92);
     color: #171a22;
-    box-shadow: 0 10px 24px rgba(25,28,35,0.08);
+    box-shadow: 0 8px 20px rgba(25,28,35,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
 }
 .money-topbar span {
     color: #8d939d;
@@ -5989,7 +5995,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .money-topbar strong {
     display: block;
     margin-top: 4px;
-    font-size: 24px;
+    font-size: 23px;
     line-height: 1;
     font-weight: 940;
 }
@@ -6133,6 +6139,9 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     color: #fff;
     font-size: 12px;
     font-weight: 900;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
 }
 .money-record-list {
     display: flex;
@@ -6430,4 +6439,155 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .money-tabbar button.active {
     background: #171a22;
     color: #fff;
+}
+.money-sheet-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+}
+.money-sheet-overlay.show {
+    pointer-events: auto;
+}
+.money-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    background: rgba(23,26,34,0.22);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+.money-sheet-overlay.show .money-sheet-backdrop {
+    opacity: 1;
+}
+.money-sheet {
+    position: relative;
+    z-index: 1;
+    width: calc(100% - 24px);
+    max-height: calc(100% - 76px);
+    margin: 0 12px 12px;
+    padding: 10px 16px 16px;
+    border: 1px solid rgba(255,255,255,0.86);
+    border-radius: 28px;
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 24px 58px rgba(25,28,35,0.22);
+    backdrop-filter: blur(22px) saturate(1.16);
+    -webkit-backdrop-filter: blur(22px) saturate(1.16);
+    overflow-y: auto;
+    transform: translateY(24px);
+    opacity: 0;
+    transition: transform 0.22s cubic-bezier(0.2,0.86,0.2,1), opacity 0.18s ease;
+}
+.money-sheet-overlay.show .money-sheet {
+    transform: translateY(0);
+    opacity: 1;
+}
+.money-sheet-grip {
+    width: 40px;
+    height: 5px;
+    margin: 0 auto 12px;
+    border-radius: 999px;
+    background: rgba(23,26,34,0.16);
+}
+.money-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.money-sheet-head span {
+    color: #98a0aa;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+.money-sheet-head strong {
+    display: block;
+    margin-top: 4px;
+    color: #171a22;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 940;
+}
+.money-sheet-head button {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 13px;
+    background: #f3f4f6;
+    color: #171a22;
+    font-size: 18px;
+}
+.money-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 11px;
+}
+.money-field > span {
+    color: #7f8792;
+    font-size: 12px;
+    font-weight: 900;
+}
+.money-field input,
+.money-field textarea {
+    width: 100%;
+    border: none;
+    border-radius: 18px;
+    background: #f5f6f8;
+    color: #171a22;
+    outline: none;
+    font-size: 15px;
+    font-weight: 800;
+}
+.money-field input {
+    height: 46px;
+    padding: 0 14px;
+}
+.money-field textarea {
+    min-height: 62px;
+    padding: 12px 14px;
+    resize: none;
+    line-height: 1.45;
+}
+.money-category-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+.money-category-picker button {
+    min-height: 56px;
+    border: none;
+    border-radius: 18px;
+    background: #f5f6f8;
+    color: #7f8792;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 850;
+}
+.money-category-picker button i {
+    font-size: 18px;
+}
+.money-category-picker button.active {
+    background: #171a22;
+    color: #fff;
+}
+.money-sheet-submit {
+    width: 100%;
+    height: 48px;
+    margin-top: 14px;
+    border: none;
+    border-radius: 18px;
+    background: #171a22;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 920;
 }

@@ -328,7 +328,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260522-money-tabs1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260522-money-sheet1').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -3019,6 +3019,119 @@ function setMoneyCategoryFilter(category) {
 }
 window.setMoneyCategoryFilter = setMoneyCategoryFilter;
 
+function getMoneySheetCategoryButtons(activeCategory) {
+    const active = getMoneyCategoryMeta(activeCategory || '日常').name;
+    return MONEY_CATEGORIES.map(category => `
+        <button type="button" class="${category.name === active ? 'active' : ''}" data-money-category="${musicEscapeAttr(category.name)}" onclick="selectMoneySheetCategory('${musicEscapeAttr(category.name)}')">
+            <i class="${musicEscapeAttr(category.icon)}"></i><span>${musicEscapeHtml(category.name)}</span>
+        </button>
+    `).join('');
+}
+
+function openMoneyManualSheet(record = null) {
+    closeMoneyManualSheet(true);
+    const editing = !!record;
+    const category = getMoneyCategoryMeta(record?.category || record?.title || '日常');
+    const host = document.querySelector('#app-money-window .money-shell') || document.getElementById('app-money-window') || document.body;
+    const sheet = document.createElement('div');
+    sheet.id = 'money-manual-sheet';
+    sheet.className = 'money-sheet-overlay';
+    sheet.innerHTML = `
+        <button type="button" class="money-sheet-backdrop" onclick="closeMoneyManualSheet()" aria-label="关闭记账表单"></button>
+        <form class="money-sheet" onsubmit="submitMoneyManualSheet(event)">
+            <div class="money-sheet-grip"></div>
+            <div class="money-sheet-head">
+                <div>
+                    <span>${editing ? 'EDIT RECORD' : 'NEW RECORD'}</span>
+                    <strong>${editing ? '编辑这笔账' : '记一笔'}</strong>
+                </div>
+                <button type="button" onclick="closeMoneyManualSheet()" aria-label="关闭"><i class="ri-close-line"></i></button>
+            </div>
+            <input type="hidden" id="money-sheet-id" value="${musicEscapeAttr(record?.id || '')}">
+            <label class="money-field">
+                <span>花在什么上</span>
+                <input id="money-sheet-title" type="text" value="${musicEscapeAttr(record?.title || '')}" placeholder="比如 包子、牛奶、日语教材" autocomplete="off">
+            </label>
+            <label class="money-field">
+                <span>金额</span>
+                <input id="money-sheet-amount" type="number" inputmode="decimal" min="0" step="0.01" value="${record?.amount ? musicEscapeAttr(String(record.amount)) : ''}" placeholder="0.00">
+            </label>
+            <div class="money-field">
+                <span>分类</span>
+                <div class="money-category-picker" id="money-sheet-categories">${getMoneySheetCategoryButtons(category.name)}</div>
+            </div>
+            <label class="money-field">
+                <span>备注</span>
+                <textarea id="money-sheet-note" rows="2" placeholder="可选">${musicEscapeHtml(record?.note || '')}</textarea>
+            </label>
+            <button type="submit" class="money-sheet-submit">${editing ? '保存修改' : '保存这笔'}</button>
+        </form>
+    `;
+    host.appendChild(sheet);
+    requestAnimationFrame(() => sheet.classList.add('show'));
+    setTimeout(() => document.getElementById('money-sheet-title')?.focus(), 120);
+}
+window.openMoneyManualSheet = openMoneyManualSheet;
+
+function closeMoneyManualSheet(immediate = false) {
+    const sheet = document.getElementById('money-manual-sheet');
+    if (!sheet) return;
+    if (immediate) {
+        sheet.remove();
+        return;
+    }
+    sheet.classList.remove('show');
+    setTimeout(() => sheet.remove(), 180);
+}
+window.closeMoneyManualSheet = closeMoneyManualSheet;
+
+function selectMoneySheetCategory(category) {
+    const picker = document.getElementById('money-sheet-categories');
+    if (!picker) return;
+    picker.querySelectorAll('button').forEach(button => {
+        button.classList.toggle('active', button.dataset.moneyCategory === category);
+    });
+}
+window.selectMoneySheetCategory = selectMoneySheetCategory;
+
+function submitMoneyManualSheet(event) {
+    event?.preventDefault?.();
+    const id = document.getElementById('money-sheet-id')?.value || '';
+    const title = document.getElementById('money-sheet-title')?.value?.trim() || '';
+    const amount = Number(document.getElementById('money-sheet-amount')?.value || 0);
+    const activeCategory = document.querySelector('#money-sheet-categories button.active')?.dataset.moneyCategory || getMoneyCategory(title).name;
+    const note = document.getElementById('money-sheet-note')?.value?.trim() || '';
+    if (!title) {
+        if (typeof showWechatToast === 'function') showWechatToast('先写这笔钱花在什么上');
+        else alert('先写这笔钱花在什么上');
+        return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+        if (typeof showWechatToast === 'function') showWechatToast('金额不正确');
+        else alert('金额不正确');
+        return;
+    }
+    if (id) {
+        const records = getMoneyRecords();
+        const item = records.find(record => record.id === id);
+        if (item) {
+            const category = getMoneyCategoryMeta(activeCategory);
+            item.title = title.slice(0, 24);
+            item.amount = Math.round(amount * 100) / 100;
+            item.category = category.name;
+            item.icon = category.icon;
+            item.note = note;
+            item.updatedAt = Date.now();
+            saveMoneyRecords(records);
+        }
+    } else {
+        addMoneyRecord({ title, amount, category: activeCategory, note, source: 'manual' });
+    }
+    closeMoneyManualSheet();
+    renderMoneyApp();
+}
+window.submitMoneyManualSheet = submitMoneyManualSheet;
+
 function toggleMoneyRecord(id) {
     const records = getMoneyRecords();
     const item = records.find(record => record.id === id);
@@ -3032,25 +3145,7 @@ function editMoneyRecord(id) {
     const records = getMoneyRecords();
     const item = records.find(record => record.id === id);
     if (!item) return;
-    const title = prompt('修改名称', item.title || '');
-    if (title == null || !title.trim()) return;
-    const amountRaw = prompt('修改金额', String(item.amount || ''));
-    if (amountRaw == null) return;
-    const amount = Number(amountRaw);
-    if (!Number.isFinite(amount) || amount <= 0) {
-        alert('金额不正确');
-        return;
-    }
-    const categories = MONEY_CATEGORIES.map(item => item.name).join(' / ');
-    const categoryRaw = prompt(`修改分类：${categories}`, item.category || '日常');
-    const category = getMoneyCategoryMeta(categoryRaw || item.category || '日常');
-    item.title = title.trim().slice(0, 24);
-    item.amount = Math.round(amount * 100) / 100;
-    item.category = category.name;
-    item.icon = category.icon;
-    item.updatedAt = Date.now();
-    saveMoneyRecords(records);
-    renderMoneyApp();
+    openMoneyManualSheet(item);
 }
 window.editMoneyRecord = editMoneyRecord;
 
@@ -3065,17 +3160,7 @@ function deleteMoneyRecord(id) {
 window.deleteMoneyRecord = deleteMoneyRecord;
 
 function addManualMoneyRecord() {
-    const title = prompt('这笔钱花在什么上？');
-    if (!title || !title.trim()) return;
-    const amount = prompt('花了多少钱？');
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
-        alert('金额不正确');
-        return;
-    }
-    const categoryRaw = prompt(`分类：${MONEY_CATEGORIES.map(item => item.name).join(' / ')}`, getMoneyCategory(title).name);
-    addMoneyRecord({ title: title.trim(), amount: value, category: categoryRaw || getMoneyCategory(title).name, source: 'manual' });
-    renderMoneyApp();
+    openMoneyManualSheet();
 }
 window.addManualMoneyRecord = addManualMoneyRecord;
 
