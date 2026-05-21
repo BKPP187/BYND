@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDate();
     initLockScreen();
     initCalendar();
-    initByndPwaRuntime();
+    initByndFullscreenRuntime();
     
     if (typeof initIconGrid === 'function') initIconGrid();
     if (typeof initTheme === 'function') initTheme();
@@ -226,6 +226,7 @@ function closeApp(appName) {
 const BYND_NOTIFY_SETTINGS_KEY = 'bynd_proactive_notify_settings_v1';
 const BYND_NOTIFY_STATE_KEY = 'bynd_proactive_notify_state_v1';
 const BYND_NOTIFY_CLIENT_ID_KEY = 'bynd_proactive_notify_client_id_v1';
+let _byndServiceWorkerReady;
 
 function getProactiveNotifyClientId() {
     let id = localStorage.getItem(BYND_NOTIFY_CLIENT_ID_KEY);
@@ -236,13 +237,67 @@ function getProactiveNotifyClientId() {
     return id;
 }
 
-function initByndPwaRuntime() {
+function isByndMobileRuntime() {
+    return document.documentElement.classList.contains('mobile-runtime');
+}
+
+function markByndDisplayMode() {
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
+    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
+    const iosStandalone = window.navigator?.standalone === true;
+    document.documentElement.classList.toggle('bynd-display-standalone', !!standalone || iosStandalone);
+    document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen || iosStandalone);
+}
+
+function tryByndFullscreen() {
+    if (!isByndMobileRuntime() || document.fullscreenElement) return;
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
+    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
+    const iosStandalone = window.navigator?.standalone === true;
+    if (standalone || fullscreen || iosStandalone) {
+        document.documentElement.classList.add('bynd-display-fullscreen');
+        return;
+    }
+    const target = document.documentElement;
+    const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+    if (request) Promise.resolve(request.call(target)).catch(() => {});
+}
+
+function initByndFullscreenRuntime() {
+    markByndDisplayMode();
+    window.matchMedia?.('(display-mode: fullscreen)').addEventListener?.('change', markByndDisplayMode);
+    window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
+    document.addEventListener('fullscreenchange', markByndDisplayMode);
+    document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
+    ['pointerup', 'touchend', 'click'].forEach(type => {
+        document.addEventListener(type, tryByndFullscreen, { once: true, passive: true });
+    });
+}
+
+function cleanupByndServiceWorkerIfIdle() {
+    const settings = getProactiveNotifySettings();
+    if (settings.enabled || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistrations?.().then(registrations => {
+        registrations.forEach(reg => {
+            const scriptURL = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+            if (scriptURL.includes('/sw.js')) reg.unregister().catch(() => {});
+        });
+    }).catch(() => {});
+    if ('caches' in window) caches.delete('bynd-notify-cache-v1').catch(() => {});
+}
+
+function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('sw.js?v=20260521-mobile-frame1').then(() => {
+    if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260521-mobile-fullscreen1').then(() => {
         syncProactiveServiceWorkerConfig();
+        return navigator.serviceWorker.ready;
     }).catch(err => {
         console.warn('service worker register failed:', err);
+        _byndServiceWorkerReady = null;
+        throw err;
     });
+    return _byndServiceWorkerReady;
 }
 
 function getProactiveNotifySettings() {
@@ -363,11 +418,13 @@ function buildProactiveNotifySyncPayload(settings = getProactiveNotifySettings()
 
 function syncProactiveServiceWorkerConfig() {
     if (!('serviceWorker' in navigator)) return;
+    const settings = getProactiveNotifySettings();
+    if (!settings.enabled && !navigator.serviceWorker.controller) return;
     const message = { type: 'BYND_NOTIFY_CONFIG', payload: buildProactiveNotifySyncPayload() };
     if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage(message);
     }
-    navigator.serviceWorker.ready.then(reg => {
+    ensureByndServiceWorker()?.then(reg => {
         if (reg.active) reg.active.postMessage(message);
     }).catch(() => {});
 }
@@ -427,7 +484,7 @@ async function syncProactivePushSubscription() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('当前浏览器不支持 Push API');
     if (!('Notification' in window)) throw new Error('当前浏览器不支持网页通知');
     if (Notification.permission !== 'granted') return;
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await ensureByndServiceWorker();
     let subscription = await reg.pushManager.getSubscription();
     if (!subscription) {
         subscription = await reg.pushManager.subscribe({
@@ -505,6 +562,7 @@ function checkProactiveNotifications(force) {
 
 function initProactiveNotify() {
     renderProactiveNotifySettings();
+    cleanupByndServiceWorkerIfIdle();
     syncProactiveServiceWorkerConfig();
     setInterval(() => checkProactiveNotifications(false), 60 * 1000);
     setTimeout(() => checkProactiveNotifications(false), 2500);
