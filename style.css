@@ -29,6 +29,9 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     body { background-color: var(--bg-color); }
     .phone-container { width: 100vw; height: 100dvh; border: none; border-radius: 0; box-shadow: none; }
 }
+html.mobile-runtime, html.mobile-runtime body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-color); }
+html.mobile-runtime body { display: block; min-height: 100dvh; }
+html.mobile-runtime .phone-container { width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
 
 /* --- 状态栏 --- */
 .status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }

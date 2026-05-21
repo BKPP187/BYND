@@ -238,7 +238,7 @@ function getProactiveNotifyClientId() {
 
 function initByndPwaRuntime() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('sw.js?v=20260521-study-game2').then(() => {
+    navigator.serviceWorker.register('sw.js?v=20260521-mobile-frame1').then(() => {
         syncProactiveServiceWorkerConfig();
     }).catch(err => {
         console.warn('service worker register failed:', err);

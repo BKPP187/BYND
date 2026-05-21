@@ -2,7 +2,7 @@
   "name": "Beyond Screen",
   "short_name": "BYND",
   "description": "BYND phone-style AI companion app.",
-  "start_url": "/?v=20260521-study-game2",
+  "start_url": "/?v=20260521-mobile-frame1",
   "scope": "/",
   "display": "standalone",
   "id": "/",

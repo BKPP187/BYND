@@ -3,10 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script>
+        (function () {
+            var ua = navigator.userAgent || '';
+            var touch = navigator.maxTouchPoints > 1;
+            var shortSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
+            var longSide = Math.max(screen.width || innerWidth, screen.height || innerHeight);
+            var mobileUa = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS|MiuiBrowser|HuaweiBrowser|Quark|UCBrowser/i.test(ua);
+            if (mobileUa || (touch && shortSide <= 820 && longSide <= 1368)) {
+                document.documentElement.classList.add('mobile-runtime');
+            }
+        })();
+    </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260521-study-game2">
+    <link rel="manifest" href="manifest.webmanifest?v=20260521-mobile-frame1">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260521-study-game2">
+    <link rel="stylesheet" href="style.css?v=20260521-mobile-frame1">
 </head>
 <body>
 
@@ -758,7 +770,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.0.6
+                    Beyond Screen v1.0.7
                 </div>
             </div>
         </div>
@@ -1276,12 +1288,12 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260521-study-game2"></script>
-    <script src="wechat.js?v=20260521-study-game2"></script>
-    <script src="theme.js?v=20260521-study-game2"></script>
-    <script src="settings.js?v=20260521-study-game2"></script>
-    <script src="script.js?v=20260521-study-game2"></script>
-    <script src="WorldBook.js?v=20260521-study-game2"></script>
-    <script src="regular.js?v=20260521-study-game2"></script>
+    <script src="chat-api.js?v=20260521-mobile-frame1"></script>
+    <script src="wechat.js?v=20260521-mobile-frame1"></script>
+    <script src="theme.js?v=20260521-mobile-frame1"></script>
+    <script src="settings.js?v=20260521-mobile-frame1"></script>
+    <script src="script.js?v=20260521-mobile-frame1"></script>
+    <script src="WorldBook.js?v=20260521-mobile-frame1"></script>
+    <script src="regular.js?v=20260521-mobile-frame1"></script>
 </body>
 </html>
