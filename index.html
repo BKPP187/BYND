@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260522-ledger-game2">
+    <link rel="manifest" href="manifest.webmanifest?v=20260522-money-tabs1">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260522-ledger-game2">
+    <link rel="stylesheet" href="style.css?v=20260522-money-tabs1">
 </head>
 <body>
 
@@ -378,7 +378,7 @@
                     </div>
                     <button type="button" onclick="addManualMoneyRecord()" aria-label="手动记账"><i class="ri-add-line"></i></button>
                 </div>
-                <div class="money-content">
+                <div class="money-content" id="money-content">
                     <section class="money-hello">
                         <div>
                             <span>HELLO, <b id="money-user-name">BYND</b></span>
@@ -405,11 +405,11 @@
                         <div class="money-record-list" id="money-record-list"></div>
                     </section>
                 </div>
-                <div class="money-tabbar">
-                    <button type="button" class="active"><i class="ri-home-5-fill"></i><span>首页</span></button>
-                    <button type="button"><i class="ri-list-check-3"></i><span>明细</span></button>
-                    <button type="button"><i class="ri-pie-chart-2-line"></i><span>统计</span></button>
-                    <button type="button"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                <div class="money-tabbar" id="money-tabbar">
+                    <button type="button" class="active" onclick="switchMoneyTab('home')"><i class="ri-home-5-fill"></i><span>首页</span></button>
+                    <button type="button" onclick="switchMoneyTab('records')"><i class="ri-list-check-3"></i><span>明细</span></button>
+                    <button type="button" onclick="switchMoneyTab('stats')"><i class="ri-pie-chart-2-line"></i><span>统计</span></button>
+                    <button type="button" onclick="switchMoneyTab('settings')"><i class="ri-settings-3-line"></i><span>设置</span></button>
                 </div>
             </div>
         </div>
@@ -832,7 +832,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.9
+                    Beyond Screen v1.1.10
                 </div>
             </div>
         </div>
@@ -1390,13 +1390,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260522-ledger-game2"></script>
-    <script src="stickers-boltp-share.js?v=20260522-ledger-game2"></script>
-    <script src="wechat.js?v=20260522-ledger-game2"></script>
-    <script src="theme.js?v=20260522-ledger-game2"></script>
-    <script src="settings.js?v=20260522-ledger-game2"></script>
-    <script src="script.js?v=20260522-ledger-game2"></script>
-    <script src="WorldBook.js?v=20260522-ledger-game2"></script>
-    <script src="regular.js?v=20260522-ledger-game2"></script>
+    <script src="chat-api.js?v=20260522-money-tabs1"></script>
+    <script src="stickers-boltp-share.js?v=20260522-money-tabs1"></script>
+    <script src="wechat.js?v=20260522-money-tabs1"></script>
+    <script src="theme.js?v=20260522-money-tabs1"></script>
+    <script src="settings.js?v=20260522-money-tabs1"></script>
+    <script src="script.js?v=20260522-money-tabs1"></script>
+    <script src="WorldBook.js?v=20260522-money-tabs1"></script>
+    <script src="regular.js?v=20260522-money-tabs1"></script>
 </body>
 </html>
