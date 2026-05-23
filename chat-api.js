@@ -185,6 +185,16 @@ function buildUserMomentsAnchor() {
     }
 }
 
+function buildWechatStickerAnchor(char) {
+    if (typeof buildWechatStickerPrompt !== 'function') return '';
+    try {
+        return buildWechatStickerPrompt(char) || '';
+    } catch (e) {
+        console.warn('build sticker prompt failed:', e);
+        return '';
+    }
+}
+
 // 1. 构建角色 System Prompt
 function buildSystemPrompt(char) {
     let prompt = '';
@@ -229,14 +239,14 @@ function buildSystemPrompt(char) {
         const entries = char.worldBook
             .map(e => {
                 const key = e.key || e.keys || e.keyword || '';
-                const content = prepareChatApiPromptText(e.content || e.entry || e.value || '', 1000);
+                const content = prepareChatApiPromptText(e.content || e.entry || e.value || '', 850);
                 if (!content) return null;
                 return key ? `[${key}] ${content}` : content;
             })
             .filter(Boolean);
         const compactEntries = [];
         for (const entry of entries) {
-            if (compactEntries.length >= 8 || totalWorldBookLength + entry.length > 6000) break;
+            if (compactEntries.length >= 30 || totalWorldBookLength + entry.length > 16000) break;
             compactEntries.push(entry);
             totalWorldBookLength += entry.length;
         }
@@ -264,10 +274,18 @@ function buildSystemPrompt(char) {
         prompt += `- 你称呼用户为"${userTitle}"\n`;
     }
     if (config.nickname) {
-        prompt += `- 用户给你设置的备注名是"${config.nickname}"，你知道这个备注。如果你不喜欢这个备注，可以在回复中表达不满并建议用户改掉\n`;
+        prompt += `- 用户给你设置的备注名是"${config.nickname}"，你知道这个备注。如果你不喜欢这个备注，可以直接表达不满；如果你想亲自把备注改成新的名字，单独输出 [微信改备注:新备注|原因]，系统会自动修改当前备注，不会显示指令文本\n`;
     }
     if (userProfile.bio) {
         prompt += `- 关于用户：${userProfile.bio}\n`;
+    }
+    const mode = config.chatPresenceMode || 'auto';
+    if (mode === 'offline') {
+        prompt += `- 当前聊天采用线下模式：你可以像和用户在同一现场一样写更细腻的动作、环境、神态和距离感，但仍保持微信聊天的节奏\n`;
+    } else if (mode === 'online') {
+        prompt += `- 当前聊天采用线上模式：你只通过微信文字、语音、表情等方式互动，不要写成面对面现场描写\n`;
+    } else {
+        prompt += `- 当前聊天采用自动线上/线下识别：根据用户的话判断你们是在微信线上聊天，还是同处线下场景。线下场景可以有更细腻的动作、环境和神态描写；线上场景保持真实微信聊天感\n`;
     }
     const avatarCount = (char.avatarGallery || []).length;
     if (avatarCount > 1) {
@@ -275,11 +293,13 @@ function buildSystemPrompt(char) {
     }
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
-    prompt += `- 像真实微信聊天一样回复，每条消息只说一两句话，用"|||"分隔不同的消息。例如："你好呀|||今天怎么样？|||我刚吃完饭~"\n`;
+    prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;
     prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本：\n`;
     prompt += `  [微信转账:金额|备注] 例如 [微信转账:88.00|给你买奶茶]\n`;
-    prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|已领取]\n`;
+    prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|待领取]\n`;
+    prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]\n`;
     prompt += `  [微信语音:转文字内容] 例如 [微信语音:我刚刚在想你]，系统会按文字长度自动估算语音秒数\n`;
+    prompt += `  [微信表情:贴纸名或情绪] 例如 [微信表情:小狗能有什么坏心思]；如世界书提供了链接，也可用 [微信表情:贴纸名|图片URL]\n`;
     prompt += `  [微信语音电话:来电理由或接通开场] 或 [微信视频电话:来电理由或接通开场]，例如 [微信视频电话:我想现在看看你]。如果用户不在微信聊天页，系统会显示来电灵动岛让用户接听或拒绝\n`;
     prompt += `- 只有在剧情确实需要时才使用这些特殊消息指令，不要解释指令本身\n`;
 
@@ -322,6 +342,13 @@ function buildMessages(char, history, maxMessages) {
             content: userMomentsAnchor
         });
     }
+    const stickerAnchor = buildWechatStickerAnchor(char);
+    if (stickerAnchor) {
+        messages.push({
+            role: 'system',
+            content: stickerAnchor
+        });
+    }
 
     // 历史消息（取最近的 N 条）
     const recentHistory = history.slice(-maxMessages);
@@ -331,7 +358,7 @@ function buildMessages(char, history, maxMessages) {
         if (msg.type === 'image') {
             content = msg.description || '[图片]';
         } else if (msg.type === 'sticker') {
-            content = '[发送了表情: ' + (msg.name || '贴纸') + ']';
+            content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
         } else if (['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall'].includes(msg.type)) {
             content = msg.description || msg.content || '[微信消息]';
         } else if (msg.type === 'offline_text') {
@@ -342,6 +369,11 @@ function buildMessages(char, history, maxMessages) {
         content = content.replace(/<[^>]+>/g, '').trim();
         content = truncateChatAnchorText(content, 650);
         if (!content) return;
+        if (msg.replyTo && msg.replyTo.text) {
+            const sender = msg.replyTo.sender || (msg.replyTo.isMe ? '用户' : (char && char.name) || '角色');
+            const quote = truncateChatAnchorText(String(msg.replyTo.text || '').replace(/<[^>]+>/g, '').trim(), 180);
+            if (quote) content = `【引用${sender}】${quote}\n${content}`;
+        }
 
         messages.push({
             role: msg.isMe ? 'user' : 'assistant',

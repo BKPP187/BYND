@@ -185,6 +185,11 @@ function applyByndAdaptivePalette(average, accent) {
     root.style.setProperty('--bynd-accent-faint', byndRgb(quietAccent, isDark ? 0.11 : 0.08));
     root.style.setProperty('--bynd-on-accent', '#ffffff');
     root.style.setProperty('--bynd-danger', '#ef4444');
+    root.style.setProperty('--desktop-note-ink', isDark ? '#f8fafc' : '#151922');
+    root.style.setProperty('--desktop-note-bg', isDark ? byndRgb(byndMix(average, [10, 12, 16], 0.56), 0.80) : byndRgb(byndMix(average, [255, 255, 255], 0.62), 0.86));
+    root.style.setProperty('--desktop-note-accent', byndRgb(quietAccent));
+    root.style.setProperty('--desktop-note-soft', byndRgb(quietAccent, isDark ? 0.22 : 0.14));
+    root.style.setProperty('--desktop-note-shadow', isDark ? '0 16px 34px rgba(0,0,0,0.26)' : '0 16px 34px rgba(36,48,66,0.14)');
 
     if (isDark) {
         root.style.setProperty('--bynd-app-bg', `linear-gradient(180deg, rgba(7,8,10,0.92), ${byndRgb(tintedBg, 0.88)})`);

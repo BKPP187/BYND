@@ -37,9 +37,11 @@ function saveApiData(data) {
 function normalizeApiData(data) {
     data = data && typeof data === 'object' ? data : {};
     const apis = Array.isArray(data.apis) ? data.apis : [];
-    const firstId = apis[0] && apis[0].id ? apis[0].id : null;
-    let defaultId = data.defaultId || firstId || null;
-    if (defaultId && !apis.some(api => api.id === defaultId)) defaultId = firstId || null;
+    const firstChatApi = apis.find(api => api && api.id && api.model);
+    let defaultId = data.defaultId || (firstChatApi && firstChatApi.id) || null;
+    if (defaultId && !apis.some(api => api.id === defaultId && api.model)) {
+        defaultId = firstChatApi ? firstChatApi.id : null;
+    }
     const firstImageApi = apis.find(api => api && api.id && api.imageModel);
     let imageDefaultId = data.imageDefaultId || data.imageApiId || (firstImageApi && firstImageApi.id) || null;
     if (imageDefaultId && !apis.some(api => api.id === imageDefaultId && api.imageModel)) {
@@ -72,7 +74,7 @@ function renderApiList() {
     }
 
     container.innerHTML = data.apis.map(api => {
-        const isDefault = api.id === data.defaultId;
+        const isDefault = api.model && api.id === data.defaultId;
         const isImageDefault = api.imageModel && api.id === data.imageDefaultId;
         const statusClass = api._status || ''; // online / offline / testing / ''
         return `
@@ -108,7 +110,8 @@ function renderApiRoutePanel(data = getApiData()) {
         panel.innerHTML = '';
         return;
     }
-    const chatApi = data.apis.find(api => api.id === data.defaultId) || data.apis[0];
+    const chatApis = data.apis.filter(api => api.model);
+    const chatApi = chatApis.find(api => api.id === data.defaultId) || null;
     const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
     panel.innerHTML = `
         <div class="api-route-head">
@@ -122,7 +125,7 @@ function renderApiRoutePanel(data = getApiData()) {
             <div class="api-route-card chat">
                 <i class="ri-chat-smile-3-line"></i>
                 <span>聊天 API</span>
-                ${renderApiRoutePicker('chat', chatApi, data.apis, data.defaultId)}
+                ${renderApiRoutePicker('chat', chatApi, chatApis, data.defaultId)}
             </div>
             <div class="api-route-card image">
                 <i class="ri-image-2-line"></i>
@@ -194,6 +197,7 @@ function chooseApiRoute(type, apiId) {
 
 function closeApiFloatingPickers() {
     document.querySelectorAll('.api-route-picker.open, .api-model-picker.open').forEach(picker => picker.classList.remove('open'));
+    document.getElementById('api-edit-modal')?.classList.remove('api-picker-open');
 }
 
 document.addEventListener('click', event => {
@@ -275,9 +279,14 @@ function toggleApiModelMenu(selectId) {
     const picker = document.querySelector(`.api-model-picker[data-model-picker-for="${selectId}"]`);
     if (!picker || picker.classList.contains('disabled')) return;
     document.querySelectorAll('.api-route-picker.open').forEach(routePicker => routePicker.classList.remove('open'));
+    const willOpen = !picker.classList.contains('open');
     document.querySelectorAll('.api-model-picker').forEach(item => {
-        item.classList.toggle('open', item === picker && !item.classList.contains('open'));
+        item.classList.toggle('open', item === picker && willOpen);
     });
+    document.getElementById('api-edit-modal')?.classList.toggle('api-picker-open', willOpen);
+    if (willOpen) {
+        setTimeout(() => picker.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30);
+    }
 }
 
 function chooseApiModelOption(selectId, value) {
@@ -319,13 +328,21 @@ function openApiModal(editId) {
         const modelEl = document.getElementById('api-edit-model');
         modelEl.dataset.savedModel = api.model || '';
         if (api.model) {
-            modelEl.innerHTML = `<option value="${escapeHtml(api.model)}" selected>${escapeHtml(api.model)}</option><option value="" disabled>重新测试可刷新列表</option>`;
+            modelEl.innerHTML = `<option value="">不在这个 API 使用聊天</option><option value="${escapeHtml(api.model)}" selected>${escapeHtml(api.model)}</option><option value="__refresh_hint" disabled>重新测试可刷新列表</option>`;
             modelEl.disabled = false;
             modelEl.style.color = '#5a4a52';
             modelEl.style.background = '#faf5f0';
             modelEl.style.cursor = 'pointer';
             const hintEl = document.getElementById('api-model-hint');
             if (hintEl) hintEl.textContent = '重新测试可刷新列表';
+        } else {
+            modelEl.innerHTML = '<option value="" selected>不在这个 API 使用聊天</option><option value="__refresh_hint" disabled>重新测试可刷新列表</option>';
+            modelEl.disabled = false;
+            modelEl.style.color = '#5a4a52';
+            modelEl.style.background = '#faf5f0';
+            modelEl.style.cursor = 'pointer';
+            const hintEl = document.getElementById('api-model-hint');
+            if (hintEl) hintEl.textContent = '当前不用于聊天，重新测试可刷新列表';
         }
         const imageModelEl = document.getElementById('api-edit-image-model');
         imageModelEl.dataset.savedModel = api.imageModel || '';
@@ -405,10 +422,9 @@ function saveApi() {
             name, baseUrl, apiKey, model, imageModel
         };
         data.apis.push(newApi);
-        // 第一个自动设为默认
-        if (data.apis.length === 1) {
+        // 第一个可聊天 API 自动设为默认
+        if (newApi.model && !data.defaultId) {
             data.defaultId = newApi.id;
-            if (newApi.imageModel) data.imageDefaultId = newApi.id;
         }
         if (newApi.imageModel && !data.imageDefaultId) data.imageDefaultId = newApi.id;
     }
@@ -425,10 +441,12 @@ function deleteApi(apiId) {
     const data = getApiData();
     data.apis = data.apis.filter(a => a.id !== apiId);
     if (data.defaultId === apiId) {
-        data.defaultId = data.apis.length > 0 ? data.apis[0].id : null;
+        const nextChatApi = data.apis.find(api => api.model);
+        data.defaultId = nextChatApi ? nextChatApi.id : null;
     }
     if (data.imageDefaultId === apiId) {
-        data.imageDefaultId = data.apis.length > 0 ? data.apis[0].id : null;
+        const nextImageApi = data.apis.find(api => api.imageModel);
+        data.imageDefaultId = nextImageApi ? nextImageApi.id : null;
     }
     saveApiData(data);
     renderApiList();
@@ -437,6 +455,12 @@ function deleteApi(apiId) {
 // 7. 设为默认
 function setDefaultApi(apiId) {
     const data = getApiData();
+    const api = data.apis.find(a => a.id === apiId);
+    if (!api || !api.model) {
+        alert('这个 API 当前没有聊天模型。请先编辑它选择聊天模型，或者取消“不在这个 API 使用聊天”。');
+        renderApiList();
+        return;
+    }
     data.defaultId = apiId;
     saveApiData(data);
     renderApiList();
@@ -511,10 +535,12 @@ async function testApiFromModal() {
 
         const models = result.models || [];
         if (models.length > 0) {
-            const prevModel = selectEl.dataset.savedModel || result.chatModel || '';
-            const allowNoChat = !result.chatModel;
+            const editingExistingApi = !!document.getElementById('api-edit-id').value;
+            const prevModel = editingExistingApi
+                ? (selectEl.dataset.savedModel || '')
+                : (selectEl.dataset.savedModel || result.chatModel || '');
             selectEl.innerHTML = [
-                allowNoChat ? `<option value="" ${prevModel ? '' : 'selected'}>不在这个 API 使用聊天</option>` : '',
+                `<option value="" ${prevModel ? '' : 'selected'}>不在这个 API 使用聊天</option>`,
                 ...models.map(m => `<option value="${escapeHtml(m)}" ${m === prevModel ? 'selected' : ''}>${escapeHtml(m)}</option>`)
             ].join('');
             selectEl.disabled = false;
@@ -737,7 +763,7 @@ function escapeHtml(str) {
 function getDefaultApi() {
     const data = getApiData();
     if (!data.defaultId || !data.apis.length) return null;
-    return data.apis.find(a => a.id === data.defaultId) || data.apis[0];
+    return data.apis.find(a => a.id === data.defaultId && a.model) || data.apis.find(a => a.model) || null;
 }
 
 function getDefaultImageApi() {
@@ -999,7 +1025,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.20';
+const APP_VERSION = 'v1.1.57';
 const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'bynd_money_records_v1'];
 
 // 导出所有数据

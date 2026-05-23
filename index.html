@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260522-music-sources1">
+    <link rel="manifest" href="manifest.webmanifest?v=20260523-sticker-directive1">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260522-music-sources1">
+    <link rel="stylesheet" href="style.css?v=20260523-sticker-directive1">
 </head>
 <body>
 
@@ -142,9 +142,15 @@
                 </div>
                 <div class="desktop-page" data-page="1">
                     <div class="desktop-scroll-area page2-content">
-                        <div class="desktop-empty-placeholder">
-                            <i class="ri-add-circle-line" style="font-size:40px; opacity:0.4;"></i>
-                            <span style="font-size:13px;">第二屏 (可自定义)</span>
+                        <div class="page2-app-grid">
+                            <div class="app-item" data-app-id="dream" data-layout-id="app-dream" onclick="openApp('dream')">
+                                <div class="app-icon icon-black"><i class="ri-moon-cloudy-line"></i></div>
+                                <span>盗梦空间</span>
+                            </div>
+                            <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')">
+                                <div class="app-icon icon-black"><i class="ri-eye-line"></i></div>
+                                <span>监控</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -341,12 +347,12 @@
         <div id="app-game-window" class="app-window hidden game-window">
             <div class="game-shell">
                 <div class="game-header">
-                    <button type="button" onclick="closeApp('game')" aria-label="关闭游戏"><i class="ri-arrow-left-s-line"></i></button>
+                    <button type="button" onclick="handleGameBack()" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
                     <div>
                         <span id="game-header-kicker">GAME HUB</span>
                         <strong id="game-header-title">小游戏</strong>
                     </div>
-                    <button type="button" onclick="openGameHub()" aria-label="返回大厅"><i class="ri-apps-2-line"></i></button>
+                    <div class="game-header-spacer" aria-hidden="true"></div>
                 </div>
                 <div class="game-content" id="game-content"></div>
             </div>
@@ -394,6 +400,76 @@
                     <button type="button" onclick="switchMoneyTab('records')"><i class="ri-list-check-3"></i><span>明细</span></button>
                     <button type="button" onclick="switchMoneyTab('stats')"><i class="ri-pie-chart-2-line"></i><span>统计</span></button>
                     <button type="button" onclick="switchMoneyTab('settings')"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-dream-window" class="app-window hidden dream-window">
+            <div class="dream-shell">
+                <div class="dream-topbar">
+                    <button type="button" onclick="closeApp('dream')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>DREAM VAULT</span>
+                        <strong>盗梦空间</strong>
+                    </div>
+                    <button type="button" onclick="generateDreamRecord()" aria-label="生成梦境"><i class="ri-sparkling-2-line"></i></button>
+                </div>
+                <div class="dream-content">
+                    <section class="dream-hero" id="dream-hero">
+                        <div class="dream-hero-visual">
+                            <div class="dream-portal"></div>
+                            <i class="ri-box-3-line"></i>
+                        </div>
+                        <div class="dream-hero-copy">
+                            <span>OPEN THE BOX</span>
+                            <strong>把角色醒来后不肯说出口的梦，封存在这里。</strong>
+                            <p>选择一个角色，生成一段电影感的梦境档案。图片会调用你的生图 API。</p>
+                        </div>
+                    </section>
+                    <section class="dream-control">
+                        <label>
+                            <span>入梦角色</span>
+                            <select id="dream-char-select"></select>
+                        </label>
+                        <button type="button" onclick="generateDreamRecord()"><i class="ri-sparkling-2-line"></i> 生成梦境</button>
+                    </section>
+                    <p class="dream-status" id="dream-status"></p>
+                    <section class="dream-list" id="dream-list"></section>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-monitor-window" class="app-window hidden monitor-window">
+            <div class="monitor-shell">
+                <div class="monitor-topbar">
+                    <button type="button" onclick="closeApp('monitor')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>BYND INTERNAL</span>
+                        <strong>监控</strong>
+                    </div>
+                    <button type="button" onclick="initMonitorApp()" aria-label="刷新"><i class="ri-refresh-line"></i></button>
+                </div>
+                <div class="monitor-content">
+                    <section class="monitor-hero">
+                        <div class="monitor-scope">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <div class="monitor-hero-copy">
+                            <span>PRIVATE OBSERVER</span>
+                            <strong>选择一个角色，把 BYND 内部聊天接入他的观察视野。</strong>
+                            <p>这里只处理项目内的角色列表和 BYND 微信聊天记录，不读取真实手机通讯录、系统短信或外部应用。</p>
+                        </div>
+                    </section>
+                    <section class="monitor-panel">
+                        <div class="monitor-panel-head">
+                            <div>
+                                <span>WATCHER LIST</span>
+                                <strong>选择监控者</strong>
+                            </div>
+                            <em id="monitor-status">等待接入</em>
+                        </div>
+                        <div class="monitor-char-list" id="monitor-char-list"></div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -816,7 +892,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.20
+                    Beyond Screen v1.1.57
                 </div>
             </div>
         </div>
@@ -924,6 +1000,7 @@
                 <i class="ri-more-2-fill wc-float-more" onclick="openChatSettings()"></i>
                 <div class="wc-room-content" id="chat-room-content"></div>
                 <div class="wc-room-footer">
+                    <div id="wc-reply-preview" class="wc-reply-preview hidden"></div>
                     <div class="wc-add-btn" onclick="toggleChatToolbar()">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </div>
@@ -1044,7 +1121,14 @@
                         <div class="wcs-section-title">气泡样式 CSS</div>
                         <div class="wcs-section">
                             <div class="wcs-preset-bar">
-                                <select id="wcs-bubble-preset" class="wcs-select" onchange="applyBubblePreset(this.value)"></select>
+                                <div class="wcs-bubble-preset-wrap">
+                                    <select id="wcs-bubble-preset" class="wcs-select wcs-select-hidden" onchange="applyBubblePreset(this.value)"></select>
+                                    <button type="button" id="wcs-bubble-preset-trigger" class="wcs-bubble-trigger" onclick="toggleBubblePresetPicker(event)">
+                                        <span id="wcs-bubble-preset-label">默认</span>
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </button>
+                                    <div id="wcs-bubble-preset-menu" class="wcs-bubble-menu"></div>
+                                </div>
                                 <button class="wcs-mini-btn" onclick="saveCurrentCssAsPreset()"><i class="ri-bookmark-line"></i>保存</button>
                                 <button class="wcs-mini-btn subtle" onclick="deleteSelectedPreset()"><i class="ri-delete-bin-6-line"></i></button>
                             </div>
@@ -1061,7 +1145,7 @@
                                 <textarea class="wcs-textarea wcs-css-editor" id="wcs-custom-css" placeholder="例如：&#10;.msg-bubble { border-radius: 18px; border: 2px dashed pink; }&#10;.msg-bubble.green { border-radius: 18px 18px 4px 18px; }" rows="6" oninput="previewBubbleCss(this.value)"></textarea>
                             </div>
                             <div class="wcs-row-actions">
-                                <button class="wcs-mini-btn subtle" onclick="document.getElementById('wcs-custom-css').value=''; previewBubbleCss(''); document.getElementById('wcs-bubble-preset').value='default';"><i class="ri-eraser-line"></i>清除 CSS</button>
+                                <button class="wcs-mini-btn subtle" onclick="clearBubbleCssPreset()"><i class="ri-eraser-line"></i>清除 CSS</button>
                             </div>
                         </div>
 
@@ -1128,6 +1212,23 @@
                                 <div class="wcs-row-label"><i class="ri-edit-line"></i> 你对角色的备注</div>
                                 <div class="wcs-row-value"><input type="text" class="wcs-input" id="wcs-char-nickname" placeholder="不填则用原名" style="width:100px;"></div>
                             </div>
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-radar-line"></i> 聊天场景识别</div>
+                                <div class="wcs-row-value">
+                                    <select id="wcs-chat-presence-mode" class="wcs-select">
+                                        <option value="auto">自动识别</option>
+                                        <option value="online">线上模式</option>
+                                        <option value="offline">线下模式</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="wcs-monitor-box">
+                                <label class="wcs-toggle-line">
+                                    <input type="checkbox" id="wcs-monitor-enabled">
+                                    <span>开启监控剧情</span>
+                                </label>
+                                <p>只监听 BYND 内部微信聊天。开启后，该角色会看到你和其他角色的聊天对象与消息，并按人设通过灵动岛、警告、飞字和黑屏乱码逐步反应。</p>
+                            </div>
                             <div class="wcs-full-row">
                                 <label>时间模式</label>
                                 <div class="wcs-time-mode">
@@ -1174,6 +1275,17 @@
                                     </div>
                                     <input type="file" id="wcs-video-bg-input" accept="image/*" style="display:none" onchange="uploadCharVideoCallBg(this)">
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="wcs-section-title">聊天记录</div>
+                        <div class="wcs-section">
+                            <div class="wcs-danger-row">
+                                <div>
+                                    <strong>删除该角色的所有聊天记录</strong>
+                                    <span>只清空当前聊天对象，不会删除角色卡、记忆、贴纸包和设置。</span>
+                                </div>
+                                <button type="button" onclick="clearCurrentWechatChatHistory()">删除</button>
                             </div>
                         </div>
 
@@ -1374,13 +1486,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260522-music-sources1"></script>
-    <script src="stickers-boltp-share.js?v=20260522-music-sources1"></script>
-    <script src="wechat.js?v=20260522-music-sources1"></script>
-    <script src="theme.js?v=20260522-music-sources1"></script>
-    <script src="settings.js?v=20260522-music-sources1"></script>
-    <script src="script.js?v=20260522-music-sources1"></script>
-    <script src="WorldBook.js?v=20260522-music-sources1"></script>
-    <script src="regular.js?v=20260522-music-sources1"></script>
+    <script src="chat-api.js?v=20260523-sticker-directive1"></script>
+    <script src="stickers-boltp-share.js?v=20260523-sticker-directive1"></script>
+    <script src="wechat.js?v=20260523-sticker-directive1"></script>
+    <script src="theme.js?v=20260523-sticker-directive1"></script>
+    <script src="settings.js?v=20260523-sticker-directive1"></script>
+    <script src="script.js?v=20260523-sticker-directive1"></script>
+    <script src="WorldBook.js?v=20260523-sticker-directive1"></script>
+    <script src="regular.js?v=20260523-sticker-directive1"></script>
 </body>
 </html>

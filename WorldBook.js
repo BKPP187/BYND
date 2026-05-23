@@ -187,12 +187,13 @@ function bindWorldBookShelfMotion(shelf) {
             const currentY = parseFloat(book.style.getPropertyValue('--wb-y')) || 0;
             const baseCenterY = b.top + b.height / 2 - currentY;
             const targetCenterY = stageRect.top + curve.y * stageRect.height - 16;
-            const y = Math.max(-92, Math.min(104, targetCenterY - baseCenterY));
+            const y = Math.max(-46, Math.min(104, targetCenterY - baseCenterY));
             book.style.setProperty('--wb-scale', scale.toFixed(3));
             book.style.setProperty('--wb-y', `${y.toFixed(1)}px`);
             book.style.setProperty('--wb-rotate', `${curve.rotate.toFixed(2)}deg`);
             book.classList.toggle('is-near', distance < 0.32);
             book.style.opacity = String(1 - distance * 0.26);
+            book.style.zIndex = String(Math.round((1 - distance) * 70) + 10);
             book.dataset.toneIndex = String(index);
         });
     };
