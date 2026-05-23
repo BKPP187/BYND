@@ -5,9 +5,12 @@ const THEME_ICON_TARGETS = [
     {i:'ri-book-read-line', n:'世界书'}, {i:'ri-settings-4-line', n:'设置'},
     {i:'ri-palette-line', n:'美化'}, {i:'ri-graduation-cap-line', n:'学习'},
     {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
+    {i:'ri-moon-cloudy-line', n:'盗梦空间'}, {i:'ri-eye-line', n:'监控'},
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
     {i:'ri-equalizer-line', n:'预设'}
 ];
+const THEME_DESKTOP_ICON_COUNT = 10;
+const THEME_DOCK_ICON_START = THEME_DESKTOP_ICON_COUNT;
 const THEME_LIBRARY_KEY = 'bynd_theme_library_v1';
 
 // 1. 初始化图标网格
@@ -33,10 +36,26 @@ function initIconGrid() {
 
 function normalizeThemeIconList(icons) {
     if (!Array.isArray(icons)) return [];
-    if (icons.length >= 12) {
-        return [...icons.slice(0, 9), ...icons.slice(10, 12)];
+    const normalized = new Array(THEME_ICON_TARGETS.length).fill('');
+    if (icons.length >= THEME_ICON_TARGETS.length) {
+        return icons.slice(0, THEME_ICON_TARGETS.length);
     }
-    return icons.slice(0, THEME_ICON_TARGETS.length);
+    if (icons.length === 12) {
+        for (let i = 0; i < 8; i++) normalized[i] = icons[i] || '';
+        normalized[THEME_DOCK_ICON_START] = icons[8] || '';
+        normalized[THEME_DOCK_ICON_START + 1] = icons[10] || '';
+        normalized[THEME_DOCK_ICON_START + 2] = icons[11] || '';
+        return normalized;
+    }
+    if (icons.length === 11) {
+        for (let i = 0; i < 8; i++) normalized[i] = icons[i] || '';
+        normalized[THEME_DOCK_ICON_START] = icons[8] || '';
+        normalized[THEME_DOCK_ICON_START + 1] = icons[9] || '';
+        normalized[THEME_DOCK_ICON_START + 2] = icons[10] || '';
+        return normalized;
+    }
+    for (let i = 0; i < Math.min(icons.length, THEME_ICON_TARGETS.length); i++) normalized[i] = icons[i] || '';
+    return normalized;
 }
 
 function migrateThemeIconData(data) {
@@ -995,8 +1014,8 @@ function saveTheme() {
 
     iconInputs.forEach((url, index) => {
         if (!url) return; 
-        if (index >= 8) {
-            const dockIndex = index - 8;
+        if (index >= THEME_DOCK_ICON_START) {
+            const dockIndex = index - THEME_DOCK_ICON_START;
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                 if (iconBox) {
@@ -1113,8 +1132,8 @@ function initTheme() {
             if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons({ ...data, icons: normalizedIcons });
             normalizedIcons.forEach((url, index) => {
                 if (!url) return;
-                if (index >= 8) {
-                    const dockIndex = index - 8;
+                if (index >= THEME_DOCK_ICON_START) {
+                    const dockIndex = index - THEME_DOCK_ICON_START;
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                         if (iconBox) {

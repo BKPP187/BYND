@@ -7137,7 +7137,7 @@ function syncDesktopFolderIcon(folderId) {
 }
 
 function refreshDesktopThemedIcons(themeData) {
-    document.querySelectorAll('.apps-quad .app-item:not(.is-folder), .desktop-layout-item.app-item:not(.is-folder)').forEach(item => {
+    document.querySelectorAll('.apps-quad .app-item:not(.is-folder), .page2-app-grid .app-item:not(.is-folder), .desktop-layout-item.app-item:not(.is-folder)').forEach(item => {
         const app = hydrateDesktopAppElement(item);
         if (!app) return;
         const icon = item.querySelector('.app-icon');
@@ -7569,6 +7569,7 @@ const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
+const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set(['app-dream', 'app-monitor']);
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
 let _editLongPressTimer = null;
@@ -7623,6 +7624,10 @@ function getDesktopItemId(el) {
         return 'app-custom-' + label;
     }
     return 'item-' + Date.now();
+}
+
+function isDesktopStaticPage2AppLayoutId(id) {
+    return DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS.has(String(id || ''));
 }
 
 function findDesktopBuiltinElement(id) {
@@ -7697,7 +7702,6 @@ function getDesktopDirectLayoutItems(pageArea) {
     const items = [];
     pageArea.querySelectorAll(':scope > .calendar-widget, :scope > .photo-large, :scope > .app-item, :scope > .desktop-custom-widget').forEach(item => items.push(item));
     pageArea.querySelectorAll(':scope > .bento-box > .photo-large, :scope > .bento-box > .apps-quad > .app-item').forEach(item => items.push(item));
-    pageArea.querySelectorAll(':scope > .page2-app-grid > .app-item').forEach(item => items.push(item));
     return items.filter((item, index, arr) => (
         arr.indexOf(item) === index
         && !item.classList.contains('layout-source-hidden')
@@ -8341,7 +8345,9 @@ function promptRestoreDefaultDesktopLayout() {
 
 function collectDesktopLayout() {
     syncDesktopStickyNotesFromDom();
-    return Array.from(document.querySelectorAll('.desktop-layout-item')).map(item => {
+    return Array.from(document.querySelectorAll('.desktop-layout-item')).filter(item => (
+        !isDesktopStaticPage2AppLayoutId(item.dataset.layoutId)
+    )).map(item => {
         const page = item.closest('.desktop-page');
         const area = item.closest('.desktop-scroll-area');
         const rect = clampDesktopLayoutRect({
@@ -8455,6 +8461,7 @@ function applySavedDesktopLayout() {
     const pages = getDesktopPages();
     pages.forEach(page => page.querySelector('.desktop-scroll-area')?.classList.add('layout-canvas'));
     saved.items.forEach(record => {
+        if (isDesktopStaticPage2AppLayoutId(record && record.id)) return;
         if (record.type === 'custom' && record.kind !== 'princess') return;
         if (record.type === 'custom' && record.id === DESKTOP_DEFAULT_PRINCESS_ID) return;
         const page = pages[Math.max(0, Math.min(pages.length - 1, record.page || 0))];
@@ -8503,51 +8510,37 @@ function migrateDesktopStoryAppsToIcons() {
         saved = null;
     }
     if (!saved || !Array.isArray(saved.items)) return;
-    let changed = false;
-    const slots = {
-        'app-dream': { left: 24, top: 18 },
-        'app-monitor': { left: 106, top: 18 }
-    };
-    saved.items.forEach(item => {
-        const slot = slots[item && item.id];
-        if (!slot) return;
-        if (item.page !== 1 || item.width > 96 || item.height > 100 || item.type !== 'app') {
-            item.type = 'app';
-            item.kind = '';
-            item.page = 1;
-            item.left = slot.left;
-            item.top = slot.top;
-            item.width = 72;
-            item.height = 76;
-            changed = true;
-        }
-    });
+    const before = saved.items.length;
+    saved.items = saved.items.filter(item => !isDesktopStaticPage2AppLayoutId(item && item.id));
+    const changed = saved.items.length !== before;
     if (changed) localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify(saved));
 }
 
 function ensureMonitorDesktopEntry() {
-    const appId = 'app-monitor';
     const page = ensureDesktopPage(1);
     const area = page?.querySelector('.desktop-scroll-area');
     if (!area) return;
-    const hasLayoutCanvas = area.classList.contains('layout-canvas');
-    const existingLayout = area.querySelector(`:scope > .desktop-layout-item[data-layout-id="${appId}"]`);
-    const existingStatic = area.querySelector(`:scope > [data-app-id="monitor"]`);
-    if (hasLayoutCanvas ? existingLayout : existingStatic) return;
-    const app = DESKTOP_APPS.find(item => item.id === 'monitor');
-    if (!app) return;
-    const item = createDesktopAppElement(app);
-    item.classList.add('monitor-layout-shortcut');
-    area.appendChild(item);
-    area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
-    if (area.classList.contains('layout-canvas')) {
-        prepareDesktopLayoutItem(item, area, {
-            left: 24,
-            top: 166,
-            width: 72,
-            height: 76
-        });
+    area.querySelectorAll(':scope > .app-item, :scope > .desktop-layout-item').forEach(item => {
+        if (isDesktopStaticPage2AppLayoutId(item.dataset.layoutId)) item.remove();
+    });
+
+    let grid = area.querySelector(':scope > .page2-app-grid');
+    if (!grid) {
+        grid = document.createElement('div');
+        grid.className = 'page2-app-grid';
+        area.insertBefore(grid, area.firstChild);
     }
+
+    ['dream', 'monitor'].forEach(appId => {
+        if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
+        const app = DESKTOP_APPS.find(item => item.id === appId);
+        if (!app) return;
+        const item = createDesktopAppElement(app);
+        item.classList.remove('desktop-layout-item', 'layout-app', 'selected');
+        item.removeAttribute('style');
+        grid.appendChild(item);
+    });
+    area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
 }
 
 function startDesktopLayoutFromTheme() {
