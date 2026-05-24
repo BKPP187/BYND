@@ -115,10 +115,32 @@ function getChatApiCharacterDescription(char) {
     return prepareChatApiPromptText(char && char.description, 8000);
 }
 
+function getChatApiUserProfile(char) {
+    if (typeof getWechatChatUserProfile === 'function') {
+        try {
+            return getWechatChatUserProfile(char) || { name: '我' };
+        } catch (_) {}
+    }
+    return (typeof getUserProfile === 'function') ? getUserProfile() : { name: '我' };
+}
+
 function getChatApiRegexScriptField(script, keys) {
     if (!script || typeof script !== 'object') return '';
     for (const key of keys) {
         if (script[key] != null && script[key] !== '') return String(script[key]);
+    }
+    const common = {
+        findRegex: ['find_regex', 'find', 'match', 'matcher', 'regexPattern', 'regex_pattern'],
+        replaceString: ['replace_string', 'replaceWith', 'replace_with', 'replacement', 'substitute_regex', 'substituteRegex']
+    };
+    for (const key of keys) {
+        const aliases = common[key] || [];
+        for (const alias of aliases) {
+            if (script[alias] != null && script[alias] !== '') return String(script[alias]);
+        }
+    }
+    if (script.script && typeof script.script === 'object') {
+        return getChatApiRegexScriptField(script.script, keys);
     }
     return '';
 }
@@ -126,8 +148,11 @@ function getChatApiRegexScriptField(script, keys) {
 function isChatApiRegexScriptEnabled(script) {
     if (!script || typeof script !== 'object') return false;
     if (script.enabled === false || script.disabled === true || script.isDisabled === true) return false;
+    if (script.use_regex === false || script.useRegex === false) return false;
     if (String(script.enabled).toLowerCase() === 'false') return false;
     if (String(script.disabled).toLowerCase() === 'true') return false;
+    if (String(script.use_regex).toLowerCase() === 'false') return false;
+    if (String(script.useRegex).toLowerCase() === 'false') return false;
     return true;
 }
 
@@ -141,7 +166,7 @@ function buildRegexAnchor(char) {
 
     if (!scripts.length) return '';
 
-    const lines = scripts.slice(0, 12).map((item, index) => {
+    const lines = scripts.slice(0, 30).map((item, index) => {
         const script = item.script;
         const name = truncateChatAnchorText(script.name || script.scriptName || `正则${index + 1}`, 36);
         const pattern = truncateChatAnchorText(getChatApiRegexScriptField(script, ['findRegex', 'regex', 'regex_pattern', 'regexPattern', 'pattern']), 96);
@@ -208,8 +233,7 @@ function buildSystemPrompt(char) {
         enabledPrompts.forEach(p => {
             let content = p.content;
             content = content.replace(/\{\{char\}\}/gi, char.name);
-            const config = char.chatConfig || {};
-            const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '我' };
+            const userProfile = getChatApiUserProfile(char);
             content = content.replace(/\{\{user\}\}/gi, userProfile.name || '我');
             content = content
                 .replace(/\{\{datetime\}\}/gi, timeContext.text)
@@ -262,7 +286,7 @@ function buildSystemPrompt(char) {
 
     // 行为指导
     const config = char.chatConfig || {};
-    const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '我' };
+    const userProfile = getChatApiUserProfile(char);
     const userName = userProfile.name || '我';
     const userTitle = config.userTitle || userName;
 
@@ -279,13 +303,22 @@ function buildSystemPrompt(char) {
     if (userProfile.bio) {
         prompt += `- 关于用户：${userProfile.bio}\n`;
     }
+    if (userProfile.signature) {
+        prompt += `- 用户在这段关系里的个性签名/自我定位：${userProfile.signature}\n`;
+    }
     const mode = config.chatPresenceMode || 'auto';
     if (mode === 'offline') {
         prompt += `- 当前聊天采用线下模式：你可以像和用户在同一现场一样写更细腻的动作、环境、神态和距离感，但仍保持微信聊天的节奏\n`;
+        prompt += `- 线下模式里，环境、动作、神态、距离感等旁白必须单独作为一段输出 [旁白:旁白内容]，不要和角色对白塞在同一个普通文字气泡里\n`;
+        prompt += `- 线下模式禁止把动作旁白和对白写成一整段。旁白一段、对白一段，用 ||| 分开；长场景拆成多条短消息\n`;
+        prompt += `- 严禁替用户说话、替用户行动或描写用户的内心/身体反应。旁白只能写你这个角色、环境、距离、物件和可观察氛围；不要写“你下意识/你伸手/你说/你意识到/你身体”等夺走用户控制权的句子\n`;
     } else if (mode === 'online') {
         prompt += `- 当前聊天采用线上模式：你只通过微信文字、语音、表情等方式互动，不要写成面对面现场描写\n`;
     } else {
         prompt += `- 当前聊天采用自动线上/线下识别：根据用户的话判断你们是在微信线上聊天，还是同处线下场景。线下场景可以有更细腻的动作、环境和神态描写；线上场景保持真实微信聊天感\n`;
+        prompt += `- 如果判断为线下场景，环境、动作、神态、距离感等旁白必须单独作为一段输出 [旁白:旁白内容]，对白仍用普通消息段\n`;
+        prompt += `- 自动识别到线下场景时，不要输出一整段小说式文本；旁白和对白必须拆成多条微信消息\n`;
+        prompt += `- 严禁替用户说话、替用户行动或描写用户的内心/身体反应。旁白只能写你这个角色、环境、距离、物件和可观察氛围；不要写“你下意识/你伸手/你说/你意识到/你身体”等夺走用户控制权的句子\n`;
     }
     const avatarCount = (char.avatarGallery || []).length;
     if (avatarCount > 1) {
@@ -297,10 +330,17 @@ function buildSystemPrompt(char) {
     prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本：\n`;
     prompt += `  [微信转账:金额|备注] 例如 [微信转账:88.00|给你买奶茶]\n`;
     prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|待领取]\n`;
+    prompt += `  [微信礼物:商品名|价格|图片URL|留言] 例如 [微信礼物:奶油小夜灯|129|https://example.com/a.jpg|给你放床头]\n`;
+    prompt += `  [微信亲密付:每月额度|说明] 例如 [微信亲密付:520|想给你开一个备用额度]\n`;
+    prompt += `  [微信引用:最近/关键词/序号|回复内容] 例如 [微信引用:最近|你刚刚那句我看见了]，用于引用用户或你们最近的某条消息再回复\n`;
+    prompt += `  [微信记忆:你想主动保存的事实或关系变化] 例如 [微信记忆:用户今天说喜欢被轻声提醒复习]，只在确实值得长期记住时使用\n`;
     prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]\n`;
+    prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，这是你给用户设置的称呼/备注\n`;
+    prompt += `  [微信拉黑:原因] 例如 [微信拉黑:我现在不想继续这段对话]，只在角色按人设真的要拉黑用户时使用\n`;
     prompt += `  [微信语音:转文字内容] 例如 [微信语音:我刚刚在想你]，系统会按文字长度自动估算语音秒数\n`;
     prompt += `  [微信表情:贴纸名或情绪] 例如 [微信表情:小狗能有什么坏心思]；如世界书提供了链接，也可用 [微信表情:贴纸名|图片URL]\n`;
     prompt += `  [微信语音电话:来电理由或接通开场] 或 [微信视频电话:来电理由或接通开场]，例如 [微信视频电话:我想现在看看你]。如果用户不在微信聊天页，系统会显示来电灵动岛让用户接听或拒绝\n`;
+    prompt += `  [旁白:环境、动作或神态描写] 例如 [旁白:窗外的雨声贴着玻璃滑下来，他把手机扣在掌心，抬眼看你]\n`;
     prompt += `- 只有在剧情确实需要时才使用这些特殊消息指令，不要解释指令本身\n`;
 
     return prompt;
@@ -308,7 +348,7 @@ function buildSystemPrompt(char) {
 
 // 2. 构建消息列表
 function buildMessages(char, history, maxMessages) {
-    maxMessages = maxMessages || 8; // 微信对话默认只带最近 8 条，避免大角色卡请求超时
+    maxMessages = maxMessages || 30; // 微信对话默认带最近 30 条，兼顾角色卡长设定和最近上下文
 
     const messages = [];
 
@@ -359,8 +399,10 @@ function buildMessages(char, history, maxMessages) {
             content = msg.description || '[图片]';
         } else if (msg.type === 'sticker') {
             content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
-        } else if (['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall'].includes(msg.type)) {
+        } else if (['voice', 'transfer', 'redpacket', 'gift', 'intimatePay', 'voiceCall', 'videoCall'].includes(msg.type)) {
             content = msg.description || msg.content || '[微信消息]';
+        } else if (msg.type === 'offline_narration') {
+            content = `[旁白] ${msg.content || msg.description || ''}`;
         } else if (msg.type === 'offline_text') {
             content = msg.dialogue || msg.description || '';
         }

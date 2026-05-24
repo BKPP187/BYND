@@ -19,6 +19,11 @@ const WECHAT_MOMENTS_STORAGE_KEY = 'wechat_moments_store';
 const WECHAT_VIDEO_STORAGE_KEY = 'wechat_video_state';
 const WECHAT_LIVE_STORAGE_KEY = 'wechat_live_state';
 const WECHAT_SHOP_STORAGE_KEY = 'wechat_shop_store';
+const WECHAT_SHOP_AGGREGATE_SOURCE_ID = 'bynd-aggregate';
+const WECHAT_SHOP_AGGREGATE_SOURCES = [
+    { id: 'dummyjson', name: 'DummyJSON', url: 'https://dummyjson.com/products/search?q={q}&limit=24' },
+    { id: 'fakestore', name: 'Fake Store', url: 'https://fakestoreapi.com/products' }
+];
 const WECHAT_FAVORITES_STORAGE_KEY = 'wechat_favorites_store';
 const WECHAT_AI_STATUS_FIELDS = [
     { key: 'innerMonologue', label: '内心独白' },
@@ -399,14 +404,30 @@ function getWechatRegexScriptField(script, keys) {
     for (const key of keys) {
         if (script[key] != null && script[key] !== '') return script[key];
     }
+    const common = {
+        findRegex: ['find_regex', 'find', 'match', 'matcher', 'regexPattern', 'regex_pattern'],
+        replaceString: ['replace_string', 'replaceWith', 'replace_with', 'replacement', 'substitute_regex', 'substituteRegex']
+    };
+    for (const key of keys) {
+        const aliases = common[key] || [];
+        for (const alias of aliases) {
+            if (script[alias] != null && script[alias] !== '') return script[alias];
+        }
+    }
+    if (script.script && typeof script.script === 'object') {
+        return getWechatRegexScriptField(script.script, keys);
+    }
     return '';
 }
 
 function isWechatRegexScriptEnabled(script) {
     if (!script || typeof script !== 'object') return false;
     if (script.enabled === false || script.disabled === true || script.isDisabled === true) return false;
+    if (script.use_regex === false || script.useRegex === false) return false;
     if (String(script.enabled).toLowerCase() === 'false') return false;
     if (String(script.disabled).toLowerCase() === 'true') return false;
+    if (String(script.use_regex).toLowerCase() === 'false') return false;
+    if (String(script.useRegex).toLowerCase() === 'false') return false;
     return true;
 }
 
@@ -489,6 +510,30 @@ function openChat(charId) {
     setTimeout(() => room.classList.add('active'), 10);
 }
 
+function openWechatMessageSource(charId, msgKey) {
+    if (!charId) return;
+    if (typeof openApp === 'function') openApp('wechat');
+    closeWechatFeatureScreen();
+    setTimeout(() => {
+        openChat(charId);
+        requestAnimationFrame(() => {
+            const char = window.myCharacters.find(c => c.id === charId);
+            const history = Array.isArray(char && char.history) ? char.history : [];
+            const index = history.findIndex((msg, idx) => getWechatMessageSourceKey(charId, msg, idx) === msgKey);
+            const row = index >= 0 ? document.querySelector(`.msg-row[data-msg-idx="${index}"]`) : null;
+            if (row) {
+                row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                row.classList.add('msg-source-highlight');
+                setTimeout(() => row.classList.remove('msg-source-highlight'), 1600);
+            }
+        });
+    }, 80);
+}
+
+function getWechatMessageSourceKey(charId, msg, msgIdx) {
+    return `message:${charId}:${msg?.id || msg?.timestamp || msg?.createdAt || msgIdx}`;
+}
+
 // 2. 修复切换开场白导致微信也变的问题 (数据分离)
 function switchGreeting(direction) {
     const charId = window.currentChatCharId;
@@ -567,6 +612,12 @@ function buildMessageMeta(msg) {
     return `<span class="msg-meta ${msg.isMe ? 'read' : 'delivered'}"><span>${formatMessageTime(msg)}</span>${readIcon}</span>`;
 }
 
+function getWechatMessageDate(msg) {
+    const raw = msg && (msg.timestamp || msg.createdAt || msg.time);
+    const date = raw ? new Date(raw) : new Date();
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
 function buildWechatCollectedAtText(msg) {
     const rawTime = msg.collectedAt || msg.timestamp || msg.createdAt || msg.time;
     return rawTime ? `已于 ${formatMessageTime({ timestamp: rawTime })} 收取` : '已收取';
@@ -584,7 +635,7 @@ function getWechatMessagePlainSummary(msg, maxLength = 92) {
 
 function getWechatMessageSenderName(msg, char) {
     if (msg && msg.isMe) {
-        const profile = (typeof getUserProfile === 'function') ? getUserProfile() : null;
+        const profile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : null);
         return (profile && profile.name) || '我';
     }
     return getWechatCharDisplayName(char);
@@ -603,11 +654,66 @@ function buildWechatReplySnapshot(msg, char, msgIdx) {
     };
 }
 
+function findWechatMessageForAiQuote(char, query) {
+    if (!char || !Array.isArray(char.history) || !char.history.length) return null;
+    const history = char.history;
+    const raw = String(query || '').trim();
+    if (/^\d+$/.test(raw)) {
+        const index = Math.max(0, Math.min(history.length - 1, parseInt(raw, 10) - 1));
+        return { msg: history[index], index };
+    }
+    const normalized = raw.replace(/^(?:最后|上一条|最近|last)$/i, '').trim();
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+        const msg = history[i];
+        if (!msg || msg.type === 'system_notice' || msg.type === 'offline_narration') continue;
+        const summary = getWechatMessagePlainSummary(msg, 180);
+        if (!normalized || summary.includes(normalized) || getWechatMessageSenderName(msg, char).includes(normalized)) {
+            return { msg, index: i };
+        }
+    }
+    return null;
+}
+
 function renderWechatMessageQuote(replyTo) {
     if (!replyTo || !replyTo.text) return '';
     const sender = wcEscapeHtml(replyTo.sender || (replyTo.isMe ? '我' : '对方'));
     const text = wcEscapeHtml(replyTo.text || '[消息]');
     return `<div class="msg-quote"><strong>${sender}</strong><span>${text}</span></div>`;
+}
+
+function appendWechatTimeDivider(container, date) {
+    if (!container) return;
+    const divider = document.createElement('div');
+    divider.className = 'msg-row time';
+    divider.innerHTML = `<div class="msg-time-divider">${wcEscapeHtml(formatWechatDateTimeDivider(date))}</div>`;
+    container.appendChild(divider);
+}
+
+function formatWechatDateTimeDivider(date) {
+    const safeDate = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+    const today = new Date();
+    const isSameDay = safeDate.toDateString() === today.toDateString();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const dayText = isSameDay
+        ? ''
+        : (safeDate.toDateString() === yesterday.toDateString()
+            ? '昨天 '
+            : `${safeDate.getMonth() + 1}月${safeDate.getDate()}日 `);
+    return `${dayText}${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`;
+}
+
+function shouldShowWechatTimeDivider(prevMsg, msg) {
+    const raw = msg && (msg.timestamp || msg.createdAt || msg.time);
+    const date = raw ? new Date(raw) : new Date();
+    if (Number.isNaN(date.getTime())) return false;
+    if (!prevMsg) return true;
+    const prevRaw = prevMsg.timestamp || prevMsg.createdAt || prevMsg.time;
+    const prevDate = prevRaw ? new Date(prevRaw) : null;
+    if (!prevDate || Number.isNaN(prevDate.getTime())) return true;
+    const gap = date.getTime() - prevDate.getTime();
+    if (gap >= 10 * 60 * 1000) return true;
+    return date.getMinutes() === 0 && date.getHours() !== prevDate.getHours();
 }
 
 function parseWechatRgbColor(value) {
@@ -745,7 +851,7 @@ function getWechatCssUrl(value) {
 }
 
 function isWechatSpecialMessage(type) {
-    return ['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall'].includes(type);
+    return ['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall', 'share_card', 'gift', 'intimatePay'].includes(type);
 }
 
 function parseWechatAmountNumber(value) {
@@ -827,17 +933,37 @@ function getWechatMessageSummary(msg) {
         const status = msg.status ? ` ${msg.status}` : '';
         return msg.receipt ? `[已收取红包] ${title}` : `[红包${status}] ${title}`;
     }
+    if (msg.type === 'gift') {
+        const item = msg.item && typeof msg.item === 'object' ? msg.item : {};
+        const name = item.name || msg.title || '礼物';
+        const status = msg.status ? ` ${msg.status}` : '';
+        return msg.receipt ? `[已收取礼物] ${name}` : `[礼物${status}] ${name}`;
+    }
+    if (msg.type === 'intimatePay') {
+        const status = msg.status ? ` ${msg.status}` : '';
+        return `[亲密付${status}] ${msg.note || '邀请开通'}`;
+    }
     if (msg.type === 'voiceCall') {
         return `[语音通话] ${getWechatCallDescription(msg)}`;
     }
     if (msg.type === 'videoCall') {
         return `[视频通话] ${getWechatCallDescription(msg)}`;
     }
+    if (msg.type === 'share_card') {
+        const card = msg.card && typeof msg.card === 'object' ? msg.card : {};
+        const title = card.title || msg.title || '转发';
+        const text = card.text || msg.text || msg.content || '';
+        return `[${title}] ${String(text || '').replace(/<[^>]+>/g, '').slice(0, 80)}`;
+    }
     return String(msg.content || '[消息]');
 }
 
 function syncWechatMessageDescription(msg) {
     if (!msg) return msg;
+    if (msg.type === 'share_card') {
+        msg.description = getWechatMessageSummary({ ...msg, description: '' });
+        return msg;
+    }
     if (isWechatSpecialMessage(msg.type)) {
         msg.description = getWechatMessageSummary({ ...msg, description: '' });
         if (!msg.content || msg.type !== 'voice') msg.content = msg.description;
@@ -1092,6 +1218,42 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
     const args = splitWechatDirectiveArgs(rawArgs);
     const base = { isMe: false, timestamp: createMessageTimestamp() };
 
+    if (command === '旁白' || command === '微信旁白') {
+        const content = args.join('|').trim();
+        if (!content) return null;
+        return {
+            ...base,
+            type: 'offline_narration',
+            content
+        };
+    }
+
+    if (command === '微信引用') {
+        const target = findWechatMessageForAiQuote(char, args[0] || '');
+        const content = args.slice(1).join('|').trim();
+        if (!target || !content) return null;
+        return {
+            ...base,
+            type: 'text',
+            content,
+            replyTo: buildWechatReplySnapshot(target.msg, char, target.index)
+        };
+    }
+
+    if (command === '微信记忆') {
+        const content = args.join('|').trim();
+        if (content) addWechatAutoMemory(char, content, '角色主动记忆');
+        return null;
+    }
+
+    if (command === '微信改用户备注') {
+        return applyWechatUserTitleDirective(rawArgs, char);
+    }
+
+    if (command === '微信拉黑') {
+        return applyWechatCharBlacklistDirective(rawArgs, char);
+    }
+
     if (command === '微信转账') {
         if (parseWechatAmountNumber(args[0]) == null) return null;
         return syncWechatMessageDescription({
@@ -1111,6 +1273,37 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
         };
         if (parseWechatAmountNumber(args[1]) != null) msg.amount = normalizeWechatAmount(args[1]);
         return syncWechatMessageDescription(msg);
+    }
+
+    if (command === '微信礼物' || command === '微信送礼物') {
+        const title = args[0] || '一份礼物';
+        const price = parseWechatAmountNumber(args[1]);
+        const image = args[2] || '';
+        const note = args.slice(3).join('|').trim();
+        return syncWechatMessageDescription({
+            ...base,
+            type: 'gift',
+            status: '待收取',
+            item: {
+                name: title,
+                price: price == null ? '' : price.toFixed(2),
+                image,
+                description: note
+            },
+            note
+        });
+    }
+
+    if (command === '微信亲密付') {
+        const limit = parseWechatAmountNumber(args[0]);
+        const note = args.slice(1).join('|').trim();
+        return syncWechatMessageDescription({
+            ...base,
+            type: 'intimatePay',
+            status: '待开通',
+            amount: limit == null ? '' : limit.toFixed(2),
+            note: note || '邀请你开通亲密付'
+        });
     }
 
     if (command === '微信语音') {
@@ -1150,6 +1343,185 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
     }
 
     return null;
+}
+
+function getWechatChatPresenceMode(char) {
+    const mode = char && char.chatConfig && char.chatConfig.chatPresenceMode;
+    return ['online', 'offline'].includes(mode) ? mode : 'auto';
+}
+
+function looksLikeWechatRichOrRegexSource(text) {
+    return /```[\s\S]*?```/.test(text)
+        || /<\s*\/?\s*[A-Za-z\u4e00-\u9fa5][^>]*>/.test(text)
+        || isRichMessageContent(text);
+}
+
+function pushWechatSplitTextPart(target, kind, content) {
+    const text = kind === 'narration'
+        ? normalizeWechatOfflineNarrationText(content)
+        : cleanWechatVisibleContent(content);
+    if (!text) return;
+    if (kind === 'narration') {
+        target.push({
+            kind: 'special',
+            msg: {
+                type: 'offline_narration',
+                isMe: false,
+                content: text,
+                timestamp: createMessageTimestamp()
+            }
+        });
+    } else {
+        target.push({ kind: 'text', content: text });
+    }
+}
+
+function normalizeWechatOfflineNarrationText(value) {
+    const normalized = cleanWechatVisibleContent(value)
+        .replace(/^\s*\[(?:微信旁白|旁白)\]\s*/i, '')
+        .replace(/^\s*(?:微信旁白|旁白)\s*[：:]\s*/i, '')
+        .replace(/^[\s，,。.;；:：、]+/, '')
+        .trim();
+    return stripWechatUserAgencyFromNarration(normalized);
+}
+
+function isWechatUserAgencySentence(text) {
+    const source = String(text || '').trim();
+    if (!source) return false;
+    return /(?:^|[。！？!?；;\s])你(?:只来得及|来得及|下意识|本能地|不由|忍不住|意识到|发现|觉得|想起|想要|试图|刚想|终于|已经|还没|伸手|抬手|握住|抓住|拽住|推开|躲开|退开|靠近|站起|坐下|走近|跑开|开口|说|喊|叫|发出|回答|回复|沉默|呼吸|喘|心跳|视野|眼前|脑海|身体|指尖|手腕|肩膀|腰|腿|脚)/.test(source)
+        || /(?:你的|你那|你自己|你整个人|你身体|你视野|你意识|你脑海|你心里|你下意识|你本能地)(?:[^。！？!?；;]{0,18})(?:想|觉得|意识到|发现|伸手|开口|说|喊|动|退|躲|靠|抓|握|呼吸|心跳|发软|僵住|颤|愣)/.test(source);
+}
+
+function stripWechatUserAgencyFromNarration(value) {
+    const source = String(value || '').trim();
+    if (!source) return '';
+    const sentences = source.match(/[^。！？!?；;]+[。！？!?；;]?|[\s\S]+$/g) || [source];
+    const kept = sentences
+        .map(item => item.trim())
+        .filter(item => item && !isWechatUserAgencySentence(item));
+    return kept.join('').trim();
+}
+
+function buildWechatOfflineNarrationPart(content) {
+    const text = normalizeWechatOfflineNarrationText(content);
+    if (!text) return null;
+    return {
+        kind: 'special',
+        msg: {
+            type: 'offline_narration',
+            isMe: false,
+            content: text,
+            timestamp: createMessageTimestamp()
+        }
+    };
+}
+
+function migrateWechatNarrationHistory(char) {
+    if (!char || !Array.isArray(char.history)) return false;
+    let changed = false;
+    const nextHistory = [];
+    char.history.forEach(msg => {
+        if (!msg) return;
+        if (msg.type === 'offline_narration') {
+            const normalized = normalizeWechatOfflineNarrationText(msg.content || msg.description || '');
+            if (!normalized) {
+                changed = true;
+                return;
+            }
+            if (msg.content !== normalized || msg.description) {
+                msg.content = normalized;
+                delete msg.description;
+                changed = true;
+            }
+            nextHistory.push(msg);
+            return;
+        }
+        if (!msg.isMe && (msg.type || 'text') === 'text') {
+            const raw = cleanWechatVisibleContent(msg.content || '');
+            if (/^\s*\[(?:微信旁白|旁白)\]\s*$/i.test(raw)) {
+                changed = true;
+                return;
+            }
+            if (/^\s*(?:\[(?:微信旁白|旁白)\]|(?:微信旁白|旁白)\s*[：:])/.test(raw)) {
+                const normalized = normalizeWechatOfflineNarrationText(raw);
+                if (!normalized) {
+                    changed = true;
+                    return;
+                }
+                msg.type = 'offline_narration';
+                msg.content = normalized;
+                delete msg.description;
+                changed = true;
+            }
+        }
+        nextHistory.push(msg);
+    });
+    if (changed) char.history = nextHistory;
+    return changed;
+}
+
+function splitWechatSentenceChunks(text, maxLength = 92) {
+    const source = cleanWechatVisibleContent(text);
+    if (!source) return [];
+    const sentences = source.match(/[^。！？!?；;]+[。！？!?；;]?|[\s\S]+$/g) || [source];
+    const chunks = [];
+    let current = '';
+    sentences.forEach(sentence => {
+        const next = sentence.trim();
+        if (!next) return;
+        if ((current + next).length > maxLength && current) {
+            chunks.push(current.trim());
+            current = next;
+        } else {
+            current += next;
+        }
+    });
+    if (current.trim()) chunks.push(current.trim());
+    return chunks.length ? chunks : [source];
+}
+
+function isWechatOfflineNarrationSentence(text) {
+    const source = String(text || '').trim();
+    if (!source) return false;
+    if (/^[*（(【\[]/.test(source) || /[*）)】\]]$/.test(source)) return true;
+    if (/^(旁白|动作|场景|镜头|环境)[：:]/.test(source)) return true;
+    if (/[他她]|[A-Za-z\u4e00-\u9fa5]{1,12}/.test(source) && /(抬眼|垂眼|低头|靠近|退开|伸手|握住|松开|停下|走近|坐下|起身|笑了|皱眉|沉默|呼吸|窗外|灯光|雨声|房间|空气|指尖|视线|肩膀|衣角|门口)/.test(source)) return true;
+    return false;
+}
+
+function splitWechatOfflinePlainText(content, char) {
+    const source = cleanWechatVisibleContent(content);
+    if (!source) return [];
+    if (looksLikeWechatRichOrRegexSource(source)) return [{ kind: 'text', content: source }];
+    const mode = getWechatChatPresenceMode(char);
+    const shouldSplit = mode === 'offline' || (mode === 'auto' && (source.length > 150 || /[“「『][\s\S]+[”」』]/.test(source)));
+    if (!shouldSplit) return [{ kind: 'text', content: source }];
+
+    const parts = [];
+    const paragraphs = source.split(/\n{2,}|\r?\n/).map(item => item.trim()).filter(Boolean);
+    const sources = paragraphs.length ? paragraphs : [source];
+    sources.forEach(paragraph => {
+        let cursor = 0;
+        const quoteRe = /[“「『]([^”」』]{1,260})[”」』]/g;
+        let match;
+        let hadQuote = false;
+        while ((match = quoteRe.exec(paragraph)) !== null) {
+            hadQuote = true;
+            const before = paragraph.slice(cursor, match.index).trim();
+            splitWechatSentenceChunks(before).forEach(chunk => pushWechatSplitTextPart(parts, 'narration', chunk));
+            splitWechatSentenceChunks(match[1]).forEach(chunk => pushWechatSplitTextPart(parts, 'text', chunk));
+            cursor = quoteRe.lastIndex;
+        }
+        const rest = paragraph.slice(cursor).trim();
+        if (hadQuote) {
+            splitWechatSentenceChunks(rest).forEach(chunk => pushWechatSplitTextPart(parts, 'narration', chunk));
+            return;
+        }
+        splitWechatSentenceChunks(paragraph, mode === 'offline' ? 82 : 118).forEach(chunk => {
+            pushWechatSplitTextPart(parts, isWechatOfflineNarrationSentence(chunk) ? 'narration' : 'text', chunk);
+        });
+    });
+    return parts.length ? parts : [{ kind: 'text', content: source }];
 }
 
 function buildWechatStickerDirectiveMessageFromText(text, char) {
@@ -1197,37 +1569,223 @@ function applyWechatNicknameDirective(rawArgs, char) {
     };
 }
 
+function splitWechatAiResponseSegments(content, char) {
+    const source = cleanWechatVisibleContent(content);
+    if (!source) return [];
+    if (looksLikeWechatRichOrRegexSource(source) && !source.includes('[微信')) return [source];
+    const segments = [];
+    let buffer = '';
+    let quote = null;
+    for (let i = 0; i < source.length; i += 1) {
+        const ch = source[i];
+        const next2 = source.slice(i, i + 3);
+        if (!quote && next2 === '|||') {
+            if (buffer.trim()) segments.push(buffer.trim());
+            buffer = '';
+            i += 2;
+            continue;
+        }
+        if (!quote && source.slice(i, i + 3) === '```') {
+            quote = '```';
+            buffer += '```';
+            i += 2;
+            continue;
+        }
+        if (quote === '```' && source.slice(i, i + 3) === '```') {
+            quote = null;
+            buffer += '```';
+            i += 2;
+            continue;
+        }
+        if (!quote && (ch === '"' || ch === "'" || ch === '`')) {
+            quote = ch;
+        } else if (quote === ch) {
+            quote = null;
+        }
+        buffer += ch;
+    }
+    if (buffer.trim()) segments.push(buffer.trim());
+    if (segments.length <= 1 && getWechatChatPresenceMode(char) === 'offline' && source.length > 180 && !looksLikeWechatRichOrRegexSource(source)) {
+        return splitWechatOfflinePlainText(source, char).map(part => part.content || (part.msg && part.msg.content) || '').filter(Boolean);
+    }
+    return segments;
+}
+
+function getWechatLastAiBatchStartIndex(history, msgIdx) {
+    if (!Array.isArray(history) || msgIdx < 0 || msgIdx >= history.length) return msgIdx;
+    let start = msgIdx;
+    for (let i = msgIdx - 1; i >= 0; i -= 1) {
+        const msg = history[i];
+        if (!msg || msg.isMe || msg.type === 'system_notice' || msg.monitorEvent) break;
+        start = i;
+    }
+    return start;
+}
+
+function applyWechatUserTitleDirective(rawArgs, char) {
+    if (!char) return null;
+    const args = splitWechatDirectiveArgs(rawArgs);
+    const nextTitle = String(args[0] || '').trim().slice(0, 24);
+    if (!nextTitle) return null;
+    char.chatConfig = char.chatConfig || {};
+    const previous = char.chatConfig.userTitle || '我';
+    if (previous === nextTitle) return null;
+    char.chatConfig.userTitle = nextTitle;
+    const reason = args.slice(1).join('|').trim();
+    return {
+        type: 'system_notice',
+        isMe: false,
+        content: reason
+            ? `${getWechatCharDisplayName(char)}把对你的称呼改成了「${nextTitle}」：${reason}`
+            : `${getWechatCharDisplayName(char)}把对你的称呼改成了「${nextTitle}」`,
+        timestamp: createMessageTimestamp()
+    };
+}
+
+function applyWechatCharBlacklistDirective(rawArgs, char) {
+    if (!char) return null;
+    const args = splitWechatDirectiveArgs(rawArgs);
+    const reason = args.join('|').trim();
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.charBlacklistedUser = true;
+    char.chatConfig.charBlacklistReason = reason || '';
+    return {
+        type: 'system_notice',
+        isMe: false,
+        content: reason
+            ? `${getWechatCharDisplayName(char)}把你拉黑了：${reason}`
+            : `${getWechatCharDisplayName(char)}把你拉黑了`,
+        timestamp: createMessageTimestamp()
+    };
+}
+
 function parseWechatAiMessageParts(text, char) {
     const source = cleanWechatVisibleContent(text);
     if (!source) return [];
 
-    const parts = [];
-    const directiveRe = /\[(微信转账|微信红包|微信表情|微信语音电话|微信视频电话|微信语音|微信改备注)[：:]([^\]]*)\]/g;
-    let lastIndex = 0;
-    let match;
+    const standaloneNarration = source.match(/^\s*\[(?:微信旁白|旁白)\]\s*([\s\S]*)$/i);
+    if (standaloneNarration) {
+        const content = normalizeWechatOfflineNarrationText(standaloneNarration[1] || '');
+        return splitWechatSentenceChunks(content, 92)
+            .map(chunk => buildWechatOfflineNarrationPart(chunk))
+            .filter(Boolean);
+    }
 
-    while ((match = directiveRe.exec(source)) !== null) {
-        const before = source.slice(lastIndex, match.index).trim();
+    const parts = [];
+    const directiveRe = /\[(微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信拉黑|微信旁白|旁白)[：:]([^\]]*)\]|\[(微信旁白|旁白)\]/g;
+    const tokens = [];
+    let tokenMatch;
+    while ((tokenMatch = directiveRe.exec(source)) !== null) {
+        tokens.push({
+            index: tokenMatch.index,
+            end: directiveRe.lastIndex,
+            command: tokenMatch[1] || tokenMatch[3],
+            args: tokenMatch[2] || '',
+            standaloneNarration: !!tokenMatch[3]
+        });
+    }
+    if (!tokens.length) {
+        return splitWechatOfflinePlainText(source, char);
+    }
+
+    let lastIndex = 0;
+
+    tokens.forEach((token, tokenIndex) => {
+        if (token.index < lastIndex) return;
+        const before = source.slice(lastIndex, token.index).trim();
         if (before) parts.push({ kind: 'text', content: before });
 
-        if (match[1] === '微信改备注') {
-            const msg = applyWechatNicknameDirective(match[2], char);
+        if (token.standaloneNarration) {
+            const nextStart = tokens[tokenIndex + 1] ? tokens[tokenIndex + 1].index : source.length;
+            splitWechatSentenceChunks(normalizeWechatOfflineNarrationText(source.slice(token.end, nextStart)), 92)
+                .forEach(chunk => {
+                    const narrationPart = buildWechatOfflineNarrationPart(chunk);
+                    if (narrationPart) parts.push(narrationPart);
+                });
+            lastIndex = nextStart;
+            return;
+        }
+
+        if (token.command === '微信改备注') {
+            const msg = applyWechatNicknameDirective(token.args, char);
             if (msg) parts.push({ kind: 'special', msg });
         } else {
-            const msg = buildWechatMessageFromAiDirective(match[1], match[2], char);
+            const msg = buildWechatMessageFromAiDirective(token.command, token.args, char);
             if (msg) parts.push({ kind: 'special', msg });
         }
-        lastIndex = directiveRe.lastIndex;
-    }
+        lastIndex = token.end;
+    });
 
     const after = source.slice(lastIndex).trim();
     if (after) parts.push({ kind: 'text', content: after });
-    return parts.length ? parts : [{ kind: 'text', content: source }];
+    const expanded = [];
+    (parts.length ? parts : [{ kind: 'text', content: source }]).forEach(part => {
+        if (part.kind === 'text') expanded.push(...splitWechatOfflinePlainText(part.content, char));
+        else expanded.push(part);
+    });
+    return expanded.length ? expanded : [{ kind: 'text', content: source }];
+}
+
+function renderWechatShareCard(msg, quoteHtml = '') {
+    const card = msg.card && typeof msg.card === 'object' ? msg.card : {};
+    const title = card.title || msg.title || '转发';
+    const text = card.text || msg.text || msg.content || '';
+    const source = card.source || msg.source || '';
+    const product = card.product && typeof card.product === 'object' ? card.product : null;
+    if (card.action === 'product' || product) {
+        const productName = product?.name || title || '商品';
+        const productTag = product?.tag || card.tag || '精选好物';
+        const productDesc = product?.description || text || '';
+        const price = Number(product?.price || card.price || 0);
+        const image = product?.image || card.image || (Array.isArray(card.images) ? card.images.find(Boolean) : '');
+        return `
+            <div class="msg-bubble wc-share-product-card${msg.isMe ? ' green' : ''}">
+                ${quoteHtml}
+                <div class="wc-share-product-head">
+                    <i class="ri-shopping-bag-3-line"></i>
+                    <span>${wcEscapeHtml(source || 'BYND 购物')}</span>
+                </div>
+                <div class="wc-share-product-main">
+                    <div class="wc-share-product-thumb">
+                        ${image ? `<img src="${wcEscapeHtml(image)}" loading="lazy" onerror="this.closest('.wc-share-product-thumb')?.classList.add('is-empty');this.remove()">` : '<i class="ri-store-2-line"></i>'}
+                    </div>
+                    <div class="wc-share-product-info">
+                        <strong>${wcEscapeHtml(productName)}</strong>
+                        <span>${wcEscapeHtml(productDesc || productTag)}</span>
+                        <div><em>${price > 0 ? `¥${price.toFixed(2)}` : '价格待定'}</em><b>${wcEscapeHtml(productTag)}</b></div>
+                    </div>
+                </div>
+                <div class="msg-card-footer"><span>商品卡片</span>${buildMessageMeta(msg)}</div>
+            </div>
+        `;
+    }
+    const images = Array.isArray(card.images) ? card.images.filter(Boolean).slice(0, 4) : [];
+    const imageHtml = images.length ? `
+        <div class="wc-share-moment-images count-${images.length}">
+            ${images.map(src => `<img src="${wcEscapeHtml(src)}" loading="lazy" onerror="this.style.display='none'">`).join('')}
+        </div>
+    ` : '';
+    return `
+        <div class="msg-bubble wc-share-moment-card${msg.isMe ? ' green' : ''}">
+            ${quoteHtml}
+            <div class="wc-share-moment-head">
+                <i class="ri-share-forward-line"></i>
+                <span>${wcEscapeHtml(title)}</span>
+            </div>
+            ${text ? `<div class="wc-share-moment-text">${wcEscapeHtml(text).replace(/\n/g, '<br>')}</div>` : ''}
+            ${imageHtml}
+            <div class="msg-card-footer"><span>${wcEscapeHtml(source || title)}</span>${buildMessageMeta(msg)}</div>
+        </div>
+    `;
 }
 
 function buildWechatSpecialBubble(msg, quoteHtml = '') {
     const metaHtml = buildMessageMeta(msg);
     const sideClass = msg.isMe ? ' green' : '';
+
+    if (msg.type === 'share_card') {
+        return renderWechatShareCard(msg, quoteHtml);
+    }
 
     if (msg.type === 'voice') {
         const duration = normalizeWechatDuration(msg.duration, 8);
@@ -1291,6 +1849,52 @@ function buildWechatSpecialBubble(msg, quoteHtml = '') {
         `;
     }
 
+    if (msg.type === 'gift') {
+        const item = msg.item && typeof msg.item === 'object' ? msg.item : {};
+        const name = item.name || msg.title || '一份礼物';
+        const image = item.image || msg.image || '';
+        const amount = item.price || msg.amount || '';
+        const isReceipt = !!msg.receipt;
+        const note = isReceipt
+            ? (msg.note || buildWechatCollectedAtText(msg))
+            : (msg.note || item.description || (msg.isMe ? '等待对方收取' : '送给你的礼物'));
+        return `
+            <div class="msg-bubble msg-gift-bubble${isReceipt ? ' msg-gift-receipt' : ''}${sideClass}">
+                ${quoteHtml}
+                <div class="msg-gift-cover">
+                    ${image ? `<img src="${wcEscapeHtml(image)}" loading="lazy" onerror="this.style.display='none'">` : '<i class="ri-gift-2-fill"></i>'}
+                </div>
+                <div class="msg-gift-info">
+                    <span>${wcEscapeHtml(isReceipt ? '已收取礼物' : '送你一份礼物')}</span>
+                    <strong>${wcEscapeHtml(name)}</strong>
+                    ${amount ? `<em>¥${wcEscapeHtml(normalizeWechatAmount(amount))}</em>` : ''}
+                    <p>${wcEscapeHtml(note)}</p>
+                </div>
+                <div class="msg-card-footer"><span>BYND 礼物</span>${metaHtml}</div>
+            </div>
+        `;
+    }
+
+    if (msg.type === 'intimatePay') {
+        const isReceipt = !!msg.receipt || msg.status === '已开通';
+        const amount = msg.amount ? normalizeWechatAmount(msg.amount) : '';
+        const note = msg.note || (isReceipt ? '亲密付已开通' : '邀请你开通亲密付');
+        return `
+            <div class="msg-bubble msg-intimate-pay-bubble${isReceipt ? ' msg-pay-receipt' : ''}${sideClass}">
+                ${quoteHtml}
+                <div class="msg-pay-main">
+                    <div class="msg-pay-icon"><i class="ri-bank-card-fill"></i></div>
+                    <div class="msg-pay-info">
+                        <div class="msg-pay-title">${isReceipt ? '亲密付已开通' : '开通亲密付'}</div>
+                        ${amount ? `<div class="msg-pay-amount">¥${wcEscapeHtml(amount)}</div>` : ''}
+                        <div class="msg-pay-note">${wcEscapeHtml(note)}</div>
+                    </div>
+                </div>
+                <div class="msg-card-footer"><span>BYND 亲密付</span>${metaHtml}</div>
+            </div>
+        `;
+    }
+
     if (msg.type === 'voiceCall' || msg.type === 'videoCall') {
         const isVideo = msg.type === 'videoCall';
         const title = isVideo ? '视频通话' : '语音通话';
@@ -1327,7 +1931,51 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
         return;
     }
 
-    const profile = getUserProfile();
+    if (msg.type === 'offline_narration') {
+        const narrationText = normalizeWechatOfflineNarrationText(msg.content || msg.description || '');
+        row.className = 'msg-row narration';
+        row.innerHTML = `
+            <div class="msg-offline-narration">
+                <i class="ri-quill-pen-line"></i>
+                <span>${wcEscapeHtml(narrationText).replace(/\n/g, '<br>')}</span>
+                ${buildMessageMeta(msg)}
+            </div>
+        `;
+        container.appendChild(row);
+        if (typeof msgIndex === 'number') {
+            let pressTimer = null;
+            row.addEventListener('click', (e) => {
+                if (!window._msgMultiSelectMode) return;
+                e.preventDefault();
+                e.stopPropagation();
+                toggleMsgSelect(msgIndex, row);
+            }, true);
+            const startPress = (e) => {
+                if (window._msgMultiSelectMode) return;
+                pressTimer = setTimeout(() => {
+                    e.preventDefault();
+                    showMsgActionMenu(msgIndex, false, row);
+                }, 500);
+            };
+            const cancelPress = () => { clearTimeout(pressTimer); };
+            row.addEventListener('touchstart', startPress, { passive: true });
+            row.addEventListener('touchend', cancelPress);
+            row.addEventListener('touchmove', cancelPress);
+            row.addEventListener('mousedown', startPress);
+            row.addEventListener('mouseup', cancelPress);
+            row.addEventListener('mouseleave', cancelPress);
+            row.addEventListener('dblclick', (e) => {
+                if (window._msgMultiSelectMode) return;
+                e.preventDefault();
+                e.stopPropagation();
+                clearTimeout(pressTimer);
+                showMsgActionMenu(msgIndex, false, row);
+            });
+        }
+        return;
+    }
+
+    const profile = getWechatChatUserProfile(charObj);
     const myAvatar = profile.avatar || DEFAULT_AVATAR;
 
     const currentAvatar = msg.isMe ? myAvatar : avatarUrl;
@@ -1367,6 +2015,19 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
     container.appendChild(row);
     executeScriptsInElement(row);
     applyWechatBubbleMetaContrast(row);
+    if (typeof msgIndex === 'number' && !msg.isMe && !msg.receipt && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type) && msg.status !== '已被领取' && msg.status !== '已收取' && msg.status !== '已开通') {
+        row.classList.add('msg-row-pay-collectable');
+        const payBubble = row.querySelector('.msg-pay-bubble, .msg-gift-bubble, .msg-intimate-pay-bubble');
+        if (payBubble) {
+            payBubble.setAttribute('role', 'button');
+            payBubble.setAttribute('tabindex', '0');
+            payBubble.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                collectWechatIncomingPayment(msgIndex);
+            });
+        }
+    }
     if (!msg.isMe) bindWechatAiAvatarInteractions(row, charObj);
     // 长按气泡弹出操作菜单
     if (typeof msgIndex === 'number') {
@@ -1452,10 +2113,13 @@ function showMsgActionMenu(msgIdx, isMe, rowEl) {
     menu.className = 'msg-action-menu';
     menu.id = 'msg-action-menu';
 
+    const char = getCurrentChatChar();
+    const msg = char && Array.isArray(char.history) ? char.history[msgIdx] : null;
+    const isNarration = msg && msg.type === 'offline_narration';
     let html = `<div class="msg-action-item" onclick="editSingleMsg(${msgIdx})"><i class="ri-edit-line"></i> 编辑</div>`;
-    html += `<div class="msg-action-item" onclick="quoteWechatMessage(${msgIdx})"><i class="ri-reply-line"></i> 引用</div>`;
+    if (!isNarration) html += `<div class="msg-action-item" onclick="quoteWechatMessage(${msgIdx})"><i class="ri-reply-line"></i> 引用</div>`;
     html += `<div class="msg-action-item" onclick="deleteSingleMsg(${msgIdx})"><i class="ri-delete-bin-line"></i> 删除</div>`;
-    if (!isMe) {
+    if (!isMe && !isNarration) {
         html += `<div class="msg-action-item" onclick="collectWechatMessage(${msgIdx})"><i class="ri-star-line"></i> 收藏</div>`;
         html += `<div class="msg-action-item" onclick="rerollMsg(${msgIdx})"><i class="ri-refresh-line"></i> 重新roll</div>`;
     }
@@ -1513,14 +2177,11 @@ function rerollMsg(msgIdx) {
     if (!charId) return;
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char || !char.history) return;
-    // 删掉这条及之后所有AI消息，重新触发AI
-    // 找到这条消息，它应该是AI的
     if (msgIdx < 0 || msgIdx >= char.history.length) return;
-    // 删掉从 msgIdx 开始的所有消息
-    char.history.splice(msgIdx);
+    const startIdx = getWechatLastAiBatchStartIndex(char.history, msgIdx);
+    char.history.splice(startIdx);
     saveCharactersToStorage();
     refreshChatView(char);
-    // 重新触发AI回复
     const contentEl = document.getElementById('chat-room-content');
     triggerAiAfterMessage(char, contentEl);
 }
@@ -1548,7 +2209,7 @@ function enterMsgMultiSelect(initialMsgIdx) {
         room.appendChild(bar);
     }
     bar.classList.remove('hidden');
-    if (Number.isInteger(initialMsgIdx)) {
+    if (Number.isInteger(initialMsgIdx) && isWechatMsgSelectable(initialMsgIdx)) {
         const initialRow = document.querySelector(`.msg-row[data-msg-idx="${initialMsgIdx}"]`);
         if (initialRow) toggleMsgSelect(initialMsgIdx, initialRow);
     }
@@ -1566,6 +2227,10 @@ function exitMsgMultiSelect() {
 }
 
 function toggleMsgSelect(msgIdx, rowEl) {
+    if (!isWechatMsgSelectable(msgIdx)) {
+        if (typeof showWechatToast === 'function') showWechatToast('这条消息不能多选删除');
+        return;
+    }
     if (window._msgSelectedIndexes.has(msgIdx)) {
         window._msgSelectedIndexes.delete(msgIdx);
         rowEl.classList.remove('selected');
@@ -1625,6 +2290,7 @@ function toggleWechatCollapsedHistory(charId) {
 function refreshChatView(char) {
     const contentEl = document.getElementById('chat-room-content');
     if (!contentEl) return;
+    const migratedNarration = migrateWechatNarrationHistory(char);
     const migratedStickerDirectives = migrateWechatStickerDirectiveHistory(char);
     contentEl.innerHTML = '';
     const history = char.history || [];
@@ -1639,25 +2305,30 @@ function refreshChatView(char) {
             appendWechatHistoryDivider(contentEl, char, collapsedCount, false);
         }
     }
+    let prevVisibleMsg = null;
     history.slice(startIndex).forEach((msg, offset) => {
         const index = startIndex + offset;
+        if (msg && msg.type !== 'system_notice' && shouldShowWechatTimeDivider(prevVisibleMsg, msg)) {
+            appendWechatTimeDivider(contentEl, getWechatMessageDate(msg));
+        }
         renderMessageBubble(contentEl, msg, char.avatar, char, index);
+        if (msg && msg.type !== 'system_notice') prevVisibleMsg = msg;
     });
     contentEl.scrollTop = contentEl.scrollHeight;
     requestAnimationFrame(() => { contentEl.scrollTop = contentEl.scrollHeight; });
     setTimeout(() => { contentEl.scrollTop = contentEl.scrollHeight; }, 180);
-    if (migratedStickerDirectives) saveCharactersToStorage();
+    if (migratedNarration || migratedStickerDirectives) saveCharactersToStorage();
 }
 
 function getWechatPaymentReceiptId(msg, index) {
     return msg.receiptFor || msg.paymentId || msg.timestamp || `${msg.type}_${index}`;
 }
 
-function buildWechatPaymentReceiptMessage(msg, receiptFor) {
+function buildWechatPaymentReceiptMessage(msg, receiptFor, isMe = false) {
     const collectedAt = msg.collectedAt || createMessageTimestamp();
     const receipt = {
         type: msg.type,
-        isMe: false,
+        isMe,
         receipt: true,
         receiptFor,
         amount: msg.amount,
@@ -1669,7 +2340,22 @@ function buildWechatPaymentReceiptMessage(msg, receiptFor) {
     };
     if (msg.type === 'transfer' && !receipt.note) receipt.note = '已存入零钱';
     if (msg.type === 'redpacket' && !receipt.title) receipt.title = '恭喜发财，大吉大利';
+    if (msg.type === 'gift') {
+        receipt.item = msg.item;
+        receipt.note = msg.note || '已放入礼物盒';
+    }
+    if (msg.type === 'intimatePay') {
+        receipt.note = msg.note || '亲密付已开通';
+        receipt.status = '已开通';
+    }
     return syncWechatMessageDescription(receipt);
+}
+
+function isWechatMsgSelectable(msgIdx) {
+    const char = getCurrentChatChar();
+    const msg = char && Array.isArray(char.history) ? char.history[msgIdx] : null;
+    if (!msg) return false;
+    return msg.type !== 'system_notice';
 }
 
 function markPendingUserPaymentsCollected(char) {
@@ -1683,11 +2369,11 @@ function markPendingUserPaymentsCollected(char) {
     const receipts = [];
 
     char.history.forEach((msg, index) => {
-        if (!msg || msg.receipt || !msg.isMe || !['transfer', 'redpacket'].includes(msg.type)) return;
+        if (!msg || msg.receipt || !msg.isMe || !['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type)) return;
         const receiptFor = getWechatPaymentReceiptId(msg, index);
         if (!msg.receiptCreated) {
             ensureMessageTimestamp(msg);
-            msg.status = '已被领取';
+            msg.status = msg.type === 'intimatePay' ? '已开通' : '已被领取';
             msg.receiptCreated = true;
             msg.collectedAt = createMessageTimestamp();
             syncWechatMessageDescription(msg);
@@ -1697,14 +2383,46 @@ function markPendingUserPaymentsCollected(char) {
             receipts.push(buildWechatPaymentReceiptMessage(msg, receiptFor));
             existingReceipts.add(receiptFor);
             changed = true;
-        } else if (msg.type === 'redpacket' && (!msg.status || msg.status === '待收取')) {
+        } else if (['redpacket', 'gift', 'intimatePay'].includes(msg.type) && (!msg.status || msg.status === '待收取' || msg.status === '待开通')) {
             msg.status = '已被领取';
+            if (msg.type === 'intimatePay') msg.status = '已开通';
             syncWechatMessageDescription(msg);
             changed = true;
         }
     });
     if (receipts.length) char.history.push(...receipts);
     return changed;
+}
+
+function collectWechatIncomingPayment(msgIdx) {
+    const char = getCurrentChatChar();
+    if (!char || !Array.isArray(char.history)) return;
+    const msg = char.history[msgIdx];
+    if (!msg || msg.isMe || msg.receipt || !['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type)) return;
+    if (msg.status === '已被领取' || msg.status === '已收取' || msg.status === '已开通') return;
+    const receiptFor = getWechatPaymentReceiptId(msg, msgIdx);
+    const hasReceipt = char.history.some(item => item && item.receipt && item.receiptFor === receiptFor);
+    ensureMessageTimestamp(msg);
+    msg.status = msg.type === 'intimatePay' ? '已开通' : '已被领取';
+    msg.receiptCreated = true;
+    msg.collectedAt = createMessageTimestamp();
+    syncWechatMessageDescription(msg);
+    if (msg.type === 'intimatePay') {
+        const store = getWechatShopStore();
+        store.intimatePay[char.id] = {
+            limit: parseWechatAmountNumber(msg.amount) || 0,
+            status: '已开通',
+            note: msg.note || '亲密付已开通',
+            updatedAt: Date.now()
+        };
+        saveWechatShopStore(store);
+    }
+    if (!hasReceipt) {
+        char.history.push(buildWechatPaymentReceiptMessage(msg, receiptFor, true));
+    }
+    saveCharactersToStorage();
+    refreshChatView(char);
+    renderChatList();
 }
 
 function appendWechatAiMessageParts(char, contentEl, text) {
@@ -2045,7 +2763,7 @@ async function triggerAiAfterMessage(char, contentEl) {
             if (markPendingUserPaymentsCollected(char)) {
                 refreshChatView(char);
             }
-            const parts = result.content.split('|||').map(s => s.trim()).filter(s => s);
+            const parts = splitWechatAiResponseSegments(result.content, char);
             let newAiMessageCount = 0;
             for (let i = 0; i < parts.length; i++) {
                 if (i > 0) await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
@@ -2209,9 +2927,15 @@ function showWechatDesktopMessageIsland(char) {
     }, 5200);
 }
 
-const WECHAT_MONITOR_COOLDOWN_MS = 9000;
+const WECHAT_MONITOR_COOLDOWN_MS = 14000;
 const WECHAT_MONITOR_MAX_WATCHERS = 3;
-const WECHAT_MONITOR_LEVELS = ['silent', 'island', 'warning', 'barrage', 'lockdown'];
+const WECHAT_MONITOR_LEVELS = ['silent', 'island', 'barrage', 'warning'];
+const WECHAT_MONITOR_MODE_LABELS = {
+    persona: '按角色人设',
+    observer: '第三视角吐槽',
+    god: '上帝视角旁白',
+    cp: '磕糖观众'
+};
 window._wechatMonitorLastRequestAt = window._wechatMonitorLastRequestAt || {};
 
 function getWechatMonitorEventId(targetChar, msg) {
@@ -2224,7 +2948,7 @@ function getWechatMonitorEventId(targetChar, msg) {
 
 function isWechatMonitorableUserMessage(msg) {
     if (!msg || msg.isMe !== true || msg.monitorEvent || msg.type === 'system_notice') return false;
-    return ['text', 'image', 'sticker', 'voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall'].includes(msg.type || 'text');
+    return ['text', 'image', 'sticker', 'voice', 'transfer', 'redpacket', 'gift', 'intimatePay', 'voiceCall', 'videoCall'].includes(msg.type || 'text');
 }
 
 function getWechatMonitorState(char) {
@@ -2235,6 +2959,18 @@ function getWechatMonitorState(char) {
     state.processedIds = Array.isArray(state.processedIds) ? state.processedIds.slice(-40) : [];
     char.chatConfig.monitorState = state;
     return state;
+}
+
+function getWechatMonitorMode(char) {
+    const mode = char && char.chatConfig && char.chatConfig.monitorMode;
+    return Object.prototype.hasOwnProperty.call(WECHAT_MONITOR_MODE_LABELS, mode) ? mode : 'persona';
+}
+
+function getWechatMonitorModePrompt(mode) {
+    if (mode === 'observer') return '采用第三视角吐槽，像看剧观众一样轻松点评，机灵但不攻击用户，语气像弹幕而不是审判。';
+    if (mode === 'god') return '采用上帝视角旁白，观察人物动机、误会和暧昧张力，语气克制、有电影感，避免占有欲过强。';
+    if (mode === 'cp') return '采用磕糖观众视角，重点捕捉互动里的可爱、好嗑、反差和误会，不上升到控制或威胁。';
+    return '采用角色本人视角，必须贴合角色卡、人设、关系和记忆，可吃味、嘴硬或吐槽，但默认是娱乐化反应，不要偏激。';
 }
 
 function getWechatMonitorWatchers(targetChar) {
@@ -2259,7 +2995,7 @@ function notifyWechatMonitors(targetChar, userMsg) {
 }
 
 function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
-    const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' };
+    const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(targetChar) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
     const byndContacts = (window.myCharacters || [])
         .filter(char => char && !char.isGroupChat)
         .map(char => getWechatCharDisplayName(char))
@@ -2271,6 +3007,9 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
     const targetHistory = buildWechatRecentHistoryForPrompt(targetChar, 10);
     const watcherWorldBook = buildWechatWorldBookPrompt(watcher, 30);
     const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(watcher) : '';
+    const monitorMode = getWechatMonitorMode(watcher);
+    const monitorModeLabel = WECHAT_MONITOR_MODE_LABELS[monitorMode] || WECHAT_MONITOR_MODE_LABELS.persona;
+    const monitorModePrompt = getWechatMonitorModePrompt(monitorMode);
     const systemPrompt = typeof buildSystemPrompt === 'function'
         ? buildSystemPrompt(watcher)
         : `你是「${watcher.name || watcherName}」。请保持角色设定。`;
@@ -2282,11 +3021,11 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
         },
         {
             role: 'system',
-            content: `这是 BYND 应用内部的虚构剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。你正在以「${watcherName}」的身份看到用户刚刚给另一个 BYND 角色「${targetName}」发的消息。请按你的人设、关系、世界书、记忆和游戏化监控剧情反应。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage。level 只能是 silent/island/warning/barrage/lockdown。island 是灵动岛短句 8-30 字；warning 是弹窗警告 12-70 字；barrage 是 0-6 条飞字短句数组。暧昧、隐瞒、刺激嫉妒或越界时可以逐级升级；普通消息可 silent 或 island。`
+            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。你正在以「${watcherName}」的身份看到用户刚刚给另一个 BYND 角色「${targetName}」发的消息。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃味、嘴硬或旁白。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。普通消息可 silent/island；有戏剧张力时优先用 barrage，像观众刷弹幕；只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。`
         },
         {
             role: 'user',
-            content: `用户：${userProfile.name || '用户'}\nBYND 内部联系人数量：${byndContacts.length}\nBYND 联系人：${byndContacts.slice(0, 24).join('、') || '暂无'}\n监控角色：${watcherName}\n被观察聊天对象：${targetName}\n${watcherWorldBook ? `${watcherWorldBook}\n` : ''}${memoryAnchor ? `${memoryAnchor}\n` : ''}用户刚刚发给 ${targetName} 的消息：${observed || '[非文字消息]'}\n\n${watcherName} 与用户最近聊天：\n${watcherHistory}\n\n用户与 ${targetName} 最近聊天：\n${targetHistory}`
+            content: `用户：${userProfile.name || '用户'}\nBYND 内部联系人数量：${byndContacts.length}\nBYND 联系人：${byndContacts.slice(0, 24).join('、') || '暂无'}\n监控角色：${watcherName}\n被观察聊天对象：${targetName}\n监控吐槽视角：${monitorModeLabel}\n${watcherWorldBook ? `${watcherWorldBook}\n` : ''}${memoryAnchor ? `${memoryAnchor}\n` : ''}用户刚刚发给 ${targetName} 的消息：${observed || '[非文字消息]'}\n\n${watcherName} 与用户最近聊天：\n${watcherHistory}\n\n用户与 ${targetName} 最近聊天：\n${targetHistory}`
         }
     ];
 }
@@ -2306,7 +3045,7 @@ function normalizeWechatMonitorReaction(raw) {
     const island = stripWechatPromptText(raw.island || raw.message || raw.text || '', 42);
     const warning = stripWechatPromptText(raw.warning || raw.warn || island || '', 90);
     const barrage = Array.isArray(raw.barrage)
-        ? raw.barrage.map(item => stripWechatPromptText(item, 28)).filter(Boolean).slice(0, 6)
+        ? raw.barrage.map(item => stripWechatPromptText(item, 32)).filter(Boolean).slice(0, 10)
         : [];
     if (level !== 'silent' && !island && !warning && !barrage.length) return null;
     return { level, island, warning, barrage };
@@ -2317,9 +3056,7 @@ function escalateWechatMonitorLevel(state, reaction, targetChar) {
     const now = Date.now();
     const sameTarget = state.lastTargetId === targetChar.id && state.lastAt && now - state.lastAt < 10 * 60 * 1000;
     const suspicion = sameTarget ? Math.min(10, Number(state.suspicion || 0) + Math.max(1, getWechatMonitorLevelIndex(level))) : getWechatMonitorLevelIndex(level);
-    if (sameTarget && suspicion >= 8 && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('lockdown')) level = 'lockdown';
-    else if (sameTarget && suspicion >= 5 && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('barrage')) level = 'barrage';
-    else if (sameTarget && suspicion >= 3 && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('warning')) level = 'warning';
+    if (sameTarget && suspicion >= 3 && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('barrage')) level = 'barrage';
     state.suspicion = suspicion;
     state.lastTargetId = targetChar.id;
     state.lastAt = now;
@@ -2372,7 +3109,7 @@ function appendWechatMonitorRecord(watcher, targetChar, userMsg, reaction, level
     watcher.history.push({
         type: 'text',
         isMe: false,
-        content: `【监控到你和${targetName}】${text}`,
+        content: `【旁观吐槽：你和${targetName}】${text}`,
         description: `[监控] 看到你发给${targetName}：${observed}`,
         monitorEvent: true,
         monitorLevel: level,
@@ -2385,17 +3122,15 @@ function presentWechatMonitorReaction(watcher, targetChar, reaction, level) {
     if (level === 'silent') return;
     const islandText = reaction.island || reaction.warning || reaction.barrage[0] || '我看见了。';
     showWechatMonitorIsland(watcher, targetChar, islandText);
-    if (['warning', 'barrage', 'lockdown'].includes(level)) {
+    if (level === 'warning') {
         showWechatMonitorWarning(watcher, reaction.warning || islandText);
     }
-    if (['barrage', 'lockdown'].includes(level)) {
-        showWechatMonitorBarrage(watcher, reaction.barrage.length ? reaction.barrage : [islandText, reaction.warning || islandText]);
+    if (['barrage', 'warning'].includes(level)) {
+        const basePhrases = reaction.barrage.length ? reaction.barrage : [islandText, reaction.warning || islandText];
+        showWechatMonitorBarrage(watcher, buildWechatMonitorBarrageBurst(basePhrases, level));
     }
-    if (level === 'lockdown') {
-        showWechatMonitorLockdown(watcher, reaction.warning || islandText);
-    }
-    if (navigator.vibrate && ['warning', 'barrage', 'lockdown'].includes(level)) {
-        navigator.vibrate(level === 'lockdown' ? [80, 35, 110, 35, 160] : [55, 35, 85]);
+    if (navigator.vibrate && ['warning', 'barrage'].includes(level)) {
+        navigator.vibrate([45, 25, 65]);
     }
 }
 
@@ -2415,7 +3150,7 @@ function showWechatMonitorIsland(watcher, targetChar, text) {
         <div class="wc-message-island-main">
             <img src="${wcEscapeHtml(watcher.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
             <div class="wc-message-island-text">
-                <strong>${wcEscapeHtml(watcherName)} 正在看着你</strong>
+                <strong>${wcEscapeHtml(watcherName)} 发来吐槽</strong>
                 <span>${wcEscapeHtml(targetName)} · ${wcEscapeHtml(text)}</span>
             </div>
         </div>
@@ -2473,12 +3208,12 @@ function showWechatMonitorBarrage(watcher, phrases) {
     const barrage = document.createElement('div');
     barrage.id = 'wc-monitor-barrage';
     barrage.className = 'wc-monitor-barrage';
-    const safePhrases = (phrases || []).filter(Boolean).slice(0, 8);
+    const safePhrases = (phrases || []).filter(Boolean).slice(0, 16);
     barrage.innerHTML = safePhrases.map((phrase, index) => `
-        <span style="--i:${index};--top:${16 + (index * 9) % 58}%;">${wcEscapeHtml(phrase)}</span>
+        <span style="--i:${index};--top:${12 + Math.round(Math.random() * 66)}%;--dur:${4.8 + Math.random() * 1.7}s;">${wcEscapeHtml(phrase)}</span>
     `).join('');
     host.appendChild(barrage);
-    setTimeout(() => barrage.remove(), 6500);
+    setTimeout(() => barrage.remove(), 7600);
 }
 
 function showWechatMonitorLockdown(watcher, text) {
@@ -3893,13 +4628,50 @@ async function requestWechatFriendVerification(charId, mode = 'initial') {
     char.chatConfig = char.chatConfig || {};
     char.chatConfig.friendRequestReason = result.ok
         ? String(result.content || '').replace(/\|\|\|/g, ' ').replace(/<[^>]+>/g, '').trim().slice(0, 80)
-        : '我想重新和你说清楚，可以通过一下吗？';
+        : `认证申请生成失败：${String(result.error || 'API 未返回').slice(0, 42)}`;
     char.chatConfig.friendRequestAt = Date.now();
     saveCharactersToStorage();
     openWechatContactProfile(charId);
 }
 
-function acceptWechatFriendVerification(charId) {
+function buildWechatMonitorBarrageBurst(phrases, level) {
+    const extras = ['这集开始有意思了', '前排围观', '怎么突然这么像连续剧', '镜头给到这里', '弹幕已经坐好', '这句值得回放', '气氛不对劲了', '他肯定看见了'];
+    const targetCount = level === 'warning' ? 14 : 9;
+    const result = (phrases || []).filter(Boolean).slice(0, targetCount);
+    let i = 0;
+    while (result.length < targetCount && i < extras.length * 2) {
+        result.push(extras[i % extras.length]);
+        i += 1;
+    }
+    return result.slice(0, targetCount);
+}
+
+async function appendWechatRelationshipEventReply(char, eventText) {
+    if (!char || typeof callChatApi !== 'function') {
+        appendWechatSystemNotice(char, '关系事件回复失败：未配置聊天 API');
+        return false;
+    }
+    try {
+        const messages = [
+            { role: 'system', content: typeof buildSystemPrompt === 'function' ? buildSystemPrompt(char) : `你是「${char.name || getWechatCharDisplayName(char)}」。保持角色设定。` },
+            { role: 'system', content: typeof buildCurrentTimeAnchor === 'function' ? buildCurrentTimeAnchor(char) : `当前时间：${new Date().toLocaleString()}` },
+            { role: 'system', content: `根据当前微信聊天上下文回应这个关系事件。要像真实微信消息，允许用"|||"分段。不要解释系统，不要输出 Markdown。` },
+            { role: 'user', content: `${eventText}\n\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 14)}` }
+        ];
+        const result = await callChatApi(messages);
+        if (!result || !result.ok) {
+            appendWechatSystemNotice(char, `关系事件回复失败：${(result && result.error) || 'API 未返回'}`);
+            return false;
+        }
+        appendWechatAiMessageParts(char, document.getElementById('chat-room-content'), result.content || '');
+        return true;
+    } catch (e) {
+        appendWechatSystemNotice(char, `关系事件回复失败：${e && e.message ? e.message : 'API 异常'}`);
+        return false;
+    }
+}
+
+async function acceptWechatFriendVerification(charId) {
     const char = (window.myCharacters || []).find(c => c.id === charId);
     if (!char) return;
     char.chatConfig = char.chatConfig || {};
@@ -3911,6 +4683,10 @@ function acceptWechatFriendVerification(charId) {
     closeWechatFeatureScreen();
     switchWcTab('chat');
     openChat(charId);
+    await appendWechatRelationshipEventReply(char, '用户刚刚同意重新添加你为联系人。请按你的人设和当前上下文，给用户发一条自然的微信消息。');
+    saveCharactersToStorage();
+    if (window.currentChatCharId === char.id) refreshChatView(char);
+    renderChatList();
 }
 
 async function rejectWechatFriendVerification(charId) {
@@ -3921,6 +4697,26 @@ async function rejectWechatFriendVerification(charId) {
     saveCharactersToStorage();
     openWechatContactProfile(charId);
     await requestWechatFriendVerification(charId, 'rejected');
+}
+
+async function blacklistCurrentWechatContact() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    const displayName = getWechatCharDisplayName(char);
+    if (!confirm(`确定拉黑「${displayName}」吗？\n拉黑后会触发一次角色按当前聊天上下文生成回复。`)) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.blacklisted = true;
+    char.chatConfig.friendRequestReason = '';
+    char.chatConfig.friendRequestAt = Date.now();
+    appendWechatSystemNotice(char, `你已将 ${displayName} 加入黑名单`);
+    saveCharactersToStorage();
+    closeChatSettings();
+    switchWcTab('chat');
+    openChat(char.id);
+    await appendWechatRelationshipEventReply(char, '用户刚刚把你拉黑了。请按你的人设、你们最近聊天的情景和真实情绪，生成一段自然微信回复。可以难过、困惑、嘴硬、吐槽或请求解释，但不要解释系统。');
+    saveCharactersToStorage();
+    refreshChatView(char);
+    renderChatList();
 }
 
 function renderMePage() {
@@ -4065,6 +4861,7 @@ function addWechatFavorite(item) {
         text: item.text || '',
         media: Array.isArray(item.media) ? item.media : [],
         sourceKey,
+        source: item.source && typeof item.source === 'object' ? item.source : null,
         createdAt: item.createdAt || Date.now(),
         updatedAt: item.updatedAt || Date.now()
     };
@@ -4088,11 +4885,13 @@ function collectWechatMessage(msgIdx) {
     const msg = char && Array.isArray(char.history) ? char.history[msgIdx] : null;
     if (!char || !msg || msg.isMe) return;
     const text = stripWechatPromptText(getWechatMessagePromptContent(msg), 520) || '[微信消息]';
+    const msgKey = getWechatMessageSourceKey(char.id, msg, msgIdx);
     addWechatFavorite({
         type: 'message',
         title: `${getWechatCharDisplayName(char)} 的消息`,
         text,
-        sourceKey: `message:${char.id}:${msg.timestamp || msg.createdAt || msgIdx}:${text.slice(0, 40)}`,
+        sourceKey: msgKey,
+        source: { kind: 'message', charId: char.id, msgKey },
         createdAt: msg.timestamp || msg.createdAt || Date.now()
     });
 }
@@ -4154,7 +4953,7 @@ function renderWechatFavoriteList(query = '') {
         .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
     listEl.innerHTML = items.length ? items.map(item => `
         <div class="wc-fav-item">
-            <div class="wc-fav-main" onclick="${item.type === 'note' ? `openWechatFavoriteNoteEditor(${quoteWechatJsString(item.id)})` : ''}">
+            <div class="wc-fav-main" onclick="${getWechatFavoriteOpenAction(item)}">
                 <div class="wc-fav-title">${wcEscapeHtml(item.title || '收藏')}</div>
                 <div class="wc-fav-text">${wcEscapeHtml(item.text || '').replace(/\n/g, '<br>') || ' '}</div>
                 ${getWechatFavoriteMediaHtml(item.media || [])}
@@ -4166,6 +4965,22 @@ function renderWechatFavoriteList(query = '') {
             </div>
         </div>
     `).join('') : '<div class="wc-discover-empty">还没有收藏</div>';
+}
+
+function getWechatFavoriteOpenAction(item) {
+    if (item.type === 'note') return `openWechatFavoriteNoteEditor(${quoteWechatJsString(item.id)})`;
+    if (item.type === 'message') {
+        const source = item.source || {};
+        let charId = source.charId || '';
+        let msgKey = source.msgKey || item.sourceKey || '';
+        if (!charId && item.sourceKey && item.sourceKey.startsWith('message:')) {
+            const parts = item.sourceKey.split(':');
+            charId = parts[1] || '';
+            msgKey = parts.slice(0, 3).join(':');
+        }
+        if (charId && msgKey) return `openWechatMessageSource(${quoteWechatJsString(charId)}, ${quoteWechatJsString(msgKey)})`;
+    }
+    return '';
 }
 
 function getWechatFavoriteById(id) {
@@ -4633,17 +5448,54 @@ function saveWechatMomentStore(store) {
     writeWechatStore(WECHAT_MOMENTS_STORAGE_KEY, store);
 }
 
-function getMomentTimeComment(ts) {
-    const hour = new Date(ts || Date.now()).getHours();
-    if (hour < 11) return '早上看到这个，还挺有精神的。';
-    if (hour < 18) return '这个时间发出来刚刚好，我看到了。';
-    return '晚上刷到这个，感觉很适合慢慢聊。';
+function isWechatOldMomentTemplateComment(text) {
+    const value = String(text || '').trim();
+    return [
+        '早上看到这个，还挺有精神的。',
+        '这个时间发出来刚刚好，我看到了。',
+        '晚上刷到这个，感觉很适合慢慢聊。'
+    ].includes(value);
+}
+
+function migrateWechatMomentTemplateComments(store) {
+    if (!store || !Array.isArray(store.posts)) return false;
+    let changed = false;
+    store.posts.forEach(post => {
+        if (!Array.isArray(post.comments)) return;
+        const removed = [];
+        post.comments = post.comments.filter(comment => {
+            if (!comment) return false;
+            if (comment.user) return true;
+            if (!comment.charId) return true;
+            if (comment.generatedBy === 'api' && !isWechatOldMomentTemplateComment(comment.text)) return true;
+            if (comment.charId) removed.push(comment.charId);
+            changed = true;
+            return false;
+        });
+        if (removed.length) {
+            post.pending = Array.isArray(post.pending) ? post.pending : [];
+            removed.forEach((charId, index) => {
+                const exists = post.pending.some(task => task && task.charId === charId && task.type === 'comment' && !task.done);
+                if (exists) return;
+                post.pending.push({
+                    id: 'mqt_retry_' + (post.id || Date.now()) + '_' + charId + '_' + index,
+                    charId,
+                    type: 'comment',
+                    dueAt: Date.now(),
+                    done: false,
+                    apiOnly: true
+                });
+            });
+        }
+    });
+    return changed;
 }
 
 function scheduleWechatMomentEngagement(post) {
     const chars = (window.myCharacters || []).slice(0, 6);
     const needsAsk = /[?？]|怎么|为什么|为啥|怎么办|不懂|纠结/.test(post.text || '');
     post.pending = chars.map((char, index) => ({
+        id: 'mqt_' + (post.id || Date.now()) + '_' + char.id + '_' + index,
         charId: char.id,
         type: needsAsk && index === 0 ? 'ask' : 'comment',
         dueAt: Date.now() + 45000 + index * 35000 + Math.floor(Math.random() * 45000),
@@ -4651,38 +5503,247 @@ function scheduleWechatMomentEngagement(post) {
     }));
 }
 
+function isWechatMomentsScreenOpen() {
+    const screen = document.getElementById('wc-feature-screen');
+    const title = document.getElementById('wc-feature-title');
+    return !!screen && screen.classList.contains('active') && title && title.textContent === '朋友圈';
+}
+
+function normalizeWechatMomentGeneratedComment(value) {
+    const parsed = parseWechatJsonObject(value);
+    let text = parsed && typeof parsed === 'object'
+        ? (parsed.comment || parsed.text || parsed.reply || '')
+        : String(value || '');
+    text = cleanWechatVisibleContent(text)
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\|\|\|/g, ' ')
+        .replace(/^\s*(?:朋友圈)?评论\s*[：:]\s*/i, '')
+        .replace(/^\s*["'“”‘’]+|["'“”‘’]+\s*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!text) return '';
+    const firstLine = text.split(/\r?\n/).map(item => item.trim()).filter(Boolean)[0] || '';
+    return firstLine.length > 44 ? firstLine.slice(0, 43) + '…' : firstLine;
+}
+
+async function generateWechatMomentPersonaComment(post, char, usedTexts = new Set()) {
+    if (typeof callChatApi !== 'function') return '';
+    const profile = getUserProfile();
+    const postText = stripWechatPromptText(post?.text || '', 180) || (post?.images?.length ? '[图片朋友圈]' : '[空动态]');
+    const imageHint = Array.isArray(post?.images) && post.images.length ? `含 ${post.images.length} 张图片` : '无图片';
+    const charName = getWechatCharDisplayName(char);
+    const userName = profile.name || '用户';
+    try {
+        const result = await callChatApi([
+            {
+                role: 'system',
+                content: typeof buildSystemPrompt === 'function'
+                    ? buildSystemPrompt(char)
+                    : `你是「${charName}」。保持角色卡、人设、世界书和最近聊天关系。`
+            },
+            {
+                role: 'system',
+                content: `你正在浏览「${userName}」刚发的微信朋友圈。只输出一条朋友圈评论，8-36字，像真实微信留言。必须按「${charName}」的人设、口吻、关系距离和世界书反应；不要和其他角色同质化；不要解释，不要 Markdown，不要 JSON，不要替用户说话或替用户行动。`
+            },
+            {
+                role: 'user',
+                content: `朋友圈内容：${postText}\n图片：${imageHint}\n发布时间：${formatWechatRelativeTime(post?.createdAt)}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 10)}`
+            }
+        ]);
+        const text = result && result.ok ? normalizeWechatMomentGeneratedComment(result.content) : '';
+        if (text && !usedTexts.has(text) && !isWechatOldMomentTemplateComment(text)) return text;
+    } catch (e) {
+        console.warn('moment persona comment failed:', e);
+    }
+    return '';
+}
+
+function appendWechatMomentCommentToStore(store, post, task, char, text) {
+    post.comments = post.comments || [];
+    const safeText = String(text || '').trim();
+    if (!safeText) {
+        task.generating = false;
+        task.error = 'API 未生成朋友圈评论';
+        task.dueAt = Date.now() + 5 * 60000;
+        return false;
+    }
+    post.comments.push({
+        id: 'mc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        charId: char.id,
+        name: (char.chatConfig && char.chatConfig.nickname) || char.name,
+        avatar: char.avatar || DEFAULT_AVATAR,
+        text: safeText,
+        generatedBy: 'api',
+        createdAt: Date.now()
+    });
+    task.done = true;
+    task.generating = false;
+    task.generatedAt = Date.now();
+    delete task.error;
+    return true;
+}
+
+function queueWechatMomentCommentGeneration(postId, taskId) {
+    window._wechatMomentCommentJobs = window._wechatMomentCommentJobs || new Set();
+    const jobKey = `${postId}:${taskId}`;
+    if (window._wechatMomentCommentJobs.has(jobKey)) return;
+    window._wechatMomentCommentJobs.add(jobKey);
+    (async () => {
+        try {
+            const store = getWechatMomentStore();
+            const post = store.posts.find(item => item.id === postId);
+            const task = post && (post.pending || []).find(item => item.id === taskId);
+            const char = task && (window.myCharacters || []).find(c => c.id === task.charId);
+            if (!post || !task || !char || task.done) return;
+            const used = new Set((post.comments || []).map(comment => String(comment && comment.text || '').trim()).filter(Boolean));
+            const text = await generateWechatMomentPersonaComment(post, char, used);
+            appendWechatMomentCommentToStore(store, post, task, char, text);
+            saveWechatMomentStore(store);
+            saveCharactersToStorage();
+            if (isWechatMomentsScreenOpen()) renderWechatMoments();
+        } finally {
+            window._wechatMomentCommentJobs.delete(jobKey);
+        }
+    })();
+}
+
+function normalizeWechatMomentGeneratedChat(value) {
+    const parsed = parseWechatJsonObject(value);
+    let text = parsed && typeof parsed === 'object'
+        ? (parsed.message || parsed.text || parsed.reply || '')
+        : String(value || '');
+    text = cleanWechatVisibleContent(text)
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\|\|\|/g, ' ')
+        .replace(/^\s*(?:询问|消息|回复)\s*[：:]\s*/i, '')
+        .replace(/^\s*["'“”‘’]+|["'“”‘’]+\s*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return text.length > 90 ? text.slice(0, 89) + '…' : text;
+}
+
+async function generateWechatMomentAskMessage(post, char) {
+    if (typeof callChatApi !== 'function') return '';
+    const profile = getUserProfile();
+    const postText = stripWechatPromptText(post?.text || '', 220) || (post?.images?.length ? '[图片朋友圈]' : '[空动态]');
+    try {
+        const result = await callChatApi([
+            {
+                role: 'system',
+                content: typeof buildSystemPrompt === 'function'
+                    ? buildSystemPrompt(char)
+                    : `你是「${getWechatCharDisplayName(char)}」。保持角色卡、人设、世界书和最近聊天关系。`
+            },
+            {
+                role: 'system',
+                content: `你看到「${profile.name || '用户'}」刚发的朋友圈后有疑惑，准备把这条朋友圈转发到微信聊天里问一句。只输出你会发给用户的一句自然消息，12-60字。必须按人设、关系和世界书说话；不要解释，不要 Markdown，不要替用户说话或替用户行动。`
+            },
+            {
+                role: 'user',
+                content: `朋友圈内容：${postText}\n图片数量：${Array.isArray(post?.images) ? post.images.length : 0}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 10)}`
+            }
+        ]);
+        return result && result.ok ? normalizeWechatMomentGeneratedChat(result.content) : '';
+    } catch (e) {
+        console.warn('moment ask generation failed:', e);
+        return '';
+    }
+}
+
+function appendWechatMomentAskToChar(char, post, task, text) {
+    const safeText = String(text || '').trim();
+    if (!safeText) {
+        task.generating = false;
+        task.error = 'API 未生成朋友圈询问';
+        task.dueAt = Date.now() + 5 * 60000;
+        return false;
+    }
+    if (!char.history) char.history = [];
+    char.history.push({
+        type: 'share_card',
+        isMe: false,
+        card: {
+            type: 'moment',
+            title: `${post.userName || '我'} 的朋友圈`,
+            text: post.text || '[图片朋友圈]',
+            source: '朋友圈',
+            images: Array.isArray(post.images) ? post.images.filter(Boolean).slice(0, 9) : []
+        },
+        timestamp: createMessageTimestamp()
+    });
+    char.history.push({
+        type: 'text',
+        isMe: false,
+        content: safeText,
+        timestamp: createMessageTimestamp()
+    });
+    task.done = true;
+    task.generating = false;
+    task.generatedAt = Date.now();
+    delete task.error;
+    if (window.currentChatCharId === char.id) refreshChatView(char);
+    renderChatList();
+    return true;
+}
+
+function queueWechatMomentAskGeneration(postId, taskId) {
+    window._wechatMomentAskJobs = window._wechatMomentAskJobs || new Set();
+    const jobKey = `${postId}:${taskId}`;
+    if (window._wechatMomentAskJobs.has(jobKey)) return;
+    window._wechatMomentAskJobs.add(jobKey);
+    (async () => {
+        try {
+            const store = getWechatMomentStore();
+            const post = store.posts.find(item => item.id === postId);
+            const task = post && (post.pending || []).find(item => item.id === taskId);
+            const char = task && (window.myCharacters || []).find(c => c.id === task.charId);
+            if (!post || !task || !char || task.done) return;
+            const text = await generateWechatMomentAskMessage(post, char);
+            appendWechatMomentAskToChar(char, post, task, text);
+            saveWechatMomentStore(store);
+            saveCharactersToStorage();
+            if (isWechatMomentsScreenOpen()) renderWechatMoments();
+        } finally {
+            window._wechatMomentAskJobs.delete(jobKey);
+        }
+    })();
+}
+
 function processWechatMomentQueue() {
     const store = getWechatMomentStore();
-    let changed = false;
+    let changed = migrateWechatMomentTemplateComments(store);
     store.posts.forEach(post => {
         (post.pending || []).forEach(task => {
             if (task.done || task.dueAt > Date.now()) return;
+            if (!task.id) {
+                task.id = 'mqt_' + (post.id || Date.now()) + '_' + (task.charId || 'char') + '_' + Math.random().toString(36).slice(2, 7);
+                changed = true;
+            }
             const char = (window.myCharacters || []).find(c => c.id === task.charId);
             if (!char) {
                 task.done = true;
                 changed = true;
                 return;
             }
+            if (task.generating && (!task.startedAt || Date.now() - Number(task.startedAt) > 120000)) {
+                task.generating = false;
+                task.error = task.error || '生成超时，等待重试';
+                changed = true;
+            }
             if (task.type === 'ask') {
-                if (!char.history) char.history = [];
-                char.history.push({
-                    type: 'text',
-                    isMe: false,
-                    content: `我看到你朋友圈说「${(post.text || '这条动态').slice(0, 36)}」，我有点在意，能跟我说说吗？`,
-                    timestamp: createMessageTimestamp()
-                });
-                if (window.currentChatCharId === char.id) refreshChatView(char);
-                renderChatList();
+                if (task.generating) return;
+                task.generating = true;
+                task.startedAt = Date.now();
+                queueWechatMomentAskGeneration(post.id, task.id);
+                changed = true;
+                return;
             } else {
-                post.comments = post.comments || [];
-                post.comments.push({
-                    id: 'mc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                    charId: char.id,
-                    name: (char.chatConfig && char.chatConfig.nickname) || char.name,
-                    avatar: char.avatar || DEFAULT_AVATAR,
-                    text: getMomentTimeComment(post.createdAt),
-                    createdAt: Date.now()
-                });
+                if (task.generating) return;
+                task.generating = true;
+                task.startedAt = Date.now();
+                queueWechatMomentCommentGeneration(post.id, task.id);
+                changed = true;
+                return;
             }
             task.done = true;
             changed = true;
@@ -4955,8 +6016,13 @@ function shareWechatMomentPost(id) {
     const store = getWechatMomentStore();
     const post = store.posts.find(item => item.id === id);
     if (!post) return;
-    const mediaText = (post.images || []).length ? `\n[${post.images.length} 个图片/视频]` : '';
-    shareWechatText('朋友圈', `${post.userName || '我'} 的朋友圈：${post.text || '[图片朋友圈]'}${mediaText}`);
+    shareWechatText('朋友圈', `${post.userName || '我'} 的朋友圈：${post.text || '[图片朋友圈]'}`, {
+        type: 'moment',
+        title: `${post.userName || '我'} 的朋友圈`,
+        text: post.text || '[图片朋友圈]',
+        source: '朋友圈',
+        images: Array.isArray(post.images) ? post.images.filter(Boolean) : []
+    });
 }
 
 function replyWechatMomentComment(postId, commentId) {
@@ -5244,14 +6310,168 @@ async function generateWechatLiveRooms(category) {
 
 function getWechatShopProducts() {
     const store = getWechatShopStore();
-    return store.custom;
+    return [...store.sourceProducts, ...store.custom];
+}
+
+function getWechatShopAggregateSourceLabel(store) {
+    const count = Array.isArray(store?.sourceProducts) ? store.sourceProducts.length : 0;
+    const syncedAt = store?.sourceSyncedAt ? formatWechatRelativeTime(store.sourceSyncedAt) : '还未同步';
+    return `${count ? `${count} 件商品` : '等待拉取'} · ${syncedAt}`;
+}
+
+function translateWechatShopCategory(value, name = '') {
+    const text = `${value || ''} ${name || ''}`.toLowerCase();
+    const cnCategories = ['美妆个护', '家居生活', '食品百货', '数码配件', '服饰穿搭', '运动出行', '精选好物'];
+    const existingCn = cnCategories.find(category => String(value || '').includes(category));
+    if (existingCn) return existingCn;
+    const map = [
+        [/beauty|makeup|lipstick|mascara|fragrance|perfume|skin|cream|serum|nail|powder/, '美妆个护'],
+        [/furniture|sofa|chair|table|bed|decor|lamp|home/, '家居生活'],
+        [/groceries|food|juice|oil|rice|fruit|vegetable|meat|drink/, '食品百货'],
+        [/laptop|smartphone|tablet|phone|mobile|accessor|electronics|charger|case/, '数码配件'],
+        [/shirt|top|dress|women|men|clothes|jacket|fashion|bag|shoe|watch|sunglasses|jewel/, '服饰穿搭'],
+        [/sport|ball|fitness|bike|motorcycle|vehicle|car/, '运动出行']
+    ];
+    const matched = map.find(([re]) => re.test(text));
+    return matched ? matched[1] : '精选好物';
+}
+
+function translateWechatShopName(value, category = '') {
+    const source = String(value || '').trim();
+    if (!source) return '';
+    const lower = `${source} ${category || ''}`.toLowerCase();
+    const nameMap = [
+        [/mascara/, '纤长睫毛膏'],
+        [/lipstick|lip colour|lipstick/, '柔雾口红'],
+        [/foundation/, '轻透粉底液'],
+        [/nail/, '亮泽美甲护理'],
+        [/perfume|fragrance/, '香氛香水'],
+        [/cream|serum|essence|skin/, '护肤精华'],
+        [/phone case|case/, '手机保护壳'],
+        [/charger|adapter|cable/, '快充配件'],
+        [/smartphone|iphone|samsung|phone/, '智能手机'],
+        [/laptop|macbook/, '轻薄笔记本电脑'],
+        [/tablet|ipad/, '平板电脑'],
+        [/watch/, '腕表'],
+        [/bag|handbag|purse/, '通勤包'],
+        [/shoe|sneaker|boot|heel/, '舒适鞋履'],
+        [/shirt|t-shirt|top/, '日常上衣'],
+        [/dress/, '气质连衣裙'],
+        [/jacket|coat/, '外套'],
+        [/sofa/, '客厅沙发'],
+        [/chair/, '舒适单椅'],
+        [/table|desk/, '桌面家具'],
+        [/lamp|light/, '氛围灯'],
+        [/coffee/, '咖啡饮品'],
+        [/juice|drink/, '风味饮品'],
+        [/oil/, '厨房食用油'],
+        [/rice|grain/, '谷物食品'],
+        [/ball|fitness|sport/, '运动装备']
+    ];
+    const matched = nameMap.find(([re]) => re.test(lower));
+    if (matched) return matched[1];
+    const clean = source
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b(?:new|premium|classic|modern|stylish|women'?s|men'?s)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (/^[\x00-\x7F]+$/.test(clean)) {
+        const cnCategory = translateWechatShopCategory(category, source);
+        const suffixMap = {
+            '美妆个护': '日常护理单品',
+            '家居生活': '质感生活好物',
+            '食品百货': '安心囤货好物',
+            '数码配件': '实用数码配件',
+            '服饰穿搭': '通勤穿搭单品',
+            '运动出行': '轻便运动装备',
+            '精选好物': '精选生活好物'
+        };
+        return suffixMap[cnCategory] || `${cnCategory}好物`;
+    }
+    return clean;
+}
+
+function translateWechatShopDescription(value, item = {}) {
+    const text = String(value || '').trim();
+    if (!text) {
+        return `适合日常使用的${translateWechatShopCategory(item.category || item.tag, item.title || item.name)}，页面已按聚合源整理为中文展示。`;
+    }
+    if (!/^[\x00-\x7F\s.,;:!?'"()/-]+$/.test(text)) return text;
+    const lower = `${item.title || item.name || ''} ${item.category || item.tag || ''} ${text}`.toLowerCase();
+    const category = translateWechatShopCategory(item.category || item.tag, item.title || item.name);
+    if (/beauty|fragrance|skin|lip|mascara|cream|serum/.test(lower)) return `质感细腻的${category}单品，适合日常护理、通勤或约会场景。`;
+    if (/phone|laptop|tablet|charger|electronic|accessor/.test(lower)) return `实用型${category}，兼顾日常使用、外出携带和桌面收纳。`;
+    if (/furniture|sofa|chair|table|lamp|home|decor/.test(lower)) return `耐看的${category}，适合卧室、书桌或客厅搭配。`;
+    if (/shirt|dress|shoe|bag|watch|fashion|women|men/.test(lower)) return `简洁好搭的${category}，适合日常出门和轻正式场合。`;
+    if (/food|grocery|juice|oil|rice|coffee|drink/.test(lower)) return `日常囤货型${category}，适合家庭、办公室或夜间补给。`;
+    return `来自聚合商品源的${category}，已整理为中文标题和简短说明。`;
+}
+
+function normalizeWechatShopProductForDisplay(item, index = 0, sourceName = '聚合源') {
+    if (!item || typeof item !== 'object') return null;
+    const rawName = String(item.name || item.title || item.productName || '').trim();
+    const price = Number(item.price || item.salePrice || item.amount || 0) || 0;
+    if (!rawName || price <= 0) return null;
+    const rawTag = item.category || item.brand || item.tag || sourceName;
+    const tag = translateWechatShopCategory(rawTag, rawName);
+    const name = translateWechatShopName(rawName, rawTag);
+    const image = item.thumbnail || item.image || item.imageUrl || (Array.isArray(item.images) ? item.images[0] : '');
+    return {
+        ...item,
+        id: String(item.id || item.productId || `src_${sourceName}_${index}`),
+        name,
+        price,
+        tag,
+        image: String(image || '').trim(),
+        description: translateWechatShopDescription(item.description || item.desc || item.body || '', { ...item, category: rawTag, title: rawName }),
+        gradient: item.gradient || getWechatGeneratedGradient(name + tag)[0],
+        source: item.source || sourceName
+    };
+}
+
+function normalizeWechatShopCartItem(item) {
+    if (!item || typeof item !== 'object') return null;
+    const qty = Math.max(1, Math.min(99, parseInt(item.qty || item.quantity || 1, 10) || 1));
+    const price = Number(item.price || 0) || 0;
+    const display = normalizeWechatShopProductForDisplay({ ...item, price }, 0, item.source || '购物车');
+    if (!display) return null;
+    return {
+        id: String(item.id || item.productId || display.name),
+        name: display.name,
+        price,
+        qty,
+        tag: display.tag,
+        image: display.image,
+        description: display.description,
+        gradient: display.gradient
+    };
+}
+
+function getWechatShopCartCount(store) {
+    return (store.cart || []).reduce((sum, item) => sum + (parseInt(item.qty || 1, 10) || 1), 0);
+}
+
+function getWechatShopCartTotal(store) {
+    return (store.cart || []).reduce((sum, item) => sum + Number(item.price || 0) * (parseInt(item.qty || 1, 10) || 1), 0);
+}
+
+function getWechatShopCartSummary(items) {
+    return (items || []).map(item => `${item.name} ×${item.qty || 1} ¥${(Number(item.price || 0) * (item.qty || 1)).toFixed(2)}`).join('；');
 }
 
 function getWechatShopStore() {
-    const store = readWechatStore(WECHAT_SHOP_STORAGE_KEY, { cart: [], custom: [], orders: [] });
-    store.cart = Array.isArray(store.cart) ? store.cart : [];
+    const store = readWechatStore(WECHAT_SHOP_STORAGE_KEY, { cart: [], custom: [], orders: [], sourceProducts: [], sourceUrl: WECHAT_SHOP_AGGREGATE_SOURCE_ID, sourceSyncedAt: 0, intimatePay: {}, lastAddress: '', lastPayer: 'self' });
+    store.cart = Array.isArray(store.cart) ? store.cart.map(normalizeWechatShopCartItem).filter(Boolean) : [];
     store.custom = Array.isArray(store.custom) ? store.custom : [];
     store.orders = Array.isArray(store.orders) ? store.orders : [];
+    store.sourceProducts = Array.isArray(store.sourceProducts)
+        ? store.sourceProducts.map((item, index) => normalizeWechatShopProductForDisplay(item, index, item?.source || '聚合源')).filter(Boolean)
+        : [];
+    store.sourceUrl = WECHAT_SHOP_AGGREGATE_SOURCE_ID;
+    store.sourceSyncedAt = Number(store.sourceSyncedAt || 0) || 0;
+    store.intimatePay = store.intimatePay && typeof store.intimatePay === 'object' ? store.intimatePay : {};
+    store.lastAddress = typeof store.lastAddress === 'string' ? store.lastAddress : '';
+    store.lastPayer = typeof store.lastPayer === 'string' ? store.lastPayer : 'self';
     return store;
 }
 
@@ -5274,7 +6494,8 @@ function renderWechatShop(tabOrKeyword = 'home', keywordArg) {
     window._wechatShopKeyword = keyword;
     const store = getWechatShopStore();
     const products = getWechatShopProducts().filter(p => !keyword || `${p.name}${p.tag}`.toLowerCase().includes(keyword.toLowerCase()));
-    const total = store.cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
+    const total = getWechatShopCartTotal(store);
+    const cartCount = getWechatShopCartCount(store);
     const content = tab === 'cart'
         ? renderWechatShopCart(store, total)
         : (tab === 'me' ? renderWechatShopMe(store) : renderWechatShopHome(products, keyword));
@@ -5283,16 +6504,25 @@ function renderWechatShop(tabOrKeyword = 'home', keywordArg) {
             <div class="wc-shop-content">${content}</div>
             <div class="wc-shop-tabbar">
                 <button class="${tab === 'home' ? 'active' : ''}" onclick="renderWechatShop('home')"><i class="ri-home-5-line"></i><span>首页</span></button>
-                <button class="${tab === 'cart' ? 'active' : ''}" onclick="renderWechatShop('cart')"><i class="ri-shopping-cart-line"></i><span>购物车${store.cart.length ? `(${store.cart.length})` : ''}</span></button>
+                <button class="${tab === 'cart' ? 'active' : ''}" onclick="renderWechatShop('cart')"><i class="ri-shopping-cart-line"></i><span>购物车${cartCount ? `(${cartCount})` : ''}</span></button>
                 <button class="${tab === 'me' ? 'active' : ''}" onclick="renderWechatShop('me')"><i class="ri-user-3-line"></i><span>我的</span></button>
             </div>
         </div>
-    `, '<i class="ri-shopping-cart-line"></i>');
+    `, `<button type="button" class="wc-feature-cart-btn" onclick="renderWechatShop('cart')" aria-label="打开购物车"><i class="ri-shopping-cart-line"></i>${cartCount ? `<b>${cartCount}</b>` : ''}</button>`);
 }
 
 function renderWechatShopHome(products, keyword) {
+    const store = getWechatShopStore();
     return `
         <div class="wc-shop-search"><i class="ri-search-line"></i><input value="${wcEscapeHtml(keyword)}" placeholder="搜索商品" oninput="renderWechatShop('home', this.value)"></div>
+        <div class="wc-shop-source-card">
+            <div>
+                <strong>聚合商品源</strong>
+                <span>自动整合公开商品源并转成中文展示，不需要用户填写 API。</span>
+                <em>${wcEscapeHtml(getWechatShopAggregateSourceLabel(store))}</em>
+            </div>
+            <button onclick="loadWechatShopSource()"><i class="ri-refresh-line"></i><span>更新商品</span></button>
+        </div>
         <div class="wc-shop-ai-card">
             <input id="wc-shop-ai-brief" placeholder="让 AI 生成商品，例如：适合深夜学习的桌面小灯">
             <button onclick="generateWechatShopProduct()">AI 生成商品</button>
@@ -5308,12 +6538,13 @@ function renderWechatShopHome(products, keyword) {
         <div class="wc-shop-products">
             ${products.length ? products.map(p => `
                 <div class="wc-shop-card">
-                    <div class="wc-shop-cover" style="background:${p.gradient || 'linear-gradient(135deg,#f8fafc,#94a3b8)'}">${p.image ? `<img src="${p.image}">` : ''}</div>
+                    <div class="wc-shop-cover" style="background:${p.gradient || 'linear-gradient(135deg,#f8fafc,#94a3b8)'}">${p.image ? `<img src="${wcEscapeHtml(p.image)}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
                     <div class="wc-shop-name">${wcEscapeHtml(p.name)}</div>
                     <div class="wc-shop-tag">${wcEscapeHtml(p.tag || '自定义')}</div>
                     ${p.description ? `<div class="wc-shop-desc">${wcEscapeHtml(p.description)}</div>` : ''}
-                    <div class="wc-shop-row"><strong>¥${Number(p.price || 0).toFixed(2)}</strong><button onclick="addWechatShopCart('${p.id}')">加入</button></div>
-                    <button class="wc-shop-link" onclick="shareWechatText(${quoteWechatJsString('商品')}, ${quoteWechatJsString(`我转发了商品：${p.name}，价格 ¥${Number(p.price || 0).toFixed(2)}`)})">转发给好友</button>
+                    <div class="wc-shop-row"><strong>¥${Number(p.price || 0).toFixed(2)}</strong><button onclick="addWechatShopCart(${quoteWechatJsString(p.id)})">加入</button></div>
+                    <button class="wc-shop-link" onclick="shareWechatShopProduct(${quoteWechatJsString(p.id)})">转发给好友</button>
+                    <button class="wc-shop-link gift" onclick="sendWechatShopGift(${quoteWechatJsString(p.id)})">送礼物</button>
                 </div>
             `).join('') : '<div class="wc-discover-empty" style="grid-column:1/-1;">还没有商品，先手动添加或用 AI 生成</div>'}
         </div>
@@ -5321,17 +6552,41 @@ function renderWechatShopHome(products, keyword) {
 }
 
 function renderWechatShopCart(store, total) {
+    const itemCount = getWechatShopCartCount(store);
     return `
         <div class="wc-shop-cart">
-            <h4>购物车</h4>
-            ${store.cart.length ? store.cart.map((item, i) => `<div class="wc-shop-cart-row"><span>${wcEscapeHtml(item.name)}</span><b>¥${Number(item.price || 0).toFixed(2)}</b><button onclick="removeWechatShopCart(${i})">删除</button></div>`).join('') : '<div class="wc-discover-empty">购物车为空</div>'}
-            <div class="wc-shop-total">合计 ¥${total.toFixed(2)}</div>
-            <textarea id="wc-shop-address" placeholder="填写收货地址"></textarea>
+            <h4><span>购物车</span><em>${itemCount} 件商品</em></h4>
+            ${store.cart.length ? store.cart.map((item, i) => `
+                <div class="wc-shop-cart-row">
+                    <div class="wc-shop-cart-thumb" style="background:${item.gradient || 'linear-gradient(135deg,#f8fafc,#e2e8f0)'}">${item.image ? `<img src="${wcEscapeHtml(item.image)}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+                    <div class="wc-shop-cart-main">
+                        <strong>${wcEscapeHtml(item.name)}</strong>
+                        <span>${wcEscapeHtml(item.tag || '商品')} · 单价 ¥${Number(item.price || 0).toFixed(2)}</span>
+                        ${item.description ? `<p>${wcEscapeHtml(item.description)}</p>` : ''}
+                    </div>
+                    <div class="wc-shop-cart-side">
+                        <b>¥${(Number(item.price || 0) * (item.qty || 1)).toFixed(2)}</b>
+                        <div class="wc-shop-qty">
+                            <button onclick="updateWechatShopCartQty(${i}, -1)">−</button>
+                            <span>${item.qty || 1}</span>
+                            <button onclick="updateWechatShopCartQty(${i}, 1)">+</button>
+                        </div>
+                        <button class="wc-shop-remove" onclick="removeWechatShopCart(${i})">删除</button>
+                    </div>
+                </div>
+            `).join('') : '<div class="wc-discover-empty wc-shop-empty-cart"><i class="ri-shopping-bag-3-line"></i><span>购物车为空</span><p>先去挑几件想买的东西</p><button onclick="renderWechatShop(\'home\')">去逛逛</button></div>'}
+            <div class="wc-shop-total"><span>共 ${itemCount} 件</span><strong>合计 ¥${total.toFixed(2)}</strong></div>
+            <textarea id="wc-shop-address" placeholder="填写收货地址">${wcEscapeHtml(store.lastAddress || '')}</textarea>
             <select id="wc-shop-payer">
-                <option value="self">自己付款</option>
-                ${(window.myCharacters || []).map(c => `<option value="${c.id}">让 ${wcEscapeHtml((c.chatConfig && c.chatConfig.nickname) || c.name)} 代付</option>`).join('')}
+                <option value="self" ${store.lastPayer === 'self' ? 'selected' : ''}>自己付款</option>
+                ${(window.myCharacters || []).map(c => `<option value="${wcEscapeHtml(c.id)}" ${store.lastPayer === c.id ? 'selected' : ''}>让 ${wcEscapeHtml((c.chatConfig && c.chatConfig.nickname) || c.name)} 代付</option>`).join('')}
             </select>
-            <button class="wc-shop-checkout" onclick="checkoutWechatShop()">结账</button>
+            <div class="wc-shop-cart-actions">
+                <button onclick="renderWechatShop('home')">继续逛</button>
+                <button onclick="clearWechatShopCart()" ${store.cart.length ? '' : 'disabled'}>清空</button>
+            </div>
+            <button class="wc-shop-checkout" onclick="checkoutWechatShop()" ${store.cart.length ? '' : 'disabled'}>结账</button>
+            <button class="wc-shop-intimate" onclick="requestWechatShopIntimatePay()" ${store.cart.length ? '' : 'disabled'}>让角色开通亲密付</button>
         </div>
     `;
 }
@@ -5343,12 +6598,19 @@ function renderWechatShopMe(store) {
             <span>订单 ${store.orders.length} · 商品 ${store.custom.length}</span>
         </div>
         <div class="wc-shop-cart">
+            <h4>亲密付</h4>
+            ${Object.keys(store.intimatePay || {}).length ? Object.entries(store.intimatePay).map(([charId, item]) => {
+                const char = (window.myCharacters || []).find(c => c.id === charId);
+                return `<div class="wc-shop-order"><strong>¥${Number(item.limit || 0).toFixed(2)}</strong><span>${wcEscapeHtml(char ? getWechatCharDisplayName(char) : '角色')} · ${wcEscapeHtml(item.status || '已开通')}</span><em>${wcEscapeHtml(item.note || '可用于购物代付')}</em></div>`;
+            }).join('') : '<div class="wc-discover-empty">还没有亲密付</div>'}
+        </div>
+        <div class="wc-shop-cart">
             <h4>订单记录</h4>
             ${store.orders.length ? store.orders.slice().reverse().map(order => `
                 <div class="wc-shop-order">
                     <strong>¥${Number(order.total || 0).toFixed(2)}</strong>
                     <span>${formatWechatRelativeTime(order.createdAt)} · ${wcEscapeHtml(order.payer === 'self' ? '自己付款' : '代付请求')}</span>
-                    <em>${wcEscapeHtml((order.items || []).map(item => item.name).join('、'))}</em>
+                    <em>${wcEscapeHtml(getWechatShopCartSummary(order.items || []))}</em>
                 </div>
             `).join('') : '<div class="wc-discover-empty">还没有订单</div>'}
         </div>
@@ -5359,9 +6621,23 @@ function addWechatShopCart(productId) {
     const product = getWechatShopProducts().find(p => p.id === productId);
     if (!product) return;
     const store = getWechatShopStore();
-    store.cart.push({ id: product.id, name: product.name, price: product.price, tag: product.tag });
+    const existing = store.cart.find(item => String(item.id) === String(product.id));
+    if (existing) {
+        existing.qty = Math.min(99, (parseInt(existing.qty || 1, 10) || 1) + 1);
+    } else {
+        store.cart.push(normalizeWechatShopCartItem({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            tag: product.tag,
+            image: product.image,
+            description: product.description,
+            gradient: product.gradient
+        }));
+    }
     saveWechatShopStore(store);
-    renderWechatShop('home', document.querySelector('.wc-shop-search input')?.value || window._wechatShopKeyword || '');
+    showWechatToast('已加入购物车');
+    renderWechatShop(window._wechatShopTab === 'cart' ? 'cart' : 'home', document.querySelector('.wc-shop-search input')?.value || window._wechatShopKeyword || '');
 }
 
 function removeWechatShopCart(index) {
@@ -5369,6 +6645,79 @@ function removeWechatShopCart(index) {
     store.cart.splice(index, 1);
     saveWechatShopStore(store);
     renderWechatShop('cart');
+}
+
+function updateWechatShopCartQty(index, delta) {
+    const store = getWechatShopStore();
+    const item = store.cart[index];
+    if (!item) return;
+    item.qty = (parseInt(item.qty || 1, 10) || 1) + delta;
+    if (item.qty <= 0) store.cart.splice(index, 1);
+    if (item.qty > 99) item.qty = 99;
+    saveWechatShopStore(store);
+    renderWechatShop('cart');
+}
+
+function clearWechatShopCart() {
+    const store = getWechatShopStore();
+    if (!store.cart.length) return;
+    if (!confirm('确定清空购物车吗？')) return;
+    store.cart = [];
+    saveWechatShopStore(store);
+    renderWechatShop('cart');
+}
+
+function normalizeWechatShopSourceProducts(payload, sourceName = '聚合源') {
+    const rawList = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.products) ? payload.products : (Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload?.data) ? payload.data : [])));
+    return rawList
+        .map((item, index) => normalizeWechatShopProductForDisplay({
+            ...item,
+            id: `src_${sourceName}_${item.id || Date.now()}_${index}`,
+            source: sourceName
+        }, index, sourceName))
+        .filter(item => item && item.price > 0)
+        .slice(0, 40);
+}
+
+async function loadWechatShopSource() {
+    const btn = document.querySelector('.wc-shop-source-card button');
+    const store = getWechatShopStore();
+    const keyword = document.querySelector('.wc-shop-search input')?.value || window._wechatShopKeyword || '';
+    store.sourceUrl = WECHAT_SHOP_AGGREGATE_SOURCE_ID;
+    saveWechatShopStore(store);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line"></i><span>更新中</span>';
+    }
+    try {
+        const payloads = await Promise.allSettled(WECHAT_SHOP_AGGREGATE_SOURCES.map(async source => {
+            const url = source.url.includes('{q}')
+                ? source.url.replace(/\{q\}/g, encodeURIComponent(keyword || ''))
+                : source.url;
+            const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
+            if (!resp.ok) throw new Error(`${source.name} 返回 ${resp.status}`);
+            const json = await resp.json();
+            return normalizeWechatShopSourceProducts(json, source.name);
+        }));
+        const products = payloads.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+        if (!products.length) throw new Error('没有解析到商品');
+        const next = getWechatShopStore();
+        next.sourceUrl = WECHAT_SHOP_AGGREGATE_SOURCE_ID;
+        next.sourceSyncedAt = Date.now();
+        next.sourceProducts = products.slice(0, 48);
+        saveWechatShopStore(next);
+        showWechatToast(`已更新 ${next.sourceProducts.length} 个商品`);
+        renderWechatShop('home', keyword);
+    } catch (e) {
+        showWechatToast(e.message || '聚合商品源更新失败');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-refresh-line"></i><span>更新商品</span>';
+        }
+    }
 }
 
 function addWechatCustomProduct() {
@@ -5506,26 +6855,92 @@ function checkoutWechatShop() {
         return;
     }
     const payer = document.getElementById('wc-shop-payer')?.value || 'self';
-    const total = store.cart.reduce((sum, item) => sum + Number(item.price || 0), 0);
-    const summary = store.cart.map(item => `${item.name} ¥${Number(item.price || 0).toFixed(2)}`).join('；');
-    const order = { id: 'ord_' + Date.now(), items: store.cart, address, total, payer, createdAt: Date.now() };
+    const total = getWechatShopCartTotal(store);
+    const summary = getWechatShopCartSummary(store.cart);
+    const order = { id: 'ord_' + Date.now(), items: store.cart.map(item => ({ ...item })), address, total, payer, createdAt: Date.now() };
     store.orders.push(order);
+    store.lastAddress = address;
+    store.lastPayer = payer;
     store.cart = [];
     saveWechatShopStore(store);
     if (payer === 'self') {
         alert('订单已提交，已选择自己付款。');
-        renderWechatShop();
+        renderWechatShop('me');
         return;
     }
     sendWechatTextToChar(payer, `我在购物里选好了这些：${summary}。合计 ¥${total.toFixed(2)}，地址：${address}。可以帮我代付吗？`);
+    renderWechatShop('me');
+}
+
+function sendWechatShopGift(productId) {
+    const product = getWechatShopProducts().find(p => p.id === productId);
+    if (!product) return;
+    shareWechatText('礼物', `送你一份礼物：${product.name}`, {
+        action: 'gift',
+        title: '礼物',
+        text: product.name,
+        source: 'BYND 购物',
+        product
+    });
+}
+
+function shareWechatShopProduct(productId) {
+    const product = getWechatShopProducts().find(p => p.id === productId);
+    if (!product) {
+        showWechatToast('这个商品已经不在列表里了');
+        return;
+    }
+    shareWechatText('商品', `${product.name || '商品'} ¥${Number(product.price || 0).toFixed(2)}`, {
+        action: 'product',
+        title: product.name || '商品',
+        text: product.description || product.tag || '',
+        source: 'BYND 购物',
+        images: product.image ? [product.image] : [],
+        product: {
+            id: product.id,
+            name: product.name || '商品',
+            price: product.price || 0,
+            tag: product.tag || '精选好物',
+            image: product.image || '',
+            description: product.description || ''
+        }
+    });
+}
+
+function requestWechatShopIntimatePay() {
+    const payer = document.getElementById('wc-shop-payer')?.value || '';
+    if (!payer || payer === 'self') {
+        showWechatToast('先在付款人里选择一个角色');
+        return;
+    }
+    const total = getWechatShopCartTotal(getWechatShopStore());
+    const limit = Math.max(100, Math.ceil(total || 520));
+    sendWechatMessageToChar(payer, {
+        type: 'intimatePay',
+        isMe: true,
+        amount: limit.toFixed(2),
+        status: '待开通',
+        note: `我想让你给我开通亲密付，额度 ¥${limit.toFixed(2)}`
+    });
 }
 
 function sendWechatTextToChar(charId, text) {
+    sendWechatMessageToChar(charId, { type: 'text', isMe: true, content: text });
+}
+
+function sendWechatMessageToChar(charId, msg) {
     const char = (window.myCharacters || []).find(c => c.id === charId);
     if (!char) return;
     if (!char.history) char.history = [];
-    char.history.push({ type: 'text', isMe: true, content: text, timestamp: createMessageTimestamp() });
+    const nextMsg = {
+        ...msg,
+        isMe: msg && typeof msg.isMe === 'boolean' ? msg.isMe : true,
+        timestamp: msg && msg.timestamp ? msg.timestamp : createMessageTimestamp()
+    };
+    syncWechatMessageDescription(nextMsg);
+    char.history.push(nextMsg);
     if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
+    if (nextMsg.isMe) notifyWechatMonitors(char, nextMsg);
     saveCharactersToStorage();
     renderChatList();
     closeWechatFeatureScreen();
@@ -5533,7 +6948,7 @@ function sendWechatTextToChar(charId, text) {
     openChat(char.id);
 }
 
-function shareWechatText(title, text) {
+function shareWechatText(title, text, payload = null) {
     const chars = window.myCharacters || [];
     if (!chars.length) {
         alert('还没有可转发的联系人');
@@ -5557,8 +6972,10 @@ function shareWechatText(title, text) {
     }
     modal.dataset.shareTitle = title;
     modal.dataset.shareText = text;
+    if (payload && typeof payload === 'object') modal.dataset.sharePayload = JSON.stringify(payload);
+    else delete modal.dataset.sharePayload;
     document.getElementById('wc-share-list').innerHTML = chars.map(char => `
-        <div class="wc-share-contact" onclick="confirmWechatShare('${char.id}')">
+        <div class="wc-share-contact" onclick="confirmWechatShare(${quoteWechatJsString(char.id)})">
             <img src="${char.avatar || DEFAULT_AVATAR}" onerror="this.src='${DEFAULT_AVATAR}'">
             <span>${wcEscapeHtml((char.chatConfig && char.chatConfig.nickname) || char.name || '未命名')}</span>
         </div>
@@ -5576,13 +6993,51 @@ function confirmWechatShare(charId) {
     if (!modal) return;
     const title = modal.dataset.shareTitle || '';
     const text = modal.dataset.shareText || '';
+    let payload = null;
+    try {
+        payload = modal.dataset.sharePayload ? JSON.parse(modal.dataset.sharePayload) : null;
+    } catch (e) {
+        payload = null;
+    }
     closeWechatShareModal();
+    if (payload && typeof payload === 'object') {
+        if (payload.action === 'gift' && payload.product) {
+            const product = payload.product;
+            sendWechatMessageToChar(charId, {
+                type: 'gift',
+                isMe: true,
+                status: '待收取',
+                item: {
+                    name: product.name || '礼物',
+                    price: product.price || '',
+                    image: product.image || '',
+                    description: product.description || ''
+                },
+                note: `送给你：${product.name || '礼物'}`
+            });
+            return;
+        }
+        sendWechatMessageToChar(charId, {
+            type: 'share_card',
+            isMe: true,
+            card: {
+                title: payload.title || title || '转发',
+                text: payload.text || text || '',
+                source: payload.source || title || '转发',
+                images: Array.isArray(payload.images) ? payload.images.filter(Boolean).slice(0, 9) : [],
+                action: payload.action || '',
+                product: payload.product && typeof payload.product === 'object' ? payload.product : null
+            }
+        });
+        return;
+    }
     sendWechatTextToChar(charId, `我转发了${title}给你：${text}`);
 }
 
 // --- 💬 聊天设置面板 ---
 
 const USER_PROFILE_KEY = 'my_user_profile';
+const WECHAT_USER_PERSONA_LIBRARY_KEY = 'wechat_user_persona_library_v1';
 
 function getUserProfile() {
     try {
@@ -5594,6 +7049,117 @@ function getUserProfile() {
 
 function saveUserProfile(profile) {
     localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+}
+
+function getWechatChatUserProfile(char) {
+    const globalProfile = getUserProfile();
+    const scoped = char && char.chatConfig && char.chatConfig.userProfile;
+    return {
+        avatar: scoped?.avatar || globalProfile.avatar || '',
+        name: scoped?.name || globalProfile.name || '我',
+        bio: scoped?.bio || '',
+        signature: scoped?.signature || '',
+        personaId: scoped?.personaId || '',
+        wechatId: globalProfile.wechatId || '',
+        momentCover: globalProfile.momentCover || ''
+    };
+}
+
+function saveWechatChatUserProfile(char, profile) {
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.userProfile = {
+        avatar: profile.avatar || '',
+        name: profile.name || '我',
+        bio: profile.bio || '',
+        signature: profile.signature || '',
+        personaId: profile.personaId || ''
+    };
+}
+
+function getWechatUserPersonaLibrary() {
+    try {
+        const raw = localStorage.getItem(WECHAT_USER_PERSONA_LIBRARY_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveWechatUserPersonaLibrary(list) {
+    localStorage.setItem(WECHAT_USER_PERSONA_LIBRARY_KEY, JSON.stringify(Array.isArray(list) ? list.slice(0, 30) : []));
+}
+
+function renderWechatUserPersonaLibrary(activeId = '') {
+    const list = document.getElementById('wcs-user-persona-list');
+    if (!list) return;
+    const personas = getWechatUserPersonaLibrary();
+    list.innerHTML = personas.length ? personas.map(item => `
+        <button type="button" class="${item.id === activeId ? 'active' : ''}" onclick="applyWechatUserPersona(${quoteWechatJsString(item.id)})">
+            <strong>${wcEscapeHtml(item.name || '未命名人设')}</strong>
+            <span>${wcEscapeHtml((item.bio || item.signature || '').slice(0, 42) || '点击套用到当前聊天')}</span>
+        </button>
+    `).join('') : '<div class="wcs-persona-empty">还没有保存过 user 人设</div>';
+}
+
+function saveCurrentWechatUserPersona() {
+    const name = (document.getElementById('wcs-user-name')?.value || '我').trim() || '我';
+    const bio = (document.getElementById('wcs-user-bio')?.value || '').trim();
+    const signature = (document.getElementById('wcs-user-signature')?.value || '').trim();
+    if (!bio && !signature) {
+        showWechatToast('先写个人简介或个性签名');
+        return;
+    }
+    const personas = getWechatUserPersonaLibrary();
+    const item = {
+        id: 'persona_' + Date.now(),
+        name,
+        bio,
+        signature,
+        updatedAt: Date.now()
+    };
+    personas.unshift(item);
+    saveWechatUserPersonaLibrary(personas);
+    const char = getCurrentChatChar();
+    if (char) {
+        char.chatConfig = char.chatConfig || {};
+        char.chatConfig.userProfile = {
+            ...(char.chatConfig.userProfile || {}),
+            name,
+            bio,
+            signature,
+            personaId: item.id
+        };
+        saveCharactersToStorage();
+    }
+    renderWechatUserPersonaLibrary(item.id);
+    showWechatToast('已保存到人设库');
+}
+
+function applyWechatUserPersona(personaId) {
+    const item = getWechatUserPersonaLibrary().find(persona => persona.id === personaId);
+    if (!item) return;
+    const nameEl = document.getElementById('wcs-user-name');
+    const bioEl = document.getElementById('wcs-user-bio');
+    const signatureEl = document.getElementById('wcs-user-signature');
+    if (nameEl) nameEl.value = item.name || '我';
+    if (bioEl) bioEl.value = item.bio || '';
+    if (signatureEl) signatureEl.value = item.signature || '';
+    const char = getCurrentChatChar();
+    if (char) {
+        char.chatConfig = char.chatConfig || {};
+        char.chatConfig.userProfile = {
+            ...(char.chatConfig.userProfile || {}),
+            name: item.name || '我',
+            bio: item.bio || '',
+            signature: item.signature || '',
+            personaId
+        };
+        saveCharactersToStorage();
+    }
+    renderWechatUserPersonaLibrary(personaId);
+    showWechatToast('已套用到当前聊天');
 }
 
 // CSS 气泡预览（实时）
@@ -5785,7 +7351,7 @@ function openChatSettings() {
     document.getElementById('wc-floating-avatar').style.display = 'none';
 
     const config = char.chatConfig || {};
-    const profile = getUserProfile();
+    const profile = getWechatChatUserProfile(char);
 
     // 填充外观设置
     document.getElementById('wcs-bg-img-hint').textContent = config.chatBgImage ? '已设置' : '未设置';
@@ -5802,12 +7368,15 @@ function openChatSettings() {
         renderBubblePresetDropdown(config.customCss || '');
     }
 
-    // 用户资料（全局）
+    // 用户资料（当前聊天独立）
     const userAvatarEl = document.getElementById('wcs-user-avatar');
     if (profile.avatar) userAvatarEl.src = profile.avatar;
     else userAvatarEl.src = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 200%27%3E%3Cdefs%3E%3ClinearGradient id=%27bg%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%25%27 stop-color=%27%23f8c8dc%27/%3E%3Cstop offset=%27100%25%27 stop-color=%27%23d4a5f5%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%27200%27 height=%27200%27 rx=%27100%27 fill=%27url(%23bg)%27/%3E%3Ccircle cx=%27100%27 cy=%2780%27 r=%2735%27 fill=%27%23fff%27 opacity=%270.9%27/%3E%3Cellipse cx=%27100%27 cy=%27155%27 rx=%2750%27 ry=%2735%27 fill=%27%23fff%27 opacity=%270.9%27/%3E%3Ccircle cx=%2788%27 cy=%2775%27 r=%274%27 fill=%27%23555%27/%3E%3Ccircle cx=%27112%27 cy=%2775%27 r=%274%27 fill=%27%23555%27/%3E%3Cpath d=%27M92 90 Q100 98 108 90%27 stroke=%27%23e88%27 stroke-width=%272.5%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E';
     document.getElementById('wcs-user-name').value = profile.name || '我';
     document.getElementById('wcs-user-bio').value = profile.bio || '';
+    const userSignatureEl = document.getElementById('wcs-user-signature');
+    if (userSignatureEl) userSignatureEl.value = profile.signature || '';
+    renderWechatUserPersonaLibrary(profile.personaId || '');
 
     // 角色资料
     document.getElementById('wcs-char-avatar').src = char.avatar || '';
@@ -5842,6 +7411,8 @@ function openChatSettings() {
     if (realCamera) realCamera.checked = !!config.videoCallUseCamera;
     const monitorEnabled = document.getElementById('wcs-monitor-enabled');
     if (monitorEnabled) monitorEnabled.checked = !!config.monitorEnabled;
+    const monitorMode = document.getElementById('wcs-monitor-mode');
+    if (monitorMode) monitorMode.value = getWechatMonitorMode(char);
 
     // 头像集
     renderAvatarGallery(char);
@@ -6099,9 +7670,17 @@ function saveChatSettings() {
         blacklisted: !!prevConfig.blacklisted,
         friendRequestReason: prevConfig.friendRequestReason || '',
         friendRequestAt: prevConfig.friendRequestAt || 0,
+        charBlacklistedUser: !!prevConfig.charBlacklistedUser,
+        charBlacklistReason: prevConfig.charBlacklistReason || '',
         monitorEnabled: !!document.getElementById('wcs-monitor-enabled')?.checked,
+        monitorMode: getWechatMonitorMode({ chatConfig: { monitorMode: document.getElementById('wcs-monitor-mode')?.value } }),
         monitorState: prevConfig.monitorState || null,
         aiMoments: Array.isArray(prevConfig.aiMoments) ? prevConfig.aiMoments : [],
+        aiStatusSnapshot: prevConfig.aiStatusSnapshot || null,
+        aiStatusError: prevConfig.aiStatusError || '',
+        aiStatusHistory: Array.isArray(prevConfig.aiStatusHistory) ? prevConfig.aiStatusHistory : [],
+        aiPhoneSnapshot: prevConfig.aiPhoneSnapshot || null,
+        userProfile: prevConfig.userProfile || null,
         customCss: (document.getElementById('wcs-custom-css') || {}).value || ''
     };
     window._tempChatBgImage = null;
@@ -6109,15 +7688,15 @@ function saveChatSettings() {
     // 保存角色描述
     char.description = document.getElementById('wcs-char-desc').value;
 
-    // 保存用户资料（全局）
-    const profile = {
+    // 保存用户资料（当前聊天独立）
+    const scopedProfile = {
         avatar: document.getElementById('wcs-user-avatar').src || '',
         name: document.getElementById('wcs-user-name').value.trim() || '我',
         bio: document.getElementById('wcs-user-bio').value.trim(),
-        wechatId: getUserProfile().wechatId || '',
-        momentCover: getUserProfile().momentCover || ''
+        signature: document.getElementById('wcs-user-signature')?.value.trim() || '',
+        personaId: prevConfig.userProfile?.personaId || ''
     };
-    saveUserProfile(profile);
+    saveWechatChatUserProfile(char, scopedProfile);
 
     const memoryStore = getWechatMemoryStore();
     const memoryBucket = getWechatMemoryBucket(memoryStore, char.id);
@@ -6129,6 +7708,8 @@ function saveChatSettings() {
 
     // 保存到 localStorage
     saveCharactersToStorage();
+    refreshChatView(char);
+    renderChatList();
 
     closeChatSettings();
 }
@@ -6406,13 +7987,14 @@ function getWechatMessagePromptContent(msg) {
     if (msg.type === 'image') return msg.description || '[图片]';
     if (msg.type === 'sticker') return `[表情] ${msg.stickerName || msg.name || ''}`;
     if (isWechatSpecialMessage(msg.type)) return msg.description || msg.content || '[微信特殊消息]';
+    if (msg.type === 'offline_narration') return `[旁白] ${msg.content || msg.description || ''}`;
     if (msg.type === 'system_notice') return `[系统提示] ${msg.content || ''}`;
     return msg.content || msg.dialogue || msg.description || '';
 }
 
 function buildWechatRecentHistoryForPrompt(char, limit = 12) {
     const history = Array.isArray(char && char.history) ? char.history : [];
-    const userName = ((typeof getUserProfile === 'function' ? getUserProfile() : {}) || {}).name || '用户';
+    const userName = ((typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {})) || {}).name || '用户';
     const charName = getWechatCharDisplayName(char);
     const lines = history.slice(-limit).map(msg => {
         const role = msg.isMe ? userName : charName;
@@ -6441,7 +8023,7 @@ function parseWechatJsonObject(text) {
 
 function getWechatAiStatusFallback(char, reason = 'fallback') {
     const history = Array.isArray(char && char.history) ? char.history : [];
-    const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' };
+    const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
     const userName = userProfile.name || '用户';
     const charName = getWechatCharDisplayName(char);
     const lastAi = history.slice().reverse().find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
@@ -6524,7 +8106,7 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
         let snapshot = null;
         let errorText = '';
         try {
-            const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' };
+            const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
             const momentsAnchor = getWechatUserMomentsPromptForStatus();
             const previousStatus = buildWechatPreviousAiStatusPrompt(char);
             const worldBookAnchor = buildWechatWorldBookPrompt(char);
@@ -6755,29 +8337,62 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
+function getWechatPersonaContactSeeds(char) {
+    const source = [
+        char && char.description,
+        Array.isArray(char && char.worldBook) ? char.worldBook.map(entry => `${entry.key || entry.keys || ''} ${entry.content || entry.entry || entry.value || ''}`).join('\n') : ''
+    ].join('\n');
+    if (/公司|集团|总裁|助理|秘书|项目|会议|客户|董事|办公室|合同/.test(source)) {
+        return [
+            { name: '沈助理', text: '明早会议材料已放到桌面', time: '08:20' },
+            { name: '周秘书', text: '董事会临时改到下午', time: '昨天' },
+            { name: '项目群', text: '等你确认最终版本', time: '周二' }
+        ];
+    }
+    if (/校园|学生|老师|同学|社团|图书馆|考试|课程|实验室/.test(source)) {
+        return [
+            { name: '同桌', text: '作业拍你了，别忘交', time: '10:12' },
+            { name: '社团群', text: '今晚排练照旧', time: '昨天' },
+            { name: '图书馆管理员', text: '预约座位即将到时', time: '周三' }
+        ];
+    }
+    if (/魔法|王国|骑士|神|祭司|宫廷|龙|巫|异能|末日|组织/.test(source)) {
+        return [
+            { name: '旧城信使', text: '密函已经送到', time: '薄暮' },
+            { name: '档案室', text: '禁阅卷宗被重新封存', time: '昨日' },
+            { name: '巡夜人', text: '北侧钟塔有异常光', time: '午夜' }
+        ];
+    }
+    if (/乐队|舞台|演员|经纪|剧组|粉丝|音乐|画室|摄影|直播|偶像/.test(source)) {
+        return [
+            { name: '经纪人', text: '采访时间又提前了', time: '09:35' },
+            { name: '录音室', text: 'demo 已经导出', time: '昨天' },
+            { name: '剧组统筹', text: '下一场换到 B 棚', time: '周一' }
+        ];
+    }
+    return [
+        { name: '置顶备忘', text: '有些话还没发出去', time: '刚刚' },
+        { name: '旧联系人', text: '很久没有回复', time: '昨天' },
+        { name: '未命名群聊', text: '新的消息被折叠了', time: '周二' }
+    ];
+}
+
 function buildWechatAiPhoneFallback(char) {
     const status = getWechatAiStatusSnapshot(char);
     const fields = (status && status.fields) || {};
-    const userProfile = (typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' };
-    const userName = userProfile.name || '用户';
+    const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
+    const userName = getWechatAiPhoneUserDisplayName(char, userProfile);
     const history = Array.isArray(char && char.history) ? char.history : [];
     const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice');
     const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '还没有新消息';
-    const otherChats = (window.myCharacters || [])
-        .filter(c => c && c.id !== char.id)
-        .slice(0, 2)
-        .map(c => ({
-            name: getWechatCharDisplayName(c),
-            text: '通讯录联系人',
-            time: '未读'
-        }));
+    const personaContacts = getWechatPersonaContactSeeds(char);
 
     return {
         updatedAt: Date.now(),
         generatedBy: 'local',
         chats: [
             { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) },
-            ...otherChats
+            ...personaContacts
         ],
         memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), ['没有备忘录。']),
         browser: normalizeWechatTextList(['最近停在聊天页', fields.gaze].filter(Boolean), ['没有浏览记录。']),
@@ -6788,19 +8403,32 @@ function buildWechatAiPhoneFallback(char) {
     };
 }
 
+function getWechatAiPhoneUserDisplayName(char, profile) {
+    const userProfile = profile || ((typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : {}));
+    return (char && char.chatConfig && char.chatConfig.userTitle) || userProfile.name || '用户';
+}
+
 function normalizeWechatAiPhoneSnapshot(raw, char) {
     const data = raw && typeof raw === 'object' ? raw : {};
     const fallback = buildWechatAiPhoneFallback(char);
+    const userDisplayName = getWechatAiPhoneUserDisplayName(char);
+    const reservedByndNames = new Set((window.myCharacters || [])
+        .filter(item => item && item.id !== (char && char.id))
+        .flatMap(item => [item.name, item.chatConfig && item.chatConfig.nickname])
+        .filter(Boolean)
+        .map(name => String(name).trim()));
     const normalizeChats = (value) => {
         if (!Array.isArray(value)) return fallback.chats;
-        return value.map(item => {
+        const list = value.map(item => {
             if (typeof item === 'string') return { name: item, text: '聊天', time: '' };
             return {
                 name: stripWechatPromptText(item.name || item.with || item.contact || '联系人', 32),
                 text: stripWechatPromptText(item.text || item.lastMessage || item.message || '', 82),
                 time: stripWechatPromptText(item.time || item.status || '', 16)
             };
-        }).filter(item => item.name).slice(0, 5);
+        }).filter(item => item.name && !reservedByndNames.has(item.name)).slice(0, 5);
+        if (list.length && /^(我|用户|user)$/i.test(list[0].name)) list[0].name = userDisplayName;
+        return list.length ? list : fallback.chats;
     };
 
     return {
@@ -6832,11 +8460,11 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
             const result = await callChatApi([
                 {
                     role: 'system',
-                    content: `你是「${char.name}」。根据当前情景生成这个角色手机里的可见内容。只返回 JSON，不要 Markdown。字段：chats(数组，每项 name/text/time), memos(数组), browser(数组), wallet(字符串), footprints(数组), usageRecords(数组), diary(字符串，写给用户但没有直接发出的认真日记)。`
+                    content: `你是「${char.name}」。根据角色卡、世界书和当前情景生成这个角色自己的小手机内容。只返回 JSON，不要 Markdown。字段：chats(数组，每项 name/text/time), memos(数组), browser(数组), wallet(字符串), footprints(数组), usageRecords(数组), diary(字符串，写给用户但没有直接发出的认真日记)。聊天列表第一项必须是用户，name 使用「${getWechatAiPhoneUserDisplayName(char)}」，这是你给用户的备注/称呼，不要固定写“用户”。除第一项用户外，其余联系人必须是该角色世界里会真实存在的联系人、群聊或机构，按人设和世界书捏造；禁止复用 BYND 用户通讯录里的其他角色名字。`
                 },
                 {
                     role: 'user',
-                    content: `最新状态：${JSON.stringify(status.fields || {})}\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 12)}`
+                    content: `角色卡：\n${String(char.description || '').slice(0, 2200)}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最新状态：${JSON.stringify(status.fields || {})}\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 12)}`
                 }
             ]);
             if (result && result.ok) {
@@ -7034,6 +8662,29 @@ function getWechatMemoryBucket(store, charId) {
         store.chars[charId] = { segments: [], longTerm: [], compressed: [] };
     }
     return store.chars[charId];
+}
+
+function addWechatAutoMemory(char, content, title = '角色主动记忆') {
+    if (!char || !char.id) return false;
+    const text = String(content || '').trim();
+    if (!text) return false;
+    const store = getWechatMemoryStore();
+    const bucket = getWechatMemoryBucket(store, char.id);
+    const now = Date.now();
+    bucket.segments.push({
+        id: 'mem_auto_' + now + '_' + Math.random().toString(36).slice(2, 7),
+        tier: 'segment',
+        charId: char.id,
+        title: String(title || '角色主动记忆').slice(0, 32),
+        content: text.slice(0, 900),
+        enabled: true,
+        sourceCount: 1,
+        createdAt: now,
+        updatedAt: now
+    });
+    promoteWechatMemoryBucket(bucket, char);
+    saveWechatMemoryStore(store);
+    return true;
 }
 
 function getWechatMemoryListForTier(store, tier, charId) {
@@ -7743,15 +9394,52 @@ function getWechatAvailableStickers(char) {
 function scoreWechatStickerMatch(sticker, query) {
     const q = String(query || '').trim().toLowerCase();
     if (!q) return 0;
+    const queries = [q, ...getWechatStickerEmotionAliases(q)].filter(Boolean);
     const name = String(sticker.name || '').toLowerCase();
     const pack = String(sticker.packName || '').toLowerCase();
-    if (name === q) return 100;
-    if (name.includes(q)) return 80;
-    if (q.includes(name) && name.length >= 2) return 68;
-    if (pack.includes(q)) return 42;
-    const qChars = Array.from(new Set(q.replace(/\s+/g, '')));
-    const overlap = qChars.filter(ch => name.includes(ch)).length;
-    return overlap ? Math.min(35, overlap * 7) : 0;
+    let best = 0;
+    queries.forEach(item => {
+        if (!item) return;
+        if (name === item) best = Math.max(best, item === q ? 100 : 88);
+        if (name.includes(item)) best = Math.max(best, item === q ? 80 : 64);
+        if (item.includes(name) && name.length >= 2) best = Math.max(best, item === q ? 68 : 54);
+        if (pack.includes(item)) best = Math.max(best, item === q ? 42 : 28);
+        const qChars = Array.from(new Set(item.replace(/\s+/g, '')));
+        const overlap = qChars.filter(ch => name.includes(ch)).length;
+        if (overlap) best = Math.max(best, Math.min(item === q ? 35 : 24, overlap * 7));
+    });
+    return best;
+}
+
+function getWechatStickerEmotionAliases(query) {
+    const q = String(query || '').trim().toLowerCase();
+    const groups = {
+        '委屈': ['可怜', '难过', '哭', '眼泪', '撒娇', '小狗', '狗狗', '抱抱'],
+        '可怜': ['委屈', '难过', '哭', '眼泪', '小狗', '狗狗'],
+        '难过': ['委屈', '哭', '眼泪', '可怜'],
+        '哭': ['委屈', '难过', '眼泪', '可怜'],
+        '开心': ['笑', '快乐', '高兴', '喜欢'],
+        '生气': ['怒', '气', '哼', '不满', '皱眉'],
+        '害羞': ['脸红', '羞', '喜欢', '抱抱'],
+        '撒娇': ['委屈', '可怜', '抱抱', '小狗'],
+        '皱眉': ['无语', '沉默', '不满', '严肃', '生气', '烦', '嫌弃'],
+        '无语': ['皱眉', '沉默', '嫌弃', '不满'],
+        '沉默': ['皱眉', '无语', '严肃', '发呆'],
+        '嫌弃': ['皱眉', '无语', '不满', '哼']
+    };
+    const aliases = new Set();
+    Object.keys(groups).forEach(key => {
+        if (q.includes(key) || groups[key].some(item => q.includes(item))) {
+            aliases.add(key);
+            groups[key].forEach(item => aliases.add(item));
+        }
+    });
+    aliases.delete(q);
+    return Array.from(aliases);
+}
+
+function hashWechatStickerQuery(value) {
+    return Array.from(String(value || '')).reduce((sum, ch) => ((sum * 31) + ch.charCodeAt(0)) >>> 0, 7);
 }
 
 function findWechatStickerForAi(char, query, explicitUrl) {
@@ -7769,7 +9457,10 @@ function findWechatStickerForAi(char, query, explicitUrl) {
             bestScore = score;
         }
     });
-    return bestScore >= 14 ? best : null;
+    if (bestScore >= 14) return best;
+    const aliases = getWechatStickerEmotionAliases(name);
+    if (aliases.length && stickers.length) return stickers[hashWechatStickerQuery(name) % stickers.length];
+    return stickers.length ? stickers[hashWechatStickerQuery(name) % stickers.length] : null;
 }
 
 function buildWechatStickerPrompt(char) {

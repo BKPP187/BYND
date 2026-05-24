@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260523-theme-icons1">
+    <link rel="manifest" href="manifest.webmanifest?v=20260524-api-moments1">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260523-theme-icons1">
+    <link rel="stylesheet" href="style.css?v=20260524-api-moments1">
 </head>
 <body>
 
@@ -771,6 +771,9 @@
             </div>
             <div class="window-content" style="padding: 20px;">
                 <div id="preset-list-container"></div>
+                <div class="set-add-btn" onclick="openManualPresetCreator()" style="margin-top:12px;">
+                    <i class="ri-edit-2-line"></i> 手动新建预设
+                </div>
                 <div class="set-add-btn" onclick="document.getElementById('import-preset-file').click()" style="margin-top:12px;">
                     <i class="ri-add-line"></i> 导入预设 (.json)
                 </div>
@@ -850,6 +853,13 @@
                             <input type="text" id="font-url-input" placeholder="粘贴字体文件链接...">
                             <button class="font-url-apply" onclick="addFontFromUrl()">添加</button>
                         </div>
+                        <div class="font-batch-box">
+                            <div class="font-batch-head">
+                                <span>批量导入字体链接</span>
+                                <button type="button" onclick="importFontsBatch()">批量添加</button>
+                            </div>
+                            <textarea id="font-batch-input" placeholder="每行一个字体，例如：奶兔小小莓——https://files.catbox.moe/m8x7m7.ttf"></textarea>
+                        </div>
                     </div>
 
                     <!-- 预览框 -->
@@ -892,7 +902,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.59
+                    Beyond Screen v1.1.67
                 </div>
             </div>
         </div>
@@ -1168,6 +1178,19 @@
                                 <label>个人简介</label>
                                 <textarea class="wcs-textarea" id="wcs-user-bio" placeholder="写点什么介绍自己..." rows="2"></textarea>
                             </div>
+                            <div class="wcs-full-row">
+                                <label>我在这段关系里的个性签名</label>
+                                <textarea class="wcs-textarea" id="wcs-user-signature" placeholder="这段聊天里，想让对方记住你的状态或关系定位..." rows="2"></textarea>
+                            </div>
+                            <div class="wcs-full-row">
+                                <div class="wcs-persona-head">
+                                    <label>user 人设库</label>
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="saveCurrentWechatUserPersona()">
+                                        <i class="ri-bookmark-line"></i>保存当前人设
+                                    </button>
+                                </div>
+                                <div id="wcs-user-persona-list" class="wcs-user-persona-list"></div>
+                            </div>
                         </div>
 
                         <!-- 角色资料 -->
@@ -1227,7 +1250,16 @@
                                     <input type="checkbox" id="wcs-monitor-enabled">
                                     <span>开启监控剧情</span>
                                 </label>
-                                <p>只监听 BYND 内部微信聊天。开启后，该角色会看到你和其他角色的聊天对象与消息，并按人设通过灵动岛、警告、飞字和黑屏乱码逐步反应。</p>
+                                <div class="wcs-monitor-mode-row">
+                                    <span>吐槽视角</span>
+                                    <select id="wcs-monitor-mode" class="wcs-select">
+                                        <option value="persona">按角色人设</option>
+                                        <option value="observer">第三视角吐槽</option>
+                                        <option value="god">上帝视角旁白</option>
+                                        <option value="cp">磕糖观众</option>
+                                    </select>
+                                </div>
+                                <p>只监听 BYND 内部微信聊天。开启后，该角色会看到你和其他角色的聊天对象与消息，并按人设做娱乐化吐槽；默认不会走偏激威胁路线。</p>
                             </div>
                             <div class="wcs-full-row">
                                 <label>时间模式</label>
@@ -1286,6 +1318,13 @@
                                     <span>只清空当前聊天对象，不会删除角色卡、记忆、贴纸包和设置。</span>
                                 </div>
                                 <button type="button" onclick="clearCurrentWechatChatHistory()">删除</button>
+                            </div>
+                            <div class="wcs-danger-row">
+                                <div>
+                                    <strong>拉黑联系人</strong>
+                                    <span>拉黑后会按当前聊天上下文触发一次角色回复，之后可在联系人资料页同意重新添加。</span>
+                                </div>
+                                <button type="button" onclick="blacklistCurrentWechatContact()">拉黑</button>
                             </div>
                         </div>
 
@@ -1486,13 +1525,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260523-theme-icons1"></script>
-    <script src="stickers-boltp-share.js?v=20260523-theme-icons1"></script>
-    <script src="wechat.js?v=20260523-theme-icons1"></script>
-    <script src="theme.js?v=20260523-theme-icons1"></script>
-    <script src="settings.js?v=20260523-theme-icons1"></script>
-    <script src="script.js?v=20260523-theme-icons1"></script>
-    <script src="WorldBook.js?v=20260523-theme-icons1"></script>
-    <script src="regular.js?v=20260523-theme-icons1"></script>
+    <script src="chat-api.js?v=20260524-api-moments1"></script>
+    <script src="stickers-boltp-share.js?v=20260524-api-moments1"></script>
+    <script src="wechat.js?v=20260524-api-moments1"></script>
+    <script src="theme.js?v=20260524-api-moments1"></script>
+    <script src="settings.js?v=20260524-api-moments1"></script>
+    <script src="script.js?v=20260524-api-moments1"></script>
+    <script src="WorldBook.js?v=20260524-api-moments1"></script>
+    <script src="regular.js?v=20260524-api-moments1"></script>
 </body>
 </html>

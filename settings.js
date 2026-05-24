@@ -832,6 +832,73 @@ function importPresetFile(input) {
     reader.readAsText(file);
 }
 
+function openManualPresetCreator() {
+    let editor = document.getElementById('manual-preset-editor');
+    if (!editor) {
+        editor = document.createElement('div');
+        editor.id = 'manual-preset-editor';
+        editor.className = 'manual-preset-editor';
+        const container = document.getElementById('preset-list-container');
+        if (container && container.parentElement) container.parentElement.insertBefore(editor, container);
+    }
+    editor.innerHTML = `
+        <div class="manual-preset-head">
+            <div>
+                <strong>手动新建预设</strong>
+                <span>会保存为一个启用的 system prompt，可继续展开编辑。</span>
+            </div>
+            <button type="button" onclick="closeManualPresetCreator()"><i class="ri-close-line"></i></button>
+        </div>
+        <input id="manual-preset-name" class="manual-preset-input" placeholder="预设名称">
+        <textarea id="manual-preset-content" class="manual-preset-textarea" placeholder="把你的预设内容写在这里。支持 {{char}}、{{user}}、{{datetime}}、{{description}} 等变量。" rows="9"></textarea>
+        <div class="manual-preset-actions">
+            <button type="button" class="subtle" onclick="closeManualPresetCreator()">取消</button>
+            <button type="button" onclick="saveManualPreset()">保存预设</button>
+        </div>
+    `;
+    editor.classList.remove('hidden');
+    setTimeout(() => document.getElementById('manual-preset-name')?.focus(), 0);
+}
+
+function closeManualPresetCreator() {
+    const editor = document.getElementById('manual-preset-editor');
+    if (editor) editor.classList.add('hidden');
+}
+
+function saveManualPreset() {
+    const name = (document.getElementById('manual-preset-name')?.value || '').trim();
+    const content = (document.getElementById('manual-preset-content')?.value || '').trim();
+    if (!content) {
+        alert('先写预设内容');
+        return;
+    }
+    const data = getPresetData();
+    const preset = {
+        id: 'preset_manual_' + Date.now(),
+        name: name || `手动预设 ${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+        prompts: [{
+            name: 'Main',
+            role: 'system',
+            content,
+            identifier: 'manual_main',
+            enabled: true
+        }],
+        temperature: 0.8,
+        max_tokens: 1800,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0
+    };
+    data.presets = Array.isArray(data.presets) ? data.presets : [];
+    data.presets.unshift(preset);
+    data.activeId = preset.id;
+    savePresetData(data);
+    window._expandedPresetId = preset.id;
+    window._expandedPromptKey = preset.id + '_0';
+    closeManualPresetCreator();
+    renderPresetList();
+}
+
 function parsePromptPreset(json, filename) {
     const name = json.name || filename.replace(/\.json$/i, '') || '未命名预设';
 
@@ -1025,8 +1092,8 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.59';
-const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'bynd_money_records_v1'];
+const APP_VERSION = 'v1.1.67';
+const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'wechat_user_persona_library_v1', 'bynd_money_records_v1'];
 
 // 导出所有数据
 async function exportAllData() {
@@ -1383,6 +1450,63 @@ function addFontFromUrl() {
     if (urlInput) urlInput.value = '';
 }
 
+function parseFontBatchLine(line) {
+    const text = String(line || '').trim();
+    if (!text) return null;
+    const urlMatch = text.match(/https?:\/\/\S+/i);
+    if (!urlMatch) return null;
+    const url = urlMatch[0].replace(/[，,。；;]+$/, '');
+    const left = text.slice(0, urlMatch.index).replace(/[—\-–|:：\s]+$/g, '').trim();
+    const fileName = url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '') || '远程字体';
+    return {
+        name: (left || fileName).slice(0, 32),
+        url
+    };
+}
+
+function importFontsBatch() {
+    const input = document.getElementById('font-batch-input');
+    const text = input ? input.value : '';
+    const items = String(text || '')
+        .split(/\n+/)
+        .map(parseFontBatchLine)
+        .filter(Boolean);
+    if (!items.length) {
+        alert('没有识别到字体链接。格式示例：奶兔小小莓——https://files.catbox.moe/m8x7m7.ttf');
+        return;
+    }
+
+    const store = getFontStore();
+    const existingUrls = new Set((store.fonts || []).filter(font => font.type === 'url').map(font => font.url));
+    let imported = 0;
+    let firstFont = null;
+    items.forEach((item, index) => {
+        if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) return;
+        if (existingUrls.has(item.url)) return;
+        const fontId = 'font_' + Date.now() + '_' + index;
+        const font = { id: fontId, name: item.name, type: 'url', url: item.url };
+        store.fonts.push(font);
+        existingUrls.add(item.url);
+        registerFontFace(fontId, `url("${item.url}")`);
+        if (!firstFont) firstFont = font;
+        imported += 1;
+    });
+
+    if (!imported) {
+        alert('这些字体链接已经导入过了');
+        return;
+    }
+    if (firstFont) {
+        store.activeId = firstFont.id;
+        document.documentElement.style.setProperty('--app-font-family', `"UserFont_${firstFont.id}"`);
+        updateFontPreview(firstFont);
+    }
+    saveFontStore(store);
+    renderFontDropdown();
+    if (input) input.value = '';
+    alert(`已导入 ${imported} 个字体`);
+}
+
 // 删除下拉中当前选中的自定义字体
 function deleteSelectedFont() {
     const select = document.getElementById('font-select');
@@ -1499,3 +1623,4 @@ async function restoreActiveFont() {
     }
     // 自定义字体在 restoreActiveFont() 中异步恢复
 })();
+
