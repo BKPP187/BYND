@@ -81,6 +81,43 @@ function getChatApiCurrentTimeContext(char) {
     };
 }
 
+function getChatApiImageUrl(msg) {
+    const raw = String((msg && (msg.imageUrl || msg.url || msg.content)) || '').trim();
+    if (!raw) return '';
+    if (/^data:image\//i.test(raw) || /^https?:\/\//i.test(raw)) return raw;
+    return '';
+}
+
+function buildChatApiImageContent(msg) {
+    const imageUrl = getChatApiImageUrl(msg);
+    const note = cleanChatApiVisibleContent(msg.caption || msg.text || msg.description || '[用户发送了一张图片]')
+        .replace(/<[^>]+>/g, '')
+        .trim() || '[用户发送了一张图片]';
+    if (!imageUrl) return note;
+    return [
+        {
+            type: 'text',
+            text: `${note}\n请直接观察这张图片的内容，并结合角色人设、上下文和用户关系自然回复。不要说你看不到图片，除非接口明确无法解析图片。`
+        },
+        {
+            type: 'image_url',
+            image_url: { url: imageUrl }
+        }
+    ];
+}
+
+function prependChatApiQuoteToContent(content, quoteText) {
+    if (!quoteText) return content;
+    if (Array.isArray(content)) {
+        const copy = content.map(item => ({ ...item }));
+        const firstText = copy.find(item => item && item.type === 'text');
+        if (firstText) firstText.text = `${quoteText}\n${firstText.text || ''}`.trim();
+        else copy.unshift({ type: 'text', text: quoteText });
+        return copy;
+    }
+    return `${quoteText}\n${content}`;
+}
+
 function buildCurrentTimeAnchor(char) {
     const timeContext = getChatApiCurrentTimeContext(char);
     return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。`;
@@ -210,6 +247,29 @@ function buildUserMomentsAnchor() {
     }
 }
 
+function buildShoppingAnchor() {
+    try {
+        const raw = localStorage.getItem('wechat_shop_store');
+        if (!raw) return '';
+        const store = JSON.parse(raw);
+        const context = Array.isArray(store && store.recentContext) ? store.recentContext : [];
+        const orders = Array.isArray(store && store.orders) ? store.orders : [];
+        const rows = [...context, ...orders.map(order => ({
+            kind: 'shop',
+            text: `购物：${Array.isArray(order.items) ? order.items.map(item => `${item.name || '商品'}×${item.qty || 1}`).join('、') : ''}，合计 ¥${Number(order.total || 0).toFixed(2)}`,
+            createdAt: order.createdAt || 0
+        }))]
+            .filter(item => item && item.text)
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .slice(0, 6);
+        if (!rows.length) return '';
+        return `【用户购物/外卖上下文】角色知道用户最近在 BYND 内发生过这些购物或外卖行为，可以自然提及、帮忙代付/点餐/送礼，但不要无中生有：\n${rows.map((item, i) => `- ${i + 1}. ${truncateChatAnchorText(item.text, 180)}`).join('\n')}`;
+    } catch (e) {
+        console.warn('build shopping prompt failed:', e);
+        return '';
+    }
+}
+
 function buildWechatStickerAnchor(char) {
     if (typeof buildWechatStickerPrompt !== 'function') return '';
     try {
@@ -298,7 +358,8 @@ function buildSystemPrompt(char) {
         prompt += `- 你称呼用户为"${userTitle}"\n`;
     }
     if (config.nickname) {
-        prompt += `- 用户给你设置的备注名是"${config.nickname}"，你知道这个备注。如果你不喜欢这个备注，可以直接表达不满；如果你想亲自把备注改成新的名字，单独输出 [微信改备注:新备注|原因]，系统会自动修改当前备注，不会显示指令文本\n`;
+        prompt += `- 用户给你设置的备注名是"${config.nickname}"。这是用户给你的备注，不是用户自己的名字，也不等于当前聊天话题；除非最近聊天正好提到称呼/关系，或者你的人设会强烈在意这个备注，否则不要把每次回复都围绕备注展开\n`;
+        prompt += `- 如果你按人设确实不喜欢用户给你的这个备注名，并且想亲自改掉它，把 [微信改备注:新备注|原因] 作为独立一段输出；系统会修改聊天设置里的“你对角色的备注”。不要频繁改名，只在情绪、边界或关系变化足够明确时使用\n`;
     }
     if (userProfile.bio) {
         prompt += `- 关于用户：${userProfile.bio}\n`;
@@ -327,18 +388,30 @@ function buildSystemPrompt(char) {
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
     prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;
-    prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本：\n`;
+    prompt += `- 每一条普通对白都必须是独立消息段；旁白、角色对白、语音、表情、转账、红包、改备注、监控开关、正则/富文本载荷都不要混在同一个段落里；旁白只会渲染为普通描述气泡\n`;
+    prompt += `- 如果输出正则或富文本载荷（例如 <jwy>...</jwy>、<div>...</div>、HTML 代码块、包含 |^&^ / ^&^ / !^!^ 的格式），必须保持原始格式，并作为独立段输出；不要把它前后接普通叙事或对白\n`;
+    prompt += `- 旁白只能用 [旁白:内容] 独立一段，用来拆出一个普通描述气泡；角色自己说的话不要放进旁白里，必须拆成单独普通消息段或 [微信语音:内容]\n`;
+    prompt += `- 所有 [微信xxx:...] / [旁白:...] 指令必须在同一条消息段里完整闭合右方括号 ]，不能把 [ 和 ] 拆到不同段落，也不能把正则/状态栏塞进旁白指令里\n`;
+    prompt += `- 如果用户发送图片，系统会把图片以可视觉识别的消息交给模型；你需要观察图片内容，结合人设、上下文、备注/称呼、记忆和朋友圈自然回复，不要把图片只当成“[图片]”占位符。\n`;
+    prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本；开启监控会先弹窗征求用户允许：\n`;
     prompt += `  [微信转账:金额|备注] 例如 [微信转账:88.00|给你买奶茶]\n`;
     prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|待领取]\n`;
     prompt += `  [微信礼物:商品名|价格|图片URL|留言] 例如 [微信礼物:奶油小夜灯|129|https://example.com/a.jpg|给你放床头]\n`;
     prompt += `  [微信亲密付:每月额度|说明] 例如 [微信亲密付:520|想给你开一个备用额度]\n`;
     prompt += `  [微信引用:最近/关键词/序号|回复内容] 例如 [微信引用:最近|你刚刚那句我看见了]，用于引用用户或你们最近的某条消息再回复\n`;
     prompt += `  [微信记忆:你想主动保存的事实或关系变化] 例如 [微信记忆:用户今天说喜欢被轻声提醒复习]，只在确实值得长期记住时使用\n`;
-    prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]\n`;
-    prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，这是你给用户设置的称呼/备注\n`;
+    prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]，用于你不喜欢用户给你的角色备注时，修改“你对角色的备注”\n`;
+    prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，用于修改“角色对你的称呼”，也就是你以后怎么称呼用户\n`;
+    prompt += `  [微信监控:角色本人|原因]、[微信监控:第三视角吐槽|原因] 或 [微信监控:关闭|原因]，用于你按人设主动开启/切换/关闭 BYND 内部剧情监控。角色本人=你自己看；第三视角吐槽=上帝视角/磕糖观众/弹幕吐槽\n`;
+    prompt += `  [微信删除联系人:联系人备注或名字|原因]，用于你在监控剧情里非常想删除用户列表里的某个 BYND 角色时发起请求；系统会弹窗征求用户允许，不能直接静默删除；只能删除 BYND 内部联系人，不能声称删除真实手机联系人\n`;
+    prompt += `  [微信朋友圈:文字|图片URL]，用于你根据自己的心情主动发朋友圈。只在角色确实想发、且最近聊天/记忆/人设自然触发时使用，必须按人设，不要固定每天发，不要替用户发布朋友圈\n`;
     prompt += `  [微信拉黑:原因] 例如 [微信拉黑:我现在不想继续这段对话]，只在角色按人设真的要拉黑用户时使用\n`;
     prompt += `  [微信语音:转文字内容] 例如 [微信语音:我刚刚在想你]，系统会按文字长度自动估算语音秒数\n`;
     prompt += `  [微信表情:贴纸名或情绪] 例如 [微信表情:小狗能有什么坏心思]；如世界书提供了链接，也可用 [微信表情:贴纸名|图片URL]\n`;
+    prompt += `  [微信拍一拍:内容] 例如 [微信拍一拍:轻轻拍了拍你的头像]，用于很轻的互动提醒\n`;
+    prompt += `  [微信震动:内容] 例如 [微信震动:别装没看见我]，用于角色确实想让用户注意到时，必须少用\n`;
+    prompt += `  [微信音乐:歌名|歌手|URL] 例如 [微信音乐:晴天|周杰伦|https://example.com/song]，用于给用户发一张可点击音乐卡片；没有 URL 可以留空\n`;
+    prompt += `  [微信链接:URL|标题|备注] 例如 [微信链接:https://example.com|想给你看的页面|这个很像你说的那个]，用于发送真实网页链接卡片；不要假装你已经读取了网页正文，除非用户把正文发给你\n`;
     prompt += `  [微信语音电话:来电理由或接通开场] 或 [微信视频电话:来电理由或接通开场]，例如 [微信视频电话:我想现在看看你]。如果用户不在微信聊天页，系统会显示来电灵动岛让用户接听或拒绝\n`;
     prompt += `  [旁白:环境、动作或神态描写] 例如 [旁白:窗外的雨声贴着玻璃滑下来，他把手机扣在掌心，抬眼看你]\n`;
     prompt += `- 只有在剧情确实需要时才使用这些特殊消息指令，不要解释指令本身\n`;
@@ -389,32 +462,56 @@ function buildMessages(char, history, maxMessages) {
             content: stickerAnchor
         });
     }
+    const shoppingAnchor = buildShoppingAnchor();
+    if (shoppingAnchor) {
+        messages.push({
+            role: 'system',
+            content: shoppingAnchor
+        });
+    }
 
     // 历史消息（取最近的 N 条）
     const recentHistory = history.slice(-maxMessages);
     recentHistory.forEach(msg => {
         // 获取消息内容（处理不同消息类型）
         let content = msg.content || '';
-        if (msg.type === 'image') {
+        if (msg.type === 'image' && msg.isMe) {
+            content = buildChatApiImageContent(msg);
+        } else if (msg.type === 'image') {
             content = msg.description || '[图片]';
         } else if (msg.type === 'sticker') {
             content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
+        } else if (msg.type === 'poke') {
+            content = `[拍一拍] ${msg.content || msg.note || '拍了拍对方'}`;
+        } else if (msg.type === 'screen_shake') {
+            content = `[震动屏幕] ${msg.content || msg.note || '发送了一次屏幕震动'}`;
+        } else if (msg.type === 'music_card') {
+            const music = msg.music && typeof msg.music === 'object' ? msg.music : {};
+            const title = music.title || msg.title || '音乐';
+            const artist = music.artist || msg.artist || '';
+            const url = music.url || msg.url || '';
+            content = `[音乐卡片] ${title}${artist ? ` - ${artist}` : ''}${url ? ` ${url}` : ''}`;
+        } else if (msg.type === 'link_card') {
+            const title = msg.title || msg.url || '链接';
+            const note = msg.note || msg.text || '';
+            const url = msg.url || msg.content || '';
+            content = `[链接卡片] ${title}${note ? `｜${note}` : ''}${url ? ` ${url}` : ''}`;
         } else if (['voice', 'transfer', 'redpacket', 'gift', 'intimatePay', 'voiceCall', 'videoCall'].includes(msg.type)) {
             content = msg.description || msg.content || '[微信消息]';
-        } else if (msg.type === 'offline_narration') {
-            content = `[旁白] ${msg.content || msg.description || ''}`;
         } else if (msg.type === 'offline_text') {
             content = msg.dialogue || msg.description || '';
         }
-        content = cleanChatApiVisibleContent(content);
-        // 去掉 HTML 标签（给 API 的内容不需要 HTML）
-        content = content.replace(/<[^>]+>/g, '').trim();
-        content = truncateChatAnchorText(content, 650);
-        if (!content) return;
+        if (!Array.isArray(content)) {
+            content = cleanChatApiVisibleContent(content);
+            // 去掉 HTML 标签（给 API 的内容不需要 HTML）
+            content = content.replace(/<[^>]+>/g, '').trim();
+            content = truncateChatAnchorText(content, 650);
+        }
+        if (!content || (Array.isArray(content) && !content.length)) return;
         if (msg.replyTo && msg.replyTo.text) {
             const sender = msg.replyTo.sender || (msg.replyTo.isMe ? '用户' : (char && char.name) || '角色');
             const quote = truncateChatAnchorText(String(msg.replyTo.text || '').replace(/<[^>]+>/g, '').trim(), 180);
-            if (quote) content = `【引用${sender}】${quote}\n${content}`;
+            if (quote) content = prependChatApiQuoteToContent(content, `【引用${sender}】${quote}`);
         }
 
         messages.push({
@@ -471,7 +568,11 @@ async function callChatApi(messages) {
                 const errJson = JSON.parse(errText);
                 detail = errJson.error?.message || errJson.message || errText;
             } catch (_) {}
-            return { ok: false, error: `API 错误 (${resp.status}): ${String(detail).slice(0, 160)}` };
+            const detailText = String(detail || '');
+            const visionHint = /image|vision|multi[- ]?modal|content\s*array|image_url/i.test(detailText)
+                ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
+                : '';
+            return { ok: false, error: `API 错误 (${resp.status}): ${detailText.slice(0, 160)}${visionHint}` };
         }
 
         const json = await resp.json();

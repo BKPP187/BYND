@@ -361,7 +361,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260524-api-moments1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260525-douyin-chat-fix1').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -1291,6 +1291,12 @@ function openFavoriteMusicTrack(index) {
     openMusicDetail(0);
 }
 window.openFavoriteMusicTrack = openFavoriteMusicTrack;
+
+function getCurrentMusicTrack() {
+    const track = musicTracks[musicCurrentIndex];
+    return track ? { ...track } : null;
+}
+window.getCurrentMusicTrack = getCurrentMusicTrack;
 
 function selectMusicTrack(index, autoplay) {
     if (!musicTracks[index]) return;
@@ -3585,9 +3591,14 @@ function renderMonitorCharacters() {
                     <em>${musicEscapeHtml(lastLevel)}</em>
                     ${lastError}
                 </div>
-                <button type="button" class="${enabled ? 'danger' : ''}" onclick="toggleMonitorWatcher('${musicEscapeAttr(char.id)}')">
-                    ${enabled ? '解除' : '接入'}
-                </button>
+                <div class="monitor-char-actions">
+                    <button type="button" class="${enabled ? 'danger' : ''}" onclick="toggleMonitorWatcher('${musicEscapeAttr(char.id)}')">
+                        ${enabled ? '解除' : '接入'}
+                    </button>
+                    <button type="button" class="ghost" onclick="refreshMonitorWatcher('${musicEscapeAttr(char.id)}')">
+                        更新
+                    </button>
+                </div>
             </article>
         `;
     }).join('');
@@ -3597,6 +3608,38 @@ function initMonitorApp() {
     renderMonitorCharacters();
 }
 window.initMonitorApp = initMonitorApp;
+
+function refreshMonitorApp() {
+    getMonitorCharacters().forEach(char => {
+        char.chatConfig = char.chatConfig || {};
+        if (char.chatConfig.monitorMode === 'god' || char.chatConfig.monitorMode === 'cp') {
+            char.chatConfig.monitorMode = 'observer';
+        }
+        char.chatConfig.monitorState = char.chatConfig.monitorState || {};
+        char.chatConfig.monitorState.lastError = '';
+        char.chatConfig.monitorState.lastRefreshedAt = Date.now();
+    });
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    renderMonitorCharacters();
+    if (typeof showWechatToast === 'function') showWechatToast('监控状态已更新');
+}
+window.refreshMonitorApp = refreshMonitorApp;
+
+function refreshMonitorWatcher(charId) {
+    const char = getMonitorCharacters().find(item => item.id === charId);
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    if (char.chatConfig.monitorMode === 'god' || char.chatConfig.monitorMode === 'cp') {
+        char.chatConfig.monitorMode = 'observer';
+    }
+    char.chatConfig.monitorState = char.chatConfig.monitorState || {};
+    char.chatConfig.monitorState.lastError = '';
+    char.chatConfig.monitorState.lastRefreshedAt = Date.now();
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    renderMonitorCharacters();
+    if (typeof showWechatToast === 'function') showWechatToast(`${getMonitorCharName(char)} 的监控状态已更新`);
+}
+window.refreshMonitorWatcher = refreshMonitorWatcher;
 
 function toggleMonitorWatcher(charId) {
     const char = getMonitorCharacters().find(item => item.id === charId);
@@ -8009,15 +8052,22 @@ function initPageSwipe() {
         dots.forEach((d, i) => d.classList.toggle('active', i === currentPage));
     }
 
+    function canSwipeDesktopPage(e) {
+        if (!window._editMode) return true;
+        const target = e.target;
+        if (target && target.closest && target.closest('.desktop-layout-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return false;
+        return true;
+    }
+
     container.addEventListener('touchstart', (e) => {
-        if (window._editMode) return;
+        if (!canSwipeDesktopPage(e)) return;
         startX = e.touches[0].clientX;
         currentX = startX;
         isDragging = true;
     }, { passive: true });
 
     container.addEventListener('touchmove', (e) => {
-        if (window._editMode) return;
+        if (!canSwipeDesktopPage(e)) return;
         if (!isDragging) return;
         const pages = getPages();
         currentX = e.touches[0].clientX;
@@ -8030,10 +8080,6 @@ function initPageSwipe() {
     }, { passive: true });
 
     container.addEventListener('touchend', () => {
-        if (window._editMode) {
-            isDragging = false;
-            return;
-        }
         if (!isDragging) return;
         isDragging = false;
         const diff = currentX - startX;
