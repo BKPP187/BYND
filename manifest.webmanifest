@@ -1,8 +1,8 @@
-{
+﻿{
   "name": "Beyond Screen",
   "short_name": "BYND",
   "description": "BYND phone-style AI companion app.",
-  "start_url": "/?v=20260525-douyin-chat-fix1",
+  "start_url": "/?v=20260525-chat-music11",
   "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],

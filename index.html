@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260525-douyin-chat-fix1">
+    <link rel="manifest" href="manifest.webmanifest?v=20260525-chat-music11">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260525-douyin-chat-fix1">
+    <link rel="stylesheet" href="style.css?v=20260525-chat-music11">
 </head>
 <body>
 
@@ -902,7 +902,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.87
+                    Beyond Screen v1.1.147
                 </div>
             </div>
         </div>
@@ -966,6 +966,16 @@
             </div>
 
             <div class="wc-tab-view" id="wc-view-discover">
+                <div class="wc-qq-channel-topbar" id="wc-qq-channel-topbar" aria-label="频道">
+                    <img class="wc-qq-channel-avatar" id="wc-qq-channel-avatar" src="" alt="">
+                    <strong>频道</strong>
+                    <button type="button" class="wc-qq-channel-action wc-qq-channel-search" onclick="openWechatChannels(true)" aria-label="搜索频道">
+                        <i class="ri-search-2-line"></i>
+                    </button>
+                    <button type="button" class="wc-qq-channel-action" onclick="switchWcTab('me')" aria-label="个人主页">
+                        <i class="ri-user-3-line"></i>
+                    </button>
+                </div>
                 <div class="wc-discover-page">
                     <div class="wc-discover-item" onclick="openWechatMoments()">
                         <svg class="wc-discover-icon" viewBox="0 0 48 48" fill="none" stroke="#7C6EF7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="8"/><path d="M24 4v4M24 40v4M4 24h4M40 24h4"/></svg>
@@ -1006,7 +1016,7 @@
                 <div class="wc-tab" onclick="switchWcTab('me')"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="14" r="8"/><path d="M10 42c0-7.7 6.3-14 14-14s14 6.3 14 14"/><path d="M36 18l4 4 6-8"/></svg><span>我</span></div>
             </div>
             <div id="wechat-chat-room" class="wc-chat-room hidden">
-                <div class="wc-room-header"><i class="ri-arrow-left-s-line" onclick="closeChat()"></i><img class="wc-room-header-avatar" id="chat-room-header-avatar" src=""><span class="wc-room-title" id="chat-room-title">...</span><i class="ri-more-fill" onclick="openChatSettings()"></i></div>
+                <div class="wc-room-header"><i class="ri-arrow-left-s-line" onclick="closeChat()"></i><img class="wc-room-header-avatar" id="chat-room-header-avatar" src=""><div class="wc-room-title-wrap"><span class="wc-room-title" id="chat-room-title">...</span><span class="wc-room-status"><b></b>在线<i class="ri-arrow-right-s-line"></i></span></div><i class="ri-more-fill" onclick="openChatSettings()"></i></div>
                 <i class="ri-arrow-left-s-line wc-float-back" onclick="closeChat()"></i>
                 <div class="wc-floating-avatar" id="wc-floating-avatar" onclick="openChatSettings()">
                     <img id="wc-float-avatar-img" src="">
@@ -1016,19 +1026,31 @@
                 <div class="wc-room-content" id="chat-room-content"></div>
                 <div class="wc-room-footer">
                     <div id="wc-reply-preview" class="wc-reply-preview hidden"></div>
-                    <div class="wc-add-btn" onclick="toggleChatToolbar()">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <button type="button" class="wc-voice-btn" onclick="openWechatComposer('voice')" aria-label="语音">
+                        <i class="ri-mic-line"></i>
+                    </button>
+                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." oninput="syncWechatDraftState()" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}">
+                    <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
+                    <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
+                    <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
+                        <svg class="wc-smile-svg" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <div class="wc-add-btn" onclick="toggleChatToolbar()" aria-label="更多">
+                        <svg class="wc-plus-svg wc-plus-svg-base" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg class="wc-plus-svg wc-plus-svg-wechat" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><path d="M16 9.7v12.6M9.7 16h12.6" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
-                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}">
-                    <svg class="wc-ai-btn" onclick="triggerAiReply()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6z"/></svg>
-                    <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()"></i>
+                    <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()" aria-label="发送"></i>
+                    <svg class="wc-ai-btn" onclick="triggerAiReply()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-label="AI 回复"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6z"/></svg>
                 </div>
 
                 <!-- + 工具栏 -->
                 <div id="wc-chat-toolbar" class="wc-chat-toolbar hidden">
                     <div class="wc-toolbar-grid">
+                        <div class="wc-toolbar-item" onclick="triggerAiReply()">
+                            <div class="wc-toolbar-icon"><i class="ri-sparkling-2-line"></i></div>
+                            <span>AI回复</span>
+                        </div>
                         <div class="wc-toolbar-item" onclick="openStickerPicker()">
-                            <div class="wc-toolbar-icon"><i class="ri-emotion-happy-line"></i></div>
+                            <div class="wc-toolbar-icon"><svg class="wc-toolbar-smile-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                             <span>表情</span>
                         </div>
                         <div class="wc-toolbar-item" onclick="openWechatComposer('voice')">
@@ -1059,15 +1081,15 @@
                             <div class="wc-toolbar-icon"><i class="ri-image-line"></i></div>
                             <span>图片</span>
                         </div>
-                        <div class="wc-toolbar-item" onclick="sendWechatPoke()">
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('poke')">
                             <div class="wc-toolbar-icon"><i class="ri-hand-heart-line"></i></div>
                             <span>拍一拍</span>
                         </div>
-                        <div class="wc-toolbar-item" onclick="sendWechatScreenShake()">
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('screen_shake')">
                             <div class="wc-toolbar-icon"><i class="ri-shake-hands-line"></i></div>
                             <span>震动</span>
                         </div>
-                        <div class="wc-toolbar-item" onclick="sendWechatMusicCard()">
+                        <div class="wc-toolbar-item" onclick="openWechatComposer('music_card')">
                             <div class="wc-toolbar-icon"><i class="ri-music-2-line"></i></div>
                             <span>音乐</span>
                         </div>
@@ -1557,13 +1579,13 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="stickers-boltp-share.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="wechat.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="theme.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="settings.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="script.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="WorldBook.js?v=20260525-douyin-chat-fix1"></script>
-    <script src="regular.js?v=20260525-douyin-chat-fix1"></script>
+    <script src="chat-api.js?v=20260525-chat-music11"></script>
+    <script src="stickers-boltp-share.js?v=20260525-chat-music11"></script>
+    <script src="wechat.js?v=20260525-chat-music11"></script>
+    <script src="theme.js?v=20260525-chat-music11"></script>
+    <script src="settings.js?v=20260525-chat-music11"></script>
+    <script src="script.js?v=20260525-chat-music11"></script>
+    <script src="WorldBook.js?v=20260525-chat-music11"></script>
+    <script src="regular.js?v=20260525-chat-music11"></script>
 </body>
 </html>

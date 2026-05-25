@@ -1,4 +1,4 @@
-// --- 📱 script.js: 核心系统与路由 (最终完整版) ---
+﻿// --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
@@ -361,7 +361,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260525-douyin-chat-fix1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260525-chat-music11').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -1452,6 +1452,10 @@ async function searchMusic(term) {
     }
 }
 window.searchMusic = searchMusic;
+
+window.searchAcrossMusicSources = searchAcrossMusicSources;
+window.normalizeMusicTrack = normalizeMusicTrack;
+window.getMusicSourceMode = getMusicSourceMode;
 
 async function searchAcrossMusicSources(query, mode) {
     const settings = getMusicSourceSettings();
