@@ -11322,6 +11322,7 @@ function openWechatAiPhone(charId) {
     const char = (window.myCharacters || []).find(c => c.id === charId);
     if (!char) return;
     window._wechatAiPhoneOpenCharId = charId;
+    window._wechatAiPhoneTab = 'home';
     let modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal) {
         modal = document.createElement('div');
@@ -11340,6 +11341,179 @@ function openWechatAiPhone(charId) {
     }
 }
 
+function getWechatAiPhoneClockParts() {
+    const now = new Date();
+    return {
+        time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        date: now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })
+    };
+}
+
+function getWechatAiPhoneApps() {
+    return [
+        { key: 'chat', label: '微信', icon: 'ri-wechat-fill', tone: 'green' },
+        { key: 'memo', label: '备忘录', icon: 'ri-sticky-note-fill', tone: 'yellow' },
+        { key: 'browser', label: '浏览器', icon: 'ri-safari-fill', tone: 'blue' },
+        { key: 'wallet', label: '钱包', icon: 'ri-wallet-3-fill', tone: 'black' },
+        { key: 'diary', label: '日记', icon: 'ri-book-2-fill', tone: 'pink' },
+        { key: 'footprints', label: '足迹', icon: 'ri-map-pin-time-fill', tone: 'purple' },
+        { key: 'usage', label: '使用记录', icon: 'ri-history-fill', tone: 'gray' },
+        { key: 'clock', label: '时钟', icon: 'ri-time-fill', tone: 'orange' }
+    ];
+}
+
+function getWechatAiPhoneAppMeta(tabName) {
+    return getWechatAiPhoneApps().find(app => app.key === tabName) || getWechatAiPhoneApps()[0];
+}
+
+function renderWechatAiPhoneAppButton(app) {
+    return `
+        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone}" onclick="switchWechatAiPhoneTab('${app.key}')">
+            <span><i class="${app.icon}"></i></span>
+            <b>${wcEscapeHtml(app.label)}</b>
+        </button>
+    `;
+}
+
+function renderWechatAiPhoneSection(title, icon, items, emptyText = '暂无记录') {
+    const list = Array.isArray(items) ? items.filter(Boolean) : [];
+    return `
+        <section class="wc-ai-phone-ios-card">
+            <h4><i class="${icon}"></i>${wcEscapeHtml(title)}</h4>
+            ${list.length
+                ? list.map(item => `<p>${wcEscapeHtml(item)}</p>`).join('')
+                : `<p>${wcEscapeHtml(emptyText)}</p>`}
+        </section>
+    `;
+}
+
+function getWechatAiPhoneInitial(name) {
+    const source = String(name || '').trim();
+    return wcEscapeHtml(source ? Array.from(source)[0] : '聊');
+}
+
+function renderWechatAiPhoneChatRows(snapshot) {
+    const chats = Array.isArray(snapshot.chats) ? snapshot.chats : [];
+    if (!chats.length) return '<div class="wc-ai-phone-empty">还没有聊天记录</div>';
+    return chats.map((item, index) => `
+        <div class="wc-ai-phone-chat-row">
+            <div class="wc-ai-phone-chat-avatar ${index === 0 ? 'primary' : ''}">${getWechatAiPhoneInitial(item.name)}</div>
+            <div class="wc-ai-phone-chat-main">
+                <strong>${wcEscapeHtml(item.name || '联系人')}</strong>
+                <span>${wcEscapeHtml(item.text || ' ')}</span>
+            </div>
+            <em>${wcEscapeHtml(item.time || '')}</em>
+        </div>
+    `).join('');
+}
+
+function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
+    const clock = getWechatAiPhoneClockParts();
+    if (activeTab === 'chat') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>微信</strong><span>${isLoading ? '正在同步聊天记录' : '角色自己的聊天列表'}</span></div>
+            <div class="wc-ai-phone-ios-search"><i class="ri-search-line"></i><span>搜索</span></div>
+            <div class="wc-ai-phone-wechat-list">
+                ${renderWechatAiPhoneChatRows(snapshot)}
+            </div>
+        `;
+    }
+    if (activeTab === 'memo') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>备忘录</strong><span>${wcEscapeHtml(getWechatCharDisplayName(char))} 写下的提醒</span></div>
+            ${renderWechatAiPhoneSection('置顶备忘录', 'ri-pushpin-2-fill', snapshot.memos, '没有备忘录')}
+        `;
+    }
+    if (activeTab === 'browser') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>Safari</strong><span>最近浏览</span></div>
+            <div class="wc-ai-phone-safari-bar"><i class="ri-lock-2-fill"></i><span>search.or.type.url</span><i class="ri-reload-line"></i></div>
+            ${renderWechatAiPhoneSection('浏览器', 'ri-compass-3-fill', snapshot.browser, '没有浏览记录')}
+        `;
+    }
+    if (activeTab === 'wallet') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>钱包</strong><span>卡包与零钱</span></div>
+            <div class="wc-ai-phone-wallet-card">
+                <span>Wallet</span>
+                <strong>${wcEscapeHtml(getWechatCharDisplayName(char))}</strong>
+                <p>${wcEscapeHtml(snapshot.wallet || '暂无记录')}</p>
+            </div>
+            <div class="wc-ai-phone-wallet-actions"><button>账单</button><button>卡包</button><button>亲密付</button></div>
+        `;
+    }
+    if (activeTab === 'diary') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>日记</strong><span>未发送给你的内心话</span></div>
+            <article class="wc-ai-phone-diary-paper">
+                <time>${wcEscapeHtml(clock.date)}</time>
+                <p>${wcEscapeHtml(snapshot.diary || '今天还没有写下日记。')}</p>
+            </article>
+        `;
+    }
+    if (activeTab === 'footprints') {
+        const footprints = Array.isArray(snapshot.footprints) ? snapshot.footprints : [];
+        return `
+            <div class="wc-ai-phone-app-title"><strong>足迹</strong><span>最近活动轨迹</span></div>
+            <div class="wc-ai-phone-timeline">
+                ${(footprints.length ? footprints : ['没有新的足迹']).map((item, idx) => `
+                    <div><b>${String(idx + 1).padStart(2, '0')}</b><span>${wcEscapeHtml(item)}</span></div>
+                `).join('')}
+            </div>
+        `;
+    }
+    if (activeTab === 'usage') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>使用记录</strong><span>应用行为摘要</span></div>
+            ${renderWechatAiPhoneSection('最近使用', 'ri-history-fill', snapshot.usageRecords, '没有使用记录')}
+            ${renderWechatAiPhoneSection('足迹', 'ri-map-pin-time-fill', snapshot.footprints, '没有新的足迹')}
+        `;
+    }
+    if (activeTab === 'clock') {
+        return `
+            <div class="wc-ai-phone-app-title"><strong>时钟</strong><span>${wcEscapeHtml(clock.date)}</span></div>
+            <div class="wc-ai-phone-clock-app">
+                <div class="wc-ai-phone-clock-face"><i></i><b></b></div>
+                <strong>${wcEscapeHtml(clock.time)}</strong>
+                <span>${wcEscapeHtml(getWechatCharDisplayName(char))} 的本地时间</span>
+            </div>
+        `;
+    }
+    return '';
+}
+
+function renderWechatAiPhoneHome(snapshot, char, isLoading) {
+    const clock = getWechatAiPhoneClockParts();
+    const apps = getWechatAiPhoneApps();
+    const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
+    const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
+    const latestChat = Array.isArray(snapshot.chats) && snapshot.chats.length ? snapshot.chats[0] : null;
+    return `
+        <div class="wc-ai-phone-home">
+            <div class="wc-ai-phone-home-top">
+                <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
+                <div class="wc-ai-phone-sync">${isLoading ? '正在同步' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`}</div>
+            </div>
+            <section class="wc-ai-phone-clock-widget" onclick="switchWechatAiPhoneTab('clock')">
+                <span>${wcEscapeHtml(clock.date)}</span>
+                <strong>${wcEscapeHtml(clock.time)}</strong>
+                <p>${wcEscapeHtml(getWechatCharDisplayName(char))} 的手机</p>
+            </section>
+            <section class="wc-ai-phone-widget-stack" onclick="switchWechatAiPhoneTab('chat')">
+                <div><i class="ri-wechat-fill"></i><span>微信</span></div>
+                <strong>${wcEscapeHtml(latestChat ? latestChat.name : '聊天记录')}</strong>
+                <p>${wcEscapeHtml(latestChat ? latestChat.text : '还没有新的聊天')}</p>
+            </section>
+            <div class="wc-ai-phone-grid">
+                ${gridApps.map(renderWechatAiPhoneAppButton).join('')}
+            </div>
+            <div class="wc-ai-phone-dock">
+                ${dockApps.map(renderWechatAiPhoneAppButton).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function renderWechatAiPhone(char) {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal || !char) return;
@@ -11347,79 +11521,39 @@ function renderWechatAiPhone(char) {
         ? char.chatConfig.aiPhoneSnapshot
         : buildWechatAiPhoneFallback(char);
     const isLoading = !!(window._wechatAiPhoneGenerating && window._wechatAiPhoneGenerating.has(char.id));
-    const activeTab = window._wechatAiPhoneTab || 'chat';
-    const chatsHtml = (snapshot.chats || []).map(item => `
-        <div class="wc-ai-phone-chat">
-            <span>${wcEscapeHtml(item.name)}</span>
-            <p>${wcEscapeHtml(item.text || ' ')}</p>
-            <em>${wcEscapeHtml(item.time || '')}</em>
-        </div>
-    `).join('');
-    const listHtml = (title, icon, items) => `
-        <div class="wc-ai-phone-section">
-            <h4><i class="${icon}"></i>${title}</h4>
-            ${(items || []).map(item => `<p>${wcEscapeHtml(item)}</p>`).join('') || '<p>暂无记录</p>'}
-        </div>
-    `;
-    const tabHtml = (() => {
-        if (activeTab === 'memo') {
-            return `
-                ${listHtml('备忘录', 'ri-sticky-note-line', snapshot.memos)}
-                <div class="wc-ai-phone-section wc-ai-phone-diary">
-                    <h4><i class="ri-book-open-line"></i>日记</h4>
-                    <p>${wcEscapeHtml(snapshot.diary || '还没有写下日记。')}</p>
-                </div>
-            `;
-        }
-        if (activeTab === 'browser') {
-            return `
-                ${listHtml('浏览器', 'ri-compass-3-line', snapshot.browser)}
-                ${listHtml('足迹', 'ri-map-pin-time-line', snapshot.footprints)}
-                ${listHtml('使用记录', 'ri-history-line', snapshot.usageRecords)}
-            `;
-        }
-        if (activeTab === 'wallet') {
-            return `
-                <div class="wc-ai-phone-section wc-ai-phone-wallet">
-                    <h4><i class="ri-wallet-3-line"></i>钱包</h4>
-                    <p>${wcEscapeHtml(snapshot.wallet || '暂无记录')}</p>
-                </div>
-                ${listHtml('使用记录', 'ri-history-line', snapshot.usageRecords)}
-            `;
-        }
-        return `
-            <div class="wc-ai-phone-section wc-ai-phone-chatlist">
-                <h4><i class="ri-message-3-line"></i>聊天列表</h4>
-                ${chatsHtml || '<p>暂无聊天</p>'}
-            </div>
-        `;
-    })();
+    const activeTab = window._wechatAiPhoneTab || 'home';
+    const clock = getWechatAiPhoneClockParts();
+    const meta = getWechatAiPhoneAppMeta(activeTab);
+    const isHome = activeTab === 'home';
     modal.innerHTML = `
-        <div class="wc-ai-phone">
-            <div class="wc-ai-phone-status"><span></span><b></b><span></span></div>
-            <div class="wc-ai-phone-head">
-                <img src="${char.avatar || DEFAULT_AVATAR}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <div>
-                    <strong>${wcEscapeHtml(getWechatCharDisplayName(char))} 的手机</strong>
-                    <span>${isLoading ? '正在同步手机内容' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`}</span>
-                </div>
-                <button onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
+        <div class="wc-ai-phone wc-ai-phone-ios ${isHome ? 'is-home' : 'is-app'}">
+            <div class="wc-ai-phone-status">
+                <span>${wcEscapeHtml(clock.time)}</span>
+                <b></b>
+                <span><i class="ri-signal-wifi-fill"></i><i class="ri-battery-2-charge-fill"></i></span>
             </div>
-            <div class="wc-ai-phone-apps">
-                <button class="${activeTab === 'chat' ? 'active' : ''}" onclick="switchWechatAiPhoneTab('chat')"><i class="ri-chat-3-line"></i>聊天</button>
-                <button class="${activeTab === 'memo' ? 'active' : ''}" onclick="switchWechatAiPhoneTab('memo')"><i class="ri-sticky-note-line"></i>备忘录</button>
-                <button class="${activeTab === 'browser' ? 'active' : ''}" onclick="switchWechatAiPhoneTab('browser')"><i class="ri-compass-3-line"></i>浏览器</button>
-                <button class="${activeTab === 'wallet' ? 'active' : ''}" onclick="switchWechatAiPhoneTab('wallet')"><i class="ri-wallet-3-line"></i>钱包</button>
+            <div class="wc-ai-phone-wallpaper">
+                ${isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
+                    <div class="wc-ai-phone-app-page tone-${meta.tone}">
+                        <div class="wc-ai-phone-app-nav">
+                            <button type="button" onclick="switchWechatAiPhoneTab('home')"><i class="ri-arrow-left-s-line"></i><span>桌面</span></button>
+                            <strong><i class="${meta.icon}"></i>${wcEscapeHtml(meta.label)}</strong>
+                            <button type="button" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
+                        </div>
+                        <div class="wc-ai-phone-app-body">
+                            ${renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading)}
+                        </div>
+                    </div>
+                `}
             </div>
-            <div class="wc-ai-phone-screen">
-                ${tabHtml}
-            </div>
+            <div class="wc-ai-phone-home-indicator"></div>
         </div>
     `;
 }
 
 function switchWechatAiPhoneTab(tabName) {
-    window._wechatAiPhoneTab = ['chat', 'memo', 'browser', 'wallet'].includes(tabName) ? tabName : 'chat';
+    const validTabs = ['home', 'chat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock'];
+    window._wechatAiPhoneTab = validTabs.includes(tabName) ? tabName : 'home';
     const char = (window.myCharacters || []).find(c => c.id === window._wechatAiPhoneOpenCharId);
     if (char) renderWechatAiPhone(char);
 }
@@ -11428,7 +11562,7 @@ function closeWechatAiPhone() {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     window._wechatAiPhoneOpenCharId = '';
-    window._wechatAiPhoneTab = 'chat';
+    window._wechatAiPhoneTab = 'home';
 }
 
 // ========== 微信记忆系统 ==========

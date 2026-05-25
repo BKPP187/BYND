@@ -16388,3 +16388,557 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-music-card.needs-tap .msg-music-play::after {
     content: attr(data-play-hint);
 }
+
+
+/* === AI 角色小手机：iPhone 风格桌面与应用页 === */
+.wc-ai-phone-overlay {
+    background:
+        radial-gradient(circle at 18% 12%, rgba(255,255,255,0.38), transparent 30%),
+        radial-gradient(circle at 82% 86%, rgba(79,70,229,0.22), transparent 34%),
+        rgba(15,23,42,0.48);
+}
+.wc-ai-phone-ios {
+    width: min(336px, calc(100% - 24px));
+    height: min(690px, calc(100% - 24px));
+    padding: 9px;
+    border-radius: 46px;
+    background: linear-gradient(145deg, #0a0b10, #242833 52%, #05060a);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.48), inset 0 0 0 1px rgba(255,255,255,0.12);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+.wc-ai-phone-ios::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 42px;
+    border: 1px solid rgba(255,255,255,0.10);
+    pointer-events: none;
+    z-index: 4;
+}
+.wc-ai-phone-ios .wc-ai-phone-status {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 15px;
+    height: 24px;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 86px 1fr;
+    align-items: center;
+    padding: 0;
+    color: rgba(255,255,255,0.96);
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-ios .wc-ai-phone-status b {
+    width: 82px;
+    height: 24px;
+    justify-self: center;
+    border-radius: 999px;
+    background: #05060a;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08);
+}
+.wc-ai-phone-ios .wc-ai-phone-status span:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    font-size: 14px;
+}
+.wc-ai-phone-wallpaper {
+    position: absolute;
+    inset: 9px;
+    border-radius: 38px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 18% 15%, rgba(255,255,255,0.92), transparent 12%),
+        radial-gradient(circle at 83% 22%, rgba(129,140,248,0.82), transparent 24%),
+        radial-gradient(circle at 25% 82%, rgba(244,114,182,0.62), transparent 26%),
+        linear-gradient(145deg, #28445f 0%, #7777a6 38%, #d88ca8 68%, #f3b58f 100%);
+    padding: 44px 14px 20px;
+}
+.wc-ai-phone-home {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+.wc-ai-phone-home-top {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    min-height: 34px;
+}
+.wc-ai-phone-close,
+.wc-ai-phone-app-nav button {
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+.wc-ai-phone-close { width: 34px; height: 34px; }
+.wc-ai-phone-close i { font-size: 18px; }
+.wc-ai-phone-sync {
+    grid-column: 2;
+    justify-self: center;
+    max-width: 190px;
+    height: 26px;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+.wc-ai-phone-clock-widget,
+.wc-ai-phone-widget-stack {
+    border-radius: 24px;
+    background: rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 14px 34px rgba(15,23,42,0.16);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    cursor: pointer;
+}
+.wc-ai-phone-clock-widget {
+    min-height: 122px;
+    padding: 15px 17px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+.wc-ai-phone-clock-widget span {
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    font-weight: 760;
+}
+.wc-ai-phone-clock-widget strong {
+    color: #fff;
+    font-size: 47px;
+    line-height: 0.96;
+    font-weight: 760;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-clock-widget p {
+    margin: 7px 0 0;
+    color: rgba(255,255,255,0.76);
+    font-size: 12px;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-widget-stack {
+    min-height: 84px;
+    padding: 12px 13px;
+}
+.wc-ai-phone-widget-stack div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    font-weight: 820;
+}
+.wc-ai-phone-widget-stack i { color: #35c759; font-size: 19px; }
+.wc-ai-phone-widget-stack strong {
+    display: block;
+    margin-top: 8px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-widget-stack p {
+    margin: 3px 0 0;
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 13px 10px;
+    padding: 2px 3px 0;
+}
+.wc-ai-phone-app-icon {
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.42);
+}
+.wc-ai-phone-app-icon span {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 18px rgba(15,23,42,0.22), inset 0 0 0 1px rgba(255,255,255,0.22);
+}
+.wc-ai-phone-app-icon i { font-size: 25px; color: #fff; }
+.wc-ai-phone-app-icon b {
+    max-width: 58px;
+    color: #fff;
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-app-icon.tone-green span { background: linear-gradient(145deg, #45dd75, #11a84d); }
+.wc-ai-phone-app-icon.tone-yellow span { background: linear-gradient(145deg, #ffe68a, #f1b51d); }
+.wc-ai-phone-app-icon.tone-blue span { background: linear-gradient(145deg, #5ec8ff, #1677ff); }
+.wc-ai-phone-app-icon.tone-black span { background: linear-gradient(145deg, #353942, #07080b); }
+.wc-ai-phone-app-icon.tone-pink span { background: linear-gradient(145deg, #ff9fbe, #ff4f8f); }
+.wc-ai-phone-app-icon.tone-purple span { background: linear-gradient(145deg, #a78bfa, #6d28d9); }
+.wc-ai-phone-app-icon.tone-gray span { background: linear-gradient(145deg, #c9d1dc, #6b7280); }
+.wc-ai-phone-app-icon.tone-orange span { background: linear-gradient(145deg, #ffba73, #ff6b22); }
+.wc-ai-phone-dock {
+    margin-top: auto;
+    min-height: 74px;
+    padding: 10px 12px 8px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.26);
+    border: 1px solid rgba(255,255,255,0.24);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+}
+.wc-ai-phone-dock .wc-ai-phone-app-icon b { display: none; }
+.wc-ai-phone-app-page {
+    height: 100%;
+    min-height: 0;
+    border-radius: 30px;
+    background: rgba(248,250,252,0.94);
+    color: #111827;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72);
+}
+.wc-ai-phone-app-nav {
+    min-height: 52px;
+    padding: 8px 10px 6px;
+    display: grid;
+    grid-template-columns: 72px minmax(0,1fr) 34px;
+    align-items: center;
+    gap: 6px;
+    background: rgba(248,250,252,0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-app-nav button {
+    width: auto;
+    height: 32px;
+    padding: 0 9px;
+    background: rgba(17,24,39,0.06);
+    color: #111827;
+    font-size: 12px;
+    font-weight: 820;
+    gap: 1px;
+}
+.wc-ai-phone-app-nav button:last-child {
+    width: 32px;
+    padding: 0;
+    justify-self: end;
+}
+.wc-ai-phone-app-nav i { font-size: 17px; }
+.wc-ai-phone-app-nav strong {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-app-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wc-ai-phone-app-title strong {
+    display: block;
+    color: #111827;
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 920;
+    letter-spacing: 0;
+}
+.wc-ai-phone-app-title span {
+    display: block;
+    margin-top: 5px;
+    color: #7c8797;
+    font-size: 12px;
+    font-weight: 760;
+}
+.wc-ai-phone-ios-search,
+.wc-ai-phone-safari-bar {
+    min-height: 36px;
+    border-radius: 14px;
+    background: rgba(15,23,42,0.07);
+    color: #8b95a5;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 760;
+}
+.wc-ai-phone-wechat-list,
+.wc-ai-phone-ios-card {
+    border-radius: 18px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.055);
+}
+.wc-ai-phone-chat-row {
+    min-height: 62px;
+    padding: 9px 9px 9px 10px;
+    display: grid;
+    grid-template-columns: 42px minmax(0,1fr) auto;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-chat-row:last-child { border-bottom: none; }
+.wc-ai-phone-chat-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #dce7f4, #f5dedb);
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 900;
+}
+.wc-ai-phone-chat-avatar.primary {
+    background: linear-gradient(145deg, #5ee27f, #16a34a);
+    color: #fff;
+}
+.wc-ai-phone-chat-main { min-width: 0; }
+.wc-ai-phone-chat-main strong {
+    display: block;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 880;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-chat-main span {
+    display: block;
+    margin-top: 3px;
+    color: #7c8797;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-chat-row em {
+    align-self: start;
+    color: #a3acba;
+    font-size: 10px;
+    font-style: normal;
+    white-space: nowrap;
+}
+.wc-ai-phone-ios-card { padding: 12px; }
+.wc-ai-phone-ios-card h4 {
+    margin: 0 0 8px;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 900;
+}
+.wc-ai-phone-ios-card h4 i { color: #667085; font-size: 17px; }
+.wc-ai-phone-ios-card p {
+    margin: 7px 0 0;
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.48;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+.wc-ai-phone-wallet-card {
+    min-height: 154px;
+    padding: 18px;
+    border-radius: 22px;
+    background: linear-gradient(145deg, #171923, #303644);
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(15,23,42,0.18);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.wc-ai-phone-wallet-card span { color: rgba(255,255,255,0.58); font-size: 12px; font-weight: 820; }
+.wc-ai-phone-wallet-card strong { font-size: 18px; font-weight: 900; }
+.wc-ai-phone-wallet-card p { margin: 0; color: rgba(255,255,255,0.78); font-size: 12px; line-height: 1.45; }
+.wc-ai-phone-wallet-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.wc-ai-phone-wallet-actions button {
+    height: 38px;
+    border: none;
+    border-radius: 14px;
+    background: #fff;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 850;
+}
+.wc-ai-phone-diary-paper {
+    min-height: 270px;
+    padding: 18px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #fff8d9, #fff2b2);
+    color: #2f2414;
+    box-shadow: 0 10px 24px rgba(120,84,24,0.13);
+}
+.wc-ai-phone-diary-paper time {
+    display: block;
+    color: rgba(47,36,20,0.55);
+    font-size: 12px;
+    font-weight: 850;
+}
+.wc-ai-phone-diary-paper p {
+    margin: 14px 0 0;
+    color: #2f2414;
+    font-size: 14px;
+    line-height: 1.72;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-timeline {
+    border-radius: 18px;
+    background: #fff;
+    padding: 4px 12px;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.055);
+}
+.wc-ai-phone-timeline div {
+    display: grid;
+    grid-template-columns: 30px minmax(0,1fr);
+    gap: 9px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-timeline div:last-child { border-bottom: none; }
+.wc-ai-phone-timeline b {
+    color: #a3acba;
+    font-size: 11px;
+    font-weight: 900;
+}
+.wc-ai-phone-timeline span {
+    color: #374151;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-clock-app {
+    flex: 1;
+    min-height: 360px;
+    border-radius: 22px;
+    background: #101318;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.wc-ai-phone-clock-face {
+    width: 142px;
+    height: 142px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #1f2937 0 52%, #0b0d12 53% 100%);
+    border: 7px solid #2d3748;
+    position: relative;
+}
+.wc-ai-phone-clock-face i,
+.wc-ai-phone-clock-face b {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 4px;
+    border-radius: 99px;
+    transform-origin: bottom center;
+    background: #fff;
+}
+.wc-ai-phone-clock-face i { height: 42px; transform: translateX(-50%) rotate(40deg); }
+.wc-ai-phone-clock-face b { height: 55px; transform: translateX(-50%) rotate(8deg); background: #ff453a; }
+.wc-ai-phone-clock-app strong {
+    font-size: 38px;
+    line-height: 1;
+    font-weight: 760;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-clock-app span {
+    color: rgba(255,255,255,0.58);
+    font-size: 12px;
+    font-weight: 780;
+}
+.wc-ai-phone-empty {
+    padding: 24px 12px;
+    color: #9aa3af;
+    text-align: center;
+    font-size: 13px;
+}
+.wc-ai-phone-home-indicator {
+    position: absolute;
+    left: 50%;
+    bottom: 15px;
+    width: 116px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.86);
+    transform: translateX(-50%);
+    z-index: 5;
+}
