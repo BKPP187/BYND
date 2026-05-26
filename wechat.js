@@ -11123,6 +11123,7 @@ function openWechatTakeoutShop(shopId) {
             </div>
         </div>
     `);
+    setWechatFeatureLeftText('外卖', 'renderWechatTakeout("home")');
 }
 
 function openWechatTakeoutDish(shopId, dishId) {
@@ -11130,6 +11131,7 @@ function openWechatTakeoutDish(shopId, dishId) {
     if (!found) return;
     const { shop, dish } = found;
     openWechatFeatureScreen('菜品详情', renderWechatTakeoutDishDetail(shop, dish), `<button type="button" class="wc-feature-cart-btn" onclick="renderWechatTakeout('cart')" aria-label="打开外卖购物车"><i class="ri-shopping-basket-2-line"></i></button>`);
+    setWechatFeatureLeftText('店铺', `openWechatTakeoutShop(${quoteWechatJsString(shop.id)})`);
     if (!dish.image && !getWechatTakeoutSavedImage(shop.id, dish.id) && !window._wechatTakeoutImageGenerating?.[getWechatTakeoutImageKey(shop.id, dish.id)]) {
         setTimeout(() => ensureWechatTakeoutDishImage(shop.id, dish.id), 120);
     }
