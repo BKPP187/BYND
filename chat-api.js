@@ -280,11 +280,98 @@ function buildWechatStickerAnchor(char) {
     }
 }
 
+function getChatApiGroupMembers(group) {
+    if (!group || !group.isGroupChat) return [];
+    if (typeof getWechatGroupMembers === 'function') {
+        try {
+            const members = getWechatGroupMembers(group);
+            if (Array.isArray(members)) return members;
+        } catch (_) {}
+    }
+    const ids = Array.isArray(group.groupMembers) ? group.groupMembers : [];
+    const contacts = Array.isArray(window.myCharacters) ? window.myCharacters : [];
+    return ids.map(id => contacts.find(char => char && char.id === id && !char.isGroupChat)).filter(Boolean);
+}
+
+function getChatApiGroupMemberName(member) {
+    if (typeof getWechatGroupMemberName === 'function') {
+        try {
+            return getWechatGroupMemberName(member);
+        } catch (_) {}
+    }
+    return (member && member.chatConfig && member.chatConfig.nickname) || (member && member.name) || '成员';
+}
+
+function findChatApiGroupMember(group, value) {
+    if (typeof findWechatGroupMember === 'function') {
+        try {
+            const member = findWechatGroupMember(group, value);
+            if (member) return member;
+        } catch (_) {}
+    }
+    const query = String(value || '').trim();
+    if (!query) return null;
+    return getChatApiGroupMembers(group).find(member => {
+        const display = getChatApiGroupMemberName(member);
+        return member.id === query || member.name === query || display === query || query.includes(display) || display.includes(query);
+    }) || null;
+}
+
+function normalizeChatApiGroupSpeechContent(content, group) {
+    const source = cleanChatApiVisibleContent(content).replace(/<[^>]+>/g, '').trim();
+    if (!source || !group?.isGroupChat) return { text: source, member: null };
+    if (typeof normalizeWechatGroupSpeechText === 'function') {
+        try {
+            const normalized = normalizeWechatGroupSpeechText(source, group);
+            if (normalized && normalized.member) return normalized;
+        } catch (_) {}
+    }
+    const match = source.match(/^\s*([^：:\n]{1,24})\s*[：:]\s*([\s\S]+)$/);
+    if (!match) return { text: source, member: null };
+    const member = findChatApiGroupMember(group, match[1]);
+    return member ? { text: match[2].trim(), member } : { text: source, member: null };
+}
+
+function buildChatApiGroupPrompt(group) {
+    const members = getChatApiGroupMembers(group);
+    if (!group?.isGroupChat || !members.length) return '';
+    const lines = members.map((member, index) => {
+        const displayName = getChatApiGroupMemberName(member);
+        const realName = member.name && member.name !== displayName ? `，原名：${member.name}` : '';
+        const description = truncateChatAnchorText(getChatApiCharacterDescription(member), 420);
+        const worldBook = Array.isArray(member.worldBook)
+            ? member.worldBook.map(entry => prepareChatApiPromptText(entry.content || entry.entry || entry.value || '', 160)).filter(Boolean).slice(0, 3).join('；')
+            : '';
+        const details = [description, worldBook ? `世界书：${worldBook}` : ''].filter(Boolean).join('；');
+        return `${index + 1}. ${displayName}${realName}${details ? `：${details}` : ''}`;
+    });
+    return `\n【微信群聊成员】\n当前对话是群聊「${group.name || '群聊'}」，不是单人私聊。你需要同时扮演群内 AI 成员，所有成员都必须按各自人设、世界书和关系状态发言：\n${lines.join('\n')}\n\n【群聊输出规则】\n- 你不是群聊本身，不能以群名作为说话人。\n- 每条成员发言必须单独输出为：[群聊发言:成员名|消息内容]\n- 成员名必须使用上方列表中的名字或备注，系统会用这个成员自己的头像和名字渲染，不要把“成员名：”写进气泡正文。\n- 用户每次在群里发言后，群内每个成员都要至少给一条短反应；可以有先后和情绪差异，但不要漏掉任何成员。\n- 不要让所有人说同一句话，每个人要按自己的人设、关系和当下心情说不同内容。\n- 严禁替用户发言或替用户行动。\n`;
+}
+
+function getChatApiGroupHistorySender(group, msg, content) {
+    if (!group?.isGroupChat || !msg || msg.isMe) return '';
+    const explicit = msg.senderName || msg.speakerName;
+    if (explicit) return explicit;
+    const member = findChatApiGroupMember(group, msg.senderId || msg.speakerId);
+    if (member) return getChatApiGroupMemberName(member);
+    const normalized = normalizeChatApiGroupSpeechContent(content, group);
+    return normalized.member ? getChatApiGroupMemberName(normalized.member) : '';
+}
+
+function buildChatApiGroupHistoryContent(group, msg, content) {
+    if (!group?.isGroupChat || !msg || msg.isMe || Array.isArray(content)) return content;
+    const normalized = normalizeChatApiGroupSpeechContent(content, group);
+    const sender = getChatApiGroupHistorySender(group, msg, content);
+    const text = truncateChatAnchorText((normalized.text || content).replace(/<[^>]+>/g, '').trim(), 650);
+    return sender ? `【${sender}】${text}` : text;
+}
+
 // 1. 构建角色 System Prompt
 function buildSystemPrompt(char) {
     let prompt = '';
     const timeContext = getChatApiCurrentTimeContext(char);
     const charDescription = getChatApiCharacterDescription(char);
+    const isGroupChat = !!char?.isGroupChat;
 
     // 如果有活跃预设，用预设的 prompt 模板
     const preset = (typeof getActivePreset === 'function') ? getActivePreset() : null;
@@ -311,10 +398,16 @@ function buildSystemPrompt(char) {
         }
     } else {
         // 无预设时用默认 prompt
-        prompt += `你是「${char.name}」。\n`;
+        prompt += isGroupChat
+            ? `你正在参与微信群聊「${char.name || '群聊'}」。\n`
+            : `你是「${char.name}」。\n`;
         if (charDescription) {
             prompt += `\n【角色设定】\n${charDescription}\n`;
         }
+    }
+
+    if (isGroupChat) {
+        prompt += buildChatApiGroupPrompt(char);
     }
 
     // 世界书条目（如果有）
@@ -351,7 +444,11 @@ function buildSystemPrompt(char) {
     const userTitle = config.userTitle || userName;
 
     prompt += `\n【行为规则】\n`;
-    prompt += `- 始终以「${char.name}」的身份回复，保持角色一致性\n`;
+    if (isGroupChat) {
+        prompt += `- 当前是群聊「${char.name || '群聊'}」，必须按群成员身份回复，保持每个成员各自的人设一致性\n`;
+    } else {
+        prompt += `- 始终以「${char.name}」的身份回复，保持角色一致性\n`;
+    }
     prompt += `- 用户的名字是"${userName}"\n`;
     prompt += `- 当前采用${timeContext.label}，现在是 ${timeContext.text}。今天就是 ${timeContext.date || timeContext.text}，当前时刻是 ${timeContext.time || timeContext.text}。用户提到今天、现在、刚才、今晚、明天等相对时间时，必须以这个时间为准，不要说你无法得知实时信息\n`;
     if (userTitle !== userName && userTitle !== '我') {
@@ -388,6 +485,9 @@ function buildSystemPrompt(char) {
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
     prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;
+    if (isGroupChat) {
+        prompt += `- 群聊回复时，普通成员发言必须使用 [群聊发言:成员名|消息内容] 作为独立消息段，并用 ||| 分隔多条发言；本轮要覆盖群内每个成员，不能漏人；不要把“成员名：”写进消息正文\n`;
+    }
     prompt += `- 每一条普通对白都必须是独立消息段；旁白、角色对白、语音、表情、转账、红包、改备注、监控开关、正则/富文本载荷都不要混在同一个段落里；旁白只会渲染为普通描述气泡\n`;
     prompt += `- 如果输出正则或富文本载荷（例如 <jwy>...</jwy>、<div>...</div>、HTML 代码块、包含 |^&^ / ^&^ / !^!^ 的格式），必须保持原始格式，并作为独立段输出；不要把它前后接普通叙事或对白\n`;
     prompt += `- 旁白只能用 [旁白:内容] 独立一段，用来拆出一个普通描述气泡；角色自己说的话不要放进旁白里，必须拆成单独普通消息段或 [微信语音:内容]\n`;
@@ -507,10 +607,11 @@ function buildMessages(char, history, maxMessages) {
             // 去掉 HTML 标签（给 API 的内容不需要 HTML）
             content = content.replace(/<[^>]+>/g, '').trim();
             content = truncateChatAnchorText(content, 650);
+            content = buildChatApiGroupHistoryContent(char, msg, content);
         }
         if (!content || (Array.isArray(content) && !content.length)) return;
         if (msg.replyTo && msg.replyTo.text) {
-            const sender = msg.replyTo.sender || (msg.replyTo.isMe ? '用户' : (char && char.name) || '角色');
+            const sender = msg.replyTo.sender || (msg.replyTo.isMe ? '用户' : (typeof getWechatMessageSenderName === 'function' ? getWechatMessageSenderName(msg, char) : ((char && char.name) || '角色')));
             const quote = truncateChatAnchorText(String(msg.replyTo.text || '').replace(/<[^>]+>/g, '').trim(), 180);
             if (quote) content = prependChatApiQuoteToContent(content, `【引用${sender}】${quote}`);
         }
