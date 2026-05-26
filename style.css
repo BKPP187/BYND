@@ -19955,6 +19955,14 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     position: relative;
     z-index: 1;
 }
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-avatar-btn {
+    grid-column: 1;
+    justify-self: start;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-filter-btn {
+    grid-column: 3;
+    justify-self: end;
+}
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-avatar-btn img,
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-page-head img {
     width: 38px;
