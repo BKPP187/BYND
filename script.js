@@ -361,7 +361,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260526-ai-phone-ios1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260526-douyin-search1').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -1362,6 +1362,43 @@ function toggleMusicPlayback(forcePlay) {
     }
 }
 window.toggleMusicPlayback = toggleMusicPlayback;
+
+
+function startMusicCoListenFromWechat(trackData, charId, options = {}) {
+    const track = normalizeMusicTrack({
+        ...trackData,
+        trackName: trackData?.trackName || trackData?.title || '\u4e00\u8d77\u542c\u6b4c',
+        artistName: trackData?.artistName || trackData?.artist || 'Unknown Artist',
+        artworkUrl100: trackData?.artworkUrl100 || trackData?.artwork || '',
+        audioUrl: trackData?.audioUrl || trackData?.playableUrl || trackData?.url || '',
+        sourceName: trackData?.sourceName || '\u5fae\u4fe1\u97f3\u4e50'
+    });
+    if (!track.audioUrl) return false;
+    const char = (window.myCharacters || []).find(item => item && item.id === charId);
+    if (char) {
+        musicCoListenCharId = char.id;
+        localStorage.setItem(MUSIC_CO_LISTEN_CHAR_KEY, char.id);
+    }
+    const existingIndex = musicTracks.findIndex(item => getMusicTrackKey(item) === getMusicTrackKey(track));
+    if (existingIndex >= 0) musicCurrentIndex = existingIndex;
+    else {
+        musicTracks.unshift(track);
+        musicCurrentIndex = 0;
+    }
+    musicCoListening = true;
+    musicCoListenLastTrackKey = '';
+    setupMusicAudio();
+    if (musicAudio.src !== track.audioUrl) {
+        musicAudio.src = track.audioUrl;
+        musicAudio.load();
+    }
+    renderMusicApp();
+    if (options.autoplay) toggleMusicPlayback(true);
+    if (options.queueAi) queueMusicAiReaction(options.reason || 'wechat-invite');
+    if (typeof showMusicStatus === 'function') showMusicStatus('\u5df2\u63a5\u5165\u5fae\u4fe1\u4e00\u8d77\u542c\u6b4c\u3002');
+    return true;
+}
+window.startMusicCoListenFromWechat = startMusicCoListenFromWechat;
 
 function playNextMusicTrack() {
     if (!musicTracks.length) return;
@@ -6537,8 +6574,6 @@ function renderBoardGame(el, type) {
         </section>
     `;
 }
-
-
 const CHICKEN_GAME_BEST_KEY = 'bynd_game_chicken_best_v1';
 const CHICKEN_AVATAR_KEY = 'bynd_game_chicken_avatar_v1';
 let chickenGame = null;
@@ -9129,4 +9164,3 @@ if (document.readyState === 'loading') {
 } else {
     initEditMode();
 }
-
