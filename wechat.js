@@ -803,6 +803,29 @@ function renderChatList() {
 
         const item = document.createElement('div');
         item.className = 'wc-chat-item';
+        let pointerStartX = 0;
+        let pointerStartY = 0;
+        const openFromListItem = (event) => {
+            if (event?.target?.closest('.wc-delete-btn')) return;
+            if (container.classList.contains('swiping') || container.classList.contains('swipe-open')) return;
+            const lastOpenAt = Number(container.dataset.openingAt || 0);
+            if (Date.now() - lastOpenAt < 360) return;
+            container.dataset.openingAt = String(Date.now());
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            openChat(char.id);
+        };
+        item.addEventListener('pointerdown', (event) => {
+            pointerStartX = event.clientX;
+            pointerStartY = event.clientY;
+        }, { passive: true });
+        item.addEventListener('pointerup', (event) => {
+            if (event.pointerType === 'mouse') return;
+            if (Math.abs(event.clientX - pointerStartX) < 18 && Math.abs(event.clientY - pointerStartY) < 18) {
+                openFromListItem(event);
+            }
+        });
+        item.addEventListener('click', openFromListItem);
         const isGroup = !!char.isGroupChat;
         const displayName = isGroup ? (char.name || '群聊') : ((char.chatConfig && char.chatConfig.nickname) || char.name);
         const avatar = char.avatar || (isGroup ? buildWechatGroupAvatar(char) : DEFAULT_AVATAR);
@@ -2744,7 +2767,7 @@ function ensureWechatAvatarCropperModal() {
     modal.innerHTML = `
         <div class="wc-avatar-cropper-card">
             <div class="wc-compose-header">
-                <div class="wc-compose-title"><i class="ri-crop-2-line"></i><span>裁剪头像</span></div>
+                <div class="wc-compose-title"><i class="ri-crop-2-line"></i><span id="wc-avatar-crop-title">裁剪头像</span></div>
                 <i class="ri-close-line" onclick="closeWechatAvatarCropper()"></i>
             </div>
             <div class="wc-avatar-cropper-body">
@@ -2752,7 +2775,7 @@ function ensureWechatAvatarCropperModal() {
                     <img id="wc-avatar-crop-img" alt="">
                     <div class="wc-avatar-crop-grid"></div>
                 </div>
-                <div class="wc-avatar-crop-help">拖动图片调整位置，拉动缩放条裁出头像。</div>
+                <div class="wc-avatar-crop-help" id="wc-avatar-crop-help">拖动图片调整位置，拉动缩放条裁出头像。</div>
                 <label class="wc-avatar-crop-range">
                     <i class="ri-image-line"></i>
                     <input id="wc-avatar-crop-scale" type="range" min="1" max="4" step="0.01" value="1">
@@ -2761,7 +2784,7 @@ function ensureWechatAvatarCropperModal() {
             </div>
             <div class="wc-compose-footer">
                 <button class="wc-compose-secondary" onclick="resetWechatAvatarCropper()">重置</button>
-                <button class="wc-compose-primary" onclick="confirmWechatAvatarCropper()">确认头像</button>
+                <button class="wc-compose-primary" id="wc-avatar-crop-confirm" onclick="confirmWechatAvatarCropper()">确认头像</button>
             </div>
         </div>
     `;
@@ -2777,12 +2800,13 @@ function getWechatAvatarCropperState() {
 function clampWechatAvatarCropperOffset() {
     const state = getWechatAvatarCropperState();
     if (!state.img) return;
-    const cropSize = state.cropSize || 240;
-    const baseScale = Math.max(cropSize / state.img.naturalWidth, cropSize / state.img.naturalHeight);
+    const cropWidth = state.cropWidth || state.cropSize || 240;
+    const cropHeight = state.cropHeight || state.cropSize || 240;
+    const baseScale = Math.max(cropWidth / state.img.naturalWidth, cropHeight / state.img.naturalHeight);
     const drawW = state.img.naturalWidth * baseScale * state.zoom;
     const drawH = state.img.naturalHeight * baseScale * state.zoom;
-    const maxX = Math.max(0, (drawW - cropSize) / 2);
-    const maxY = Math.max(0, (drawH - cropSize) / 2);
+    const maxX = Math.max(0, (drawW - cropWidth) / 2);
+    const maxY = Math.max(0, (drawH - cropHeight) / 2);
     state.x = Math.max(-maxX, Math.min(maxX, state.x || 0));
     state.y = Math.max(-maxY, Math.min(maxY, state.y || 0));
 }
@@ -2793,12 +2817,13 @@ function renderWechatAvatarCropper() {
     const range = document.getElementById('wc-avatar-crop-scale');
     if (!state.img || !imgEl) return;
     clampWechatAvatarCropperOffset();
-    const cropSize = state.cropSize || 240;
-    const baseScale = Math.max(cropSize / state.img.naturalWidth, cropSize / state.img.naturalHeight);
+    const cropWidth = state.cropWidth || state.cropSize || 240;
+    const cropHeight = state.cropHeight || state.cropSize || 240;
+    const baseScale = Math.max(cropWidth / state.img.naturalWidth, cropHeight / state.img.naturalHeight);
     const drawW = state.img.naturalWidth * baseScale * state.zoom;
     const drawH = state.img.naturalHeight * baseScale * state.zoom;
-    const left = (cropSize - drawW) / 2 + (state.x || 0);
-    const top = (cropSize - drawH) / 2 + (state.y || 0);
+    const left = (cropWidth - drawW) / 2 + (state.x || 0);
+    const top = (cropHeight - drawH) / 2 + (state.y || 0);
     imgEl.style.width = `${drawW}px`;
     imgEl.style.height = `${drawH}px`;
     imgEl.style.transform = `translate(${left}px, ${top}px)`;
@@ -2848,19 +2873,37 @@ function openWechatAvatarCropper(src, onConfirm, options = {}) {
     if (!src) return;
     const modal = ensureWechatAvatarCropperModal();
     const imgEl = document.getElementById('wc-avatar-crop-img');
+    const stage = document.getElementById('wc-avatar-crop-stage');
+    const title = document.getElementById('wc-avatar-crop-title');
+    const help = document.getElementById('wc-avatar-crop-help');
+    const confirm = document.getElementById('wc-avatar-crop-confirm');
     const img = new Image();
     img.onload = function() {
         const state = getWechatAvatarCropperState();
+        const cropWidth = options.cropWidth || options.cropSize || 240;
+        const cropHeight = options.cropHeight || options.cropSize || cropWidth;
         state.src = src;
         state.img = img;
         state.onConfirm = typeof onConfirm === 'function' ? onConfirm : null;
         state.outputSize = options.outputSize || 200;
+        state.outputWidth = options.outputWidth || options.outputSize || 200;
+        state.outputHeight = options.outputHeight || options.outputSize || state.outputWidth;
         state.quality = options.quality || 0.72;
-        state.cropSize = 240;
+        state.cropSize = Math.max(cropWidth, cropHeight);
+        state.cropWidth = cropWidth;
+        state.cropHeight = cropHeight;
         state.zoom = 1;
         state.x = 0;
         state.y = 0;
         if (imgEl) imgEl.src = src;
+        if (stage) {
+            stage.style.width = `${cropWidth}px`;
+            stage.style.height = `${cropHeight}px`;
+        }
+        modal.classList.toggle('wc-cover-cropper-overlay', options.mode === 'cover');
+        if (title) title.textContent = options.title || '裁剪头像';
+        if (help) help.textContent = options.helpText || '拖动图片调整位置，拉动缩放条裁出头像。';
+        if (confirm) confirm.textContent = options.confirmText || '确认头像';
         modal.classList.remove('hidden');
         bindWechatAvatarCropperEvents();
         renderWechatAvatarCropper();
@@ -2887,21 +2930,24 @@ function confirmWechatAvatarCropper() {
     const state = getWechatAvatarCropperState();
     if (!state.img) return;
     clampWechatAvatarCropperOffset();
-    const cropSize = state.cropSize || 240;
-    const outputSize = state.outputSize || 200;
-    const baseScale = Math.max(cropSize / state.img.naturalWidth, cropSize / state.img.naturalHeight);
+    const cropWidth = state.cropWidth || state.cropSize || 240;
+    const cropHeight = state.cropHeight || state.cropSize || 240;
+    const outputWidth = state.outputWidth || state.outputSize || 200;
+    const outputHeight = state.outputHeight || state.outputSize || outputWidth;
+    const baseScale = Math.max(cropWidth / state.img.naturalWidth, cropHeight / state.img.naturalHeight);
     const drawW = state.img.naturalWidth * baseScale * state.zoom;
     const drawH = state.img.naturalHeight * baseScale * state.zoom;
-    const left = (cropSize - drawW) / 2 + (state.x || 0);
-    const top = (cropSize - drawH) / 2 + (state.y || 0);
-    const ratio = outputSize / cropSize;
+    const left = (cropWidth - drawW) / 2 + (state.x || 0);
+    const top = (cropHeight - drawH) / 2 + (state.y || 0);
+    const ratioX = outputWidth / cropWidth;
+    const ratioY = outputHeight / cropHeight;
     const canvas = document.createElement('canvas');
-    canvas.width = outputSize;
-    canvas.height = outputSize;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 0, outputSize, outputSize);
-    ctx.drawImage(state.img, left * ratio, top * ratio, drawW * ratio, drawH * ratio);
+    ctx.fillRect(0, 0, outputWidth, outputHeight);
+    ctx.drawImage(state.img, left * ratioX, top * ratioY, drawW * ratioX, drawH * ratioY);
     const result = canvas.toDataURL('image/jpeg', state.quality || 0.72);
     const callback = state.onConfirm;
     state.onConfirm = null;
@@ -4772,6 +4818,7 @@ function toggleWechatCollapsedHistory(charId) {
 function refreshChatView(char) {
     const contentEl = document.getElementById('chat-room-content');
     if (!contentEl) return;
+    const history = char.history || [];
     const migratedMixedAi = migrateWechatMixedAiHistory(char);
     const migratedNarration = migrateWechatNarrationHistory(char);
     const migratedStickerDirectives = migrateWechatStickerDirectiveHistory(char);
@@ -4780,7 +4827,6 @@ function refreshChatView(char) {
     if (isWechatXTheme() && !hasRealChatMessage) {
         contentEl.insertAdjacentHTML('beforeend', renderWechatXChatProfileIntro(char));
     }
-    const history = char.history || [];
     const expanded = isWechatHistoryExpanded(char);
     let startIndex = 0;
     if (history.length > WECHAT_AUTO_COLLAPSE_AFTER) {
@@ -6783,6 +6829,8 @@ function initSwipeHandlers() {
                     if (openItem === container) {
                         closeOpenItem(true);
                     } else {
+                        if (Date.now() - Number(container.dataset.openingAt || 0) < 360) return;
+                        container.dataset.openingAt = String(Date.now());
                         didOpenChatOnEnd = true;
                         openChat(charId);
                         setTimeout(() => { didOpenChatOnEnd = false; }, 0);
@@ -6846,6 +6894,8 @@ function initSwipeHandlers() {
             if (e.defaultPrevented || e.target.closest('.wc-delete-btn')) return;
             if (container.classList.contains('swiping') || container.classList.contains('swipe-open')) return;
             if (isSwiping || didSwipe || Math.abs(moveX) >= 18 || Math.abs(moveY) >= 18 || Math.abs(currentX) > 4) return;
+            if (Date.now() - Number(container.dataset.openingAt || 0) < 360) return;
+            container.dataset.openingAt = String(Date.now());
             openChat(charId);
         });
     });
@@ -7152,34 +7202,458 @@ function renderXMePage(page, profile) {
     const bio = wcEscapeHtml(profile.bio || '点击设置个性签名');
     const coverStyle = profile.xCover ? `style="background-image:${getWechatCssUrl(profile.xCover)}"` : '';
     const people = getWechatXPeople();
+    const followerCount = people.length ? Math.max(1, Math.round(people.length * 1.6)) : 0;
+    const store = typeof getWechatMomentStore === 'function' ? getWechatMomentStore() : { posts: [] };
+    const posts = Array.isArray(store.posts) ? store.posts.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
+    const latestPost = posts[0] || null;
+    const joinedAt = profile.joinedAt || profile.createdAt || profile.importedAt || '';
+    const joinedDate = joinedAt && !Number.isNaN(new Date(joinedAt).getTime())
+        ? `${new Date(joinedAt).getFullYear()}年${new Date(joinedAt).getMonth() + 1}月加入`
+        : '加入 BYND';
+    const birthday = profile.birthday || profile.birthDate || '';
+    const postText = latestPost && String(latestPost.text || '').trim()
+        ? wcEscapeHtml(String(latestPost.text).trim()).replace(/\n/g, '<br>')
+        : '还没有发布动态，点这里写一条新的。';
+    const postDate = latestPost && latestPost.createdAt ? formatWechatRelativeTime(latestPost.createdAt) : '现在';
+    const postImages = latestPost && Array.isArray(latestPost.images) ? latestPost.images.filter(Boolean).slice(0, 2) : [];
     page.innerHTML = `
         <div class="wc-x-page wc-x-home-page">
-            <button type="button" class="wc-x-home-cover" ${coverStyle} onclick="openWechatXCoverSheet()" aria-label="更换 X 背景"></button>
-            <div class="wc-x-profile-main">
-                <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
-                <button type="button" onclick="openWechatMeSettings()">编辑个人资料</button>
+            <div class="wc-x-profile-hero">
+                <button type="button" class="wc-x-home-cover" ${coverStyle} onclick="openWechatXCoverSheet()" aria-label="更换 X 背景"></button>
+                <div class="wc-x-hero-actions">
+                    <button type="button" onclick="closeApp('wechat')" aria-label="返回桌面"><i class="ri-arrow-left-line"></i></button>
+                    <span></span>
+                    <button type="button" onclick="switchWcTab('contacts')" aria-label="搜索"><i class="ri-search-line"></i></button>
+                    <button type="button" onclick="openWechatMomentCameraSheet()" aria-label="发布朋友圈"><i class="ri-edit-2-line"></i></button>
+                    <button type="button" onclick="openWechatUiThemeSettings()" aria-label="更多"><i class="ri-more-2-fill"></i></button>
+                </div>
             </div>
-            <div class="wc-x-profile-copy">
-                <strong data-wc-me-field="name">${name}</strong>
-                <span>@${id}</span>
-                <p data-wc-me-field="bio">${bio}</p>
-                <em>${people.length} 正在关注 · ${people.length ? Math.max(1, Math.round(people.length * 1.6)) : 0} 关注者</em>
+            <div class="wc-x-profile-body">
+                <div class="wc-x-profile-main">
+                    <button type="button" class="wc-x-profile-avatar-btn" onclick="openWechatMeAvatarSheet()" aria-label="更换头像">
+                        <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
+                    </button>
+                    <button type="button" class="wc-x-profile-edit-btn" onclick="openWechatMeSettings()">编辑个人资料</button>
+                </div>
+                <div class="wc-x-profile-copy">
+                    <div class="wc-x-name-row">
+                        <strong data-wc-me-field="name">${name}</strong>
+                        <button type="button" onclick="openWechatMeSettings()"><i class="ri-verified-badge-fill"></i><span>通过认证</span></button>
+                    </div>
+                    <span>@${id}</span>
+                    <p data-wc-me-field="bio">${bio}</p>
+                    <div class="wc-x-profile-meta">
+                        ${birthday ? `<em><i class="ri-map-pin-line"></i>出生于 ${wcEscapeHtml(birthday)}</em>` : ''}
+                        <em><i class="ri-calendar-line"></i>${wcEscapeHtml(joinedDate)}</em>
+                    </div>
+                    <div class="wc-x-follow-row"><b>${people.length}</b><span>正在关注</span><b>${followerCount}</b><span>关注者</span></div>
+                </div>
             </div>
             <div class="wc-x-tabs profile">
                 <button type="button" class="active" onclick="openWechatMoments()">帖子</button>
-                <button type="button" onclick="openWechatMoments()">朋友圈回复</button>
-                <button type="button" onclick="openWechatMoments()">朋友圈</button>
-                <button type="button" onclick="openWechatFavorites()">喜欢</button>
+                <button type="button" onclick="openWechatMoments()">回复</button>
+                <button type="button" onclick="openWechatFavorites()">亮点</button>
+                <button type="button" onclick="openWechatMoments()">文章</button>
+                <button type="button" onclick="openWechatFavorites()">媒体</button>
             </div>
-            <div class="wc-x-profile-actions">
-                <button type="button" onclick="openWechatMoments()"><i class="ri-quill-pen-line"></i><span>发布动态</span></button>
-                <button type="button" onclick="openWechatFavorites()"><i class="ri-bookmark-line"></i><span>书签</span></button>
-                <button type="button" onclick="openWechatUiThemeSettings()"><i class="ri-palette-line"></i><span>页面美化</span></button>
-                <button type="button" onclick="openWechatMeSettings()"><i class="ri-settings-3-line"></i><span>设置</span></button>
+            <button type="button" class="wc-x-profile-post" onclick="openWechatMoments()">
+                <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
+                <span>
+                    <strong>${name} <em>@${id} · ${wcEscapeHtml(postDate)}</em></strong>
+                    <p>${postText}</p>
+                    ${postImages.length ? `<b>${postImages.map(src => `<img src="${wcEscapeHtml(src)}" onerror="this.style.opacity='0.35'">`).join('')}</b>` : ''}
+                    <small><i class="ri-chat-3-line"></i><i class="ri-repeat-2-line"></i><i class="ri-heart-3-line"></i>${Math.max(people.length, posts.length || 1)}<i class="ri-bar-chart-line"></i>${Math.max(12, people.length * 8 + posts.length * 3)}</small>
+                </span>
+                <i class="ri-more-2-fill"></i>
+            </button>
+            <div class="wc-x-news-section">
+                <div class="wc-x-news-title">
+                    <h3>实时新闻</h3>
+                    <button type="button" onclick="refreshWechatXRealtimeNews()"><i class="ri-refresh-line"></i>刷新</button>
+                </div>
+                <div id="wc-x-realtime-news-list" class="wc-x-news-list">
+                    <div class="wc-x-news-loading">正在拉取真实新闻...</div>
+                </div>
             </div>
+            <button type="button" class="wc-x-profile-fab" onclick="openWechatMomentCameraSheet()" aria-label="发布朋友圈"><i class="ri-add-line"></i></button>
+        </div>
+    `;
+    loadWechatXRealtimeNews(false);
+}
+
+const WECHAT_X_NEWS_CACHE_KEY = 'wechat_x_realtime_news_cache_v2';
+
+function getWechatXNewsCache() {
+    try {
+        const cache = JSON.parse(localStorage.getItem(WECHAT_X_NEWS_CACHE_KEY) || 'null');
+        return cache && Array.isArray(cache.items) ? cache : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveWechatXNewsCache(items) {
+    try {
+        localStorage.setItem(WECHAT_X_NEWS_CACHE_KEY, JSON.stringify({ updatedAt: Date.now(), items }));
+    } catch (e) {}
+}
+
+function isWechatXChineseText(value) {
+    return /[\u3400-\u9fff]/.test(String(value || ''));
+}
+
+function getWechatXNewsDisplayTitle(item) {
+    return item.titleCn || (isWechatXChineseText(item.title) ? item.title : '正在翻译新闻标题...');
+}
+
+function isWechatXNewsNeedsTranslation(item) {
+    return !!(item && item.title && !item.titleCn && !isWechatXChineseText(item.title));
+}
+
+function getWechatXNewsDisplayBody(item) {
+    const body = item && (item.bodyCn || (isWechatXChineseText(item.bodyOriginal) ? item.bodyOriginal : ''));
+    return String(body || '').trim();
+}
+
+function renderWechatXNewsBodyHtml(item) {
+    const body = getWechatXNewsDisplayBody(item);
+    if (body) {
+        const paragraphs = body
+            .split(/\n{2,}|\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .slice(0, 10);
+        return `
+            <div class="wc-x-news-body">
+                <h3>正文</h3>
+                ${paragraphs.map(line => `<p>${wcEscapeHtml(line)}</p>`).join('')}
+            </div>
+        `;
+    }
+    if (item && item.detailLoading) {
+        return '<div class="wc-x-news-body wc-x-news-body-state"><i class="ri-loader-4-line"></i><span>正在读取原文正文...</span></div>';
+    }
+    if (item && item.detailError) {
+        return `<div class="wc-x-news-body wc-x-news-body-state error"><i class="ri-error-warning-line"></i><span>${wcEscapeHtml(item.detailError)}</span></div>`;
+    }
+    return '<div class="wc-x-news-body wc-x-news-body-state"><i class="ri-file-search-line"></i><span>点开后会读取真实原文正文。</span></div>';
+}
+
+function cleanWechatXReaderMarkdown(text) {
+    const raw = String(text || '')
+        .replace(/\r/g, '')
+        .replace(/!\[[^\]]*]\([^)]*\)/g, '')
+        .replace(/\[([^\]]+)]\(([^)]+)\)/g, '$1')
+        .replace(/<[^>]+>/g, '')
+        .replace(/^\s*(?:Title|URL Source|Markdown Content|Published Time|Warning):.*$/gmi, '')
+        .replace(/^\s*[-*_]{3,}\s*$/gm, '');
+    const lines = raw.split('\n')
+        .map(line => line.replace(/^#{1,6}\s*/, '').replace(/^\s*[-*+]\s+/, '').trim())
+        .filter(line => line && !/^https?:\/\//i.test(line) && !/^(cookie|subscribe|advertisement|sign in|log in)$/i.test(line));
+    const chunks = [];
+    let buf = '';
+    lines.forEach(line => {
+        if (buf.length + line.length > 220) {
+            if (buf) chunks.push(buf);
+            buf = line;
+        } else {
+            buf = buf ? `${buf} ${line}` : line;
+        }
+    });
+    if (buf) chunks.push(buf);
+    return chunks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4200);
+}
+
+async function translateWechatXNewsBodyIfNeeded(item) {
+    if (!item || !item.bodyOriginal || item.bodyCn || isWechatXChineseText(item.bodyOriginal) || typeof callChatApi !== 'function') return;
+    const source = String(item.bodyOriginal || '').slice(0, 3600);
+    const result = await callChatApi([
+        { role: 'system', content: '你是新闻翻译编辑。把原文翻译成自然中文，只保留原文事实，不要编造，不要总结成一句话。输出 3 到 8 段正文，不要 Markdown 标题。' },
+        { role: 'user', content: `标题：${item.title || ''}\n\n原文正文：\n${source}` }
+    ]);
+    if (result && result.ok && result.content && isWechatXChineseText(result.content)) {
+        item.bodyCn = String(result.content).trim().slice(0, 2600);
+    }
+}
+
+function persistWechatXNewsItems(items) {
+    const list = Array.isArray(items) ? items : [];
+    const cache = getWechatXNewsCache();
+    try {
+        localStorage.setItem(WECHAT_X_NEWS_CACHE_KEY, JSON.stringify({
+            updatedAt: cache?.updatedAt || Date.now(),
+            source: cache?.source || 'GDELT / HN',
+            items: list
+        }));
+    } catch (e) {}
+}
+
+function refreshWechatXNewsDetailIfOpen(item) {
+    const body = document.getElementById('wc-feature-body');
+    const title = document.getElementById('wc-feature-title');
+    if (item && body && title && title.textContent === '新闻详情' && window._wechatXNewsDetailUrl === item.url) {
+        body.innerHTML = renderWechatXNewsDetailHtml(item);
+    }
+}
+
+async function loadWechatXNewsArticleDetail(item, items) {
+    if (!item || !item.url || item.detailLoading || getWechatXNewsDisplayBody(item)) return;
+    item.detailLoading = true;
+    item.detailError = '';
+    refreshWechatXNewsDetailIfOpen(item);
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 14000);
+        const readerUrl = `https://r.jina.ai/${item.url}`;
+        const resp = await fetch(readerUrl, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timer);
+        if (!resp.ok) throw new Error(`Reader ${resp.status}`);
+        const text = cleanWechatXReaderMarkdown(await resp.text());
+        if (!text || text.length < 80) throw new Error('正文为空');
+        item.bodyOriginal = text;
+        if (isWechatXChineseText(text)) {
+            item.bodyCn = text.slice(0, 2600);
+        } else {
+            await translateWechatXNewsBodyIfNeeded(item);
+        }
+        if (!getWechatXNewsDisplayBody(item)) {
+            item.detailError = '已经读取到原文，但当前没有可用的中文正文；请检查聊天 API 后重试翻译。';
+        }
+    } catch (e) {
+        item.detailError = '没有从原文抓到完整正文，只保留真实标题和原文链接。';
+    } finally {
+        item.detailLoading = false;
+        item.detailLoadedAt = Date.now();
+        persistWechatXNewsItems(items);
+        refreshWechatXNewsDetailIfOpen(item);
+    }
+}
+
+function normalizeWechatXGdeltNews(data) {
+    const rows = Array.isArray(data && data.articles) ? data.articles : [];
+    const seen = new Set();
+    return rows.map(item => {
+        const url = String(item.url || '').trim();
+        const title = String(item.title || '').trim();
+        if (!url || !title || seen.has(url)) return null;
+        seen.add(url);
+        return {
+            title,
+            titleCn: isWechatXChineseText(title) ? title : '',
+            url,
+            domain: item.domain || '',
+            image: item.socialimage || '',
+            time: item.seendate || item.date || '',
+            source: [item.domain, item.sourcecountry || item.language].filter(Boolean).join(' · ') || 'GDELT'
+        };
+    }).filter(Boolean).slice(0, 6);
+}
+
+function normalizeWechatXHackerNews(data) {
+    const rows = Array.isArray(data && data.hits) ? data.hits : [];
+    return rows.map(item => {
+        const url = String(item.url || '').trim();
+        const title = String(item.title || '').trim();
+        if (!url || !title) return null;
+        let domain = '';
+        try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
+        return {
+            title,
+            titleCn: '',
+            url,
+            domain,
+            image: '',
+            time: item.created_at || '',
+            source: [domain || 'Hacker News', item.points ? `${item.points} points` : ''].filter(Boolean).join(' · ')
+        };
+    }).filter(Boolean).slice(0, 6);
+}
+
+function formatWechatXNewsTime(value) {
+    const date = new Date(value || '');
+    if (Number.isNaN(date.getTime())) return '实时';
+    return formatWechatRelativeTime(date.getTime());
+}
+
+function renderWechatXRealtimeNews(items, meta = {}) {
+    const box = document.getElementById('wc-x-realtime-news-list');
+    if (!box) return;
+    if (!Array.isArray(items) || !items.length) {
+        box.innerHTML = `<div class="wc-x-news-empty">${wcEscapeHtml(meta.message || '暂时没有拉到实时新闻，点刷新再试。')}</div>`;
+        return;
+    }
+    const cards = items.map((item, index) => `
+        <button type="button" class="wc-x-news-card" onclick="openWechatXNewsDetail(${index})">
+            <div class="wc-x-news-thumb">
+                ${item.image ? `<img src="${wcEscapeHtml(item.image)}" loading="lazy" onerror="this.closest('.wc-x-news-thumb').classList.add('no-image');this.remove();">` : ''}
+                <span>${wcEscapeHtml((item.domain || 'NEWS').slice(0, 10).toUpperCase())}</span>
+            </div>
+            <strong>${wcEscapeHtml(getWechatXNewsDisplayTitle(item))}</strong>
+            <em>${wcEscapeHtml(item.source || '实时新闻')} · ${wcEscapeHtml(formatWechatXNewsTime(item.time))}</em>
+        </button>
+    `).join('');
+    box.innerHTML = `${cards}<div class="wc-x-news-source">真实新闻源：${wcEscapeHtml(meta.source || 'GDELT / HN')} · ${wcEscapeHtml(meta.cached ? '缓存' : '实时')}</div>`;
+    window._wechatXRealtimeNewsItems = items;
+    translateWechatXNewsItemsIfNeeded(items);
+}
+
+function openWechatXNewsDetail(index) {
+    const items = Array.isArray(window._wechatXRealtimeNewsItems) ? window._wechatXRealtimeNewsItems : (getWechatXNewsCache()?.items || []);
+    const item = items[index];
+    if (!item) {
+        showWechatToast('新闻还没加载好');
+        return;
+    }
+    window._wechatXNewsDetailUrl = item.url || '';
+    openWechatFeatureScreen('新闻详情', renderWechatXNewsDetailHtml(item));
+    loadWechatXNewsArticleDetail(item, items);
+    if (isWechatXNewsNeedsTranslation(item)) {
+        translateWechatXNewsItemsIfNeeded(items, { render: true }).then(() => {
+            const latest = Array.isArray(window._wechatXRealtimeNewsItems) ? window._wechatXRealtimeNewsItems[index] : item;
+            const body = document.getElementById('wc-feature-body');
+            const title = document.getElementById('wc-feature-title');
+            if (body && title && title.textContent === '新闻详情') {
+                body.innerHTML = renderWechatXNewsDetailHtml(latest || item);
+            }
+        }).catch(() => {});
+    }
+}
+
+function renderWechatXNewsDetailHtml(item) {
+    const needsTranslation = isWechatXNewsNeedsTranslation(item);
+    const original = item.titleCn && item.title && item.titleCn !== item.title
+        ? `<p class="wc-x-news-original">原文：${wcEscapeHtml(item.title)}</p>`
+        : (needsTranslation ? `<p class="wc-x-news-original">原文：${wcEscapeHtml(item.title)}</p>` : '');
+    const title = wcEscapeHtml(getWechatXNewsDisplayTitle(item));
+    const url = wcEscapeHtml(item.url || '');
+    const host = item.domain || (() => {
+        try { return new URL(item.url || '').hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+    })();
+    return `
+        <div class="wc-x-news-detail">
+            ${item.image ? `<img class="wc-x-news-detail-image" src="${wcEscapeHtml(item.image)}" onerror="this.style.display='none'">` : ''}
+            <h2>${title}</h2>
+            ${original}
+            <div class="wc-x-news-detail-meta">${wcEscapeHtml(item.source || '实时新闻')} · ${wcEscapeHtml(formatWechatXNewsTime(item.time))}</div>
+            ${needsTranslation ? '<div class="wc-x-news-translating"><i class="ri-translate-2"></i><span>正在翻译标题，稍等一下...</span></div>' : ''}
+            ${renderWechatXNewsBodyHtml(item)}
+            <button type="button" class="wc-x-news-open-link" onclick="window.open(${quoteWechatJsString(item.url)}, '_blank')"><i class="ri-external-link-line"></i><span>打开原文链接</span></button>
+            ${url ? `<p class="wc-x-news-url">${wcEscapeHtml(host || '原文地址')} · ${url}</p>` : ''}
         </div>
     `;
 }
+
+async function translateWechatXNewsItemsIfNeeded(items, options = {}) {
+    const list = Array.isArray(items) ? items : [];
+    const pending = list
+        .map((item, index) => ({ item, index }))
+        .filter(row => row.item && row.item.title && !row.item.titleCn && !isWechatXChineseText(row.item.title))
+        .slice(0, 6);
+    if (!pending.length || typeof callChatApi !== 'function') return false;
+    if (window._wechatXNewsTranslating) return false;
+    window._wechatXNewsTranslating = true;
+    try {
+        const result = await callChatApi([
+            { role: 'system', content: '你是新闻标题翻译器。只输出 JSON 数组，不要解释。把英文新闻标题翻译成简洁自然的中文，每项对应输入顺序。' },
+            { role: 'user', content: JSON.stringify(pending.map(row => row.item.title)) }
+        ]);
+        if (!result || !result.ok) return false;
+        const raw = String(result.content || '').replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return false;
+        let changed = false;
+        pending.forEach((row, i) => {
+            const translated = String(arr[i] || '').trim();
+            if (translated && isWechatXChineseText(translated)) {
+                row.item.titleCn = translated.slice(0, 90);
+                changed = true;
+            }
+        });
+        if (changed) {
+            const cache = getWechatXNewsCache();
+            if (cache && Array.isArray(cache.items)) {
+                localStorage.setItem(WECHAT_X_NEWS_CACHE_KEY, JSON.stringify({
+                    ...cache,
+                    items: list,
+                    translatedAt: Date.now()
+                }));
+            }
+            if (options.render !== false) {
+                renderWechatXRealtimeNews(list, { source: cache?.source || 'GDELT / HN', cached: false });
+            }
+            const detailUrl = window._wechatXNewsDetailUrl || '';
+            if (detailUrl) {
+                const detailItem = list.find(item => item && item.url === detailUrl);
+                const body = document.getElementById('wc-feature-body');
+                const title = document.getElementById('wc-feature-title');
+                if (detailItem && body && title && title.textContent === '新闻详情') {
+                    body.innerHTML = renderWechatXNewsDetailHtml(detailItem);
+                }
+            }
+        }
+        return changed;
+    } catch (e) {
+        return false;
+    } finally {
+        window._wechatXNewsTranslating = false;
+    }
+}
+
+window.openWechatXNewsDetail = openWechatXNewsDetail;
+
+async function loadWechatXRealtimeNews(force = false) {
+    const box = document.getElementById('wc-x-realtime-news-list');
+    if (!box) return;
+    const cache = getWechatXNewsCache();
+    if (!force && cache && Date.now() - Number(cache.updatedAt || 0) < 10 * 60 * 1000) {
+        renderWechatXRealtimeNews(cache.items, { source: cache.source || 'GDELT', cached: true });
+        return;
+    }
+    box.innerHTML = '<div class="wc-x-news-loading">正在拉取真实新闻...</div>';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8500);
+    try {
+        const gdeltQuery = encodeURIComponent('(科技 OR 人工智能 OR 游戏 OR 音乐 OR 电影 OR 国际 OR 财经) sourcelang:Chinese');
+        const gdeltUrl = `https://api.gdeltproject.org/api/v2/doc/doc?query=${gdeltQuery}&mode=artlist&format=json&timespan=6h&sort=datedesc&maxrecords=12`;
+        const gdeltResp = await fetch(gdeltUrl, { signal: controller.signal, cache: 'no-store' });
+        if (!gdeltResp.ok) throw new Error(`GDELT ${gdeltResp.status}`);
+        const gdeltData = await gdeltResp.json();
+        const gdeltItems = normalizeWechatXGdeltNews(gdeltData);
+        if (gdeltItems.length) {
+            saveWechatXNewsCache(gdeltItems);
+            const saved = getWechatXNewsCache();
+            if (saved) saved.source = 'GDELT';
+            try { localStorage.setItem(WECHAT_X_NEWS_CACHE_KEY, JSON.stringify({ updatedAt: Date.now(), source: 'GDELT', items: gdeltItems })); } catch (e) {}
+            renderWechatXRealtimeNews(gdeltItems, { source: 'GDELT', cached: false });
+            return;
+        }
+        throw new Error('GDELT empty');
+    } catch (err) {
+        try {
+            const hnResp = await fetch('https://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage=8', { cache: 'no-store' });
+            if (!hnResp.ok) throw new Error(`HN ${hnResp.status}`);
+            const hnItems = normalizeWechatXHackerNews(await hnResp.json());
+            if (hnItems.length) {
+                try { localStorage.setItem(WECHAT_X_NEWS_CACHE_KEY, JSON.stringify({ updatedAt: Date.now(), source: 'Hacker News', items: hnItems })); } catch (e) {}
+                renderWechatXRealtimeNews(hnItems, { source: 'Hacker News', cached: false });
+                return;
+            }
+        } catch (fallbackErr) {}
+        if (cache && cache.items && cache.items.length) {
+            renderWechatXRealtimeNews(cache.items, { source: cache.source || '缓存新闻', cached: true });
+            return;
+        }
+        renderWechatXRealtimeNews([], { message: '实时新闻加载失败，没有使用假数据。请检查网络后刷新。' });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+function refreshWechatXRealtimeNews() {
+    loadWechatXRealtimeNews(true);
+}
+
+window.refreshWechatXRealtimeNews = refreshWechatXRealtimeNews;
 
 function getLineThemePeople() {
     return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat);
@@ -8015,9 +8489,24 @@ function uploadWechatMeAvatar(input) {
 function openWechatXCoverSheet() {
     showWechatActionSheet(`
         <div class="wc-sheet-item" onclick="promptWechatXCoverUrl()"><i class="ri-link"></i><span>使用图床 URL 更换背景</span></div>
-        <div class="wc-sheet-item" onclick="document.getElementById('wc-x-cover-file').click()"><i class="ri-image-add-line"></i><span>从本地照片选择背景</span><input id="wc-x-cover-file" type="file" accept="image/*" style="display:none" onchange="uploadWechatXCover(this)"></div>
+        <div class="wc-sheet-item" onclick="chooseWechatXCoverFile()"><i class="ri-image-add-line"></i><span>从本地照片选择背景</span></div>
         <div class="wc-sheet-item" onclick="resetWechatXCover()"><i class="ri-refresh-line"></i><span>恢复默认背景</span></div>
     `);
+}
+
+function chooseWechatXCoverFile() {
+    let input = document.getElementById('wc-x-cover-file-input');
+    if (!input) {
+        input = document.createElement('input');
+        input.id = 'wc-x-cover-file-input';
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.style.display = 'none';
+        input.onchange = () => uploadWechatXCover(input);
+        document.body.appendChild(input);
+    }
+    input.value = '';
+    input.click();
 }
 
 function promptWechatXCoverUrl() {
@@ -8036,11 +8525,23 @@ function uploadWechatXCover(input) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-        const profile = getUserProfile();
-        profile.xCover = e.target.result;
-        saveUserProfile(profile);
-        renderMePage();
-        showWechatToast('背景已更新');
+        openWechatAvatarCropper(e.target.result, cropped => {
+            const profile = getUserProfile();
+            profile.xCover = cropped;
+            saveUserProfile(profile);
+            renderMePage();
+            showWechatToast('背景已更新');
+        }, {
+            mode: 'cover',
+            title: '裁剪 X 背景',
+            helpText: '拖动图片调整位置，裁出横向长方形背景。',
+            confirmText: '确认背景',
+            cropWidth: 300,
+            cropHeight: 112,
+            outputWidth: 900,
+            outputHeight: 336,
+            quality: 0.78
+        });
     };
     reader.readAsDataURL(file);
     input.value = '';
@@ -8056,6 +8557,7 @@ function resetWechatXCover() {
     showWechatToast('背景已恢复默认');
 }
 window.openWechatXCoverSheet = openWechatXCoverSheet;
+window.chooseWechatXCoverFile = chooseWechatXCoverFile;
 window.promptWechatXCoverUrl = promptWechatXCoverUrl;
 window.uploadWechatXCover = uploadWechatXCover;
 window.resetWechatXCover = resetWechatXCover;

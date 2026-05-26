@@ -6000,6 +6000,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-avatar-crop-stage:active { cursor: grabbing; }
 .wc-avatar-crop-stage img { position: absolute; left: 0; top: 0; max-width: none; max-height: none; object-fit: contain; pointer-events: none; user-select: none; transform-origin: left top; }
 .wc-avatar-crop-grid { position: absolute; inset: 0; pointer-events: none; border-radius: 30px; box-shadow: inset 0 0 0 999px rgba(255,255,255,0.02), inset 0 0 0 2px rgba(255,255,255,0.92); background: linear-gradient(90deg, transparent 32.8%, rgba(255,255,255,0.52) 33%, rgba(255,255,255,0.52) 33.5%, transparent 33.7%, transparent 66%, rgba(255,255,255,0.52) 66.2%, rgba(255,255,255,0.52) 66.7%, transparent 66.9%), linear-gradient(180deg, transparent 32.8%, rgba(255,255,255,0.52) 33%, rgba(255,255,255,0.52) 33.5%, transparent 33.7%, transparent 66%, rgba(255,255,255,0.52) 66.2%, rgba(255,255,255,0.52) 66.7%, transparent 66.9%); }
+.wc-cover-cropper-overlay .wc-avatar-cropper-card { width: min(362px, calc(100% - 26px)); }
+.wc-cover-cropper-overlay .wc-avatar-cropper-body { padding-left: 14px; padding-right: 14px; }
+.wc-cover-cropper-overlay .wc-avatar-crop-stage,
+.wc-cover-cropper-overlay .wc-avatar-crop-grid { border-radius: 18px; }
 .wc-avatar-crop-help { color: #738195; font-size: 12px; font-weight: 760; text-align: center; }
 .wc-avatar-crop-range { width: 100%; display: grid; grid-template-columns: 20px minmax(0, 1fr) 20px; align-items: center; gap: 10px; color: #64748b; }
 .wc-avatar-crop-range i { font-size: 17px; color: inherit; }
@@ -20303,14 +20307,26 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-me-page {
     padding-top: 0 !important;
 }
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-home-page {
+    position: relative;
+    min-height: 100%;
+    overflow-x: hidden;
+    background: #ffffff;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-hero {
+    position: relative;
+    height: 136px;
+    background: #1d9bf0;
+}
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-home-cover {
     width: 100%;
-    height: 116px;
+    height: 100%;
+    margin-top: 0;
     border: none;
     border-radius: 0;
     padding: 0;
     display: block;
-    background-color: #cfd9de;
+    background-color: #1d9bf0;
     background-size: cover;
     background-position: center;
     cursor: pointer;
@@ -20323,77 +20339,523 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0));
     pointer-events: none;
 }
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-hero-actions {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    right: 18px;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 36px 36px;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-hero-actions button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 46, 70, 0.82);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: inherit;
+    cursor: pointer;
+    pointer-events: auto;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-hero-actions button i {
+    font-size: 22px;
+    line-height: 1;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-body {
+    background: #ffffff;
+}
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-main {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    padding: 0 16px;
-    margin-top: -32px;
+    padding: 0 18px;
+    margin-top: -47px;
+    position: relative;
+    z-index: 2;
+    background: transparent;
 }
-#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-main img {
-    width: 68px;
-    height: 68px;
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-avatar-btn {
+    width: 94px;
+    height: 94px;
+    border: 5px solid #ffffff;
+    border-radius: 50%;
+    padding: 0;
+    background: #eff3f4;
+    overflow: hidden;
+    cursor: pointer;
+    box-sizing: border-box;
+    box-shadow: none;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-avatar-btn img {
+    width: 100%;
+    height: 100%;
+    border: none;
     border-radius: 50%;
     object-fit: cover;
-    border: 4px solid #ffffff;
-    background: #eff3f4;
+    display: block;
 }
-#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-main button {
-    height: 34px;
-    margin-top: 38px;
-    padding: 0 14px;
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-edit-btn {
+    height: 36px;
+    margin-top: 58px;
+    padding: 0 17px;
     border-radius: 999px;
     border: 1px solid #cfd9de;
     background: #ffffff;
     color: #0f1419;
     font-size: 14px;
-    font-weight: 850;
+    font-weight: 900;
     font-family: inherit;
+    cursor: pointer;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-copy {
-    padding: 7px 16px 12px;
+    padding: 12px 18px 14px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
+    background: #ffffff;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-copy strong {
     color: #0f1419;
-    font-size: 20px;
+    font-size: 25px;
     line-height: 1.05;
     font-weight: 900;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-name-row button {
+    height: 31px;
+    min-width: 0;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid #d8dee4;
+    background: #ffffff;
+    color: #0f1419;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    white-space: nowrap;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-name-row button i {
+    color: #1d9bf0;
+    font-size: 18px;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-copy span,
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-copy em {
     color: #536471;
-    font-size: 14px;
+    font-size: 15px;
     font-style: normal;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-copy p {
-    margin: 7px 0 5px;
+    margin: 10px 0 8px;
     color: #0f1419;
     font-size: 15px;
     line-height: 1.35;
 }
-#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-actions {
-    display: grid;
-    gap: 0;
-    border-top: 1px solid #eff3f4;
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-meta,
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-follow-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
-#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-actions button {
-    min-height: 50px;
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-meta em {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-meta i {
+    font-size: 16px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-follow-row {
+    margin-top: 2px;
+    gap: 5px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-follow-row b {
+    color: #0f1419;
+    font-size: 15px;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-follow-row span {
+    margin-right: 8px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post {
+    width: 100%;
+    min-height: 130px;
     border: none;
     border-bottom: 1px solid #eff3f4;
     background: #ffffff;
     color: #0f1419;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    align-items: center;
+    grid-template-columns: 46px minmax(0, 1fr) 18px;
     gap: 10px;
-    padding: 0 16px;
+    padding: 14px 16px 13px;
     text-align: left;
     font-family: inherit;
+    cursor: pointer;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post > img {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #eff3f4;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post > span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post strong {
+    color: #0f1419;
     font-size: 15px;
+    line-height: 1.2;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post strong em {
+    color: #536471;
+    font-style: normal;
+    font-weight: 600;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post p {
+    margin: 0;
+    color: #0f1419;
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 560;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post b {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 2px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post b img {
+    width: 100%;
+    aspect-ratio: 1.55;
+    border-radius: 14px;
+    object-fit: cover;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post small {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #536471;
+    font-size: 13px;
+    font-weight: 700;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-post small i {
+    font-size: 20px;
+    color: #536471;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-section {
+    padding: 17px 16px 92px;
+    border-top: 1px solid #eff3f4;
+    background: #ffffff;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-title h3 {
+    margin: 0;
+    color: #0f1419;
+    font-size: 19px;
+    line-height: 1.1;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-title button {
+    height: 30px;
+    border: 1px solid #d8dee4;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0f1419;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 850;
+    cursor: pointer;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-list {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-card {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 188px;
+    min-width: 188px;
+    min-height: 214px;
+    border: 1px solid #eff3f4;
+    border-radius: 18px;
+    background: #ffffff;
+    color: #0f1419;
+    padding: 0 0 12px;
+    text-align: left;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    text-decoration: none;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-thumb {
+    height: 92px;
+    background: linear-gradient(135deg, #e8f5fe, #dbeafe);
+    position: relative;
+    overflow: hidden;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-thumb span {
+    position: absolute;
+    left: 9px;
+    bottom: 8px;
+    max-width: calc(100% - 18px);
+    height: 23px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(15, 20, 25, 0.76);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-card strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    min-height: 58px;
+    margin: 11px 12px 7px;
+    overflow: hidden;
+    color: #0f1419;
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-card em {
+    display: block;
+    margin: 0 12px;
+    color: #536471;
+    font-style: normal;
+    font-size: 12px;
+    line-height: 1.3;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-source,
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-loading,
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-empty {
+    min-width: 188px;
+    border: 1px dashed #cfd9de;
+    border-radius: 18px;
+    color: #536471;
+    background: #f7f9f9;
+    padding: 18px;
+    font-size: 13px;
     font-weight: 760;
+    box-sizing: border-box;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-source {
+    display: flex;
+    align-items: center;
+    min-height: 64px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-detail {
+    min-height: 100%;
+    margin: -12px;
+    padding: 18px 18px 34px;
+    background: #ffffff;
+    color: #0f1419;
+    box-sizing: border-box;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-detail-image {
+    width: 100%;
+    max-height: 238px;
+    object-fit: cover;
+    display: block;
+    border-radius: 22px;
+    margin-bottom: 18px;
+    background: #eff3f4;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-detail h2 {
+    margin: 0 0 12px;
+    color: #0f1419;
+    font-size: 24px;
+    line-height: 1.24;
+    letter-spacing: 0;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-original {
+    margin: 0 0 12px;
+    padding: 12px 13px;
+    border-radius: 14px;
+    background: #f7f9f9;
+    color: #536471;
+    font-size: 13px;
+    line-height: 1.48;
+    font-weight: 650;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-detail-meta {
+    display: flex;
+    align-items: center;
+    min-height: 30px;
+    color: #536471;
+    font-size: 13px;
+    line-height: 1.3;
+    font-weight: 760;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #eff3f4;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body h3 {
+    margin: 0 0 10px;
+    color: #0f1419;
+    font-size: 16px;
+    line-height: 1.2;
+    font-weight: 900;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body p {
+    margin: 0 0 13px;
+    color: #0f1419;
+    font-size: 15px;
+    line-height: 1.68;
+    font-weight: 540;
+    overflow-wrap: anywhere;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body-state {
+    min-height: 74px;
+    padding: 16px;
+    border: 1px dashed #cfd9de;
+    border-radius: 18px;
+    background: #f7f9f9;
+    color: #536471;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 760;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body-state i {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: #e8f5fe;
+    color: #1d9bf0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: 16px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-body-state.error i {
+    background: #fff1f2;
+    color: #e11d48;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-translating {
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #e8f5fe;
+    color: #1d9bf0;
+    font-size: 12px;
+    font-weight: 850;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-open-link {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 46px;
+    margin-top: 18px;
+    border: none;
+    border-radius: 999px;
+    background: #0f1419;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-open-link i {
+    font-size: 18px;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-news-url {
+    margin: 12px 2px 0;
+    color: #536471;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-fab {
+    position: absolute;
+    right: 22px;
+    bottom: 78px;
+    z-index: 28;
+    width: 62px;
+    height: 62px;
+    border: none;
+    border-radius: 50%;
+    background: #1d9bf0;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 26px rgba(15, 20, 25, 0.22);
+    cursor: pointer;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-x-profile-fab i {
+    font-size: 34px;
+    line-height: 1;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-feature-text-left,
 #app-wechat-window.wc-ui-theme-hallowrok .wc-feature-header > i.wc-feature-text-left {
@@ -20424,11 +20886,16 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     padding-right: 12px !important;
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-chat-room .wc-room-title-wrap {
-    align-items: flex-start;
-    transform: translateX(-4px);
+    width: auto;
+    max-width: 188px;
+    align-items: flex-start !important;
+    justify-self: start;
+    transform: translateX(-2px);
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-chat-room .wc-room-title {
     max-width: 178px;
+    align-self: flex-start !important;
+    justify-self: start !important;
     text-align: left;
     font-size: 17px;
 }
