@@ -5342,6 +5342,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 /* 图片消息 */
 .msg-bubble.image-bubble { padding: 3px; max-width: 210px; background: transparent !important; border: none !important; box-shadow: none !important; overflow: hidden; }
 .msg-bubble.image-bubble img { width: 100%; border-radius: 17px; display: block; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
+.msg-image-placeholder { width: 190px; min-height: 142px; border-radius: 17px; background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.92)); color: #64748b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 760; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
+.msg-image-placeholder i { font-size: 24px; color: #93a4b8; animation: spin 1s linear infinite; }
+.msg-image-placeholder.error { color: #ef4444; background: #fff1f2; }
+.msg-image-placeholder.error i { color: #ef4444; animation: none; }
 .msg-bubble.sticker img { width: 100%; max-width: 120px; display: block; }
 .msg-bubble.sticker .msg-quote,
 .msg-bubble.image-bubble .msg-quote {
