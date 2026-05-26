@@ -2229,9 +2229,20 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-takeout-cats button { flex: 0 0 auto; height: 30px; border: none; border-radius: 999px; background: #fff; color: #526173; padding: 0 12px; font-size: 12px; font-weight: 820; }
 .wc-takeout-cats button.active { background: #111827; color: #fff; }
 .wc-takeout-list { display: flex; flex-direction: column; gap: 10px; }
-.wc-takeout-shop { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 10px; padding: 11px; border-radius: 20px; background: #fff; box-shadow: 0 10px 26px rgba(15,23,42,0.06); }
+.wc-takeout-shop { display: grid; grid-template-columns: 82px minmax(0,1fr); gap: 10px; padding: 11px; border: none; border-radius: 20px; background: #fff; box-shadow: 0 10px 26px rgba(15,23,42,0.06); cursor: pointer; text-align: left; font-family: inherit; }
 .wc-takeout-cover { width: 72px; height: 72px; border-radius: 18px; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28); }
 .wc-takeout-cover strong { font-size: 22px; font-weight: 940; }
+.wc-takeout-text-cover { width: 82px; min-height: 82px; border-radius: 19px; color: #fff; padding: 9px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.22); }
+.wc-takeout-text-cover span { width: max-content; max-width: 100%; height: 19px; padding: 0 7px; border-radius: 999px; background: rgba(0,0,0,0.22); display: inline-flex; align-items: center; color: rgba(255,255,255,0.9); font-size: 10px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-takeout-text-cover strong { color: #fff; font-size: 17px; line-height: 1.08; font-weight: 950; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wc-takeout-text-cover em { color: rgba(255,255,255,0.78); font-size: 10px; font-style: normal; font-weight: 820; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-takeout-text-cover.has-image { padding: 0; background: #eef3f8 !important; }
+.wc-takeout-text-cover.has-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wc-takeout-text-cover.mini { width: 54px; min-height: 54px; border-radius: 14px; padding: 6px; flex: 0 0 54px; }
+.wc-takeout-text-cover.mini span, .wc-takeout-text-cover.mini em { display: none; }
+.wc-takeout-text-cover.mini strong { font-size: 11px; line-height: 1.08; -webkit-line-clamp: 3; }
+.wc-takeout-text-cover.detail { width: 100%; min-height: 210px; border-radius: 26px; padding: 18px; }
+.wc-takeout-text-cover.detail strong { font-size: 31px; line-height: 1.02; max-width: 76%; }
 .wc-takeout-main { min-width: 0; }
 .wc-takeout-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .wc-takeout-title strong { min-width: 0; color: #111827; font-size: 15px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2240,10 +2251,48 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-takeout-dishes { display: flex; flex-direction: column; gap: 6px; }
 .wc-takeout-dishes button { min-width: 0; height: 32px; border: none; border-radius: 13px; background: #f5f8ff; color: #263241; padding: 0 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 760; }
 .wc-takeout-dishes b { color: #1677ff; }
+.wc-takeout-ai-panel { margin: 0 0 10px; border-radius: 18px; background: #fff; box-shadow: 0 10px 24px rgba(22,119,255,0.08); overflow: hidden; }
+.wc-takeout-ai-panel summary { min-height: 54px; padding: 0 13px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; list-style: none; cursor: pointer; }
+.wc-takeout-ai-panel summary::-webkit-details-marker { display: none; }
+.wc-takeout-ai-panel summary span { display: block; color: #111827; font-size: 14px; font-weight: 900; }
+.wc-takeout-ai-panel summary em { display: block; margin-top: 3px; color: #8a94a3; font-size: 11px; line-height: 1.25; font-style: normal; font-weight: 680; }
+.wc-takeout-ai-panel summary i { color: #1677ff; font-size: 18px; transition: transform 0.18s ease; }
+.wc-takeout-ai-panel[open] summary i { transform: rotate(180deg); }
+.wc-takeout-ai-panel > div { padding: 0 13px 13px; display: grid; grid-template-columns: minmax(0,1fr) 78px; gap: 8px; }
+.wc-takeout-ai-panel input { min-width: 0; height: 38px; border: none; outline: none; border-radius: 14px; background: #f3f7ff; padding: 0 11px; color: #111827; font-size: 12px; }
+.wc-takeout-ai-panel button { border: none; border-radius: 14px; background: #1677ff; color: #fff; font-size: 12px; font-weight: 900; cursor: pointer; }
+.wc-takeout-detail-app { background: #f6f8fb; }
+.wc-takeout-shop-detail-head { padding: 12px; border-radius: 24px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,0.07); }
+.wc-takeout-shop-detail-head .wc-takeout-text-cover.detail { min-height: 164px; margin-bottom: 12px; }
+.wc-takeout-shop-detail-head span { color: #1677ff; font-size: 12px; font-weight: 850; }
+.wc-takeout-shop-detail-head h3 { margin: 5px 0 4px; color: #111827; font-size: 22px; line-height: 1.15; font-weight: 950; }
+.wc-takeout-shop-detail-head p { margin: 0; color: #7c8797; font-size: 12px; line-height: 1.4; }
+.wc-takeout-detail-dishes { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.wc-takeout-detail-dishes button { width: 100%; border: none; border-radius: 18px; background: #fff; padding: 10px; display: grid; grid-template-columns: 54px minmax(0,1fr) auto; align-items: center; gap: 10px; box-shadow: 0 9px 22px rgba(15,23,42,0.055); text-align: left; font-family: inherit; cursor: pointer; }
+.wc-takeout-detail-dishes span { min-width: 0; }
+.wc-takeout-detail-dishes strong, .wc-takeout-detail-dishes em { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-takeout-detail-dishes strong { color: #111827; font-size: 14px; font-weight: 900; }
+.wc-takeout-detail-dishes em { margin-top: 3px; color: #8a94a3; font-size: 11px; font-style: normal; }
+.wc-takeout-detail-dishes b { color: #1677ff; font-size: 13px; font-weight: 950; }
+.wc-takeout-dish-cover { position: relative; border-radius: 28px; overflow: hidden; background: #eaf4ff; box-shadow: 0 16px 34px rgba(22,119,255,0.13); }
+.wc-takeout-dish-cover > img { width: 100%; aspect-ratio: 1.12; display: block; object-fit: cover; background: #eef3f8; }
+.wc-takeout-image-status { position: absolute; left: 14px; right: 14px; bottom: 14px; min-height: 42px; padding: 0 12px; border-radius: 16px; background: rgba(255,255,255,0.92); color: #263241; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 850; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-sizing: border-box; }
+.wc-takeout-image-status i { color: #1677ff; font-size: 17px; }
+.wc-takeout-image-status button { margin-left: auto; height: 28px; border: none; border-radius: 999px; background: #1677ff; color: #fff; padding: 0 10px; font-size: 11px; font-weight: 850; }
+.wc-takeout-dish-card { margin-top: 12px; padding: 15px; border-radius: 24px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,0.07); }
+.wc-takeout-dish-card > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wc-takeout-dish-card span { color: #7c8797; font-size: 12px; font-weight: 760; }
+.wc-takeout-dish-card b { color: #1677ff; font-size: 20px; font-weight: 950; }
+.wc-takeout-dish-card h3 { margin: 8px 0 7px; color: #111827; font-size: 22px; line-height: 1.16; font-weight: 950; }
+.wc-takeout-dish-card p { margin: 0 0 14px; color: #526173; font-size: 13px; line-height: 1.5; }
+.wc-takeout-dish-card button { width: 100%; height: 46px; border: none; border-radius: 999px; background: #1677ff; color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 900; cursor: pointer; }
 .wc-takeout-cart-card { margin-top: 0; padding: 13px; border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(15,23,42,0.07); }
 .wc-takeout-cart-card h4 { margin: 0 0 10px; display: flex; justify-content: space-between; color: #111827; font-size: 16px; font-weight: 900; }
 .wc-takeout-cart-card h4 em { color: #8a94a3; font-style: normal; font-size: 11px; }
-.wc-takeout-cart-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #f0f2f4; }
+.wc-takeout-cart-row { display: grid; grid-template-columns: 42px minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #f0f2f4; }
+.wc-takeout-cart-thumb { width: 42px; height: 42px; border-radius: 13px; overflow: hidden; color: #fff; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.wc-takeout-cart-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wc-takeout-cart-thumb span { font-size: 16px; font-weight: 950; }
 .wc-takeout-cart-row strong, .wc-takeout-cart-row span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-takeout-cart-row strong { color: #111827; font-size: 12px; font-weight: 850; }
 .wc-takeout-cart-row span { margin-top: 2px; color: #8a94a3; font-size: 11px; }

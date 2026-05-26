@@ -110,7 +110,7 @@ const WECHAT_UI_THEMES = [
         id: 'hallowrok',
         name: 'X 主题',
         tone: '黑白',
-        desc: '按 X 私信页重做：白底收件箱、顶部筛选、灰色搜索、蓝色写信按钮和五栏底部导航。',
+        desc: '按 X 个人页和私信页重做：白底资料页、帖子信息流、实时新闻、底部五栏和蓝色发布按钮。',
         accent: '#1d9bf0',
         preview: ['#ffffff', '#0f1419', '#1d9bf0'],
         searchPlaceholder: '搜索私信',
@@ -125,7 +125,7 @@ const WECHAT_UI_THEMES = [
         id: 'wechat',
         name: '微信主题',
         tone: '微信',
-        desc: '重新做成微信式灰底、方圆头像、真实微信底栏和经典绿白气泡。',
+        desc: '按微信重新做：灰底列表、方圆头像、通讯录/发现/我页面、微信底栏和经典绿白聊天气泡。',
         accent: '#07c160',
         preview: ['#ededed', '#ffffff', '#95ec69'],
         searchPlaceholder: '搜索',
@@ -10961,9 +10961,11 @@ const WECHAT_TAKEOUT_RESTAURANTS = [
 ];
 
 function getWechatTakeoutStore() {
-    const store = readWechatStore(WECHAT_TAKEOUT_STORAGE_KEY, { cart: [], orders: [], lastAddress: '', lastPayer: 'self' });
+    const store = readWechatStore(WECHAT_TAKEOUT_STORAGE_KEY, { cart: [], orders: [], customShops: [], images: {}, lastAddress: '', lastPayer: 'self' });
     store.cart = Array.isArray(store.cart) ? store.cart : [];
     store.orders = Array.isArray(store.orders) ? store.orders : [];
+    store.customShops = Array.isArray(store.customShops) ? store.customShops : [];
+    store.images = store.images && typeof store.images === 'object' ? store.images : {};
     store.lastAddress = typeof store.lastAddress === 'string' ? store.lastAddress : '';
     store.lastPayer = typeof store.lastPayer === 'string' ? store.lastPayer : 'self';
     return store;
@@ -10977,6 +10979,75 @@ function openWechatTakeout() {
     renderWechatTakeout('home');
 }
 window.openWechatTakeout = openWechatTakeout;
+
+function normalizeWechatTakeoutShop(shop, index = 0) {
+    if (!shop || typeof shop !== 'object') return null;
+    const name = String(shop.name || shop.shopName || '').trim();
+    if (!name) return null;
+    const dishes = Array.isArray(shop.dishes) ? shop.dishes.map((dish, dishIndex) => {
+        const dishName = String(dish && (dish.name || dish.title) || '').trim();
+        if (!dishName) return null;
+        return {
+            id: String(dish.id || `dish_${index}_${dishIndex}_${dishName}`).replace(/\s+/g, '_'),
+            name: dishName,
+            price: Number(dish.price || dish.amount || 18 + dishIndex * 4) || 18,
+            desc: String(dish.desc || dish.description || '').trim(),
+            image: String(dish.image || dish.imageUrl || '').trim()
+        };
+    }).filter(Boolean) : [];
+    return {
+        ...shop,
+        id: String(shop.id || `takeout_${index}_${name}`).replace(/\s+/g, '_'),
+        name,
+        tag: String(shop.tag || shop.category || '外卖').trim(),
+        score: Number(shop.score || 4.7),
+        time: String(shop.time || shop.deliveryTime || `${24 + index * 3}分钟`).trim(),
+        fee: Number(shop.fee || shop.deliveryFee || 3) || 0,
+        gradient: shop.gradient || getWechatGeneratedGradient(name + (shop.tag || '外卖'))[0],
+        dishes
+    };
+}
+
+function getWechatTakeoutRestaurants() {
+    const store = getWechatTakeoutStore();
+    const custom = (store.customShops || []).map((shop, index) => normalizeWechatTakeoutShop(shop, 100 + index)).filter(Boolean);
+    return [...WECHAT_TAKEOUT_RESTAURANTS.map((shop, index) => normalizeWechatTakeoutShop(shop, index)).filter(Boolean), ...custom];
+}
+
+function getWechatTakeoutShop(shopId) {
+    return getWechatTakeoutRestaurants().find(shop => String(shop.id) === String(shopId));
+}
+
+function getWechatTakeoutDish(shopId, dishId) {
+    const shop = getWechatTakeoutShop(shopId);
+    const dish = shop && shop.dishes.find(item => String(item.id) === String(dishId));
+    return shop && dish ? { shop, dish } : null;
+}
+
+function getWechatTakeoutImageKey(shopId, dishId = '') {
+    return `${shopId}::${dishId || 'shop'}`;
+}
+
+function getWechatTakeoutSavedImage(shopId, dishId = '') {
+    const store = getWechatTakeoutStore();
+    return store.images[getWechatTakeoutImageKey(shopId, dishId)] || '';
+}
+
+function renderWechatTakeoutTextCover(shop, dish = null, mode = '') {
+    const title = dish ? dish.name : shop.name;
+    const sub = dish ? shop.name : shop.tag;
+    const image = dish ? (dish.image || getWechatTakeoutSavedImage(shop.id, dish.id)) : getWechatTakeoutSavedImage(shop.id);
+    if (image) {
+        return `<div class="wc-takeout-text-cover ${mode} has-image"><img src="${wcEscapeHtml(image)}" loading="lazy" onerror="this.closest('.wc-takeout-text-cover').classList.remove('has-image');this.remove()"></div>`;
+    }
+    return `
+        <div class="wc-takeout-text-cover ${mode}" style="background:${shop.gradient || getWechatGeneratedGradient(title + sub)[0]}">
+            <span>${wcEscapeHtml(shop.tag || '外卖')}</span>
+            <strong>${wcEscapeHtml(title)}</strong>
+            <em>${wcEscapeHtml(sub || 'BYND 外卖')}</em>
+        </div>
+    `;
+}
 
 function renderWechatTakeout(tab = 'home') {
     const store = getWechatTakeoutStore();
@@ -10994,6 +11065,7 @@ function renderWechatTakeout(tab = 'home') {
 }
 
 function renderWechatTakeoutHome() {
+    const shops = getWechatTakeoutRestaurants();
     return `
         <section class="wc-takeout-hero">
             <div><span>ELE STYLE</span><strong>今天想吃什么</strong><p>附近好店、热卖小吃和角色代点都放在这里，想吃什么先丢进篮子。</p></div>
@@ -11001,15 +11073,22 @@ function renderWechatTakeoutHome() {
         </section>
         <div class="wc-takeout-search"><i class="ri-search-line"></i><input placeholder="搜索商家、菜品"></div>
         <div class="wc-takeout-cats"><button class="active">全部</button><button>奶茶</button><button>夜宵</button><button>轻食</button><button>热卖</button></div>
+        <details class="wc-takeout-ai-panel">
+            <summary><span>AI 生成外卖店</span><em>先生成文字菜单，点菜品后再生成真实图片</em><i class="ri-arrow-down-s-line"></i></summary>
+            <div>
+                <input id="wc-takeout-ai-brief" placeholder="例如：雨夜适合两个人吃的热汤外卖">
+                <button type="button" onclick="generateWechatTakeoutShop()">AI 生成</button>
+            </div>
+        </details>
         <div class="wc-takeout-list">
-            ${WECHAT_TAKEOUT_RESTAURANTS.map(shop => `
-                <article class="wc-takeout-shop">
-                    <div class="wc-takeout-cover" style="background:${shop.gradient}"><strong>${wcEscapeHtml(shop.name.slice(0, 2))}</strong></div>
+            ${shops.map(shop => `
+                <article class="wc-takeout-shop" onclick="openWechatTakeoutShop(${quoteWechatJsString(shop.id)})">
+                    ${renderWechatTakeoutTextCover(shop, null, 'shop')}
                     <div class="wc-takeout-main">
                         <div class="wc-takeout-title"><strong>${wcEscapeHtml(shop.name)}</strong><span>${wcEscapeHtml(shop.time)}</span></div>
                         <p>${wcEscapeHtml(shop.tag)} · ${shop.score} 分 · 配送 ¥${shop.fee}</p>
                         <div class="wc-takeout-dishes">
-                            ${shop.dishes.map(dish => `<button onclick="addWechatTakeoutCart('${shop.id}', '${dish.id}')"><span>${wcEscapeHtml(dish.name)}</span><b>¥${dish.price.toFixed(2)}</b></button>`).join('')}
+                            ${shop.dishes.map(dish => `<button onclick="event.stopPropagation();openWechatTakeoutDish(${quoteWechatJsString(shop.id)}, ${quoteWechatJsString(dish.id)})"><span>${wcEscapeHtml(dish.name)}</span><b>¥${dish.price.toFixed(2)}</b></button>`).join('')}
                         </div>
                     </div>
                 </article>
@@ -11018,19 +11097,152 @@ function renderWechatTakeoutHome() {
     `;
 }
 
+function openWechatTakeoutShop(shopId) {
+    const shop = getWechatTakeoutShop(shopId);
+    if (!shop) return;
+    openWechatFeatureScreen('外卖店铺', `
+        <div class="wc-takeout-app wc-takeout-detail-app">
+            <div class="wc-takeout-content">
+                <section class="wc-takeout-shop-detail-head">
+                    ${renderWechatTakeoutTextCover(shop, null, 'detail')}
+                    <div>
+                        <span>${wcEscapeHtml(shop.tag)} · ${shop.score} 分</span>
+                        <h3>${wcEscapeHtml(shop.name)}</h3>
+                        <p>${wcEscapeHtml(shop.time)} · 配送 ¥${Number(shop.fee || 0).toFixed(0)} · 图片会在菜品详情里生成</p>
+                    </div>
+                </section>
+                <div class="wc-takeout-detail-dishes">
+                    ${shop.dishes.map(dish => `
+                        <button type="button" onclick="openWechatTakeoutDish(${quoteWechatJsString(shop.id)}, ${quoteWechatJsString(dish.id)})">
+                            ${renderWechatTakeoutTextCover(shop, dish, 'mini')}
+                            <span><strong>${wcEscapeHtml(dish.name)}</strong><em>${wcEscapeHtml(dish.desc || shop.tag)}</em></span>
+                            <b>¥${Number(dish.price || 0).toFixed(2)}</b>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `);
+}
+
+function openWechatTakeoutDish(shopId, dishId) {
+    const found = getWechatTakeoutDish(shopId, dishId);
+    if (!found) return;
+    const { shop, dish } = found;
+    openWechatFeatureScreen('菜品详情', renderWechatTakeoutDishDetail(shop, dish), `<button type="button" class="wc-feature-cart-btn" onclick="renderWechatTakeout('cart')" aria-label="打开外卖购物车"><i class="ri-shopping-basket-2-line"></i></button>`);
+    if (!dish.image && !getWechatTakeoutSavedImage(shop.id, dish.id) && !window._wechatTakeoutImageGenerating?.[getWechatTakeoutImageKey(shop.id, dish.id)]) {
+        setTimeout(() => ensureWechatTakeoutDishImage(shop.id, dish.id), 120);
+    }
+}
+
+function renderWechatTakeoutDishDetail(shop, dish) {
+    const image = dish.image || getWechatTakeoutSavedImage(shop.id, dish.id);
+    return `
+        <div class="wc-takeout-app wc-takeout-detail-app">
+            <div class="wc-takeout-content">
+                <section class="wc-takeout-dish-cover">
+                    ${image ? `<img src="${wcEscapeHtml(image)}" loading="lazy" onerror="this.remove(); ensureWechatTakeoutDishImage(${quoteWechatJsString(shop.id)}, ${quoteWechatJsString(dish.id)})">` : `${renderWechatTakeoutTextCover(shop, dish, 'detail')}<div class="wc-takeout-image-status"><i class="ri-loader-4-line"></i><span>正在生成真实菜品图</span></div>`}
+                </section>
+                <section class="wc-takeout-dish-card">
+                    <div><span>${wcEscapeHtml(shop.name)}</span><b>¥${Number(dish.price || 0).toFixed(2)}</b></div>
+                    <h3>${wcEscapeHtml(dish.name)}</h3>
+                    <p>${wcEscapeHtml(dish.desc || `${shop.tag} · ${shop.time} · 配送 ¥${shop.fee}`)}</p>
+                    <button type="button" onclick="addWechatTakeoutCart(${quoteWechatJsString(shop.id)}, ${quoteWechatJsString(dish.id)})"><i class="ri-add-line"></i><span>加入外卖购物车</span></button>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function saveWechatTakeoutImage(shopId, dishId, imageUrl) {
+    const store = getWechatTakeoutStore();
+    store.images[getWechatTakeoutImageKey(shopId, dishId)] = imageUrl;
+    store.customShops = (store.customShops || []).map(shop => {
+        if (String(shop.id) !== String(shopId)) return shop;
+        return {
+            ...shop,
+            dishes: (shop.dishes || []).map(dish => String(dish.id) === String(dishId) ? { ...dish, image: imageUrl } : dish)
+        };
+    });
+    saveWechatTakeoutStore(store);
+}
+
+async function ensureWechatTakeoutDishImage(shopId, dishId) {
+    const found = getWechatTakeoutDish(shopId, dishId);
+    if (!found) return '';
+    const key = getWechatTakeoutImageKey(shopId, dishId);
+    if (getWechatTakeoutSavedImage(shopId, dishId)) return getWechatTakeoutSavedImage(shopId, dishId);
+    window._wechatTakeoutImageGenerating = window._wechatTakeoutImageGenerating || {};
+    if (window._wechatTakeoutImageGenerating[key]) return '';
+    window._wechatTakeoutImageGenerating[key] = true;
+    const status = document.querySelector('.wc-takeout-image-status');
+    if (status) status.innerHTML = '<i class="ri-loader-4-line"></i><span>正在生成真实菜品图</span>';
+    const { shop, dish } = found;
+    const prompt = `真实外卖平台菜品照片，手机外卖详情页主图，食物清晰诱人，干净自然光，浅色背景，店铺：${shop.name}，菜品：${dish.name}，类型：${shop.tag}，说明：${dish.desc || dish.name}`;
+    const result = await callWechatImageGenerationApi(prompt, { size: '1024x1024' });
+    delete window._wechatTakeoutImageGenerating[key];
+    if (result.ok && result.url) {
+        saveWechatTakeoutImage(shopId, dishId, result.url);
+        openWechatTakeoutDish(shopId, dishId);
+        return result.url;
+    }
+    if (status) status.innerHTML = `<i class="ri-error-warning-line"></i><span>${wcEscapeHtml(result.error || '菜品图片生成失败')}</span><button type="button" onclick="ensureWechatTakeoutDishImage(${quoteWechatJsString(shopId)}, ${quoteWechatJsString(dishId)})">重试</button>`;
+    return '';
+}
+
+async function generateWechatTakeoutShop() {
+    const briefEl = document.getElementById('wc-takeout-ai-brief');
+    const btn = document.querySelector('.wc-takeout-ai-panel button');
+    const brief = (briefEl?.value || '').trim() || '适合今晚吃的外卖';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '生成中';
+    }
+    try {
+        const result = await callChatApi([
+            { role: 'system', content: '你是外卖菜单策划。只输出 JSON 对象，不要解释。字段：name、tag、score、time、fee、dishes。dishes 是 3 到 5 个菜品，每项字段 id、name、price、desc。不要生成图片 URL。名字和菜品要像真实外卖平台。' },
+            { role: 'user', content: `生成一个外卖店和菜单：${brief}` }
+        ]);
+        const parsed = result.ok ? parseWechatAiJsonPayload(result.content) : null;
+        if (!result.ok || !parsed) throw new Error(result.error || 'AI 返回格式无法解析');
+        const shop = normalizeWechatTakeoutShop({
+            ...parsed,
+            id: 'take_ai_' + Date.now(),
+            gradient: getWechatGeneratedGradient(`${parsed.name || brief}${parsed.tag || ''}`)[0]
+        }, 300);
+        if (!shop || !shop.dishes.length) throw new Error('AI 没有返回可用菜单');
+        const store = getWechatTakeoutStore();
+        store.customShops.unshift(shop);
+        store.customShops = store.customShops.slice(0, 16);
+        saveWechatTakeoutStore(store);
+        showWechatToast('已生成外卖店');
+        renderWechatTakeout('home');
+    } catch (e) {
+        alert(e.message || '生成失败');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'AI 生成';
+        }
+    }
+}
+
 function addWechatTakeoutCart(shopId, dishId) {
-    const shop = WECHAT_TAKEOUT_RESTAURANTS.find(item => item.id === shopId);
-    const dish = shop?.dishes.find(item => item.id === dishId);
-    if (!shop || !dish) return;
+    const found = getWechatTakeoutDish(shopId, dishId);
+    if (!found) return;
+    const { shop, dish } = found;
     const store = getWechatTakeoutStore();
     const existing = store.cart.find(item => item.shopId === shopId && item.id === dishId);
     if (existing) existing.qty = Math.min(20, (existing.qty || 1) + 1);
-    else store.cart.push({ ...dish, shopId, shopName: shop.name, fee: shop.fee, qty: 1 });
+    else store.cart.push({ ...dish, image: dish.image || getWechatTakeoutSavedImage(shop.id, dish.id), shopId, shopName: shop.name, fee: shop.fee, qty: 1 });
     saveWechatTakeoutStore(store);
     showWechatToast('已加入外卖购物车');
-    renderWechatTakeout('home');
 }
 window.addWechatTakeoutCart = addWechatTakeoutCart;
+window.openWechatTakeoutShop = openWechatTakeoutShop;
+window.openWechatTakeoutDish = openWechatTakeoutDish;
+window.ensureWechatTakeoutDishImage = ensureWechatTakeoutDishImage;
+window.generateWechatTakeoutShop = generateWechatTakeoutShop;
 
 function renderWechatTakeoutCart(store) {
     const total = store.cart.reduce((sum, item) => sum + Number(item.price || 0) * (item.qty || 1), 0) + (store.cart[0]?.fee || 0);
@@ -11039,7 +11251,12 @@ function renderWechatTakeoutCart(store) {
         <div class="wc-takeout-cart-card">
             <h4>外卖购物车 <em>${store.cart.length} 种</em></h4>
             ${store.cart.length ? store.cart.map((item, index) => `
-                <div class="wc-takeout-cart-row"><div><strong>${wcEscapeHtml(item.name)}</strong><span>${wcEscapeHtml(item.shopName)} · ¥${Number(item.price || 0).toFixed(2)}</span></div><b>×${item.qty || 1}</b><button onclick="removeWechatTakeoutCart(${index})">删除</button></div>
+                <div class="wc-takeout-cart-row">
+                    <div class="wc-takeout-cart-thumb" style="background:${wcEscapeHtml(getWechatGeneratedGradient((item.shopName || '') + item.name)[0])}">${item.image ? `<img src="${wcEscapeHtml(item.image)}" loading="lazy" onerror="this.style.display='none'">` : `<span>${wcEscapeHtml(String(item.name || '餐').slice(0, 1))}</span>`}</div>
+                    <div><strong>${wcEscapeHtml(item.name)}</strong><span>${wcEscapeHtml(item.shopName)} · ¥${Number(item.price || 0).toFixed(2)}</span></div>
+                    <b>×${item.qty || 1}</b>
+                    <button onclick="removeWechatTakeoutCart(${index})">删除</button>
+                </div>
             `).join('') : '<div class="wc-discover-empty">还没有点餐</div>'}
             <textarea id="wc-takeout-address" placeholder="填写收餐地址">${wcEscapeHtml(store.lastAddress || '')}</textarea>
             <div class="wc-shop-payer-picker wc-takeout-payer-picker">
