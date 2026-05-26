@@ -19931,6 +19931,9 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     position: absolute;
     left: 50%;
     top: 50%;
+    width: max-content;
+    max-width: 160px;
+    text-align: center;
     transform: translate(-50%, -50%);
     color: #0f1419;
     font-size: 19px;
@@ -20128,6 +20131,13 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-tab.active .wc-theme-tab-icon {
     color: #1d9bf0;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-tab.active .wc-theme-tab-icon,
+#app-wechat-window.wc-ui-theme-hallowrok .wc-tab.active::before {
+    filter: none;
+}
+#app-wechat-window.wc-ui-theme-hallowrok .wc-tab.active {
+    background: radial-gradient(circle, rgba(29,155,240,0.12) 0 42%, transparent 44%);
 }
 #app-wechat-window.wc-ui-theme-hallowrok .wc-tab:active,
 #app-wechat-window.wc-ui-theme-hallowrok .wc-x-center-tab:active {

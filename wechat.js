@@ -6727,7 +6727,7 @@ function initSwipeHandlers() {
     containers.forEach(container => {
         const chatItem = container.querySelector('.wc-chat-item');
         const charId = container.dataset.charId;
-        let startX = 0, startY = 0, currentX = 0;
+        let startX = 0, startY = 0, currentX = 0, moveX = 0, moveY = 0;
         let isSwiping = false, directionDecided = false, didSwipe = false, didOpenChatOnEnd = false;
 
         function onStart(x, y) {
@@ -6738,6 +6738,8 @@ function initSwipeHandlers() {
             startX = x;
             startY = y;
             currentX = 0;
+            moveX = 0;
+            moveY = 0;
             isSwiping = false;
             directionDecided = false;
             didSwipe = false;
@@ -6747,6 +6749,8 @@ function initSwipeHandlers() {
         function onMove(x, y, e) {
             const dx = x - startX;
             const dy = y - startY;
+            moveX = dx;
+            moveY = dy;
 
             if (!directionDecided) {
                 if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // 死区
@@ -6773,7 +6777,8 @@ function initSwipeHandlers() {
 
         function onEnd() {
             if (!isSwiping) {
-                if (!didSwipe && !directionDecided) {
+                const tapLike = !didSwipe && Math.abs(moveX) < 18 && Math.abs(moveY) < 18;
+                if (tapLike) {
                     // 纯点击
                     if (openItem === container) {
                         closeOpenItem(true);
@@ -6840,7 +6845,7 @@ function initSwipeHandlers() {
             if (didOpenChatOnEnd) return;
             if (e.defaultPrevented || e.target.closest('.wc-delete-btn')) return;
             if (container.classList.contains('swiping') || container.classList.contains('swipe-open')) return;
-            if (isSwiping || didSwipe || directionDecided || Math.abs(currentX) > 4) return;
+            if (isSwiping || didSwipe || Math.abs(moveX) >= 18 || Math.abs(moveY) >= 18 || Math.abs(currentX) > 4) return;
             openChat(charId);
         });
     });
