@@ -103,22 +103,22 @@ const WECHAT_UI_THEMES = [
             chat: { label: '聊天', title: '聊天', icon: 'ri-chat-3-fill' },
             contacts: { label: '好友', title: '好友', icon: 'ri-user-5-line' },
             discover: { label: '主页', title: '主页', icon: 'ri-home-smile-line' },
-            me: { label: '设置', title: '设置', icon: 'ri-more-line' }
+            me: { label: '钱包', title: '钱包', icon: 'ri-wallet-3-line' }
         }
     },
     {
         id: 'hallowrok',
-        name: 'Hallowrok 主题',
-        tone: '幻夜',
-        desc: '暗紫玻璃、柔光边框、神秘档案式列表和夜色聊天页。',
-        accent: '#a78bfa',
-        preview: ['#14111f', '#2c2444', '#a78bfa'],
-        searchPlaceholder: '检索低语、联系人和档案',
+        name: 'X 主题',
+        tone: '黑白',
+        desc: '按 X 私信页重做：白底收件箱、顶部筛选、灰色搜索、蓝色写信按钮和五栏底部导航。',
+        accent: '#1d9bf0',
+        preview: ['#ffffff', '#0f1419', '#1d9bf0'],
+        searchPlaceholder: '搜索私信',
         tabs: {
-            chat: { label: '低语', title: '低语', icon: 'ri-moon-clear-line' },
-            contacts: { label: '契约', title: '契约', icon: 'ri-booklet-line' },
-            discover: { label: '回廊', title: '回廊', icon: 'ri-sparkling-2-line' },
-            me: { label: '镜像', title: '镜像', icon: 'ri-magic-line' }
+            chat: { label: '', title: '聊天', icon: 'ri-chat-1-fill' },
+            contacts: { label: '', title: '搜索', icon: 'ri-search-line' },
+            discover: { label: '', title: '通知', icon: 'ri-notification-3-line' },
+            me: { label: '', title: '首页', icon: 'ri-home-5-line' }
         }
     },
     {
@@ -223,6 +223,7 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
         const span = tab.querySelector('span');
         if (span) span.textContent = meta.label || key;
     });
+    syncWechatXTabBar(theme);
     const searchInput = document.getElementById('wc-search-input');
     if (searchInput) searchInput.placeholder = theme.searchPlaceholder || '搜索';
     const activeTab = root.querySelector('.wc-tab-bar .wc-tab.active')?.dataset.tabKey || 'chat';
@@ -231,6 +232,60 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
     const msgInput = document.getElementById('wc-msg-input');
     if (msgInput && !msgInput.disabled) msgInput.placeholder = getWechatChatInputPlaceholder(theme.id);
     renderWechatThemeChatHeader();
+    syncWechatLineRoomHeader(theme);
+}
+
+function syncWechatXTabBar(theme = getWechatUiTheme()) {
+    const bar = document.querySelector('#app-wechat-window .wc-tab-bar');
+    if (!bar) return;
+    const old = bar.querySelector('.wc-x-center-tab');
+    if (theme.id !== 'hallowrok') {
+        old?.remove();
+        return;
+    }
+    if (old) return;
+    const center = document.createElement('button');
+    center.type = 'button';
+    center.className = 'wc-x-center-tab';
+    center.setAttribute('aria-label', 'Grok');
+    center.innerHTML = '<i class="ri-bard-line"></i>';
+    center.onclick = () => showWechatToast('Grok 入口准备中');
+    const tabs = bar.querySelectorAll('.wc-tab');
+    if (tabs[2]) bar.insertBefore(center, tabs[2]);
+    else bar.appendChild(center);
+}
+
+function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
+    const header = document.querySelector('#app-wechat-window .wc-chat-room .wc-room-header');
+    if (!header) return;
+    let actions = header.querySelector('.wc-line-room-actions');
+    if (theme.id !== 'line') {
+        actions?.remove();
+        header.classList.remove('wc-line-room-header-ready');
+        delete header.dataset.lineBackCount;
+        const oldBackIcon = Array.from(header.children).find(child => child.tagName === 'I');
+        oldBackIcon?.removeAttribute('data-line-back-count');
+        return;
+    }
+    const currentId = window.currentChatCharId || '';
+    const backCount = (window.myCharacters || []).reduce((sum, char) => {
+        if (!char || char.id === currentId) return sum;
+        return sum + getTelegramChatUnreadCount(char);
+    }, 0);
+    header.dataset.lineBackCount = backCount > 99 ? '99+' : (backCount > 0 ? String(backCount) : '');
+    const backIcon = Array.from(header.children).find(child => child.tagName === 'I');
+    if (backIcon) backIcon.dataset.lineBackCount = header.dataset.lineBackCount || '';
+    if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'wc-line-room-actions';
+        header.appendChild(actions);
+    }
+    actions.innerHTML = `
+        <button type="button" onclick="openWechatCurrentChatSearch()" aria-label="搜索消息"><i class="ri-search-line"></i></button>
+        <button type="button" onclick="startWechatCall('voiceCall')" aria-label="通话"><i class="ri-phone-line"></i></button>
+        <button type="button" onclick="openChatSettings()" aria-label="菜单"><i class="ri-menu-line"></i></button>
+    `;
+    header.classList.add('wc-line-room-header-ready');
 }
 
 function getWechatChatInputPlaceholder(themeId = getWechatUiThemeId()) {
@@ -360,15 +415,15 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
     const name = wcEscapeHtml(profile.name || '我');
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const bio = wcEscapeHtml(profile.bio || '点击设置签名~');
-    if (['rednote', 'line', 'hallowrok'].includes(theme.id)) return '';
+    if (['rednote'].includes(theme.id)) return '';
     if (theme.id === 'qq') {
         return `
             <div class="wc-theme-hero-main">
                 <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="wc-theme-hero-user">
+                <button type="button" class="wc-theme-hero-user wc-theme-hero-edit" onclick="promptWechatMeField('bio')">
                     <strong>${name}</strong>
                     <span>♡ ${bio}</span>
-                </div>
+                </button>
                 <div class="wc-theme-hero-mascot"><i class="ri-bear-smile-line"></i></div>
                 <button type="button" class="wc-theme-hero-plus" onclick="openWechatPlusMenu(event)" aria-label="新建"><i class="ri-add-line"></i></button>
             </div>
@@ -397,7 +452,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         ];
         const interaction = getWechatLatestDouyinInteraction();
         return `
-            <div class="wc-douyin-user-signature">${signature}</div>
+            <button type="button" class="wc-douyin-user-signature" onclick="promptWechatMeField('bio')">${signature}</button>
             <div class="wc-douyin-story-row">
                 ${storyItems.map(item => `
                     <button type="button" class="wc-douyin-story">
@@ -432,25 +487,60 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         `;
     }
     if (theme.id === 'line') {
+        const chars = getWechatGroupContacts();
+        const unreadTotal = chars.reduce((sum, char) => sum + getTelegramChatUnreadCount(char), 0);
         return `
-            <div class="wc-theme-hero-main">
-                <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="wc-theme-hero-user"><strong>聊天</strong><span>${name}</span></div>
-                <button type="button" class="wc-theme-hero-plus" onclick="openWechatPlusMenu(event)"><i class="ri-add-line"></i></button>
+            <div class="wc-line-chat-titlebar">
+                <button type="button" class="wc-line-title-btn"><span>聊天</span><i class="ri-arrow-down-s-line"></i></button>
+                <div class="wc-line-title-actions">
+                    <button type="button" onclick="openWechatSearch()" aria-label="搜索"><i class="ri-search-line"></i></button>
+                    <button type="button" onclick="openWechatGroupCreator()" aria-label="新聊天"><i class="ri-chat-new-line"></i></button>
+                </div>
             </div>
-            <div class="wc-theme-chip-row"><span>好友</span><span>群组</span><span>官方帐号</span></div>
+            <div class="wc-line-search-pill"><i class="ri-search-line"></i><span>搜索</span></div>
+            <button type="button" class="wc-line-weather-card" onclick="openWechatMoments()">
+                <i class="ri-sun-cloudy-line"></i>
+                <span><strong>今天有 ${chars.length || 0} 位好友在列表中</strong><em>${unreadTotal > 0 ? `${unreadTotal} 条新消息等你查看` : `${name} · ${bio}`}</em></span>
+                <b>LINE</b>
+            </button>
         `;
     }
     if (theme.id === 'hallowrok') {
+        const hasInbox = getWechatGroupContacts().length > 0 || (window.myCharacters || []).some(char => char && char.isGroupChat);
         return `
-            <div class="wc-theme-hero-main">
-                <div class="wc-theme-hero-user"><strong>低语档案</strong><span>${name} · ${bio}</span></div>
-                <button type="button" class="wc-theme-hero-plus" onclick="openWechatPlusMenu(event)"><i class="ri-magic-line"></i></button>
+            <div class="wc-x-inbox-shell">
+                <div class="wc-x-topbar">
+                    <button type="button" class="wc-x-avatar-btn" onclick="switchWcTab('me')" aria-label="个人主页">
+                        <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
+                    </button>
+                    <strong>聊天</strong>
+                    <button type="button" class="wc-x-filter-btn" onclick="showWechatToast('已显示全部私信')">
+                        <span>全部</span><i class="ri-arrow-down-s-line"></i>
+                    </button>
+                </div>
+                    <button type="button" class="wc-x-search-pill" onclick="switchWcTab('contacts')">
+                        <i class="ri-search-line"></i><span>搜索</span>
+                    </button>
+                ${hasInbox ? '' : `<div class="wc-x-empty-inbox">
+                    <h2>欢迎来到你的收件箱！</h2>
+                    <p>在 X 上和别人进行私密对话，大家互发私信、分享帖子等。</p>
+                    <button type="button" onclick="openWechatPlusMenu(event)">写一封私信</button>
+                </div>`}
+                <button type="button" class="wc-x-compose-fab" onclick="openWechatPlusMenu(event)" aria-label="写私信">
+                    <i class="ri-chat-new-line"></i>
+                </button>
             </div>
-            <div class="wc-theme-chip-row"><span>契约</span><span>梦境</span><span>回声</span></div>
         `;
     }
     return '';
+}
+
+function getWechatXFabHtml() {
+    return `
+        <button type="button" class="wc-x-compose-fab wc-x-compose-fab-list" onclick="openWechatPlusMenu(event)" aria-label="写私信">
+            <i class="ri-chat-new-line"></i>
+        </button>
+    `;
 }
 
 function renderWechatThemeChatHeader() {
@@ -484,6 +574,11 @@ function selectWechatUiTheme(themeId) {
     });
     const label = document.getElementById('wc-ui-theme-current');
     if (label) label.textContent = theme.name;
+    renderChatList();
+    const activeView = document.querySelector('.wc-tab-view.active');
+    if (activeView?.id === 'wc-view-contacts') renderContacts();
+    if (activeView?.id === 'wc-view-discover') renderWechatDiscoverTab();
+    if (activeView?.id === 'wc-view-me') renderMePage();
     showWechatToast(`已切换为${theme.name}`);
 }
 
@@ -684,8 +779,11 @@ function renderChatList() {
     const listEl = document.getElementById('wc-chat-list');
     if (!listEl) return;
     listEl.innerHTML = ''; 
+    const themeId = getWechatUiThemeId();
+    const isXTheme = themeId === 'hallowrok';
 
     if (window.myCharacters.length === 0) {
+        if (isXTheme) return;
         listEl.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:300px; color:#ccc;">
                 <i class="ri-chat-smile-2-line" style="font-size:48px; margin-bottom:10px;"></i>
@@ -696,7 +794,8 @@ function renderChatList() {
         return;
     }
 
-    const isDouyinTheme = getWechatUiThemeId() === 'douyin';
+    const isDouyinTheme = themeId === 'douyin';
+    const isLineTheme = themeId === 'line';
     window.myCharacters.forEach(char => {
         const container = document.createElement('div');
         container.className = 'wc-swipe-container';
@@ -721,6 +820,10 @@ function renderChatList() {
         const telegramUnreadHtml = telegramUnread > 0
             ? `<span class="wc-telegram-unread">${telegramUnread > 99 ? '99+' : telegramUnread}</span>`
             : '';
+        const lineUnread = isLineTheme ? getTelegramChatUnreadCount(char) : 0;
+        const lineUnreadHtml = lineUnread > 0
+            ? `<span class="wc-line-unread">${lineUnread > 99 ? '99+' : lineUnread}</span>`
+            : '';
 
         item.innerHTML = `
             <div class="wc-avatar ${isGroup ? 'wc-group-avatar' : ''}"><img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">${douyinUnreadHtml}</div>
@@ -728,6 +831,10 @@ function renderChatList() {
                 <div class="wc-top">
                     <span class="wc-name">${escapeHtml(displayName)}${douyinSparkHtml}</span>
                     <span class="wc-time">${escapeHtml(formatWechatChatListTime(char))}</span>
+                    <span class="wc-line-list-side">
+                        <span class="wc-line-date">${escapeHtml(formatWechatChatListTime(char))}</span>
+                        ${lineUnreadHtml}
+                    </span>
                     <span class="wc-telegram-list-meta">
                         <span class="wc-telegram-date"><i class="ri-pushpin-2-fill"></i>${escapeHtml(telegramTime)}</span>
                         ${telegramUnreadHtml}
@@ -787,7 +894,8 @@ function openWechatPlusMenu(event) {
     if (!root) return;
     const menu = document.createElement('div');
     menu.id = 'wc-plus-menu';
-    menu.className = 'wc-plus-menu';
+    const fromXFab = !!(event && event.currentTarget && event.currentTarget.closest && event.currentTarget.closest('.wc-x-compose-fab'));
+    menu.className = `wc-plus-menu${fromXFab ? ' wc-plus-menu-x-fab' : ''}`;
     menu.innerHTML = `
         <button type="button" onclick="closeWechatPlusMenu();testAddCharacter()"><i class="ri-user-add-line"></i><span>导入角色</span></button>
         <button type="button" onclick="openWechatGroupCreator()"><i class="ri-group-line"></i><span>发起群聊</span></button>
@@ -827,8 +935,92 @@ function closeWechatSearch() {
     if (root) root.classList.remove('wc-search-open');
 }
 
+function getWechatMessageSearchText(msg) {
+    if (!msg) return '';
+    if (isWechatSpecialMessage(msg.type)) return getWechatMessageSummary(msg);
+    if (msg.type === 'image') return '[图片]';
+    if (msg.type === 'sticker') return msg.stickerName ? `[表情] ${msg.stickerName}` : '[表情]';
+    if (msg.type === 'system_notice') return msg.content || '';
+    return stripWechatPromptText(msg.content || msg.dialogue || msg.description || '', 260);
+}
+
+function renderWechatCurrentChatSearchResults(query = '') {
+    const list = document.getElementById('wc-chat-message-search-results');
+    if (!list) return;
+    const char = getCurrentChatChar();
+    if (!char) {
+        list.innerHTML = '<div class="wc-chat-search-empty">没有打开聊天</div>';
+        return;
+    }
+    const q = String(query || '').trim().toLowerCase();
+    const history = Array.isArray(char.history) ? char.history : [];
+    const rows = history
+        .map((msg, index) => ({ msg, index, text: getWechatMessageSearchText(msg) }))
+        .filter(item => item.text && item.msg && item.msg.type !== 'system_notice')
+        .filter(item => !q || item.text.toLowerCase().includes(q))
+        .slice(q ? 0 : Math.max(0, history.length - 24), q ? 80 : history.length)
+        .reverse();
+    if (!rows.length) {
+        list.innerHTML = `<div class="wc-chat-search-empty">${q ? '没有搜到相关消息' : '还没有可搜索的消息'}</div>`;
+        return;
+    }
+    list.innerHTML = rows.map(item => {
+        const side = item.msg.isMe ? '你' : getWechatCharDisplayName(char);
+        const time = formatMessageTime(item.msg);
+        return `
+            <button type="button" class="wc-chat-search-result" onclick="openWechatSearchResult(${Number(item.index)})">
+                <b>${wcEscapeHtml(side)}</b>
+                <span>${wcEscapeHtml(item.text)}</span>
+                <em>${wcEscapeHtml(time)}</em>
+            </button>
+        `;
+    }).join('');
+}
+
+function openWechatCurrentChatSearch() {
+    const char = getCurrentChatChar();
+    if (!char) {
+        showWechatToast('先打开一个聊天');
+        return;
+    }
+    closeChatToolbar();
+    openWechatFeatureScreen('搜索消息', `
+        <div class="wc-chat-search-page">
+            <label class="wc-chat-search-box">
+                <i class="ri-search-line"></i>
+                <input id="wc-chat-message-search-input" placeholder="搜索当前聊天记录" oninput="renderWechatCurrentChatSearchResults(this.value)">
+            </label>
+            <div id="wc-chat-message-search-results" class="wc-chat-search-results"></div>
+        </div>
+    `);
+    setWechatFeatureLeftText('取消', 'closeWechatFeatureScreen()');
+    requestAnimationFrame(() => {
+        document.getElementById('wc-chat-message-search-input')?.focus();
+        renderWechatCurrentChatSearchResults('');
+    });
+}
+
+function openWechatSearchResult(msgIdx) {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    window._wechatExpandedHistoryIds = window._wechatExpandedHistoryIds || new Set();
+    window._wechatExpandedHistoryIds.add(char.id);
+    closeWechatFeatureScreen();
+    refreshChatView(char);
+    setTimeout(() => {
+        const row = document.querySelector(`.msg-row[data-msg-idx="${Number(msgIdx)}"]`);
+        if (!row) return;
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        row.classList.add('msg-source-highlight');
+        setTimeout(() => row.classList.remove('msg-source-highlight'), 1600);
+    }, 260);
+}
+
 window.openWechatSearch = openWechatSearch;
 window.closeWechatSearch = closeWechatSearch;
+window.openWechatCurrentChatSearch = openWechatCurrentChatSearch;
+window.renderWechatCurrentChatSearchResults = renderWechatCurrentChatSearchResults;
+window.openWechatSearchResult = openWechatSearchResult;
 
 function openWechatGroupCreator() {
     closeWechatPlusMenu();
@@ -856,6 +1048,7 @@ function openWechatGroupCreator() {
     openWechatFeatureScreen('发起群聊', html);
 }
 window.openWechatGroupCreator = openWechatGroupCreator;
+window.openWechatGroupCreate = openWechatGroupCreator;
 
 function toggleWechatGroupDraftMember(charId) {
     const ids = Array.isArray(window._wechatGroupDraftIds) ? window._wechatGroupDraftIds : [];
@@ -1076,6 +1269,10 @@ function openChat(charId) {
 
     window.currentChatCharId = charId;
     clearWechatReplyDraft();
+    let touchedMessageTime = false;
+    (char.history || []).forEach(msg => {
+        if (ensureMessageTimestamp(msg)) touchedMessageTime = true;
+    });
     const readStateChanged = markWechatCharMessagesRead(char);
 
     const config = char.chatConfig || {};
@@ -1086,11 +1283,9 @@ function openChat(charId) {
     if (floatImg) floatImg.src = char.avatar || DEFAULT_AVATAR;
     if (floatName) floatName.textContent = config.nickname || char.name;
     if (roomHeaderAvatar) roomHeaderAvatar.src = char.avatar || DEFAULT_AVATAR;
-    let touchedMessageTime = false;
-    (char.history || []).forEach(msg => {
-        if (ensureMessageTimestamp(msg)) touchedMessageTime = true;
-    });
+    syncWechatLineRoomHeader();
     if (touchedMessageTime || readStateChanged) saveCharactersToStorage();
+    if (readStateChanged) renderChatList();
     // 应用聊天配置（背景/气泡/字体）
     applyChatConfig(char);
     refreshChatView(char);
@@ -1098,6 +1293,8 @@ function openChat(charId) {
     syncWechatDraftState();
 
     const room = document.getElementById('wechat-chat-room');
+    const inputEl = document.getElementById('wc-msg-input');
+    if (inputEl) inputEl.placeholder = isWechatXTheme() ? '私信' : '发消息...';
     room.classList.remove('hidden');
     setTimeout(() => room.classList.add('active'), 10);
 }
@@ -1229,15 +1426,25 @@ function formatTelegramChatListTime(char) {
 }
 
 function getTelegramChatUnreadCount(char) {
+    if (!char) return 0;
+    if (typeof isWechatChatPageActive === 'function' && isWechatChatPageActive(char.id)) return 0;
     const explicit = Number(char?.unreadCount ?? char?.chatConfig?.unreadCount ?? 0);
     if (Number.isFinite(explicit) && explicit > 0) return Math.min(999, Math.floor(explicit));
     const history = Array.isArray(char?.history) ? char.history : [];
+    const lastReadAt = Number(char?.chatConfig?.lastReadAt) || 0;
     let count = 0;
-    for (let i = history.length - 1; i >= 0; i--) {
-        const msg = history[i];
-        if (!msg || msg.type === 'system_notice') continue;
-        if (msg.isMe) break;
-        count += 1;
+    if (lastReadAt > 0) {
+        history.forEach(msg => {
+            if (!msg || msg.type === 'system_notice' || msg.isMe) return;
+            if (getWechatMessageTimestampValue(msg) > lastReadAt) count += 1;
+        });
+    } else {
+        for (let i = history.length - 1; i >= 0; i--) {
+            const msg = history[i];
+            if (!msg || msg.type === 'system_notice') continue;
+            if (msg.isMe) break;
+            count += 1;
+        }
     }
     return Math.min(999, count);
 }
@@ -1270,6 +1477,28 @@ function getWechatMessageSenderName(msg, char) {
         return (profile && profile.name) || '我';
     }
     return getWechatCharDisplayName(char);
+}
+
+function renderWechatXChatProfileIntro(char) {
+    if (!char || !isWechatXTheme()) return '';
+    const name = wcEscapeHtml(getWechatCharDisplayName(char));
+    const avatar = wcEscapeHtml(char.avatar || DEFAULT_AVATAR);
+    const handleSource = getWechatContactId(char) || String(char.name || 'contact').replace(/\s+/g, '').slice(0, 18) || 'contact';
+    const handle = wcEscapeHtml(handleSource.startsWith('@') ? handleSource : `@${handleSource}`);
+    const createdAt = char.importedAt || char.createdAt || char.addedAt || Date.now();
+    const date = new Date(createdAt);
+    const joined = Number.isNaN(date.getTime())
+        ? '加入于今天'
+        : `加入于 ${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    return `
+        <div class="wc-x-chat-profile-intro" onclick="openWechatContactProfile(${quoteWechatJsString(char.id)})">
+            <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
+            <strong>${name}</strong>
+            <span>${handle}</span>
+            <em>${wcEscapeHtml(joined)}</em>
+            <button type="button" onclick="event.stopPropagation();openWechatContactProfile(${quoteWechatJsString(char.id)})">查看个人资料</button>
+        </div>
+    `;
 }
 
 function buildWechatReplySnapshot(msg, char, msgIdx) {
@@ -4547,6 +4776,10 @@ function refreshChatView(char) {
     const migratedNarration = migrateWechatNarrationHistory(char);
     const migratedStickerDirectives = migrateWechatStickerDirectiveHistory(char);
     contentEl.innerHTML = '';
+    const hasRealChatMessage = history.some(msg => msg && msg.type !== 'system_notice');
+    if (isWechatXTheme() && !hasRealChatMessage) {
+        contentEl.insertAdjacentHTML('beforeend', renderWechatXChatProfileIntro(char));
+    }
     const history = char.history || [];
     const expanded = isWechatHistoryExpanded(char);
     let startIndex = 0;
@@ -6758,14 +6991,36 @@ function isWechatTelegramTheme() {
     return getWechatUiThemeId() === 'telegram';
 }
 
+function isWechatLineTheme() {
+    return getWechatUiThemeId() === 'line';
+}
+
+function isWechatXTheme() {
+    return getWechatUiThemeId() === 'hallowrok';
+}
+
+function getWechatXPeople() {
+    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat);
+}
+
 function renderWechatDiscoverTab() {
     const view = document.getElementById('wc-view-discover');
     if (!view) return;
     if (!window._wechatDefaultDiscoverHtml) window._wechatDefaultDiscoverHtml = view.innerHTML;
+    if (isWechatLineTheme()) {
+        renderLineHomePage(view);
+        return;
+    }
+    if (isWechatXTheme()) {
+        renderXNotificationsPage(view);
+        return;
+    }
     if (!isWechatTelegramTheme()) {
-        if (view.dataset.telegramPage === '1') {
+        if (view.dataset.telegramPage === '1' || view.dataset.linePage === '1' || view.dataset.xPage === '1') {
             view.innerHTML = window._wechatDefaultDiscoverHtml;
             delete view.dataset.telegramPage;
+            delete view.dataset.linePage;
+            delete view.dataset.xPage;
         }
         return;
     }
@@ -6774,6 +7029,7 @@ function renderWechatDiscoverTab() {
     const name = wcEscapeHtml(profile.name || '\u6211');
     const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
     view.dataset.telegramPage = '1';
+    delete view.dataset.linePage;
     view.innerHTML = `
         <div class="wc-telegram-page wc-telegram-settings-page">
             <div class="wc-telegram-top-profile">
@@ -6781,10 +7037,10 @@ function renderWechatDiscoverTab() {
                 <div><strong>${name}</strong><span>${bio}</span></div>
                 <button type="button" onclick="openWechatMeSettings()" aria-label="edit"><i class="ri-edit-2-line"></i></button>
             </div>
-            <div class="wc-telegram-confirm-card">
+            <button type="button" class="wc-telegram-confirm-card" onclick="openWechatUiThemeSettings()">
                 <i class="ri-shield-check-line"></i>
                 <div><strong>\u7535\u62a5\u98ce\u683c\u8bbe\u7f6e</strong><span>\u4fdd\u7559 Telegram \u7684\u767d\u8272\u5361\u7247\u3001\u7c89\u8272\u91cd\u70b9\u548c\u7d27\u51d1\u5217\u8868\u3002</span></div>
-            </div>
+            </button>
             <div class="wc-telegram-settings-list">
                 <button type="button" onclick="openWechatUiThemeSettings()"><b style="--tg-icon:#ff4aa2"><i class="ri-palette-line"></i></b><span>\u9875\u9762\u7f8e\u5316</span><em>\u4e3b\u9898</em></button>
                 <button type="button" onclick="openWechatFavorites()"><b style="--tg-icon:#f5a623"><i class="ri-bookmark-3-line"></i></b><span>\u6536\u85cf\u4e0e\u5907\u5fd8</span><em>\u6536\u85cf</em></button>
@@ -6796,6 +7052,237 @@ function renderWechatDiscoverTab() {
             <div class="wc-telegram-settings-actions">
                 <button type="button" onclick="openWechatMeSettings()">\u7f16\u8f91\u8d44\u6599</button>
                 <button type="button" onclick="openWechatUiThemeSettings()">\u5207\u6362\u4e3b\u9898</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderXNotificationsPage(view) {
+    const people = getWechatXPeople();
+    const unreadPeople = people
+        .map(char => ({ char, count: getTelegramChatUnreadCount(char), time: formatWechatChatListTime(char) }))
+        .filter(item => item.count > 0)
+        .sort((a, b) => b.count - a.count);
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    view.dataset.xPage = '1';
+    delete view.dataset.telegramPage;
+    delete view.dataset.linePage;
+    view.innerHTML = `
+        <div class="wc-x-page wc-x-notifications-page">
+            <div class="wc-x-page-head">
+                <img src="${wcEscapeHtml(profile.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+                <strong>通知</strong>
+                <button type="button" onclick="openWechatUiThemeSettings()" aria-label="设置"><i class="ri-settings-3-line"></i></button>
+            </div>
+            <div class="wc-x-tabs">
+                <button type="button" class="active" onclick="renderWechatDiscoverTab()">全部</button>
+                <button type="button" onclick="openWechatMoments()">已认证</button>
+                <button type="button" onclick="openWechatMoments()">提及</button>
+            </div>
+            <div class="wc-x-notification-list">
+                ${unreadPeople.length ? unreadPeople.map(item => `
+                    <button type="button" class="wc-x-notification-item" onclick="openChatFromContact(${quoteWechatJsString(item.char.id)})">
+                        <img src="${wcEscapeHtml(item.char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <span><strong>${wcEscapeHtml((item.char.chatConfig && item.char.chatConfig.nickname) || item.char.name || '联系人')}</strong><em>给你发来了 ${item.count > 99 ? '99+' : item.count} 条新私信</em></span>
+                        <time>${wcEscapeHtml(item.time)}</time>
+                    </button>
+                `).join('') : `
+                    <div class="wc-x-empty-block">
+                        <h2>这里暂时还没有通知</h2>
+                        <p>当角色点赞、评论你的动态，或者给你发送新消息时，会显示在这里。</p>
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+function renderXContacts(query = '') {
+    const list = document.getElementById('wc-contacts-list');
+    if (!list) return;
+    const rawQuery = String(query || '');
+    const q = rawQuery.trim().toLowerCase();
+    const people = getWechatXPeople();
+    const filtered = q ? people.filter(char => {
+        const haystack = [
+            (char.chatConfig && char.chatConfig.nickname) || char.name || '',
+            (char.chatConfig && char.chatConfig.signature) || '',
+            getWechatProfileBio(char) || '',
+            getChatPreview(char) || ''
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+    }) : people;
+    list.innerHTML = `
+        <div class="wc-x-page wc-x-search-page">
+            <div class="wc-x-page-head">
+                <button type="button" class="wc-x-backless" onclick="switchWcTab('chat')" aria-label="返回私信"><i class="ri-arrow-left-line"></i></button>
+                <div class="wc-x-search-input-wrap">
+                    <i class="ri-search-line"></i>
+                    <input value="${wcEscapeHtml(rawQuery)}" placeholder="搜索" oninput="renderContacts(this.value)">
+                </div>
+            </div>
+            <div class="wc-x-search-tabs"><span class="active">热门</span><span>最新</span><span>用户</span><span>媒体</span></div>
+            <div class="wc-x-contact-list">
+                ${filtered.length ? filtered.map(char => `
+                    <button type="button" class="wc-x-contact-item" onclick="openWechatContactProfile(${quoteWechatJsString(char.id)})">
+                        <img src="${wcEscapeHtml(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <span><strong>${wcEscapeHtml((char.chatConfig && char.chatConfig.nickname) || char.name || '联系人')}</strong><em>${wcEscapeHtml((char.chatConfig && char.chatConfig.signature) || getWechatProfileBio(char) || getChatPreview(char) || '点击查看资料')}</em></span>
+                        <i class="ri-more-line"></i>
+                    </button>
+                `).join('') : `
+                    <div class="wc-x-empty-block">
+                        <h2>没有找到相关用户</h2>
+                        <p>换个关键词，或者先导入角色卡添加联系人。</p>
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+function renderXMePage(page, profile) {
+    const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
+    const name = wcEscapeHtml(profile.name || '我');
+    const id = wcEscapeHtml(profile.wechatId || 'user');
+    const bio = wcEscapeHtml(profile.bio || '点击设置个性签名');
+    const coverStyle = profile.xCover ? `style="background-image:${getWechatCssUrl(profile.xCover)}"` : '';
+    const people = getWechatXPeople();
+    page.innerHTML = `
+        <div class="wc-x-page wc-x-home-page">
+            <button type="button" class="wc-x-home-cover" ${coverStyle} onclick="openWechatXCoverSheet()" aria-label="更换 X 背景"></button>
+            <div class="wc-x-profile-main">
+                <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
+                <button type="button" onclick="openWechatMeSettings()">编辑个人资料</button>
+            </div>
+            <div class="wc-x-profile-copy">
+                <strong data-wc-me-field="name">${name}</strong>
+                <span>@${id}</span>
+                <p data-wc-me-field="bio">${bio}</p>
+                <em>${people.length} 正在关注 · ${people.length ? Math.max(1, Math.round(people.length * 1.6)) : 0} 关注者</em>
+            </div>
+            <div class="wc-x-tabs profile">
+                <button type="button" class="active" onclick="openWechatMoments()">帖子</button>
+                <button type="button" onclick="openWechatMoments()">朋友圈回复</button>
+                <button type="button" onclick="openWechatMoments()">朋友圈</button>
+                <button type="button" onclick="openWechatFavorites()">喜欢</button>
+            </div>
+            <div class="wc-x-profile-actions">
+                <button type="button" onclick="openWechatMoments()"><i class="ri-quill-pen-line"></i><span>发布动态</span></button>
+                <button type="button" onclick="openWechatFavorites()"><i class="ri-bookmark-line"></i><span>书签</span></button>
+                <button type="button" onclick="openWechatUiThemeSettings()"><i class="ri-palette-line"></i><span>页面美化</span></button>
+                <button type="button" onclick="openWechatMeSettings()"><i class="ri-settings-3-line"></i><span>设置</span></button>
+            </div>
+        </div>
+    `;
+}
+
+function getLineThemePeople() {
+    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat);
+}
+
+function getLineBirthdayValues(char) {
+    const config = (char && char.chatConfig) || {};
+    const profile = getWechatAiContactProfile(char) || {};
+    return [
+        config.birthday,
+        config.birthDate,
+        config.birth,
+        config.profileBirthday,
+        config.contactProfile && config.contactProfile.birthday,
+        profile.birthday,
+        char && char.birthday,
+        char && char.birthDate,
+        char && char.birth,
+        char && char.profile && char.profile.birthday,
+        String(char && char.description || '').match(/(?:生日|出生|birth(?:day)?)[：:\s]*([12]\d{3}[-/.年]\d{1,2}[-/.月]\d{1,2}日?|\d{1,2}[-/.月]\d{1,2}日?)/i)?.[1]
+    ].filter(Boolean).map(value => String(value).trim());
+}
+
+function isLineBirthdayToday(value, today = new Date()) {
+    const raw = String(value || '').trim();
+    if (!raw) return false;
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const normalized = raw.replace(/[年月.]/g, '-').replace(/日/g, '').replace(/\//g, '-');
+    const dateMatch = normalized.match(/(?:^|\D)(?:(\d{4})-)?(\d{1,2})-(\d{1,2})(?:\D|$)/);
+    if (dateMatch) {
+        return Number(dateMatch[2]) === month && Number(dateMatch[3]) === day;
+    }
+    return new RegExp(`(?:^|\\D)${month}\\s*月\\s*${day}\\s*日(?:\\D|$)`).test(raw);
+}
+
+function getLineBirthdayPeople() {
+    const today = new Date();
+    return getLineThemePeople().filter(char => getLineBirthdayValues(char).some(value => isLineBirthdayToday(value, today)));
+}
+
+function getLineFavoritePeople() {
+    return getLineThemePeople()
+        .slice()
+        .sort((a, b) => getTelegramChatUnreadCount(b) - getTelegramChatUnreadCount(a))
+        .slice(0, 6);
+}
+
+function renderLineHomePage(view) {
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
+    const name = wcEscapeHtml(profile.name || '\u6211');
+    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
+    const people = getLineThemePeople();
+    const groups = (window.myCharacters || []).filter(char => char && char.isGroupChat);
+    const favorites = getLineFavoritePeople();
+    const birthdayPeople = getLineBirthdayPeople();
+    const favoriteHtml = favorites.map(char => `
+        <button type="button" class="wc-line-favorite" onclick="openChatFromContact(${quoteWechatJsString(char.id)})">
+            <img src="${wcEscapeHtml(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+            <span>${wcEscapeHtml((char.chatConfig && char.chatConfig.nickname) || char.name || '\u597d\u53cb')}</span>
+        </button>
+    `).join('');
+    view.dataset.linePage = '1';
+    delete view.dataset.telegramPage;
+    view.innerHTML = `
+        <div class="wc-line-page wc-line-home-page">
+            <div class="wc-line-home-top">
+                <div class="wc-line-home-profile">
+                    <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
+                    <button type="button" data-wc-me-field="bio">
+                        <strong>${name}</strong>
+                        <span>${bio}</span>
+                    </button>
+                </div>
+                <div class="wc-line-home-actions">
+                    <button type="button" onclick="showWechatToast('\u6682\u65e0\u65b0\u901a\u77e5')" aria-label="\u901a\u77e5"><i class="ri-notification-3-line"></i></button>
+                    <button type="button" onclick="openWechatGroupCreator()" aria-label="\u6dfb\u52a0\u597d\u53cb"><i class="ri-user-add-line"></i></button>
+                    <button type="button" onclick="openWechatMeSettings()" aria-label="\u8bbe\u7f6e"><i class="ri-settings-3-line"></i></button>
+                </div>
+            </div>
+            <div class="wc-line-home-search"><i class="ri-search-line"></i><span>\u641c\u7d22</span></div>
+            <div class="wc-line-section-list">
+                ${birthdayPeople.length ? `<button type="button" onclick="renderContacts()"><span>\u4eca\u65e5\u5bff\u661f</span><em>${birthdayPeople.length}</em></button>` : ''}
+                <button type="button" onclick="switchWcTab('chat')"><span>\u6211\u7684\u6700\u7231</span><em>${Math.max(1, favorites.length)}</em></button>
+                <button type="button" onclick="openWechatGroupCreator()"><span>\u7fa4\u7ec4</span><em>${groups.length}</em></button>
+                <button type="button" onclick="renderContacts()"><span>\u597d\u53cb</span><em>${people.length}</em></button>
+            </div>
+            ${favoriteHtml ? `<div class="wc-line-favorite-row">${favoriteHtml}</div>` : ''}
+            <div class="wc-line-service-card">
+                <div class="wc-line-section-title"><strong>\u670d\u52a1</strong><button type="button" onclick="openWechatUiThemeSettings()">\u7f16\u8f91</button></div>
+                <div class="wc-line-service-grid">
+                    <button type="button" onclick="openWechatStickerStore()"><i class="ri-emotion-happy-line"></i><span>\u8d34\u56fe\u5c0f\u94fa</span></button>
+                    <button type="button" onclick="openWechatUiThemeSettings()"><i class="ri-palette-line"></i><span>\u4e3b\u9898\u5c0f\u94fa</span></button>
+                    <button type="button" onclick="openWechatFavorites()"><i class="ri-shield-star-line"></i><span>\u5b98\u65b9\u5e10\u53f7</span></button>
+                    <button type="button" onclick="openWechatTakeout()"><i class="ri-taxi-line"></i><span>LINE TAXI</span></button>
+                    <button type="button" onclick="openApp('game')"><i class="ri-gamepad-line"></i><span>LINE GAME</span></button>
+                    <button type="button" onclick="openApp('music')"><i class="ri-music-2-line"></i><span>LINE MUSIC</span></button>
+                    <button type="button" onclick="openWechatMoments()"><i class="ri-tv-2-line"></i><span>LINE TV</span></button>
+                    <button type="button" onclick="openWechatPlusMenu(event)"><i class="ri-add-circle-line"></i><span>\u65b0\u589e</span></button>
+                </div>
+            </div>
+            <div class="wc-line-recommend-card">
+                <div class="wc-line-section-title"><strong>\u63a8\u8350\u8d44\u8baf</strong><button type="button" onclick="openWechatMoments()">\u66f4\u591a</button></div>
+                <div class="wc-line-recommend-row">
+                    <button type="button" onclick="openWechatMoments()"><b>\u597d\u53cb\u52a8\u6001</b><span>\u67e5\u770b\u89d2\u8272\u6700\u8fd1\u7684\u670b\u53cb\u5708\u7559\u8a00</span></button>
+                    <button type="button" onclick="openWechatShop()"><b>\u793c\u7269\u4e0e\u8d2d\u7269</b><span>\u4e70\u5230\u7684\u4e1c\u897f\u548c\u4ee3\u4ed8\u90fd\u5728\u8fd9\u91cc</span></button>
+                </div>
             </div>
         </div>
     `;
@@ -6833,16 +7320,16 @@ function renderTelegramContacts(query = '') {
         <div class="wc-telegram-page wc-telegram-contacts-page">
             <div class="wc-telegram-page-head">
                 <h2>\u8054\u7cfb\u4eba</h2>
-                <button type="button" onclick="openWechatGroupCreate()" aria-label="add"><i class="ri-user-add-line"></i></button>
+                <button type="button" onclick="openWechatGroupCreator()" aria-label="add"><i class="ri-user-add-line"></i></button>
             </div>
             <div class="wc-telegram-search"><i class="ri-search-line"></i><input value="${wcEscapeHtml(rawQuery)}" placeholder="\u641c\u7d22\u8054\u7cfb\u4eba" oninput="renderContacts(this.value)"></div>
             <div class="wc-telegram-contact-actions">
-                <button type="button" onclick="openWechatGroupCreate()"><b><i class="ri-group-line"></i></b><span>\u65b0\u5efa\u7fa4\u804a</span></button>
+                <button type="button" onclick="openWechatGroupCreator()"><b><i class="ri-group-line"></i></b><span>\u65b0\u5efa\u7fa4\u804a</span></button>
                 <button type="button" onclick="openWechatUiThemeSettings()"><b><i class="ri-palette-line"></i></b><span>\u9875\u9762\u7f8e\u5316</span></button>
             </div>
             <div class="wc-telegram-section-title">${q ? '\u641c\u7d22\u7ed3\u679c' : '\u6700\u8fd1\u8054\u7cfb\u4eba'}</div>
             <div class="wc-telegram-contact-card">${people || '<div class="wc-telegram-empty">\u6ca1\u6709\u627e\u5230\u8054\u7cfb\u4eba</div>'}</div>
-            <button type="button" class="wc-telegram-floating-add" onclick="openWechatGroupCreate()"><i class="ri-add-line"></i></button>
+            <button type="button" class="wc-telegram-floating-add" onclick="openWechatGroupCreator()"><i class="ri-add-line"></i></button>
         </div>
     `;
 }
@@ -6866,9 +7353,9 @@ function renderTelegramMePage(page, profile) {
                 <button type="button" onclick="openWechatMeSettings()"><i class="ri-settings-3-line"></i><span>\u8bbe\u7f6e</span></button>
             </div>
             <div class="wc-telegram-profile-card">
-                <button type="button" onclick="promptWechatMeField('name')"><span>\u6635\u79f0</span><strong>${name}</strong></button>
-                <button type="button" onclick="promptWechatMeField('wechatId')"><span>ID</span><strong>${id}</strong></button>
-                <button type="button" onclick="promptWechatMeField('bio')"><span>\u7b7e\u540d</span><strong>${bio}</strong></button>
+                <button type="button" data-wc-me-field="name"><span>\u6635\u79f0</span><strong>${name}</strong></button>
+                <button type="button" data-wc-me-field="wechatId"><span>ID</span><strong>${id}</strong></button>
+                <button type="button" data-wc-me-field="bio"><span>\u7b7e\u540d</span><strong>${bio}</strong></button>
             </div>
             <div class="wc-telegram-profile-tabs"><button class="active">\u52a8\u6001</button><button>\u5df2\u5f52\u6863\u7684\u52a8\u6001</button></div>
             <div class="wc-telegram-profile-empty">
@@ -6880,10 +7367,94 @@ function renderTelegramMePage(page, profile) {
         </div>
     `;
 }
+
+function renderLineContacts(query = '') {
+    const list = document.getElementById('wc-contacts-list');
+    if (!list) return;
+    const rawQuery = String(query || '');
+    const q = rawQuery.trim().toLowerCase();
+    const chars = getWechatGroupContacts();
+    const groups = (window.myCharacters || []).filter(char => char && char.isGroupChat);
+    const filtered = q ? chars.filter(c => {
+        const haystack = [
+            (c.chatConfig && c.chatConfig.nickname) || c.name || '',
+            (c.chatConfig && c.chatConfig.signature) || '',
+            getWechatProfileBio(c) || '',
+            getWechatContactId(c) || ''
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+    }) : chars;
+    const peopleHtml = filtered.map(c => `
+        <button type="button" class="wc-line-contact-row" onclick="openWechatContactProfile(${quoteWechatJsString(c.id)})">
+            <img src="${wcEscapeHtml(c.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
+            <span><strong>${wcEscapeHtml((c.chatConfig && c.chatConfig.nickname) || c.name || '\u597d\u53cb')}</strong><em>${wcEscapeHtml((c.chatConfig && c.chatConfig.signature) || getWechatProfileBio(c) || '\u70b9\u51fb\u67e5\u770b\u8d44\u6599')}</em></span>
+            <i class="ri-arrow-right-s-line"></i>
+        </button>
+    `).join('');
+    list.innerHTML = `
+        <div class="wc-line-page wc-line-contacts-page">
+            <div class="wc-line-page-head">
+                <h2>\u597d\u53cb</h2>
+                <div>
+                    <button type="button" onclick="openWechatGroupCreator()" aria-label="\u6dfb\u52a0"><i class="ri-user-add-line"></i></button>
+                    <button type="button" onclick="openWechatSearch()" aria-label="\u641c\u7d22"><i class="ri-search-line"></i></button>
+                </div>
+            </div>
+            <div class="wc-line-home-search"><i class="ri-search-line"></i><input value="${wcEscapeHtml(rawQuery)}" placeholder="\u641c\u7d22\u597d\u53cb" oninput="renderContacts(this.value)"></div>
+            <div class="wc-line-section-list compact">
+                <button type="button" onclick="openWechatGroupCreator()"><span>\u7fa4\u7ec4</span><em>${groups.length}</em></button>
+                <button type="button" onclick="switchWcTab('chat')"><span>\u6700\u8fd1\u804a\u5929</span><em>${chars.length}</em></button>
+                <button type="button" onclick="openWechatUiThemeSettings()"><span>\u4e3b\u9898\u4e0e\u8bbe\u7f6e</span><em><i class="ri-arrow-right-s-line"></i></em></button>
+            </div>
+            <div class="wc-line-section-title"><strong>${q ? '\u641c\u7d22\u7ed3\u679c' : '\u597d\u53cb'}</strong><small>${filtered.length}</small></div>
+            <div class="wc-line-contact-list">${peopleHtml || '<div class="wc-line-empty">\u6ca1\u6709\u627e\u5230\u597d\u53cb</div>'}</div>
+        </div>
+    `;
+}
+
+function renderLineMePage(page, profile) {
+    const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
+    const name = wcEscapeHtml(profile.name || '\u6211');
+    const id = wcEscapeHtml(profile.wechatId || '');
+    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u7b7e\u540d');
+    page.innerHTML = `
+        <div class="wc-line-page wc-line-wallet-page">
+            <div class="wc-line-page-head">
+                <h2>\u8bbe\u7f6e</h2>
+                <div>
+                    <button type="button" onclick="openWechatUiThemeSettings()" aria-label="\u4e3b\u9898"><i class="ri-palette-line"></i></button>
+                    <button type="button" onclick="openWechatMeSettings()" aria-label="\u8bbe\u7f6e"><i class="ri-settings-3-line"></i></button>
+                </div>
+            </div>
+            <div class="wc-line-me-card">
+                <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
+                <button type="button" data-wc-me-field="bio">
+                    <strong>${name}</strong>
+                    <span>ID: ${id || 'user'}</span>
+                    <em>${bio}</em>
+                </button>
+                <i class="ri-arrow-right-s-line"></i>
+            </div>
+            <div class="wc-line-wallet-grid">
+                <button type="button" onclick="openWechatShop()"><i class="ri-shopping-bag-3-line"></i><span>\u8d2d\u7269</span></button>
+                <button type="button" onclick="openWechatTakeout()"><i class="ri-restaurant-2-line"></i><span>\u5916\u5356</span></button>
+                <button type="button" onclick="openWechatFavorites()"><i class="ri-bookmark-3-line"></i><span>\u6536\u85cf</span></button>
+                <button type="button" onclick="openWechatMoments()"><i class="ri-image-2-line"></i><span>\u52a8\u6001</span></button>
+            </div>
+            <div class="wc-line-settings-list">
+                <button type="button" onclick="openWechatUiThemeSettings()"><b><i class="ri-palette-line"></i></b><span>\u9875\u9762\u7f8e\u5316</span><em>Line \u4e3b\u9898</em></button>
+                <button type="button" onclick="openWechatStickerStore()"><b><i class="ri-emotion-happy-line"></i></b><span>\u8d34\u56fe\u4e0e\u8868\u60c5</span><em>\u8868\u60c5\u5305</em></button>
+                <button type="button" onclick="openWechatMeSettings()"><b><i class="ri-user-settings-line"></i></b><span>\u6211\u7684\u8d44\u6599</span><em>\u7f16\u8f91</em></button>
+            </div>
+        </div>
+    `;
+}
 // === End Telegram reference tab renderers 20260525 ===
 
 function renderContacts(query = '') {
     if (isWechatTelegramTheme()) { renderTelegramContacts(query); return; }
+    if (isWechatLineTheme()) { renderLineContacts(query); return; }
+    if (isWechatXTheme()) { renderXContacts(query); return; }
     const list = document.getElementById('wc-contacts-list');
     if (!list) return;
     const rawQuery = String(query || '');
@@ -7372,6 +7943,8 @@ function renderMePage() {
         saveUserProfile(profile);
     }
     if (isWechatTelegramTheme()) { renderTelegramMePage(page, profile); return; }
+    if (isWechatLineTheme()) { renderLineMePage(page, profile); return; }
+    if (isWechatXTheme()) { renderXMePage(page, profile); return; }
     page.innerHTML = `
         <div class="wc-me-profile">
             <img class="wc-me-avatar wc-me-editable" src="${profile.avatar || DEFAULT_AVATAR}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()" title="更换头像">
@@ -7434,24 +8007,115 @@ function uploadWechatMeAvatar(input) {
     hideActionSheet();
 }
 
+function openWechatXCoverSheet() {
+    showWechatActionSheet(`
+        <div class="wc-sheet-item" onclick="promptWechatXCoverUrl()"><i class="ri-link"></i><span>使用图床 URL 更换背景</span></div>
+        <div class="wc-sheet-item" onclick="document.getElementById('wc-x-cover-file').click()"><i class="ri-image-add-line"></i><span>从本地照片选择背景</span><input id="wc-x-cover-file" type="file" accept="image/*" style="display:none" onchange="uploadWechatXCover(this)"></div>
+        <div class="wc-sheet-item" onclick="resetWechatXCover()"><i class="ri-refresh-line"></i><span>恢复默认背景</span></div>
+    `);
+}
+
+function promptWechatXCoverUrl() {
+    hideActionSheet();
+    const profile = getUserProfile();
+    const url = prompt('输入 X 背景图床 URL', profile.xCover || '');
+    if (!url || !url.trim()) return;
+    profile.xCover = url.trim();
+    saveUserProfile(profile);
+    renderMePage();
+    showWechatToast('背景已更新');
+}
+
+function uploadWechatXCover(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const profile = getUserProfile();
+        profile.xCover = e.target.result;
+        saveUserProfile(profile);
+        renderMePage();
+        showWechatToast('背景已更新');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+    hideActionSheet();
+}
+
+function resetWechatXCover() {
+    hideActionSheet();
+    const profile = getUserProfile();
+    profile.xCover = '';
+    saveUserProfile(profile);
+    renderMePage();
+    showWechatToast('背景已恢复默认');
+}
+window.openWechatXCoverSheet = openWechatXCoverSheet;
+window.promptWechatXCoverUrl = promptWechatXCoverUrl;
+window.uploadWechatXCover = uploadWechatXCover;
+window.resetWechatXCover = resetWechatXCover;
+
 function promptWechatMeField(field) {
     const profile = getUserProfile();
     const config = {
-        name: ['修改昵称', profile.name || '我', 24],
-        wechatId: ['修改微信号', profile.wechatId || '', 32],
-        bio: ['修改个性签名', profile.bio || '', 120]
+        name: { title: '修改昵称', label: '昵称', value: profile.name || '我', max: 24, placeholder: '我', multiline: false },
+        wechatId: { title: '修改 ID', label: 'ID', value: profile.wechatId || '', max: 32, placeholder: 'user_xxxxxx', multiline: false },
+        bio: { title: '修改签名', label: '签名', value: profile.bio || '', max: 120, placeholder: '点击设置签名', multiline: true }
     }[field];
     if (!config) return;
-    const value = prompt(config[0], config[1]);
-    if (value === null) return;
-    const next = value.trim().slice(0, config[2]);
+    const control = config.multiline
+        ? `<textarea id="wc-me-field-editor" maxlength="${config.max}" placeholder="${wcEscapeHtml(config.placeholder)}">${wcEscapeHtml(config.value)}</textarea>`
+        : `<input id="wc-me-field-editor" maxlength="${config.max}" value="${wcEscapeHtml(config.value)}" placeholder="${wcEscapeHtml(config.placeholder)}">`;
+    openWechatFeatureScreen(config.title, `
+        <div class="wc-me-field-editor-page">
+            <label class="wc-compose-field">
+                <span>${wcEscapeHtml(config.label)}</span>
+                ${control}
+            </label>
+            <button type="button" class="wc-me-settings-save" onclick="saveWechatMeField(${quoteWechatJsString(field)})">保存</button>
+        </div>
+    `);
+    setWechatFeatureLeftText('取消', 'closeWechatFeatureScreen()');
+    requestAnimationFrame(() => document.getElementById('wc-me-field-editor')?.focus());
+}
+
+function saveWechatMeField(field) {
+    const profile = getUserProfile();
+    const config = {
+        name: { max: 24 },
+        wechatId: { max: 32 },
+        bio: { max: 120 }
+    }[field];
+    if (!config) return;
+    const value = document.getElementById('wc-me-field-editor')?.value || '';
+    const next = value.trim().slice(0, config.max);
     if (field === 'name') profile.name = next || '我';
     if (field === 'wechatId') profile.wechatId = next || profile.wechatId;
     if (field === 'bio') profile.bio = next;
     saveUserProfile(profile);
     renderMePage();
+    renderChatList();
+    if (isWechatTelegramTheme() || isWechatLineTheme()) {
+        renderContacts();
+        renderWechatDiscoverTab();
+    }
+    closeWechatFeatureScreen();
     showWechatToast('资料已更新');
 }
+window.promptWechatMeField = promptWechatMeField;
+window.saveWechatMeField = saveWechatMeField;
+window.selectWechatUiTheme = selectWechatUiTheme;
+window.openWechatUiThemeSettings = openWechatUiThemeSettings;
+window.renderContacts = renderContacts;
+window.renderMePage = renderMePage;
+
+document.addEventListener('click', event => {
+    const fieldButton = event.target.closest('[data-wc-me-field]');
+    if (!fieldButton || !fieldButton.closest('#app-wechat-window')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    promptWechatMeField(fieldButton.dataset.wcMeField || '');
+}, true);
 
 // ========== 发现页：朋友圈 / 视频号 / 直播 / 购物 ==========
 
