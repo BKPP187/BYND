@@ -10808,7 +10808,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
     const imageTimeoutMs = Math.max(60000, Number(options.timeoutMs || 180000));
     const enhancedPrompt = [
         String(prompt || '').trim(),
-        referenceImage ? '需要尽量保持参考图中的角色脸型、发型、气质和整体辨识度。' : ''
+        referenceImage ? '参考图是最高优先级的外观与画风来源：必须保持参考图中的角色脸型、发型发色、眼睛、年龄感、气质、配色和整体辨识度。如果参考图是动漫、插画、头像或二次元风格，必须保持同类画风，不要真人化。' : ''
     ].filter(Boolean).join('\n');
     const buildBody = includeReference => {
         const body = {
@@ -10819,7 +10819,9 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         };
         if (includeReference && referenceImage) {
             body.image = referenceImage;
+            body.image_url = referenceImage;
             body.reference_image = referenceImage;
+            body.reference_image_url = referenceImage;
             body.reference_images = [referenceImage];
             body.images = [referenceImage];
         }
@@ -10958,16 +10960,21 @@ function getWechatImageReferenceForChar(char) {
 function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
     const config = (char && char.chatConfig) || {};
     const displayName = char ? getWechatCharDisplayName(char) : '角色';
+    const rawPrompt = String(prompt || caption || '角色自拍').trim();
+    const wantsLiveAction = /(?:真人|现实|三次元|写实真人|真实人像|真人照片|现实照片|现实自拍|live\s*action|photorealistic human)/i.test(rawPrompt);
     return [
         `任务：生成一张${displayName}在微信聊天里发给用户的真实照片。`,
-        `这张图必须画的是角色本人，不是泛泛的插画，也不要生成聊天截图。`,
-        `用户/剧情要求：${String(prompt || caption || '角色自拍').trim()}`,
+        `这张图必须画的是角色本人，不是泛泛的路人、网图、真人帅哥或聊天截图。`,
+        `用户/剧情要求：${rawPrompt}`,
         `角色显示名：${displayName}`,
         config.signature ? `角色公开签名/气质：${config.signature}` : '',
         char && char.description ? `角色卡/人设：${String(char.description).slice(0, 2200)}` : '',
-        `如果提供了参考图，必须把参考图作为角色外观锚点：保持同一张脸、发型、发色、眼睛、年龄感、气质和辨识度，只改变姿势、表情、光线、构图和场景。`,
-        `画面要求：手机照片质感，自然光线，真实自拍或随手拍构图，主体清楚，符合当前聊天语境。`,
-        `禁止：文字水印、聊天气泡、界面截图、扭曲手指、换脸、换发型、换角色。`
+        `参考图规则：如果提供了参考图，参考图优先级高于所有文字描述。必须保持参考图里的同一张脸、发型发色、刘海/眼睛特征、肤色、年龄感、气质、服饰倾向、配色和整体辨识度，只允许改变姿势、表情、光线、构图和场景。`,
+        wantsLiveAction
+            ? `用户明确要求真人/现实风格时，才可以把参考图转成写实真人，但仍必须保留参考图的脸部结构、发型、五官气质和辨识度。`
+            : `如果参考图是动漫、插画、头像、半身人设图或二次元风格，必须保持二次元/插画画风，不要真人化，不要生成三次元真人照片。`,
+        `画面要求：像角色在微信里发来的新图片，主体清楚，构图自然，符合当前聊天语境。`,
+        `禁止：文字水印、聊天气泡、界面截图、扭曲手指、换脸、换发型、换角色、生成与参考图无关的真人。`
     ].filter(Boolean).join('\n');
 }
 
