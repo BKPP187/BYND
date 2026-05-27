@@ -13508,7 +13508,7 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone6';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-ai-phone-patch1';
 
 function getWechatAiPhonePersonaSource(char) {
     return getWechatCharacterPersonaText(char, 12000);
@@ -13859,26 +13859,25 @@ function buildWechatAiPhoneFallback(char) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice');
     const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '\u8fd8\u6ca1\u6709\u65b0\u6d88\u606f';
-    const personaPack = getWechatAiPhonePersonaFallbackPack(char, userName, { ...(fields || {}), lastMessage: lastText });
     return {
         updatedAt: Date.now(),
         schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: 'local',
-        chats: personaPack.chats || [
+        chats: [
             { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) }
         ],
-        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), personaPack.memos || []),
-        browser: personaPack.browser || [],
-        wallet: personaPack.wallet || '正在根据角色卡和世界书同步钱包数据',
-        footprints: personaPack.footprints || [],
-        usageRecords: personaPack.usageRecords || [],
-        walletRecords: personaPack.walletRecords || [],
-        scheduleRecords: personaPack.scheduleRecords || [],
-        shoppingRecords: personaPack.shoppingRecords || [],
-        takeoutRecords: personaPack.takeoutRecords || [],
-        gameRecords: personaPack.gameRecords || [],
-        diary: fields.miniDiary || personaPack.diary || '',
-        diaryLetters: personaPack.diaryLetters || []
+        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), []),
+        browser: [],
+        wallet: '正在根据角色卡和世界书同步钱包数据',
+        footprints: [],
+        usageRecords: [],
+        walletRecords: [],
+        scheduleRecords: [],
+        shoppingRecords: [],
+        takeoutRecords: [],
+        gameRecords: [],
+        diary: fields.miniDiary || '',
+        diaryLetters: []
     };
 }
 
@@ -14398,6 +14397,29 @@ function mergeWechatAiPhoneRows(rows, fallback = [], limit = 8) {
     return Array.isArray(fallback) ? fallback.filter(Boolean).slice(0, limit) : [];
 }
 
+function mergeWechatAiPhoneRawPatch(base, patch) {
+    const source = base && typeof base === 'object' ? { ...base } : {};
+    const data = (patch && patch.phoneData && typeof patch.phoneData === 'object' && patch.phoneData)
+        || (patch && patch.aiPhone && typeof patch.aiPhone === 'object' && patch.aiPhone)
+        || (patch && patch.iphone && typeof patch.iphone === 'object' && patch.iphone)
+        || (patch && patch.data && typeof patch.data === 'object' && patch.data)
+        || patch;
+    if (!data || typeof data !== 'object') return source;
+    Object.keys(data).forEach(key => {
+        const value = data[key];
+        if (Array.isArray(value)) {
+            if (value.length) source[key] = value;
+            return;
+        }
+        if (value && typeof value === 'object') {
+            source[key] = { ...(source[key] && typeof source[key] === 'object' ? source[key] : {}), ...value };
+            return;
+        }
+        if (String(value || '').trim()) source[key] = value;
+    });
+    return source;
+}
+
 function normalizeWechatAiPhoneSnapshot(raw, char) {
     const rawData = raw && typeof raw === 'object' ? raw : {};
     const data = (rawData.phoneData && typeof rawData.phoneData === 'object' && rawData.phoneData)
@@ -14533,7 +14555,7 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 数组格式：chats[{name,text,time}]；memos[string]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,content}]。
 数量：除 gameRecords 外，每个数组 2-3 条；chats 第一条必须是用户；diaryLetters 2 条。每个字符串 8-38 字，diary/content 最多 90 字。
-规则：不能空白；不能写未授权查看；不能套模板或固定低余额；要符合身份、职业、经济水平、世界观、关系网和最近聊天。先判断角色身份再生成：副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；偶像/艺人才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
+规则：不能空白；不能写未授权查看；不能套模板或固定低余额；必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
@@ -14551,25 +14573,28 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
                     if (retry && retry.ok) parsed = parseWechatJsonObject(retry.content);
                 }
                 if (parsed) {
-                    snapshot = normalizeWechatAiPhoneSnapshot(parsed, char);
+                    let rawPhoneData = parsed;
+                    snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
                     const gap = getWechatAiPhoneSnapshotGapSummary(snapshot);
                     if (gap) {
-                        const retry = await callChatApi(buildMessages(`缺项：${gap}。补齐空数组，仍然保持短 JSON。`), { max_tokens: 2000, temperature: 0.62 });
+                        const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设和世界书定制补齐；不要重写已有字段，不要套模板。`), { max_tokens: 2000, temperature: 0.62 });
                         if (retry && retry.ok) {
                             const retryParsed = parseWechatJsonObject(retry.content);
-                            if (retryParsed) snapshot = normalizeWechatAiPhoneSnapshot(retryParsed, char);
+                            if (retryParsed) {
+                                rawPhoneData = mergeWechatAiPhoneRawPatch(rawPhoneData, retryParsed);
+                                snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
+                            }
                         }
                     }
                     const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
                     if (finalGap) {
-                        snapshot = normalizeWechatAiPhoneSnapshot(parsed || {}, char);
                         snapshot.generatedBy = 'api';
-                        snapshot.syncRecovered = `已按角色资料自动补齐：${finalGap}`;
+                        snapshot.syncRecovered = `AI 已按角色资料生成，仍有部分字段偏少：${finalGap}`;
                     }
                 } else {
-                    snapshot = normalizeWechatAiPhoneSnapshot({}, char);
-                    snapshot.generatedBy = 'api';
-                    snapshot.syncRecovered = 'AI JSON 被截断，已按角色资料自动补齐。';
+                    snapshot = buildWechatAiPhoneFallback(char);
+                    snapshot.generatedBy = 'error';
+                    snapshot.syncError = 'AI 返回的 JSON 不完整，自动重试后仍无法解析。';
                     console.warn('ai phone json parse failed:', result.content);
                 }
             } else {
