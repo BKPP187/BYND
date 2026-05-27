@@ -6440,6 +6440,50 @@ const CharacterCardParser = {
         return null;
     },
 
+    stringifyField: function(value) {
+        if (value == null) return '';
+        if (Array.isArray(value)) return value.map(item => this.stringifyField(item)).filter(Boolean).join('\n');
+        if (typeof value === 'object') {
+            if (value.content || value.text || value.value || value.entry) {
+                return String(value.content || value.text || value.value || value.entry || '').trim();
+            }
+            try { return JSON.stringify(value); } catch (_) { return ''; }
+        }
+        return String(value).trim();
+    },
+
+    buildDescription: function(data) {
+        const fields = [
+            ['description', '角色描述'],
+            ['personality', '性格'],
+            ['scenario', '场景'],
+            ['mes_example', '对话样例'],
+            ['system_prompt', '系统提示词'],
+            ['post_history_instructions', '后置指令'],
+            ['creator_notes', '作者备注'],
+            ['character_note', '角色备注']
+        ];
+        const parts = [];
+        fields.forEach(([key, label]) => {
+            const value = this.stringifyField(this.findField(data, [key]));
+            if (value) parts.push(`【${label}】\n${value}`);
+        });
+        return parts.join('\n\n') || this.stringifyField(this.findField(data, ['description']));
+    },
+
+    normalizeWorldBook: function(value) {
+        const book = value && value.entries ? value.entries : value;
+        if (!Array.isArray(book)) return [];
+        return book.map(entry => {
+            if (!entry || typeof entry !== 'object') return null;
+            return {
+                ...entry,
+                key: entry.key || entry.keys || entry.name || entry.title || '',
+                content: entry.content || entry.text || entry.entry || entry.value || entry.comment || ''
+            };
+        }).filter(entry => entry && entry.content);
+    },
+
     parse: function(arrayBuffer) {
         const dataView = new DataView(arrayBuffer);
         if (dataView.getUint32(0) !== 0x89504E47) throw new Error("不是 PNG");
@@ -6521,13 +6565,15 @@ const CharacterCardParser = {
                                     };
                                 }).filter(s => s.regex && s.regex.trim() !== "");
 
+                                const characterBook = this.findField(d, ['character_book', 'characterBook'])
+                                    || this.findField(raw, ['character_book', 'characterBook']);
                                 charData = {
                                     name: d.name,
-                                    description: d.description,
+                                    description: this.buildDescription(d),
                                     first_mes: d.first_mes,
                                     alternates: d.alternate_greetings || [],
                                     avatar: "", 
-                                    worldBook: d.character_book?.entries || d.character_book || [],
+                                    worldBook: this.normalizeWorldBook(characterBook),
                                     regex: normalizedScripts 
                                 };
                             } catch(e) { console.error("JSON解析失败", e); }
@@ -6915,7 +6961,7 @@ function saveCharactersToStorage() {
             try {
                 const data = window.myCharacters.map(char => ({
                     id: char.id, name: char.name, description: char.description || '', avatar: '',
-                    lastMsg: char.lastMsg, worldBook: [], regex: char.regex || [],
+                    lastMsg: char.lastMsg, worldBook: char.worldBook || [], regex: char.regex || [],
                     alternates: char.alternates || [],
                     first_mes_original: char.first_mes_original || '',
                     first_mes: char.first_mes || '',
@@ -12986,12 +13032,36 @@ function buildWechatWorldBookPrompt(char, limit = 30) {
         .filter(entry => entry && entry.enabled !== false)
         .slice(0, limit)
         .map(entry => {
-            const title = entry.name || entry.title || entry.key || '世界书';
-            const content = entry.content || entry.text || entry.comment || '';
+            const title = entry.name || entry.title || entry.key || entry.keys || entry.keyword || '世界书';
+            const content = entry.content || entry.text || entry.entry || entry.value || entry.comment || entry.description || '';
             return stripWechatPromptText(`${title}：${content}`, 420);
         })
         .filter(Boolean);
     return enabled.length ? `【世界书】\n${enabled.join('\n')}` : '';
+}
+
+function getWechatCharacterPersonaText(char, maxLength = 10000) {
+    if (!char) return '';
+    const parts = [];
+    const push = (label, value, limit = 2200) => {
+        const text = stripWechatPromptText(value, limit);
+        if (text) parts.push(`【${label}】\n${text}`);
+    };
+    push('角色描述', char.description, 5200);
+    push('性格', char.personality, 1800);
+    push('场景', char.scenario, 1800);
+    push('对话样例', char.mes_example || char.mesExample, 2200);
+    push('系统提示词', char.system_prompt || char.systemPrompt, 2200);
+    push('后置指令', char.post_history_instructions || char.postHistoryInstructions, 1800);
+    push('作者备注', char.creator_notes || char.creatorNotes || char.character_note || char.characterNote, 1600);
+    push('原始开场', char.first_mes_original || char.first_mes, 1200);
+    if (Array.isArray(char.alternates) && char.alternates.length) {
+        push('备选开场/语气样例', char.alternates.slice(0, 5).join('\n'), 2200);
+    }
+    const worldBook = buildWechatWorldBookPrompt(char, 30);
+    if (worldBook) parts.push(worldBook);
+    const joined = parts.join('\n\n');
+    return joined.length > maxLength ? `${joined.slice(0, maxLength)}\n\n【以上角色卡内容已自动截断，保留核心设定。】` : joined;
 }
 
 function getWechatMessagePromptContent(msg) {
@@ -13185,7 +13255,7 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
             const previousStatus = buildWechatPreviousAiStatusPrompt(char);
             const worldBookAnchor = buildWechatWorldBookPrompt(char);
             const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
-            const characterCard = stripWechatPromptText(char.description || '', 3000);
+            const characterCard = getWechatCharacterPersonaText(char, 6500);
             const result = await callChatApi([
                 {
                     role: 'system',
@@ -13411,15 +13481,10 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone2';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone4';
 
 function getWechatAiPhonePersonaSource(char) {
-    return [
-        char && char.description,
-        Array.isArray(char && char.worldBook)
-            ? char.worldBook.map(entry => `${entry.key || entry.keys || entry.name || ''} ${entry.content || entry.entry || entry.value || entry.text || ''}`).join('\n')
-            : ''
-    ].join('\n');
+    return getWechatCharacterPersonaText(char, 12000);
 }
 
 function isWechatAiPhoneOfficeTemplateText(value) {
@@ -13485,20 +13550,33 @@ function setWechatAiPhoneUserRemark(char, value) {
     return next;
 }
 
+function stringifyWechatAiPhoneRecordValue(value) {
+    if (value == null) return '';
+    if (Array.isArray(value)) {
+        return value.map(item => stringifyWechatAiPhoneRecordValue(item)).filter(Boolean).join('、');
+    }
+    if (typeof value === 'object') {
+        const direct = value.title || value.name || value.label || value.product || value.item || value.dish || value.food || value.shop || value.store || value.amount || value.price || value.status || value.text || value.content || value.detail || value.description;
+        if (direct != null) return stringifyWechatAiPhoneRecordValue(direct);
+        try { return JSON.stringify(value); } catch (_) { return ''; }
+    }
+    return String(value);
+}
+
 function normalizeWechatAiPhoneRecordList(value, fallback = [], limit = 8) {
     const parseRecord = (item, index) => {
         if (!item) return null;
         if (typeof item === 'object') {
             const title = stripWechatPromptText(
-                item.title || item.name || item.place || item.location || item.app || item.application || item.label || item.text || '',
+                stringifyWechatAiPhoneRecordValue(item.title || item.name || item.place || item.location || item.app || item.application || item.label || item.shop || item.store || item.merchant || item.product || item.item || item.destination || item.contact || item.dish || item.food || item.restaurant || item['标题'] || item['名称'] || item['地点'] || item['位置'] || item['店铺'] || item['商品'] || item['菜品'] || item['App名'] || item.text || ''),
                 40
             );
             const detail = stripWechatPromptText(
-                item.detail || item.address || item.reason || item.summary || item.note || item.description || item.text || '',
+                stringifyWechatAiPhoneRecordValue(item.detail || item.address || item.reason || item.summary || item.note || item.description || item.items || item.content || item.activity || item.purpose || item.behavior || item.action || item['详情'] || item['说明'] || item['原因'] || item['内容'] || item['商品列表'] || item['菜品列表'] || item['使用行为'] || item.text || ''),
                 92
             );
             const meta = stripWechatPromptText(
-                item.meta || item.time || item.duration || item.lastUsed || item.count || item.value || '',
+                stringifyWechatAiPhoneRecordValue(item.meta || item.time || item.date || item.duration || item.lastUsed || item.count || item.value || item.amount || item.price || item.status || item['时间'] || item['日期'] || item['时长'] || item['金额'] || item['价格'] || item['状态'] || ''),
                 20
             );
             if (!title && !detail && !meta) return null;
@@ -13529,6 +13607,22 @@ function normalizeWechatAiPhoneRecordList(value, fallback = [], limit = 8) {
 function hasWechatAiPhoneSnapshotField(snapshot, keys) {
     if (!snapshot || typeof snapshot !== 'object') return false;
     return keys.some(key => Object.prototype.hasOwnProperty.call(snapshot, key));
+}
+
+function pickWechatAiPhoneField(data, keys) {
+    if (!data || typeof data !== 'object') return undefined;
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] != null) return data[key];
+    }
+    const lowerMap = Object.keys(data).reduce((map, key) => {
+        map[key.toLowerCase()] = key;
+        return map;
+    }, {});
+    for (const key of keys) {
+        const actual = lowerMap[String(key).toLowerCase()];
+        if (actual && data[actual] != null) return data[actual];
+    }
+    return undefined;
 }
 
 function isWechatAiPhoneScheduleNarrative(value) {
@@ -13616,7 +13710,7 @@ function getWechatAiPhoneFootprintRows(snapshot, char) {
     if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && snapshot.footprints, [], 6);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['footprints', 'traces', 'locations', '足迹', '地点记录']) && !rawRows.length) return [];
-    if (rawRows.some(isWechatAiPhonePlaceLike)) return rawRows.slice(0, 5);
+    if (rawRows.length) return rawRows.slice(0, 5);
     const status = getWechatAiStatusSnapshot(char);
     return getWechatAiPhoneLikelyPlaceRows(char, (status && status.fields) || {}, status).slice(0, 5);
 }
@@ -13952,9 +14046,14 @@ function getWechatAiPhoneAvatarHtml(src, fallbackText, className = '') {
 }
 
 function normalizeWechatAiPhoneSnapshot(raw, char) {
-    const data = raw && typeof raw === 'object' ? raw : {};
+    const rawData = raw && typeof raw === 'object' ? raw : {};
+    const data = (rawData.phoneData && typeof rawData.phoneData === 'object' && rawData.phoneData)
+        || (rawData.aiPhone && typeof rawData.aiPhone === 'object' && rawData.aiPhone)
+        || (rawData.iphone && typeof rawData.iphone === 'object' && rawData.iphone)
+        || (rawData.data && typeof rawData.data === 'object' && rawData.data)
+        || rawData;
     const fallback = buildWechatAiPhoneFallback(char);
-    const explicitRemark = stripWechatPromptText(data.userRemark || data.userAlias || data.userContactName || data['用户备注'] || data['用户通讯录备注'], 24);
+    const explicitRemark = stripWechatPromptText(pickWechatAiPhoneField(data, ['userRemark', 'userAlias', 'userContactName', 'userNickname', 'savedName', 'remarkForUser', '用户备注', '用户通讯录备注', '给用户的备注']), 24);
     const userDisplayName = explicitRemark ? setWechatAiPhoneUserRemark(char, explicitRemark) : getWechatAiPhoneUserRemark(char);
     const reservedByndNames = new Set((window.myCharacters || [])
         .filter(item => item && item.id !== (char && char.id))
@@ -13975,7 +14074,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         return list.length ? list : fallback.chats;
     };
 
-    const chats = normalizeChats(data.chats || data.chatList || data['聊天列表']);
+    const chats = normalizeChats(pickWechatAiPhoneField(data, ['chats', 'chatList', 'contacts', 'messages', 'wechatChats', 'imessages', '微信', '信息', '聊天列表', '通讯录']));
     if (chats.length) chats[0].name = userDisplayName;
 
     return {
@@ -13984,19 +14083,55 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         generatedBy: raw ? 'api' : 'local',
         userRemark: userDisplayName,
         chats,
-        memos: normalizeWechatTextList(data.memos || data.memo || data['备忘录'], fallback.memos),
-        browser: getWechatAiPhoneBrowserRows({ browser: data.browser || data.browserHistory || data['浏览器'] }, char),
-        wallet: getWechatAiPhoneWalletSummary({ wallet: data.wallet || data['钱包'] || fallback.wallet }, char),
-        footprints: normalizeWechatAiPhoneRecordList(data.footprints || data.traces || data.locations || data['足迹'] || data['地点记录'], fallback.footprints, 6),
-        usageRecords: normalizeWechatAiPhoneRecordList(data.usageRecords || data.usage || data.appUsage || data['使用记录'] || data['应用使用'], fallback.usageRecords, 10),
-        walletRecords: normalizeWechatAiPhoneRecordList(data.walletRecords || data.bills || data.transactions || data['钱包记录'] || data['账单'], [], 8),
-        scheduleRecords: getWechatAiPhoneScheduleRows({ scheduleRecords: data.scheduleRecords || data.schedule || data.calendar || data['行程'] || data['日程'] }, char),
-        shoppingRecords: getWechatAiPhoneShoppingRows({ shoppingRecords: data.shoppingRecords || data.shopping || data.orders || data['购物'] || data['购物记录'] }, char),
-        takeoutRecords: getWechatAiPhoneTakeoutRows({ takeoutRecords: data.takeoutRecords || data.takeout || data.foodDelivery || data['外卖'] || data['外卖记录'] }, char),
-        gameRecords: getWechatAiPhoneGameRows({ gameRecords: data.gameRecords || data.games || data['游戏'] || data['玩的游戏'] }, char),
-        diary: stripWechatPromptText(data.diary || data['日记'] || fallback.diary, 260),
-        diaryLetters: normalizeWechatAiPhoneDiaryLetterList(data.diaryLetters || data.letters || data['日记信件'] || data['信件'], char, data.diary || data['日记'] || fallback.diary)
+        memos: normalizeWechatTextList(pickWechatAiPhoneField(data, ['memos', 'memo', 'notes', 'reminders', '备忘录', '便签']), fallback.memos),
+        browser: getWechatAiPhoneBrowserRows({ browser: pickWechatAiPhoneField(data, ['browser', 'browserHistory', 'safari', 'webHistory', 'searchHistory', 'recentSearches', '浏览器', '浏览记录', 'Safari']) }, char),
+        wallet: getWechatAiPhoneWalletSummary({ wallet: pickWechatAiPhoneField(data, ['wallet', 'walletSummary', 'balance', 'money', '钱包', '钱包概要', '余额']) || fallback.wallet }, char),
+        footprints: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['footprints', 'traces', 'locations', 'places', 'mapRecords', 'visitedPlaces', 'locationHistory', 'importantPlaces', '足迹', '地点记录', '位置记录', '重要地点', '去过的地方']), fallback.footprints, 6),
+        usageRecords: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['usageRecords', 'usage', 'appUsage', 'screenTime', 'appUsageRecords', '使用记录', '应用使用', '屏幕使用时间']), fallback.usageRecords, 10),
+        walletRecords: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['walletRecords', 'bills', 'transactions', 'payments', 'cards', 'passes', '钱包记录', '账单', '交易记录', '卡包']), [], 8),
+        scheduleRecords: getWechatAiPhoneScheduleRows({ scheduleRecords: pickWechatAiPhoneField(data, ['scheduleRecords', 'schedule', 'calendar', 'calendarEvents', 'itinerary', 'plans', 'appointments', 'agenda', '行程', '日程', '日历', '安排']) }, char),
+        shoppingRecords: getWechatAiPhoneShoppingRows({ shoppingRecords: pickWechatAiPhoneField(data, ['shoppingRecords', 'shopping', 'orders', 'purchaseRecords', 'shoppingOrders', 'wishList', 'favorites', '购物', '购物记录', '订单', '购买记录', '收藏夹']) }, char),
+        takeoutRecords: getWechatAiPhoneTakeoutRows({ takeoutRecords: pickWechatAiPhoneField(data, ['takeoutRecords', 'takeout', 'foodDelivery', 'deliveryRecords', 'mealOrders', 'drinkOrders', '外卖', '外卖记录', '点单', '饮品', '送餐记录']) }, char),
+        gameRecords: getWechatAiPhoneGameRows({ gameRecords: pickWechatAiPhoneField(data, ['gameRecords', 'games', 'gameHistory', 'playedGames', 'Game Center', '游戏', '玩的游戏', '游戏记录']) }, char),
+        diary: stripWechatPromptText(pickWechatAiPhoneField(data, ['diary', 'journal', 'privateDiary', 'unsentDiary', '日记', '私密日记']) || fallback.diary, 260),
+        diaryLetters: normalizeWechatAiPhoneDiaryLetterList(pickWechatAiPhoneField(data, ['diaryLetters', 'letters', 'letterCards', 'mailbox', '日记信件', '信件', '信封']), char, pickWechatAiPhoneField(data, ['diary', 'journal', 'privateDiary', 'unsentDiary', '日记', '私密日记']) || fallback.diary)
     };
+}
+
+function getWechatAiPhoneSnapshotGapSummary(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return '没有返回手机数据';
+    const required = [
+        ['scheduleRecords', '行程'],
+        ['shoppingRecords', '购物'],
+        ['takeoutRecords', '外卖'],
+        ['footprints', '足迹'],
+        ['usageRecords', '使用记录'],
+        ['walletRecords', '钱包记录'],
+        ['diaryLetters', '日记信件']
+    ];
+    const missing = required
+        .filter(([key]) => !Array.isArray(snapshot[key]) || snapshot[key].length === 0)
+        .map(([, label]) => label);
+    const totalRows = required.reduce((sum, [key]) => sum + (Array.isArray(snapshot[key]) ? snapshot[key].length : 0), 0);
+    const diary = stripWechatPromptText(snapshot.diary, 80);
+    if (!missing.length && totalRows >= 12 && diary) return '';
+    return `缺少：${missing.join('、') || '内容过少'}；总记录 ${totalRows} 条${diary ? '' : '；日记为空'}`;
+}
+
+function isWechatAiPhoneSparseSnapshot(snapshot) {
+    return !!getWechatAiPhoneSnapshotGapSummary(snapshot);
+}
+
+function getWechatAiPhoneRenderSnapshot(char) {
+    const snapshot = char && char.chatConfig && char.chatConfig.aiPhoneSnapshot;
+    if (
+        snapshot
+        && snapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION
+        && (snapshot.generatedBy === 'api' || snapshot.generatedBy === 'error')
+    ) {
+        return snapshot;
+    }
+    return buildWechatAiPhoneFallback(char);
 }
 
 async function requestWechatAiPhoneSnapshot(charOrId) {
@@ -14018,21 +14153,78 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
             const worldBookAnchor = buildWechatWorldBookPrompt(char, 30);
             const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
             const presetAnchor = typeof buildWechatPresetPromptForStatus === 'function' ? buildWechatPresetPromptForStatus(char) : '';
-            const result = await callChatApi([
+            const personaText = getWechatCharacterPersonaText(char, 10000);
+            const buildMessages = (extraRule = '') => [
                 {
                     role: 'system',
-                    content: `你是「${char.name}」本人手机里的数据生成器，不是通用模板生成器。必须先阅读角色卡、世界书、预设、记忆和最近聊天，再生成这个角色自己的 iPhone/微信数据。只返回 JSON，不要 Markdown，不要解释。字段：userRemark(你在自己手机通讯录里给用户保存的备注名), chats(数组3-5项，每项 name/text/time), memos(数组2-5项), browser(数组3-5项), wallet(字符串), walletRecords(数组2-5项，每项 title/detail/meta), footprints(数组3-5项，每项是到过的地点/位置记录，可用 title/detail/meta 或“地点｜时间｜原因”), usageRecords(数组4-8项，每项是 App 使用记录), scheduleRecords(数组3-5项，角色自己的行程/日历提醒), shoppingRecords(数组2-4项，角色自己的购物记录), takeoutRecords(数组1-3项，角色点过的外卖/饮品/配送；如果世界观没有现代外卖就写同等含义的送餐/采购记录), gameRecords(数组；人设明显不玩游戏才空数组), diary(字符串，写给用户但没有直接发出的日记), diaryLetters(数组3项，每项 title/subtitle/meta/content，标题和内容要按角色性格写，不能所有角色都一样)。硬性规则：1. 不是要求世界书逐字写出手机记录；你要以角色卡/世界书为地基，按角色身份、职业、经济水平、生活圈、人际关系和当前聊天合理扩写出“他/她手机里会存在”的数据。2. 禁止套用默认办公室/学生/偶像模板，禁止编“沈助理/周秘书/项目群”这种占位联系人；联系人必须像这个角色世界里真实会存在的人、机构、工作对象、亲友、粉丝运营、经纪团队或特殊世界观关系。3. 不要因为没有明写购物/外卖/行程就空着；除非人设明确不可能，否则都要合理生成。4. 钱包必须按角色身份和经济水平生成；不要固定低余额，也不要写“未授权查看”。5. 聊天列表第一项必须是用户，name 使用你自己手机里给用户存的备注名；禁止直接复用用户在设置里写的“角色对你的称呼”。6. 禁止复用 BYND 用户通讯录里的其他角色名字。`
+                    content: `你是「${char.name}」本人手机里的数据生成器。任务不是抽取原文，而是“读完角色卡/世界书后，按这个角色真实会拥有的生活圈合理创作手机数据”。只返回一个完整 JSON 对象，不要 Markdown，不要解释，不要省略号。
+
+必须输出这些字段，并尽量达到最低数量：
+{
+  "userRemark": "你在自己手机里给用户存的备注",
+  "chats": [{"name":"用户备注或角色世界里的联系人","text":"最后一条消息","time":"时间"}],
+  "memos": ["2-5条备忘录"],
+  "browser": [{"title":"网页/搜索","detail":"为什么会看","meta":"时间"}],
+  "wallet": "按角色身份和经济水平写钱包概要",
+  "walletRecords": [{"title":"账单/卡/收支","detail":"按角色生活生成","meta":"金额或状态"}],
+  "footprints": [{"title":"到过的位置","detail":"停留原因","meta":"时间"}],
+  "usageRecords": [{"title":"App名","detail":"使用行为","meta":"时长"}],
+  "scheduleRecords": [{"time":"09:30","title":"行程标题","meta":"今天/明天/稍后"}],
+  "shoppingRecords": [{"title":"商品/订单","detail":"为什么买/给谁","meta":"状态或金额"}],
+  "takeoutRecords": [{"title":"店铺/饮品/餐点","detail":"配送/口味/场景","meta":"时间或状态"}],
+  "gameRecords": [{"title":"游戏名","detail":"记录","meta":"时长"}],
+  "diary": "这个角色写给用户但没发出的私密日记",
+  "diaryLetters": [{"title":"信封标题","subtitle":"符合角色语气的副标题","meta":"日期/PRIVATE/标签","content":"信件内容"}]
+}
+
+硬性规则：
+1. 行程、购物、外卖/送餐、足迹、使用记录、钱包记录、日记信件不能因为原文没逐字写就空着；要从身份、职业、经济水平、性格、关系网、世界观和最近聊天合理扩写。
+2. gameRecords 只有在人设明显不玩游戏时可以空；其他字段除非世界观绝对不可能，否则至少给 2-3 条。
+3. 禁止套用通用模板，禁止写“沈助理/周秘书/项目群”这类占位名。偶像/艺人应出现符合其人设的经纪团队、妆造、粉丝运营、品牌/舞台/录音/拍摄相关联系人；其他身份也按各自世界生成，不能照搬这个例子。
+4. 钱包金额和消费必须符合角色身份，不要固定低余额，不要写“未授权查看”。
+5. chats 第一项必须是用户，name 用你给用户存的备注；不要直接复用用户在设置里写的“角色对你的称呼”。
+6. diaryLetters 的 title/subtitle/content 必须体现角色性格，不能所有角色都叫“没有发出去的话/夜里的草稿”。
+7. 如果角色卡没有直接写手机记录，你也必须按人设和世界书合理生成；返回空数组视为失败。${extraRule ? `\n\n【上一次结果需要修正】\n${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
-                    content: `${identityAnchor ? `${identityAnchor}\n\n` : ''}【角色卡/人设原文】\n${String(char.description || '').slice(0, 8000)}\n\n${worldBookAnchor ? `${worldBookAnchor}\n\n` : ''}${presetAnchor ? `${presetAnchor}\n\n` : ''}${memoryAnchor ? `${memoryAnchor}\n\n` : ''}【最新状态】\n${JSON.stringify(status.fields || {}, null, 2)}\n\n【最近聊天】\n${buildWechatRecentHistoryForPrompt(char, 24)}`
+                    content: `${identityAnchor ? `${identityAnchor}\n\n` : ''}【完整角色卡/人设/世界书】\n${personaText || String(char.description || '').slice(0, 8000)}\n\n${worldBookAnchor ? `${worldBookAnchor}\n\n` : ''}${presetAnchor ? `${presetAnchor}\n\n` : ''}${memoryAnchor ? `${memoryAnchor}\n\n` : ''}【最新状态】\n${JSON.stringify(status.fields || {}, null, 2)}\n\n【最近聊天】\n${buildWechatRecentHistoryForPrompt(char, 24)}`
                 }
-            ]);
+            ];
+            let result = await callChatApi(buildMessages(), { max_tokens: 3600, temperature: 0.85 });
             if (result && result.ok) {
-                snapshot = normalizeWechatAiPhoneSnapshot(parseWechatJsonObject(result.content), char);
+                const parsed = parseWechatJsonObject(result.content);
+                if (parsed) {
+                    snapshot = normalizeWechatAiPhoneSnapshot(parsed, char);
+                    const gap = getWechatAiPhoneSnapshotGapSummary(snapshot);
+                    if (gap) {
+                        const retry = await callChatApi(buildMessages(`你上一次返回的 JSON 太空：${gap}。这次必须补齐行程、购物、外卖、足迹、使用记录、钱包记录、日记信件；按「${char.name || '角色'}」的人设和世界书合理创作，不准留空。`), { max_tokens: 4200, temperature: 0.92 });
+                        if (retry && retry.ok) {
+                            const retryParsed = parseWechatJsonObject(retry.content);
+                            if (retryParsed) snapshot = normalizeWechatAiPhoneSnapshot(retryParsed, char);
+                        }
+                    }
+                    const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
+                    if (finalGap) {
+                        snapshot.generatedBy = 'error';
+                        snapshot.syncError = `AI 返回了可解析 JSON，但手机数据仍然空白：${finalGap}`;
+                    }
+                } else {
+                    snapshot = buildWechatAiPhoneFallback(char);
+                    snapshot.generatedBy = 'error';
+                    snapshot.syncError = 'AI 返回的 JSON 不完整，可能被 max_tokens 截断。';
+                    console.warn('ai phone json parse failed:', result.content);
+                }
+            } else {
+                snapshot = buildWechatAiPhoneFallback(char);
+                snapshot.generatedBy = 'error';
+                snapshot.syncError = result && result.error ? result.error : 'AI 小手机同步失败';
             }
         } catch (e) {
             console.warn('request ai phone failed:', e);
+            snapshot = buildWechatAiPhoneFallback(char);
+            snapshot.generatedBy = 'error';
+            snapshot.syncError = e && e.message ? e.message : 'AI 小手机同步异常';
         }
         char.chatConfig.aiPhoneSnapshot = snapshot;
         saveCharactersToStorage();
@@ -14624,12 +14816,22 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const latestChat = Array.isArray(snapshot.chats) && snapshot.chats.length ? snapshot.chats[0] : null;
+    const syncError = stripWechatPromptText(snapshot && snapshot.syncError, 118);
+    const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`);
+    const retryId = quoteWechatJsString(char && char.id);
     return `
         <div class="wc-ai-phone-home">
             <div class="wc-ai-phone-home-top">
                 <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
-                <div class="wc-ai-phone-sync">${isLoading ? '正在同步' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`}</div>
+                <div class="wc-ai-phone-sync ${syncError ? 'is-error' : ''}">${wcEscapeHtml(syncLabel)}</div>
             </div>
+            ${syncError ? `
+                <button type="button" class="wc-ai-phone-sync-error" onclick="event.stopPropagation(); requestWechatAiPhoneSnapshot(${retryId}).catch(e => console.warn('ai phone retry failed:', e))">
+                    <i class="ri-error-warning-line"></i>
+                    <span>${wcEscapeHtml(syncError)}</span>
+                    <b>重新同步</b>
+                </button>
+            ` : ''}
             <section class="wc-ai-phone-clock-widget" onclick="switchWechatAiPhoneTab('clock')">
                 <span>${wcEscapeHtml(clock.date)}</span>
                 <strong>${wcEscapeHtml(clock.time)}</strong>
@@ -14653,12 +14855,7 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
 function renderWechatAiPhone(char) {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal || !char) return;
-    const snapshot = (char.chatConfig
-        && char.chatConfig.aiPhoneSnapshot
-        && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api'
-        && char.chatConfig.aiPhoneSnapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION)
-        ? char.chatConfig.aiPhoneSnapshot
-        : buildWechatAiPhoneFallback(char);
+    const snapshot = getWechatAiPhoneRenderSnapshot(char);
     const isLoading = !!(window._wechatAiPhoneGenerating && window._wechatAiPhoneGenerating.has(char.id));
     const activeTab = window._wechatAiPhoneTab || 'home';
     const clock = getWechatAiPhoneClockParts();

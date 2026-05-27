@@ -118,6 +118,19 @@ function prependChatApiQuoteToContent(content, quoteText) {
     return `${quoteText}\n${content}`;
 }
 
+function prependChatApiContextToContent(content, contextText) {
+    if (!contextText) return content;
+    const prefix = `${contextText}\n\n【用户刚刚发送的真实消息】`;
+    if (Array.isArray(content)) {
+        const copy = content.map(item => ({ ...item }));
+        const firstText = copy.find(item => item && item.type === 'text');
+        if (firstText) firstText.text = `${prefix}\n${firstText.text || ''}`.trim();
+        else copy.unshift({ type: 'text', text: prefix });
+        return copy;
+    }
+    return `${prefix}\n${content}`;
+}
+
 function buildCurrentTimeAnchor(char) {
     const timeContext = getChatApiCurrentTimeContext(char);
     return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。`;
@@ -149,7 +162,23 @@ function prepareChatApiPromptText(value, maxLength = 12000) {
 }
 
 function getChatApiCharacterDescription(char) {
-    return prepareChatApiPromptText(char && char.description, 8000);
+    if (typeof getWechatCharacterPersonaText === 'function') {
+        try {
+            const persona = getWechatCharacterPersonaText(char, 10000);
+            if (persona) return prepareChatApiPromptText(persona, 10000);
+        } catch (_) {}
+    }
+    const extraFields = [
+        char && char.description,
+        char && char.personality,
+        char && char.scenario,
+        char && char.mes_example,
+        char && char.system_prompt,
+        char && char.post_history_instructions,
+        char && char.creator_notes,
+        char && char.character_note
+    ].filter(Boolean).join('\n\n');
+    return prepareChatApiPromptText(extraFields, 10000);
 }
 
 function getChatApiUserProfile(char) {
@@ -268,6 +297,55 @@ function buildShoppingAnchor() {
         console.warn('build shopping prompt failed:', e);
         return '';
     }
+}
+
+function buildChatApiCoreIdentityAnchor(char) {
+    const charName = (char && char.name) || '角色';
+    const userProfile = getChatApiUserProfile(char);
+    const userName = userProfile.name || '用户';
+    const config = (char && char.chatConfig) || {};
+    const parts = [
+        `【最高优先级角色锚点】`,
+        `你本轮必须扮演「${charName}」，不能按通用助手、通用恋爱模板或其他角色回复。`,
+        `用户是「${userName}」。${config.userTitle && config.userTitle !== userName ? `你对用户的称呼是「${config.userTitle}」。` : ''}${config.nickname ? `用户给你的备注名是「${config.nickname}」。` : ''}`
+    ];
+
+    const description = getChatApiCharacterDescription(char);
+    if (description) {
+        parts.push(`【必须遵守的人设原文】\n${prepareChatApiPromptText(description, 6500)}`);
+    }
+
+    const greetingHints = [
+        char && char.first_mes_original,
+        char && char.first_mes,
+        ...(Array.isArray(char && char.alternates) ? char.alternates.slice(0, 3) : [])
+    ].map(item => prepareChatApiPromptText(item, 900)).filter(Boolean);
+    if (greetingHints.length) {
+        parts.push(`【角色开场/语气样例】\n${greetingHints.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
+    }
+
+    const worldBookEntries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    const worldBook = worldBookEntries
+        .filter(entry => entry && entry.enabled !== false)
+        .map(entry => {
+            const title = entry.name || entry.title || entry.key || entry.keys || '世界书';
+            const content = prepareChatApiPromptText(entry.content || entry.text || entry.entry || entry.value || entry.comment || '', 520);
+            return content ? `- ${title}：${content}` : '';
+        })
+        .filter(Boolean)
+        .slice(0, 24)
+        .join('\n');
+    if (worldBook) {
+        parts.push(`【必须遵守的世界书】\n${worldBook}`);
+    }
+
+    const memory = buildMemoryAnchor(char);
+    if (memory) {
+        parts.push(memory);
+    }
+
+    parts.push(`【回复前自检】每次回复前先检查：这句话是否符合「${charName}」的人设、世界书、记忆、当前关系和最近聊天。若不符合，重写后再输出。禁止抢用户台词或替用户行动。`);
+    return parts.join('\n\n');
 }
 
 function buildWechatStickerAnchor(char) {
@@ -526,8 +604,13 @@ function buildMessages(char, history, maxMessages) {
     maxMessages = maxMessages || 30; // 微信对话默认带最近 30 条，兼顾角色卡长设定和最近上下文
 
     const messages = [];
+    const coreIdentityAnchor = buildChatApiCoreIdentityAnchor(char);
 
     // System prompt
+    messages.push({
+        role: 'system',
+        content: coreIdentityAnchor
+    });
     messages.push({
         role: 'system',
         content: buildSystemPrompt(char)
@@ -571,9 +654,15 @@ function buildMessages(char, history, maxMessages) {
             content: shoppingAnchor
         });
     }
-
     // 历史消息（取最近的 N 条）
     const recentHistory = history.slice(-maxMessages);
+    let latestUserMsg = null;
+    for (let i = recentHistory.length - 1; i >= 0; i--) {
+        if (recentHistory[i] && recentHistory[i].isMe) {
+            latestUserMsg = recentHistory[i];
+            break;
+        }
+    }
     recentHistory.forEach(msg => {
         // 获取消息内容（处理不同消息类型）
         let content = msg.content || '';
@@ -616,6 +705,12 @@ function buildMessages(char, history, maxMessages) {
             const quote = truncateChatAnchorText(String(msg.replyTo.text || '').replace(/<[^>]+>/g, '').trim(), 180);
             if (quote) content = prependChatApiQuoteToContent(content, `【引用${sender}】${quote}`);
         }
+        if (msg === latestUserMsg) {
+            content = prependChatApiContextToContent(
+                content,
+                `【本轮私有系统上下文，不是用户发言】\n${prepareChatApiPromptText(coreIdentityAnchor, 9000)}\n\n【执行要求】只回应用户真实消息；回复必须按「${(char && char.name) || '角色'}」的人设、世界书、记忆和当前关系生成。`
+            );
+        }
 
         messages.push({
             role: msg.isMe ? 'user' : 'assistant',
@@ -623,11 +718,16 @@ function buildMessages(char, history, maxMessages) {
         });
     });
 
+    messages.push({
+        role: 'system',
+        content: `【本轮回复前最后校验】下一条回复必须优先遵守「${(char && char.name) || '角色'}」的人设原文、世界书、记忆、用户资料和最近聊天；不要按通用模板回复，不要脱离角色，不要替用户说话或行动。`
+    });
+
     return messages;
 }
 
 // 3. 调用 AI API
-async function callChatApi(messages) {
+async function callChatApi(messages, options = {}) {
     const api = typeof getDefaultApi === 'function' ? getDefaultApi() : null;
 
     if (!api) {
@@ -646,8 +746,8 @@ async function callChatApi(messages) {
     const params = {
         model: api.model,
         messages: messages,
-        temperature: preset ? preset.temperature : 0.8,
-        max_tokens: preset ? preset.max_tokens : 1000
+        temperature: options.temperature ?? (preset ? preset.temperature : 0.8),
+        max_tokens: options.max_tokens ?? (preset ? preset.max_tokens : 1000)
     };
     if (preset) {
         if (preset.top_p != null && preset.top_p !== 1) params.top_p = preset.top_p;
@@ -703,7 +803,14 @@ async function chatWithCharacter(char, historyKey, userText) {
     const lastHistory = history[history.length - 1];
     const lastContent = String(lastHistory?.content || '').trim();
     if (!(lastHistory?.isMe && lastContent === String(userText || '').trim())) {
-        messages.push({ role: 'user', content: userText });
+        const coreIdentityAnchor = buildChatApiCoreIdentityAnchor(char);
+        messages.push({
+            role: 'user',
+            content: prependChatApiContextToContent(
+                userText,
+                `【本轮私有系统上下文，不是用户发言】\n${prepareChatApiPromptText(coreIdentityAnchor, 9000)}\n\n【执行要求】只回应用户真实消息；回复必须按「${(char && char.name) || '角色'}」的人设、世界书、记忆和当前关系生成。`
+            )
+        });
     }
 
     // 调用 API

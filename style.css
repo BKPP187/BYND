@@ -1,5 +1,5 @@
-@import url("./styles/wechat-themes/base-overrides.css?v=20260527-phone-persona2");
-@import url("./styles/wechat-themes/reference-themes.css?v=20260527-phone-persona2");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260527-phone-persona4");
+@import url("./styles/wechat-themes/reference-themes.css?v=20260527-phone-persona4");
 
 /* style.css - 终极修复版 */
 /* --- 🔧 核心工具类 --- */
@@ -12416,6 +12416,48 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     white-space: nowrap;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+}
+.wc-ai-phone-sync.is-error {
+    background: rgba(255,80,80,0.24);
+    color: #fff5f5;
+}
+.wc-ai-phone-sync-error {
+    width: 100%;
+    min-height: 54px;
+    border: 1px solid rgba(255,255,255,0.26);
+    border-radius: 20px;
+    background: rgba(66,24,34,0.35);
+    color: #fff;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    box-shadow: 0 14px 30px rgba(15,23,42,0.16);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+}
+.wc-ai-phone-sync-error i {
+    font-size: 18px;
+    color: #ffd4d4;
+}
+.wc-ai-phone-sync-error span {
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 760;
+    color: rgba(255,255,255,0.88);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.wc-ai-phone-sync-error b {
+    font-size: 11px;
+    font-weight: 900;
+    color: #fff;
+    white-space: nowrap;
 }
 .wc-ai-phone-clock-widget,
 .wc-ai-phone-widget-stack {
