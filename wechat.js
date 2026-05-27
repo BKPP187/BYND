@@ -13481,7 +13481,7 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone4';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone5';
 
 function getWechatAiPhonePersonaSource(char) {
     return getWechatCharacterPersonaText(char, 12000);
@@ -13496,6 +13496,290 @@ function shouldDropWechatAiPhoneRowForPersona(row, char) {
     return isWechatAiPhoneOfficeTemplateText(text);
 }
 
+function getWechatAiPhonePersonaKind(char) {
+    const text = getWechatAiPhonePersonaSource(char);
+    const has = pattern => pattern.test(text);
+    if (has(/偶像|艺人|明星|歌手|演员|练习生|舞台|演唱会|通告|经纪|粉丝|妆造|拍摄|综艺|idol|celebrity/i)) return 'idol';
+    if (has(/学生|大学|高中|校园|同学|课堂|社团|考试|图书馆/)) return 'student';
+    if (has(/医生|护士|医院|诊室|手术|查房|病人|药剂/)) return 'medical';
+    if (has(/总裁|董事|老板|公司|集团|会议|合同|秘书|助理|项目|商业/)) return 'business';
+    if (has(/画家|作家|编剧|摄影|设计|创作|画室|稿子|编辑|音乐人|作曲|录音/)) return 'creator';
+    if (has(/王|皇|魔法|骑士|神|妖|仙|宫殿|城堡|异能|末世|组织|任务|战斗|祭司|巫/)) return 'fantasy';
+    return 'daily';
+}
+
+function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
+    const charName = getWechatCharDisplayName(char);
+    const kind = getWechatAiPhonePersonaKind(char);
+    const now = formatWechatSnapshotTime(Date.now());
+    const mood = stripWechatPromptText(fields.thoughts || fields.innerMonologue || fields.action || '', 42);
+    const place = stripWechatPromptText(fields.location || fields.place || fields.scene || fields.area || '', 32);
+    const baseDiary = mood
+        ? `今天手机里最舍不得删掉的，还是和${userName}有关的那点心事：${mood}`
+        : `把${userName}的聊天窗口留在最前面，像是怕一移开就错过什么。`;
+    const packs = {
+        idol: {
+            wallet: `${charName}的钱包里有演出结算、品牌报销和私人卡，余额/额度符合艺人日常开销。`,
+            scheduleRecords: [
+                { time: '08:40', title: '妆发和造型确认', meta: '今天' },
+                { time: '13:20', title: '舞台/拍摄彩排', meta: '下午' },
+                { time: '20:10', title: '粉丝营业与直播排期', meta: '晚上' }
+            ],
+            shoppingRecords: [
+                { title: '舞台耳返备用线', detail: '给下一次通告备着，不能临场出问题', meta: '已下单' },
+                { title: '品牌私服样衣', detail: '经纪团队让他挑一套更贴合今天状态的', meta: '待确认' },
+                { title: '控糖饮品和护嗓糖', detail: '练声和直播前会用到', meta: '已送达' }
+            ],
+            takeoutRecords: [
+                { title: '低糖冰美式', detail: '练习室附近，备注少冰', meta: '18分钟前' },
+                { title: '鸡胸肉沙拉', detail: '妆发前垫一口，不能太油', meta: '午间' }
+            ],
+            footprints: [
+                { title: place || '录音棚', detail: '行程定位停留，和今天的工作有关', meta: `今天 ${now}` },
+                { title: '练习室', detail: '舞台动作和走位排练', meta: '最近' },
+                { title: '品牌拍摄现场', detail: '短暂停留后赶去下一场', meta: '本周' }
+            ],
+            usageRecords: [
+                { title: '微信', detail: `反复打开和${userName}的聊天`, meta: '36分钟' },
+                { title: '相册', detail: '翻看舞台返图和未公开照片', meta: '24分钟' },
+                { title: '音乐', detail: '听 demo 和练声参考', meta: '31分钟' },
+                { title: '日历', detail: '确认通告和休息时间', meta: '12分钟' }
+            ],
+            browser: [
+                { title: '舞台妆造参考', detail: '搜索下一场造型关键词', meta: '今天' },
+                { title: '护嗓方法', detail: '连续通告后的嗓音护理', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '品牌合作尾款', detail: '工作室入账提醒', meta: '+¥86,000' },
+                { title: '造型团队报销', detail: '通告服装和配饰', meta: '已报销' },
+                { title: '私人卡消费', detail: '给重要的人准备的小礼物', meta: '-¥2,680' }
+            ],
+            gameRecords: []
+        },
+        student: {
+            wallet: `${charName}的钱包里主要是校园卡、交通卡和日常零钱。`,
+            scheduleRecords: [
+                { time: '08:10', title: '早课/签到', meta: '今天' },
+                { time: '15:30', title: '图书馆自习', meta: '下午' },
+                { time: '21:20', title: `回${userName}消息`, meta: '晚上' }
+            ],
+            shoppingRecords: [
+                { title: '笔记本和便利贴', detail: '给接下来的复习做准备', meta: '已付款' },
+                { title: '耳机保护套', detail: '上课路上会用', meta: '待收货' }
+            ],
+            takeoutRecords: [
+                { title: '奶茶半糖', detail: '自习间隙点的', meta: '已送达' },
+                { title: '校门口饭团', detail: '赶课前垫肚子', meta: '上午' }
+            ],
+            footprints: [
+                { title: place || '教学楼', detail: '课程定位记录', meta: `今天 ${now}` },
+                { title: '图书馆', detail: '复习和写作业', meta: '最近' }
+            ],
+            usageRecords: [
+                { title: '微信', detail: `看${userName}有没有新消息`, meta: '28分钟' },
+                { title: '备忘录', detail: '记作业和临时想法', meta: '17分钟' },
+                { title: '音乐', detail: '自习时循环播放', meta: '42分钟' }
+            ],
+            browser: [
+                { title: '课程资料', detail: '查找今天要交的内容', meta: '今天' },
+                { title: '附近奶茶店', detail: '比较配送时间', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '校园卡充值', detail: '食堂和门禁使用', meta: '-¥100' },
+                { title: '交通卡', detail: '回宿舍路上刷卡', meta: '-¥4' }
+            ],
+            gameRecords: []
+        },
+        business: {
+            wallet: `${charName}的钱包里有商务卡、差旅额度和私人账户，资金记录符合高强度工作身份。`,
+            scheduleRecords: [
+                { time: '09:30', title: '核心会议', meta: '今天' },
+                { time: '14:00', title: '合同/项目确认', meta: '下午' },
+                { time: '22:10', title: `留给${userName}的私人时间`, meta: '晚上' }
+            ],
+            shoppingRecords: [
+                { title: '定制礼盒', detail: `准备送给${userName}，还在改备注卡片`, meta: '待确认' },
+                { title: '商务衬衫', detail: '明天会面需要', meta: '已送达' }
+            ],
+            takeoutRecords: [
+                { title: '黑咖啡', detail: '会议前送到办公室', meta: '已送达' },
+                { title: '轻食套餐', detail: '忙到错过饭点后补的', meta: '傍晚' }
+            ],
+            footprints: [
+                { title: place || '办公室', detail: '日程定位记录', meta: `今天 ${now}` },
+                { title: '会议中心', detail: '项目会面停留', meta: '本周' }
+            ],
+            usageRecords: [
+                { title: '微信', detail: `置顶${userName}的聊天`, meta: '31分钟' },
+                { title: '日历', detail: '调整会议和私人安排', meta: '26分钟' },
+                { title: '钱包', detail: '确认付款和账单', meta: '11分钟' }
+            ],
+            browser: [
+                { title: '航班/酒店确认', detail: '查下一段行程', meta: '今天' },
+                { title: '礼物定制', detail: `给${userName}挑选`, meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '项目回款', detail: '公司账户到账提醒', meta: '+¥218,000' },
+                { title: '礼物定制付款', detail: `为${userName}预留`, meta: '-¥5,200' }
+            ],
+            gameRecords: []
+        },
+        creator: {
+            wallet: `${charName}的钱包里有稿费/版权/委托结算，也有零碎创作开销。`,
+            scheduleRecords: [
+                { time: '10:20', title: '整理灵感和草稿', meta: '今天' },
+                { time: '16:40', title: '创作/录制时间', meta: '下午' },
+                { time: '23:10', title: '私密日记', meta: '夜里' }
+            ],
+            shoppingRecords: [
+                { title: '素材/插件订阅', detail: '为了新的作品效果', meta: '已续费' },
+                { title: '纸胶带和信封', detail: '想把一些话收起来', meta: '待收货' }
+            ],
+            takeoutRecords: [
+                { title: '热拿铁', detail: '赶稿时放在桌边', meta: '已送达' },
+                { title: '夜宵粥', detail: '写到太晚才想起来吃', meta: '夜里' }
+            ],
+            footprints: [
+                { title: place || '工作室', detail: '停留时间很长', meta: `今天 ${now}` },
+                { title: '咖啡店角落', detail: '记录灵感和观察人群', meta: '最近' }
+            ],
+            usageRecords: [
+                { title: '备忘录', detail: '存灵感碎片', meta: '39分钟' },
+                { title: '相册', detail: '整理参考图', meta: '22分钟' },
+                { title: '微信', detail: `停在${userName}的聊天窗口`, meta: '27分钟' }
+            ],
+            browser: [
+                { title: '情绪色板参考', detail: '找作品氛围', meta: '今天' },
+                { title: '信纸排版', detail: '想把日记做得更像信', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '委托/版权结算', detail: '作品相关收入', meta: '+¥12,800' },
+                { title: '创作素材订阅', detail: '月度自动扣费', meta: '-¥168' }
+            ],
+            gameRecords: []
+        },
+        medical: {
+            wallet: `${charName}的钱包里是通勤、餐饮和值班相关记录。`,
+            scheduleRecords: [
+                { time: '07:50', title: '查房/交班', meta: '今天' },
+                { time: '12:30', title: '短暂休息', meta: '午间' },
+                { time: '20:40', title: `看${userName}消息`, meta: '晚上' }
+            ],
+            shoppingRecords: [
+                { title: '护手霜和咖啡', detail: '值班间隙会用到', meta: '已下单' },
+                { title: '便携消毒湿巾', detail: '放进通勤包', meta: '已送达' }
+            ],
+            takeoutRecords: [
+                { title: '热粥', detail: '值班后补一口热的', meta: '已送达' },
+                { title: '无糖咖啡', detail: '夜班续命', meta: '夜里' }
+            ],
+            footprints: [
+                { title: place || '医院', detail: '排班定位记录', meta: `今天 ${now}` },
+                { title: '药房旁便利店', detail: '短暂停留买东西', meta: '最近' }
+            ],
+            usageRecords: [
+                { title: '日历', detail: '查看排班', meta: '19分钟' },
+                { title: '微信', detail: `休息时看${userName}的消息`, meta: '24分钟' },
+                { title: '备忘录', detail: '记临时事项', meta: '12分钟' }
+            ],
+            browser: [
+                { title: '排班提醒', detail: '确认换班信息', meta: '今天' },
+                { title: '附近热粥', detail: '值班餐选择', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '值班餐', detail: '夜班外卖', meta: '-¥38' },
+                { title: '通勤扣费', detail: '地铁/打车记录', meta: '-¥22' }
+            ],
+            gameRecords: []
+        },
+        fantasy: {
+            wallet: `${charName}的钱包记录被折算成这个世界的通行货币、契约和私人物品。`,
+            scheduleRecords: [
+                { time: '09:00', title: '巡查/议事', meta: '今天' },
+                { time: '15:30', title: '处理私下委托', meta: '下午' },
+                { time: '22:00', title: `确认${userName}是否安全`, meta: '夜里' }
+            ],
+            shoppingRecords: [
+                { title: '护身饰物', detail: `想着给${userName}留一件`, meta: '已收好' },
+                { title: '香料和信纸', detail: '写信时会用', meta: '待整理' }
+            ],
+            takeoutRecords: [
+                { title: '热汤和点心', detail: '送到房间/据点', meta: '已送达' },
+                { title: '茶饮', detail: '夜间议事后留下的', meta: '夜里' }
+            ],
+            footprints: [
+                { title: place || '主城/据点', detail: '最近停留的位置', meta: `今天 ${now}` },
+                { title: '旧街/庭院', detail: '短暂停留确认情况', meta: '最近' }
+            ],
+            usageRecords: [
+                { title: '信息', detail: `查看${userName}的消息`, meta: '33分钟' },
+                { title: '备忘录', detail: '记录契约和计划', meta: '18分钟' },
+                { title: '地图', detail: '确认路线和落点', meta: '21分钟' }
+            ],
+            browser: [
+                { title: '路线/地图记录', detail: '确认下一处位置', meta: '今天' },
+                { title: '旧档案', detail: '查和关系有关的线索', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '契约结算', detail: '身份相关收入/资源', meta: '+高额' },
+                { title: '护身物付款', detail: `准备给${userName}`, meta: '已完成' }
+            ],
+            gameRecords: []
+        }
+    };
+    const pack = packs[kind] || {
+        wallet: `${charName}的钱包里保留着日常消费、礼物和私人转账记录。`,
+        scheduleRecords: [
+            { time: '09:30', title: '日常安排', meta: '今天' },
+            { time: '15:00', title: '临时事项', meta: '下午' },
+            { time: '21:30', title: `等${userName}消息`, meta: '晚上' }
+        ],
+        shoppingRecords: [
+            { title: '日用品订单', detail: '按这个角色的生活习惯准备', meta: '已下单' },
+            { title: '准备送人的小东西', detail: `和${userName}有关`, meta: '待收货' }
+        ],
+        takeoutRecords: [
+            { title: '常点店铺', detail: '根据最近状态随手点的', meta: '已送达' },
+            { title: '饮品', detail: '聊天时放在旁边', meta: '最近' }
+        ],
+        footprints: [
+            { title: place || '常去地点', detail: '最近停留记录', meta: `今天 ${now}` },
+            { title: '住处附近', detail: '短暂停留', meta: '最近' }
+        ],
+        usageRecords: [
+            { title: '微信', detail: `查看和${userName}的聊天`, meta: '30分钟' },
+            { title: '相册', detail: '翻最近保存的内容', meta: '16分钟' },
+            { title: '音乐', detail: '根据心情播放', meta: '22分钟' }
+        ],
+        browser: [
+            { title: '最近搜索', detail: '和当前生活状态有关', meta: '今天' },
+            { title: '礼物/地点参考', detail: `可能和${userName}有关`, meta: '最近' }
+        ],
+        walletRecords: [
+            { title: '日常消费', detail: '手机支付记录', meta: '-¥86' },
+            { title: '私人转账', detail: `和${userName}有关的备注`, meta: '已完成' }
+        ],
+        gameRecords: []
+    };
+    return {
+        ...pack,
+        chats: [
+            { name: userName, text: stripWechatPromptText(fields.lastMessage || fields.miniDiary || `还停在和${userName}的聊天里。`, 70), time: now },
+            { name: kind === 'idol' ? '经纪人' : kind === 'student' ? '同学' : kind === 'business' ? '工作联系人' : kind === 'fantasy' ? '旧识' : '联系人', text: '最近一条未读消息', time: '刚刚' }
+        ],
+        memos: [
+            mood || `记得回${userName}消息`,
+            kind === 'idol' ? '通告前检查耳返和护嗓糖' : kind === 'business' ? '把私人时间从会议里挪出来' : kind === 'creator' ? '把没写完的信收进日记' : '把今天没说出口的话记下来'
+        ],
+        diary: baseDiary,
+        diaryLetters: [
+            { title: `${charName}藏起的一封信`, subtitle: `写给${userName}`, meta: 'PRIVATE', content: baseDiary },
+            { title: '不想被看见的草稿', subtitle: mood || '停在发送前', meta: 'DRAFT', content: `如果真的发出去，${charName}大概会先装作若无其事。` },
+            { title: '今天的余温', subtitle: 'Saved Note', meta: 'BYND', content: `手机锁屏暗下去之前，最后亮着的还是${userName}的聊天。` }
+        ]
+    };
+}
+
 function getWechatPersonaContactSeeds(char) {
     return [];
 }
@@ -13508,23 +13792,26 @@ function buildWechatAiPhoneFallback(char) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice');
     const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '\u8fd8\u6ca1\u6709\u65b0\u6d88\u606f';
+    const personaPack = getWechatAiPhonePersonaFallbackPack(char, userName, { ...(fields || {}), lastMessage: lastText });
     return {
         updatedAt: Date.now(),
         schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: 'local',
-        chats: [
+        chats: personaPack.chats || [
             { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) }
         ],
-        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), []),
-        browser: [],
-        wallet: '正在根据角色卡和世界书同步钱包数据',
-        footprints: [],
-        usageRecords: [],
-        scheduleRecords: [],
-        shoppingRecords: [],
-        takeoutRecords: [],
-        gameRecords: [],
-        diary: fields.miniDiary || ''
+        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), personaPack.memos || []),
+        browser: personaPack.browser || [],
+        wallet: personaPack.wallet || '正在根据角色卡和世界书同步钱包数据',
+        footprints: personaPack.footprints || [],
+        usageRecords: personaPack.usageRecords || [],
+        walletRecords: personaPack.walletRecords || [],
+        scheduleRecords: personaPack.scheduleRecords || [],
+        shoppingRecords: personaPack.shoppingRecords || [],
+        takeoutRecords: personaPack.takeoutRecords || [],
+        gameRecords: personaPack.gameRecords || [],
+        diary: fields.miniDiary || personaPack.diary || '',
+        diaryLetters: personaPack.diaryLetters || []
     };
 }
 
@@ -13707,7 +13994,6 @@ function isWechatAiPhonePlaceLike(row) {
 }
 
 function getWechatAiPhoneFootprintRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && snapshot.footprints, [], 6);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['footprints', 'traces', 'locations', '足迹', '地点记录']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 5);
@@ -13723,7 +14009,6 @@ function shouldWechatAiPhoneShowGames(char, snapshot = null) {
 }
 
 function getWechatAiPhoneScheduleRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.scheduleRecords || snapshot.schedule || snapshot.calendar || snapshot['\u884c\u7a0b'] || snapshot['\u65e5\u7a0b']), [], 8);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['scheduleRecords', 'schedule', 'calendar', '\u884c\u7a0b', '\u65e5\u7a0b']) && !rawRows.length) return [];
     if (rawRows.length) return normalizeWechatAiPhoneScheduleRows(rawRows);
@@ -13731,7 +14016,6 @@ function getWechatAiPhoneScheduleRows(snapshot, char) {
 }
 
 function getWechatAiPhoneShoppingRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.shoppingRecords || snapshot.shopping || snapshot.orders || snapshot['\u8d2d\u7269'] || snapshot['\u8d2d\u7269\u8bb0\u5f55']), [], 8);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['shoppingRecords', 'shopping', 'orders', '\u8d2d\u7269', '\u8d2d\u7269\u8bb0\u5f55']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
@@ -13754,7 +14038,6 @@ function getWechatAiPhoneShoppingRows(snapshot, char) {
 }
 
 function getWechatAiPhoneTakeoutRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.takeoutRecords || snapshot.takeout || snapshot.foodDelivery || snapshot['\u5916\u5356'] || snapshot['\u5916\u5356\u8bb0\u5f55']), [], 8);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['takeoutRecords', 'takeout', 'foodDelivery', '\u5916\u5356', '\u5916\u5356\u8bb0\u5f55']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
@@ -13762,7 +14045,6 @@ function getWechatAiPhoneTakeoutRows(snapshot, char) {
 }
 
 function getWechatAiPhoneGameRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.gameRecords || snapshot.games || snapshot['\u6e38\u620f'] || snapshot['\u73a9\u7684\u6e38\u620f']), [], 8);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['gameRecords', 'games', '\u6e38\u620f', '\u73a9\u7684\u6e38\u620f']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
@@ -13850,7 +14132,6 @@ function getWechatAiPhoneUsageTotal(rows) {
 }
 
 function getWechatAiPhoneBrowserRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const history = Array.isArray(char && char.history) ? char.history : [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && snapshot.browser, [], 8);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['browser', 'browserHistory', '\u6d4f\u89c8\u5668']) && !rawRows.length) return [];
@@ -13907,7 +14188,6 @@ function getWechatAiPhoneWalletSummary(snapshot, char) {
 }
 
 function getWechatAiPhoneWalletRows(snapshot, char) {
-    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.walletRecords || snapshot.bills || snapshot.transactions || snapshot['钱包记录'] || snapshot['账单']), [], 8);
     if (rawRows.length) return rawRows.slice(0, 6);
     if (hasWechatAiPhoneSnapshotField(snapshot, ['walletRecords', 'bills', 'transactions', '钱包记录', '账单'])) return [];
@@ -14045,6 +14325,12 @@ function getWechatAiPhoneAvatarHtml(src, fallbackText, className = '') {
     `;
 }
 
+function mergeWechatAiPhoneRows(rows, fallback = [], limit = 8) {
+    const primary = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    if (primary.length) return primary.slice(0, limit);
+    return Array.isArray(fallback) ? fallback.filter(Boolean).slice(0, limit) : [];
+}
+
 function normalizeWechatAiPhoneSnapshot(raw, char) {
     const rawData = raw && typeof raw === 'object' ? raw : {};
     const data = (rawData.phoneData && typeof rawData.phoneData === 'object' && rawData.phoneData)
@@ -14077,6 +14363,16 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
     const chats = normalizeChats(pickWechatAiPhoneField(data, ['chats', 'chatList', 'contacts', 'messages', 'wechatChats', 'imessages', '微信', '信息', '聊天列表', '通讯录']));
     if (chats.length) chats[0].name = userDisplayName;
 
+    const browserRows = getWechatAiPhoneBrowserRows({ browser: pickWechatAiPhoneField(data, ['browser', 'browserHistory', 'safari', 'webHistory', 'searchHistory', 'recentSearches', '浏览器', '浏览记录', 'Safari']) }, char);
+    const walletRows = getWechatAiPhoneWalletRows({ walletRecords: pickWechatAiPhoneField(data, ['walletRecords', 'bills', 'transactions', 'payments', 'cards', 'passes', '钱包记录', '账单', '交易记录', '卡包']) }, char);
+    const footprintRows = normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['footprints', 'traces', 'locations', 'places', 'mapRecords', 'visitedPlaces', 'locationHistory', 'importantPlaces', '足迹', '地点记录', '位置记录', '重要地点', '去过的地方']), [], 6);
+    const usageRows = normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['usageRecords', 'usage', 'appUsage', 'screenTime', 'appUsageRecords', '使用记录', '应用使用', '屏幕使用时间']), [], 10);
+    const scheduleRows = getWechatAiPhoneScheduleRows({ scheduleRecords: pickWechatAiPhoneField(data, ['scheduleRecords', 'schedule', 'calendar', 'calendarEvents', 'itinerary', 'plans', 'appointments', 'agenda', '行程', '日程', '日历', '安排']) }, char);
+    const shoppingRows = getWechatAiPhoneShoppingRows({ shoppingRecords: pickWechatAiPhoneField(data, ['shoppingRecords', 'shopping', 'orders', 'purchaseRecords', 'shoppingOrders', 'wishList', 'favorites', '购物', '购物记录', '订单', '购买记录', '收藏夹']) }, char);
+    const takeoutRows = getWechatAiPhoneTakeoutRows({ takeoutRecords: pickWechatAiPhoneField(data, ['takeoutRecords', 'takeout', 'foodDelivery', 'deliveryRecords', 'mealOrders', 'drinkOrders', '外卖', '外卖记录', '点单', '饮品', '送餐记录']) }, char);
+    const gameRows = getWechatAiPhoneGameRows({ gameRecords: pickWechatAiPhoneField(data, ['gameRecords', 'games', 'gameHistory', 'playedGames', 'Game Center', '游戏', '玩的游戏', '游戏记录']) }, char);
+    const diaryLetterRows = normalizeWechatAiPhoneDiaryLetterList(pickWechatAiPhoneField(data, ['diaryLetters', 'letters', 'letterCards', 'mailbox', '日记信件', '信件', '信封']), char, pickWechatAiPhoneField(data, ['diary', 'journal', 'privateDiary', 'unsentDiary', '日记', '私密日记']) || fallback.diary);
+
     return {
         updatedAt: Date.now(),
         schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
@@ -14084,17 +14380,17 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         userRemark: userDisplayName,
         chats,
         memos: normalizeWechatTextList(pickWechatAiPhoneField(data, ['memos', 'memo', 'notes', 'reminders', '备忘录', '便签']), fallback.memos),
-        browser: getWechatAiPhoneBrowserRows({ browser: pickWechatAiPhoneField(data, ['browser', 'browserHistory', 'safari', 'webHistory', 'searchHistory', 'recentSearches', '浏览器', '浏览记录', 'Safari']) }, char),
+        browser: mergeWechatAiPhoneRows(browserRows, fallback.browser, 6),
         wallet: getWechatAiPhoneWalletSummary({ wallet: pickWechatAiPhoneField(data, ['wallet', 'walletSummary', 'balance', 'money', '钱包', '钱包概要', '余额']) || fallback.wallet }, char),
-        footprints: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['footprints', 'traces', 'locations', 'places', 'mapRecords', 'visitedPlaces', 'locationHistory', 'importantPlaces', '足迹', '地点记录', '位置记录', '重要地点', '去过的地方']), fallback.footprints, 6),
-        usageRecords: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['usageRecords', 'usage', 'appUsage', 'screenTime', 'appUsageRecords', '使用记录', '应用使用', '屏幕使用时间']), fallback.usageRecords, 10),
-        walletRecords: normalizeWechatAiPhoneRecordList(pickWechatAiPhoneField(data, ['walletRecords', 'bills', 'transactions', 'payments', 'cards', 'passes', '钱包记录', '账单', '交易记录', '卡包']), [], 8),
-        scheduleRecords: getWechatAiPhoneScheduleRows({ scheduleRecords: pickWechatAiPhoneField(data, ['scheduleRecords', 'schedule', 'calendar', 'calendarEvents', 'itinerary', 'plans', 'appointments', 'agenda', '行程', '日程', '日历', '安排']) }, char),
-        shoppingRecords: getWechatAiPhoneShoppingRows({ shoppingRecords: pickWechatAiPhoneField(data, ['shoppingRecords', 'shopping', 'orders', 'purchaseRecords', 'shoppingOrders', 'wishList', 'favorites', '购物', '购物记录', '订单', '购买记录', '收藏夹']) }, char),
-        takeoutRecords: getWechatAiPhoneTakeoutRows({ takeoutRecords: pickWechatAiPhoneField(data, ['takeoutRecords', 'takeout', 'foodDelivery', 'deliveryRecords', 'mealOrders', 'drinkOrders', '外卖', '外卖记录', '点单', '饮品', '送餐记录']) }, char),
-        gameRecords: getWechatAiPhoneGameRows({ gameRecords: pickWechatAiPhoneField(data, ['gameRecords', 'games', 'gameHistory', 'playedGames', 'Game Center', '游戏', '玩的游戏', '游戏记录']) }, char),
+        footprints: mergeWechatAiPhoneRows(footprintRows, fallback.footprints, 6),
+        usageRecords: mergeWechatAiPhoneRows(usageRows, fallback.usageRecords, 10),
+        walletRecords: mergeWechatAiPhoneRows(walletRows, fallback.walletRecords, 8),
+        scheduleRecords: mergeWechatAiPhoneRows(scheduleRows, fallback.scheduleRecords, 6),
+        shoppingRecords: mergeWechatAiPhoneRows(shoppingRows, fallback.shoppingRecords, 8),
+        takeoutRecords: mergeWechatAiPhoneRows(takeoutRows, fallback.takeoutRecords, 8),
+        gameRecords: mergeWechatAiPhoneRows(gameRows, fallback.gameRecords, 8),
         diary: stripWechatPromptText(pickWechatAiPhoneField(data, ['diary', 'journal', 'privateDiary', 'unsentDiary', '日记', '私密日记']) || fallback.diary, 260),
-        diaryLetters: normalizeWechatAiPhoneDiaryLetterList(pickWechatAiPhoneField(data, ['diaryLetters', 'letters', 'letterCards', 'mailbox', '日记信件', '信件', '信封']), char, pickWechatAiPhoneField(data, ['diary', 'journal', 'privateDiary', 'unsentDiary', '日记', '私密日记']) || fallback.diary)
+        diaryLetters: mergeWechatAiPhoneRows(diaryLetterRows, fallback.diaryLetters, 3)
     };
 }
 
@@ -14150,55 +14446,48 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
             const identityAnchor = typeof buildWechatIdentityContextPrompt === 'function'
                 ? buildWechatIdentityContextPrompt(char, (typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : {}))
                 : '';
-            const worldBookAnchor = buildWechatWorldBookPrompt(char, 30);
+            const worldBookAnchor = buildWechatWorldBookPrompt(char, 18);
             const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
             const presetAnchor = typeof buildWechatPresetPromptForStatus === 'function' ? buildWechatPresetPromptForStatus(char) : '';
-            const personaText = getWechatCharacterPersonaText(char, 10000);
+            const personaText = getWechatCharacterPersonaText(char, 7000);
+            const contextText = [
+                stripWechatPromptText(identityAnchor, 1800),
+                personaText,
+                stripWechatPromptText(worldBookAnchor, 2400),
+                stripWechatPromptText(presetAnchor, 900),
+                stripWechatPromptText(memoryAnchor, 1200)
+            ].filter(Boolean).join('\n\n');
+            const statusText = JSON.stringify(status.fields || {});
+            const historyText = buildWechatRecentHistoryForPrompt(char, 14);
             const buildMessages = (extraRule = '') => [
                 {
                     role: 'system',
-                    content: `你是「${char.name}」本人手机里的数据生成器。任务不是抽取原文，而是“读完角色卡/世界书后，按这个角色真实会拥有的生活圈合理创作手机数据”。只返回一个完整 JSON 对象，不要 Markdown，不要解释，不要省略号。
-
-必须输出这些字段，并尽量达到最低数量：
-{
-  "userRemark": "你在自己手机里给用户存的备注",
-  "chats": [{"name":"用户备注或角色世界里的联系人","text":"最后一条消息","time":"时间"}],
-  "memos": ["2-5条备忘录"],
-  "browser": [{"title":"网页/搜索","detail":"为什么会看","meta":"时间"}],
-  "wallet": "按角色身份和经济水平写钱包概要",
-  "walletRecords": [{"title":"账单/卡/收支","detail":"按角色生活生成","meta":"金额或状态"}],
-  "footprints": [{"title":"到过的位置","detail":"停留原因","meta":"时间"}],
-  "usageRecords": [{"title":"App名","detail":"使用行为","meta":"时长"}],
-  "scheduleRecords": [{"time":"09:30","title":"行程标题","meta":"今天/明天/稍后"}],
-  "shoppingRecords": [{"title":"商品/订单","detail":"为什么买/给谁","meta":"状态或金额"}],
-  "takeoutRecords": [{"title":"店铺/饮品/餐点","detail":"配送/口味/场景","meta":"时间或状态"}],
-  "gameRecords": [{"title":"游戏名","detail":"记录","meta":"时长"}],
-  "diary": "这个角色写给用户但没发出的私密日记",
-  "diaryLetters": [{"title":"信封标题","subtitle":"符合角色语气的副标题","meta":"日期/PRIVATE/标签","content":"信件内容"}]
-}
-
-硬性规则：
-1. 行程、购物、外卖/送餐、足迹、使用记录、钱包记录、日记信件不能因为原文没逐字写就空着；要从身份、职业、经济水平、性格、关系网、世界观和最近聊天合理扩写。
-2. gameRecords 只有在人设明显不玩游戏时可以空；其他字段除非世界观绝对不可能，否则至少给 2-3 条。
-3. 禁止套用通用模板，禁止写“沈助理/周秘书/项目群”这类占位名。偶像/艺人应出现符合其人设的经纪团队、妆造、粉丝运营、品牌/舞台/录音/拍摄相关联系人；其他身份也按各自世界生成，不能照搬这个例子。
-4. 钱包金额和消费必须符合角色身份，不要固定低余额，不要写“未授权查看”。
-5. chats 第一项必须是用户，name 用你给用户存的备注；不要直接复用用户在设置里写的“角色对你的称呼”。
-6. diaryLetters 的 title/subtitle/content 必须体现角色性格，不能所有角色都叫“没有发出去的话/夜里的草稿”。
-7. 如果角色卡没有直接写手机记录，你也必须按人设和世界书合理生成；返回空数组视为失败。${extraRule ? `\n\n【上一次结果需要修正】\n${extraRule}` : ''}`
+                    content: `你是「${char.name}」本人手机的数据生成器。读角色卡/世界书/记忆后，按这个角色真实生活合理生成 iPhone 数据。只返回一个可 JSON.parse 的压缩 JSON 对象；不要 Markdown、不要解释、不要换行排版、不要省略号。
+字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
+数组格式：chats[{name,text,time}]；memos[string]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,content}]。
+数量：除 gameRecords 外，每个数组 2-3 条；chats 第一条必须是用户；diaryLetters 2 条。每个字符串 8-38 字，diary/content 最多 90 字。
+规则：不能空白；不能写未授权查看；不能套模板或固定低余额；要符合身份、职业、经济水平、世界观、关系网和最近聊天。偶像/艺人要有经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄等生活痕迹。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
-                    content: `${identityAnchor ? `${identityAnchor}\n\n` : ''}【完整角色卡/人设/世界书】\n${personaText || String(char.description || '').slice(0, 8000)}\n\n${worldBookAnchor ? `${worldBookAnchor}\n\n` : ''}${presetAnchor ? `${presetAnchor}\n\n` : ''}${memoryAnchor ? `${memoryAnchor}\n\n` : ''}【最新状态】\n${JSON.stringify(status.fields || {}, null, 2)}\n\n【最近聊天】\n${buildWechatRecentHistoryForPrompt(char, 24)}`
+                    content: `【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}`
                 }
             ];
-            let result = await callChatApi(buildMessages(), { max_tokens: 3600, temperature: 0.85 });
+            let result = await callChatApi(buildMessages(), { max_tokens: 2200, temperature: 0.78 });
             if (result && result.ok) {
-                const parsed = parseWechatJsonObject(result.content);
+                let parsed = parseWechatJsonObject(result.content);
+                if (!parsed) {
+                    const retry = await callChatApi(
+                        buildMessages('上一次不是合法 JSON 或被截断。这次只给极短 minified JSON；每组 2 条；不要任何多余文字。'),
+                        { max_tokens: 1800, temperature: 0.45 }
+                    );
+                    if (retry && retry.ok) parsed = parseWechatJsonObject(retry.content);
+                }
                 if (parsed) {
                     snapshot = normalizeWechatAiPhoneSnapshot(parsed, char);
                     const gap = getWechatAiPhoneSnapshotGapSummary(snapshot);
                     if (gap) {
-                        const retry = await callChatApi(buildMessages(`你上一次返回的 JSON 太空：${gap}。这次必须补齐行程、购物、外卖、足迹、使用记录、钱包记录、日记信件；按「${char.name || '角色'}」的人设和世界书合理创作，不准留空。`), { max_tokens: 4200, temperature: 0.92 });
+                        const retry = await callChatApi(buildMessages(`缺项：${gap}。补齐空数组，仍然保持短 JSON。`), { max_tokens: 2000, temperature: 0.62 });
                         if (retry && retry.ok) {
                             const retryParsed = parseWechatJsonObject(retry.content);
                             if (retryParsed) snapshot = normalizeWechatAiPhoneSnapshot(retryParsed, char);
@@ -14206,13 +14495,14 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
                     }
                     const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
                     if (finalGap) {
-                        snapshot.generatedBy = 'error';
-                        snapshot.syncError = `AI 返回了可解析 JSON，但手机数据仍然空白：${finalGap}`;
+                        snapshot = normalizeWechatAiPhoneSnapshot(parsed || {}, char);
+                        snapshot.generatedBy = 'api';
+                        snapshot.syncRecovered = `已按角色资料自动补齐：${finalGap}`;
                     }
                 } else {
-                    snapshot = buildWechatAiPhoneFallback(char);
-                    snapshot.generatedBy = 'error';
-                    snapshot.syncError = 'AI 返回的 JSON 不完整，可能被 max_tokens 截断。';
+                    snapshot = normalizeWechatAiPhoneSnapshot({}, char);
+                    snapshot.generatedBy = 'api';
+                    snapshot.syncRecovered = 'AI JSON 被截断，已按角色资料自动补齐。';
                     console.warn('ai phone json parse failed:', result.content);
                 }
             } else {
