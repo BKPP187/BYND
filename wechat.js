@@ -2909,6 +2909,22 @@ function looksLikeWechatRegexPayloadSource(text) {
     return /\|\^&\^|\^&\^|!\^!\^|【REGEX】|<regex\b/i.test(source);
 }
 
+function looksLikeWechatPipeStatusPayloadSource(text) {
+    const source = cleanWechatVisibleContent(text);
+    if (!source || source.length > 520) return false;
+    if (hasWechatAiDirectiveSource(source) || hasWechatRichTag(source)) return false;
+    const pipeCount = (source.match(/\|/g) || []).length;
+    if (pipeCount < 3) return false;
+    if (/https?:\/\/\S+\.(?:png|jpe?g|gif|webp)(?:\?\S*)?/i.test(source)) return true;
+    if (/^\s*\|{2,}/.test(source) || /\|{2,}\s*$/.test(source)) return true;
+    const cells = source.split('|').map(item => item.trim()).filter(Boolean);
+    if (cells.length < 3) return false;
+    const hasTemplateLikeCell = cells.some(cell => /https?:\/\/|@\S+|\d{1,3}%|^\d+(?:\.\d+)?$|^[\w-]{2,24}\.(?:png|jpe?g|gif|webp)$/i.test(cell));
+    const shortCells = cells.filter(cell => cell.length <= 34).length;
+    const newsCells = cells.filter(cell => /市|区|县|省|部|委|办|局|规划|文旅|交通|会议|上会|预警|调研|项目|方案|赛事|景点|限流/.test(cell)).length;
+    return hasTemplateLikeCell || shortCells >= Math.max(2, Math.ceil(cells.length * 0.55)) || newsCells >= 2;
+}
+
 function willWechatRegexRenderRich(text, char) {
     const source = String(text || '');
     if (!source) return false;
@@ -2941,6 +2957,7 @@ function looksLikeWechatRichOrRegexSource(text, char) {
         || /<\s*\/?\s*[A-Za-z][\w:-]*\b[^>]*>/.test(text)
         || isRichMessageContent(text)
         || looksLikeWechatRegexPayloadSource(text)
+        || looksLikeWechatPipeStatusPayloadSource(text)
         || willWechatRegexRenderRich(text, char);
 }
 
@@ -3060,7 +3077,7 @@ function getWechatRichCandidateRanges(source) {
     let lineStart = 0;
     text.split(/\r?\n/).forEach(line => {
         const lineEnd = lineStart + line.length;
-        if (looksLikeWechatRegexPayloadSource(line)) addWechatMixedRange(ranges, lineStart, lineEnd);
+        if (looksLikeWechatRegexPayloadSource(line) || looksLikeWechatPipeStatusPayloadSource(line)) addWechatMixedRange(ranges, lineStart, lineEnd);
         lineStart = lineEnd + 1;
     });
 
@@ -3090,7 +3107,7 @@ function appendWechatExpandedTextParts(target, content, char) {
         const before = source.slice(cursor, range.start).trim();
         if (before) target.push(...splitWechatOfflinePlainText(before, char));
         const rich = source.slice(range.start, range.end).trim();
-        if (rich) target.push({ kind: 'text', content: rich });
+        if (rich && !shouldDropWechatAiPipeStatusPayload(rich, char)) target.push({ kind: 'text', content: rich });
         cursor = range.end;
     });
     const after = source.slice(cursor).trim();
@@ -3126,6 +3143,7 @@ function appendWechatPlainAiTextParts(target, content, char) {
     const source = cleanWechatVisibleContent(content);
     if (!source) return;
     if (/^\]\s*$/.test(source)) return;
+    if (shouldDropWechatAiPipeStatusPayload(source, char)) return;
     const legacyMsg = parseWechatLegacyCallSummaryMessage(source);
     if (legacyMsg) {
         target.push({ kind: 'special', msg: legacyMsg });
@@ -3137,6 +3155,13 @@ function appendWechatPlainAiTextParts(target, content, char) {
         return;
     }
     appendWechatExpandedTextParts(target, source, char);
+}
+
+function shouldDropWechatAiPipeStatusPayload(text, char) {
+    const source = cleanWechatVisibleContent(text);
+    if (!looksLikeWechatPipeStatusPayloadSource(source)) return false;
+    if (willWechatRegexRenderRich(source, char) || isRichMessageContent(source)) return false;
+    return true;
 }
 
 function hasWechatRichTag(text) {
@@ -3223,6 +3248,7 @@ function buildWechatHistoryMessageFromParsedPart(part, baseMsg, char) {
     }
     const content = cleanWechatVisibleContent(part.content || '');
     if (!content) return null;
+    if (shouldDropWechatAiPipeStatusPayload(content, char)) return null;
     const stickerMsg = buildWechatStickerMessageFromAiText(content, char);
     if (stickerMsg && stickerMsg.content) {
         return attachWechatGroupSpeaker({
@@ -3922,6 +3948,7 @@ function parseWechatAiMessageParts(text, char) {
     const source = cleanWechatVisibleContent(text);
     if (!source) return [];
     if (/^\]\s*$/.test(source)) return [];
+    if (shouldDropWechatAiPipeStatusPayload(source, char)) return [];
     const looseStickerMsg = buildWechatLooseStickerDirectiveMessageFromText(source, char);
     if (looseStickerMsg && looseStickerMsg.content) {
         return [{ kind: 'special', msg: looseStickerMsg }];
@@ -13481,7 +13508,7 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone5';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone6';
 
 function getWechatAiPhonePersonaSource(char) {
     return getWechatCharacterPersonaText(char, 12000);
@@ -13499,6 +13526,7 @@ function shouldDropWechatAiPhoneRowForPersona(row, char) {
 function getWechatAiPhonePersonaKind(char) {
     const text = getWechatAiPhonePersonaSource(char);
     const has = pattern => pattern.test(text);
+    if (has(/副市长|市长|政府|政务|公务员|市委|市府|市政|区委|区政府|发改委|住建|文旅|规划院|规划局|财政|招商|民生|调研|上会|公文|会议纪要|CBD|人大|政协/)) return 'government';
     if (has(/偶像|艺人|明星|歌手|演员|练习生|舞台|演唱会|通告|经纪|粉丝|妆造|拍摄|综艺|idol|celebrity/i)) return 'idol';
     if (has(/学生|大学|高中|校园|同学|课堂|社团|考试|图书馆/)) return 'student';
     if (has(/医生|护士|医院|诊室|手术|查房|病人|药剂/)) return 'medical';
@@ -13518,6 +13546,45 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
         ? `今天手机里最舍不得删掉的，还是和${userName}有关的那点心事：${mood}`
         : `把${userName}的聊天窗口留在最前面，像是怕一移开就错过什么。`;
     const packs = {
+        government: {
+            wallet: `${charName}的钱包里是工资卡、政务通勤和日常消费记录，私账清楚克制。`,
+            scheduleRecords: [
+                { time: '09:30', title: 'CBD地下空间方案会', meta: '今天' },
+                { time: '14:00', title: '文旅端午保障调度', meta: '下午' },
+                { time: '20:30', title: '审阅规划院补充材料', meta: '晚上' }
+            ],
+            shoppingRecords: [
+                { title: '会议用便签和签字笔', detail: '秘书处补齐明天上会材料', meta: '已送达' },
+                { title: '低调通勤衬衫', detail: '适合调研和公开会面', meta: '待收货' },
+                { title: '护嗓含片', detail: '连续讲话后备用', meta: '已下单' }
+            ],
+            takeoutRecords: [
+                { title: '清淡工作餐', detail: '送到市府办公室，备注少油', meta: '午间' },
+                { title: '热茶和三明治', detail: '晚间审材料时临时点的', meta: '已送达' }
+            ],
+            footprints: [
+                { title: place || '市政府办公楼', detail: '日程定位停留，处理重点事项', meta: `今天 ${now}` },
+                { title: '市规划院', detail: '听取地下空间连通方案汇报', meta: '最近' },
+                { title: '文旅指挥调度室', detail: '确认假期景区限流预案', meta: '本周' }
+            ],
+            usageRecords: [
+                { title: '微信', detail: `置顶和${userName}的聊天`, meta: '24分钟' },
+                { title: '日历', detail: '调整会议、调研和上会时间', meta: '38分钟' },
+                { title: '备忘录', detail: '记录民生问题和批示要点', meta: '26分钟' },
+                { title: '浏览器', detail: '查看政策文件和舆情摘要', meta: '18分钟' }
+            ],
+            browser: [
+                { title: 'CBD地下空间连通方案', detail: '核对规划院提交的新版材料', meta: '今天' },
+                { title: '端午文旅客流预警', detail: '查看热门景点限流和交通疏导', meta: '今天' },
+                { title: '民生热线汇总', detail: '筛选需要亲自过问的事项', meta: '最近' }
+            ],
+            walletRecords: [
+                { title: '工资卡入账', detail: '月度工资与津贴', meta: '+¥18,600' },
+                { title: '公务通勤报销', detail: '按流程提交差旅/调研票据', meta: '待审核' },
+                { title: '私人餐饮消费', detail: '晚间加班工作餐', meta: '-¥46' }
+            ],
+            gameRecords: []
+        },
         idol: {
             wallet: `${charName}的钱包里有演出结算、品牌报销和私人卡，余额/额度符合艺人日常开销。`,
             scheduleRecords: [
@@ -13765,11 +13832,11 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
         ...pack,
         chats: [
             { name: userName, text: stripWechatPromptText(fields.lastMessage || fields.miniDiary || `还停在和${userName}的聊天里。`, 70), time: now },
-            { name: kind === 'idol' ? '经纪人' : kind === 'student' ? '同学' : kind === 'business' ? '工作联系人' : kind === 'fantasy' ? '旧识' : '联系人', text: '最近一条未读消息', time: '刚刚' }
+            { name: kind === 'government' ? '秘书处' : kind === 'idol' ? '经纪人' : kind === 'student' ? '同学' : kind === 'business' ? '工作联系人' : kind === 'fantasy' ? '旧识' : '联系人', text: '最近一条未读消息', time: '刚刚' }
         ],
         memos: [
             mood || `记得回${userName}消息`,
-            kind === 'idol' ? '通告前检查耳返和护嗓糖' : kind === 'business' ? '把私人时间从会议里挪出来' : kind === 'creator' ? '把没写完的信收进日记' : '把今天没说出口的话记下来'
+            kind === 'government' ? '会前再核一遍民生和规划材料' : kind === 'idol' ? '通告前检查耳返和护嗓糖' : kind === 'business' ? '把私人时间从会议里挪出来' : kind === 'creator' ? '把没写完的信收进日记' : '把今天没说出口的话记下来'
         ],
         diary: baseDiary,
         diaryLetters: [
@@ -14466,7 +14533,7 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 数组格式：chats[{name,text,time}]；memos[string]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,content}]。
 数量：除 gameRecords 外，每个数组 2-3 条；chats 第一条必须是用户；diaryLetters 2 条。每个字符串 8-38 字，diary/content 最多 90 字。
-规则：不能空白；不能写未授权查看；不能套模板或固定低余额；要符合身份、职业、经济水平、世界观、关系网和最近聊天。偶像/艺人要有经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄等生活痕迹。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
+规则：不能空白；不能写未授权查看；不能套模板或固定低余额；要符合身份、职业、经济水平、世界观、关系网和最近聊天。先判断角色身份再生成：副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；偶像/艺人才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
