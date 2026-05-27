@@ -1,5 +1,5 @@
-@import url("./styles/wechat-themes/base-overrides.css?v=20260527-context-image-phone1");
-@import url("./styles/wechat-themes/reference-themes.css?v=20260527-context-image-phone1");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260527-image-preview1");
+@import url("./styles/wechat-themes/reference-themes.css?v=20260527-image-preview1");
 
 /* style.css - 终极修复版 */
 /* --- 🔧 核心工具类 --- */
@@ -5344,11 +5344,68 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 
 /* 图片消息 */
 .msg-bubble.image-bubble { padding: 3px; max-width: 210px; background: transparent !important; border: none !important; box-shadow: none !important; overflow: hidden; }
-.msg-bubble.image-bubble img { width: 100%; border-radius: 17px; display: block; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
+.msg-bubble.image-bubble img { width: 100%; border-radius: 17px; display: block; box-shadow: 0 2px 12px rgba(15,23,42,0.1); cursor: zoom-in; }
 .msg-image-placeholder { width: 190px; min-height: 142px; border-radius: 17px; background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.92)); color: #64748b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 760; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
 .msg-image-placeholder i { font-size: 24px; color: #93a4b8; animation: spin 1s linear infinite; }
 .msg-image-placeholder.error { color: #ef4444; background: #fff1f2; }
 .msg-image-placeholder.error i { color: #ef4444; animation: none; }
+.wc-image-preview-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4600;
+    background: rgba(0,0,0,0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 54px 12px 42px;
+}
+.wc-image-preview-overlay.hidden { display: none; }
+.wc-image-preview-stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.wc-image-preview-stage img {
+    max-width: 100%;
+    max-height: calc(100% - 38px);
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 18px 44px rgba(0,0,0,0.38);
+}
+.wc-image-preview-caption {
+    max-width: 92%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.82);
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: center;
+}
+.wc-image-preview-close {
+    position: absolute;
+    top: 18px;
+    right: 16px;
+    z-index: 1;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.wc-image-preview-close i {
+    font-size: 21px;
+    color: inherit;
+}
 .msg-bubble.sticker img { width: 100%; max-width: 120px; display: block; }
 .msg-bubble.sticker .msg-quote,
 .msg-bubble.image-bubble .msg-quote {

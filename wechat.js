@@ -4415,6 +4415,25 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
     executeScriptsInElement(row);
     bindWechatMusicCardPlayback(row);
     applyWechatBubbleMetaContrast(row);
+    if (displayMsg.type === 'image' && displayMsg.content) {
+        const imageEl = row.querySelector('.msg-bubble.image-bubble img');
+        if (imageEl) {
+            imageEl.setAttribute('role', 'button');
+            imageEl.setAttribute('tabindex', '0');
+            imageEl.addEventListener('click', event => {
+                if (window._msgMultiSelectMode) return;
+                event.preventDefault();
+                event.stopPropagation();
+                openWechatImagePreview(displayMsg.content, displayMsg.description || '');
+            });
+            imageEl.addEventListener('keydown', event => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                openWechatImagePreview(displayMsg.content, displayMsg.description || '');
+            });
+        }
+    }
     if (typeof msgIndex === 'number' && !msg.isMe && !msg.receipt && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type) && msg.status !== '已被领取' && msg.status !== '已收取' && msg.status !== '已开通') {
         row.classList.add('msg-row-pay-collectable');
         const payBubble = row.querySelector('.msg-pay-bubble, .msg-gift-bubble, .msg-intimate-pay-bubble');
@@ -12731,6 +12750,56 @@ function appendWechatMessage(msg) {
 function getWechatModalRoot() {
     return document.querySelector('.phone-container') || document.body;
 }
+
+function ensureWechatImagePreviewOverlay() {
+    let overlay = document.getElementById('wc-image-preview-overlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'wc-image-preview-overlay';
+    overlay.className = 'wc-image-preview-overlay hidden';
+    overlay.innerHTML = `
+        <button type="button" class="wc-image-preview-close" aria-label="关闭图片预览"><i class="ri-close-line"></i></button>
+        <div class="wc-image-preview-stage">
+            <img src="" alt="图片预览">
+            <div class="wc-image-preview-caption"></div>
+        </div>
+    `;
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay || event.target.classList.contains('wc-image-preview-stage')) closeWechatImagePreview();
+    });
+    overlay.querySelector('.wc-image-preview-close')?.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeWechatImagePreview();
+    });
+    getWechatModalRoot().appendChild(overlay);
+    return overlay;
+}
+
+function openWechatImagePreview(src, caption = '') {
+    const imageUrl = String(src || '').trim();
+    if (!imageUrl) return;
+    const overlay = ensureWechatImagePreviewOverlay();
+    const img = overlay.querySelector('img');
+    const captionEl = overlay.querySelector('.wc-image-preview-caption');
+    if (img) img.src = imageUrl;
+    if (captionEl) {
+        captionEl.textContent = stripWechatPromptText(caption, 72);
+        captionEl.style.display = captionEl.textContent ? 'block' : 'none';
+    }
+    overlay.classList.remove('hidden');
+}
+
+function closeWechatImagePreview() {
+    const overlay = document.getElementById('wc-image-preview-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    const img = overlay.querySelector('img');
+    if (img) img.removeAttribute('src');
+}
+
+window.openWechatImagePreview = openWechatImagePreview;
+window.closeWechatImagePreview = closeWechatImagePreview;
 
 function getWechatCharDisplayName(char) {
     return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '对方';
