@@ -13411,44 +13411,28 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-function getWechatPersonaContactSeeds(char) {
-    const source = [
-        char && char.description,
-        Array.isArray(char && char.worldBook) ? char.worldBook.map(entry => `${entry.key || entry.keys || ''} ${entry.content || entry.entry || entry.value || ''}`).join('\n') : ''
-    ].join('\n');
-    if (/公司|集团|总裁|助理|秘书|项目|会议|客户|董事|办公室|合同/.test(source)) {
-        return [
-            { name: '沈助理', text: '明早会议材料已放到桌面', time: '08:20' },
-            { name: '周秘书', text: '董事会临时改到下午', time: '昨天' },
-            { name: '项目群', text: '等你确认最终版本', time: '周二' }
-        ];
-    }
-    if (/校园|学生|老师|同学|社团|图书馆|考试|课程|实验室/.test(source)) {
-        return [
-            { name: '同桌', text: '作业拍你了，别忘交', time: '10:12' },
-            { name: '社团群', text: '今晚排练照旧', time: '昨天' },
-            { name: '图书馆管理员', text: '预约座位即将到时', time: '周三' }
-        ];
-    }
-    if (/魔法|王国|骑士|神|祭司|宫廷|龙|巫|异能|末日|组织/.test(source)) {
-        return [
-            { name: '旧城信使', text: '密函已经送到', time: '薄暮' },
-            { name: '档案室', text: '禁阅卷宗被重新封存', time: '昨日' },
-            { name: '巡夜人', text: '北侧钟塔有异常光', time: '午夜' }
-        ];
-    }
-    if (/乐队|舞台|演员|经纪|剧组|粉丝|音乐|画室|摄影|直播|偶像/.test(source)) {
-        return [
-            { name: '经纪人', text: '采访时间又提前了', time: '09:35' },
-            { name: '录音室', text: 'demo 已经导出', time: '昨天' },
-            { name: '剧组统筹', text: '下一场换到 B 棚', time: '周一' }
-        ];
-    }
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone1';
+
+function getWechatAiPhonePersonaSource(char) {
     return [
-        { name: '置顶备忘', text: '有些话还没发出去', time: '刚刚' },
-        { name: '旧联系人', text: '很久没有回复', time: '昨天' },
-        { name: '未命名群聊', text: '新的消息被折叠了', time: '周二' }
-    ];
+        char && char.description,
+        Array.isArray(char && char.worldBook)
+            ? char.worldBook.map(entry => `${entry.key || entry.keys || entry.name || ''} ${entry.content || entry.entry || entry.value || entry.text || ''}`).join('\n')
+            : ''
+    ].join('\n');
+}
+
+function isWechatAiPhoneOfficeTemplateText(value) {
+    return /沈助理|周秘书|项目群|项目确认|早会|董事会|会议材料|最终版本|客户|办公室|合同|公司大楼|会议室楼层/.test(String(value || ''));
+}
+
+function shouldDropWechatAiPhoneRowForPersona(row, char) {
+    const text = `${row && row.name || ''} ${row && row.title || ''} ${row && row.text || ''} ${row && row.detail || ''} ${row && row.meta || ''}`;
+    return isWechatAiPhoneOfficeTemplateText(text);
+}
+
+function getWechatPersonaContactSeeds(char) {
+    return [];
 }
 
 function buildWechatAiPhoneFallback(char) {
@@ -13459,25 +13443,23 @@ function buildWechatAiPhoneFallback(char) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice');
     const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '\u8fd8\u6ca1\u6709\u65b0\u6d88\u606f';
-    const personaContacts = getWechatPersonaContactSeeds(char);
-
     return {
         updatedAt: Date.now(),
+        schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: 'local',
         chats: [
-            { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) },
-            ...personaContacts
+            { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) }
         ],
-        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), ['\u6ca1\u6709\u5907\u5fd8\u5f55\u3002']),
-        browser: getWechatAiPhoneBrowserRows(null, char),
-        wallet: getWechatAiPhoneWalletSummary(null, char),
-        footprints: getWechatAiPhoneLikelyPlaceRows(char, fields, status),
-        usageRecords: getWechatAiPhoneUsageRows(null, char),
-        scheduleRecords: getWechatAiPhoneScheduleRows(null, char),
-        shoppingRecords: getWechatAiPhoneShoppingRows(null, char),
-        takeoutRecords: getWechatAiPhoneTakeoutRows(null, char),
-        gameRecords: getWechatAiPhoneGameRows(null, char),
-        diary: fields.miniDiary || `\u4eca\u5929\u628a\u548c${userName}\u7684\u804a\u5929\u91cd\u65b0\u770b\u4e86\u4e00\u904d\u3002`
+        memos: normalizeWechatTextList([fields.thoughts, fields.miniDiary].filter(Boolean), []),
+        browser: [],
+        wallet: '正在根据角色卡和世界书同步钱包数据',
+        footprints: [],
+        usageRecords: [],
+        scheduleRecords: [],
+        shoppingRecords: [],
+        takeoutRecords: [],
+        gameRecords: [],
+        diary: fields.miniDiary || ''
     };
 }
 
@@ -13490,12 +13472,8 @@ function getWechatAiPhoneUserRemark(char, profile) {
     const config = char.chatConfig || {};
     const saved = stripWechatPromptText(config.aiPhoneUserRemark, 24);
     if (saved) return saved;
-    const source = getWechatAiPhonePersonaSource(char);
-    if (/总裁|老板|上司|秘书|助理|项目|会议|客户|办公室/.test(source)) return '重要联系人';
-    if (/校园|学生|同学|老师|社团|图书馆|课程/.test(source)) return '同桌';
-    if (/乐队|舞台|演员|偶像|音乐|经纪|剧组|摄影/.test(source)) return '特别关注';
-    if (/魔法|王国|骑士|祭司|宫廷|异能|组织/.test(source)) return '契约人';
-    return '置顶的人';
+    const profileName = stripWechatPromptText(profile && profile.name, 24);
+    return profileName || '用户';
 }
 
 function setWechatAiPhoneUserRemark(char, value) {
@@ -13546,6 +13524,11 @@ function normalizeWechatAiPhoneRecordList(value, fallback = [], limit = 8) {
     const parsed = source.map(parseRecord).filter(Boolean).slice(0, limit);
     if (parsed.length) return parsed;
     return Array.isArray(fallback) ? fallback.slice(0, limit) : [];
+}
+
+function hasWechatAiPhoneSnapshotField(snapshot, keys) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    return keys.some(key => Object.prototype.hasOwnProperty.call(snapshot, key));
 }
 
 function isWechatAiPhoneScheduleNarrative(value) {
@@ -13600,17 +13583,7 @@ function normalizeWechatAiPhoneScheduleRows(rows) {
     }).filter(Boolean).slice(0, 6);
 }
 
-function getWechatAiPhonePersonaSource(char) {
-    return [
-        char && char.description,
-        Array.isArray(char && char.worldBook)
-            ? char.worldBook.map(entry => `${entry.key || entry.keys || entry.name || ''} ${entry.content || entry.entry || entry.value || entry.text || ''}`).join('\n')
-            : ''
-    ].join('\n');
-}
-
 function getWechatAiPhoneLikelyPlaceRows(char, fields = {}, status = null) {
-    const source = getWechatAiPhonePersonaSource(char);
     const time = status && status.updatedAt ? formatWechatSnapshotTime(status.updatedAt) : formatWechatSnapshotTime(Date.now());
     const explicitPlace = [
         fields.location,
@@ -13628,44 +13601,10 @@ function getWechatAiPhoneLikelyPlaceRows(char, fields = {}, status = null) {
 
     if (explicitPlace) {
         return withMeta([
-            { title: explicitPlace, detail: recentHint ? `最近在这里停留：${recentHint}` : '最近到过的位置' },
-            { title: '常去地点', detail: '由手机定位整理的日常活动范围', when: '本周' },
-            { title: '回程路线', detail: '地图建议的常用路线', when: '昨天' }
+            { title: explicitPlace, detail: recentHint ? `最近在这里停留：${recentHint}` : '最近到过的位置' }
         ]);
     }
-    if (/公司|集团|总裁|助理|秘书|项目|会议|客户|董事|办公室|合同/.test(source)) {
-        return withMeta([
-            { title: '公司大楼', detail: '上午进入办公区，停留约 2 小时 40 分钟' },
-            { title: '会议室楼层', detail: '日程显示有早会和项目确认', when: '今天 09:30' },
-            { title: '地下停车场', detail: '下班前短暂停留', when: '昨天' }
-        ]);
-    }
-    if (/校园|学生|老师|同学|社团|图书馆|考试|课程|实验室/.test(source)) {
-        return withMeta([
-            { title: '图书馆', detail: '靠窗座位附近停留较久' },
-            { title: '教学楼', detail: '上午课程路线', when: '今天 10:05' },
-            { title: '社团活动室', detail: '晚间活动记录', when: '昨天' }
-        ]);
-    }
-    if (/乐队|舞台|演员|经纪|剧组|粉丝|音乐|画室|摄影|直播|偶像/.test(source)) {
-        return withMeta([
-            { title: '录音室', detail: '设备连接记录与音乐 App 使用时间重合' },
-            { title: '摄影棚', detail: '工作日程显示拍摄/排练', when: '今天 14:20' },
-            { title: '后台化妆间', detail: '演出前后常用路线', when: '昨天' }
-        ]);
-    }
-    if (/魔法|王国|骑士|神|祭司|宫廷|龙|巫|异能|末日|组织/.test(source)) {
-        return withMeta([
-            { title: '旧城钟塔', detail: '夜间巡行路线留下的定位点' },
-            { title: '档案室', detail: '封存记录附近停留', when: '昨日' },
-            { title: '南侧城门', detail: '常用出入路线', when: '本周' }
-        ]);
-    }
-    return withMeta([
-        { title: '家附近', detail: '日常停留时间最长的位置' },
-        { title: '常去咖啡店', detail: '短暂停留并打开过聊天' },
-        { title: '便利店路口', detail: '回程路线经过', when: '昨天' }
-    ]);
+    return [];
 }
 
 function isWechatAiPhonePlaceLike(row) {
@@ -13674,61 +13613,33 @@ function isWechatAiPhonePlaceLike(row) {
 }
 
 function getWechatAiPhoneFootprintRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && snapshot.footprints, [], 6);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['footprints', 'traces', 'locations', '足迹', '地点记录']) && !rawRows.length) return [];
     if (rawRows.some(isWechatAiPhonePlaceLike)) return rawRows.slice(0, 5);
     const status = getWechatAiStatusSnapshot(char);
     return getWechatAiPhoneLikelyPlaceRows(char, (status && status.fields) || {}, status).slice(0, 5);
 }
 
 
-function getWechatAiPhoneSourceText(char) {
-    return String(getWechatAiPhonePersonaSource(char) || '');
-}
-
 function shouldWechatAiPhoneShowGames(char, snapshot = null) {
     const rawGames = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.gameRecords || snapshot.games || snapshot['\u6e38\u620f']), [], 5);
     if (rawGames.length) return true;
-    const source = getWechatAiPhoneSourceText(char);
-    if (/\u6e38\u620f|\u7535\u7ade|\u624b\u6e38|\u7f51\u6e38|\u4e3b\u673a|Switch|steam|Steam|PS5|\u684c\u6e38|\u72fc\u4eba\u6740|\u4e94\u5b50\u68cb|\u8c61\u68cb|\u68cb|\u724c|\u5b85|\u7f51\u5427|\u76f4\u64ad|\u4e3b\u64ad|\u5b66\u751f|\u6821\u56ed|\u540c\u5b66|\u793e\u56e2|\u4f11\u95f2/.test(source)) return true;
-    if (/\u603b\u88c1|\u96c6\u56e2|\u8463\u4e8b|\u5f8b\u5e08|\u533b\u751f|\u519b\u5b98|\u8b66\u5bdf|\u6559\u6388|\u796d\u53f8|\u79d8\u4e66|\u529e\u516c\u5ba4/.test(source)) return false;
-    return /\u5c11\u5e74|\u5c11\u5973|\u670b\u53cb|\u5468\u672b|\u624b\u673a|\u591c\u665a|\u65e0\u804a|\u5192\u9669/.test(source);
+    return false;
 }
 
 function getWechatAiPhoneScheduleRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.scheduleRecords || snapshot.schedule || snapshot.calendar || snapshot['\u884c\u7a0b'] || snapshot['\u65e5\u7a0b']), [], 8);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['scheduleRecords', 'schedule', 'calendar', '\u884c\u7a0b', '\u65e5\u7a0b']) && !rawRows.length) return [];
     if (rawRows.length) return normalizeWechatAiPhoneScheduleRows(rawRows);
-    const source = getWechatAiPhoneSourceText(char);
-    const nowText = formatWechatSnapshotTime(Date.now());
-    if (/\u516c\u53f8|\u96c6\u56e2|\u603b\u88c1|\u52a9\u7406|\u79d8\u4e66|\u9879\u76ee|\u4f1a\u8bae|\u5ba2\u6237|\u8463\u4e8b|\u529e\u516c\u5ba4|\u5408\u540c/.test(source)) {
-        return normalizeWechatAiPhoneScheduleRows([
-            { time: '09:30', title: '\u65e9\u4f1a', meta: '\u4eca\u5929' },
-            { time: '14:00', title: '\u9879\u76ee\u786e\u8ba4', meta: '\u7a0d\u540e' },
-            { time: '20:30', title: '\u79c1\u4eba\u65f6\u95f4', meta: '\u665a\u4e0a' }
-        ]);
-    }
-    if (/\u6821\u56ed|\u5b66\u751f|\u8001\u5e08|\u540c\u5b66|\u793e\u56e2|\u56fe\u4e66\u9986|\u8003\u8bd5|\u8bfe\u7a0b|\u5b9e\u9a8c\u5ba4/.test(source)) {
-        return normalizeWechatAiPhoneScheduleRows([
-            { time: '08:20', title: '\u7b2c\u4e00\u8282\u8bfe', meta: '\u4eca\u5929' },
-            { time: '13:10', title: '\u56fe\u4e66\u9986', meta: '\u4e0b\u5348' },
-            { time: '19:00', title: '\u793e\u56e2\u6216\u81ea\u4e60', meta: '\u665a\u4e0a' }
-        ]);
-    }
-    if (/\u4e50\u961f|\u821e\u53f0|\u6f14\u5458|\u7ecf\u7eaa|\u5267\u7ec4|\u7c89\u4e1d|\u97f3\u4e50|\u753b\u5ba4|\u6444\u5f71|\u76f4\u64ad|\u5076\u50cf/.test(source)) {
-        return normalizeWechatAiPhoneScheduleRows([
-            { time: '10:30', title: '\u6392\u7ec3/\u62cd\u6444', meta: '\u4eca\u5929' },
-            { time: '15:40', title: '\u9020\u578b\u786e\u8ba4', meta: '\u4e0b\u5348' },
-            { time: '21:00', title: '\u6536\u5de5\u540e\u56de\u6d88\u606f', meta: '\u665a\u4e0a' }
-        ]);
-    }
-    return normalizeWechatAiPhoneScheduleRows([
-        { time: nowText, title: '\u5f53\u524d\u72b6\u6001', meta: '\u73b0\u5728' },
-        { time: '18:30', title: '\u665a\u95f4\u5b89\u6392', meta: '\u4eca\u5929' },
-        { time: '22:30', title: '\u7761\u524d\u63d0\u9192', meta: '\u4eca\u665a' }
-    ]);
+    return [];
 }
 
 function getWechatAiPhoneShoppingRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.shoppingRecords || snapshot.shopping || snapshot.orders || snapshot['\u8d2d\u7269'] || snapshot['\u8d2d\u7269\u8bb0\u5f55']), [], 8);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['shoppingRecords', 'shopping', 'orders', '\u8d2d\u7269', '\u8d2d\u7269\u8bb0\u5f55']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
     const history = Array.isArray(char && char.history) ? char.history : [];
     const rows = history.slice().reverse().reduce((list, msg) => {
@@ -13745,50 +13656,23 @@ function getWechatAiPhoneShoppingRows(snapshot, char) {
         return list;
     }, []);
     if (rows.length) return rows;
-    return [
-        { title: '\u6700\u8fd1\u8d2d\u7269', detail: '\u6309\u89d2\u8272\u4eba\u8bbe\u6574\u7406\u7684\u8ba2\u5355\u6458\u8981', meta: '\u4eca\u5929' },
-        { title: '\u6536\u85cf\u5939', detail: '\u53ef\u80fd\u60f3\u9001\u7ed9\u7528\u6237\u7684\u5c0f\u4e1c\u897f', meta: '\u672c\u5468' }
-    ];
+    return [];
 }
 
 function getWechatAiPhoneTakeoutRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.takeoutRecords || snapshot.takeout || snapshot.foodDelivery || snapshot['\u5916\u5356'] || snapshot['\u5916\u5356\u8bb0\u5f55']), [], 8);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['takeoutRecords', 'takeout', 'foodDelivery', '\u5916\u5356', '\u5916\u5356\u8bb0\u5f55']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
-    const rows = [];
-    try {
-        const store = typeof readWechatStore === 'function'
-            ? readWechatStore(WECHAT_TAKEOUT_STORAGE_KEY, { orders: [] })
-            : JSON.parse(localStorage.getItem(WECHAT_TAKEOUT_STORAGE_KEY) || '{"orders":[]}');
-        (Array.isArray(store.orders) ? store.orders : []).slice(-3).reverse().forEach(order => {
-            rows.push({
-                title: order.shopName || order.storeName || '\u5916\u5356\u8ba2\u5355',
-                detail: order.summary || order.note || '\u6700\u8fd1\u70b9\u8fc7\u7684\u5916\u5356',
-                meta: order.time || order.status || '\u6700\u8fd1'
-            });
-        });
-    } catch (e) {}
-    if (rows.length) return rows.slice(0, 4);
-    return [
-        { title: '\u5e38\u70b9\u5e97\u94fa', detail: '\u6700\u8fd1\u4e00\u6b21\u5916\u5356\u8bb0\u5f55', meta: '\u4eca\u5929' },
-        { title: '\u5907\u7528\u5730\u5740', detail: '\u5bb6/\u5de5\u4f5c\u5730\u70b9\u7684\u914d\u9001\u5730\u5740', meta: '\u5df2\u4fdd\u5b58' }
-    ];
+    return [];
 }
 
 function getWechatAiPhoneGameRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.gameRecords || snapshot.games || snapshot['\u6e38\u620f'] || snapshot['\u73a9\u7684\u6e38\u620f']), [], 8);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['gameRecords', 'games', '\u6e38\u620f', '\u73a9\u7684\u6e38\u620f']) && !rawRows.length) return [];
     if (rawRows.length) return rawRows.slice(0, 6);
-    if (!shouldWechatAiPhoneShowGames(char, snapshot)) return [];
-    const source = getWechatAiPhoneSourceText(char);
-    if (/\u68cb|\u724c|\u72fc\u4eba\u6740|\u63a8\u7406|\u684c\u6e38/.test(source)) {
-        return [
-            { title: 'BYND \u72fc\u4eba\u6740', detail: '\u4e0a\u6b21\u73a9\u5230\u53d1\u8a00\u9636\u6bb5', meta: '12\u5206\u949f' },
-            { title: '\u4e94\u5b50\u68cb', detail: '\u6b8b\u5c40\u8fd8\u6ca1\u6709\u7ed3\u675f', meta: '6\u5206\u949f' }
-        ];
-    }
-    return [
-        { title: '\u4f11\u95f2\u5c0f\u6e38\u620f', detail: '\u7b49\u4eba\u6216\u7761\u524d\u6253\u5f00\u8fc7', meta: '9\u5206\u949f' },
-        { title: '2048', detail: '\u4eca\u5929\u6700\u9ad8\u5206\u8fd8\u6ca1\u5237\u65b0', meta: '4\u5206\u949f' }
-    ];
+    return [];
 }
 
 function getWechatAiPhoneAppUsageLabel(tabName) {
@@ -13835,6 +13719,10 @@ function recordWechatAiPhoneAppUsage(char, tabName) {
 }
 
 function getWechatAiPhoneUsageRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
+    const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.usageRecords || snapshot.usage || snapshot.appUsage || snapshot['\u4f7f\u7528\u8bb0\u5f55'] || snapshot['\u5e94\u7528\u4f7f\u7528']), [], 10);
+    if (rawRows.length) return rawRows.slice(0, 10);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['usageRecords', 'usage', 'appUsage', '\u4f7f\u7528\u8bb0\u5f55', '\u5e94\u7528\u4f7f\u7528']) && !rawRows.length) return [];
     const history = Array.isArray(char && char.history) ? char.history.filter(msg => msg && msg.type !== 'system_notice') : [];
     const lastMsg = history[history.length - 1];
     const usageLog = Array.isArray(char && char.chatConfig && char.chatConfig.aiPhoneUsageLog) ? char.chatConfig.aiPhoneUsageLog : [];
@@ -13868,8 +13756,10 @@ function getWechatAiPhoneUsageTotal(rows) {
 }
 
 function getWechatAiPhoneBrowserRows(snapshot, char) {
+    if (snapshot && snapshot.generatedBy === 'local') return [];
     const history = Array.isArray(char && char.history) ? char.history : [];
     const rawRows = normalizeWechatAiPhoneRecordList(snapshot && snapshot.browser, [], 8);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['browser', 'browserHistory', '\u6d4f\u89c8\u5668']) && !rawRows.length) return [];
     const badPattern = /视线|目光|姿势|动作|呼吸|小夜灯|额前|唇|体温|卧室|身边|腰|腿|胸|暧昧|心跳|手臂/;
     const rows = rawRows.filter(row => {
         const text = `${row.title || ''} ${row.detail || ''}`;
@@ -13903,11 +13793,7 @@ function getWechatAiPhoneBrowserRows(snapshot, char) {
     });
 
     if (rows.length) return rows.slice(0, 6);
-    const userName = getWechatAiPhoneUserDisplayName(char);
-    return [
-        { title: 'BYND 聊天记录', detail: `最近打开和${userName}的对话`, meta: '今天' },
-        { title: '搜索记录', detail: '查找最近保存的链接和音乐', meta: '最近' }
-    ];
+    return [];
 }
 
 
@@ -13922,19 +13808,12 @@ function cleanWechatAiPhoneWalletText(value) {
 function getWechatAiPhoneWalletSummary(snapshot, char) {
     const raw = stripWechatPromptText(snapshot && snapshot.wallet, 120);
     if (raw && !/未授权|无权|无法查看|不能查看|不可查看/.test(raw)) return raw;
-    const history = Array.isArray(char && char.history) ? char.history : [];
-    const walletMsgs = history.filter(msg => msg && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type));
-    const seed = String((char && char.id) || (char && char.name) || 'wallet')
-        .split('')
-        .reduce((sum, ch) => (sum + ch.charCodeAt(0)) % 997, 31);
-    const balance = (88 + (seed % 420) + ((seed % 9) / 10)).toFixed(2);
-    if (!walletMsgs.length) return `零钱 ¥${balance} · 最近没有新的账单`;
-    const last = walletMsgs[walletMsgs.length - 1];
-    const summary = cleanWechatAiPhoneWalletText(getWechatMessageSummary(last));
-    return `零钱 ¥${balance} · 最近${summary}`;
+    if (snapshot && (snapshot.generatedBy === 'local' || hasWechatAiPhoneSnapshotField(snapshot, ['wallet', '\u94b1\u5305']))) return '等待 AI 根据角色卡同步钱包数据';
+    return '等待 AI 根据角色卡同步钱包数据';
 }
 
 function getWechatAiPhoneWalletRows(snapshot, char) {
+    if (snapshot && (snapshot.generatedBy === 'local' || hasWechatAiPhoneSnapshotField(snapshot, ['wallet', '\u94b1\u5305']))) return [];
     const history = Array.isArray(char && char.history) ? char.history : [];
     const rows = history
         .filter(msg => msg && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type))
@@ -13945,11 +13824,7 @@ function getWechatAiPhoneWalletRows(snapshot, char) {
             detail: msg.isMe ? '用户发起' : `${getWechatCharDisplayName(char)}发起`,
             meta: formatMessageTime(msg)
         }));
-    return rows.length ? rows : [
-        { title: '交易记录', detail: '账单、转账和收款', meta: '最近' },
-        { title: '卡包', detail: '银行卡与凭证', meta: '2张' },
-        { title: '亲密付', detail: '亲密付状态与代付记录', meta: '可用' }
-    ];
+    return rows;
 }
 
 function getWechatAiPhoneDiaryLetters(snapshot, char) {
@@ -14030,30 +13905,13 @@ function renderWechatAiPhoneDiaryMailbox(snapshot, char) {
     `;
 }
 
-function getWechatAiPhoneAlarmRows(char) {
-    const source = getWechatAiPhonePersonaSource(char);
-    if (/公司|集团|总裁|助理|秘书|项目|会议|客户|董事|办公室|合同/.test(source)) {
-        return [
-            { title: '明天 07:30', detail: '早会', meta: '开启' },
-            { title: '今天 14:00', detail: '项目会', meta: '稍后' }
-        ];
-    }
-    if (/校园|学生|老师|同学|社团|图书馆|考试|课程|实验室/.test(source)) {
-        return [
-            { title: '明天 07:10', detail: '起床', meta: '开启' },
-            { title: '明天 09:00', detail: '上课', meta: '提醒' }
-        ];
-    }
-    if (/乐队|舞台|演员|经纪|剧组|粉丝|音乐|画室|摄影|直播|偶像/.test(source)) {
-        return [
-            { title: '明天 10:30', detail: '排练', meta: '开启' },
-            { title: '今天 19:00', detail: '直播/拍摄', meta: '稍后' }
-        ];
-    }
-    return [
-        { title: '明天 08:00', detail: '起床', meta: '开启' },
-        { title: '今天 22:30', detail: '睡前回消息', meta: '提醒' }
-    ];
+function getWechatAiPhoneAlarmRows(snapshot, char) {
+    const schedule = getWechatAiPhoneScheduleRows(snapshot, char);
+    return schedule.slice(0, 4).map(row => ({
+        title: row.time || row.meta || '提醒',
+        detail: row.title || row.detail || '日历提醒',
+        meta: row.meta || '开启'
+    }));
 }
 
 function getWechatAiPhoneAvatarHtml(src, fallbackText, className = '') {
@@ -14084,7 +13942,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
                 text: stripWechatPromptText(item.text || item.lastMessage || item.message || '', 82),
                 time: stripWechatPromptText(item.time || item.status || '', 16)
             };
-        }).filter((item, index) => item.name && (index === 0 || !reservedByndNames.has(item.name))).slice(0, 5);
+        }).filter((item, index) => item.name && (index === 0 || (!reservedByndNames.has(item.name) && !shouldDropWechatAiPhoneRowForPersona(item, char)))).slice(0, 5);
         if (list.length) list[0].name = userDisplayName;
         return list.length ? list : fallback.chats;
     };
@@ -14094,6 +13952,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
 
     return {
         updatedAt: Date.now(),
+        schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: raw ? 'api' : 'local',
         userRemark: userDisplayName,
         chats,
@@ -14123,14 +13982,20 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
         let snapshot = buildWechatAiPhoneFallback(char);
         try {
             const status = getWechatAiStatusSnapshot(char) || { fields: {} };
+            const identityAnchor = typeof buildWechatIdentityContextPrompt === 'function'
+                ? buildWechatIdentityContextPrompt(char, (typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : {}))
+                : '';
+            const worldBookAnchor = buildWechatWorldBookPrompt(char, 30);
+            const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
+            const presetAnchor = typeof buildWechatPresetPromptForStatus === 'function' ? buildWechatPresetPromptForStatus(char) : '';
             const result = await callChatApi([
                 {
                     role: 'system',
-                    content: `你是「${char.name}」。根据角色卡、世界书和当前情景生成这个角色自己的小手机内容。只返回 JSON，不要 Markdown。字段：userRemark(字符串，代表你在自己手机通讯录里给用户保存的备注名，不等于用户在设置里写的称呼), chats(数组，每项 name/text/time), memos(数组), browser(数组), wallet(字符串), footprints(数组，每项是到过的地点/位置记录，可用 title/detail/meta 或“地点｜时间｜原因”，禁止写成姿势/动作流水账), usageRecords(数组，每项是这个角色手机里的 App 使用记录，例如 信息/Safari/备忘录/钱包/音乐 + 使用时长/最近行为), scheduleRecords(数组，角色自己的行程监控/日历提醒), shoppingRecords(数组，角色自己的购物记录), takeoutRecords(数组，角色点过的外卖), gameRecords(数组，角色玩过的游戏；如果人设明显不玩游戏就返回空数组), diary(字符串，写给用户但没有直接发出的认真日记)。聊天列表第一项必须是用户，name 使用你自己手机里给用户存的备注名；如果你不确定，可把 userRemark 设置为自然的亲昵称呼或用户本名，禁止直接复用用户在设置里写的“角色对你的称呼”。除第一项用户外，其余联系人必须是该角色世界里会真实存在的联系人、群聊或机构，按人设和世界书捏造；禁止复用 BYND 用户通讯录里的其他角色名字。`
+                    content: `你是「${char.name}」本人手机里的数据生成器，不是通用模板生成器。必须先阅读角色卡、世界书、预设、记忆和最近聊天，再生成这个角色自己的 iPhone/微信数据。只返回 JSON，不要 Markdown，不要解释。字段：userRemark(你在自己手机通讯录里给用户保存的备注名), chats(数组，每项 name/text/time), memos(数组), browser(数组), wallet(字符串), footprints(数组，每项是到过的真实地点/位置记录，可用 title/detail/meta 或“地点｜时间｜原因”), usageRecords(数组，每项是 App 使用记录), scheduleRecords(数组，角色自己的行程/日历提醒), shoppingRecords(数组，角色自己的购物记录), takeoutRecords(数组，角色点过的外卖), gameRecords(数组，角色玩过的游戏；人设不玩就空数组), diary(字符串，写给用户但没有直接发出的日记)。硬性规则：1. 所有联系人、钱包金额、行程、地点、购物、外卖、游戏都必须能从角色卡/世界书/最近聊天合理推导，不能套用默认办公室/学生/偶像模板。2. 如果角色卡没有依据，就返回空数组，不要编“沈助理/周秘书/项目群/早会/项目确认”这种通用数据。3. 钱包必须按角色身份、职业、世界观和经济水平生成；不要固定低余额，也不要写“未授权查看”。4. 聊天列表第一项必须是用户，name 使用你自己手机里给用户存的备注名；禁止直接复用用户在设置里写的“角色对你的称呼”。5. 其余联系人必须是该角色世界里真实会存在的人、机构、群聊或工作对象；禁止复用 BYND 用户通讯录里的其他角色名字。`
                 },
                 {
                     role: 'user',
-                    content: `角色卡：\n${String(char.description || '').slice(0, 2200)}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最新状态：${JSON.stringify(status.fields || {})}\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 12)}`
+                    content: `${identityAnchor ? `${identityAnchor}\n\n` : ''}【角色卡/人设原文】\n${String(char.description || '').slice(0, 8000)}\n\n${worldBookAnchor ? `${worldBookAnchor}\n\n` : ''}${presetAnchor ? `${presetAnchor}\n\n` : ''}${memoryAnchor ? `${memoryAnchor}\n\n` : ''}【最新状态】\n${JSON.stringify(status.fields || {}, null, 2)}\n\n【最近聊天】\n${buildWechatRecentHistoryForPrompt(char, 24)}`
                 }
             ]);
             if (result && result.ok) {
@@ -14171,7 +14036,10 @@ function openWechatAiPhone(charId) {
         getWechatModalRoot().appendChild(modal);
     }
     renderWechatAiPhone(char);
-    const phoneSnapshot = char.chatConfig && char.chatConfig.aiPhoneSnapshot && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api'
+    const phoneSnapshot = char.chatConfig
+        && char.chatConfig.aiPhoneSnapshot
+        && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api'
+        && char.chatConfig.aiPhoneSnapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION
         ? char.chatConfig.aiPhoneSnapshot
         : null;
     const statusSnapshot = getWechatAiStatusSnapshot(char);
@@ -14705,7 +14573,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
         `;
     }
     if (activeTab === 'clock') {
-        const alarms = getWechatAiPhoneAlarmRows(char);
+        const alarms = getWechatAiPhoneAlarmRows(snapshot, char);
         return `
             <div class="wc-ai-phone-clock-native">
                 <div class="wc-ai-phone-clock-tabs"><button>世界时钟</button><button class="active">闹钟</button><button>秒表</button><button>计时器</button></div>
@@ -14755,7 +14623,10 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
 function renderWechatAiPhone(char) {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal || !char) return;
-    const snapshot = (char.chatConfig && char.chatConfig.aiPhoneSnapshot && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api')
+    const snapshot = (char.chatConfig
+        && char.chatConfig.aiPhoneSnapshot
+        && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api'
+        && char.chatConfig.aiPhoneSnapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION)
         ? char.chatConfig.aiPhoneSnapshot
         : buildWechatAiPhoneFallback(char);
     const isLoading = !!(window._wechatAiPhoneGenerating && window._wechatAiPhoneGenerating.has(char.id));

@@ -1092,7 +1092,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.223';
+const APP_VERSION = 'v1.1.224';
 const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'wechat_user_persona_library_v1', 'wechat_memory_store', 'bynd_money_records_v1'];
 
 // 导出所有数据
