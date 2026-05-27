@@ -13411,7 +13411,7 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone1';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-persona-phone2';
 
 function getWechatAiPhonePersonaSource(char) {
     return [
@@ -13423,7 +13423,7 @@ function getWechatAiPhonePersonaSource(char) {
 }
 
 function isWechatAiPhoneOfficeTemplateText(value) {
-    return /沈助理|周秘书|项目群|项目确认|早会|董事会|会议材料|最终版本|客户|办公室|合同|公司大楼|会议室楼层/.test(String(value || ''));
+    return /沈助理|周秘书|项目群|会议材料已放到桌面|董事会临时改到下午|等你确认最终版本/.test(String(value || ''));
 }
 
 function shouldDropWechatAiPhoneRowForPersona(row, char) {
@@ -13813,7 +13813,11 @@ function getWechatAiPhoneWalletSummary(snapshot, char) {
 }
 
 function getWechatAiPhoneWalletRows(snapshot, char) {
-    if (snapshot && (snapshot.generatedBy === 'local' || hasWechatAiPhoneSnapshotField(snapshot, ['wallet', '\u94b1\u5305']))) return [];
+    if (snapshot && snapshot.generatedBy === 'local') return [];
+    const rawRows = normalizeWechatAiPhoneRecordList(snapshot && (snapshot.walletRecords || snapshot.bills || snapshot.transactions || snapshot['钱包记录'] || snapshot['账单']), [], 8);
+    if (rawRows.length) return rawRows.slice(0, 6);
+    if (hasWechatAiPhoneSnapshotField(snapshot, ['walletRecords', 'bills', 'transactions', '钱包记录', '账单'])) return [];
+    if (snapshot && hasWechatAiPhoneSnapshotField(snapshot, ['wallet', '\u94b1\u5305'])) return [];
     const history = Array.isArray(char && char.history) ? char.history : [];
     const rows = history
         .filter(msg => msg && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type))
@@ -13827,10 +13831,34 @@ function getWechatAiPhoneWalletRows(snapshot, char) {
     return rows;
 }
 
+function normalizeWechatAiPhoneDiaryLetterList(value, char, fallbackContent = '') {
+    const charName = getWechatCharDisplayName(char);
+    const clock = getWechatAiPhoneClockParts();
+    const source = Array.isArray(value) ? value : [];
+    const rows = source.map((item, index) => {
+        if (!item) return null;
+        const raw = typeof item === 'object' ? item : { content: item };
+        const content = stripWechatPromptText(raw.content || raw.text || raw.body || raw.note || raw.diary || '', 520);
+        const title = stripWechatPromptText(raw.title || raw.name || raw.subject || '', 28);
+        const subtitle = stripWechatPromptText(raw.subtitle || raw.from || raw.label || '', 36);
+        const meta = stripWechatPromptText(raw.meta || raw.time || raw.date || raw.tag || '', 18);
+        if (!title && !content) return null;
+        return {
+            title: title || ['没发出去的一页', '半夜存下的草稿', '藏起来的便签'][index] || '未命名信件',
+            subtitle: subtitle || `Letter From ${charName}`,
+            meta: meta || (index === 0 ? clock.date : ['PRIVATE', 'BYND'][index - 1] || 'PRIVATE'),
+            content: content || fallbackContent
+        };
+    }).filter(Boolean).slice(0, 3);
+    return rows;
+}
+
 function getWechatAiPhoneDiaryLetters(snapshot, char) {
     const clock = getWechatAiPhoneClockParts();
     const charName = getWechatCharDisplayName(char);
     const diary = stripWechatPromptText(snapshot && snapshot.diary, 520) || '今天还没有写下日记。';
+    const aiLetters = normalizeWechatAiPhoneDiaryLetterList(snapshot && (snapshot.diaryLetters || snapshot.letters || snapshot['日记信件'] || snapshot['信件']), char, diary);
+    if (aiLetters.length) return aiLetters;
     const status = getWechatAiStatusSnapshot(char);
     const fields = (status && status.fields) || {};
     const thought = stripWechatPromptText(fields.thoughts || fields.innerMonologue || '', 420);
@@ -13961,11 +13989,13 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         wallet: getWechatAiPhoneWalletSummary({ wallet: data.wallet || data['钱包'] || fallback.wallet }, char),
         footprints: normalizeWechatAiPhoneRecordList(data.footprints || data.traces || data.locations || data['足迹'] || data['地点记录'], fallback.footprints, 6),
         usageRecords: normalizeWechatAiPhoneRecordList(data.usageRecords || data.usage || data.appUsage || data['使用记录'] || data['应用使用'], fallback.usageRecords, 10),
+        walletRecords: normalizeWechatAiPhoneRecordList(data.walletRecords || data.bills || data.transactions || data['钱包记录'] || data['账单'], [], 8),
         scheduleRecords: getWechatAiPhoneScheduleRows({ scheduleRecords: data.scheduleRecords || data.schedule || data.calendar || data['行程'] || data['日程'] }, char),
         shoppingRecords: getWechatAiPhoneShoppingRows({ shoppingRecords: data.shoppingRecords || data.shopping || data.orders || data['购物'] || data['购物记录'] }, char),
         takeoutRecords: getWechatAiPhoneTakeoutRows({ takeoutRecords: data.takeoutRecords || data.takeout || data.foodDelivery || data['外卖'] || data['外卖记录'] }, char),
         gameRecords: getWechatAiPhoneGameRows({ gameRecords: data.gameRecords || data.games || data['游戏'] || data['玩的游戏'] }, char),
-        diary: stripWechatPromptText(data.diary || data['日记'] || fallback.diary, 260)
+        diary: stripWechatPromptText(data.diary || data['日记'] || fallback.diary, 260),
+        diaryLetters: normalizeWechatAiPhoneDiaryLetterList(data.diaryLetters || data.letters || data['日记信件'] || data['信件'], char, data.diary || data['日记'] || fallback.diary)
     };
 }
 
@@ -13991,7 +14021,7 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
             const result = await callChatApi([
                 {
                     role: 'system',
-                    content: `你是「${char.name}」本人手机里的数据生成器，不是通用模板生成器。必须先阅读角色卡、世界书、预设、记忆和最近聊天，再生成这个角色自己的 iPhone/微信数据。只返回 JSON，不要 Markdown，不要解释。字段：userRemark(你在自己手机通讯录里给用户保存的备注名), chats(数组，每项 name/text/time), memos(数组), browser(数组), wallet(字符串), footprints(数组，每项是到过的真实地点/位置记录，可用 title/detail/meta 或“地点｜时间｜原因”), usageRecords(数组，每项是 App 使用记录), scheduleRecords(数组，角色自己的行程/日历提醒), shoppingRecords(数组，角色自己的购物记录), takeoutRecords(数组，角色点过的外卖), gameRecords(数组，角色玩过的游戏；人设不玩就空数组), diary(字符串，写给用户但没有直接发出的日记)。硬性规则：1. 所有联系人、钱包金额、行程、地点、购物、外卖、游戏都必须能从角色卡/世界书/最近聊天合理推导，不能套用默认办公室/学生/偶像模板。2. 如果角色卡没有依据，就返回空数组，不要编“沈助理/周秘书/项目群/早会/项目确认”这种通用数据。3. 钱包必须按角色身份、职业、世界观和经济水平生成；不要固定低余额，也不要写“未授权查看”。4. 聊天列表第一项必须是用户，name 使用你自己手机里给用户存的备注名；禁止直接复用用户在设置里写的“角色对你的称呼”。5. 其余联系人必须是该角色世界里真实会存在的人、机构、群聊或工作对象；禁止复用 BYND 用户通讯录里的其他角色名字。`
+                    content: `你是「${char.name}」本人手机里的数据生成器，不是通用模板生成器。必须先阅读角色卡、世界书、预设、记忆和最近聊天，再生成这个角色自己的 iPhone/微信数据。只返回 JSON，不要 Markdown，不要解释。字段：userRemark(你在自己手机通讯录里给用户保存的备注名), chats(数组3-5项，每项 name/text/time), memos(数组2-5项), browser(数组3-5项), wallet(字符串), walletRecords(数组2-5项，每项 title/detail/meta), footprints(数组3-5项，每项是到过的地点/位置记录，可用 title/detail/meta 或“地点｜时间｜原因”), usageRecords(数组4-8项，每项是 App 使用记录), scheduleRecords(数组3-5项，角色自己的行程/日历提醒), shoppingRecords(数组2-4项，角色自己的购物记录), takeoutRecords(数组1-3项，角色点过的外卖/饮品/配送；如果世界观没有现代外卖就写同等含义的送餐/采购记录), gameRecords(数组；人设明显不玩游戏才空数组), diary(字符串，写给用户但没有直接发出的日记), diaryLetters(数组3项，每项 title/subtitle/meta/content，标题和内容要按角色性格写，不能所有角色都一样)。硬性规则：1. 不是要求世界书逐字写出手机记录；你要以角色卡/世界书为地基，按角色身份、职业、经济水平、生活圈、人际关系和当前聊天合理扩写出“他/她手机里会存在”的数据。2. 禁止套用默认办公室/学生/偶像模板，禁止编“沈助理/周秘书/项目群”这种占位联系人；联系人必须像这个角色世界里真实会存在的人、机构、工作对象、亲友、粉丝运营、经纪团队或特殊世界观关系。3. 不要因为没有明写购物/外卖/行程就空着；除非人设明确不可能，否则都要合理生成。4. 钱包必须按角色身份和经济水平生成；不要固定低余额，也不要写“未授权查看”。5. 聊天列表第一项必须是用户，name 使用你自己手机里给用户存的备注名；禁止直接复用用户在设置里写的“角色对你的称呼”。6. 禁止复用 BYND 用户通讯录里的其他角色名字。`
                 },
                 {
                     role: 'user',
