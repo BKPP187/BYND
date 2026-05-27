@@ -1,5 +1,5 @@
-@import url("./styles/wechat-themes/base-overrides.css?v=20260527-image-style1");
-@import url("./styles/wechat-themes/reference-themes.css?v=20260527-image-style1");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260527-context-image-phone1");
+@import url("./styles/wechat-themes/reference-themes.css?v=20260527-context-image-phone1");
 
 /* style.css - 终极修复版 */
 /* --- 🔧 核心工具类 --- */
@@ -13829,6 +13829,12 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     box-shadow: none;
     max-width: 78%;
 }
+.wc-ai-phone-msg-bubble.is-image {
+    padding: 0;
+    background: transparent !important;
+    box-shadow: none;
+    max-width: 184px;
+}
 .wc-ai-phone-mini-music-card {
     position: relative;
     width: min(235px, 100%);
@@ -13910,6 +13916,58 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     bottom: 5px;
     font-size: 9px;
     opacity: 0.62;
+}
+.wc-ai-phone-mini-image {
+    position: relative;
+    width: 172px;
+    min-height: 120px;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #e9e9eb;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.wc-ai-phone-mini-image img {
+    display: block;
+    width: 100%;
+    max-height: 210px;
+    object-fit: cover;
+}
+.wc-ai-phone-mini-image > span {
+    display: block;
+    padding: 7px 9px 18px;
+    color: #3f3f46;
+    font-size: 11px;
+    line-height: 1.35;
+    background: rgba(255,255,255,0.82);
+}
+.wc-ai-phone-mini-image time {
+    position: absolute;
+    right: 8px;
+    bottom: 5px;
+    font-size: 9px;
+    color: rgba(17,24,39,0.52);
+}
+.wc-ai-phone-mini-image-placeholder {
+    min-height: 118px;
+    padding: 18px 12px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 12px;
+    text-align: center;
+}
+.wc-ai-phone-mini-image-placeholder i {
+    font-size: 26px;
+}
+.wc-ai-phone-mini-image.is-pending .wc-ai-phone-mini-image-placeholder i {
+    animation: spin 1.1s linear infinite;
+}
+.wc-ai-phone-mini-image.is-broken,
+.wc-ai-phone-mini-image.is-error {
+    background: #f4f4f5;
 }
 .wc-ai-phone-safari-page-card .wc-ai-phone-ios-row em {
     max-width: 255px;

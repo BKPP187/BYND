@@ -792,6 +792,7 @@ function openChat(charId) {
 
     window.currentChatCharId = charId;
     clearWechatReplyDraft();
+    const sanitizedContext = sanitizeWechatEmptyChatDerivedContext(char);
     let touchedMessageTime = false;
     (char.history || []).forEach(msg => {
         if (ensureMessageTimestamp(msg)) touchedMessageTime = true;
@@ -807,7 +808,7 @@ function openChat(charId) {
     if (floatName) floatName.textContent = config.nickname || char.name;
     if (roomHeaderAvatar) roomHeaderAvatar.src = char.avatar || DEFAULT_AVATAR;
     syncWechatLineRoomHeader();
-    if (touchedMessageTime || readStateChanged) saveCharactersToStorage();
+    if (touchedMessageTime || readStateChanged || sanitizedContext) saveCharactersToStorage();
     if (readStateChanged) renderChatList();
     // 应用聊天配置（背景/气泡/字体）
     applyChatConfig(char);
@@ -10957,18 +10958,70 @@ function getWechatImageReferenceForChar(char) {
     return '';
 }
 
+function normalizeWechatImagePromptSource(value, maxLength = 1400) {
+    const text = cleanWechatVisibleContent(value)
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{4,}/g, '\n\n\n')
+        .trim();
+    if (!text) return '';
+    return text.length > maxLength ? `${text.slice(0, maxLength)}\n...` : text;
+}
+
+function getWechatImageAppearanceHints(text, maxLength = 1600) {
+    const source = normalizeWechatImagePromptSource(text, 6000);
+    if (!source) return '';
+    const appearancePattern = /(外貌|外观|长相|样貌|容貌|脸|五官|眼|瞳|发型|发色|头发|刘海|肤色|身高|体型|身材|服装|穿着|衣服|制服|裙|配饰|耳朵|尾巴|翅膀|角|纹身|气质|画风|appearance|looks?|face|eyes?|hair|skin|height|body|figure|outfit|clothes|dress|uniform|style)/i;
+    const lines = source
+        .split(/\n+/)
+        .map(line => line.trim())
+        .filter(Boolean);
+    const hits = lines.filter(line => appearancePattern.test(line));
+    const picked = (hits.length ? hits : lines).slice(0, hits.length ? 18 : 10).join('\n');
+    return picked.length > maxLength ? `${picked.slice(0, maxLength)}\n...` : picked;
+}
+
+function buildWechatCharacterImageSourceText(char) {
+    if (!char) return '';
+    const parts = [];
+    const pushPart = (label, value, limit = 1400) => {
+        const text = normalizeWechatImagePromptSource(value, limit);
+        if (text) parts.push(`【${label}】\n${text}`);
+    };
+    pushPart('角色卡', char.description, 2800);
+    pushPart('开场白', char.first_mes_original || char.first_mes, 900);
+    const worldBookEntries = Array.isArray(char.worldBook) ? char.worldBook : [];
+    const worldBookText = worldBookEntries
+        .filter(entry => entry && entry.enabled !== false)
+        .map(entry => {
+            const key = entry.name || entry.title || entry.key || entry.keys || '世界书';
+            const content = entry.content || entry.text || entry.entry || entry.value || entry.comment || '';
+            return normalizeWechatImagePromptSource(`${key}：${content}`, 520);
+        })
+        .filter(Boolean)
+        .filter(line => /外貌|外观|长相|样貌|眼|发|服装|穿着|身体|气质|appearance|hair|eye|face|outfit|style/i.test(line))
+        .slice(0, 8)
+        .join('\n');
+    pushPart('世界书外观线索', worldBookText, 1800);
+    const config = char.chatConfig || {};
+    pushPart('角色公开签名/气质', config.signature || config.profileBio, 500);
+    return parts.join('\n\n').slice(0, 5200);
+}
+
 function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
     const config = (char && char.chatConfig) || {};
     const displayName = char ? getWechatCharDisplayName(char) : '角色';
     const rawPrompt = String(prompt || caption || '角色自拍').trim();
+    const characterImageSource = buildWechatCharacterImageSourceText(char);
+    const appearanceHints = getWechatImageAppearanceHints(characterImageSource, 1800);
     const wantsLiveAction = /(?:真人|现实|三次元|写实真人|真实人像|真人照片|现实照片|现实自拍|live\s*action|photorealistic human)/i.test(rawPrompt);
     return [
-        `任务：生成一张${displayName}在微信聊天里发给用户的真实照片。`,
-        `这张图必须画的是角色本人，不是泛泛的路人、网图、真人帅哥或聊天截图。`,
+        `任务：生成一张${displayName}在微信聊天里发给用户的图片/照片。`,
+        `这张图必须画的是角色本人，不是泛泛的路人、网图、真人帅哥、他人照片或聊天截图。`,
         `用户/剧情要求：${rawPrompt}`,
         `角色显示名：${displayName}`,
         config.signature ? `角色公开签名/气质：${config.signature}` : '',
-        char && char.description ? `角色卡/人设：${String(char.description).slice(0, 2200)}` : '',
+        appearanceHints ? `角色卡外观重点：\n${appearanceHints}` : '',
+        characterImageSource ? `角色卡/人设原文：\n${characterImageSource}` : '',
         `参考图规则：如果提供了参考图，参考图优先级高于所有文字描述。必须保持参考图里的同一张脸、发型发色、刘海/眼睛特征、肤色、年龄感、气质、服饰倾向、配色和整体辨识度，只允许改变姿势、表情、光线、构图和场景。`,
         wantsLiveAction
             ? `用户明确要求真人/现实风格时，才可以把参考图转成写实真人，但仍必须保留参考图的脸部结构、发型、五官气质和辨识度。`
@@ -12318,6 +12371,7 @@ function saveChatSettings() {
         memoryLongTermLimit: normalizeWechatMemoryNumber(document.getElementById('wcs-memory-long')?.value, prevConfig.memoryLongTermLimit || WECHAT_MEMORY_DEFAULTS.longTermLimit, 3, 50),
         memoryKeepRecent: normalizeWechatMemoryNumber(document.getElementById('wcs-memory-keep')?.value, prevConfig.memoryKeepRecent || WECHAT_MEMORY_DEFAULTS.keepRecent, 1, 50),
         memoryExtractEvery: normalizeWechatMemoryNumber(document.getElementById('wcs-memory-extract')?.value, prevConfig.memoryExtractEvery || WECHAT_MEMORY_DEFAULTS.extractEvery, 2, 30),
+        memoryResetAt: prevConfig.memoryResetAt || 0,
         signature: document.getElementById('wcs-char-signature')?.value.trim() || prevConfig.signature || '',
         imageReference: prevConfig.imageReference || '',
         videoCallBg: prevConfig.videoCallBg || '',
@@ -12375,25 +12429,124 @@ function saveChatSettings() {
     closeChatSettings();
 }
 
-function clearCurrentWechatChatHistory() {
-    const char = getCurrentChatChar();
+function resetWechatChatDerivedContext(char) {
     if (!char) return;
-    const displayName = (char.chatConfig && char.chatConfig.nickname) || char.name || '该角色';
-    if (!confirm(`确定删除「${displayName}」的所有聊天记录吗？\n这个操作不会删除角色卡、记忆、贴纸包和聊天设置。`)) return;
-    char.history = [];
-    char.lastMsg = '';
-    if (char.chatConfig) {
+    char.chatConfig = char.chatConfig || {};
+    const resetAt = Date.now();
+    clearWechatMemoryForChar(char.id);
+    const oldTimer = window._wechatMemoryExtractionTimers?.get?.(char.id);
+    if (oldTimer) {
+        clearTimeout(oldTimer);
+        window._wechatMemoryExtractionTimers.delete(char.id);
+    }
+
+    char.chatConfig.aiStatusSnapshot = null;
+    char.chatConfig.aiStatusHistory = [];
+    char.chatConfig.aiStatusError = '';
+    char.chatConfig.aiStatusLoading = false;
+    char.chatConfig.aiPhoneSnapshot = null;
+    char.chatConfig.aiPhoneUserRemark = '';
+    char.chatConfig.aiPhoneUsageLog = [];
+    char.chatConfig.monitorState = null;
+    char.chatConfig.pendingMonitorRequest = null;
+    char.chatConfig.pendingContactDeleteRequest = null;
+    char.chatConfig.monitorReason = '';
+    char.chatConfig.monitorChangedByCharAt = 0;
+    char.chatConfig.userTitle = '';
+    char.chatConfig.memoryResetAt = resetAt;
+    char.chatConfig.lastReadAt = resetAt;
+    char.chatConfig.unreadCount = 0;
+    char.unreadCount = 0;
+}
+
+function pruneWechatAutoMemoryForChar(charId) {
+    const id = String(charId || '').trim();
+    if (!id) return false;
+    const store = getWechatMemoryStore();
+    const bucket = store.chars && store.chars[id];
+    if (!bucket) return false;
+    const isAutoMemory = item => !!(item && (item.auto || /^mem_(?:ext|auto)_/.test(String(item.id || ''))));
+    const pruneList = list => Array.isArray(list) ? list.filter(item => !isAutoMemory(item)) : [];
+    const nextBucket = {
+        segments: pruneList(bucket.segments),
+        longTerm: pruneList(bucket.longTerm),
+        compressed: pruneList(bucket.compressed),
+        meta: bucket.meta || {}
+    };
+    const changed =
+        nextBucket.segments.length !== (bucket.segments || []).length ||
+        nextBucket.longTerm.length !== (bucket.longTerm || []).length ||
+        nextBucket.compressed.length !== (bucket.compressed || []).length;
+    if (!changed) return false;
+    if (!nextBucket.segments.length && !nextBucket.longTerm.length && !nextBucket.compressed.length) delete store.chars[id];
+    else {
+        nextBucket.meta.lastExtractedIndex = 0;
+        nextBucket.meta.lastExtractedAt = 0;
+        nextBucket.meta.extractionBusy = false;
+        nextBucket.meta.extractionError = '';
+        store.chars[id] = nextBucket;
+    }
+    saveWechatMemoryStore(store);
+    return true;
+}
+
+function sanitizeWechatEmptyChatDerivedContext(char) {
+    if (!char || !char.id) return false;
+    const history = Array.isArray(char.history) ? char.history : [];
+    if (history.length || String(char.lastMsg || '').trim()) return false;
+    char.chatConfig = char.chatConfig || {};
+    if (char.chatConfig.memoryResetAt) return false;
+
+    const resetAt = Date.now();
+    let changed = pruneWechatAutoMemoryForChar(char.id);
+    if (
+        char.chatConfig.aiStatusSnapshot ||
+        (Array.isArray(char.chatConfig.aiStatusHistory) && char.chatConfig.aiStatusHistory.length) ||
+        char.chatConfig.aiPhoneSnapshot ||
+        char.chatConfig.aiPhoneUserRemark ||
+        (char.chatConfig.userTitle && char.chatConfig.userTitle !== '我') ||
+        char.chatConfig.monitorState ||
+        char.chatConfig.pendingMonitorRequest ||
+        char.chatConfig.pendingContactDeleteRequest
+    ) {
         char.chatConfig.aiStatusSnapshot = null;
         char.chatConfig.aiStatusHistory = [];
         char.chatConfig.aiStatusError = '';
         char.chatConfig.aiStatusLoading = false;
+        char.chatConfig.aiPhoneSnapshot = null;
+        char.chatConfig.aiPhoneUserRemark = '';
+        char.chatConfig.aiPhoneUsageLog = [];
+        char.chatConfig.monitorState = null;
+        char.chatConfig.pendingMonitorRequest = null;
+        char.chatConfig.pendingContactDeleteRequest = null;
+        char.chatConfig.monitorReason = '';
+        char.chatConfig.monitorChangedByCharAt = 0;
+        char.chatConfig.userTitle = '';
+        changed = true;
     }
+    if (changed) {
+        char.chatConfig.memoryResetAt = resetAt;
+        char.chatConfig.lastReadAt = resetAt;
+        char.chatConfig.unreadCount = 0;
+        char.unreadCount = 0;
+    }
+    return changed;
+}
+
+function clearCurrentWechatChatHistory() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    const displayName = (char.chatConfig && char.chatConfig.nickname) || char.name || '该角色';
+    if (!confirm(`确定删除「${displayName}」的所有聊天记录吗？\n会同时清空该角色的自动记忆、状态栏记录、小手机快照和关系称呼；不会删除角色卡、贴纸包和基础聊天设置。`)) return;
+    char.history = [];
+    char.lastMsg = '';
+    resetWechatChatDerivedContext(char);
     window._wechatExpandedHistoryIds?.delete?.(char.id);
     saveCharactersToStorage();
     refreshChatView(char);
     renderChatList();
     closeChatSettings();
-    if (typeof showWechatToast === 'function') showWechatToast('已删除该角色聊天记录');
+    if (typeof showWechatToast === 'function') showWechatToast('已删除聊天记录、记忆和状态缓存');
 }
 
 function applyChatConfig(char) {
@@ -14098,7 +14251,26 @@ function renderWechatAiPhoneMiniMusicCard(item) {
     `;
 }
 
+function renderWechatAiPhoneMiniImage(item) {
+    const msg = (item && item.msg) || {};
+    const imageUrl = msg.content || msg.imageUrl || msg.url || '';
+    const label = stripWechatPromptText(msg.imagePending
+        ? '图片生成中'
+        : (msg.imageError || msg.description || item.text || '图片'), 42);
+    const imageHtml = imageUrl
+        ? `<img src="${wcEscapeHtml(imageUrl)}" alt="${wcEscapeHtml(label)}" loading="lazy" onerror="this.closest('.wc-ai-phone-mini-image')?.classList.add('is-broken');this.remove()">`
+        : `<div class="wc-ai-phone-mini-image-placeholder"><i class="ri-image-line"></i><span>${wcEscapeHtml(label)}</span></div>`;
+    return `
+        <div class="wc-ai-phone-mini-image ${msg.imagePending ? 'is-pending' : ''} ${msg.imageError ? 'is-error' : ''}">
+            ${imageHtml}
+            ${label && !imageUrl ? '' : `<span>${wcEscapeHtml(label)}</span>`}
+            ${item.time ? `<time>${wcEscapeHtml(item.time)}</time>` : ''}
+        </div>
+    `;
+}
+
 function renderWechatAiPhoneMessageContent(item, char) {
+    if (item.type === 'image') return renderWechatAiPhoneMiniImage(item);
     if (item.type === 'music_card') return renderWechatAiPhoneMiniMusicCard(item);
     const stickerHtml = renderWechatAiPhoneMiniSticker(item, char);
     if (stickerHtml) return stickerHtml;
@@ -14148,7 +14320,7 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
                 type: msg.type || 'text',
                 msg
             }))
-            .filter(item => item.text || item.type === 'music_card');
+            .filter(item => item.text || item.type === 'music_card' || item.type === 'image');
     }
 
     if (!rows.length) {
@@ -14168,13 +14340,14 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
             'wc-ai-phone-msg-bubble',
             item.type === 'voice' ? 'is-voice' : '',
             item.type === 'music_card' ? 'is-music-card' : '',
+            item.type === 'image' ? 'is-image' : '',
             hasSticker ? 'is-sticker' : ''
         ].filter(Boolean).join(' ');
         return `
             <div class="wc-ai-phone-msg ${sideClass}">
                 ${item.isCharSide ? '' : avatarHtml}
                 <div class="${bubbleClass}">
-                    ${renderWechatAiPhoneMessageContent(item)}
+                    ${renderWechatAiPhoneMessageContent(item, char)}
                 </div>
                 ${item.isCharSide ? avatarHtml : ''}
             </div>
@@ -14705,6 +14878,16 @@ function saveWechatMemoryStore(store) {
     localStorage.setItem(WECHAT_MEMORY_STORAGE_KEY, JSON.stringify(normalizeWechatMemoryStore(store)));
 }
 
+function clearWechatMemoryForChar(charId) {
+    const id = String(charId || '').trim();
+    if (!id) return false;
+    const store = getWechatMemoryStore();
+    if (!store.chars || !store.chars[id]) return false;
+    delete store.chars[id];
+    saveWechatMemoryStore(store);
+    return true;
+}
+
 function getWechatMemoryBucket(store, charId) {
     if (!store.chars[charId]) {
         store.chars[charId] = {
@@ -15099,6 +15282,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
     if (window._wechatMemoryExtractionBusy.has(char.id)) return null;
     const history = Array.isArray(char.history) ? char.history : [];
     if (!history.length) return null;
+    const resetToken = Number(char.chatConfig && char.chatConfig.memoryResetAt) || 0;
 
     const store = getWechatMemoryStore();
     const bucket = getWechatMemoryBucket(store, char.id);
@@ -15125,9 +15309,13 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
         ]);
 
         const freshStore = getWechatMemoryStore();
-        const freshBucket = getWechatMemoryBucket(freshStore, char.id);
         const sourceStart = transcriptRows[0].index;
         const sourceEnd = transcriptRows[transcriptRows.length - 1].index;
+        const currentResetToken = Number(char.chatConfig && char.chatConfig.memoryResetAt) || 0;
+        if (currentResetToken !== resetToken || char.history !== history || !Array.isArray(char.history) || char.history.length <= sourceEnd) {
+            return null;
+        }
+        const freshBucket = getWechatMemoryBucket(freshStore, char.id);
         if (result && result.ok) {
             const memories = parseWechatMemoryExtractionJson(result.content);
             memories.forEach(memory => upsertWechatExtractedMemory(freshBucket, memory, char, sourceStart, sourceEnd));
