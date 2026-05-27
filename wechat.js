@@ -10805,6 +10805,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         return { ok: false, error: '当前默认生图 API 没有选择生图模型。请在设置里测试 API 后从生图模型下拉选择，或单独添加一个生图 API。' };
     }
     const referenceImage = String(options.referenceImage || '').trim();
+    const imageTimeoutMs = Math.max(60000, Number(options.timeoutMs || 180000));
     const enhancedPrompt = [
         String(prompt || '').trim(),
         referenceImage ? '需要尽量保持参考图中的角色脸型、发型、气质和整体辨识度。' : ''
@@ -10836,6 +10837,15 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         const first = json.data && json.data[0];
         if (first?.url) return { ok: true, url: first.url };
         if (first?.b64_json) return { ok: true, url: 'data:image/png;base64,' + first.b64_json };
+        if (json.url || json.image_url) return { ok: true, url: json.url || json.image_url };
+        if (json.b64_json) return { ok: true, url: 'data:image/png;base64,' + json.b64_json };
+        if (typeof json.image === 'string' && /^(https?:|data:image)/i.test(json.image)) return { ok: true, url: json.image };
+        if (Array.isArray(json.images) && json.images.length) {
+            const img = json.images[0];
+            if (typeof img === 'string') return { ok: true, url: /^data:image/i.test(img) || /^https?:/i.test(img) ? img : 'data:image/png;base64,' + img };
+            if (img?.url || img?.image_url) return { ok: true, url: img.url || img.image_url };
+            if (img?.b64_json) return { ok: true, url: 'data:image/png;base64,' + img.b64_json };
+        }
         if (json.output && Array.isArray(json.output)) {
             const imageOutput = json.output.find(item => item && (item.result || item.image_url || item.b64_json));
             if (imageOutput?.result) return { ok: true, url: imageOutput.result };
@@ -10845,26 +10855,32 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         return { ok: false, error: '图片接口没有返回图片' };
     };
     try {
+        let editError = '';
         if (referenceImage && shouldWechatUseImageEditEndpoint(baseUrl, imageModel)) {
             const form = await buildWechatImageEditFormData(imageModel, enhancedPrompt, referenceImage, options);
             if (form) {
-                const editResp = await fetch(baseUrl + '/images/edits', {
-                    method: 'POST',
-                    headers: formHeaders,
-                    body: form,
-                    signal: AbortSignal.timeout(60000)
-                });
-                const editResult = await parseImageResponse(editResp);
-                if (editResult.ok || options.requireReference) return editResult;
-            } else if (options.requireReference) {
-                return { ok: false, error: '参考图不是可上传的图片格式。请在角色聊天设置里重新上传 PNG/JPG/WebP 参考图。' };
+                try {
+                    const editResp = await fetch(baseUrl + '/images/edits', {
+                        method: 'POST',
+                        headers: formHeaders,
+                        body: form,
+                        signal: AbortSignal.timeout(imageTimeoutMs)
+                    });
+                    const editResult = await parseImageResponse(editResp);
+                    if (editResult.ok) return editResult;
+                    editError = editResult.error || '参考图编辑接口失败';
+                } catch (e) {
+                    editError = normalizeWechatImageApiError(e && e.message ? e.message : '参考图编辑接口失败');
+                }
+            } else {
+                editError = '参考图不是可上传文件，已改用兼容 JSON 生图请求继续尝试。';
             }
         }
         const resp = await fetch(baseUrl + '/images/generations', {
             method: 'POST',
             headers: jsonHeaders,
             body: JSON.stringify(buildBody(!!referenceImage)),
-            signal: AbortSignal.timeout(45000)
+            signal: AbortSignal.timeout(imageTimeoutMs)
         });
         const result = await parseImageResponse(resp);
         if (!result.ok && referenceImage && result.status === 400 && !options.requireReference) {
@@ -10872,9 +10888,12 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
                 method: 'POST',
                 headers: jsonHeaders,
                 body: JSON.stringify(buildBody(false)),
-                signal: AbortSignal.timeout(45000)
+                signal: AbortSignal.timeout(imageTimeoutMs)
             });
             return parseImageResponse(retry);
+        }
+        if (!result.ok && editError) {
+            result.error = `${result.error || '图片生成失败'}；参考图 edits 路径也失败：${editError}`;
         }
         return result;
     } catch (e) {
@@ -10916,7 +10935,7 @@ function normalizeWechatImageApiError(error, status = 0) {
     if (/Failed to fetch|NetworkError|Load failed/i.test(text)) {
         return '生图请求没有发出去：浏览器无法连接生图 API。常见原因是 Base URL 不对、接口不允许网页跨域直连（CORS）、HTTP/HTTPS 被拦截，或需要用 Worker/后端代理。参考图和角色提示词已经会一起发送。';
     }
-    if (/abort|timeout|timed out/i.test(text)) return '生图请求超时：接口太慢或网络被拦截，请重试或换生图线路。';
+    if (/abort|timeout|timed out/i.test(text)) return '生图请求超时：接口返回太慢或网络被拦截。已把超时放宽到 180 秒；如果仍出现，请检查这个 Base URL 是否支持网页直连和当前生图路径。';
     if (status === 401 || status === 403 || /invalid api key|unauthorized|forbidden|incorrect api key/i.test(text)) {
         return '生图 API Key 无效或没有生图权限，请检查 Key、额度和该模型权限。';
     }
