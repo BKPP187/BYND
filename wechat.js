@@ -10796,8 +10796,10 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         : (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
     if (!api || !api.baseUrl) return { ok: false, error: '未配置生图 API' };
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
-    const headers = { 'Content-Type': 'application/json' };
-    if (api.apiKey) headers.Authorization = `Bearer ${api.apiKey}`;
+    const jsonHeaders = { 'Content-Type': 'application/json' };
+    if (api.apiKey) jsonHeaders.Authorization = `Bearer ${api.apiKey}`;
+    const formHeaders = {};
+    if (api.apiKey) formHeaders.Authorization = `Bearer ${api.apiKey}`;
     const imageModel = String(api.imageModel || '').trim();
     if (!imageModel) {
         return { ok: false, error: '当前默认生图 API 没有选择生图模型。请在设置里测试 API 后从生图模型下拉选择，或单独添加一个生图 API。' };
@@ -10817,30 +10819,58 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         if (includeReference && referenceImage) {
             body.image = referenceImage;
             body.reference_image = referenceImage;
+            body.reference_images = [referenceImage];
             body.images = [referenceImage];
         }
         return body;
     };
     const parseImageResponse = async resp => {
-        if (!resp.ok) return { ok: false, status: resp.status, error: await resp.text().catch(() => '图片生成失败') };
-        const json = await resp.json();
+        const rawText = await resp.text().catch(() => '');
+        if (!resp.ok) return { ok: false, status: resp.status, error: normalizeWechatImageApiError(rawText || resp.statusText || '图片生成失败', resp.status) };
+        let json = null;
+        try {
+            json = JSON.parse(rawText);
+        } catch (e) {
+            return { ok: false, error: '图片接口没有返回 JSON' };
+        }
         const first = json.data && json.data[0];
         if (first?.url) return { ok: true, url: first.url };
         if (first?.b64_json) return { ok: true, url: 'data:image/png;base64,' + first.b64_json };
+        if (json.output && Array.isArray(json.output)) {
+            const imageOutput = json.output.find(item => item && (item.result || item.image_url || item.b64_json));
+            if (imageOutput?.result) return { ok: true, url: imageOutput.result };
+            if (imageOutput?.image_url) return { ok: true, url: imageOutput.image_url };
+            if (imageOutput?.b64_json) return { ok: true, url: 'data:image/png;base64,' + imageOutput.b64_json };
+        }
         return { ok: false, error: '图片接口没有返回图片' };
     };
     try {
+        if (referenceImage && shouldWechatUseImageEditEndpoint(baseUrl, imageModel)) {
+            const form = await buildWechatImageEditFormData(imageModel, enhancedPrompt, referenceImage, options);
+            if (form) {
+                const editResp = await fetch(baseUrl + '/images/edits', {
+                    method: 'POST',
+                    headers: formHeaders,
+                    body: form,
+                    signal: AbortSignal.timeout(60000)
+                });
+                const editResult = await parseImageResponse(editResp);
+                if (editResult.ok || options.requireReference) return editResult;
+            } else if (options.requireReference) {
+                return { ok: false, error: '参考图不是可上传的图片格式。请在角色聊天设置里重新上传 PNG/JPG/WebP 参考图。' };
+            }
+        }
         const resp = await fetch(baseUrl + '/images/generations', {
             method: 'POST',
-            headers,
+            headers: jsonHeaders,
             body: JSON.stringify(buildBody(!!referenceImage)),
             signal: AbortSignal.timeout(45000)
         });
         const result = await parseImageResponse(resp);
-        if (!result.ok && referenceImage && result.status === 400) {
+        if (!result.ok && referenceImage && result.status === 400 && !options.requireReference) {
             const retry = await fetch(baseUrl + '/images/generations', {
                 method: 'POST',
-                headers,
+                headers: jsonHeaders,
                 body: JSON.stringify(buildBody(false)),
                 signal: AbortSignal.timeout(45000)
             });
@@ -10848,17 +10878,88 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         }
         return result;
     } catch (e) {
-        return { ok: false, error: e.message || '图片生成失败' };
+        return { ok: false, error: normalizeWechatImageApiError(e && e.message ? e.message : '图片生成失败') };
     }
+}
+
+function shouldWechatUseImageEditEndpoint(baseUrl, imageModel) {
+    const model = String(imageModel || '').toLowerCase();
+    const host = (() => {
+        try { return new URL(baseUrl).host.toLowerCase(); } catch (e) { return String(baseUrl || '').toLowerCase(); }
+    })();
+    return /(^|[-_/])(gpt-image|chatgpt-image|dall-e-2)/i.test(model) || /api\.openai\.com|openai/i.test(host);
+}
+
+async function buildWechatImageEditFormData(imageModel, prompt, referenceImage, options = {}) {
+    const blob = await getWechatReferenceImageBlob(referenceImage);
+    if (!blob) return null;
+    const form = new FormData();
+    form.append('model', imageModel);
+    form.append('prompt', prompt);
+    form.append('image', blob, 'character-reference.png');
+    if (options.size) form.append('size', options.size);
+    return form;
+}
+
+async function getWechatReferenceImageBlob(referenceImage) {
+    const source = String(referenceImage || '').trim();
+    if (!source) return null;
+    if (/^data:image\/(?:png|jpe?g|webp);base64,/i.test(source)) {
+        const resp = await fetch(source);
+        return resp.ok ? resp.blob() : null;
+    }
+    return null;
+}
+
+function normalizeWechatImageApiError(error, status = 0) {
+    const text = String(error || '').trim();
+    if (/Failed to fetch|NetworkError|Load failed/i.test(text)) {
+        return '生图请求没有发出去：浏览器无法连接生图 API。常见原因是 Base URL 不对、接口不允许网页跨域直连（CORS）、HTTP/HTTPS 被拦截，或需要用 Worker/后端代理。参考图和角色提示词已经会一起发送。';
+    }
+    if (/abort|timeout|timed out/i.test(text)) return '生图请求超时：接口太慢或网络被拦截，请重试或换生图线路。';
+    if (status === 401 || status === 403 || /invalid api key|unauthorized|forbidden|incorrect api key/i.test(text)) {
+        return '生图 API Key 无效或没有生图权限，请检查 Key、额度和该模型权限。';
+    }
+    if (status === 404) return '生图接口路径不存在：请检查 Base URL 是否应该填到 /v1 前一级，或该站点是否支持 /images/generations / /images/edits。';
+    if (status === 400 && /image|reference|multipart|form/i.test(text)) {
+        return '生图接口不接受当前参考图格式。角色照片需要支持参考图/图生图的模型；请重新上传 PNG/JPG/WebP 参考图，或使用支持 /images/edits 的代理。';
+    }
+    return text || '图片生成失败';
+}
+
+function getWechatImageReferenceForChar(char) {
+    const config = (char && char.chatConfig) || {};
+    const reference = String(config.imageReference || '').trim();
+    if (reference) return reference;
+    const avatar = String((char && char.avatar) || '').trim();
+    if (avatar && avatar !== DEFAULT_AVATAR) return avatar;
+    return '';
+}
+
+function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
+    const config = (char && char.chatConfig) || {};
+    const displayName = char ? getWechatCharDisplayName(char) : '角色';
+    return [
+        `任务：生成一张${displayName}在微信聊天里发给用户的真实照片。`,
+        `这张图必须画的是角色本人，不是泛泛的插画，也不要生成聊天截图。`,
+        `用户/剧情要求：${String(prompt || caption || '角色自拍').trim()}`,
+        `角色显示名：${displayName}`,
+        config.signature ? `角色公开签名/气质：${config.signature}` : '',
+        char && char.description ? `角色卡/人设：${String(char.description).slice(0, 2200)}` : '',
+        `如果提供了参考图，必须把参考图作为角色外观锚点：保持同一张脸、发型、发色、眼睛、年龄感、气质和辨识度，只改变姿势、表情、光线、构图和场景。`,
+        `画面要求：手机照片质感，自然光线，真实自拍或随手拍构图，主体清楚，符合当前聊天语境。`,
+        `禁止：文字水印、聊天气泡、界面截图、扭曲手指、换脸、换发型、换角色。`
+    ].filter(Boolean).join('\n');
 }
 
 async function resolveWechatAiGeneratedImage(char, msg) {
     if (!char || !msg || msg.type !== 'image' || !msg.imagePending) return;
-    const prompt = String(msg.imagePrompt || msg.description || '微信聊天照片').trim();
-    const reference = String((char.chatConfig && char.chatConfig.imageReference) || char.avatar || '').trim();
+    const reference = getWechatImageReferenceForChar(char);
+    const prompt = buildWechatCharacterImagePrompt(char, msg.imagePrompt || msg.description || '微信聊天照片', msg.description || '');
     const result = await callWechatImageGenerationApi(prompt, {
         referenceImage: reference,
-        size: msg.imageSize || '1024x1024'
+        size: msg.imageSize || '1024x1024',
+        requireReference: !!reference
     });
     if (result.ok && result.url) {
         msg.content = result.url;

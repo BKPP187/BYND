@@ -1,0 +1,8 @@
+name = "bynd-image-worker"
+main = "bynd-image-worker.js"
+compatibility_date = "2025-05-01"
+
+# Secrets/vars to set in Cloudflare:
+# wrangler secret put IMAGE_API_KEY
+# wrangler secret put IMAGE_API_BASE_URL
+# Optional: wrangler secret put IMAGE_API_MODEL
