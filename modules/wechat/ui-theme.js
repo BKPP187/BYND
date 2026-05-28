@@ -153,6 +153,83 @@ function getWechatThemeTabMeta(tabName, theme = getWechatUiTheme()) {
     return (theme.tabs && theme.tabs[tabName]) || fallback || { label: tabName, title: tabName, icon: 'ri-circle-line' };
 }
 
+function getWechatThemeCharUnreadCount(char) {
+    if (!char) return 0;
+    if (typeof isWechatChatPageActive === 'function' && isWechatChatPageActive(char.id)) return 0;
+    const explicit = Number(char.unreadCount ?? char.chatConfig?.unreadCount ?? 0);
+    if (Number.isFinite(explicit) && explicit > 0) return Math.min(999, Math.floor(explicit));
+    const history = Array.isArray(char.history) ? char.history : [];
+    const lastReadAt = Number(char.chatConfig && char.chatConfig.lastReadAt) || 0;
+    let count = 0;
+    if (lastReadAt > 0) {
+        history.forEach(msg => {
+            if (!msg || msg.type === 'system_notice' || msg.isMe) return;
+            if (typeof isWechatRegexPayloadMessage === 'function' && isWechatRegexPayloadMessage(msg, char)) return;
+            if (getWechatMessageTimestampValue(msg) > lastReadAt) count += 1;
+        });
+        return Math.min(999, count);
+    }
+    for (let i = history.length - 1; i >= 0; i--) {
+        const msg = history[i];
+        if (!msg || msg.type === 'system_notice') continue;
+        if (msg.isMe) break;
+        if (typeof isWechatRegexPayloadMessage === 'function' && isWechatRegexPayloadMessage(msg, char)) continue;
+        count += 1;
+    }
+    return Math.min(999, count);
+}
+
+function getWechatThemeChatUnreadTotal() {
+    const chars = Array.isArray(window.myCharacters) ? window.myCharacters : [];
+    const total = chars.reduce((sum, char) => sum + getWechatThemeCharUnreadCount(char), 0);
+    return Math.max(0, Math.min(999, total));
+}
+
+function getWechatThemeUnreadBadgeHtml(count) {
+    if (!count) return '';
+    const label = count > 99 ? '99+' : String(count);
+    return `<b class="wc-wechat-tab-badge" aria-label="${label} 条未读消息">${label}</b>`;
+}
+
+function getWechatThemeTabIconHtml(key, meta, theme) {
+    if (theme.id !== 'wechat') {
+        const iconClass = meta.icon || 'ri-circle-line';
+        return `<i class="${iconClass} wc-theme-tab-icon"></i>`;
+    }
+    const unread = key === 'chat' ? getWechatThemeChatUnreadTotal() : 0;
+    const badgeHtml = getWechatThemeUnreadBadgeHtml(unread);
+    const icons = {
+        chat: `
+            <svg class="wc-wechat-tab-svg" viewBox="0 0 64 48" fill="none" aria-hidden="true">
+                <path d="M29 6.5C16.3 6.5 6 14.4 6 24.1c0 5.6 3.5 10.6 8.9 13.8l-1.2 6.8 7.5-4.1c2.4.7 5 1.1 7.8 1.1 12.7 0 23-7.9 23-17.6S41.7 6.5 29 6.5Z" fill="currentColor"/>
+                <path d="M44.4 20.8c8.1 1.5 13.6 6.7 13.6 13 0 3.9-2.3 7.5-6.1 10l.9 5.2-6-3.3c-2 .6-4.2.9-6.5.9-7.4 0-13.8-3.6-16.6-8.8 1.7.3 3.5.5 5.3.5 14.2 0 25.7-8.8 25.7-19.6 0-.4 0-.8-.1-1.2" fill="currentColor" opacity=".82"/>
+            </svg>
+        `,
+        contacts: `
+            <svg class="wc-wechat-tab-svg" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 24.2c6.1 0 10.5-4.8 10.5-10.9C31.5 7.4 27.1 3 21 3S10.5 7.4 10.5 13.3c0 6.1 4.4 10.9 10.5 10.9Z"/>
+                <path d="M4.8 44.4c2.1-9 8.5-14.5 16.2-14.5s14.1 5.5 16.2 14.5"/>
+                <path d="M43 13h14"/>
+                <path d="M43 24h11"/>
+                <path d="M43 35h8"/>
+            </svg>
+        `,
+        discover: `
+            <svg class="wc-wechat-tab-svg" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="32" cy="24" r="18"/>
+                <path d="M41 14.4l-7.2 15.3-10.8 4 7.2-15.3 10.8-4Z"/>
+            </svg>
+        `,
+        me: `
+            <svg class="wc-wechat-tab-svg" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M32 24.3c6.4 0 10.8-4.9 10.8-11S38.4 3 32 3 21.2 7.2 21.2 13.3s4.4 11 10.8 11Z"/>
+                <path d="M14.5 44.4c2.2-9.2 9-14.6 17.5-14.6s15.3 5.4 17.5 14.6"/>
+            </svg>
+        `
+    };
+    return `<span class="wc-theme-tab-icon wc-wechat-tab-icon wc-wechat-tab-${key}">${icons[key] || icons.chat}${badgeHtml}</span>`;
+}
+
 function updateWechatQqChannelTopbar() {
     const avatarEl = document.getElementById('wc-qq-channel-avatar');
     if (!avatarEl) return;
@@ -187,12 +264,11 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
         if (!tab) return;
         const meta = getWechatThemeTabMeta(key, theme);
         tab.dataset.tabKey = key;
-        const oldIcon = tab.querySelector('svg, .wc-theme-tab-icon');
-        const iconClass = meta.icon || 'ri-circle-line';
-        const iconHtml = `<i class="${iconClass} wc-theme-tab-icon"></i>`;
+        const oldIcon = tab.querySelector('.wc-theme-tab-icon, svg');
+        const iconHtml = getWechatThemeTabIconHtml(key, meta, theme);
         if (oldIcon) oldIcon.outerHTML = iconHtml;
         else tab.insertAdjacentHTML('afterbegin', iconHtml);
-        const span = tab.querySelector('span');
+        const span = Array.from(tab.querySelectorAll('span')).find(item => !item.classList.contains('wc-theme-tab-icon'));
         if (span) span.textContent = meta.label || key;
     });
     syncWechatXTabBar(theme);
@@ -318,6 +394,7 @@ function getWechatDouyinUnreadCount(char) {
     if (lastReadAt > 0) {
         history.forEach(msg => {
             if (!msg || msg.type === 'system_notice' || msg.isMe) return;
+            if (typeof isWechatRegexPayloadMessage === 'function' && isWechatRegexPayloadMessage(msg, char)) return;
             if (getWechatMessageTimestampValue(msg) > lastReadAt) count += 1;
         });
         return Math.min(99, count);
@@ -326,6 +403,7 @@ function getWechatDouyinUnreadCount(char) {
         const msg = history[i];
         if (!msg || msg.type === 'system_notice') continue;
         if (msg.isMe) break;
+        if (typeof isWechatRegexPayloadMessage === 'function' && isWechatRegexPayloadMessage(msg, char)) continue;
         count += 1;
     }
     return Math.min(99, count);

@@ -285,6 +285,7 @@ function closeApp(appName) {
         setTimeout(() => win.classList.add('hidden'), 300);
 
         if (appName === 'wechat' && typeof closeChat === 'function') {
+            if (typeof collapseWechatMusicOverlaysToIsland === 'function') collapseWechatMusicOverlaysToIsland();
             setTimeout(closeChat, 300);
         }
     }
@@ -361,7 +362,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260527-ai-phone-patch1').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260529-no-fake25').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -1297,6 +1298,11 @@ function getCurrentMusicTrack() {
     return track ? { ...track } : null;
 }
 window.getCurrentMusicTrack = getCurrentMusicTrack;
+
+function getMusicLibraryTracks() {
+    return (Array.isArray(musicTracks) ? musicTracks : []).map(track => ({ ...track }));
+}
+window.getMusicLibraryTracks = getMusicLibraryTracks;
 
 function selectMusicTrack(index, autoplay) {
     if (!musicTracks[index]) return;

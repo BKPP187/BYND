@@ -32,8 +32,14 @@ function cleanChatApiVisibleContent(value) {
     });
 
     hiddenTags.forEach(tag => {
-        const leading = new RegExp(`^\\s*<${tag}\\b[^>]*>[\\s\\S]*?(?=<content\\b|\\[微信|$)`, 'i');
-        text = text.replace(leading, '');
+        const leading = new RegExp(`^\\s*<${tag}\\b[^>]*>`, 'i');
+        if (!leading.test(text)) return;
+        const visibleBoundary = text.search(/<content\b|```|[\[【](?:微信|消息|旁白|群聊发言|音乐卡片|链接卡片)[：:\]|】]|<\s*(?:jwy|bqb|status|state|html|div|section|article|style|script|table|svg|canvas)\b|(?:思考完毕|生成回复)[，,。；;：:]?/i);
+        if (visibleBoundary > 0) {
+            text = text.slice(visibleBoundary);
+        } else {
+            text = '';
+        }
     });
 
     text = text
@@ -44,6 +50,56 @@ function cleanChatApiVisibleContent(value) {
         .trim();
 
     return text;
+}
+
+function getChatApiTextFromContentPart(part) {
+    if (part == null) return '';
+    if (typeof part === 'string') return part;
+    if (typeof part !== 'object') return '';
+    if (typeof part.text === 'string') return part.text;
+    if (typeof part.content === 'string') return part.content;
+    if (typeof part.output_text === 'string') return part.output_text;
+    if (part.type === 'text' && part.text && typeof part.text.value === 'string') return part.text.value;
+    return '';
+}
+
+function getChatApiRawResponseContent(json) {
+    const choice = json?.choices?.[0] || {};
+    const message = choice.message || {};
+    const content = message.content;
+
+    if (Array.isArray(content)) {
+        const joined = content.map(getChatApiTextFromContentPart).filter(Boolean).join('\n');
+        if (joined) return joined;
+    } else if (typeof content === 'string') {
+        return content;
+    } else if (content != null) {
+        const fromPart = getChatApiTextFromContentPart(content);
+        if (fromPart) return fromPart;
+    }
+
+    const directCandidates = [
+        message.text,
+        message.output_text,
+        choice.text,
+        json.output_text,
+        json.text
+    ];
+    for (const item of directCandidates) {
+        if (typeof item === 'string' && item.trim()) return item;
+    }
+
+    if (Array.isArray(json.output)) {
+        const joined = json.output.flatMap(item => {
+            if (typeof item === 'string') return [item];
+            if (!item || typeof item !== 'object') return [];
+            if (Array.isArray(item.content)) return item.content.map(getChatApiTextFromContentPart);
+            return [getChatApiTextFromContentPart(item), item.text, item.output_text].filter(v => typeof v === 'string');
+        }).filter(Boolean).join('\n');
+        if (joined) return joined;
+    }
+
+    return '';
 }
 
 if (typeof window !== 'undefined') {
@@ -159,6 +215,145 @@ function prepareChatApiPromptText(value, maxLength = 12000) {
         .trim();
     if (!text) return '';
     return text.length > maxLength ? `${text.slice(0, maxLength)}\n\n【以上内容已为微信对话自动截断，保留核心设定。】` : text;
+}
+
+function isChatApiStatusBlockSpec(value) {
+    const text = String(value || '');
+    if (!text.trim()) return false;
+    const hasKnownStatusTag = /<\s*(?:jwy|status|state)\b|<\/\s*(?:jwy|status|state)\s*>/i.test(text);
+    const hasStatusMarker = /状态栏格式|状态栏|status\s*bar|weibo-status-bar/i.test(text);
+    return (hasKnownStatusTag || hasStatusMarker)
+        && (/\|/.test(text) || /\$\d{1,2}/.test(text) || hasKnownStatusTag);
+}
+
+const CHAT_API_IGNORED_STATUS_TAGS = new Set(['html', 'head', 'body', 'style', 'script', 'div', 'span', 'img', 'svg', 'path', 'button', 'section', 'article', 'p', 'ul', 'li']);
+
+function isChatApiIgnoredStatusTag(tag) {
+    return CHAT_API_IGNORED_STATUS_TAGS.has(String(tag || '').toLowerCase());
+}
+
+function getChatApiStatusBlockTags(value) {
+    const text = String(value || '');
+    const tags = [];
+    text.replace(/<\s*([A-Za-z][\w:-]*)\b/g, (match, tag) => {
+        const name = String(tag || '').toLowerCase();
+        if (!isChatApiIgnoredStatusTag(name) && !tags.includes(name)) tags.push(name);
+        return match;
+    });
+    return tags;
+}
+
+function getChatApiStatusSlotHints(messages) {
+    const hints = new Map();
+    const addHint = (tag, body) => {
+        const name = String(tag || '').toLowerCase();
+        if (!name || isChatApiIgnoredStatusTag(name) || !String(body || '').includes('|')) return;
+        const slots = String(body || '').split('|').length;
+        if (slots < 4) return;
+        hints.set(name, Math.max(hints.get(name) || 0, slots));
+    };
+    (Array.isArray(messages) ? messages : []).forEach(msg => {
+        const text = String(msg && msg.content || '');
+        if (!isChatApiStatusBlockSpec(text)) return;
+        text.replace(/<\s*([A-Za-z][\w:-]*)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>/g, (match, tag, body) => {
+            addHint(tag, body);
+            return match;
+        });
+        text.replace(/<\s*([A-Za-z][\w:-]*)\b[^>]*>([^<\n]{0,2200}\|[^<]{0,2200})/g, (match, tag, body) => {
+            addHint(tag, body);
+            return match;
+        });
+    });
+    return hints;
+}
+
+function getChatApiIncompleteStatusBlockReport(content, messages) {
+    const text = String(content || '');
+    if (!isChatApiStatusBlockSpec(text)) return '';
+    const hints = getChatApiStatusSlotHints(messages);
+    const problems = [];
+    text.replace(/<\s*([A-Za-z][\w:-]*)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>/g, (match, tag, body) => {
+        const name = String(tag || '').toLowerCase();
+        if (!name || isChatApiIgnoredStatusTag(name) || !String(body || '').includes('|')) return match;
+        const cells = String(body || '').split('|').map(cell => String(cell || '').trim());
+        const expected = hints.get(name) || (cells.length >= 16 ? cells.length : 0);
+        const knownStatusTag = /^(?:jwy|status|state)$/i.test(name);
+        if (!expected || (!knownStatusTag && expected < 10)) return match;
+        const missing = [];
+        for (let index = 0; index < expected; index += 1) {
+            if (!cells[index]) missing.push(index + 1);
+        }
+        if (cells.length < expected) {
+            for (let index = cells.length; index < expected; index += 1) {
+                if (!missing.includes(index + 1)) missing.push(index + 1);
+            }
+        }
+        if (missing.length) problems.push(`<${name}> 字段 ${missing.slice(0, 12).join(', ')} 为空或缺失`);
+        return match;
+    });
+    return problems.join('；');
+}
+
+function buildChatApiStatusRepairPrompt(report) {
+    return [
+        '【状态栏字段校验未通过】',
+        report,
+        '请重新生成本轮回复。状态栏块必须按前文角色卡、世界书、正则格式和最近聊天完整填写，不能留空字段，不能写占位符，不能解释规则。',
+        '普通聊天正文和状态栏块仍需分开输出。'
+    ].filter(Boolean).join('\n');
+}
+
+function buildChatApiStatusBlockAnchor(char) {
+    const sources = [];
+    const statusTags = new Set();
+    const addSource = (label, value, maxLength = 3200) => {
+        if (!isChatApiStatusBlockSpec(value)) return;
+        getChatApiStatusBlockTags(value).forEach(tag => statusTags.add(tag));
+        const text = prepareChatApiPromptText(value, maxLength);
+        if (text) sources.push(`【${label}】\n${text}`);
+    };
+
+    [char && char.description, char && char.system_prompt, char && char.post_history_instructions, char && char.creator_notes]
+        .forEach((value, index) => addSource(`角色卡状态栏线索${index + 1}`, value, 2600));
+
+    (Array.isArray(char && char.worldBook) ? char.worldBook : []).forEach((entry, index) => {
+        if (!entry || entry.enabled === false) return;
+        const title = entry.name || entry.title || entry.key || entry.keys || entry.keyword || `世界书${index + 1}`;
+        const content = entry.content || entry.text || entry.entry || entry.value || entry.comment || entry.description || '';
+        addSource(`世界书：${title}`, content, 3600);
+    });
+
+    try {
+        const preset = (typeof getActivePreset === 'function') ? getActivePreset() : null;
+        (preset && Array.isArray(preset.prompts) ? preset.prompts : []).forEach((item, index) => {
+            if (!item || item.enabled === false) return;
+            addSource(`启用预设：${item.name || item.title || index + 1}`, item.content || '', 2600);
+        });
+    } catch (_) {}
+
+    const globalScripts = Array.isArray(window.globalRegexScripts) ? window.globalRegexScripts : [];
+    const charScripts = Array.isArray(char && char.regex) ? char.regex : [];
+    [...globalScripts.map(script => ({ script, scope: '全局正则' })), ...charScripts.map(script => ({ script, scope: '角色正则' }))].forEach((item, index) => {
+        if (!isChatApiRegexScriptEnabled(item.script)) return;
+        const pattern = getChatApiRegexScriptField(item.script, ['findRegex', 'regex', 'regex_pattern', 'regexPattern', 'pattern']);
+        const replace = getChatApiRegexScriptField(item.script, ['replaceString', 'regexReplace', 'replace', 'replacement', 'substituteRegex']);
+        const combined = `find: ${pattern}\nreplace:\n${replace}`;
+        addSource(`${item.scope}：${item.script.name || item.script.scriptName || index + 1}`, combined, 4200);
+    });
+
+    if (!sources.length) return '';
+    const tagHint = statusTags.size
+        ? [...statusTags].map(tag => `<${tag}>...</${tag}>`).join(' / ')
+        : '状态栏标签块';
+    return [
+        '【状态栏/酒馆正则块强约束】',
+        `如果下方规范要求输出 ${tagHint} 或类似状态栏块，本轮回复必须保留它作为独立片段。不要把它当普通微信正文，也不要省略。`,
+        '输出状态栏块时必须严格按照规范里的字段顺序和分隔符数量填写；所有字段都必须来自当前角色、人设、世界书、记忆或最近聊天，禁止少字段、合并字段、截断字段。',
+        '状态栏的互动提及字段绝对不能留空：朋友昵称、朋友@角色的具体内容、角色对此的回复都必须完整，并且必须贴合世界书和当前剧情。',
+        '如果规范是 18 个 | 分隔字段，最终也必须是一整段完整状态栏块，包含同样数量的 | 分隔字段。',
+        '普通聊天正文和状态栏块要分成不同消息段，可用 ||| 分隔；不要把状态栏块放进 thinking/cot/旁白，也不要解释这些规则。',
+        sources.slice(0, 8).join('\n\n')
+    ].join('\n');
 }
 
 function getChatApiCharacterDescription(char) {
@@ -329,7 +524,8 @@ function buildChatApiCoreIdentityAnchor(char) {
         .filter(entry => entry && entry.enabled !== false)
         .map(entry => {
             const title = entry.name || entry.title || entry.key || entry.keys || '世界书';
-            const content = prepareChatApiPromptText(entry.content || entry.text || entry.entry || entry.value || entry.comment || '', 520);
+            const rawContent = entry.content || entry.text || entry.entry || entry.value || entry.comment || '';
+            const content = prepareChatApiPromptText(rawContent, isChatApiStatusBlockSpec(rawContent) ? 2600 : 520);
             return content ? `- ${title}：${content}` : '';
         })
         .filter(Boolean)
@@ -494,7 +690,8 @@ function buildSystemPrompt(char) {
         const entries = char.worldBook
             .map(e => {
                 const key = e.key || e.keys || e.keyword || '';
-                const content = prepareChatApiPromptText(e.content || e.entry || e.value || '', 850);
+                const rawContent = e.content || e.entry || e.value || '';
+                const content = prepareChatApiPromptText(rawContent, isChatApiStatusBlockSpec(rawContent) ? 2600 : 850);
                 if (!content) return null;
                 return key ? `[${key}] ${content}` : content;
             })
@@ -568,6 +765,8 @@ function buildSystemPrompt(char) {
     }
     prompt += `- 每一条普通对白都必须是独立消息段；旁白、角色对白、语音、表情、转账、红包、改备注、监控开关和真正的富文本 UI 都不要混在同一个段落里；旁白只会渲染为普通描述气泡\n`;
     prompt += `- 正则脚本是系统的显示规则，不是你要模仿的回复内容。不要把角色卡/正则里的状态栏字段、以 | 分隔的模板、新闻栏、数值栏、图片URL栏当成普通微信消息发出来；除非用户明确要求展示完整富文本 UI，才可以输出完整 <div>...</div> 或 HTML 代码块，并保持它作为独立段\n`;
+    prompt += `- 如果预设或世界书要求输出酒馆式正则块（例如 <状态标签>...</状态标签>、<bqb>...</bqb>、[消息|对象]：内容），它们只能作为独立可渲染片段，不能包住微信正文，不能放进 <thinking>/<cot>，也不能代替本轮可见回复；本轮必须至少有一条可见微信消息\n`;
+    prompt += `- 如果预设要求输出思考/COT，请把思考放进 <thinking>...</thinking>，最终给用户看的内容放进 <content>...</content> 或普通微信消息段；不要只输出思考、COT 或状态栏\n`;
     prompt += `- 旁白只能用 [旁白:内容] 独立一段，用来拆出一个普通描述气泡；角色自己说的话不要放进旁白里，必须拆成单独普通消息段或 [微信语音:内容]\n`;
     prompt += `- 所有 [微信xxx:...] / [旁白:...] 指令必须在同一条消息段里完整闭合右方括号 ]，不能把 [ 和 ] 拆到不同段落，也不能把正则/状态栏塞进旁白指令里\n`;
     prompt += `- 如果用户发送图片，系统会把图片以可视觉识别的消息交给模型；你需要观察图片内容，结合人设、上下文、备注/称呼、记忆和朋友圈自然回复，不要把图片只当成“[图片]”占位符。\n`;
@@ -631,6 +830,13 @@ function buildMessages(char, history, maxMessages) {
         messages.push({
             role: 'system',
             content: regexAnchor
+        });
+    }
+    const statusBlockAnchor = buildChatApiStatusBlockAnchor(char);
+    if (statusBlockAnchor) {
+        messages.push({
+            role: 'system',
+            content: statusBlockAnchor
         });
     }
     const userMomentsAnchor = buildUserMomentsAnchor();
@@ -749,6 +955,12 @@ async function callChatApi(messages, options = {}) {
         temperature: options.temperature ?? (preset ? preset.temperature : 0.8),
         max_tokens: options.max_tokens ?? (preset ? preset.max_tokens : 1000)
     };
+    const needsStatusBlockBudget = Array.isArray(messages) && messages.some(msg =>
+        msg && typeof msg.content === 'string' && /状态栏\/酒馆正则块强约束|状态栏格式|状态栏|status\s*bar|weibo-status-bar|<\s*(?:jwy|status|state)\b/i.test(msg.content)
+    );
+    if (needsStatusBlockBudget && options.max_tokens == null && Number(params.max_tokens || 0) < 1800) {
+        params.max_tokens = 1800;
+    }
     if (preset) {
         if (preset.top_p != null && preset.top_p !== 1) params.top_p = preset.top_p;
         if (preset.frequency_penalty) params.frequency_penalty = preset.frequency_penalty;
@@ -779,10 +991,29 @@ async function callChatApi(messages, options = {}) {
         }
 
         const json = await resp.json();
-        const content = cleanChatApiVisibleContent(json.choices?.[0]?.message?.content || '');
+        const rawContent = getChatApiRawResponseContent(json);
+        const content = cleanChatApiVisibleContent(rawContent);
 
         if (!content) {
             return { ok: false, error: 'AI 返回了空内容' };
+        }
+
+        const statusReport = options.skipStatusValidationRetry
+            ? ''
+            : getChatApiIncompleteStatusBlockReport(content, messages);
+        if (statusReport) {
+            const retryMessages = messages.concat({
+                role: 'system',
+                content: buildChatApiStatusRepairPrompt(statusReport)
+            });
+            const retryResult = await callChatApi(retryMessages, {
+                ...options,
+                skipStatusValidationRetry: true,
+                max_tokens: Math.max(Number(params.max_tokens) || 0, 1800)
+            });
+            if (retryResult && retryResult.ok && !getChatApiIncompleteStatusBlockReport(retryResult.content, messages)) {
+                return retryResult;
+            }
         }
 
         return { ok: true, content: content };

@@ -192,9 +192,15 @@ function renderChatList() {
     listEl.innerHTML = ''; 
     const themeId = getWechatUiThemeId();
     const isXTheme = themeId === 'hallowrok';
+    const syncThemeChrome = () => {
+        if (typeof updateWechatUiThemeStructure === 'function') updateWechatUiThemeStructure(getWechatUiTheme());
+    };
 
     if (window.myCharacters.length === 0) {
-        if (isXTheme) return;
+        if (isXTheme) {
+            syncThemeChrome();
+            return;
+        }
         listEl.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:300px; color:#ccc;">
                 <i class="ri-chat-smile-2-line" style="font-size:48px; margin-bottom:10px;"></i>
@@ -202,11 +208,14 @@ function renderChatList() {
                 <span style="font-size:12px; margin-top:5px;">点击右上角 + 导入角色卡</span>
             </div>
         `;
+        syncThemeChrome();
         return;
     }
 
     const isDouyinTheme = themeId === 'douyin';
     const isLineTheme = themeId === 'line';
+    const isWechatTheme = themeId === 'wechat';
+    const supportsBuiltinEmojiPreview = themeId === 'wechat' || themeId === 'qq';
     window.myCharacters.forEach(char => {
         const container = document.createElement('div');
         container.className = 'wc-swipe-container';
@@ -258,6 +267,16 @@ function renderChatList() {
         const lineUnreadHtml = lineUnread > 0
             ? `<span class="wc-line-unread">${lineUnread > 99 ? '99+' : lineUnread}</span>`
             : '';
+        const wechatUnread = isWechatTheme && typeof getWechatThemeCharUnreadCount === 'function'
+            ? getWechatThemeCharUnreadCount(char)
+            : 0;
+        const wechatUnreadHtml = wechatUnread > 0
+            ? `<span class="wc-wechat-list-unread">${wechatUnread > 99 ? '99+' : wechatUnread}</span>`
+            : '';
+        const previewText = `${isGroup ? `[${(char.groupMembers || []).length}人] ` : ''}${getChatPreview(char)}`;
+        const previewHtml = supportsBuiltinEmojiPreview
+            ? renderWechatChatPreviewHtml(previewText)
+            : escapeHtml(previewText);
 
         item.innerHTML = `
             <div class="wc-avatar ${isGroup ? 'wc-group-avatar' : ''}"><img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">${douyinUnreadHtml}</div>
@@ -275,7 +294,8 @@ function renderChatList() {
                     </span>
                 </div>
                 <div class="wc-bottom">
-                    <span class="wc-msg">${isGroup ? `[${(char.groupMembers || []).length}人] ` : ''}${escapeHtml(getChatPreview(char))}</span>
+                    <span class="wc-msg">${previewHtml}</span>
+                    ${wechatUnreadHtml}
                 </div>
             </div>
         `;
@@ -291,6 +311,7 @@ function renderChatList() {
     });
 
     initSwipeHandlers();
+    syncThemeChrome();
 }
 
 function getWechatGroupContacts() {
@@ -460,6 +481,7 @@ function closeWechatSearch() {
 
 function getWechatMessageSearchText(msg) {
     if (!msg) return '';
+    if (isWechatRegexPayloadMessage(msg)) return '';
     if (isWechatSpecialMessage(msg.type)) return getWechatMessageSummary(msg);
     if (msg.type === 'image') return '[图片]';
     if (msg.type === 'sticker') return msg.stickerName ? `[表情] ${msg.stickerName}` : '[表情]';
@@ -645,10 +667,17 @@ function formatWechatChatListTime(char) {
 
 function getChatPreview(char) {
     const history = char.history || [];
-    const last = history[history.length - 1];
+    const last = getWechatLastChatMessage(char);
     if (!last) return char.description ? String(char.description).replace(/\s+/g, ' ').slice(0, 40) : '还没有聊天记录';
     if (last.type === 'image') return last.isMe ? '[图片]' : '[对方发来图片]';
-    if (last.type === 'sticker') return last.isMe ? '[表情]' : '[对方发来表情]';
+    if (last.type === 'sticker') {
+        const name = last.stickerName || last.name || '';
+        if ((last.emoji || last.stickerKind === 'wechatEmoji' || isWechatBuiltinEmojiUrl(last.content)) && name) {
+            const source = last.stickerKind === 'qqEmoji' ? 'qq' : getWechatBuiltinEmojiSourceFromUrl(last.content);
+            return `${last.isMe ? '' : '对方发来 '}${buildWechatBuiltinEmojiMarker(name, source, last.content || '')}`;
+        }
+        return last.isMe ? '[表情]' : '[对方发来表情]';
+    }
     if (isWechatSpecialMessage(last.type)) return getWechatMessageSummary(last);
     const text = String(last.content || last.dialogue || last.description || '')
         .replace(/<[^>]+>/g, '')
@@ -735,12 +764,24 @@ function renderWechatMarkdownLite(text) {
     return html.replace(/\n/g, '<br>');
 }
 
+function shouldPreserveWechatRegexRenderedHtml(text, char) {
+    const source = cleanWechatVisibleContent(text);
+    if (!source) return false;
+    if (/^\s*<\s*(?:音乐|music)\b/i.test(source)) return false;
+    return /<\s*(?:jwy|status|state|bqb)\b/i.test(source)
+        || looksLikeWechatRegexPayloadSource(source)
+        || looksLikeWechatPipeStatusPayloadSource(source);
+}
+
 function processMsgContent(content, char) {
     if (!content) return "";
     let text = cleanWechatVisibleContent(content);
     if (!text) return "";
 
-    text = fillWechatRegexTemplate(text, char);
+    const preserveRegexHtml = shouldPreserveWechatRegexRenderedHtml(text, char);
+    text = preserveRegexHtml
+        ? normalizeWechatRegexPayloadSource(fillWechatRegexTemplate(text, char), char)
+        : fillWechatRegexTemplate(text, char);
 
     // 1. 执行正则脚本
     const globalScripts = window.globalRegexScripts || [];
@@ -769,7 +810,7 @@ function processMsgContent(content, char) {
         } catch (e) { console.warn("正则执行失败:", script.name, e); }
     });
 
-    text = cleanWechatVisibleContent(text);
+    text = cleanWechatVisibleContent(text, { stripExecutableCodeBlocks: !preserveRegexHtml });
     if (!text) return "";
 
     // 2. 剥离 Markdown 代码块包装（支持混合内容：文本 + 代码块）
@@ -781,7 +822,7 @@ function processMsgContent(content, char) {
     if (isRichMessageContent(text)) {
         return text;
     } else {
-        return renderWechatMarkdownLite(text); 
+        return renderWechatMarkdownLite(text);
     }
 }
 
@@ -809,7 +850,12 @@ function openChat(charId) {
     if (roomHeaderAvatar) roomHeaderAvatar.src = char.avatar || DEFAULT_AVATAR;
     syncWechatLineRoomHeader();
     if (touchedMessageTime || readStateChanged || sanitizedContext) saveCharactersToStorage();
-    if (readStateChanged) renderChatList();
+    if (readStateChanged) {
+        renderChatList();
+        if (getWechatUiThemeId() === 'wechat' && typeof updateWechatUiThemeStructure === 'function') {
+            updateWechatUiThemeStructure(getWechatUiTheme());
+        }
+    }
     // 应用聊天配置（背景/气泡/字体）
     applyChatConfig(char);
     refreshChatView(char);
@@ -818,7 +864,7 @@ function openChat(charId) {
 
     const room = document.getElementById('wechat-chat-room');
     const inputEl = document.getElementById('wc-msg-input');
-    if (inputEl) inputEl.placeholder = isWechatXTheme() ? '私信' : '发消息...';
+    if (inputEl) inputEl.placeholder = isWechatXTheme() ? '私信' : getWechatChatInputPlaceholder(getWechatUiThemeId());
     recoverWechatInputLockIfStale();
     room.classList.remove('hidden');
     setTimeout(() => room.classList.add('active'), 10);
@@ -927,11 +973,20 @@ function buildMessageMeta(msg) {
     return `<span class="msg-meta ${msg.isMe ? 'read' : 'delivered'}"><span>${formatMessageTime(msg)}</span>${readIcon}</span>`;
 }
 
+function isWechatRegexPayloadMessage(msg, char = null) {
+    if (!msg || msg.isMe || msg.type === 'system_notice') return false;
+    if (!['text', 'offline_narration'].includes(msg.type || 'text')) return false;
+    const source = cleanWechatVisibleContent(msg.content || msg.description || msg.dialogue || msg.text || '');
+    if (!source) return false;
+    return isWechatStandaloneRichOrRegexSource(source, char) || shouldDropWechatAiPipeStatusPayload(source, char);
+}
+window.isWechatRegexPayloadMessage = isWechatRegexPayloadMessage;
+
 function getWechatLastChatMessage(char) {
     const history = Array.isArray(char?.history) ? char.history : [];
     for (let i = history.length - 1; i >= 0; i--) {
         const msg = history[i];
-        if (msg && msg.type !== 'system_notice') return msg;
+        if (msg && msg.type !== 'system_notice' && !isWechatRegexPayloadMessage(msg, char)) return msg;
     }
     return null;
 }
@@ -961,6 +1016,7 @@ function getTelegramChatUnreadCount(char) {
     if (lastReadAt > 0) {
         history.forEach(msg => {
             if (!msg || msg.type === 'system_notice' || msg.isMe) return;
+            if (isWechatRegexPayloadMessage(msg, char)) return;
             if (getWechatMessageTimestampValue(msg) > lastReadAt) count += 1;
         });
     } else {
@@ -968,6 +1024,7 @@ function getTelegramChatUnreadCount(char) {
             const msg = history[i];
             if (!msg || msg.type === 'system_notice') continue;
             if (msg.isMe) break;
+            if (isWechatRegexPayloadMessage(msg, char)) continue;
             count += 1;
         }
     }
@@ -1127,6 +1184,12 @@ function buildWechatReplySnapshot(msg, char, msgIdx) {
         type,
         timestamp: msg.timestamp || msg.createdAt || msg.time || ''
     };
+    if (type === 'music_card') {
+        const music = msg.music && typeof msg.music === 'object' ? msg.music : {};
+        snapshot.title = music.title || msg.title || '音乐';
+        snapshot.artist = music.artist || msg.artist || '';
+        snapshot.artwork = music.artwork || msg.artwork || '';
+    }
     if ((type === 'sticker' || type === 'image') && isWechatReplyMediaSource(msg.content)) {
         snapshot.mediaUrl = msg.content;
         if (type === 'sticker') {
@@ -1140,7 +1203,28 @@ function buildWechatReplySnapshot(msg, char, msgIdx) {
 function renderWechatMessageQuote(replyTo, char) {
     if (!replyTo) return '';
     const media = getWechatReplyMedia(replyTo, char);
-    const sender = wcEscapeHtml(replyTo.sender || (replyTo.isMe ? '我' : '对方'));
+    const senderText = replyTo.sender || (replyTo.isMe ? '我' : '对方');
+    const sender = wcEscapeHtml(senderText);
+    const sourceMsg = getWechatReplySourceMessage(replyTo, char);
+    const sourceType = String((sourceMsg && sourceMsg.type) || replyTo.type || '').toLowerCase();
+    if (sourceType === 'music_card') {
+        const music = (sourceMsg && sourceMsg.music && typeof sourceMsg.music === 'object') ? sourceMsg.music : {};
+        const title = music.title || sourceMsg?.title || replyTo.title || getWechatReplyDisplayText(replyTo, media).replace(/^\[音乐卡片\]\s*/, '') || '音乐';
+        const artist = music.artist || sourceMsg?.artist || replyTo.artist || '';
+        const artwork = music.artwork || sourceMsg?.artwork || replyTo.artwork || '';
+        return `
+            <div class="msg-quote msg-quote-music">
+                <div class="msg-quote-music-art">${artwork ? `<img src="${wcEscapeHtml(artwork)}" alt="" loading="lazy" onerror="this.remove()">` : '<i class="ri-music-2-fill"></i>'}</div>
+                <div class="msg-quote-music-main">
+                    <span>音乐卡片</span>
+                    <strong>${wcEscapeHtml(title)}</strong>
+                    <em>${wcEscapeHtml(artist || senderText || 'BYND Music')}</em>
+                </div>
+                <button type="button" class="msg-quote-music-play" aria-label="播放音乐"><i class="ri-play-fill"></i></button>
+                <div class="msg-quote-music-footer"><span>一起听歌</span></div>
+            </div>
+        `;
+    }
     const displayText = getWechatReplyDisplayText(replyTo, media);
     const text = wcEscapeHtml(displayText);
     if (media && media.url) {
@@ -1164,6 +1248,7 @@ function renderWechatMessageQuote(replyTo, char) {
 function findWechatMessageForAiQuote(char, query) {
     if (!char || !Array.isArray(char.history) || !char.history.length) return null;
     const history = char.history;
+    const options = (arguments.length > 2 && arguments[2] && typeof arguments[2] === 'object') ? arguments[2] : {};
     const raw = String(query || '').trim();
     if (/^\d+$/.test(raw)) {
         const index = Math.max(0, Math.min(history.length - 1, parseInt(raw, 10) - 1));
@@ -1173,18 +1258,127 @@ function findWechatMessageForAiQuote(char, query) {
     if (!normalized) {
         for (let i = history.length - 1; i >= 0; i -= 1) {
             const msg = history[i];
-            if (msg && msg.type !== 'system_notice' && msg.isMe) return { msg, index: i };
+            if (i === options.excludeIndex || msg === options.excludeMessage) continue;
+            if (msg && msg.type !== 'system_notice' && msg.isMe && !isWechatAiQuoteDirectiveLeakMessage(msg)) return { msg, index: i };
+        }
+    }
+    const queryKey = normalizeWechatQuoteSearchText(normalized);
+    if (isWechatMusicQuoteQuery(normalized, queryKey)) {
+        for (let i = history.length - 1; i >= 0; i -= 1) {
+            const msg = history[i];
+            if (i === options.excludeIndex || msg === options.excludeMessage) continue;
+            if (!msg || msg.type !== 'music_card' || isWechatAiQuoteDirectiveLeakMessage(msg)) continue;
+            if (isWechatGenericMusicQuoteQuery(normalized, queryKey)) return { msg, index: i };
+            const summary = getWechatMessagePlainSummary(msg, 180);
+            const summaryKeys = getWechatQuoteSearchKeys(msg, summary);
+            if (summary.includes(normalized) || summaryKeys.some(key => key && (key.includes(queryKey) || (queryKey.includes(key) && key.length >= 4)))) {
+                return { msg, index: i };
+            }
         }
     }
     for (let i = history.length - 1; i >= 0; i -= 1) {
         const msg = history[i];
+        if (i === options.excludeIndex || msg === options.excludeMessage) continue;
         if (!msg || msg.type === 'system_notice') continue;
+        if (isWechatAiQuoteDirectiveLeakMessage(msg)) continue;
         const summary = getWechatMessagePlainSummary(msg, 180);
         if (!normalized || summary.includes(normalized) || getWechatMessageSenderName(msg, char).includes(normalized)) {
             return { msg, index: i };
         }
+        if (!queryKey) continue;
+        const summaryKeys = getWechatQuoteSearchKeys(msg, summary);
+        if (summaryKeys.some(key => key && (key.includes(queryKey) || (queryKey.includes(key) && key.length >= 4)))) {
+            return { msg, index: i };
+        }
     }
     return null;
+}
+
+function normalizeWechatQuoteSearchText(value) {
+    let source = cleanWechatVisibleContent(value)
+        .replace(/^[\[【](?:微信引用|引用)\s*[：:]\s*/i, '')
+        .replace(/[\]】]\s*$/i, '')
+        .replace(/^\s*(?:🎵|🎶|♫|♪)+\s*/u, '')
+        .replace(/^\s*[\[【](?:音乐卡片|音乐|music card)[\]】]\s*/i, '')
+        .replace(/^(?:音乐卡片|音乐|music card)\s*[：:]\s*/i, '')
+        .trim();
+    if (!source) return '';
+    try {
+        source = source.normalize('NFKC').toLowerCase();
+        return source.replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+    } catch (_) {
+        return source.toLowerCase().replace(/[^\u3400-\u9fff\w]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+}
+
+function getWechatQuoteSearchKeys(msg, summary) {
+    const keys = [normalizeWechatQuoteSearchText(summary)];
+    if (msg && msg.type === 'music_card') {
+        const music = msg.music && typeof msg.music === 'object' ? msg.music : {};
+        const title = music.title || msg.title || '';
+        const artist = music.artist || msg.artist || '';
+        keys.push(
+            normalizeWechatQuoteSearchText(title),
+            normalizeWechatQuoteSearchText(artist),
+            normalizeWechatQuoteSearchText(`${title} ${artist}`)
+        );
+    }
+    return Array.from(new Set(keys.filter(Boolean)));
+}
+
+function isWechatGenericMusicQuoteQuery(raw, normalized) {
+    const source = cleanWechatVisibleContent(raw).toLowerCase();
+    const key = String(normalized || normalizeWechatQuoteSearchText(raw));
+    return /^(?:音乐|音乐卡片|歌曲|歌|这首歌|那首歌|这首|那首|music|song|track|bgm)$/i.test(source)
+        || /^(?:音乐|音乐卡片|歌曲|歌|这首歌|那首歌|这首|那首|music|song|track|bgm)$/i.test(key)
+        || /(?:这首|那首|泰语歌|音乐卡片|music card)/i.test(source);
+}
+
+function isWechatMusicQuoteQuery(raw, normalized) {
+    const source = cleanWechatVisibleContent(raw);
+    const key = String(normalized || normalizeWechatQuoteSearchText(raw));
+    return isWechatGenericMusicQuoteQuery(source, key)
+        || /(?:音乐|歌曲|歌|music|song|track|bgm)/i.test(source)
+        || /(?:音乐|歌曲|歌|music|song|track|bgm)/i.test(key);
+}
+
+function isWechatAiQuoteDirectiveLeakMessage(msg) {
+    const raw = cleanWechatVisibleContent((msg && (msg.content || msg.description)) || '');
+    if (/^\s*[\[【]微信引用\s*[：:]/.test(raw)) return true;
+    const replyText = cleanWechatVisibleContent(msg && msg.replyTo && (msg.replyTo.text || msg.replyTo.content));
+    return /^\s*[\[【]微信引用\s*[：:]/.test(replyText);
+}
+
+function parseWechatAiQuoteDirectiveText(value) {
+    const source = cleanWechatVisibleContent(value);
+    if (!source) return null;
+    const start = Math.min(
+        ...['[微信引用', '【微信引用'].map(token => source.indexOf(token)).filter(index => index >= 0)
+    );
+    if (!Number.isFinite(start)) return null;
+    const event = readWechatAiDirectiveAt(source, start);
+    if (!event || event.command !== '微信引用') return null;
+    const args = splitWechatDirectiveArgs(event.args);
+    const query = args[0] || '';
+    const content = args.slice(1).join('|').trim();
+    return query || content ? { query, content } : null;
+}
+
+function buildWechatFallbackReplySnapshotFromAiQuote(query) {
+    const text = cleanWechatVisibleContent(query)
+        .replace(/^(?:最后|上一条|最近|last)$/i, '')
+        .trim()
+        .slice(0, 120);
+    if (!text) return null;
+    return {
+        msgId: '',
+        msgIdx: null,
+        isMe: true,
+        sender: getWechatDisplayUserName(),
+        text,
+        type: 'text',
+        timestamp: createMessageTimestamp()
+    };
 }
 
 function appendWechatTimeDivider(container, date) {
@@ -1299,7 +1493,7 @@ function isRichMessageContent(content) {
         || /<\s*\/?\s*[a-z][\w:-]*\b[^>]*>/i.test(source);
 }
 
-function cleanWechatVisibleContent(value) {
+function cleanWechatVisibleContent(value, options = {}) {
     const externalCleaner = typeof window.cleanChatApiVisibleContent === 'function'
         ? window.cleanChatApiVisibleContent
         : null;
@@ -1317,17 +1511,40 @@ function cleanWechatVisibleContent(value) {
         'chain_of_thought'
     ];
 
-    hiddenTags.forEach(tag => {
-        text = text.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'), '');
-    });
+    for (let pass = 0; pass < 4; pass += 1) {
+        const before = text;
+        hiddenTags.forEach(tag => {
+            text = text.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'), '');
+        });
+        if (text === before) break;
+    }
 
-    return text
+    text = text
         .replace(/<\/?(?:thinking|think|thought|execute_think|cot|analysis|reasoning|chain_of_thought)\b[^>]*>/gi, '')
         .replace(/<content\b[^>]*>([\s\S]*?)<\/content>/gi, '$1')
-        .replace(/<\/?content\b[^>]*>/gi, '')
+        .replace(/<\/?content\b[^>]*>/gi, '');
+
+    if (options.stripExecutableCodeBlocks !== false) {
+        text = text.replace(/```(?:html|xml|markdown|json)?\s*[\s\S]*?(?:setChatMessages|document\.getElementById|<script\b|<style\b)[\s\S]*?```/gi, '');
+    }
+
+    return text
         .replace(/^\s*(?:思考完毕[，,。；;：:]?\s*)+/i, '')
         .replace(/^\s*(?:生成回复[，,。；;：:]?\s*)+/i, '')
         .trim();
+}
+
+function isWechatAiMetaLeakContent(value) {
+    const text = cleanWechatVisibleContent(value)
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!text) return true;
+    if (/^[-\s]*[（(]?自检[）)]?\s*$/i.test(text)) return true;
+    if (/^[-\s]*(?:\[?(?:消息|状态栏|狀態欄|状态|狀態|自检|自檢|内心OS|思考|反思|判断|行动|计划|策略)\]?)[：:]/i.test(text)) return true;
+    if (/^[-\s]*(?:符合.+人设吗|符合当前情境吗|解决用户问题了吗)[？?]/i.test(text)) return true;
+    if (/^[-\s]*(?:是的|否|已|未)[，,、\s]*(?:嘴硬|有掌控欲|行动上会关心|回复简短|解释了|准备回去|解释用户问题|符合.+人设|符合当前情境)/i.test(text)) return true;
+    if (/^(?:The soul now awakens|Janus,|I MUST start every response|Process \(|\[Process\d|Archive compression mode)/i.test(text)) return true;
+    return false;
 }
 
 function wcEscapeHtml(value) {
@@ -1443,6 +1660,7 @@ function getWechatCallDescription(msg) {
 
 function getWechatMessageSummary(msg) {
     if (!msg) return '[消息]';
+    if (isWechatRegexPayloadMessage(msg)) return '[状态更新]';
     if (msg.description) return msg.description;
     if (msg.type === 'sticker') {
         const name = msg.stickerName || msg.name || '';
@@ -1522,6 +1740,38 @@ function syncWechatMessageDescription(msg) {
     return msg;
 }
 
+function getWechatTextMessageVisibleText(msg, charObj = null) {
+    if (!msg || isWechatSpecialMessage(msg.type) || msg.type === 'system_notice') return '[special]';
+    const source = cleanWechatVisibleContent(msg.content || msg.description || msg.dialogue || msg.text || '');
+    if (!source || isWechatAiMetaLeakContent(source)) return '';
+    const char = charObj || getCurrentChatChar?.();
+    if (
+        isRichMessageContent(source)
+        || looksLikeWechatRegexPayloadSource(source)
+        || looksLikeWechatPipeStatusPayloadSource(source)
+        || willWechatRegexRenderRich(source, char)
+        || isWechatStandaloneRichOrRegexSource(source, char)
+    ) {
+        return source;
+    }
+    const rendered = processMsgContent(source, char);
+    return String(rendered || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isWechatRenderableMessage(msg, charObj = null) {
+    if (!msg) return false;
+    if (msg.type === 'system_notice') return true;
+    if (isWechatSpecialMessage(msg.type) || msg.type === 'image' || msg.type === 'sticker') return true;
+    return !!getWechatTextMessageVisibleText(msg, charObj);
+}
+
+function pruneWechatEmptyAiTextMessages(char) {
+    if (!char || !Array.isArray(char.history)) return false;
+    const before = char.history.length;
+    char.history = char.history.filter(msg => msg?.isMe || isWechatRenderableMessage(msg, char));
+    return char.history.length !== before;
+}
+
 function getWechatLinkHost(url) {
     try {
         return new URL(normalizeWechatUrl(url)).hostname.replace(/^www\./i, '');
@@ -1530,10 +1780,247 @@ function getWechatLinkHost(url) {
     }
 }
 
+function getWechatBuiltinEmojiAliasName(name) {
+    const text = String(name || '').trim();
+    const lower = text.toLowerCase();
+    const aliases = {
+        '发': '發',
+        '發': '發',
+        'emm': 'Emm',
+        'ok': 'OK'
+    };
+    return aliases[text] || aliases[lower] || text;
+}
+
+function getWechatActiveBuiltinEmojiSource() {
+    return getWechatUiThemeId() === 'qq' ? 'qq' : 'wechat';
+}
+
+function buildWechatBuiltinEmojiMarker(name, source = getWechatActiveBuiltinEmojiSource(), url = '') {
+    const markerSource = source === 'qq' ? 'QQ_EMOJI' : 'WECHAT_EMOJI';
+    const label = source === 'qq' ? String(name || '').trim() : getWechatBuiltinEmojiAliasName(name);
+    if (!label) return '';
+    return `[[${markerSource}:${encodeURIComponent(label)}${url ? `:${encodeURIComponent(url)}` : ''}]]`;
+}
+
+function parseWechatBuiltinEmojiMarker(text) {
+    const match = String(text || '').trim().match(/^\[\[(WECHAT_EMOJI|QQ_EMOJI):([^:\]]+)(?::([^\]]+))?\]\]$/);
+    if (!match) return null;
+    const decode = value => {
+        try {
+            return decodeURIComponent(value || '');
+        } catch (_) {
+            return value || '';
+        }
+    };
+    return {
+        source: match[1] === 'QQ_EMOJI' ? 'qq' : 'wechat',
+        name: decode(match[2]),
+        url: decode(match[3])
+    };
+}
+
+function hasWechatBuiltinEmojiMarker(text) {
+    return /\[\[(?:WECHAT_EMOJI|QQ_EMOJI):[^\]]+\]\]/.test(String(text || ''));
+}
+
+function getSingleWechatBuiltinEmojiMarker(text) {
+    return parseWechatBuiltinEmojiMarker(text);
+}
+
+function getWechatInputEmojiDisplayToken(name) {
+    const label = String(name || '').trim();
+    if (!label) return '';
+    if (getWechatUiThemeId() === 'qq') return `[${label}]`;
+    return WECHAT_INPUT_EMOJI_MAP[label] || label;
+}
+
+function getWechatInputEmojiDraftItems() {
+    if (!Array.isArray(window._wechatInputEmojiDraftItems)) window._wechatInputEmojiDraftItems = [];
+    return window._wechatInputEmojiDraftItems;
+}
+
+function rememberWechatInputEmojiDraftItem(item) {
+    if (!item || !item.token || !item.name) return;
+    getWechatInputEmojiDraftItems().push(item);
+}
+
+function clearWechatInputEmojiDraftItems() {
+    window._wechatInputEmojiDraftItems = [];
+}
+
+function prepareWechatTextWithDraftEmojis(text) {
+    if (!['wechat', 'qq'].includes(getWechatUiThemeId())) return { text: String(text || ''), hasEmoji: false };
+    let output = String(text || '');
+    let hasEmoji = hasWechatBuiltinEmojiMarker(output);
+    getWechatInputEmojiDraftItems().forEach(item => {
+        if (!item || !item.token || !item.name) return;
+        const index = output.indexOf(item.token);
+        if (index < 0) return;
+        const marker = buildWechatBuiltinEmojiMarker(item.name, item.source || getWechatActiveBuiltinEmojiSource(), item.url || '');
+        if (!marker) return;
+        output = output.slice(0, index) + marker + output.slice(index + item.token.length);
+        hasEmoji = true;
+    });
+    return { text: output, hasEmoji };
+}
+
+function getWechatRichInputElement() {
+    return document.getElementById('wc-rich-msg-input');
+}
+
+function isWechatRichInputEnabled() {
+    return ['wechat', 'qq'].includes(getWechatUiThemeId()) && !!getWechatRichInputElement();
+}
+
+function isWechatSelectionInside(element) {
+    const selection = window.getSelection && window.getSelection();
+    if (!selection || !selection.rangeCount || !element) return false;
+    const node = selection.anchorNode;
+    return !!(node && (node === element || element.contains(node)));
+}
+
+function setWechatRichInputCaretAfter(node) {
+    const selection = window.getSelection && window.getSelection();
+    if (!selection || !node) return;
+    const range = document.createRange();
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function syncWechatHiddenInputFromRich() {
+    const inputEl = document.getElementById('wc-msg-input');
+    if (!inputEl || !isWechatRichInputEnabled()) return;
+    inputEl.value = getWechatMessageInputValue({ markers: false });
+}
+
+function getWechatRichInputValue(options = {}) {
+    const richEl = getWechatRichInputElement();
+    if (!richEl) return '';
+    const useMarkers = !!options.markers;
+    const readNode = node => {
+        if (!node) return '';
+        if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        const el = node;
+        if (el.matches && el.matches('img.wc-rich-input-emoji')) {
+            const name = el.dataset.emojiName || el.getAttribute('alt') || '';
+            return useMarkers
+                ? buildWechatBuiltinEmojiMarker(name.replace(/^\[|\]$/g, ''), el.dataset.emojiSource || getWechatActiveBuiltinEmojiSource(), el.dataset.emojiUrl || '')
+                : (el.dataset.displayToken || el.getAttribute('alt') || '');
+        }
+        if (el.tagName === 'BR') return '\n';
+        let text = '';
+        el.childNodes.forEach(child => { text += readNode(child); });
+        if (['DIV', 'P'].includes(el.tagName) && text && !text.endsWith('\n')) text += '\n';
+        return text;
+    };
+    let text = '';
+    richEl.childNodes.forEach(node => { text += readNode(node); });
+    return text.replace(/\n+$/g, '');
+}
+
+function getWechatMessageInputValue(options = {}) {
+    if (isWechatRichInputEnabled()) return getWechatRichInputValue(options);
+    const inputEl = document.getElementById('wc-msg-input');
+    return inputEl ? inputEl.value : '';
+}
+
+function clearWechatMessageInput() {
+    const inputEl = document.getElementById('wc-msg-input');
+    const richEl = getWechatRichInputElement();
+    if (inputEl) inputEl.value = '';
+    if (richEl) richEl.innerHTML = '';
+    clearWechatInputEmojiDraftItems();
+}
+
+function handleWechatRichInputInput() {
+    syncWechatHiddenInputFromRich();
+    syncWechatDraftState();
+}
+
+function insertWechatRichInputText(text) {
+    const richEl = getWechatRichInputElement();
+    if (!richEl) return;
+    richEl.focus();
+    const selection = window.getSelection && window.getSelection();
+    const range = selection && selection.rangeCount && isWechatSelectionInside(richEl)
+        ? selection.getRangeAt(0)
+        : document.createRange();
+    if (!selection || !selection.rangeCount || !isWechatSelectionInside(richEl)) {
+        range.selectNodeContents(richEl);
+        range.collapse(false);
+    }
+    range.deleteContents();
+    const textNode = document.createTextNode(String(text || ''));
+    range.insertNode(textNode);
+    setWechatRichInputCaretAfter(textNode);
+    handleWechatRichInputInput();
+}
+
+function handleWechatRichInputPaste(event) {
+    if (!isWechatRichInputEnabled()) return;
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text/plain') || '';
+    insertWechatRichInputText(text);
+}
+
+function insertWechatRichInputEmoji(name, url = '') {
+    const richEl = getWechatRichInputElement();
+    const source = getWechatActiveBuiltinEmojiSource();
+    const label = source === 'qq' ? String(name || '').trim() : getWechatBuiltinEmojiAliasName(name);
+    const resolvedUrl = url || (source === 'qq' ? getQqBuiltinEmojiUrlByName(label) : getWechatBuiltinEmojiUrlByName(label));
+    if (!richEl || !label || !resolvedUrl) return false;
+    richEl.focus();
+    const img = document.createElement('img');
+    img.className = 'wc-rich-input-emoji';
+    img.src = resolvedUrl;
+    img.alt = `[${label}]`;
+    img.title = label;
+    img.draggable = false;
+    img.dataset.emojiName = label;
+    img.dataset.emojiSource = source;
+    img.dataset.emojiUrl = resolvedUrl;
+    img.dataset.displayToken = getWechatInputEmojiDisplayToken(name);
+
+    const selection = window.getSelection && window.getSelection();
+    const range = selection && selection.rangeCount && isWechatSelectionInside(richEl)
+        ? selection.getRangeAt(0)
+        : document.createRange();
+    if (!selection || !selection.rangeCount || !isWechatSelectionInside(richEl)) {
+        range.selectNodeContents(richEl);
+        range.collapse(false);
+    }
+    range.deleteContents();
+    range.insertNode(img);
+    setWechatRichInputCaretAfter(img);
+    handleWechatRichInputInput();
+    return true;
+}
+
 function buildWechatUserTextMessage(text) {
-    const url = extractWechatFirstUrl(text);
-    if (!url) return { type: 'text', isMe: true, content: text, timestamp: createMessageTimestamp() };
-    const note = String(text || '').replace(url, '').trim();
+    const prepared = prepareWechatTextWithDraftEmojis(text);
+    const content = prepared.text;
+    const singleEmoji = getSingleWechatBuiltinEmojiMarker(content);
+    if (singleEmoji && singleEmoji.name) {
+        const emojiUrl = singleEmoji.url || (singleEmoji.source === 'qq'
+            ? getQqBuiltinEmojiUrlByName(singleEmoji.name)
+            : getWechatBuiltinEmojiUrlByName(singleEmoji.name));
+        return {
+            type: 'sticker',
+            isMe: true,
+            content: emojiUrl,
+            stickerName: singleEmoji.name,
+            stickerKind: singleEmoji.source === 'qq' ? 'qqEmoji' : 'wechatEmoji',
+            emoji: true,
+            timestamp: createMessageTimestamp()
+        };
+    }
+    const url = extractWechatFirstUrl(content);
+    if (!url) return { type: 'text', isMe: true, content, wechatEmojiText: prepared.hasEmoji, timestamp: createMessageTimestamp() };
+    const note = String(content || '').replace(url, '').trim();
     return syncWechatMessageDescription({
         type: 'link_card',
         isMe: true,
@@ -1562,6 +2049,7 @@ function openWechatLinkCard(url) {
 }
 
 let wechatMusicCardPlaySeq = 0;
+const WECHAT_MUSIC_QUEUE_ADDED_KEY = 'wechat_music_queue_added_tracks_v1';
 
 function getWechatMusicAudioPlayer() {
     if (!window._wechatMusicCardAudio) {
@@ -1582,11 +2070,24 @@ function getWechatMusicAudioPlayer() {
         audio.style.pointerEvents = 'none';
         audio.style.zIndex = '2147483000';
         if (!audio.parentElement) document.body.appendChild(audio);
-        audio.addEventListener('ended', () => {
-            document.querySelectorAll('.msg-music-card.playing').forEach(card => card.classList.remove('playing'));
-        });
+        audio.addEventListener('ended', handleWechatMusicPlaybackEnded);
         audio.addEventListener('error', () => {
             document.querySelectorAll('.msg-music-card.playing, .msg-music-card.loading').forEach(card => card.classList.remove('playing', 'loading'));
+            updateWechatMusicListenProgress();
+        });
+        audio.addEventListener('timeupdate', () => {
+            updateWechatMusicListenProgress();
+            updateWechatMusicLyricsFloat(audio.currentTime || 0);
+            updateWechatMusicIsland();
+        });
+        audio.addEventListener('loadedmetadata', updateWechatMusicListenProgress);
+        audio.addEventListener('play', () => {
+            updateWechatMusicListenProgress();
+            updateWechatMusicIsland();
+        });
+        audio.addEventListener('pause', () => {
+            updateWechatMusicListenProgress();
+            updateWechatMusicIsland();
         });
         window._wechatMusicCardAudio = audio;
     }
@@ -1696,6 +2197,739 @@ function updateWechatMusicCardPlayingState(audioUrl, playing, loading = false) {
         card.classList.toggle('loading', !!loading && matched);
         if (!matched) card.classList.remove('playing', 'loading');
     });
+    const player = document.getElementById('wc-music-listen-player');
+    if (player && player.dataset.audioUrl === audioUrl) {
+        player.classList.toggle('playing', !!playing);
+        player.classList.toggle('loading', !!loading);
+        const icon = player.querySelector('.wc-music-listen-play i');
+        if (icon) icon.className = loading ? 'ri-loader-4-line' : (playing ? 'ri-pause-fill' : 'ri-play-fill');
+    }
+}
+
+function getWechatMusicCardMessageFromElement(card) {
+    const row = card?.closest?.('.msg-row');
+    const index = Number(row?.dataset?.msgIdx);
+    const char = getCurrentChatChar();
+    if (!char || !Array.isArray(char.history) || !Number.isInteger(index)) return null;
+    const msg = char.history[index];
+    return msg && msg.type === 'music_card' ? { char, msg, index } : null;
+}
+
+function getWechatMusicPlayerAvatars(char) {
+    const userProfile = typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : {};
+    return {
+        self: userProfile.avatar || '',
+        peer: char?.avatar || DEFAULT_AVATAR
+    };
+}
+
+function getWechatMusicOverlayRoot() {
+    return getWechatModalRoot();
+}
+
+function mountWechatMusicOverlayElement(el) {
+    const root = getWechatMusicOverlayRoot();
+    if (el && root && el.parentElement !== root) root.appendChild(el);
+    return el;
+}
+
+function ensureWechatMusicListenPlayer() {
+    let panel = document.getElementById('wc-music-listen-player');
+    if (panel) return mountWechatMusicOverlayElement(panel);
+    panel = document.createElement('div');
+    panel.id = 'wc-music-listen-player';
+    panel.className = 'wc-music-listen-player hidden';
+    panel.innerHTML = `
+        <button type="button" class="wc-music-listen-close" onclick="closeWechatMusicListenPlayer()" aria-label="收起"><i class="ri-arrow-down-s-line"></i></button>
+        <div class="wc-music-listen-art"><i class="ri-music-2-fill"></i></div>
+        <div class="wc-music-listen-people">
+            <img class="self" alt="">
+            <img class="peer" alt="">
+        </div>
+        <div class="wc-music-listen-meta">
+            <span>正在一起听歌</span>
+            <strong></strong>
+            <em></em>
+        </div>
+        <div class="wc-music-listen-progress" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" onclick="seekWechatMusicListenProgress(event)" onpointerdown="beginWechatMusicListenSeek(event)"><span></span></div>
+        <div class="wc-music-listen-actions">
+            <button type="button" class="wc-music-listen-lyric" onclick="toggleWechatMusicLyricsFloat()" aria-label="歌词"><i class="ri-file-list-2-line"></i><span>歌词</span></button>
+            <button type="button" onclick="playWechatMusicAdjacent(-1)" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
+            <button type="button" class="wc-music-listen-play" onclick="toggleWechatMusicListenPlayback()" aria-label="播放"><i class="ri-play-fill"></i></button>
+            <button type="button" onclick="playWechatMusicAdjacent(1)" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
+            <button type="button" onclick="toggleWechatMusicQueuePanel()" aria-label="音乐列表"><i class="ri-play-list-2-line"></i><span>列表</span></button>
+            <button type="button" class="wc-music-listen-mode" onclick="cycleWechatMusicPlayMode()" aria-label="播放模式"><i class="ri-repeat-line"></i><span>列表循环</span></button>
+            <button type="button" onclick="focusWechatMusicCommentInput()" aria-label="评论"><i class="ri-chat-1-line"></i><span>评论</span></button>
+        </div>
+        <div class="wc-music-queue-panel hidden">
+            <div class="wc-music-queue-head"><span>音乐列表</span><button type="button" onclick="openWechatMusicQueueComposer()"><i class="ri-add-line"></i>继续添加音乐</button></div>
+            <div class="wc-music-queue-list"></div>
+        </div>
+    `;
+    mountWechatMusicOverlayElement(panel);
+    bindWechatMusicQueueScroll(panel);
+    return panel;
+}
+
+function bindWechatMusicQueueScroll(panel) {
+    const list = panel?.querySelector('.wc-music-queue-list');
+    if (!list || list.dataset.scrollBound === '1') return;
+    list.dataset.scrollBound = '1';
+    ['touchstart', 'touchmove', 'wheel'].forEach(type => {
+        list.addEventListener(type, event => event.stopPropagation(), { passive: type !== 'touchmove' });
+    });
+}
+
+function openWechatMusicListenPlayer(info, cardEl = null, msg = null, char = null) {
+    const panel = ensureWechatMusicListenPlayer();
+    const avatars = getWechatMusicPlayerAvatars(char || getCurrentChatChar());
+    const previousKey = panel.dataset.trackKey || '';
+    const nextKey = getWechatMusicTrackMatchKey(info || {});
+    panel.dataset.audioUrl = info.audioUrl || '';
+    panel.dataset.title = info.title || '一起听歌';
+    panel.dataset.artist = info.artist || '';
+    panel.dataset.artwork = info.artwork || '';
+    panel.dataset.sourceUrl = info.sourceAudioUrl || info.audioUrl || '';
+    panel.dataset.msgIndex = cardEl?.closest?.('.msg-row')?.dataset?.msgIdx || '';
+    panel.dataset.lyricsText = info.lyricsText || '';
+    panel.dataset.lyricsUrl = info.lyricsUrl || '';
+    panel.dataset.sourceKey = info.sourceKey || '';
+    panel.dataset.sourceMeta = info.sourceMeta || '';
+    panel.dataset.sourceName = info.sourceName || '';
+    panel.dataset.trackKey = nextKey;
+    if (previousKey !== nextKey) {
+        delete panel.dataset.lyricsLoaded;
+        delete panel.dataset.lyricsLines;
+        const lyricBox = document.getElementById('wc-music-lyrics-float');
+        const lyricList = lyricBox?.querySelector('.wc-music-lyrics-lines');
+        if (lyricList && lyricBox && !lyricBox.classList.contains('hidden')) {
+            lyricList.innerHTML = '<p class="wc-music-lyrics-empty">正在载入歌词...</p>';
+            getWechatMusicLyricsForPanel(panel).then(lines => {
+                if (panel.dataset.trackKey !== nextKey) return;
+                lyricList.innerHTML = lines.map((line, index) => `
+                    <p class="wc-music-lyric-line" data-time="${Number.isFinite(line.time) ? line.time : ''}" data-line-index="${index}">${wcEscapeHtml(line.text)}</p>
+                `).join('') || '<p class="wc-music-lyrics-empty">没有歌词内容</p>';
+                updateWechatMusicLyricsFloat(window._wechatMusicCardAudio?.currentTime || 0, true);
+            }).catch(() => {
+                if (panel.dataset.trackKey === nextKey) lyricList.innerHTML = '<p class="wc-music-lyrics-empty">没有歌词内容</p>';
+            });
+        }
+    }
+    panel.querySelector('.wc-music-listen-art').innerHTML = info.artwork
+        ? `<img src="${wcEscapeHtml(info.artwork)}" alt="" onerror="this.parentElement.innerHTML='<i class=&quot;ri-music-2-fill&quot;></i>'">`
+        : '<i class="ri-music-2-fill"></i>';
+    const selfAvatar = panel.querySelector('.wc-music-listen-people .self');
+    const peerAvatar = panel.querySelector('.wc-music-listen-people .peer');
+    if (selfAvatar) selfAvatar.src = avatars.self || DEFAULT_AVATAR;
+    if (peerAvatar) peerAvatar.src = avatars.peer || DEFAULT_AVATAR;
+    const titleEl = panel.querySelector('.wc-music-listen-meta strong');
+    const artistEl = panel.querySelector('.wc-music-listen-meta em');
+    if (titleEl) titleEl.textContent = info.title || '一起听歌';
+    if (artistEl) artistEl.textContent = info.artist || info.sourceName || 'BYND Music';
+    panel.classList.remove('hidden');
+    hideWechatMusicIsland();
+    renderWechatMusicPlayMode();
+    renderWechatMusicQueuePanel();
+    updateWechatMusicListenProgress();
+    if (msg) {
+        window._wechatMusicListenMessage = { msg, charId: char?.id || window.currentChatCharId || '' };
+    }
+}
+
+function closeWechatMusicListenPlayer() {
+    document.getElementById('wc-music-listen-player')?.classList.add('hidden');
+    updateWechatMusicIsland();
+}
+window.closeWechatMusicListenPlayer = closeWechatMusicListenPlayer;
+
+function collapseWechatMusicOverlaysToIsland() {
+    document.getElementById('wc-music-listen-player')?.classList.add('hidden');
+    document.getElementById('wc-music-lyrics-float')?.classList.add('hidden');
+    updateWechatMusicIsland();
+}
+window.collapseWechatMusicOverlaysToIsland = collapseWechatMusicOverlaysToIsland;
+
+function focusWechatMusicCommentInput() {
+    closeWechatMusicListenPlayer();
+    setTimeout(() => {
+        const richInput = typeof getWechatRichInputElement === 'function' ? getWechatRichInputElement() : document.getElementById('wc-rich-msg-input');
+        const input = (typeof isWechatRichInputEnabled === 'function' && isWechatRichInputEnabled() && richInput)
+            ? richInput
+            : (typeof getWechatActiveInputElement === 'function' ? getWechatActiveInputElement() : document.getElementById('wc-msg-input'));
+        input?.focus?.();
+        if (input?.isContentEditable) {
+            const selection = window.getSelection && window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(input);
+            range.collapse(false);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+        } else if (input && typeof input.setSelectionRange === 'function') {
+            const end = input.value.length;
+            input.setSelectionRange(end, end);
+        }
+    }, 30);
+}
+window.focusWechatMusicCommentInput = focusWechatMusicCommentInput;
+
+function openWechatMusicQueueComposer() {
+    openWechatComposer('music_card', null, { musicMode: 'queue' });
+}
+window.openWechatMusicQueueComposer = openWechatMusicQueueComposer;
+
+function toggleWechatMusicListenPlayback() {
+    const panel = document.getElementById('wc-music-listen-player');
+    if (!panel) return;
+    playWechatMusicCard(panel.dataset.audioUrl || '', panel.dataset.title || '', panel.dataset.artist || '', panel, { toggle: true });
+}
+window.toggleWechatMusicListenPlayback = toggleWechatMusicListenPlayback;
+
+function getWechatMusicPlayMode() {
+    const mode = localStorage.getItem('wechat_music_play_mode') || 'list';
+    return ['list', 'shuffle', 'one'].includes(mode) ? mode : 'list';
+}
+
+function renderWechatMusicPlayMode() {
+    const btn = document.querySelector('#wc-music-listen-player .wc-music-listen-mode');
+    if (!btn) return;
+    const mode = getWechatMusicPlayMode();
+    const meta = mode === 'shuffle'
+        ? { icon: 'ri-shuffle-line', label: '随机' }
+        : mode === 'one'
+            ? { icon: 'ri-repeat-one-line', label: '单曲循环' }
+            : { icon: 'ri-repeat-line', label: '列表循环' };
+    btn.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
+}
+
+function cycleWechatMusicPlayMode() {
+    const modes = ['list', 'shuffle', 'one'];
+    const next = modes[(modes.indexOf(getWechatMusicPlayMode()) + 1) % modes.length];
+    localStorage.setItem('wechat_music_play_mode', next);
+    renderWechatMusicPlayMode();
+}
+window.cycleWechatMusicPlayMode = cycleWechatMusicPlayMode;
+
+function getWechatMusicCardsInChat() {
+    return Array.from(document.querySelectorAll('#chat-room-content .msg-music-card'))
+        .filter(card => normalizeWechatUrl(card.dataset.audioUrl || ''));
+}
+
+function getWechatMusicQueueTracks() {
+    const fromChat = getWechatMusicCardsInChat().map(card => ({
+        title: card.dataset.title || '一起听歌',
+        artist: card.dataset.artist || '',
+        audioUrl: card.dataset.audioUrl || '',
+        sourceAudioUrl: card.dataset.sourceUrl || card.dataset.audioUrl || '',
+        artwork: card.dataset.artwork || '',
+        lyricsText: card.dataset.lyricsText || '',
+        lyricsUrl: card.dataset.lyricsUrl || '',
+        sourceKey: card.dataset.sourceKey || '',
+        sourceMeta: card.dataset.sourceMeta || '',
+        sourceName: card.dataset.sourceName || '聊天'
+    }));
+    const added = getWechatPersistedMusicQueueTracks();
+    let library = [];
+    try {
+        if (typeof getMusicLibraryTracks === 'function') {
+            library = getMusicLibraryTracks().map(normalizeWechatMusicDraftTrack).filter(Boolean);
+        }
+    } catch (e) {}
+    let favorites = [];
+    try {
+        const raw = typeof getMusicFavoritesStore === 'function'
+            ? getMusicFavoritesStore()
+            : JSON.parse(localStorage.getItem('bynd_music_favorites_v1') || '[]');
+        favorites = (Array.isArray(raw) ? raw : []).map(normalizeWechatMusicDraftTrack).filter(Boolean);
+    } catch (e) {}
+    const seen = new Set();
+    return [...fromChat, ...added, ...library, ...favorites].filter(track => {
+        if (!track || !track.audioUrl) return false;
+        const key = `${track.title}|${track.artist}|${track.audioUrl}`.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).slice(0, 40);
+}
+
+function getWechatPersistedMusicQueueTracks() {
+    if (!Array.isArray(window._wechatMusicQueueAddedTracks)) {
+        try {
+            const raw = JSON.parse(localStorage.getItem(WECHAT_MUSIC_QUEUE_ADDED_KEY) || '[]');
+            window._wechatMusicQueueAddedTracks = Array.isArray(raw) ? raw.map(normalizeWechatMusicDraftTrack).filter(Boolean) : [];
+        } catch (e) {
+            window._wechatMusicQueueAddedTracks = [];
+        }
+    }
+    return window._wechatMusicQueueAddedTracks.map(normalizeWechatMusicDraftTrack).filter(Boolean);
+}
+
+function saveWechatPersistedMusicQueueTracks(tracks) {
+    window._wechatMusicQueueAddedTracks = (Array.isArray(tracks) ? tracks : []).map(normalizeWechatMusicDraftTrack).filter(Boolean).slice(0, 80);
+    try {
+        localStorage.setItem(WECHAT_MUSIC_QUEUE_ADDED_KEY, JSON.stringify(window._wechatMusicQueueAddedTracks));
+    } catch (e) {}
+}
+
+function addWechatMusicTrackToQueue(track) {
+    const normalized = normalizeWechatMusicDraftTrack(track);
+    if (!normalized || !normalized.audioUrl) return false;
+    const added = getWechatPersistedMusicQueueTracks();
+    const key = `${normalized.title}|${normalized.artist}|${normalized.audioUrl}`.toLowerCase();
+    const exists = added.some(item => {
+        const current = normalizeWechatMusicDraftTrack(item);
+        return current && `${current.title}|${current.artist}|${current.audioUrl}`.toLowerCase() === key;
+    });
+    if (!exists) {
+        added.unshift(normalized);
+        saveWechatPersistedMusicQueueTracks(added);
+    }
+    renderWechatMusicQueuePanel();
+    return true;
+}
+window.addWechatMusicTrackToQueue = addWechatMusicTrackToQueue;
+
+function renderWechatMusicQueuePanel() {
+    const panel = document.getElementById('wc-music-listen-player');
+    const list = panel?.querySelector('.wc-music-queue-list');
+    if (!panel || !list) return;
+    const currentKey = getWechatMusicTrackMatchKey({
+        title: panel.dataset.title || '',
+        artist: panel.dataset.artist || '',
+        audioUrl: panel.dataset.audioUrl || '',
+        sourceAudioUrl: panel.dataset.sourceUrl || ''
+    });
+    const tracks = getWechatMusicQueueTracks();
+    list.innerHTML = tracks.length ? tracks.map((track, index) => {
+        const active = getWechatMusicTrackMatchKey(track) === currentKey;
+        const art = track.artwork ? `<img src="${wcEscapeHtml(track.artwork)}" onerror="this.remove()">` : '<i class="ri-music-2-line"></i>';
+        return `
+            <button type="button" class="${active ? 'active' : ''}" onclick="playWechatMusicQueueTrack(${index})">
+                <span>${art}</span>
+                <b>${wcEscapeHtml(track.title || '一起听歌')}</b>
+                <em>${wcEscapeHtml([track.artist, track.sourceName].filter(Boolean).join(' · ') || '音乐源')}</em>
+                <i class="${active ? 'ri-volume-up-line' : 'ri-play-circle-line'}"></i>
+            </button>
+        `;
+    }).join('') : '<div class="wc-music-queue-empty">当前没有可播放歌曲，点继续添加音乐。</div>';
+    window._wechatMusicQueueTracks = tracks;
+}
+
+function toggleWechatMusicQueuePanel() {
+    const panel = document.getElementById('wc-music-listen-player');
+    const queue = panel?.querySelector('.wc-music-queue-panel');
+    if (!queue) return;
+    renderWechatMusicQueuePanel();
+    queue.classList.toggle('hidden');
+}
+window.toggleWechatMusicQueuePanel = toggleWechatMusicQueuePanel;
+
+function playWechatMusicQueueTrack(index) {
+    const tracks = Array.isArray(window._wechatMusicQueueTracks) ? window._wechatMusicQueueTracks : getWechatMusicQueueTracks();
+    const track = tracks[Number(index)];
+    if (!track) return;
+    playWechatMusicCard(track.audioUrl || track.playableUrl || track.sourceAudioUrl || '', track.title || '', track.artist || '', {
+        dataset: {
+            audioUrl: track.audioUrl || '',
+            sourceUrl: track.sourceAudioUrl || track.audioUrl || '',
+            playableUrl: track.playableUrl || '',
+            title: track.title || '',
+            artist: track.artist || '',
+            artwork: track.artwork || '',
+            lyricsText: track.lyricsText || '',
+            lyricsUrl: track.lyricsUrl || '',
+            sourceKey: track.sourceKey || '',
+            sourceMeta: track.sourceMeta || '',
+            sourceName: track.sourceName || ''
+        },
+        closest: () => null
+    }, { queue: true });
+}
+window.playWechatMusicQueueTrack = playWechatMusicQueueTrack;
+
+function getWechatMusicTrackMatchKey(track) {
+    const audioUrl = normalizeWechatUrl(track?.audioUrl || '');
+    const sourceUrl = normalizeWechatUrl(track?.sourceAudioUrl || track?.sourceUrl || '');
+    const playableUrl = normalizeWechatUrl(track?.playableUrl || track?.resolvedAudioUrl || '');
+    const title = String(track?.title || track?.trackName || track?.name || '').trim().toLowerCase();
+    const artist = String(track?.artist || track?.artistName || track?.singer || '').trim().toLowerCase();
+    return [audioUrl, sourceUrl, playableUrl].filter(Boolean).sort().join('|') || `${title}|${artist}`;
+}
+
+function playWechatMusicAdjacent(direction = 1, options = {}) {
+    const tracks = getWechatMusicQueueTracks();
+    if (!tracks.length) return;
+    const panel = document.getElementById('wc-music-listen-player');
+    const currentKey = getWechatMusicTrackMatchKey({
+        title: panel?.dataset.title || '',
+        artist: panel?.dataset.artist || '',
+        audioUrl: panel?.dataset.audioUrl || '',
+        sourceAudioUrl: panel?.dataset.sourceUrl || ''
+    });
+    const mode = options.mode || getWechatMusicPlayMode();
+    let index = tracks.findIndex(track => getWechatMusicTrackMatchKey(track) === currentKey);
+    if (mode === 'shuffle') {
+        const next = tracks.length > 1
+            ? Math.floor(Math.random() * (tracks.length - 1))
+            : 0;
+        index = tracks.length > 1 && next >= index ? next + 1 : next;
+    } else {
+        index = (index + Number(direction || 1) + tracks.length) % tracks.length;
+    }
+    if (index < 0) index = 0;
+    window._wechatMusicQueueTracks = tracks;
+    playWechatMusicQueueTrack(index);
+}
+window.playWechatMusicAdjacent = playWechatMusicAdjacent;
+
+function handleWechatMusicPlaybackEnded() {
+    document.querySelectorAll('.msg-music-card.playing').forEach(card => card.classList.remove('playing'));
+    updateWechatMusicListenProgress();
+    const audio = window._wechatMusicCardAudio;
+    const panel = document.getElementById('wc-music-listen-player');
+    const mode = getWechatMusicPlayMode();
+    if (mode === 'one') {
+        if (audio) {
+            audio.currentTime = 0;
+            audio.play().catch(() => {});
+        }
+        const replayUrl = panel?.dataset.audioUrl || audio?.dataset.cardUrl || '';
+        if (replayUrl) updateWechatMusicCardPlayingState(replayUrl, true);
+        return;
+    }
+    const tracks = getWechatMusicQueueTracks();
+    if (tracks.length > 1 || mode === 'list' || mode === 'shuffle') {
+        playWechatMusicAdjacent(1, { mode });
+    }
+}
+
+function formatWechatMusicTime(seconds) {
+    const value = Math.max(0, Math.floor(Number(seconds) || 0));
+    return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+}
+
+function seekWechatMusicListenProgress(event) {
+    const bar = event?.currentTarget || document.querySelector('#wc-music-listen-player .wc-music-listen-progress');
+    const audio = window._wechatMusicCardAudio;
+    if (!bar || !audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return false;
+    const rect = bar.getBoundingClientRect();
+    const clientX = Number(event?.clientX ?? event?.touches?.[0]?.clientX ?? 0);
+    const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
+    const nextTime = ratio * audio.duration;
+    renderWechatMusicSeekPreview(bar, ratio, nextTime);
+    audio.currentTime = nextTime;
+    updateWechatMusicLyricsFloat(nextTime, true);
+    return true;
+}
+window.seekWechatMusicListenProgress = seekWechatMusicListenProgress;
+
+function renderWechatMusicSeekPreview(bar, ratio, nextTime) {
+    const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    const progressBar = bar || document.querySelector('#wc-music-listen-player .wc-music-listen-progress');
+    const fill = progressBar?.querySelector('span');
+    if (fill) fill.style.width = `${safeRatio * 100}%`;
+    if (progressBar) {
+        progressBar.setAttribute('aria-valuenow', String(Math.round(safeRatio * 100)));
+        progressBar.dataset.seekPreviewTime = String(Math.max(0, Number(nextTime) || 0));
+    }
+}
+
+function beginWechatMusicListenSeek(event) {
+    const bar = event?.currentTarget;
+    if (!bar) return;
+    event.preventDefault();
+    event.stopPropagation();
+    bar.classList.add('is-seeking');
+    if (typeof bar.setPointerCapture === 'function' && event.pointerId != null) {
+        try { bar.setPointerCapture(event.pointerId); } catch (e) {}
+    }
+    seekWechatMusicListenProgress(event);
+    const move = e => {
+        e.preventDefault();
+        seekWechatMusicListenProgress({ currentTarget: bar, clientX: e.clientX });
+    };
+    const end = () => {
+        bar.classList.remove('is-seeking');
+        delete bar.dataset.seekPreviewTime;
+        updateWechatMusicListenProgress();
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        window.removeEventListener('pointercancel', end);
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end, { once: true });
+    window.addEventListener('pointercancel', end, { once: true });
+}
+window.beginWechatMusicListenSeek = beginWechatMusicListenSeek;
+
+function updateWechatMusicListenProgress() {
+    const panel = document.getElementById('wc-music-listen-player');
+    if (!panel || panel.classList.contains('hidden')) return;
+    const audio = window._wechatMusicCardAudio;
+    const fill = panel.querySelector('.wc-music-listen-progress span');
+    const currentUrl = normalizeWechatUrl(audio?.dataset?.cardUrl || '');
+    const panelUrl = normalizeWechatUrl(panel.dataset.audioUrl || '');
+    const isCurrent = currentUrl && panelUrl && currentUrl === panelUrl;
+    const duration = isCurrent && Number.isFinite(audio.duration) ? audio.duration : 0;
+    const current = isCurrent && Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    const percent = duration > 0 ? Math.max(0, Math.min(100, (current / duration) * 100)) : 0;
+    const bar = panel.querySelector('.wc-music-listen-progress');
+    if (!bar?.classList.contains('is-seeking')) {
+        if (fill) fill.style.width = `${percent}%`;
+        if (bar) bar.setAttribute('aria-valuenow', String(Math.round(percent)));
+    }
+    panel.classList.toggle('playing', !!(isCurrent && audio && !audio.paused));
+    const icon = panel.querySelector('.wc-music-listen-play i');
+    if (icon && !panel.classList.contains('loading')) icon.className = isCurrent && audio && !audio.paused ? 'ri-pause-fill' : 'ri-play-fill';
+}
+
+function parseWechatMusicLyrics(raw, fallbackTitle = '') {
+    const text = String(raw || '').trim();
+    if (!text) return [];
+    let autoTime = 0;
+    return text.split(/\r?\n/).map(line => {
+        const item = line.trim();
+        if (!item) return null;
+        const match = item.match(/^\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]\s*(.*)$/);
+        if (match) {
+            return {
+                time: Number(match[1]) * 60 + Number(match[2]) + Number(`0.${match[3] || 0}`),
+                text: match[4].trim()
+            };
+        }
+        const next = { time: autoTime, text: item };
+        autoTime += 6;
+        return next;
+    }).filter(item => item && item.text);
+}
+
+async function getWechatMusicLyricsForPanel(panel) {
+    if (!panel) return [];
+    if (panel.dataset.lyricsLoaded === '1') {
+        try { return JSON.parse(panel.dataset.lyricsLines || '[]') || []; } catch (e) { return []; }
+    }
+    let raw = panel.dataset.lyricsText || '';
+    if (!raw && panel.dataset.lyricsUrl) {
+        try {
+            const resp = await fetch(panel.dataset.lyricsUrl);
+            if (resp.ok) raw = await resp.text();
+        } catch (e) {}
+    }
+    if (!raw && panel.dataset.sourceKey === 'meting' && panel.dataset.sourceMeta && typeof fetchMetingTextAsset === 'function') {
+        try {
+            const meta = JSON.parse(panel.dataset.sourceMeta);
+            raw = await fetchMetingTextAsset(meta.base, meta.platform, 'lrc', meta.lyricId);
+        } catch (e) {}
+    }
+    if (!raw && typeof fetchMusicLyrics === 'function') {
+        try {
+            const lyrics = await fetchMusicLyrics({
+                trackName: panel.dataset.title || '',
+                artistName: panel.dataset.artist || '',
+                lyricsText: panel.dataset.lyricsText || '',
+                lyricsUrl: panel.dataset.lyricsUrl || '',
+                sourceKey: panel.dataset.sourceKey || '',
+                sourceMeta: panel.dataset.sourceMeta || '',
+                sourceName: panel.dataset.sourceName || ''
+            });
+            const lines = Array.isArray(lyrics?.lines) ? lyrics.lines.filter(line => line && line.text) : [];
+            if (lines.length) {
+                panel.dataset.lyricsLines = JSON.stringify(lines);
+                panel.dataset.lyricsLoaded = '1';
+                return lines;
+            }
+        } catch (e) {}
+    }
+    const lines = parseWechatMusicLyrics(raw, panel.dataset.title || '');
+    panel.dataset.lyricsLines = JSON.stringify(lines);
+    panel.dataset.lyricsLoaded = '1';
+    return lines;
+}
+
+function ensureWechatMusicLyricsFloat() {
+    let box = document.getElementById('wc-music-lyrics-float');
+    if (box) return mountWechatMusicOverlayElement(box);
+    box = document.createElement('div');
+    box.id = 'wc-music-lyrics-float';
+    box.className = 'wc-music-lyrics-float hidden';
+    box.innerHTML = `
+        <div class="wc-music-lyrics-handle">
+            <span></span>
+            <button type="button" onclick="hideWechatMusicLyricsFloat()" aria-label="关闭歌词"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="wc-music-lyrics-lines"></div>
+    `;
+    mountWechatMusicOverlayElement(box);
+    bindWechatMusicLyricsDrag(box);
+    return box;
+}
+
+async function toggleWechatMusicLyricsFloat() {
+    const panel = document.getElementById('wc-music-listen-player');
+    const box = ensureWechatMusicLyricsFloat();
+    if (!panel || panel.classList.contains('hidden')) return;
+    if (!box.classList.contains('hidden')) {
+        box.classList.add('hidden');
+        return;
+    }
+    const list = box.querySelector('.wc-music-lyrics-lines');
+    if (list) list.innerHTML = '<p class="wc-music-lyrics-empty">正在载入歌词...</p>';
+    box.classList.remove('hidden');
+    hideWechatMusicIsland();
+    const lines = await getWechatMusicLyricsForPanel(panel);
+    if (list) {
+        list.innerHTML = lines.map((line, index) => `
+            <p class="wc-music-lyric-line" data-time="${Number.isFinite(line.time) ? line.time : ''}" data-line-index="${index}">${wcEscapeHtml(line.text)}</p>
+        `).join('') || '<p class="wc-music-lyrics-empty">没有歌词内容</p>';
+    }
+    updateWechatMusicLyricsFloat(window._wechatMusicCardAudio?.currentTime || 0, true);
+}
+window.toggleWechatMusicLyricsFloat = toggleWechatMusicLyricsFloat;
+
+function hideWechatMusicLyricsFloat() {
+    document.getElementById('wc-music-lyrics-float')?.classList.add('hidden');
+    updateWechatMusicIsland();
+}
+window.hideWechatMusicLyricsFloat = hideWechatMusicLyricsFloat;
+
+function getWechatCurrentLyricText() {
+    const active = document.querySelector('#wc-music-lyrics-float .wc-music-lyric-line.active');
+    if (active?.textContent?.trim()) return active.textContent.trim();
+    const panel = document.getElementById('wc-music-listen-player');
+    if (!panel?.dataset.lyricsLines) return '';
+    try {
+        const lines = JSON.parse(panel.dataset.lyricsLines || '[]');
+        const current = Number(window._wechatMusicCardAudio?.currentTime || 0);
+        let picked = null;
+        (Array.isArray(lines) ? lines : []).forEach(line => {
+            if (line && Number(line.time) <= current) picked = line;
+        });
+        return picked?.text || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function ensureWechatMusicIsland() {
+    let island = document.getElementById('wc-music-island');
+    if (island) return mountWechatMusicOverlayElement(island);
+    island = document.createElement('div');
+    island.id = 'wc-music-island';
+    island.className = 'wc-message-island wc-music-island';
+    mountWechatMusicOverlayElement(island);
+    return island;
+}
+
+function shouldShowWechatMusicIsland() {
+    const audio = window._wechatMusicCardAudio;
+    if (!audio || audio.paused || audio.ended) return false;
+    const panel = document.getElementById('wc-music-listen-player');
+    const lyrics = document.getElementById('wc-music-lyrics-float');
+    return (!panel || panel.classList.contains('hidden')) && (!lyrics || lyrics.classList.contains('hidden'));
+}
+
+function updateWechatMusicIsland() {
+    const existing = document.getElementById('wc-music-island');
+    if (!shouldShowWechatMusicIsland()) {
+        existing?.classList.remove('show');
+        return;
+    }
+    const panel = document.getElementById('wc-music-listen-player');
+    const island = ensureWechatMusicIsland();
+    const audioUrl = panel?.dataset.audioUrl || window._wechatMusicCardAudio?.dataset.cardUrl || '';
+    const title = panel?.dataset.title || '正在播放';
+    const artist = panel?.dataset.artist || panel?.dataset.sourceName || '';
+    const lyric = getWechatCurrentLyricText();
+    const artwork = panel?.dataset.artwork || '';
+    island.innerHTML = `
+        <div class="wc-message-island-main">
+            <div class="wc-music-island-art">${artwork ? `<img src="${wcEscapeHtml(artwork)}" onerror="this.parentElement.innerHTML='<i class=&quot;ri-music-2-fill&quot;></i>'">` : '<i class="ri-music-2-fill"></i>'}</div>
+            <div class="wc-message-island-text">
+                <strong>${wcEscapeHtml(lyric || title)}</strong>
+                <span>${wcEscapeHtml(lyric ? `${title}${artist ? ' · ' + artist : ''}` : (artist || '正在播放'))}</span>
+            </div>
+        </div>
+        <i class="ri-disc-line"></i>
+    `;
+    island.onclick = () => {
+        island.classList.remove('show');
+        if (panel) {
+            mountWechatMusicOverlayElement(panel);
+            panel.classList.remove('hidden');
+            renderWechatMusicQueuePanel();
+            updateWechatMusicListenProgress();
+        } else if (audioUrl) {
+            openWechatMusicListenPlayer({ title, artist, audioUrl, artwork, sourceAudioUrl: audioUrl });
+        }
+    };
+    island.classList.add('show');
+}
+
+function hideWechatMusicIsland() {
+    document.getElementById('wc-music-island')?.classList.remove('show');
+}
+window.updateWechatMusicIsland = updateWechatMusicIsland;
+window.hideWechatMusicIsland = hideWechatMusicIsland;
+
+function updateWechatMusicLyricsFloat(currentTime, force = false) {
+    const box = document.getElementById('wc-music-lyrics-float');
+    if (!box || box.classList.contains('hidden')) return;
+    const lines = Array.from(box.querySelectorAll('.wc-music-lyric-line'));
+    if (!lines.length) return;
+    let activeIndex = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const time = Number(lines[i].dataset.time);
+        if (Number.isFinite(time) && time <= currentTime + 0.2) activeIndex = i;
+        else if (Number.isFinite(time)) break;
+    }
+    if (!force && Number(box.dataset.activeIndex) === activeIndex) return;
+    box.dataset.activeIndex = String(activeIndex);
+    lines.forEach((line, index) => {
+        line.classList.toggle('active', index === activeIndex);
+        line.classList.toggle('near-active', index === activeIndex + 1);
+        line.classList.toggle('is-hidden', index !== activeIndex && index !== activeIndex + 1);
+    });
+    lines[activeIndex]?.scrollIntoView({ block: 'center', behavior: force ? 'auto' : 'smooth' });
+    updateWechatMusicIsland();
+}
+
+function bindWechatMusicLyricsDrag(box) {
+    if (!box || box.dataset.dragBound === '1') return;
+    box.dataset.dragBound = '1';
+    const handle = box.querySelector('.wc-music-lyrics-handle') || box;
+    let drag = null;
+    const move = event => {
+        if (!drag) return;
+        const point = event.touches ? event.touches[0] : event;
+        const root = getWechatMusicOverlayRoot() || document.body;
+        const rect = root.getBoundingClientRect();
+        const width = box.offsetWidth || 260;
+        const height = box.offsetHeight || 220;
+        const left = Math.max(8, Math.min(rect.width - width - 8, point.clientX - rect.left - drag.x));
+        const top = Math.max(70, Math.min(rect.height - height - 74, point.clientY - rect.top - drag.y));
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.right = 'auto';
+        box.style.bottom = 'auto';
+    };
+    const end = () => {
+        drag = null;
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', end);
+        window.removeEventListener('touchmove', move);
+        window.removeEventListener('touchend', end);
+    };
+    const start = event => {
+        if (event.target.closest('button')) return;
+        const point = event.touches ? event.touches[0] : event;
+        const boxRect = box.getBoundingClientRect();
+        drag = { x: point.clientX - boxRect.left, y: point.clientY - boxRect.top };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', end);
+        window.addEventListener('touchmove', move, { passive: false });
+        window.addEventListener('touchend', end);
+    };
+    handle.addEventListener('mousedown', start);
+    handle.addEventListener('touchstart', start, { passive: true });
 }
 
 
@@ -1854,6 +3088,7 @@ async function playWechatAudioBufferUrl(url, safeUrl) {
         if (window._wechatMusicBufferPlayback?.source === source) {
             window._wechatMusicBufferPlayback = null;
             document.querySelectorAll('.msg-music-card.playing').forEach(card => card.classList.remove('playing'));
+            handleWechatMusicPlaybackEnded();
         }
     };
     source.start(0);
@@ -1868,7 +3103,11 @@ function getWechatMusicMessageInfo(msg) {
         playableUrl: normalizeWechatUrl(music.playableUrl || msg?.playableUrl || music.audioUrl || msg?.audioUrl || music.url || msg?.url || ''),
         sourceAudioUrl: normalizeWechatUrl(music.sourceAudioUrl || msg?.sourceAudioUrl || music.audioUrl || msg?.audioUrl || music.url || msg?.url || ''),
         artwork: music.artwork || msg?.artwork || '',
-        sourceName: music.sourceName || msg?.sourceName || ''
+        sourceName: music.sourceName || msg?.sourceName || '',
+        lyricsText: music.lyricsText || msg?.lyricsText || '',
+        lyricsUrl: music.lyricsUrl || msg?.lyricsUrl || '',
+        sourceKey: music.sourceKey || msg?.sourceKey || '',
+        sourceMeta: music.sourceMeta || msg?.sourceMeta || ''
     };
 }
 
@@ -1922,6 +3161,9 @@ function applyWechatMusicTrackToMessage(msg, track) {
         artwork: normalized.artwork || '',
         sourceName: normalized.sourceName || '',
         sourceMeta: normalized.sourceMeta || '',
+        sourceKey: normalized.sourceKey || '',
+        lyricsText: normalized.lyricsText || '',
+        lyricsUrl: normalized.lyricsUrl || '',
         invite: !!previousMusic.invite,
         inviteAccepted: !!previousMusic.inviteAccepted,
         acceptedAt: previousMusic.acceptedAt || 0,
@@ -2058,7 +3300,7 @@ async function recoverWechatMusicCardUrl(title, artist, currentUrl) {
     }
 }
 
-async function playWechatMusicCard(audioUrl, title, artist, cardEl = null) {
+async function playWechatMusicCard(audioUrl, title, artist, cardEl = null, options = {}) {
     const safeUrl = normalizeWechatUrl(String(audioUrl || '').replace(/\\u0026/gi, '&'));
     if (!safeUrl) {
         if (typeof showWechatToast === 'function') showWechatToast('这张音乐卡片没有可播放音频，先搜索选歌再发送');
@@ -2069,6 +3311,19 @@ async function playWechatMusicCard(audioUrl, title, artist, cardEl = null) {
     if (lastTap.url === safeUrl && now - Number(lastTap.time || 0) < 700) return;
     window._wechatMusicCardLastTap = { url: safeUrl, time: now };
     const sourceUrl = normalizeWechatUrl(cardEl?.dataset?.sourceUrl || safeUrl);
+    const cardMessage = getWechatMusicCardMessageFromElement(cardEl);
+    openWechatMusicListenPlayer({
+        title: title || cardEl?.dataset?.title || '一起听歌',
+        artist: artist || cardEl?.dataset?.artist || '',
+        audioUrl: safeUrl,
+        sourceAudioUrl: sourceUrl,
+        artwork: cardEl?.dataset?.artwork || '',
+        lyricsText: cardEl?.dataset?.lyricsText || '',
+        lyricsUrl: cardEl?.dataset?.lyricsUrl || '',
+        sourceKey: cardEl?.dataset?.sourceKey || '',
+        sourceMeta: cardEl?.dataset?.sourceMeta || '',
+        sourceName: cardEl?.dataset?.sourceName || ''
+    }, cardEl, cardMessage?.msg, cardMessage?.char);
     if (cardEl && isWechatMusicProxyUrl(safeUrl) && cardEl.dataset.playableReady !== '1') {
         prepareWechatMusicCardPlayableUrl(cardEl).then(playable => {
             const nextUrl = normalizeWechatUrl(playable || '');
@@ -2082,7 +3337,11 @@ async function playWechatMusicCard(audioUrl, title, artist, cardEl = null) {
     const context = getWechatMusicAudioContext();
     if (context?.state === 'suspended') context.resume().catch(() => {});
     const audio = getWechatMusicAudioPlayer();
-    if ((audio.dataset.cardUrl === safeUrl && !audio.paused) || isWechatMusicBufferPlaying(safeUrl)) {
+    if (!options.queue && ((audio.dataset.cardUrl === safeUrl && !audio.paused) || isWechatMusicBufferPlaying(safeUrl))) {
+        if (!options.toggle) {
+            updateWechatMusicCardPlayingState(safeUrl, true);
+            return;
+        }
         audio.pause();
         stopWechatMusicBufferPlayback();
         updateWechatMusicCardPlayingState(safeUrl, false);
@@ -2200,6 +3459,9 @@ function normalizeWechatMusicDraftTrack(track) {
         artwork: track.artworkUrl100 || track.artwork || track.cover || track.pic || '',
         sourceName: track.sourceName || track.collectionName || '',
         sourceMeta: track.sourceMeta || '',
+        sourceKey: track.sourceKey || '',
+        lyricsText: track.lyricsText || '',
+        lyricsUrl: track.lyricsUrl || '',
         raw: track
     };
 }
@@ -2243,7 +3505,10 @@ function renderWechatMusicComposeResults() {
     if (!list) return;
     const results = Array.isArray(window._wechatMusicComposeResults) ? window._wechatMusicComposeResults : [];
     const selected = window._wechatMusicComposeSelected || null;
-    if (status) status.textContent = selected?.resolving ? '正在解析可播放地址...' : (selected?.audioUrl ? '已选择：' + selected.title : (results.length ? '请选择一首可播放音乐' : '搜索后选择一首歌再发送'));
+    const isQueueMode = document.getElementById('wc-composer-modal')?.dataset.musicMode === 'queue';
+    if (status) status.textContent = selected?.resolving
+        ? '正在解析可播放地址...'
+        : (selected?.audioUrl ? '已选择：' + selected.title : (results.length ? '请选择一首可播放音乐' : `搜索后选择一首歌再${isQueueMode ? '添加' : '发送'}`));
     list.innerHTML = results.length ? results.map((track, index) => {
         const active = selected && selected.audioUrl === track.audioUrl && selected.title === track.title;
         return `
@@ -2299,7 +3564,8 @@ async function searchWechatMusicForComposer() {
         let tracks = searcher ? await searcher(query, mode || 'smart') : [];
         tracks = (Array.isArray(tracks) ? tracks : []).map(normalizeWechatMusicDraftTrack).filter(item => item && item.audioUrl);
         window._wechatMusicComposeResults = tracks.slice(0, 18);
-        if (status) status.textContent = tracks.length ? '搜索完成，选择一首后发送' : '没有搜到可播放音频，换关键词试试';
+        const isQueueMode = document.getElementById('wc-composer-modal')?.dataset.musicMode === 'queue';
+        if (status) status.textContent = tracks.length ? `搜索完成，选择一首后${isQueueMode ? '添加' : '发送'}` : '没有搜到可播放音频，换关键词试试';
     } catch (e) {
         window._wechatMusicComposeResults = [];
         if (status) status.textContent = '搜索失败，换关键词或音乐源再试';
@@ -2669,7 +3935,7 @@ function buildWechatGeneratedImageMessage(prompt, caption, char) {
 
 function buildWechatImageMessageFromAiText(text, char) {
     const source = cleanWechatVisibleContent(text);
-    const match = source.match(/^\s*\[(?:微信图片|微信照片)\s*[：:]\s*([^\]]+)\]\s*$/);
+    const match = source.match(/^\s*[\[【](?:微信图片|微信照片)\s*[：:]\s*([\s\S]+?)[\]】]\s*$/);
     return match ? buildWechatMessageFromAiDirective('微信图片', match[1], char) : null;
 }
 
@@ -2712,12 +3978,15 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
     if (command === '微信引用') {
         const target = findWechatMessageForAiQuote(char, args[0] || '');
         const content = args.slice(1).join('|').trim();
-        if (!target || !content) return null;
+        if (!content) return null;
+        const replyTo = target
+            ? buildWechatReplySnapshot(target.msg, char, target.index)
+            : buildWechatFallbackReplySnapshotFromAiQuote(args[0] || '');
         return {
             ...base,
             type: 'text',
             content,
-            replyTo: buildWechatReplySnapshot(target.msg, char, target.index)
+            ...(replyTo ? { replyTo } : {})
         };
     }
 
@@ -2909,12 +4178,45 @@ function looksLikeWechatRegexPayloadSource(text) {
     return /\|\^&\^|\^&\^|!\^!\^|【REGEX】|<regex\b/i.test(source);
 }
 
+function escapeWechatRegexLiteral(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getWechatLeadingPipeStatusTagName(text) {
+    const source = String(text || '').trim();
+    const match = source.match(/^<\s*([A-Za-z][\w:-]*)\b[^>]*>/);
+    if (!match) return '';
+    const tag = String(match[1] || '').toLowerCase();
+    const htmlTags = new Set([
+        'html', 'head', 'body', 'style', 'script', 'div', 'section', 'article', 'main',
+        'table', 'thead', 'tbody', 'tr', 'td', 'th', 'ul', 'ol', 'li', 'p', 'span',
+        'a', 'img', 'button', 'input', 'svg', 'canvas', 'video', 'audio'
+    ]);
+    return htmlTags.has(tag) ? '' : tag;
+}
+
+function getWechatPipeStatusPayloadBody(text) {
+    const source = String(text || '').trim();
+    const match = source.match(/^<\s*([A-Za-z][\w:-]*)\b[^>]*>/);
+    const tag = getWechatLeadingPipeStatusTagName(source);
+    if (!match || !tag) return source;
+    const closeRe = new RegExp(`<\\s*\\/\\s*${escapeWechatRegexLiteral(tag)}\\s*>\\s*$`, 'i');
+    return source.slice(match[0].length).replace(closeRe, '').trim() || source;
+}
+
 function looksLikeWechatPipeStatusPayloadSource(text) {
-    const source = cleanWechatVisibleContent(text);
-    if (!source || source.length > 520) return false;
+    const visible = cleanWechatVisibleContent(text).replace(/\|\|\|/g, '|');
+    const source = getWechatPipeStatusPayloadBody(visible);
+    if (!source || source.length > 1400) return false;
     if (hasWechatAiDirectiveSource(source) || hasWechatRichTag(source)) return false;
     const pipeCount = (source.match(/\|/g) || []).length;
     if (pipeCount < 3) return false;
+    const firstPipe = source.indexOf('|');
+    if (firstPipe > 0) {
+        const firstCell = source.slice(0, firstPipe).trim();
+        if (/[。！？!?；;\r\n]/.test(firstCell)) return false;
+        if (!getWechatLeadingPipeStatusTagName(visible) && firstCell.length > 48) return false;
+    }
     if (/https?:\/\/\S+\.(?:png|jpe?g|gif|webp)(?:\?\S*)?/i.test(source)) return true;
     if (/^\s*\|{2,}/.test(source) || /\|{2,}\s*$/.test(source)) return true;
     const cells = source.split('|').map(item => item.trim()).filter(Boolean);
@@ -2923,6 +4225,133 @@ function looksLikeWechatPipeStatusPayloadSource(text) {
     const shortCells = cells.filter(cell => cell.length <= 34).length;
     const newsCells = cells.filter(cell => /市|区|县|省|部|委|办|局|规划|文旅|交通|会议|上会|预警|调研|项目|方案|赛事|景点|限流/.test(cell)).length;
     return hasTemplateLikeCell || shortCells >= Math.max(2, Math.ceil(cells.length * 0.55)) || newsCells >= 2;
+}
+
+function normalizeWechatRegexPayloadSeparators(text) {
+    const source = String(text || '');
+    if (!source.includes('|||')) return source;
+    const collapsed = source.replace(/\|\|\|/g, '|');
+    return looksLikeWechatPipeStatusPayloadSource(collapsed) || looksLikeWechatRegexPayloadSource(source)
+        ? collapsed
+        : source;
+}
+
+function getWechatPipeStatusWrapperCandidates(char) {
+    const scripts = [
+        ...(window.globalRegexScripts || []),
+        ...((char && Array.isArray(char.regex)) ? char.regex : [])
+    ].filter(isWechatRegexScriptEnabled);
+    const candidates = [];
+    scripts.forEach(script => {
+        const raw = getWechatRegexScriptField(script, ['findRegex', 'regex', 'regex_pattern', 'regexPattern', 'pattern']);
+        const replaceStr = getWechatRegexScriptField(script, ['replaceString', 'regexReplace', 'replace', 'replacement', 'substituteRegex']);
+        if (!raw || !isRichMessageContent(replaceStr)) return;
+        const tagMatch = String(raw).match(/<\\?\s*([A-Za-z][\w:-]*)\b/);
+        if (!tagMatch) return;
+        const tag = String(tagMatch[1] || '').toLowerCase();
+        if (!getWechatLeadingPipeStatusTagName(`<${tag}>`)) return;
+        const pipeCount = (String(raw).match(/\\\|/g) || []).length;
+        if (pipeCount < 3) return;
+        const slots = pipeCount + 1;
+        if (!candidates.some(item => item.tag === tag && item.slots === slots)) {
+            candidates.push({ tag, slots });
+        }
+    });
+    return candidates;
+}
+
+function padWechatPipeStatusPayloadBody(body, slots) {
+    const source = String(body || '').trim();
+    if (!source || !slots) return source;
+    const cells = source.split('|');
+    if (cells.length >= slots) return source;
+    return cells.concat(Array(slots - cells.length).fill('')).join('|');
+}
+
+function cleanWechatStatusCell(value, maxLength = 120) {
+    const text = String(value == null ? '' : value).replace(/[|<>]/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.slice(0, maxLength);
+}
+
+function getWechatStatusIdentityCells(char, expected) {
+    const cells = Array(Math.max(Number(expected) || 0, 2)).fill('');
+    cells[0] = cleanWechatStatusCell(getWechatDisplayCharName(char) || (char && (char.name || char.nickname || char.title)) || '');
+    cells[1] = cleanWechatStatusCell(char && char.avatar, 1200);
+    return cells;
+}
+
+function shouldRepairWechatFullStatusPayload(tag, slots, body) {
+    const cellCount = String(body || '').split('|').length;
+    if (Number(slots) >= 18 || cellCount >= 16) return true;
+    return /^(?:jwy|status|state)$/i.test(String(tag || ''));
+}
+
+function repairWechatStatusPayloadBody(body, slots, char) {
+    const expected = Math.max(Number(slots) || 18, 18);
+    let cells = String(body || '').split('|');
+    if (cells.length > expected) {
+        cells = cells.slice(0, expected - 1).concat(cells.slice(expected - 1).join(' '));
+    }
+    while (cells.length < expected) cells.push('');
+    const identity = getWechatStatusIdentityCells(char, expected);
+    cells = cells.map((value, index) => {
+        const cleaned = cleanWechatStatusCell(value, index === 1 ? 1200 : 120);
+        return cleaned || (index <= 1 ? identity[index] : '');
+    });
+    cells[9] = cleanWechatStatusCell(String(cells[9] || '').match(/\d{1,3}/)?.[0] || cells[9]);
+    return cells.slice(0, expected).join('|');
+}
+
+function normalizeWechatRegexPayloadWrappers(text, char) {
+    const source = String(text || '').trim();
+    const tag = getWechatLeadingPipeStatusTagName(source);
+    if (!tag) {
+        if (!looksLikeWechatPipeStatusPayloadSource(source)) return String(text || '');
+        const candidates = getWechatPipeStatusWrapperCandidates(char);
+        for (const item of candidates) {
+            const fullStatus = shouldRepairWechatFullStatusPayload(item.tag, item.slots, source);
+            const body = fullStatus
+                ? repairWechatStatusPayloadBody(source, item.slots, char)
+                : padWechatPipeStatusPayloadBody(source, item.slots);
+            const candidate = `<${item.tag}>${body}</${item.tag}>`;
+            if (willWechatRegexRenderRich(candidate, char)) return candidate;
+        }
+        return String(text || '');
+    }
+    const closeRe = new RegExp(`<\\s*\\/\\s*${escapeWechatRegexLiteral(tag)}\\s*>\\s*$`, 'i');
+    if (!looksLikeWechatPipeStatusPayloadSource(source)) return String(text || '');
+    const slotHint = getWechatPipeStatusWrapperCandidates(char).find(item => item.tag === tag);
+    const body = getWechatPipeStatusPayloadBody(source);
+    const open = source.match(/^<\s*[A-Za-z][\w:-]*\b[^>]*>/)?.[0] || `<${tag}>`;
+    const slotCount = slotHint?.slots || (shouldRepairWechatFullStatusPayload(tag, 0, body) ? Math.max(body.split('|').length, 18) : 0);
+    const fullStatus = shouldRepairWechatFullStatusPayload(tag, slotCount, body);
+    if (closeRe.test(source) && !fullStatus && (!slotHint || willWechatRegexRenderRich(source, char))) return source;
+    const fixedBody = fullStatus
+        ? repairWechatStatusPayloadBody(body, slotCount, char)
+        : padWechatPipeStatusPayloadBody(body, slotCount);
+    const candidate = `${open}${fixedBody}</${tag}>`;
+    if (fullStatus) return candidate;
+    return willWechatRegexRenderRich(candidate, char) ? candidate : source;
+}
+
+function normalizeWechatRegexPayloadSource(text, char) {
+    const source = normalizeWechatRegexPayloadSeparators(text);
+    const direct = normalizeWechatRegexPayloadWrappers(source, char);
+    if (direct !== source) return direct;
+    let normalized = source;
+    getWechatPipeStatusWrapperCandidates(char).forEach(item => {
+        const tag = escapeWechatRegexLiteral(item.tag);
+        const closedRe = new RegExp(`<\\s*${tag}\\b[^>]*>[\\s\\S]*?<\\s*\\/\\s*${tag}\\s*>`, 'gi');
+        normalized = normalized.replace(closedRe, match => normalizeWechatRegexPayloadWrappers(match, char));
+    });
+    normalized = normalized.split(/(\r?\n{2,})/).map(part => {
+        if (/^\r?\n+$/.test(part)) return part;
+        if (getWechatLeadingPipeStatusTagName(part)) return part;
+        return looksLikeWechatPipeStatusPayloadSource(part)
+            ? normalizeWechatRegexPayloadWrappers(part, char)
+            : part;
+    }).join('');
+    return normalized;
 }
 
 function willWechatRegexRenderRich(text, char) {
@@ -2962,7 +4391,11 @@ function looksLikeWechatRichOrRegexSource(text, char) {
 }
 
 function hasWechatAiDirectiveSource(text) {
-    return /\[(?:微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信图片|微信照片|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信拉黑|微信监控|开启监控|关闭监控|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|群聊发言|微信群聊|微信旁白|旁白)[：:\]]/.test(String(text || ''));
+    const source = String(text || '');
+    for (let i = 0; i < source.length; i += 1) {
+        if (getWechatAiDirectiveStartAt(source, i)) return true;
+    }
+    return false;
 }
 
 const WECHAT_AI_DIRECTIVE_COMMANDS = [
@@ -2975,7 +4408,9 @@ const WECHAT_AI_DIRECTIVE_COMMANDS = [
 ];
 
 function getWechatAiDirectiveStartAt(text, index) {
-    if (text[index] !== '[') return null;
+    const opener = text[index];
+    if (opener !== '[' && opener !== '【') return null;
+    const preferredCloser = opener === '【' ? '】' : ']';
     const rest = text.slice(index + 1);
     for (const command of WECHAT_AI_DIRECTIVE_COMMANDS) {
         if (!rest.startsWith(command)) continue;
@@ -2984,13 +4419,17 @@ function getWechatAiDirectiveStartAt(text, index) {
             return {
                 command,
                 argsStart: index + 1 + command.length + 1,
+                opener,
+                preferredCloser,
                 standaloneNarration: false
             };
         }
-        if (sep === ']' && (command === '旁白' || command === '微信旁白')) {
+        if ((sep === ']' || sep === '】') && (command === '旁白' || command === '微信旁白')) {
             return {
                 command,
                 argsStart: index + 1 + command.length + 1,
+                opener,
+                preferredCloser,
                 standaloneNarration: true,
                 end: index + 1 + command.length + 1
             };
@@ -3014,11 +4453,11 @@ function readWechatAiDirectiveAt(text, index) {
     }
     let depth = 1;
     for (let i = start.argsStart; i < text.length; i += 1) {
-        if (text[i] === '[' && getWechatAiDirectiveStartAt(text, i)) {
+        if ((text[i] === '[' || text[i] === '【') && getWechatAiDirectiveStartAt(text, i)) {
             depth += 1;
             continue;
         }
-        if (text[i] !== ']') continue;
+        if (text[i] !== ']' && text[i] !== '】') continue;
         depth -= 1;
         if (depth === 0) {
             return {
@@ -3042,7 +4481,7 @@ function readWechatAiDirectiveAt(text, index) {
 }
 
 function hasWechatUnclosedDirectiveTail(text) {
-    return /\[(?:微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信图片|微信照片|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信拉黑|微信监控|开启监控|关闭监控|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|群聊发言|微信群聊|微信旁白|旁白)[：:][^\]]*$/i.test(String(text || '').trim());
+    return /[\[【](?:微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信图片|微信照片|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信拉黑|微信监控|开启监控|关闭监控|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|群聊发言|微信群聊|微信旁白|旁白)[：:][^\]】]*$/i.test(String(text || '').trim());
 }
 
 function isWechatStandaloneRichOrRegexSource(text, char) {
@@ -3052,12 +4491,47 @@ function isWechatStandaloneRichOrRegexSource(text, char) {
     if (/^<\s*([A-Za-z][\w:-]*)\b[\s\S]*<\/\s*\1\s*>\s*$/.test(source)) return true;
     if (/^<\s*(?:html|div|section|article|style|script|table|svg|canvas)\b[\s\S]*$/i.test(source)) return true;
     if (looksLikeWechatRegexPayloadSource(source) && !/[。！？!?]\s*\S{2,}/.test(source.replace(/\|\^&\^|\^&\^|!\^!\^|【REGEX】/g, ''))) return true;
+    if (looksLikeWechatPipeStatusPayloadSource(source)) return true;
+    const ranges = getWechatRichCandidateRanges(source);
+    if (ranges.length && !(ranges.length === 1 && ranges[0].start === 0 && ranges[0].end === source.length)) return false;
     return willWechatRegexRenderRich(source, char) && !/\n{2,}/.test(source);
 }
 
 function addWechatMixedRange(ranges, start, end) {
     if (start == null || end == null || end <= start) return;
     ranges.push({ start, end });
+}
+
+function getWechatPipeStatusPayloadStartInLine(line) {
+    const text = String(line || '');
+    if (!text.trim()) return -1;
+    if (looksLikeWechatPipeStatusPayloadSource(text)) return 0;
+
+    const starts = new Set();
+    const pushStart = index => {
+        let start = Math.max(0, Number(index) || 0);
+        while (start < text.length && /\s/.test(text[start])) start += 1;
+        if (start > 0 && start < text.length) starts.add(start);
+    };
+
+    text.replace(/[。！？!?；;]\s*/g, (match, offset) => {
+        pushStart(offset + match.length);
+        return match;
+    });
+    text.replace(/<\/content>\s*/gi, (match, offset) => {
+        pushStart(offset + match.length);
+        return match;
+    });
+
+    for (let pipeIndex = text.indexOf('|'); pipeIndex >= 0; pipeIndex = text.indexOf('|', pipeIndex + 1)) {
+        let start = pipeIndex;
+        while (start > 0 && !/[\s\r\n。！？!?；;]/.test(text[start - 1])) start -= 1;
+        pushStart(start);
+    }
+
+    return [...starts]
+        .sort((a, b) => a - b)
+        .find(start => looksLikeWechatPipeStatusPayloadSource(text.slice(start).trim())) ?? -1;
 }
 
 function getWechatRichCandidateRanges(source) {
@@ -3077,7 +4551,12 @@ function getWechatRichCandidateRanges(source) {
     let lineStart = 0;
     text.split(/\r?\n/).forEach(line => {
         const lineEnd = lineStart + line.length;
-        if (looksLikeWechatRegexPayloadSource(line) || looksLikeWechatPipeStatusPayloadSource(line)) addWechatMixedRange(ranges, lineStart, lineEnd);
+        if (looksLikeWechatRegexPayloadSource(line)) {
+            addWechatMixedRange(ranges, lineStart, lineEnd);
+        } else {
+            const pipeStart = getWechatPipeStatusPayloadStartInLine(line);
+            if (pipeStart >= 0) addWechatMixedRange(ranges, lineStart + pipeStart, lineEnd);
+        }
         lineStart = lineEnd + 1;
     });
 
@@ -3087,8 +4566,11 @@ function getWechatRichCandidateRanges(source) {
             const last = merged[merged.length - 1];
             if (!last || range.start > last.end) {
                 merged.push({ ...range });
-            } else if (range.end > last.end) {
-                last.end = range.end;
+            } else {
+                if (range.end > last.end) last.end = range.end;
+                if (range.start > last.start && looksLikeWechatPipeStatusPayloadSource(text.slice(range.start, range.end).trim())) {
+                    last.start = range.start;
+                }
             }
             return merged;
         }, []);
@@ -3106,7 +4588,7 @@ function appendWechatExpandedTextParts(target, content, char) {
     ranges.forEach(range => {
         const before = source.slice(cursor, range.start).trim();
         if (before) target.push(...splitWechatOfflinePlainText(before, char));
-        const rich = source.slice(range.start, range.end).trim();
+        const rich = normalizeWechatRegexPayloadSource(source.slice(range.start, range.end).trim(), char);
         if (rich && !shouldDropWechatAiPipeStatusPayload(rich, char)) target.push({ kind: 'text', content: rich });
         cursor = range.end;
     });
@@ -3140,9 +4622,13 @@ function parseWechatLegacyCallSummaryMessage(text) {
 }
 
 function appendWechatPlainAiTextParts(target, content, char) {
-    const source = cleanWechatVisibleContent(content);
+    const source = normalizeWechatRegexPayloadSource(cleanWechatVisibleContent(content), char);
     if (!source) return;
     if (/^\]\s*$/.test(source)) return;
+    if (isWechatStandaloneRichOrRegexSource(source, char)) {
+        target.push({ kind: 'text', content: source });
+        return;
+    }
     if (shouldDropWechatAiPipeStatusPayload(source, char)) return;
     const legacyMsg = parseWechatLegacyCallSummaryMessage(source);
     if (legacyMsg) {
@@ -3160,6 +4646,7 @@ function appendWechatPlainAiTextParts(target, content, char) {
 function shouldDropWechatAiPipeStatusPayload(text, char) {
     const source = cleanWechatVisibleContent(text);
     if (!looksLikeWechatPipeStatusPayloadSource(source)) return false;
+    if (source.includes('|||')) return false;
     if (willWechatRegexRenderRich(source, char) || isRichMessageContent(source)) return false;
     return true;
 }
@@ -3278,8 +4765,8 @@ function shouldMigrateWechatMixedAiHistoryMessage(msg) {
     if (hasWechatUnclosedDirectiveTail(raw)) return true;
     if (/^\s*\]/.test(raw)) return true;
     if (/\[(?:语音通话|视频通话)\]/.test(raw)) return true;
-    if (/\[(?:微信旁白|旁白)\]/.test(raw)) return true;
-    if (/\[(?:微信监控|开启监控|关闭监控|微信改备注|微信改用户备注|微信表情|微信图片|微信照片|微信语音|微信转账|微信红包|微信礼物|微信亲密付|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|群聊发言|微信群聊)[：:]/.test(raw)) return true;
+    if (/[\[【](?:微信旁白|旁白)[\]】]/.test(raw)) return true;
+    if (/[\[【](?:微信监控|开启监控|关闭监控|微信改备注|微信改用户备注|微信表情|微信图片|微信照片|微信语音|微信引用|微信转账|微信红包|微信礼物|微信亲密付|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|群聊发言|微信群聊)[：:]/.test(raw)) return true;
     if (isWechatAutoImageNarrationText(raw, null)) return true;
     return type === 'offline_narration' && looksLikeWechatRichOrRegexSource(raw, null);
 }
@@ -3479,7 +4966,7 @@ function isWechatOfflineNarrationSentence(text) {
 }
 
 function splitWechatOfflinePlainText(content, char) {
-    const source = cleanWechatVisibleContent(content);
+    const source = normalizeWechatRegexPayloadSource(cleanWechatVisibleContent(content), char);
     if (!source) return [];
     if (isWechatStandaloneRichOrRegexSource(source, char)) return [{ kind: 'text', content: source }];
     const mode = getWechatChatPresenceMode(char);
@@ -3518,13 +5005,13 @@ function splitWechatOfflinePlainText(content, char) {
 
 function buildWechatStickerDirectiveMessageFromText(text, char) {
     const source = cleanWechatVisibleContent(text);
-    const match = source.match(/^\s*\[(?:微信表情|发送了表情)\s*[：:]\s*([^\]]+)\]\s*$/);
+    const match = source.match(/^\s*[\[【](?:微信表情|发送了表情)\s*[：:]\s*([\s\S]+?)[\]】]\s*$/);
     return match ? buildWechatMessageFromAiDirective('微信表情', match[1], char) : null;
 }
 
 function buildWechatLooseStickerDirectiveMessageFromText(text, char) {
     const source = cleanWechatVisibleContent(text);
-    const match = source.match(/^\s*\[(?:微信表情|表情|发送了表情)\s*[：:]\s*([^\]\r\n]{1,120})\]?\s*$/);
+    const match = source.match(/^\s*[\[【](?:微信表情|表情|发送了表情)\s*[：:]\s*([^\]】\r\n]{1,120})[\]】]?\s*$/);
     if (!match) return null;
     const query = String(match[1] || '').trim();
     if (!query) return null;
@@ -3650,6 +5137,89 @@ function migrateWechatStickerDirectiveHistory(char) {
     return changed;
 }
 
+function repairWechatSplitPipeStatusHistory(char) {
+    if (!char || !Array.isArray(char.history)) return false;
+    let changed = false;
+    const nextHistory = [];
+    const textOf = msg => {
+        if (!msg || msg.isMe || msg.type === 'system_notice') return '';
+        if (!['text', 'offline_narration'].includes(msg.type || 'text')) return '';
+        return cleanWechatVisibleContent(msg.content || msg.description || '');
+    };
+    const timeOf = msg => {
+        const n = Number(msg && (msg.timestamp || msg.createdAt || msg.time));
+        return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    const speakerOf = msg => {
+        if (!char.isGroupChat) return '';
+        const member = getWechatGroupMessageSpeakerMember(char, msg);
+        return member?.id || msg?.senderId || msg?.speakerId || msg?.senderName || msg?.speakerName || '';
+    };
+
+    for (let i = 0; i < char.history.length; i += 1) {
+        const msg = char.history[i];
+        const raw = textOf(msg);
+        const tag = getWechatLeadingPipeStatusTagName(raw);
+        const closeRe = tag ? new RegExp(`<\\s*\\/\\s*${escapeWechatRegexLiteral(tag)}\\s*>\\s*$`, 'i') : null;
+        if (!tag || !looksLikeWechatPipeStatusPayloadSource(raw) || (closeRe && closeRe.test(raw) && willWechatRegexRenderRich(raw, char))) {
+            nextHistory.push(msg);
+            continue;
+        }
+
+        const parts = [raw];
+        let lastMsg = msg;
+        let cursor = i + 1;
+        while (cursor < char.history.length && parts.length < 12) {
+            const nextMsg = char.history[cursor];
+            const nextRaw = textOf(nextMsg);
+            const lastTime = timeOf(lastMsg);
+            const nextTime = timeOf(nextMsg);
+            if (!nextRaw || getWechatLeadingPipeStatusTagName(nextRaw)) break;
+            if (char.isGroupChat && speakerOf(lastMsg) !== speakerOf(nextMsg)) break;
+            if (lastTime && nextTime && Math.abs(nextTime - lastTime) > 5000) break;
+            if (hasWechatAiDirectiveSource(nextRaw) && !/^\s*\]/.test(nextRaw)) break;
+            parts.push(nextRaw);
+            lastMsg = nextMsg;
+            cursor += 1;
+            const merged = normalizeWechatRegexPayloadSource(parts.join(''), char);
+            if (willWechatRegexRenderRich(merged, char) || isWechatRichFragmentComplete(merged)) break;
+        }
+
+        const mergedContent = normalizeWechatRegexPayloadSource(parts.join(''), char);
+        if (parts.length > 1 || mergedContent !== raw) {
+            nextHistory.push({ ...msg, type: 'text', isMe: false, content: mergedContent, description: '' });
+            i = cursor - 1;
+            changed = true;
+        } else {
+            nextHistory.push(msg);
+        }
+    }
+
+    if (changed) char.history = nextHistory;
+    return changed;
+}
+
+function repairWechatQuoteDirectiveReplyHistory(char) {
+    if (!char || !Array.isArray(char.history)) return false;
+    let changed = false;
+    char.history.forEach((msg, index) => {
+        if (!msg || !msg.replyTo) return;
+        const parsed = parseWechatAiQuoteDirectiveText(msg.replyTo.text || msg.replyTo.content || '');
+        if (!parsed || !parsed.query) return;
+        const target = findWechatMessageForAiQuote(char, parsed.query, {
+            excludeIndex: index,
+            excludeMessage: msg
+        });
+        const replyTo = target
+            ? buildWechatReplySnapshot(target.msg, char, target.index)
+            : buildWechatFallbackReplySnapshotFromAiQuote(parsed.query);
+        if (!replyTo) return;
+        msg.replyTo = replyTo;
+        changed = true;
+    });
+    return changed;
+}
+
 function applyWechatNicknameDirective(rawArgs, char) {
     if (!char) return null;
     const args = splitWechatDirectiveArgs(rawArgs);
@@ -3676,15 +5246,17 @@ function applyWechatNicknameDirective(rawArgs, char) {
 function splitWechatAiResponseSegments(content, char) {
     const source = cleanWechatVisibleContent(content);
     if (!source) return [];
-    if (isWechatStandaloneRichOrRegexSource(source, char) && !hasWechatAiDirectiveSource(source) && !source.includes('|||')) return [source];
+    if (isWechatStandaloneRichOrRegexSource(source, char) && !hasWechatAiDirectiveSource(source)) return [source];
+    const richRanges = getWechatRichCandidateRanges(source);
+    const isInsideRichRange = index => richRanges.some(range => index >= range.start && index < range.end);
     const segments = [];
     let buffer = '';
     let quote = null;
     for (let i = 0; i < source.length; i += 1) {
         const ch = source[i];
         const next2 = source.slice(i, i + 3);
-        if (!quote && next2 === '|||') {
-            if (buffer.trim()) segments.push(buffer.trim());
+        if (!quote && next2 === '|||' && !isInsideRichRange(i)) {
+            if (buffer.trim() && !isWechatAiMetaLeakContent(buffer)) segments.push(buffer.trim());
             buffer = '';
             i += 2;
             continue;
@@ -3708,7 +5280,7 @@ function splitWechatAiResponseSegments(content, char) {
         }
         buffer += ch;
     }
-    if (buffer.trim()) segments.push(buffer.trim());
+    if (buffer.trim() && !isWechatAiMetaLeakContent(buffer)) segments.push(buffer.trim());
     return segments;
 }
 
@@ -3945,7 +5517,7 @@ function applyWechatCharBlacklistDirective(rawArgs, char) {
 }
 
 function parseWechatAiMessageParts(text, char) {
-    const source = cleanWechatVisibleContent(text);
+    const source = normalizeWechatRegexPayloadSource(cleanWechatVisibleContent(text), char);
     if (!source) return [];
     if (/^\]\s*$/.test(source)) return [];
     if (shouldDropWechatAiPipeStatusPayload(source, char)) return [];
@@ -4193,7 +5765,7 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
         const cardLabel = incomingInvite ? '\u6b63\u5728\u4e00\u8d77\u542c' : (pending ? '\u6b63\u5728\u627e\u6b4c' : (failed ? '\u672a\u627e\u5230\u97f3\u6e90' : '\u97f3\u4e50\u5361\u7247'));
         const footerLabel = pending ? '\u6b63\u5728\u641c\u7d22\u53ef\u64ad\u653e\u97f3\u6e90' : (failed ? '\u9700\u8981\u6362\u4e2a\u5173\u952e\u8bcd' : (incomingInvite ? '\u5df2\u540c\u610f\u4e00\u8d77\u542c' : '\u4e00\u8d77\u542c\u6b4c'));
         return `
-            <div class="msg-bubble msg-music-card${incomingInvite ? ' accepted-invite' : ''}${sideClass}${pending ? ' resolving' : ''}" data-audio-url="${wcEscapeHtml(audioUrl)}" data-source-url="${wcEscapeHtml(sourceUrl)}" data-title="${wcEscapeHtml(title)}" data-artist="${wcEscapeHtml(artist)}" role="button" tabindex="0">
+            <div class="msg-bubble msg-music-card${incomingInvite ? ' accepted-invite' : ''}${sideClass}${pending ? ' resolving' : ''}" data-audio-url="${wcEscapeHtml(audioUrl)}" data-source-url="${wcEscapeHtml(sourceUrl)}" data-title="${wcEscapeHtml(title)}" data-artist="${wcEscapeHtml(artist)}" data-artwork="${wcEscapeHtml(artwork)}" data-lyrics-text="${wcEscapeHtml(music.lyricsText || msg.lyricsText || '')}" data-lyrics-url="${wcEscapeHtml(music.lyricsUrl || msg.lyricsUrl || '')}" data-source-key="${wcEscapeHtml(music.sourceKey || msg.sourceKey || '')}" data-source-meta="${wcEscapeHtml(music.sourceMeta || msg.sourceMeta || '')}" data-source-name="${wcEscapeHtml(music.sourceName || msg.sourceName || '')}" role="button" tabindex="0">
                 ${quoteHtml}
                 <div class="msg-music-art">${artwork ? `<img src="${wcEscapeHtml(artwork)}" onerror="this.remove()">` : '<i class="ri-music-2-fill"></i>'}</div>
                 <div class="msg-music-main">
@@ -4425,15 +5997,18 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
         const inner = buildWechatSpecialBubble(displayMsg, quoteHtml, msgIndex, charObj);
         bubbleHtml = msg.isMe ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}${inner}</div>`;
     } else {
+        if (!getWechatTextMessageVisibleText(displayMsg, charObj) && !quoteHtml) return;
         let rawContent = processMsgContent(displayMsg.content, charObj);
         const metaHtml = buildMessageMeta(displayMsg);
         const isRich = isRichMessageContent(rawContent);
+        if (!isRich) rawContent = renderWechatBuiltinEmojiMarkersHtml(rawContent);
+        const emojiTextClass = !isRich && (displayMsg.wechatEmojiText || hasWechatBuiltinEmojiMarker(displayMsg.content)) ? ' wechat-emoji-text' : '';
         const richClass = isRich ? ' rich' : '';
 
         if (msg.isMe) {
-            bubbleHtml = avatarHtml + `<div class="msg-bubble green${richClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>`;
+            bubbleHtml = avatarHtml + `<div class="msg-bubble green${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>`;
         } else {
-            bubbleHtml = avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}<div class="msg-bubble${richClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div></div>`;
+            bubbleHtml = avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}<div class="msg-bubble${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div></div>`;
         }
     }
 
@@ -4739,6 +6314,9 @@ function refreshChatView(char) {
     const migratedMixedAi = migrateWechatMixedAiHistory(char);
     const migratedNarration = migrateWechatNarrationHistory(char);
     const migratedStickerDirectives = migrateWechatStickerDirectiveHistory(char);
+    const repairedSplitPipeStatus = repairWechatSplitPipeStatusHistory(char);
+    const repairedQuoteDirectives = repairWechatQuoteDirectiveReplyHistory(char);
+    const prunedEmptyAiText = pruneWechatEmptyAiTextMessages(char);
     const history = char.history || [];
     contentEl.innerHTML = '';
     const hasRealChatMessage = history.some(msg => msg && msg.type !== 'system_notice');
@@ -4769,7 +6347,7 @@ function refreshChatView(char) {
     contentEl.scrollTop = contentEl.scrollHeight;
     requestAnimationFrame(() => { contentEl.scrollTop = contentEl.scrollHeight; });
     setTimeout(() => { contentEl.scrollTop = contentEl.scrollHeight; }, 180);
-    if (migratedMixedAi || migratedNarration || migratedStickerDirectives) saveCharactersToStorage();
+    if (migratedMixedAi || migratedNarration || migratedStickerDirectives || repairedSplitPipeStatus || repairedQuoteDirectives || prunedEmptyAiText) saveCharactersToStorage();
 }
 
 function getWechatPaymentReceiptId(msg, index) {
@@ -4878,7 +6456,16 @@ function collectWechatIncomingPayment(msgIdx) {
 }
 
 function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
-    const parsedParts = parseWechatAiMessageParts(cleanWechatVisibleContent(text), char);
+    const cleanedText = cleanWechatVisibleContent(text);
+    if (isWechatAiMetaLeakContent(cleanedText)) return 0;
+    const parsedParts = parseWechatAiMessageParts(cleanedText, char)
+        .filter(part => part && (part.kind !== 'text' || (
+            !isWechatAiMetaLeakContent(part.content)
+            && (
+                looksLikeWechatRichOrRegexSource(part.content, char)
+                || !!getWechatTextMessageVisibleText({ type: 'text', content: part.content }, char)
+            )
+        )));
     let appendedCount = 0;
     parsedParts.forEach(part => {
         const stickerDirectiveMsg = part.kind === 'text'
@@ -4890,10 +6477,12 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         let aiMsg = part.kind === 'special'
             ? part.msg
             : (stickerDirectiveMsg || autoImageMsg || { type: 'text', isMe: false, content: cleanWechatVisibleContent(part.content), timestamp: createMessageTimestamp() });
+        if (aiMsg && !aiMsg.isMe && !isWechatRenderableMessage(aiMsg, char)) return;
         if (aiMsg && char?.isGroupChat && !aiMsg.isMe) {
             const fallbackStart = Number(options.groupFallbackStartIndex) || 0;
             aiMsg = attachWechatGroupSpeaker(aiMsg, char, fallbackStart + appendedCount, options.groupFallbackMembers);
         }
+        if (aiMsg && !aiMsg.isMe && !isWechatRenderableMessage(aiMsg, char)) return;
         if (!aiMsg || (!aiMsg.content && !isWechatSpecialMessage(aiMsg.type) && !(aiMsg.type === 'image' && aiMsg.imagePending))) return;
         if (isWechatIncomingCallMessage(aiMsg)) {
             handleWechatIncomingCall(char, aiMsg);
@@ -5135,7 +6724,7 @@ function sendWechatMessage() {
     if (window._wechatAiBusy) return;
     const inputEl = document.getElementById('wc-msg-input');
     if (!inputEl) return;
-    const text = inputEl.value.trim();
+    const text = getWechatMessageInputValue({ markers: true }).trim();
     if (!text) return;
 
     const charId = window.currentChatCharId;
@@ -5143,11 +6732,10 @@ function sendWechatMessage() {
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char) return;
 
-    inputEl.value = '';
+    const userMsg = buildWechatUserTextMessage(text);
+    clearWechatMessageInput();
     syncWechatDraftState();
     closeChatToolbar();
-
-    const userMsg = buildWechatUserTextMessage(text);
     if (window._wechatReplyDraft) {
         userMsg.replyTo = { ...window._wechatReplyDraft };
         clearWechatReplyDraft();
@@ -5179,15 +6767,15 @@ async function triggerAiReply() {
     if (!char) return;
 
     const inputEl = document.getElementById('wc-msg-input');
-    const text = inputEl ? inputEl.value.trim() : '';
+    const text = inputEl ? getWechatMessageInputValue({ markers: true }).trim() : '';
     const contentEl = document.getElementById('chat-room-content');
     if (!char.history) char.history = [];
 
     // 如果输入框有文字，先发送
     if (text) {
-        inputEl.value = '';
-        syncWechatDraftState();
         const userMsg = buildWechatUserTextMessage(text);
+        clearWechatMessageInput();
+        syncWechatDraftState();
         if (window._wechatReplyDraft) {
             userMsg.replyTo = { ...window._wechatReplyDraft };
             clearWechatReplyDraft();
@@ -5278,9 +6866,35 @@ async function triggerAiAfterMessage(char, contentEl) {
     if (titleEl) titleEl.textContent = '对方正在输入...';
 
     try {
+        const appendAiResultToChat = async (rawContent) => {
+            const parts = splitWechatAiResponseSegments(rawContent, char)
+                .filter(part => !isWechatAiMetaLeakContent(part));
+            let count = 0;
+            for (let i = 0; i < parts.length; i++) {
+                if (i > 0) await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
+                let text = parts[i];
+                const avatarMatch = text.match(/\[换头像[：:](\d+)\]/);
+                if (avatarMatch && char.avatarGallery && char.avatarGallery.length > 1) {
+                    const idx = parseInt(avatarMatch[1], 10) - 1;
+                    if (idx >= 0 && idx < char.avatarGallery.length) char.avatar = char.avatarGallery[idx];
+                    text = text.replace(/\[换头像[：:]\d+\]/, '').trim();
+                }
+                if (!text || isWechatAiMetaLeakContent(text)) continue;
+                count += appendWechatAiMessageParts(char, contentEl, text, { groupFallbackStartIndex: count }) || 0;
+            }
+            return count;
+        };
+
         // 构建消息并调用API
         const messages = buildMessages(char, char.history || []);
-        const result = await callChatApi(messages);
+        let result = await callChatApi(messages);
+        if (!result.ok && /空内容/.test(String(result.error || ''))) {
+            messages.push({
+                role: 'system',
+                content: '【重新生成】上一轮响应没有可见微信正文。请只输出本轮要发给用户看的微信消息；不要只输出 thinking/COT/状态栏/正则块。若需要状态栏或正则块，必须放在至少一条可见消息之后，且保持独立。'
+            });
+            result = await callChatApi(messages);
+        }
 
         // 恢复标题，备注可能会在 AI 指令里被角色主动修改。
         if (titleEl) titleEl.textContent = getWechatCharDisplayName(char);
@@ -5289,31 +6903,30 @@ async function triggerAiAfterMessage(char, contentEl) {
             if (markPendingUserPaymentsCollected(char)) {
                 refreshChatView(char);
             }
-            const parts = splitWechatAiResponseSegments(result.content, char);
-            let newAiMessageCount = 0;
-            for (let i = 0; i < parts.length; i++) {
-                if (i > 0) await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
-                let text = parts[i];
-                const avatarMatch = text.match(/\[换头像[：:](\d+)\]/);
-                if (avatarMatch && char.avatarGallery && char.avatarGallery.length > 1) {
-                    const idx = parseInt(avatarMatch[1]) - 1;
-                    if (idx >= 0 && idx < char.avatarGallery.length) {
-                        char.avatar = char.avatarGallery[idx];
-                    }
-                    text = text.replace(/\[换头像[：:]\d+\]/, '').trim();
+            let newAiMessageCount = await appendAiResultToChat(result.content || '');
+            if (newAiMessageCount === 0) {
+                const retryMessages = messages.concat({
+                    role: 'system',
+                    content: '【强制重写】你刚才只输出了 thinking/COT/状态栏/自检/元分析，前端已全部过滤。现在必须只输出 1-3 条可以直接显示在微信气泡里的角色正文。禁止输出 <thinking>、<content>、[消息]、[状态栏]、自检、解释、检查清单、代码块。'
+                });
+                const retry = await callChatApi(retryMessages);
+                if (retry && retry.ok) {
+                    newAiMessageCount = await appendAiResultToChat(retry.content || '');
                 }
-                if (!text) continue;
-                newAiMessageCount += appendWechatAiMessageParts(char, contentEl, text, { groupFallbackStartIndex: newAiMessageCount }) || 0;
             }
             if (char?.isGroupChat) {
                 const completed = await completeWechatGroupMissingReplies(char, contentEl, replyStartIndex, newAiMessageCount);
                 newAiMessageCount += completed;
             }
-            if (newAiMessageCount > 0) showWechatDesktopMessageIsland(char);
-            requestWechatAiStatusSnapshot(char, { reason: 'after_reply' }).catch(e => {
-                console.warn('ai status snapshot failed:', e);
-            });
-            scheduleWechatMemoryExtraction(char, 'after_reply');
+            if (newAiMessageCount > 0) {
+                showWechatDesktopMessageIsland(char);
+                requestWechatAiStatusSnapshot(char, { reason: 'after_reply' }).catch(e => {
+                    console.warn('ai status snapshot failed:', e);
+                });
+                scheduleWechatMemoryExtraction(char, 'after_reply');
+            } else if (typeof showWechatToast === 'function') {
+                showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');
+            }
         } else {
             const errMsg = { type: 'text', isMe: false, content: `⚠️ ${result.error}`, timestamp: createMessageTimestamp() };
             char.history.push(errMsg);
@@ -5334,7 +6947,7 @@ function syncWechatDraftState() {
     const room = document.getElementById('wechat-chat-room');
     const inputEl = document.getElementById('wc-msg-input');
     if (!room || !inputEl) return;
-    room.classList.toggle('has-draft', !!inputEl.value.trim());
+    room.classList.toggle('has-draft', !!getWechatMessageInputValue({ markers: false }).trim());
 }
 
 function isWechatVoiceInputMode() {
@@ -5367,6 +6980,7 @@ function setWechatVoiceInputMode(active, options = {}) {
         closeChatToolbar();
         closeStickerPicker();
         inputEl?.blur();
+        getWechatRichInputElement()?.blur();
         setWechatVoiceToolMode('speech');
     } else if (!options.keepDraft) {
         cancelWechatHoldVoice();
@@ -5566,11 +7180,17 @@ function closeChatToolbar() {
     if (picker && !picker.classList.contains('hidden')) picker.classList.add('hidden');
 }
 
-function closeChat() {
+function isWechatChatSettingsOpen() {
     const settingsPanel = document.getElementById('wc-chat-settings-panel');
-    if (settingsPanel) {
-        settingsPanel.classList.remove('active');
-        settingsPanel.style.display = 'none';
+    return !!(settingsPanel && (settingsPanel.classList.contains('active') || settingsPanel.style.display === 'flex'));
+}
+
+function closeChat(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (isWechatChatSettingsOpen()) {
+        closeChatSettings(event);
+        return;
     }
     closeChatToolbar();
     setWechatVoiceInputMode(false, { keepDraft: true });
@@ -5580,6 +7200,7 @@ function closeChat() {
         setTimeout(() => room.classList.add('hidden'), 300);
     }
     window.currentChatCharId = null;
+    if (typeof updateWechatUiThemeStructure === 'function') updateWechatUiThemeStructure(getWechatUiTheme());
 }
 
 // --- 微信语音/视频通话 ---
@@ -12218,7 +13839,9 @@ function openChatSettings() {
     }
 }
 
-function closeChatSettings() {
+function closeChatSettings(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
     const panel = document.getElementById('wc-chat-settings-panel');
     if (panel) {
         panel.classList.remove('active');
@@ -12245,17 +13868,18 @@ function uploadChatBgImage(input) {
     if (!input.files || !input.files[0]) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        // 压缩背景图
         const img = new Image();
         img.onload = function() {
             const canvas = document.createElement('canvas');
-            const maxW = 400;
-            const scale = Math.min(maxW / img.width, 1);
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
+            const maxSide = 1600;
+            const scale = Math.min(maxSide / Math.max(img.width, img.height), 1);
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
             const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            window._tempChatBgImage = canvas.toDataURL('image/jpeg', 0.6);
+            window._tempChatBgImage = canvas.toDataURL('image/jpeg', 0.9);
             document.getElementById('wcs-bg-img-hint').textContent = '已选择';
         };
         img.src = e.target.result;
@@ -12648,12 +14272,20 @@ function applyChatConfig(char) {
 
     // 背景
     if (config.chatBgImage) {
+        contentEl.classList.add('has-custom-chat-bg');
+        contentEl.style.setProperty('--custom-chat-bg-image', `url(${config.chatBgImage})`);
         contentEl.style.backgroundImage = `url(${config.chatBgImage})`;
         contentEl.style.backgroundSize = 'cover';
         contentEl.style.backgroundPosition = 'center';
+        contentEl.style.backgroundRepeat = 'no-repeat';
         contentEl.style.backgroundColor = '';
     } else {
+        contentEl.classList.remove('has-custom-chat-bg');
+        contentEl.style.removeProperty('--custom-chat-bg-image');
         contentEl.style.backgroundImage = '';
+        contentEl.style.backgroundSize = '';
+        contentEl.style.backgroundPosition = '';
+        contentEl.style.backgroundRepeat = '';
         contentEl.style.backgroundColor = config.chatBg || '';
     }
 
@@ -13061,7 +14693,8 @@ function buildWechatWorldBookPrompt(char, limit = 30) {
         .map(entry => {
             const title = entry.name || entry.title || entry.key || entry.keys || entry.keyword || '世界书';
             const content = entry.content || entry.text || entry.entry || entry.value || entry.comment || entry.description || '';
-            return stripWechatPromptText(`${title}：${content}`, 420);
+            const statusLike = /<\s*(?:jwy|status|state)\b|<\/\s*(?:jwy|status|state)\s*>|状态栏格式|状态栏|status\s*bar|weibo-status-bar/i.test(String(content || ''));
+            return stripWechatPromptText(`${title}：${content}`, statusLike ? 2600 : 420);
         })
         .filter(Boolean);
     return enabled.length ? `【世界书】\n${enabled.join('\n')}` : '';
@@ -13093,6 +14726,7 @@ function getWechatCharacterPersonaText(char, maxLength = 10000) {
 
 function getWechatMessagePromptContent(msg) {
     if (!msg) return '';
+    if (isWechatRegexPayloadMessage(msg)) return '';
     if (msg.type === 'image') return msg.description || '[图片]';
     if (msg.type === 'sticker') return `[表情] ${msg.stickerName || msg.name || ''}`;
     if (isWechatSpecialMessage(msg.type)) return msg.description || msg.content || '[微信特殊消息]';
@@ -13104,29 +14738,179 @@ function buildWechatRecentHistoryForPrompt(char, limit = 12) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const userName = ((typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {})) || {}).name || '用户';
     const charName = getWechatCharDisplayName(char);
-    const lines = history.slice(-limit).map(msg => {
-        const role = msg.isMe ? userName : charName;
-        const content = stripWechatPromptText(getWechatMessagePromptContent(msg), 220);
-        return content ? `${role}: ${content}` : '';
-    }).filter(Boolean);
+    const lines = history
+        .filter(msg => !isWechatRegexPayloadMessage(msg, char))
+        .slice(-limit)
+        .map(msg => {
+            const role = msg.isMe ? userName : charName;
+            const content = stripWechatPromptText(getWechatMessagePromptContent(msg), 220);
+            return content ? `${role}: ${content}` : '';
+        }).filter(Boolean);
     return lines.length ? lines.join('\n') : '暂无聊天记录。';
+}
+
+function cleanWechatJsonCandidate(value) {
+    return String(value || '')
+        .replace(/^\uFEFF/, '')
+        .replace(/^```(?:json|javascript|js)?\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .replace(/^[\s\S]*?(?=[{\[])/, '')
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/,\s*([}\]])/g, '$1')
+        .trim();
+}
+
+function stripWechatJsonComments(value) {
+    const source = String(value || '');
+    let out = '';
+    let quote = '';
+    let escape = false;
+    for (let i = 0; i < source.length; i += 1) {
+        const ch = source[i];
+        const next = source[i + 1];
+        if (quote) {
+            out += ch;
+            if (escape) escape = false;
+            else if (ch === '\\') escape = true;
+            else if (ch === quote) quote = '';
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            out += ch;
+            continue;
+        }
+        if (ch === '/' && next === '/') {
+            while (i < source.length && !/[\r\n]/.test(source[i])) i += 1;
+            out += '\n';
+            continue;
+        }
+        if (ch === '/' && next === '*') {
+            i += 2;
+            while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i += 1;
+            i += 1;
+            continue;
+        }
+        out += ch;
+    }
+    return out;
+}
+
+function extractWechatBalancedJsonCandidate(value) {
+    const source = cleanWechatJsonCandidate(value);
+    const starts = ['{', '[']
+        .map(ch => source.indexOf(ch))
+        .filter(index => index >= 0);
+    if (!starts.length) return '';
+    const start = Math.min(...starts);
+    const stack = [];
+    let quote = '';
+    let escape = false;
+    for (let i = start; i < source.length; i += 1) {
+        const ch = source[i];
+        if (quote) {
+            if (escape) escape = false;
+            else if (ch === '\\') escape = true;
+            else if (ch === quote) quote = '';
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            continue;
+        }
+        if (ch === '{') stack.push('}');
+        else if (ch === '[') stack.push(']');
+        else if ((ch === '}' || ch === ']') && stack.length) {
+            const expected = stack.pop();
+            if (ch !== expected) return '';
+            if (!stack.length) return source.slice(start, i + 1);
+        }
+    }
+    return '';
+}
+
+function repairWechatJsonFragment(value) {
+    let source = cleanWechatJsonCandidate(stripWechatJsonComments(value));
+    const starts = ['{', '['].map(ch => source.indexOf(ch)).filter(index => index >= 0);
+    if (!starts.length) return '';
+    source = source.slice(Math.min(...starts));
+    const stack = [];
+    let quote = '';
+    let escape = false;
+    let lastSafe = 0;
+    for (let i = 0; i < source.length; i += 1) {
+        const ch = source[i];
+        if (quote) {
+            if (escape) escape = false;
+            else if (ch === '\\') escape = true;
+            else if (ch === quote) quote = '';
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            continue;
+        }
+        if (ch === '{') stack.push('}');
+        else if (ch === '[') stack.push(']');
+        else if ((ch === '}' || ch === ']') && stack.length) stack.pop();
+        if (ch === '}' || ch === ']' || ch === '"' || /\d/.test(ch) || ch === 'e' || ch === 'E' || ch === 'l') lastSafe = i + 1;
+    }
+    let repaired = source.slice(0, lastSafe || source.length).trim();
+    if (quote) repaired += quote;
+    repaired = repaired.replace(/,\s*$/, '');
+    repaired += stack.slice().reverse().join('');
+    return cleanWechatJsonCandidate(repaired);
+}
+
+function tryParseWechatJsonCandidate(candidate) {
+    const cleaned = cleanWechatJsonCandidate(stripWechatJsonComments(candidate));
+    if (!cleaned) return null;
+    const jsonish = cleaned
+        .replace(/([{,]\s*)([A-Za-z_$][\w$-]*|[\u4e00-\u9fa5]{1,24})\s*:/g, '$1"$2":')
+        .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_, inner) => JSON.stringify(inner.replace(/\\'/g, "'")));
+    const variants = [
+        cleaned,
+        cleaned.replace(/,\s*([}\]])/g, '$1'),
+        jsonish,
+        jsonish.replace(/,\s*([}\]])/g, '$1')
+    ];
+    for (const item of variants) {
+        try {
+            return JSON.parse(item);
+        } catch (_) {}
+    }
+    return null;
 }
 
 function parseWechatJsonObject(text) {
     const source = String(text || '').trim();
     if (!source) return null;
-    const cleaned = source.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
-    try {
-        return JSON.parse(cleaned);
-    } catch (_) {
-        const match = cleaned.match(/\{[\s\S]*\}/);
-        if (!match) return null;
-        try {
-            return JSON.parse(match[0]);
-        } catch (e) {
-            return null;
+    const cleaned = cleanWechatJsonCandidate(source);
+    const candidates = [
+        cleaned,
+        extractWechatBalancedJsonCandidate(cleaned),
+        repairWechatJsonFragment(cleaned)
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+        const parsed = tryParseWechatJsonCandidate(candidate);
+        if (parsed && typeof parsed === 'object') return parsed;
+    }
+    const starts = ['{', '['].map(ch => cleaned.indexOf(ch)).filter(index => index >= 0);
+    if (starts.length) {
+        const fragment = cleaned.slice(Math.min(...starts));
+        let cut = fragment.length;
+        for (let attempt = 0; attempt < 40 && cut > 8; attempt += 1) {
+            const commaCut = fragment.lastIndexOf(',', cut - 1);
+            const braceCut = Math.max(fragment.lastIndexOf('}', cut - 1), fragment.lastIndexOf(']', cut - 1));
+            cut = Math.max(commaCut, braceCut);
+            if (cut <= 0) break;
+            const repaired = repairWechatJsonFragment(fragment.slice(0, cut));
+            const parsed = tryParseWechatJsonCandidate(repaired);
+            if (parsed && typeof parsed === 'object') return parsed;
         }
     }
+    return null;
 }
 
 function getWechatAiStatusFallback(char, reason = 'fallback') {
@@ -13508,7 +15292,7 @@ function normalizeWechatTextList(value, fallback = []) {
     return fallback;
 }
 
-const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-ai-phone-patch1';
+const WECHAT_AI_PHONE_SCHEMA_VERSION = '20260527-json-repair1';
 
 function getWechatAiPhonePersonaSource(char) {
     return getWechatCharacterPersonaText(char, 12000);
@@ -13857,7 +15641,7 @@ function buildWechatAiPhoneFallback(char) {
     const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '\u7528\u6237' });
     const userName = getWechatAiPhoneUserDisplayName(char, userProfile);
     const history = Array.isArray(char && char.history) ? char.history : [];
-    const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice');
+    const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice' && !isWechatRegexPayloadMessage(msg, char));
     const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '\u8fd8\u6ca1\u6709\u65b0\u6d88\u606f';
     return {
         updatedAt: Date.now(),
@@ -14271,9 +16055,61 @@ function getWechatAiPhoneWalletRows(snapshot, char) {
     return rows;
 }
 
+function isWechatAiPhoneGenericDiaryTitle(value) {
+    const text = stripWechatPromptText(value, 32);
+    if (!text) return true;
+    return /^(没有发出去的话|没发出去的一页|夜里的草稿|半夜存下的草稿|折起来的便签|藏起来的便签|今天的余温|不想被看见的草稿|未命名信件|未寄出的信|私密日记|日记|草稿|便签)$/i.test(text);
+}
+
+function getWechatAiPhoneDiaryTopic(value, fallback = '') {
+    const source = stripWechatPromptText(value || fallback, 180)
+        .replace(/Letter From\s+\S+/gi, '')
+        .replace(/今天|手机|聊天|窗口|消息|没有|出去|草稿|便签|日记|信件|PRIVATE|BYND/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const quoted = source.match(/[「“](.{2,14})[」”]/);
+    if (quoted) return stripWechatPromptText(quoted[1], 12);
+    const phrase = source.match(/[\u4e00-\u9fa5A-Za-z0-9]{2,12}/);
+    return phrase ? stripWechatPromptText(phrase[0], 12) : '';
+}
+
+function buildWechatAiPhoneDiaryLetterFallbacks(char, diary, fields = {}) {
+    const clock = getWechatAiPhoneClockParts();
+    const charName = stripWechatPromptText(getWechatCharDisplayName(char), 10) || 'TA';
+    const userName = stripWechatPromptText(getWechatAiPhoneUserDisplayName(char), 10) || '你';
+    const thought = stripWechatPromptText(fields.thoughts || fields.innerMonologue || '', 420);
+    const memo = stripWechatPromptText(fields.miniDiary || '', 420);
+    const action = stripWechatPromptText(fields.action || fields.gaze || fields.location || fields.scene || '', 90);
+    const topic = getWechatAiPhoneDiaryTopic(`${diary} ${thought} ${memo} ${action}`, userName);
+    const titleA = topic ? `关于${topic}的那页` : `${charName}没按下发送`;
+    const titleB = action ? `${charName}停在${getWechatAiPhoneDiaryTopic(action, '那一刻') || '那一刻'}` : `写给${userName}的暗格`;
+    const titleC = memo ? `${getWechatAiPhoneDiaryTopic(memo, charName)}的折页` : `${charName}锁屏前一秒`;
+    return [
+        {
+            title: stripWechatPromptText(titleA, 18),
+            subtitle: `${charName} · ${clock.date}`,
+            meta: clock.date,
+            content: diary
+        },
+        {
+            title: stripWechatPromptText(titleB, 18),
+            subtitle: `For ${userName}`,
+            meta: 'PRIVATE',
+            content: thought || diary
+        },
+        {
+            title: stripWechatPromptText(titleC, 18),
+            subtitle: action || `Saved by ${charName}`,
+            meta: 'BYND',
+            content: memo || diary
+        }
+    ];
+}
+
 function normalizeWechatAiPhoneDiaryLetterList(value, char, fallbackContent = '') {
     const charName = getWechatCharDisplayName(char);
     const clock = getWechatAiPhoneClockParts();
+    const fallbackLetters = buildWechatAiPhoneDiaryLetterFallbacks(char, fallbackContent || '今天还没有写下日记。', {});
     const source = Array.isArray(value) ? value : [];
     const rows = source.map((item, index) => {
         if (!item) return null;
@@ -14283,9 +16119,10 @@ function normalizeWechatAiPhoneDiaryLetterList(value, char, fallbackContent = ''
         const subtitle = stripWechatPromptText(raw.subtitle || raw.from || raw.label || '', 36);
         const meta = stripWechatPromptText(raw.meta || raw.time || raw.date || raw.tag || '', 18);
         if (!title && !content) return null;
+        const fallback = fallbackLetters[index] || fallbackLetters[0];
         return {
-            title: title || ['没发出去的一页', '半夜存下的草稿', '藏起来的便签'][index] || '未命名信件',
-            subtitle: subtitle || `Letter From ${charName}`,
+            title: isWechatAiPhoneGenericDiaryTitle(title) ? fallback.title : title,
+            subtitle: subtitle && !/^Letter From\b/i.test(subtitle) ? subtitle : (fallback.subtitle || `Letter From ${charName}`),
             meta: meta || (index === 0 ? clock.date : ['PRIVATE', 'BYND'][index - 1] || 'PRIVATE'),
             content: content || fallbackContent
         };
@@ -14294,35 +16131,12 @@ function normalizeWechatAiPhoneDiaryLetterList(value, char, fallbackContent = ''
 }
 
 function getWechatAiPhoneDiaryLetters(snapshot, char) {
-    const clock = getWechatAiPhoneClockParts();
-    const charName = getWechatCharDisplayName(char);
     const diary = stripWechatPromptText(snapshot && snapshot.diary, 520) || '今天还没有写下日记。';
     const aiLetters = normalizeWechatAiPhoneDiaryLetterList(snapshot && (snapshot.diaryLetters || snapshot.letters || snapshot['日记信件'] || snapshot['信件']), char, diary);
     if (aiLetters.length) return aiLetters;
     const status = getWechatAiStatusSnapshot(char);
     const fields = (status && status.fields) || {};
-    const thought = stripWechatPromptText(fields.thoughts || fields.innerMonologue || '', 420);
-    const memo = stripWechatPromptText(fields.miniDiary || '', 420);
-    return [
-        {
-            title: '没有发出去的话',
-            subtitle: `Letter From ${charName}`,
-            meta: clock.date,
-            content: diary
-        },
-        {
-            title: '夜里的草稿',
-            subtitle: 'Unsent Draft',
-            meta: 'PRIVATE',
-            content: thought || diary
-        },
-        {
-            title: '折起来的便签',
-            subtitle: 'Saved Note',
-            meta: 'BYND',
-            content: memo || diary
-        }
-    ];
+    return buildWechatAiPhoneDiaryLetterFallbacks(char, diary, fields);
 }
 
 function renderWechatAiPhoneDiaryMailbox(snapshot, char) {
@@ -14555,6 +16369,7 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 数组格式：chats[{name,text,time}]；memos[string]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,content}]。
 数量：除 gameRecords 外，每个数组 2-3 条；chats 第一条必须是用户；diaryLetters 2 条。每个字符串 8-38 字，diary/content 最多 90 字。
+diaryLetters.title 必须像角色亲手写在信封上的标题：结合当前 char 的身份、职业、关系、最近聊天或当天行程生成，每条都要独特。禁止使用“没有发出去的话/夜里的草稿/折起来的便签/未寄出的信/私密日记/日记/草稿/便签/未命名信件”等通用模板标题。
 规则：不能空白；不能写未授权查看；不能套模板或固定低余额；必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
@@ -14565,12 +16380,32 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
             let result = await callChatApi(buildMessages(), { max_tokens: 2200, temperature: 0.78 });
             if (result && result.ok) {
                 let parsed = parseWechatJsonObject(result.content);
+                let rawJsonText = result.content || '';
+                if (!parsed) {
+                    const repair = await callChatApi([
+                        {
+                            role: 'system',
+                            content: '你是 JSON 修复器。只把用户给你的残缺/多余说明/尾逗号/少括号 JSON 修成一个合法 JSON 对象；不要新增解释，不要 Markdown，不要重写内容。'
+                        },
+                        {
+                            role: 'user',
+                            content: String(rawJsonText || '').slice(0, 9000)
+                        }
+                    ], { max_tokens: 2200, temperature: 0 });
+                    if (repair && repair.ok) {
+                        rawJsonText = repair.content || rawJsonText;
+                        parsed = parseWechatJsonObject(repair.content);
+                    }
+                }
                 if (!parsed) {
                     const retry = await callChatApi(
                         buildMessages('上一次不是合法 JSON 或被截断。这次只给极短 minified JSON；每组 2 条；不要任何多余文字。'),
                         { max_tokens: 1800, temperature: 0.45 }
                     );
-                    if (retry && retry.ok) parsed = parseWechatJsonObject(retry.content);
+                    if (retry && retry.ok) {
+                        rawJsonText = retry.content || rawJsonText;
+                        parsed = parseWechatJsonObject(retry.content);
+                    }
                 }
                 if (parsed) {
                     let rawPhoneData = parsed;
@@ -14595,7 +16430,7 @@ async function requestWechatAiPhoneSnapshot(charOrId) {
                     snapshot = buildWechatAiPhoneFallback(char);
                     snapshot.generatedBy = 'error';
                     snapshot.syncError = 'AI 返回的 JSON 不完整，自动重试后仍无法解析。';
-                    console.warn('ai phone json parse failed:', result.content);
+                    console.warn('ai phone json parse failed:', rawJsonText);
                 }
             } else {
                 snapshot = buildWechatAiPhoneFallback(char);
@@ -14715,6 +16550,7 @@ function getWechatAiPhoneInitial(name) {
 
 function getWechatAiPhoneMessageText(msg) {
     if (!msg) return '';
+    if (isWechatRegexPayloadMessage(msg)) return '';
     if (msg.type === 'image') return msg.description || '[图片]';
     if (msg.type === 'sticker') return msg.stickerName ? `[表情：${msg.stickerName}]` : '[表情]';
     if (msg.type === 'voice') return msg.transcript || msg.description || '[语音]';
@@ -14743,7 +16579,7 @@ function resolveWechatAiPhoneSticker(item, char) {
         };
     }
     const raw = String((item && item.text) || msg.content || msg.description || '').trim();
-    const match = raw.match(/^\s*\[(?:微信表情|表情|发送了表情)\s*[：:]\s*([^\]]+)\]\s*$/);
+    const match = raw.match(/^\s*[\[【](?:微信表情|表情|发送了表情)\s*[：:]\s*([\s\S]+?)[\]】]\s*$/);
     if (!match) return null;
     const args = splitWechatDirectiveArgs(match[1] || '');
     const query = args[0] || match[1] || '';
@@ -16163,7 +17999,7 @@ function ensureWechatComposerModal() {
     return modal;
 }
 
-function composeField(type, msg) {
+function composeField(type, msg, options = {}) {
     const value = (key, fallback = '') => wcEscapeHtml(msg && msg[key] != null ? msg[key] : fallback);
     const char = getCurrentChatChar();
     const peerName = wcEscapeHtml((char && ((char.chatConfig && char.chatConfig.nickname) || char.name)) || '对方');
@@ -16245,6 +18081,7 @@ function composeField(type, msg) {
         window._wechatMusicComposeSelected = existing && existing.audioUrl ? existing : null;
         window._wechatMusicComposeResults = existing && existing.audioUrl ? [existing] : [];
         const query = existing ? [existing.title, existing.artist].filter(Boolean).join(' ') : '';
+        const modeText = options.musicMode === 'queue' ? '添加到列表' : '发送';
         return `
             <div class="wc-music-compose-search">
                 <label class="wc-compose-field">
@@ -16254,7 +18091,7 @@ function composeField(type, msg) {
                         <button type="button" onclick="searchWechatMusicForComposer()">搜索</button>
                     </div>
                 </label>
-                <div id="wc-compose-music-status" class="wc-compose-hint">${existing?.audioUrl ? '已选择：' + wcEscapeHtml(existing.title) : '搜索后选择一首歌再发送。'}</div>
+                <div id="wc-compose-music-status" class="wc-compose-hint">${existing?.audioUrl ? '已选择：' + wcEscapeHtml(existing.title) : `搜索后选择一首歌再${modeText}。`}</div>
                 <div id="wc-compose-music-results" class="wc-music-result-list"></div>
             </div>
         `;
@@ -16273,7 +18110,7 @@ function composeField(type, msg) {
     `;
 }
 
-function openWechatComposer(type, editIndex) {
+function openWechatComposer(type, editIndex, options = {}) {
     const config = WECHAT_COMPOSER_CONFIG[type];
     const char = getCurrentChatChar();
     if (!config || !char) return;
@@ -16284,12 +18121,17 @@ function openWechatComposer(type, editIndex) {
     const modal = ensureWechatComposerModal();
     modal.dataset.type = type;
     modal.dataset.editIndex = Number.isInteger(editIndex) ? String(editIndex) : '';
+    modal.dataset.musicMode = type === 'music_card' && options.musicMode === 'queue' ? 'queue' : '';
     modal.querySelector('.wc-compose-card')?.classList.toggle('wc-transfer-compose-card', type === 'transfer');
 
     document.getElementById('wc-compose-icon').className = config.icon;
-    document.getElementById('wc-compose-title').textContent = Number.isInteger(editIndex) ? `编辑${config.title.replace('发送', '')}` : config.title;
-    document.getElementById('wc-compose-submit').textContent = Number.isInteger(editIndex) ? '保存修改' : config.primary;
-    document.getElementById('wc-compose-fields').innerHTML = composeField(type, msg);
+    document.getElementById('wc-compose-title').textContent = Number.isInteger(editIndex)
+        ? `编辑${config.title.replace('发送', '')}`
+        : (modal.dataset.musicMode === 'queue' ? '添加音乐' : config.title);
+    document.getElementById('wc-compose-submit').textContent = modal.dataset.musicMode === 'queue'
+        ? '添加到列表'
+        : (Number.isInteger(editIndex) ? '保存修改' : config.primary);
+    document.getElementById('wc-compose-fields').innerHTML = composeField(type, msg, options);
     modal.classList.remove('hidden');
 }
 
@@ -16337,7 +18179,10 @@ function buildWechatSpecialMessageFromComposer(type, existingMsg) {
             url: selected.url || '',
             artwork: selected.artwork || '',
             sourceName: selected.sourceName || '',
-            sourceMeta: selected.sourceMeta || ''
+            sourceMeta: selected.sourceMeta || '',
+            sourceKey: selected.sourceKey || '',
+            lyricsText: selected.lyricsText || '',
+            lyricsUrl: selected.lyricsUrl || ''
         };
         msg.title = selected.title;
         msg.artist = selected.artist || '';
@@ -16345,6 +18190,12 @@ function buildWechatSpecialMessageFromComposer(type, existingMsg) {
         msg.playableUrl = selectedPlayableUrl;
         msg.sourceAudioUrl = selectedSourceUrl;
         msg.url = selected.url || '';
+        msg.artwork = selected.artwork || '';
+        msg.sourceName = selected.sourceName || '';
+        msg.sourceMeta = selected.sourceMeta || '';
+        msg.sourceKey = selected.sourceKey || '';
+        msg.lyricsText = selected.lyricsText || '';
+        msg.lyricsUrl = selected.lyricsUrl || '';
     } else if (type === 'voiceCall' || type === 'videoCall') {
         msg.status = document.getElementById('wc-compose-status')?.value || '已结束';
         msg.duration = normalizeWechatDuration(document.getElementById('wc-compose-duration')?.value, 60);
@@ -16372,7 +18223,18 @@ function submitWechatComposer() {
         return;
     }
     if (type === 'music_card' && window._wechatMusicComposeSelected?.resolving) {
-        if (typeof showWechatToast === 'function') showWechatToast('音乐地址还在解析，等一下再发送');
+        if (typeof showWechatToast === 'function') showWechatToast('音乐地址还在解析，等一下再操作');
+        return;
+    }
+    if (type === 'music_card' && modal.dataset.musicMode === 'queue') {
+        const selected = window._wechatMusicComposeSelected;
+        if (!addWechatMusicTrackToQueue(selected)) {
+            if (typeof showWechatToast === 'function') showWechatToast('这首歌没法添加，换一首试试');
+            return;
+        }
+        renderWechatMusicQueuePanel();
+        if (typeof showWechatToast === 'function') showWechatToast('已添加到音乐列表');
+        closeWechatComposer();
         return;
     }
 
@@ -16824,12 +18686,116 @@ const QQ_BUILTIN_EMOJI_ALIAS_MAP = {
     wrath: ['生气', '发怒', '愤怒']
 };
 
+const WECHAT_INPUT_EMOJI_MAP = {
+    '微笑': '🙂',
+    '撇嘴': '😒',
+    '色': '😍',
+    '发呆': '😳',
+    '得意': '😎',
+    '流泪': '😢',
+    '害羞': '😊',
+    '闭嘴': '🤐',
+    '睡': '😴',
+    '大哭': '😭',
+    '尴尬': '😅',
+    '发怒': '😡',
+    '调皮': '😜',
+    '呲牙': '😁',
+    '惊讶': '😮',
+    '难过': '😞',
+    '囧': '😓',
+    '抓狂': '😫',
+    '吐': '🤮',
+    '偷笑': '🤭',
+    '愉快': '😄',
+    '白眼': '🙄',
+    '傲慢': '😤',
+    '困': '😪',
+    '惊恐': '😱',
+    '憨笑': '😆',
+    '悠闲': '😌',
+    '咒骂': '😠',
+    '疑问': '🤔',
+    '嘘': '🤫',
+    '晕': '😵',
+    '衰': '😩',
+    '骷髅': '💀',
+    '敲打': '🔨',
+    '再见': '👋',
+    '擦汗': '😅',
+    '抠鼻': '🤧',
+    '鼓掌': '👏',
+    '坏笑': '😏',
+    '鄙视': '😒',
+    '委屈': '🥺',
+    '快哭了': '🥹',
+    '阴险': '😈',
+    '亲亲': '😘',
+    '可怜': '🥺',
+    '笑脸': '😃',
+    '生病': '🤒',
+    '脸红': '☺️',
+    '破涕为笑': '😂',
+    '恐惧': '😨',
+    '失望': '😞',
+    '无语': '😑',
+    '嘿哈': '😆',
+    '捂脸': '🤦',
+    '奸笑': '😏',
+    '机智': '😉',
+    '皱眉': '🙁',
+    '耶': '✌️',
+    '吃瓜': '🍉',
+    '加油': '💪',
+    '汗': '💦',
+    '天啊': '😲',
+    '爱心': '❤️',
+    '心碎': '💔',
+    '拥抱': '🤗',
+    '强': '👍',
+    '弱': '👎',
+    '握手': '🤝',
+    '胜利': '✌️',
+    '抱拳': '🙏',
+    '拳头': '👊',
+    'OK': '👌',
+    '合十': '🙏',
+    '啤酒': '🍺',
+    '咖啡': '☕',
+    '蛋糕': '🎂',
+    '玫瑰': '🌹',
+    '凋谢': '🥀',
+    '菜刀': '🔪',
+    '炸弹': '💣',
+    '便便': '💩',
+    '月亮': '🌙',
+    '太阳': '☀️',
+    '庆祝': '🎉',
+    '礼物': '🎁',
+    '红包': '🧧',
+    '福': '福',
+    '烟花': '🎆',
+    '爆竹': '🧨',
+    '猪头': '🐷'
+};
+
 function getWechatBuiltinEmojiName(fileName) {
     return String(fileName || '').replace(/^\d+_/, '').replace(/\.[^.]+$/, '');
 }
 
 function getWechatBuiltinEmojiUrl(fileName) {
     return WECHAT_BUILTIN_EMOJI_BASE_URL + encodeURIComponent(fileName);
+}
+
+function getWechatBuiltinEmojiFileByName(name) {
+    const target = getWechatBuiltinEmojiAliasName(name);
+    if (!target) return '';
+    return WECHAT_BUILTIN_EMOJI_FILES.find(fileName => getWechatBuiltinEmojiName(fileName) === target) || '';
+}
+
+function getWechatBuiltinEmojiUrlByName(name) {
+    const fileName = getWechatBuiltinEmojiFileByName(name);
+    return fileName ? getWechatBuiltinEmojiUrl(fileName) : '';
 }
 
 function getWechatBuiltinEmojiStickers() {
@@ -16887,6 +18853,23 @@ function getQqBuiltinEmojiUrl(fileName) {
     return QQ_BUILTIN_EMOJI_BASE_URL + encodeURIComponent(fileName);
 }
 
+function getQqBuiltinEmojiFileByName(name) {
+    const target = String(name || '').trim();
+    if (!target) return '';
+    return QQ_BUILTIN_EMOJI_FILES.find(fileName => {
+        const raw = String(fileName || '').replace(/\.[^.]+$/, '');
+        return getQqBuiltinEmojiName(fileName) === target
+            || raw === target
+            || getQqBuiltinEmojiKey(fileName) === target
+            || getQqBuiltinEmojiAliases(fileName).includes(target);
+    }) || '';
+}
+
+function getQqBuiltinEmojiUrlByName(name) {
+    const fileName = getQqBuiltinEmojiFileByName(name);
+    return fileName ? getQqBuiltinEmojiUrl(fileName) : '';
+}
+
 function getQqBuiltinEmojiStickers() {
     return QQ_BUILTIN_EMOJI_FILES.map((fileName, index) => ({
         id: `qq_emoji_${String(index + 1).padStart(3, '0')}`,
@@ -16922,6 +18905,37 @@ function isWechatBuiltinEmojiUrl(url) {
         || value.includes('/qiuyinghua/wechat-emoticons@master/images/')
         || value.includes('/qiuyinghua/wechat-emoticons/master/images/')
         || value.includes('raw.githubusercontent.com/qiuyinghua/wechat-emoticons/master/images/');
+}
+
+function getWechatBuiltinEmojiSourceFromUrl(url) {
+    const value = String(url || '');
+    if (value.includes('/qiuyinghua/wechat-emoticons@master/images/')
+        || value.includes('/qiuyinghua/wechat-emoticons/master/images/')
+        || value.includes('raw.githubusercontent.com/qiuyinghua/wechat-emoticons/master/images/')) {
+        return 'qq';
+    }
+    if (value.includes('/airinghost/wechat-emoji@main/web.wechat.com/compressed-tinypng/')
+        || value.includes('/airinghost/wechat-emoji/main/web.wechat.com/compressed-tinypng/')) {
+        return 'wechat';
+    }
+    return getWechatActiveBuiltinEmojiSource();
+}
+
+function renderWechatBuiltinEmojiMarkersHtml(html) {
+    return String(html || '').replace(/\[\[(WECHAT_EMOJI|QQ_EMOJI):([^:\]]+)(?::([^\]]+))?\]\]/g, (match) => {
+        const parsed = parseWechatBuiltinEmojiMarker(match);
+        if (!parsed || !parsed.name) return '';
+        const url = parsed.url || (parsed.source === 'qq'
+            ? getQqBuiltinEmojiUrlByName(parsed.name)
+            : getWechatBuiltinEmojiUrlByName(parsed.name));
+        if (!url) return '';
+        const label = parsed.source === 'qq' ? parsed.name : getWechatBuiltinEmojiAliasName(parsed.name);
+        return `<img class="wc-inline-wechat-emoji" src="${wcEscapeHtml(url)}" alt="[${wcEscapeHtml(label)}]" title="${wcEscapeHtml(label)}" loading="lazy" draggable="false">`;
+    });
+}
+
+function renderWechatChatPreviewHtml(text) {
+    return renderWechatBuiltinEmojiMarkersHtml(escapeHtml(text));
 }
 
 function shouldShowWechatBuiltinEmojiPack() {
@@ -17435,7 +19449,39 @@ function switchStickerPack(packId) {
     renderStickerPicker();
 }
 
+function insertWechatEmojiToInput(name, url = '') {
+    const inputEl = document.getElementById('wc-msg-input');
+    if (!inputEl) return;
+    const label = String(name || '').trim();
+    if (!label) return;
+    if (isWechatRichInputEnabled() && insertWechatRichInputEmoji(label, url)) {
+        closeStickerPicker();
+        return;
+    }
+    const token = getWechatUiThemeId() === 'wechat'
+        ? getWechatInputEmojiDisplayToken(label)
+        : `[${label}]`;
+    const start = Number.isFinite(inputEl.selectionStart) ? inputEl.selectionStart : inputEl.value.length;
+    const end = Number.isFinite(inputEl.selectionEnd) ? inputEl.selectionEnd : start;
+    inputEl.value = inputEl.value.slice(0, start) + token + inputEl.value.slice(end);
+    if (['wechat', 'qq'].includes(getWechatUiThemeId())) {
+        rememberWechatInputEmojiDraftItem({ token, name: label, source: getWechatActiveBuiltinEmojiSource(), url });
+    }
+    const nextPos = start + token.length;
+    inputEl.focus();
+    try {
+        inputEl.setSelectionRange(nextPos, nextPos);
+    } catch (e) {}
+    syncWechatDraftState();
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    closeStickerPicker();
+}
+
 function sendSticker(url, name, isWechatEmoji = false) {
+    if (isWechatEmoji) {
+        insertWechatEmojiToInput(name, url);
+        return;
+    }
     const charId = window.currentChatCharId;
     if (!charId) return;
     const char = window.myCharacters.find(c => c.id === charId);
@@ -17497,7 +19543,8 @@ function renderStickerPackList() {
         const actions = p.builtin || isWechatBuiltinStickerPackId(p.id)
             ? `<i class="ri-eye-line" onclick="openPackDetail(${safeId})" title="查看"></i>`
             : `<i class="ri-add-line" onclick="openBatchImport(${safeId})" title="导入"></i>
-                <i class="ri-edit-line" onclick="openPackDetail(${safeId})" title="管理"></i>
+                <i class="ri-eye-line" onclick="openPackDetail(${safeId})" title="管理"></i>
+                <i class="ri-edit-line" onclick="openStickerPackRenameModal(${safeId})" title="重命名"></i>
                 <i class="ri-delete-bin-6-line del-btn" onclick="deleteStickerPack(${safeId})" title="删除"></i>`;
         return `
         <div class="sticker-pack-item ${p.builtin ? 'builtin' : ''}">
@@ -17577,6 +19624,81 @@ function confirmCreateStickerPack() {
     refreshStickerSurfaces();
     closeStickerPackCreateModal();
     if (typeof showWechatToast === 'function') showWechatToast('已新建贴纸包');
+}
+
+function ensureStickerPackRenameModal() {
+    let modal = document.getElementById('wc-sticker-pack-rename-modal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'wc-sticker-pack-rename-modal';
+    modal.className = 'wc-modal-overlay hidden wc-compose-overlay';
+    modal.innerHTML = `
+        <div class="wc-compose-card wc-sticker-create-card">
+            <div class="wc-compose-header">
+                <div class="wc-compose-title"><i class="ri-edit-line"></i><span>重命名贴纸包</span></div>
+                <i class="ri-close-line" onclick="closeStickerPackRenameModal()"></i>
+            </div>
+            <div class="wc-compose-body">
+                <label class="wc-compose-field">
+                    <span>贴纸包名称</span>
+                    <input id="wc-sticker-pack-rename-name" type="text" maxlength="24" placeholder="输入新的贴纸包名称" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmRenameStickerPack();}">
+                </label>
+            </div>
+            <div class="wc-compose-footer">
+                <button class="wc-compose-secondary" onclick="closeStickerPackRenameModal()">取消</button>
+                <button class="wc-compose-primary" onclick="confirmRenameStickerPack()">保存</button>
+            </div>
+        </div>
+    `;
+    getWechatModalRoot().appendChild(modal);
+    return modal;
+}
+
+function openStickerPackRenameModal(packId) {
+    if (isWechatBuiltinStickerPackId(packId)) {
+        if (typeof showWechatToast === 'function') showWechatToast('内置贴纸包不能重命名');
+        return;
+    }
+    const data = getStickerPacks();
+    const pack = getEditableStickerPacks(data).find(p => p.id === packId);
+    if (!pack) return;
+    window._renameStickerPackId = packId;
+    const modal = ensureStickerPackRenameModal();
+    const input = document.getElementById('wc-sticker-pack-rename-name');
+    if (input) {
+        input.value = pack.name || '';
+        input.select?.();
+    }
+    modal.classList.add('wc-sticker-submodal');
+    modal.style.zIndex = '3800';
+    modal.classList.remove('hidden');
+    setTimeout(() => input?.focus(), 30);
+}
+
+function closeStickerPackRenameModal() {
+    const modal = document.getElementById('wc-sticker-pack-rename-modal');
+    if (modal) modal.classList.add('hidden');
+    window._renameStickerPackId = '';
+}
+
+function confirmRenameStickerPack() {
+    const packId = window._renameStickerPackId;
+    if (!packId || isWechatBuiltinStickerPackId(packId)) return;
+    const input = document.getElementById('wc-sticker-pack-rename-name');
+    const name = input ? input.value.trim().slice(0, 24) : '';
+    if (!name) {
+        input?.focus();
+        return;
+    }
+    const data = getStickerPacks();
+    const pack = getEditableStickerPacks(data).find(p => p.id === packId);
+    if (!pack) return;
+    pack.name = name;
+    saveStickerPacks(data);
+    refreshStickerSurfaces();
+    closeStickerPackRenameModal();
+    if (window._detailPackId === packId) openPackDetail(packId);
+    if (typeof showWechatToast === 'function') showWechatToast('已重命名贴纸包');
 }
 
 function deleteStickerPack(packId) {

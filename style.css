@@ -1,8 +1,8 @@
-@import url("./styles/wechat-themes/base-overrides.css?v=20260527-ai-phone-patch1");
-@import url("./styles/wechat-themes/reference-themes.css?v=20260527-ai-phone-patch1");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260529-no-fake25");
+@import url("./styles/wechat-themes/reference-themes.css?v=20260529-no-fake25");
 
-/* style.css - 终极修复版 */
-/* --- 🔧 核心工具类 --- */
+/* style.css - 缁堟瀬淇鐗?*/
+/* --- 馃敡 鏍稿績宸ュ叿绫?--- */
 .hidden { display: none !important; }
 
 :root {
@@ -43,13 +43,13 @@ html.mobile-runtime.bynd-display-standalone body { padding-top: 0; padding-botto
 html.mobile-runtime.bynd-display-standalone .phone-container { height: 100dvh; }
 html.lockscreen-disabled .lock-screen { display: none !important; }
 
-/* --- 状态栏 --- */
+/* --- 鐘舵€佹爮 --- */
 .status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
 .status-bar.white-text { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .status-bar.white-text i { color: #ffffff; }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
-/* --- 锁屏 --- */
+/* --- 閿佸睆 --- */
 .lock-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #fcfcfc; z-index: 900; display: flex; flex-direction: column; padding-top: 80px; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
 .lock-screen.unlocked { transform: translateY(-100%); }
 .ls-header { text-align: center; margin-bottom: 20px; }
@@ -80,7 +80,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .round-btn.ls-flash-on { background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,200,0.8); color: #333; }
 .swipe-hint { width: 120px; height: 5px; background: var(--lock-swipe-bg); border-radius: 3px; transition: background 0.35s ease; }
 
-/* --- 桌面 (修复重点区域) --- */
+/* --- 妗岄潰 (淇閲嶇偣鍖哄煙) --- */
 .screen-content { 
     height: 100%; 
     background: #f8f8f8; 
@@ -89,7 +89,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     padding-top: 55px !important; 
 }
 
-/* 👇 这里的内边距之前被那行乱码搞丢了，现在加回来了！ */
+/* 馃憞 杩欓噷鐨勫唴杈硅窛涔嬪墠琚偅琛屼贡鐮佹悶涓簡锛岀幇鍦ㄥ姞鍥炴潵浜嗭紒 */
 .pages-container { flex: 1; display: flex; overflow: hidden; position: relative; }
 .desktop-page { min-width: 100%; width: 100%; transition: transform 0.3s ease; display: flex; flex-direction: column; }
 .page-dots { display: flex; justify-content: center; gap: 6px; padding: 8px 0; }
@@ -119,7 +119,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .cal-dot.active::before { content: ''; position: absolute; width: 22px; height: 20px; background: var(--cal-accent, #ff69b4); -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; filter: blur(2px); opacity: 0.8; z-index: -1; }
 .cal-dot.active::after { content: ''; position: absolute; width: 20px; height: 18px; background: var(--cal-accent, #ff69b4); -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 1; z-index: -1; }
 
-/* --- 日历配色设置 --- */
+/* --- 鏃ュ巻閰嶈壊璁剧疆 --- */
 .cal-color-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
 .cal-color-item { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
 .cal-color-item label { font-size: 11px; color: #aaa; font-weight: 600; }
@@ -693,7 +693,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .dock-item:active .dock-icon-box { transform: scale(0.9); }
 .dock-label { font-size: 11px; color: #333; font-weight: 500; opacity: 0.9; }
 
-/* --- 窗口通用 --- */
+/* --- 绐楀彛閫氱敤 --- */
 .app-window { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: #fafafa; z-index: 2000; display: flex; flex-direction: column; transform: translateY(110%); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); overflow: hidden; }
 .app-window.active { transform: translateY(0); }
 .window-header { display: flex !important; justify-content: space-between; align-items: center; height: 90px !important; padding-top: 45px !important; padding-left: 25px; padding-right: 25px; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.03); flex-shrink: 0; }
@@ -704,7 +704,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .window-content { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
 .window-content::-webkit-scrollbar { width: 0; background: transparent; }
 
-/* --- 音乐 App --- */
+/* --- 闊充箰 App --- */
 .music-window {
     background: #f4f5f6;
     color: #111318;
@@ -910,6 +910,83 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
 }
+
+.wc-music-listen-player {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 86px;
+    z-index: 3900;
+    min-height: 354px;
+    max-height: calc(100% - 112px);
+    padding: 16px 18px 17px;
+    border-radius: 28px;
+    background: linear-gradient(180deg, rgba(247,250,255,0.88), rgba(238,249,252,0.92)), rgba(255,255,255,0.82);
+    border: 1px solid rgba(255,255,255,0.76);
+    box-shadow: 0 24px 62px rgba(80,105,135,0.22);
+    backdrop-filter: blur(26px) saturate(1.12);
+    -webkit-backdrop-filter: blur(26px) saturate(1.12);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 13px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+.wc-music-listen-player.hidden { display: none !important; }
+.wc-music-listen-close { position: absolute; left: 14px; top: 14px; width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(255,255,255,0.72); color: #8a95a5; font-size: 22px; display: inline-flex; align-items: center; justify-content: center; }
+.wc-music-listen-art { width: min(74vw, 250px); aspect-ratio: 1; margin-top: 18px; border-radius: 4px; background: linear-gradient(135deg, #f6d8df, #ddeeff); box-shadow: 0 24px 42px rgba(108,122,150,0.18); display: flex; align-items: center; justify-content: center; overflow: hidden; color: #677085; }
+.wc-music-listen-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wc-music-listen-art i { font-size: 58px; }
+.wc-music-listen-people { height: 44px; margin-top: -34px; display: flex; align-items: center; justify-content: center; }
+.wc-music-listen-people img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255,255,255,0.88); background: #eef2f7; box-shadow: 0 10px 24px rgba(50,65,85,0.16); }
+.wc-music-listen-people img + img { margin-left: -18px; }
+.wc-music-listen-meta { width: 100%; min-width: 0; text-align: center; }
+.wc-music-listen-meta span,
+.wc-music-listen-meta strong,
+.wc-music-listen-meta em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-music-listen-meta span { color: rgba(91,105,124,0.52); font-size: 11px; font-weight: 850; }
+.wc-music-listen-meta strong { margin-top: 5px; color: #273247; font-size: 24px; line-height: 1.05; font-weight: 900; }
+.wc-music-listen-meta em { margin-top: 8px; color: #8ca0ad; font-size: 16px; line-height: 1.1; font-style: normal; font-weight: 740; }
+.wc-music-listen-progress { width: 100%; height: 6px; margin-top: 2px; border-radius: 999px; background: rgba(118,132,151,0.24); overflow: hidden; cursor: pointer; touch-action: none; }
+.wc-music-listen-progress span { width: 0; height: 100%; display: block; border-radius: inherit; background: #2f3a55; transition: width 0.12s linear; }
+.wc-music-listen-progress.is-seeking { height: 8px; background: rgba(118,132,151,0.32); }
+.wc-music-listen-progress.is-seeking span { transition: none; background: #ff5fa2; }
+.wc-music-listen-actions { width: 100%; display: grid; grid-template-columns: 1fr 42px 72px 42px 1fr; align-items: center; gap: 9px; }
+.wc-music-listen-actions button { height: 42px; border: none; border-radius: 999px; background: transparent; color: #27b8d7; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 840; }
+.wc-music-listen-actions button i { font-size: 22px; }
+.wc-music-listen-actions .wc-music-listen-play { width: 72px; height: 72px; background: rgba(255,255,255,0.92); color: #303650; box-shadow: 0 14px 34px rgba(79,91,124,0.14); }
+.wc-music-listen-actions .wc-music-listen-play i { font-size: 34px; }
+.wc-music-listen-mode { grid-column: 1 / 3; justify-self: start; }
+.wc-music-listen-actions button:last-child { grid-column: 4 / 6; justify-self: end; }
+.wc-music-listen-player .ri-loader-4-line { animation: spin 0.9s linear infinite; }
+.wc-music-queue-panel { width: 100%; max-height: 230px; min-height: 0; margin-top: 2px; padding: 10px; border-radius: 18px; background: rgba(255,255,255,0.64); border: 1px solid rgba(255,255,255,0.62); overflow: hidden; flex: 0 1 auto; }
+.wc-music-queue-panel.hidden { display: none !important; }
+.wc-music-queue-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; color: #526173; font-size: 12px; font-weight: 850; }
+.wc-music-queue-head button { height: 28px; padding: 0 10px; border: none; border-radius: 999px; background: #27b8d7; color: #fff; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 850; }
+.wc-music-queue-list { max-height: 176px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; display: flex; flex-direction: column; gap: 6px; padding-bottom: 2px; }
+.wc-music-queue-list button { width: 100%; min-height: 42px; border: none; border-radius: 13px; background: rgba(255,255,255,0.62); color: #273247; display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; grid-template-rows: auto auto; gap: 1px 8px; align-items: center; padding: 5px 8px; text-align: left; }
+.wc-music-queue-list button.active { background: rgba(255,95,162,0.14); color: #d93682; }
+.wc-music-queue-list button > span { grid-row: 1 / 3; width: 34px; height: 34px; border-radius: 9px; overflow: hidden; background: #eef2f7; display: flex; align-items: center; justify-content: center; color: #8a95a5; }
+.wc-music-queue-list img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wc-music-queue-list b,
+.wc-music-queue-list em { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-music-queue-list b { font-size: 12px; line-height: 1.15; font-weight: 900; }
+.wc-music-queue-list em { color: #8a95a5; font-size: 10px; line-height: 1.1; font-style: normal; font-weight: 740; }
+.wc-music-queue-list button > i { grid-row: 1 / 3; grid-column: 3; justify-self: end; color: currentColor; font-size: 17px; }
+.wc-music-queue-empty { padding: 18px 8px; color: #8a95a5; text-align: center; font-size: 12px; font-weight: 760; }
+.wc-music-lyrics-float { position: absolute; left: 24px; top: 142px; z-index: 3910; width: min(320px, calc(100% - 48px)); max-height: 132px; border-radius: 18px; background: transparent; color: #fff; box-shadow: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: hidden; text-shadow: 0 3px 14px rgba(0,0,0,0.34); }
+.wc-music-lyrics-float.hidden { display: none !important; }
+.wc-music-lyrics-handle { height: 30px; padding: 0 2px 0 0; display: flex; align-items: center; justify-content: flex-end; cursor: grab; }
+.wc-music-lyrics-handle button { width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(17,24,39,0.18); color: rgba(255,255,255,0.76); display: inline-flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.wc-music-lyrics-lines { max-height: 102px; overflow: hidden; padding: 0; scroll-behavior: smooth; }
+.wc-music-lyric-line { margin: 0; padding: 5px 0; color: rgba(255,255,255,0.52); font-size: 20px; line-height: 1.25; font-weight: 900; transition: color 0.2s ease, transform 0.2s ease, opacity 0.2s ease; }
+.wc-music-lyric-line.active { color: #ff5fa2; transform: translateX(2px) scale(1.02); text-shadow: 0 0 18px rgba(255,95,162,0.35), 0 4px 16px rgba(0,0,0,0.30); }
+.wc-music-lyric-line.near-active { color: rgba(255,255,255,0.74); }
+.wc-music-lyric-line.is-hidden { display: none; }
+.wc-music-lyrics-empty { margin: 0; padding: 18px 0; color: rgba(255,255,255,0.58); text-align: center; font-size: 13px; font-weight: 760; }
 .music-source-config > button {
     height: 40px;
     border: none;
@@ -1766,7 +1843,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     font-weight: 850;
 }
 
-/* --- 美化 App --- */
+/* --- 缇庡寲 App --- */
 .setting-card { background: white; border-radius: 24px; padding: 15px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.02); border: 1px solid #f7f7f7; }
 .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #444; font-weight: 600; font-size: 14px; }
 .card-icon { width: 28px; height: 28px; border-radius: 8px; background: #fff0f3; color: #ff758c; display: flex; align-items: center; justify-content: center; font-size: 16px; }
@@ -1824,7 +1901,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .theme-check-card input { position: absolute; opacity: 0; pointer-events: none; }
 .theme-check-card span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
 .theme-check-card span::before { content: ''; width: 15px; height: 15px; flex: 0 0 15px; background: transparent; transition: color 0.18s ease; }
-.theme-check-card input:checked + span::before { content: '✓'; border-color: transparent; background: transparent; color: currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; line-height: 1; }
+.theme-check-card input:checked + span::before { content: '\2713'; border-color: transparent; background: transparent; color: currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; line-height: 1; }
 .lock-deco-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; margin-top: 12px; }
 .lock-weather-input { margin-top: 10px; }
 .desktop-layout-entry { padding: 13px; border-radius: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(216,230,255,0.58)); border: 1px solid rgba(157,177,204,0.16); display: grid; grid-template-columns: minmax(0,1fr) 82px; gap: 12px; align-items: center; box-shadow: 0 10px 24px rgba(108,132,162,0.08); }
@@ -1894,7 +1971,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .icon-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .icon-name { font-size: 11px; color: #666; line-height: 1.22; text-align: center; width: 100%; min-height: 28px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; text-overflow: ellipsis; word-break: keep-all; }
 
-/* --- 微信 App 样式 --- */
+/* --- 寰俊 App 鏍峰紡 --- */
 .wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
 .wc-header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; z-index: 1; }
 .wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }
@@ -1918,7 +1995,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-name { font-size: 16px; font-weight: 500; color: #111; }
 .wc-time { font-size: 10px; color: #b2b2b2; }
 .wc-bottom { display: flex; }
-.wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; min-height: 18px; /* 防止内容为空时塌陷 */ }
+.wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; min-height: 18px; /* 闃叉鍐呭涓虹┖鏃跺闄?*/ }
 .wc-tab-view { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px; background: white; }
 .wc-tab-view.active { display: flex; flex-direction: column; flex: 1; }
 .wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 12px; z-index: 10; }
@@ -2585,7 +2662,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-meta i { font-size: 13px; line-height: 1; color: var(--msg-meta-icon-color, #58b7ff); }
 .msg-row.left .msg-bubble::before { content: none; }
 .msg-row.right .msg-bubble::before { content: none; }
-/* 表情贴纸不用缝 */
+/* 琛ㄦ儏璐寸焊涓嶇敤缂?*/
 .msg-bubble.sticker { width: max-content; max-width: min(184px, calc(100vw - 136px)); background: none; border: none; box-shadow: none; padding: 0; min-width: 0; overflow: visible; display: flex; flex-direction: column; align-items: flex-start; }
 .msg-row.right .msg-bubble.sticker { align-items: flex-end; }
 .msg-row.center-regex { justify-content: center; padding: 0 10px; }
@@ -2615,7 +2692,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-reply-preview button { width: 26px; height: 26px; border: none; border-radius: 50%; background: rgba(15,23,42,0.06); color: #526173; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .wc-reply-preview button i { font-size: 15px; color: inherit; }
 
-/* --- 💬 聊天设置面板 --- */
+/* --- 馃挰 鑱婂ぉ璁剧疆闈㈡澘 --- */
 .wc-chat-settings { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% -10%, rgba(255,255,255,0.92), rgba(244,246,248,0.86) 42%, #f2f3f5 100%); z-index: 25; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .wc-chat-settings.active { transform: translateX(0); }
 .wcs-header { height: 96px; padding: 48px 18px 12px; background: transparent; display: flex; align-items: center; justify-content: space-between; border-bottom: none; flex-shrink: 0; }
@@ -2765,7 +2842,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wcs-avatar-gallery-item.active { border-color: #111; }
 .wcs-avatar-gallery-item:hover { border-color: #999; }
 
-/* 🔴 关键修复：提升弹窗层级，确保覆盖所有窗口 */
+/* 馃敶 鍏抽敭淇锛氭彁鍗囧脊绐楀眰绾э紝纭繚瑕嗙洊鎵€鏈夌獥鍙?*/
 .wc-action-sheet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 3000 !important; display: flex; flex-direction: column; justify-content: flex-end; }
 .wc-sheet-content { background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; animation: slideUp 0.3s ease; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -2801,7 +2878,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
 
-/* --- style.css 追加内容：自动深色模式 --- */
+/* --- style.css 杩藉姞鍐呭锛氳嚜鍔ㄦ繁鑹叉ā寮?--- */
 .dark-mode .app-item span,
 .dark-mode .dock-label {
     color: #ffffff !important;
@@ -2814,7 +2891,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     text-shadow: var(--lock-text-shadow);
 }
 
-/* === 📖 WorldBook 样式 === */
+/* === 馃摉 WorldBook 鏍峰紡 === */
 .wb-shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 30px 20px; }
 .wb-book { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; animation: popIn 0.3s ease; }
 .wb-cover { width: 85px; height: 115px; background: #5d4037; border-radius: 4px 8px 8px 4px; box-shadow: 4px 4px 12px rgba(0,0,0,0.3), inset 3px 0 10px rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
@@ -2823,7 +2900,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wb-title { font-size: 12px; font-weight: bold; color: #5d4037; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 5px; }
 .wb-empty { text-align: center; color: #a1887f; margin-top: 60px; }
 
-/* 书本详情 */
+/* 涔︽湰璇︽儏 */
 .wb-nav-bar { height: 60px; padding: 0 15px; display: flex; align-items: center; justify-content: space-between; background: #ece6d8; border-bottom: 1px solid #d7ccc8; color: #5d4037; font-weight: bold; font-size: 16px; }
 .wb-nav-bar i { font-size: 24px; cursor: pointer; padding: 5px; }
 .wb-detail-scroll { flex: 1; overflow-y: auto; padding: 20px; background: #f5f1e8; }
@@ -2835,7 +2912,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wb-keys { font-size: 11px; background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffe0b2; }
 .wb-text { font-size: 13px; color: #4e342e; line-height: 1.6; white-space: pre-wrap; text-align: justify; }
 
-/* === Regex 样式 === */
+/* === Regex 鏍峰紡 === */
 .regex-window { background: #f6f7f9 !important; color: #111827; }
 .regex-window-header { background: rgba(255,255,255,0.88) !important; border-bottom: 1px solid rgba(15,23,42,0.06) !important; color: #111827 !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .regex-window-header .close-btn { color: #64748b !important; }
@@ -2888,7 +2965,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .re-modal-card input:focus, .re-modal-card select:focus { border-color: rgba(7,193,96,0.42); background: #fff; box-shadow: 0 0 0 3px rgba(7,193,96,0.10); }
 .re-modal-card .btn-confirm { background: #111827 !important; color: #fff; border-radius: 14px !important; }
 
-/* --- 📖 WorldBook 列表化改造 --- */
+/* --- 馃摉 WorldBook 鍒楄〃鍖栨敼閫?--- */
 .wb-list-container { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
 .wb-list-item { background: white; padding: 12px 15px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .wb-list-item:active { background: #f5f5f5; transform: scale(0.99); }
@@ -2898,9 +2975,9 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wb-item-right { color: #ccc; font-size: 18px; }
 .wb-read-field { background: #f0f0f0 !important; color: #555 !important; border: 1px solid #ddd !important; }
 
-/* --- 聊天视图样式 --- */
+/* --- 鑱婂ぉ瑙嗗浘鏍峰紡 --- */
 
-/* 1. 顶部栏 — 奶茶粉渐变 */
+/* 1. 椤堕儴鏍?鈥?濂惰尪绮夋笎鍙?*/
 .st-header {
     height: 60px;
     padding: 0 15px;
@@ -2918,7 +2995,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .st-header i { font-size: 22px; cursor: pointer; padding: 5px; color: #c9a0b5; transition: all 0.2s; }
 .st-header i:active { color: #f8a4b8; transform: scale(0.9); }
 
-/* 2. 容器与背景 — 暖奶茶色 */
+/* 2. 瀹瑰櫒涓庤儗鏅?鈥?鏆栧ザ鑼惰壊 */
 .st-container {
     flex: 1;
     overflow: hidden;
@@ -2930,7 +3007,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
                       radial-gradient(circle at 80% 20%, rgba(183,148,198,0.08) 0%, transparent 50%) !important;
 }
 
-/* 3. 角色网格列表 — 小卡片圆形头像 */
+/* 3. 瑙掕壊缃戞牸鍒楄〃 鈥?灏忓崱鐗囧渾褰㈠ご鍍?*/
 .st-char-grid { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; overflow-y: auto; }
 .st-char-card {
     background: rgba(255,255,255,0.7);
@@ -2967,7 +3044,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     letter-spacing: 0.3px;
 }
 
-/* 4. 聊天视图 */
+/* 4. 鑱婂ぉ瑙嗗浘 */
 .st-chat-view {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; flex-direction: column;
@@ -2983,7 +3060,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     gap: 22px;
 }
 
-/* 美化滚动条 — 粉色系 */
+/* 缇庡寲婊氬姩鏉?鈥?绮夎壊绯?*/
 .st-chat-log::-webkit-scrollbar,
 .st-char-grid::-webkit-scrollbar {
     width: 4px;
@@ -2995,7 +3072,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     border-radius: 4px;
 }
 
-/* 5. 消息行 */
+/* 5. 娑堟伅琛?*/
 .st-msg-row { display: flex; gap: 10px; opacity: 0; animation: stFadeIn 0.4s ease forwards; width: 100%; padding: 4px 0; }
 .st-msg-row.st-left { justify-content: flex-start; }
 .st-msg-row.st-right { justify-content: flex-end; flex-direction: row-reverse; }
@@ -3013,7 +3090,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .st-sender-name { font-weight: 600; color: #8a7080; }
 .st-msg-row.st-right .st-meta-line { flex-direction: row-reverse; }
 
-/* 气泡 — 简约风 */
+/* 姘旀场 鈥?绠€绾﹂ */
 .st-bubble {
     font-size: 14px; line-height: 1.6; padding: 10px 14px;
     border-radius: 4px 18px 18px 18px;
@@ -3027,7 +3104,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     border-radius: 18px 4px 18px 18px;
 }
 
-/* HTML 卡片适配 */
+/* HTML 鍗＄墖閫傞厤 */
 .st-bubble.raw-html {
     background: transparent !important;
     padding: 0 !important;
@@ -3047,7 +3124,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     display: block;
 }
 
-/* 6. 底部输入栏 — 柔和毛玻璃 */
+/* 6. 搴曢儴杈撳叆鏍?鈥?鏌斿拰姣涚幓鐠?*/
 .st-toolbar { display: flex; gap: 0; background: rgba(255,250,248,0.98); border-top: 1px solid rgba(248,164,184,0.15); padding: 10px 15px; flex-shrink: 0; }
 .st-toolbar.hidden { display: none; }
 .st-toolbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; cursor: pointer; border-radius: 10px; transition: background 0.15s; }
@@ -3082,7 +3159,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     box-shadow: 0 0 0 3px rgba(248,164,184,0.1);
 }
 
-/* --- ⚙️ 设置 App 样式 (清新可爱风) --- */
+/* --- 鈿欙笍 璁剧疆 App 鏍峰紡 (娓呮柊鍙埍椋? --- */
 .set-section-title {
     font-size: 13px; font-weight: 700; color: #c9a0b5;
     display: flex; align-items: center; gap: 6px;
@@ -3091,7 +3168,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .set-section-title i { font-size: 16px; }
 
-/* API 卡片 */
+/* API 鍗＄墖 */
 .api-card {
     background: rgba(255,255,255,0.85);
     border: 1.5px solid rgba(248,164,184,0.15);
@@ -3108,7 +3185,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .api-card:active { transform: scale(0.98); }
 .api-card.is-default { border-color: rgba(248,164,184,0.4); }
 
-/* 状态灯 */
+/* 鐘舵€佺伅 */
 .api-status-dot {
     width: 10px; height: 10px;
     border-radius: 50%;
@@ -3121,7 +3198,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .api-status-dot.testing { background: #fbbf24; animation: pulse-dot 1s infinite; }
 @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-/* 卡片信息 */
+/* 鍗＄墖淇℃伅 */
 .api-card-info { flex: 1; min-width: 0; }
 .api-card-name {
     font-size: 14px; font-weight: 700; color: #5a4a52;
@@ -3139,7 +3216,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     padding: 2px 8px; border-radius: 8px;
 }
 
-/* 卡片操作按钮 */
+/* 鍗＄墖鎿嶄綔鎸夐挳 */
 .api-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .api-card-actions i {
     width: 32px; height: 32px;
@@ -3151,7 +3228,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .api-card-actions i:active { transform: scale(0.9); background: rgba(248,164,184,0.1); }
 .api-card-actions .del-btn:active { color: #f87171; }
 
-/* 添加按钮 */
+/* 娣诲姞鎸夐挳 */
 .set-add-btn {
     background: rgba(255,255,255,0.6);
     border: 2px dashed rgba(248,164,184,0.3);
@@ -3257,7 +3334,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     color: #738195;
 }
 
-/* 预设卡片（可展开） */
+/* 棰勮鍗＄墖锛堝彲灞曞紑锛?*/
 .preset-card {
     background: rgba(255,255,255,0.85);
     border: 1.5px solid rgba(248,164,184,0.15);
@@ -3290,7 +3367,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .preset-card-actions i:active { transform: scale(0.9); background: rgba(248,164,184,0.1); }
 
-/* 展开的 prompts 列表 */
+/* 灞曞紑鐨?prompts 鍒楄〃 */
 .preset-prompts-list {
     border-top: 1px solid rgba(248,164,184,0.12);
     padding: 10px 14px 14px;
@@ -3320,7 +3397,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .preset-prompt-del { font-size: 14px !important; color: #dbb !important; padding: 4px; border-radius: 6px; }
 .preset-prompt-del:active { color: #f87171 !important; background: rgba(248,113,113,0.1); }
 
-/* toggle 开关 */
+/* toggle 寮€鍏?*/
 .preset-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
 .preset-toggle input { opacity: 0; width: 0; height: 0; }
 .preset-toggle-slider {
@@ -3337,7 +3414,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .preset-toggle input:checked + .preset-toggle-slider { background: #f8a4b8; }
 .preset-toggle input:checked + .preset-toggle-slider::before { transform: translateX(16px); }
 
-/* prompt 内容展开 */
+/* prompt 鍐呭灞曞紑 */
 .preset-prompt-content { padding: 0 12px 12px; }
 .preset-prompt-content textarea {
     width: 100%; min-height: 120px; max-height: 300px;
@@ -3351,14 +3428,14 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .preset-prompt-content textarea:focus { border-color: rgba(248,164,184,0.5); }
 .set-add-btn i { font-size: 18px; }
 
-/* 空状态 */
+/* 绌虹姸鎬?*/
 .set-empty {
     text-align: center; padding: 40px 0; color: #c9a0b5;
     font-size: 13px;
 }
 .set-empty i { font-size: 36px; display: block; margin-bottom: 10px; color: #e8d0dc; }
 
-/* --- 字体设置 --- */
+/* --- 瀛椾綋璁剧疆 --- */
 .font-preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
 .font-preset-item { background: rgba(255,255,255,0.85); border: 1.5px solid rgba(248,164,184,0.15); border-radius: 14px; padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .font-preset-item:active { transform: scale(0.96); }
@@ -3366,7 +3443,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .font-preset-name { font-size: 11px; color: #c9a0b5; font-weight: 600; }
 .font-preset-sample { font-size: 18px; color: #5a4a52; line-height: 1.3; }
 
-/* 字体下拉选择器 */
+/* 瀛椾綋涓嬫媺閫夋嫨鍣?*/
 .font-select-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .font-select { flex: 1; background: rgba(255,255,255,0.85); border: 1.5px solid rgba(248,164,184,0.2); border-radius: 14px; padding: 12px 14px; font-size: 14px; color: #5a4a52; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23c9a0b5' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
 .font-select:focus { border-color: #f8a4b8; }
@@ -3391,7 +3468,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .font-reset-btn { font-size: 12px; color: #c9a0b5; cursor: pointer; text-decoration: underline; }
 .font-reset-btn:active { color: #f87171; }
 
-/* 数据管理 */
+/* 鏁版嵁绠＄悊 */
 .set-data-actions { display: flex; gap: 10px; }
 .set-data-btn { flex: 1; background: rgba(255,255,255,0.85); border: 1.5px solid rgba(248,164,184,0.15); border-radius: 16px; padding: 16px 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
 .set-data-btn:active { transform: scale(0.97); background: rgba(248,164,184,0.06); }
@@ -3402,10 +3479,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .set-data-btn-warn i { color: #f87171; }
 .set-data-btn-warn:active { background: rgba(248,113,113,0.05); }
 
-/* 版本号 */
+/* 鐗堟湰鍙?*/
 .set-version { text-align: center; padding: 30px 0 40px; font-size: 11px; color: #d4c0ca; letter-spacing: 0.5px; }
 
-/* 主动消息提醒 */
+/* 涓诲姩娑堟伅鎻愰啋 */
 .notify-card {
     padding: 14px;
     border-radius: 20px;
@@ -3646,7 +3723,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     line-height: 1.5;
 }
 
-/* --- 学习 App --- */
+/* --- 瀛︿範 App --- */
 .study-window {
     background: #f5f6f8;
     color: #111318;
@@ -5191,24 +5268,24 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     opacity: 0.42;
 }
 
-/* --- 聊天工具栏 + AI按钮 --- */
+/* --- 鑱婂ぉ宸ュ叿鏍?+ AI鎸夐挳 --- */
 .wc-ai-btn { color: #a855f7 !important; font-size: 24px; cursor: pointer; transition: transform 0.15s; }
 .wc-ai-btn:active { transform: scale(0.8); }
 .wc-send-btn.is-disabled,
 .wc-ai-btn.is-disabled,
 .st-input-bar i.is-disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
 
-/* 消息楼数 */
+/* 娑堟伅妤兼暟 */
 .st-floor-num { font-size: 11px; color: #b794c6; background: rgba(183,148,198,0.1); padding: 1px 6px; border-radius: 6px; font-family: monospace; }
 
-/* 消息操作按钮 */
+/* 娑堟伅鎿嶄綔鎸夐挳 */
 .st-msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0.6; transition: opacity 0.2s; }
 .st-msg-row:hover .st-msg-actions { opacity: 1; }
 .st-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; transition: all 0.15s; color: #b794c6; font-size: 14px; }
 .st-action-btn:hover { background: rgba(248,164,184,0.12); color: #d4749a; }
 .st-action-btn:active { transform: scale(0.9); }
 
-/* 分支导航 */
+/* 鍒嗘敮瀵艰埅 */
 .st-branch-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .st-branch-btn { cursor: pointer; color: #9f7aea; font-size: 12px; padding: 2px 4px; border-radius: 4px; transition: all 0.15s; user-select: none; }
 .st-branch-btn:hover { background: rgba(159,122,234,0.1); }
@@ -5225,7 +5302,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-toolbar-item:active .wc-toolbar-icon { transform: scale(0.9); background: #eef2f7; box-shadow: inset 0 0 0 1px rgba(15,23,42,0.06), 0 2px 6px rgba(15,23,42,0.08); }
 @keyframes wcToolbarPop { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-/* 表情选择器 */
+/* 琛ㄦ儏閫夋嫨鍣?*/
 .wc-sticker-picker { position: absolute; bottom: 0; left: 0; width: 100%; height: 280px; background: #f7f7f7; z-index: 22; display: flex; flex-direction: column; border-top: 1px solid #dcdcdc; }
 .wc-sticker-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; font-size: 14px; font-weight: 600; color: #333; border-bottom: 1px solid #e8e8e8; }
 .wc-sticker-picker-header i { font-size: 20px; color: #999; cursor: pointer; padding: 4px; }
@@ -5342,7 +5419,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     text-align: right;
 }
 
-/* 图片消息 */
+/* 鍥剧墖娑堟伅 */
 .msg-bubble.image-bubble { padding: 3px; max-width: 210px; background: transparent !important; border: none !important; box-shadow: none !important; overflow: hidden; }
 .msg-bubble.image-bubble img { width: 100%; border-radius: 17px; display: block; box-shadow: 0 2px 12px rgba(15,23,42,0.1); cursor: zoom-in; }
 .msg-image-placeholder { width: 190px; min-height: 142px; border-radius: 17px; background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.92)); color: #64748b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 760; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
@@ -5427,7 +5504,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-media-meta { position: absolute; right: 9px; bottom: 8px; display: inline-flex; align-items: center; gap: 2px; padding: 3px 6px; border-radius: 999px; background: rgba(0,0,0,0.42); color: rgba(255,255,255,0.92); font-size: 10px; line-height: 1; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .msg-media-meta i { font-size: 13px; color: #68c2ff; }
 
-/* 微信特殊消息 */
+/* 寰俊鐗规畩娑堟伅 */
 .msg-voice-bubble { width: var(--voice-width, 150px); min-width: 112px; padding: 8px 10px 5px 12px; cursor: pointer; }
 .msg-voice-line { display: flex; align-items: center; gap: 9px; min-height: 24px; }
 .msg-row.right .msg-voice-line { flex-direction: row-reverse; }
@@ -5951,7 +6028,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     animation: wcScreenShake 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* 微信通话页 */
+/* 寰俊閫氳瘽椤?*/
 .wc-message-island {
     position: absolute;
     top: 13px;
@@ -6033,6 +6110,38 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     font-size: 18px;
     flex: 0 0 auto;
 }
+.wc-music-island {
+    background: rgba(8,10,16,0.94);
+    box-shadow: 0 18px 46px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.wc-music-island .wc-message-island-text strong {
+    color: #ff5fa2;
+}
+.wc-music-island > i {
+    background: rgba(255,95,162,0.16);
+    color: #ff7ab5;
+}
+.wc-music-island-art {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.wc-music-island-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wc-music-island-art i {
+    color: rgba(255,255,255,0.82);
+    font-size: 18px;
+}
 .wc-monitor-island { background: linear-gradient(135deg, rgba(8,9,13,0.96), rgba(31,18,36,0.94)); box-shadow: 0 18px 46px rgba(71,18,71,0.34), inset 0 1px 0 rgba(255,255,255,0.10); }
 .wc-monitor-island > i { background: rgba(185,111,255,0.17); color: #f5d0ff; }
 .wc-monitor-request-overlay { background: rgba(8,10,14,0.30); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
@@ -6110,7 +6219,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-call-tool i { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.14); color: #fff; font-size: 20px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .wc-call-end { width: 60px; height: 60px; border: none; border-radius: 50%; background: #ff3b30; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 27px; box-shadow: 0 14px 34px rgba(255,59,48,0.34); transform: rotate(135deg); }
 
-/* 气泡操作菜单 */
+/* 姘旀场鎿嶄綔鑿滃崟 */
 .msg-action-menu { position: absolute; top: -8px; left: 50%; transform: translateX(-50%) translateY(-100%); background: #fff; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: flex; gap: 0; z-index: 100; overflow-x: auto; max-width: calc(100vw - 44px); white-space: nowrap; }
 .msg-action-item { padding: 8px 14px; font-size: 13px; color: #333; cursor: pointer; display: flex; align-items: center; gap: 4px; border-right: 1px solid #eee; }
 .msg-action-item:last-child { border-right: none; }
@@ -6128,7 +6237,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-collapse-divider i { color: #526173; font-size: 15px; }
 .msg-collapse-divider b { color: #111827; font-size: 12px; font-weight: 800; }
 
-/* 贴纸管理器 */
+/* 璐寸焊绠＄悊鍣?*/
 .sticker-pack-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9f9f9; border-radius: 10px; margin-bottom: 8px; }
 .sticker-pack-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .sticker-pack-preview { width: 40px; height: 40px; border-radius: 6px; object-fit: contain; background: #eee; flex-shrink: 0; }
@@ -6145,7 +6254,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .pack-sticker-cell { position: relative; cursor: pointer; }
 .pack-sticker-cell.selected { outline: 2px solid #ff3b30; border-radius: 6px; }
 
-/* === WorldBook 琴谱书架 === */
+/* === WorldBook 鐞磋氨涔︽灦 === */
 #app-worldbook-window { background: #fff !important; isolation: isolate; }
 #app-worldbook-window::before { content: ''; position: absolute; inset: 0; z-index: -1; background: #fff; pointer-events: none; }
 #app-worldbook-window .window-header { background: rgba(255,255,255,0.92) !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; }
@@ -6229,7 +6338,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wb-transition-book.is-open .wb-transition-cover { transform: rotateY(-72deg); opacity: 0.78; }
 .wb-transition-book.is-open .wb-transition-pages { opacity: 1; transform: translateX(42%) scaleX(1.32); }
 
-/* 微信模拟消息弹窗 */
+/* 寰俊妯℃嫙娑堟伅寮圭獥 */
 .wc-compose-overlay { z-index: 3300 !important; }
 .wc-compose-card { width: 86%; max-height: 82%; overflow: hidden; border-radius: 24px; background: rgba(255,255,255,0.96); box-shadow: 0 18px 54px rgba(15,23,42,0.24); border: 1px solid rgba(255,255,255,0.85); animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .wc-compose-header { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid rgba(15,23,42,0.06); }
@@ -6321,7 +6430,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-transfer-method { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 15px; color: #8a8a8a; font-size: 13px; }
 .wc-transfer-method strong { color: #111; font-size: 14px; font-weight: 600; }
 
-/* === 个性化设置精修 === */
+/* === 涓€у寲璁剧疆绮句慨 === */
 #app-theme-window { background: #fff8fb; }
 #app-theme-window .window-header { background: rgba(255,250,252,0.90); border-bottom: 1px solid rgba(222,154,178,0.14); }
 #app-theme-window .window-header h3 { color: #3a3040; font-weight: 860; }
@@ -6516,7 +6625,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 #app-theme-window .theme-check-card { height: 42px; border-radius: 15px; background: rgba(255,249,252,0.82); border-color: rgba(193,126,154,0.09); color: #6b6475; display: flex; align-items: center; justify-content: center; gap: 5px; position: relative; }
 #app-theme-window .theme-check-card i { font-size: 15px; color: #c46f91; }
 #app-theme-window .theme-check-card input { position: absolute; opacity: 0; pointer-events: none; }
-#app-theme-window .theme-check-card input:checked ~ span::after { content: '✓'; margin-left: 4px; color: #111318; font-weight: 950; }
+#app-theme-window .theme-check-card input:checked ~ span::after { content: '\2713'; margin-left: 4px; color: #111318; font-weight: 950; }
 #app-theme-window .theme-check-card input:not(:checked) ~ i,
 #app-theme-window .theme-check-card input:not(:checked) ~ span { opacity: 0.42; }
 #app-theme-window .desktop-layout-entry { border-radius: 20px; background: linear-gradient(135deg, #fff, #fff0f6 46%, #edf6ff); border-color: rgba(235,150,178,0.18); box-shadow: 0 12px 26px rgba(160,112,137,0.10); }
@@ -6549,7 +6658,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-sticker-manager-overlay { z-index: 3600 !important; }
 .wc-sticker-submodal { z-index: 3800 !important; }
 
-/* === BYND 自适应系统色：正则 / 世界书 / 设置 / 美化 / 预设 === */
+/* === BYND 鑷€傚簲绯荤粺鑹诧細姝ｅ垯 / 涓栫晫涔?/ 璁剧疆 / 缇庡寲 / 棰勮 === */
 .bynd-adaptive #app-regex-window,
 .bynd-adaptive #app-worldbook-window,
 .bynd-adaptive #app-settings-window,
@@ -11309,7 +11418,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     font-weight: 920;
 }
 
-/* Acting Game / 谁是演技派 */
+/* Acting Game / 璋佹槸婕旀妧娲?*/
 .game-window.game-mode-acting .game-shell,
 .game-window.game-mode-acting .game-header,
 .game-window.game-mode-acting .game-content {
@@ -12299,7 +12408,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 
 
-/* === AI 角色小手机：iPhone 风格桌面与应用页 === */
+/* === AI 瑙掕壊灏忔墜鏈猴細iPhone 椋庢牸妗岄潰涓庡簲鐢ㄩ〉 === */
 .wc-ai-phone-overlay {
     background:
         radial-gradient(circle at 18% 12%, rgba(255,255,255,0.38), transparent 30%),
@@ -12895,7 +13004,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 
 
-/* === AI 角色小手机：iOS 内页精修 v2 === */
+/* === AI 瑙掕壊灏忔墜鏈猴細iOS 鍐呴〉绮句慨 v2 === */
 .wc-ai-phone-overlay {
     background: rgba(246, 247, 249, 0.78);
     backdrop-filter: blur(18px);
@@ -13233,7 +13342,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 
 
-/* === 微信音乐与小手机 iOS app 内页增强 === */
+/* === 寰俊闊充箰涓庡皬鎵嬫満 iOS app 鍐呴〉澧炲己 === */
 .msg-music-card.resolving .msg-music-play {
     animation: wcMusicSpin 1s linear infinite;
 }
@@ -14336,7 +14445,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     padding: 8px 10px 20px;
 }
 .wc-ai-phone-mini-sticker.is-broken::before {
-    content: "表情加载失败";
+    content: "琛ㄦ儏鍔犺浇澶辫触";
     font-size: 12px;
 }
 
