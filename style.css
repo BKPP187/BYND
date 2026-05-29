@@ -1,5 +1,5 @@
-@import url("./styles/wechat-themes/base-overrides.css?v=20260529-no-fake25");
-@import url("./styles/wechat-themes/reference-themes.css?v=20260529-no-fake25");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260529-mobile-perf27");
+@import url("./styles/wechat-themes/reference-themes.css?v=20260529-mobile-perf27");
 
 /* style.css - 缁堟瀬淇鐗?*/
 /* --- 馃敡 鏍稿績宸ュ叿绫?--- */
@@ -2640,6 +2640,113 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-quote.is-sticker .msg-quote-caption span { display: none; }
 .msg-bubble.green .msg-quote-media { background: rgba(255,255,255,0.16); }
 .msg-bubble.green .msg-quote-caption span { color: rgba(255,255,255,0.82); }
+.msg-quote-music {
+    width: min(238px, 100%);
+    max-width: 100%;
+    padding: 8px;
+    border-left: none;
+    border-radius: 13px;
+    background: rgba(255,255,255,0.58);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 28px;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 7px 8px;
+}
+.msg-bubble.green .msg-quote-music { background: rgba(255,255,255,0.16); }
+.msg-quote-music-art {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(236,72,153,0.16));
+    color: rgba(37,99,235,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.msg-bubble.green .msg-quote-music-art {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.92);
+}
+.msg-quote-music-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.msg-quote-music-art i { font-size: 22px; line-height: 1; }
+.msg-quote-music-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.msg-quote-music-main span {
+    display: block;
+    font-size: 10px;
+    line-height: 1.1;
+    opacity: 0.58;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+}
+.msg-quote-music-main strong {
+    display: block;
+    font-size: 12px;
+    line-height: 1.18;
+    font-weight: 800;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.msg-quote-music-main em {
+    display: block;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.12;
+    font-style: normal;
+    opacity: 0.62;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.msg-quote-music-play {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(37,99,235,0.12);
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.msg-bubble.green .msg-quote-music-play {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+}
+.msg-quote-music-play i { font-size: 17px; line-height: 1; transform: translateX(1px); }
+.msg-quote-music-footer {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding-top: 6px;
+    border-top: 1px solid rgba(15,23,42,0.07);
+}
+.msg-bubble.green .msg-quote-music-footer { border-top-color: rgba(255,255,255,0.18); }
+.msg-quote-music-footer span {
+    display: block;
+    font-size: 10px;
+    line-height: 1.1;
+    opacity: 0.56;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+}
 .msg-text { display: inline; white-space: pre-wrap; min-width: 0; }
 .msg-text.rich { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; overflow-wrap: anywhere; white-space: normal; }
 .msg-bubble.rich { width: 100%; padding: 8px; overflow: hidden; }
@@ -2657,6 +2764,14 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-bubble.rich :where(a, button, [onclick], [role="button"], input, select, textarea, summary) { cursor: pointer; }
 .msg-bubble.rich .encrypted-overlay.decrypted { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 .msg-bubble.rich :where(.encrypted-overlay, .decrypt-button) { cursor: pointer; }
+#app-wechat-window button,
+#app-wechat-window [onclick],
+#app-wechat-window [role="button"],
+#app-wechat-window .wc-chat-item,
+#app-wechat-window .wc-tab {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
 .msg-meta { float: right; display: inline-flex; align-items: center; gap: 2px; margin: 5px 0 0 9px; font-size: 10px; line-height: 1; color: var(--msg-meta-color, rgba(76,86,106,0.55)); transform: translateY(1px); white-space: nowrap; }
 .msg-bubble.green .msg-meta { color: var(--msg-meta-color, rgba(255,255,255,0.72)); }
 .msg-meta i { font-size: 13px; line-height: 1; color: var(--msg-meta-icon-color, #58b7ff); }

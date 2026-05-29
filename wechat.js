@@ -834,10 +834,7 @@ function openChat(charId) {
     window.currentChatCharId = charId;
     clearWechatReplyDraft();
     const sanitizedContext = sanitizeWechatEmptyChatDerivedContext(char);
-    let touchedMessageTime = false;
-    (char.history || []).forEach(msg => {
-        if (ensureMessageTimestamp(msg)) touchedMessageTime = true;
-    });
+    const touchedMessageTime = ensureWechatHistoryTimestamps(char);
     const readStateChanged = markWechatCharMessagesRead(char);
 
     const config = char.chatConfig || {};
@@ -851,10 +848,7 @@ function openChat(charId) {
     syncWechatLineRoomHeader();
     if (touchedMessageTime || readStateChanged || sanitizedContext) saveCharactersToStorage();
     if (readStateChanged) {
-        renderChatList();
-        if (getWechatUiThemeId() === 'wechat' && typeof updateWechatUiThemeStructure === 'function') {
-            updateWechatUiThemeStructure(getWechatUiTheme());
-        }
+        scheduleWechatChatListRefresh();
     }
     // 应用聊天配置（背景/气泡/字体）
     applyChatConfig(char);
@@ -959,6 +953,41 @@ function ensureMessageTimestamp(msg) {
         return true;
     }
     return false;
+}
+
+function getWechatHistoryVersionKey(char) {
+    const history = Array.isArray(char && char.history) ? char.history : [];
+    const last = history[history.length - 1] || {};
+    const lastText = String(last.content || last.description || last.dialogue || last.text || '');
+    return [
+        char && char.id || '',
+        history.length,
+        last.id || '',
+        last.timestamp || last.createdAt || last.time || '',
+        last.type || '',
+        last.isMe ? '1' : '0',
+        lastText.length
+    ].join('|');
+}
+
+function ensureWechatHistoryTimestamps(char) {
+    if (!char || !Array.isArray(char.history)) return false;
+    window._wechatTimestampCheckKeys = window._wechatTimestampCheckKeys || new Map();
+    const beforeKey = getWechatHistoryVersionKey(char);
+    if (window._wechatTimestampCheckKeys.get(char.id) === beforeKey) return false;
+    let touched = false;
+    char.history.forEach(msg => {
+        if (ensureMessageTimestamp(msg)) touched = true;
+    });
+    window._wechatTimestampCheckKeys.set(char.id, getWechatHistoryVersionKey(char));
+    return touched;
+}
+
+function scheduleWechatChatListRefresh() {
+    clearTimeout(window._wechatChatListRefreshTimer);
+    window._wechatChatListRefreshTimer = setTimeout(() => {
+        renderChatList();
+    }, 80);
 }
 
 function formatMessageTime(msg) {
@@ -1218,7 +1247,7 @@ function renderWechatMessageQuote(replyTo, char) {
                 <div class="msg-quote-music-main">
                     <span>音乐卡片</span>
                     <strong>${wcEscapeHtml(title)}</strong>
-                    <em>${wcEscapeHtml(artist || senderText || 'BYND Music')}</em>
+                    ${(artist || senderText) ? `<em>${wcEscapeHtml(artist || senderText)}</em>` : ''}
                 </div>
                 <button type="button" class="msg-quote-music-play" aria-label="播放音乐"><i class="ri-play-fill"></i></button>
                 <div class="msg-quote-music-footer"><span>一起听歌</span></div>
@@ -6308,15 +6337,29 @@ function toggleWechatCollapsedHistory(charId) {
     refreshChatView(char);
 }
 
+function shouldRunWechatHistoryRepairPass(char) {
+    if (!char || !char.id) return true;
+    window._wechatHistoryRepairKeys = window._wechatHistoryRepairKeys || new Map();
+    return window._wechatHistoryRepairKeys.get(char.id) !== getWechatHistoryVersionKey(char);
+}
+
+function markWechatHistoryRepairPassDone(char) {
+    if (!char || !char.id) return;
+    window._wechatHistoryRepairKeys = window._wechatHistoryRepairKeys || new Map();
+    window._wechatHistoryRepairKeys.set(char.id, getWechatHistoryVersionKey(char));
+}
+
 function refreshChatView(char) {
     const contentEl = document.getElementById('chat-room-content');
     if (!contentEl) return;
-    const migratedMixedAi = migrateWechatMixedAiHistory(char);
-    const migratedNarration = migrateWechatNarrationHistory(char);
-    const migratedStickerDirectives = migrateWechatStickerDirectiveHistory(char);
-    const repairedSplitPipeStatus = repairWechatSplitPipeStatusHistory(char);
-    const repairedQuoteDirectives = repairWechatQuoteDirectiveReplyHistory(char);
-    const prunedEmptyAiText = pruneWechatEmptyAiTextMessages(char);
+    const shouldRepairHistory = shouldRunWechatHistoryRepairPass(char);
+    const migratedMixedAi = shouldRepairHistory && migrateWechatMixedAiHistory(char);
+    const migratedNarration = shouldRepairHistory && migrateWechatNarrationHistory(char);
+    const migratedStickerDirectives = shouldRepairHistory && migrateWechatStickerDirectiveHistory(char);
+    const repairedSplitPipeStatus = shouldRepairHistory && repairWechatSplitPipeStatusHistory(char);
+    const repairedQuoteDirectives = shouldRepairHistory && repairWechatQuoteDirectiveReplyHistory(char);
+    const prunedEmptyAiText = shouldRepairHistory && pruneWechatEmptyAiTextMessages(char);
+    if (shouldRepairHistory) markWechatHistoryRepairPassDone(char);
     const history = char.history || [];
     contentEl.innerHTML = '';
     const hasRealChatMessage = history.some(msg => msg && msg.type !== 'system_notice');
@@ -8676,15 +8719,17 @@ function loadCharactersFromStorage() {
 // --- 📑 微信 Tab 切换 ---
 
 function switchWcTab(tabName) {
+    const root = document.getElementById('app-wechat-window');
+    const targetView = document.getElementById('wc-view-' + tabName);
+    const alreadyActive = !!(targetView && targetView.classList.contains('active'));
     const views = document.querySelectorAll('.wc-tab-view');
     views.forEach(v => v.classList.remove('active'));
 
     const tabs = document.querySelectorAll('.wc-tab-bar .wc-tab');
     tabs.forEach(t => t.classList.remove('active'));
 
-    applyWechatUiTheme();
+    if (typeof applyWechatUiTheme === 'function') applyWechatUiTheme(undefined, { update: false });
 
-    const targetView = document.getElementById('wc-view-' + tabName);
     if (targetView) targetView.classList.add('active');
 
     const tabIndex = { chat: 0, contacts: 1, discover: 2, me: 3 };
@@ -8696,7 +8741,10 @@ function switchWcTab(tabName) {
 
     const theme = getWechatUiTheme();
     titleEl.textContent = getWechatThemeTabMeta(tabName, theme).title || '微信';
-    updateWechatUiThemeStructure(theme);
+    if (!alreadyActive || root?.dataset.lastThemeStructureTab !== tabName || root?.dataset.uiTheme !== theme.id) {
+        updateWechatUiThemeStructure(theme);
+        if (root) root.dataset.lastThemeStructureTab = tabName;
+    }
 
     if (tabName === 'chat') {
         rightEl.style.display = '';
@@ -8750,14 +8798,14 @@ function renderWechatDiscoverTab() {
     const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const name = wcEscapeHtml(profile.name || '\u6211');
-    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
+    const signature = wcEscapeHtml(profile.signature || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
     view.dataset.telegramPage = '1';
     delete view.dataset.linePage;
     view.innerHTML = `
         <div class="wc-telegram-page wc-telegram-settings-page">
             <div class="wc-telegram-top-profile">
                 <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <div><strong>${name}</strong><span>${bio}</span></div>
+                <div><strong>${name}</strong><span>${signature}</span></div>
                 <button type="button" onclick="openWechatMeSettings()" aria-label="edit"><i class="ri-edit-2-line"></i></button>
             </div>
             <button type="button" class="wc-telegram-confirm-card" onclick="openWechatUiThemeSettings()">
@@ -8867,7 +8915,7 @@ function renderXMePage(page, profile) {
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const name = wcEscapeHtml(profile.name || '我');
     const id = wcEscapeHtml(profile.wechatId || 'user');
-    const bio = wcEscapeHtml(profile.bio || '点击设置个性签名');
+    const signature = wcEscapeHtml(profile.signature || '点击设置个性签名');
     const coverStyle = profile.xCover ? `style="background-image:${getWechatCssUrl(profile.xCover)}"` : '';
     const people = getWechatXPeople();
     const followerCount = people.length ? Math.max(1, Math.round(people.length * 1.6)) : 0;
@@ -8909,7 +8957,7 @@ function renderXMePage(page, profile) {
                         <button type="button" onclick="openWechatMeSettings()"><i class="ri-verified-badge-fill"></i><span>通过认证</span></button>
                     </div>
                     <span>@${id}</span>
-                    <p data-wc-me-field="bio">${bio}</p>
+                    <p data-wc-me-field="signature">${signature}</p>
                     <div class="wc-x-profile-meta">
                         ${birthday ? `<em><i class="ri-map-pin-line"></i>出生于 ${wcEscapeHtml(birthday)}</em>` : ''}
                         <em><i class="ri-calendar-line"></i>${wcEscapeHtml(joinedDate)}</em>
@@ -9374,7 +9422,7 @@ function renderLineHomePage(view) {
     const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const name = wcEscapeHtml(profile.name || '\u6211');
-    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
+    const signature = wcEscapeHtml(profile.signature || '\u70b9\u51fb\u8bbe\u7f6e\u4e2a\u6027\u7b7e\u540d');
     const people = getLineThemePeople();
     const groups = (window.myCharacters || []).filter(char => char && char.isGroupChat);
     const favorites = getLineFavoritePeople();
@@ -9392,9 +9440,9 @@ function renderLineHomePage(view) {
             <div class="wc-line-home-top">
                 <div class="wc-line-home-profile">
                     <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
-                    <button type="button" data-wc-me-field="bio">
+                    <button type="button" data-wc-me-field="signature">
                         <strong>${name}</strong>
-                        <span>${bio}</span>
+                        <span>${signature}</span>
                     </button>
                 </div>
                 <div class="wc-line-home-actions">
@@ -9485,14 +9533,14 @@ function renderTelegramMePage(page, profile) {
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const name = wcEscapeHtml(profile.name || '\u6211');
     const id = wcEscapeHtml(profile.wechatId || '');
-    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u7b7e\u540d');
+    const signature = wcEscapeHtml(profile.signature || '\u70b9\u51fb\u8bbe\u7f6e\u7b7e\u540d');
     page.innerHTML = `
         <div class="wc-telegram-page wc-telegram-profile-page">
             <div class="wc-telegram-profile-hero">
                 <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
                 <strong>${name}</strong>
                 <span>@${id}</span>
-                <em>${bio}</em>
+                <em>${signature}</em>
             </div>
             <div class="wc-telegram-profile-actions">
                 <button type="button" onclick="openWechatMoments()"><i class="ri-image-line"></i><span>\u52a8\u6001</span></button>
@@ -9502,7 +9550,7 @@ function renderTelegramMePage(page, profile) {
             <div class="wc-telegram-profile-card">
                 <button type="button" data-wc-me-field="name"><span>\u6635\u79f0</span><strong>${name}</strong></button>
                 <button type="button" data-wc-me-field="wechatId"><span>ID</span><strong>${id}</strong></button>
-                <button type="button" data-wc-me-field="bio"><span>\u7b7e\u540d</span><strong>${bio}</strong></button>
+                <button type="button" data-wc-me-field="signature"><span>\u7b7e\u540d</span><strong>${signature}</strong></button>
             </div>
             <div class="wc-telegram-profile-tabs"><button class="active">\u52a8\u6001</button><button>\u5df2\u5f52\u6863\u7684\u52a8\u6001</button></div>
             <div class="wc-telegram-profile-empty">
@@ -9563,7 +9611,7 @@ function renderLineMePage(page, profile) {
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
     const name = wcEscapeHtml(profile.name || '\u6211');
     const id = wcEscapeHtml(profile.wechatId || '');
-    const bio = wcEscapeHtml(profile.bio || '\u70b9\u51fb\u8bbe\u7f6e\u7b7e\u540d');
+    const signature = wcEscapeHtml(profile.signature || '\u70b9\u51fb\u8bbe\u7f6e\u7b7e\u540d');
     page.innerHTML = `
         <div class="wc-line-page wc-line-wallet-page">
             <div class="wc-line-page-head">
@@ -9575,10 +9623,10 @@ function renderLineMePage(page, profile) {
             </div>
             <div class="wc-line-me-card">
                 <img src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'" onclick="openWechatMeAvatarSheet()">
-                <button type="button" data-wc-me-field="bio">
+                <button type="button" data-wc-me-field="signature">
                     <strong>${name}</strong>
                     <span>ID: ${id || 'user'}</span>
-                    <em>${bio}</em>
+                    <em>${signature}</em>
                 </button>
                 <i class="ri-arrow-right-s-line"></i>
             </div>
@@ -10098,7 +10146,7 @@ function renderMePage() {
             <div class="wc-me-info">
                 <div class="wc-me-name wc-me-editable" onclick="promptWechatMeField('name')">${wcEscapeHtml(profile.name || '我')}</div>
                 <div class="wc-me-id wc-me-editable" onclick="promptWechatMeField('wechatId')">微信号：${wcEscapeHtml(profile.wechatId)}</div>
-                <div class="wc-me-status wc-me-editable" onclick="promptWechatMeField('bio')">${wcEscapeHtml(profile.bio || '点击设置签名~')}</div>
+                <div class="wc-me-status wc-me-editable" onclick="promptWechatMeField('signature')">${wcEscapeHtml(profile.signature || '点击设置签名~')}</div>
             </div>
         </div>
         <div class="wc-me-menu-item" onclick="openWechatFavorites()">
@@ -10235,7 +10283,8 @@ function promptWechatMeField(field) {
     const config = {
         name: { title: '修改昵称', label: '昵称', value: profile.name || '我', max: 24, placeholder: '我', multiline: false },
         wechatId: { title: '修改 ID', label: 'ID', value: profile.wechatId || '', max: 32, placeholder: 'user_xxxxxx', multiline: false },
-        bio: { title: '修改签名', label: '签名', value: profile.bio || '', max: 120, placeholder: '点击设置签名', multiline: true }
+        bio: { title: '修改个人简介', label: '个人简介', value: profile.bio || '', max: 240, placeholder: '写一段个人简介', multiline: true },
+        signature: { title: '修改签名', label: '签名', value: profile.signature || '', max: 120, placeholder: '点击设置签名', multiline: true }
     }[field];
     if (!config) return;
     const control = config.multiline
@@ -10259,7 +10308,8 @@ function saveWechatMeField(field) {
     const config = {
         name: { max: 24 },
         wechatId: { max: 32 },
-        bio: { max: 120 }
+        bio: { max: 240 },
+        signature: { max: 120 }
     }[field];
     if (!config) return;
     const value = document.getElementById('wc-me-field-editor')?.value || '';
@@ -10267,6 +10317,7 @@ function saveWechatMeField(field) {
     if (field === 'name') profile.name = next || '我';
     if (field === 'wechatId') profile.wechatId = next || profile.wechatId;
     if (field === 'bio') profile.bio = next;
+    if (field === 'signature') profile.signature = next;
     saveUserProfile(profile);
     renderMePage();
     renderChatList();
@@ -10881,7 +10932,7 @@ function openWechatMeSettings() {
                 </label>
                 <label class="wc-compose-field">
                     <span>个性签名</span>
-                    <textarea id="wc-me-set-bio" maxlength="120" placeholder="写一句签名">${wcEscapeHtml(profile.bio || '')}</textarea>
+                    <textarea id="wc-me-set-signature" maxlength="120" placeholder="写一句签名">${wcEscapeHtml(profile.signature || '')}</textarea>
                 </label>
                 <label class="wc-compose-field">
                     <span>朋友圈封面 URL</span>
@@ -10906,7 +10957,7 @@ function saveWechatMeSettings() {
         avatar: (document.getElementById('wc-me-set-avatar')?.value || '').trim(),
         name: (document.getElementById('wc-me-set-name')?.value || '').trim() || '我',
         wechatId: (document.getElementById('wc-me-set-id')?.value || '').trim() || prev.wechatId,
-        bio: (document.getElementById('wc-me-set-bio')?.value || '').trim(),
+        signature: (document.getElementById('wc-me-set-signature')?.value || '').trim(),
         momentCover: (document.getElementById('wc-me-set-cover')?.value || '').trim()
     };
     saveUserProfile(profile);
@@ -13426,7 +13477,7 @@ function getUserProfile() {
         const raw = localStorage.getItem(USER_PROFILE_KEY);
         if (raw) return JSON.parse(raw);
     } catch (e) {}
-    return { avatar: '', name: '我', bio: '', wechatId: '' };
+    return { avatar: '', name: '我', bio: '', signature: '', wechatId: '' };
 }
 
 function saveUserProfile(profile) {

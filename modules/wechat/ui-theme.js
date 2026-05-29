@@ -138,14 +138,17 @@ function getWechatUiTheme(themeId = getWechatUiThemeId()) {
     return WECHAT_UI_THEMES.find(theme => theme.id === themeId) || WECHAT_UI_THEMES.find(theme => theme.id === WECHAT_UI_THEME_DEFAULT_ID) || WECHAT_UI_THEMES[0];
 }
 
-function applyWechatUiTheme(themeId = getWechatUiThemeId()) {
+function applyWechatUiTheme(themeId = getWechatUiThemeId(), options = {}) {
     const root = document.getElementById('app-wechat-window');
     if (!root) return;
     const theme = getWechatUiTheme(themeId);
-    WECHAT_UI_THEMES.forEach(item => root.classList.remove(`wc-ui-theme-${item.id}`));
-    root.classList.add(`wc-ui-theme-${theme.id}`);
-    root.dataset.uiTheme = theme.id;
-    updateWechatUiThemeStructure(theme);
+    const sameTheme = root.dataset.uiTheme === theme.id && root.classList.contains(`wc-ui-theme-${theme.id}`);
+    if (!sameTheme) {
+        WECHAT_UI_THEMES.forEach(item => root.classList.remove(`wc-ui-theme-${item.id}`));
+        root.classList.add(`wc-ui-theme-${theme.id}`);
+        root.dataset.uiTheme = theme.id;
+    }
+    if (options.update !== false) updateWechatUiThemeStructure(theme);
 }
 
 function getWechatThemeTabMeta(tabName, theme = getWechatUiTheme()) {
@@ -502,15 +505,16 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
     const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
     const name = wcEscapeHtml(profile.name || '我');
     const avatar = wcEscapeHtml(profile.avatar || DEFAULT_AVATAR);
-    const bio = wcEscapeHtml(profile.bio || '点击设置签名~');
+    const signatureText = String(profile.signature || '').trim();
+    const signature = wcEscapeHtml(signatureText || '点击设置签名~');
     if (['rednote'].includes(theme.id)) return '';
     if (theme.id === 'qq') {
         return `
             <div class="wc-theme-hero-main">
                 <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <button type="button" class="wc-theme-hero-user wc-theme-hero-edit" onclick="promptWechatMeField('bio')">
+                <button type="button" class="wc-theme-hero-user wc-theme-hero-edit" onclick="promptWechatMeField('signature')">
                     <strong>${name}</strong>
-                    <span>♡ ${bio}</span>
+                    <span>♡ ${signature}</span>
                 </button>
                 <div class="wc-theme-hero-mascot"><i class="ri-bear-smile-line"></i></div>
                 <button type="button" class="wc-theme-hero-plus" onclick="openWechatPlusMenu(event)" aria-label="新建"><i class="ri-add-line"></i></button>
@@ -522,14 +526,13 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         return `
             <div class="wc-theme-hero-main">
                 <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="wc-theme-hero-user"><strong>消息</strong><span>${name} · ${bio}</span></div>
+                <div class="wc-theme-hero-user"><strong>消息</strong><span>${signatureText ? `${name} · ${signature}` : name}</span></div>
                 <button type="button" class="wc-theme-hero-plus" onclick="openWechatPlusMenu(event)"><i class="ri-add-line"></i></button>
             </div>
             <div class="wc-theme-chip-row"><span>全部</span><span>评论</span><span>赞和收藏</span><span>新增关注</span></div>
         `;
     }
     if (theme.id === 'douyin') {
-        const signature = wcEscapeHtml(profile.bio || '点击设置个性签名');
         const contacts = getWechatDouyinStoryCharacters().map((char, index) => ({
             avatar: wcEscapeHtml(char.avatar || DEFAULT_AVATAR),
             label: wcEscapeHtml(index === 0 ? '限时日常' : ((char.chatConfig && char.chatConfig.nickname) || char.name || '朋友'))
@@ -540,7 +543,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         ];
         const interaction = getWechatLatestDouyinInteraction();
         return `
-            <button type="button" class="wc-douyin-user-signature" onclick="promptWechatMeField('bio')">${signature}</button>
+            <button type="button" class="wc-douyin-user-signature" onclick="promptWechatMeField('signature')">${signature}</button>
             <div class="wc-douyin-story-row">
                 ${storyItems.map(item => `
                     <button type="button" class="wc-douyin-story">
@@ -577,6 +580,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
     if (theme.id === 'line') {
         const chars = getWechatGroupContacts();
         const unreadTotal = chars.reduce((sum, char) => sum + getTelegramChatUnreadCount(char), 0);
+        const lineStatus = signatureText ? `${name} · ${signature}` : name;
         return `
             <div class="wc-line-chat-titlebar">
                 <button type="button" class="wc-line-title-btn"><span>聊天</span><i class="ri-arrow-down-s-line"></i></button>
@@ -588,7 +592,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
             <div class="wc-line-search-pill"><i class="ri-search-line"></i><span>搜索</span></div>
             <button type="button" class="wc-line-weather-card" onclick="openWechatMoments()">
                 <i class="ri-sun-cloudy-line"></i>
-                <span><strong>今天有 ${chars.length || 0} 位好友在列表中</strong><em>${unreadTotal > 0 ? `${unreadTotal} 条新消息等你查看` : `${name} · ${bio}`}</em></span>
+                <span><strong>今天有 ${chars.length || 0} 位好友在列表中</strong><em>${unreadTotal > 0 ? `${unreadTotal} 条新消息等你查看` : lineStatus}</em></span>
                 <b>LINE</b>
             </button>
         `;
