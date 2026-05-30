@@ -236,6 +236,7 @@
 .wc-theme-hero-user span { min-width: 0; color: var(--wc-theme-muted); font-size: 13px; line-height: 1.25; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-theme-hero-edit { width: 100%; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; appearance: none; -webkit-appearance: none; }
 .wc-theme-hero-edit:active { opacity: 0.72; transform: translateY(1px); }
+.wc-theme-hero-back { display: none; }
 #app-wechat-window:not(.wc-ui-theme-douyin) .wc-douyin-spark,
 #app-wechat-window:not(.wc-ui-theme-douyin) .wc-douyin-unread {
     display: none !important;
@@ -761,7 +762,30 @@
 
 /* === QQ theme size and spacing tune 20260525 === */
 #app-wechat-window.wc-ui-theme-qq .wc-theme-chat-hero {
+    position: relative;
     padding: 34px 20px 10px;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back {
+    position: absolute;
+    left: 18px;
+    top: 14px;
+    width: 42px;
+    height: 30px;
+    border: 0;
+    border-radius: 15px;
+    background: transparent;
+    color: #667796;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 3;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back:active {
+    opacity: 0.58;
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-main {
     grid-template-columns: 44px minmax(0, 1fr) 36px 30px;
@@ -4166,6 +4190,11 @@
     color: #1e2025;
 }
 
+#app-wechat-window.wc-ui-theme-telegram .wc-me-page {
+    background: #eef1f5 !important;
+    padding-top: 0 !important;
+}
+
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-page {
     min-height: 100%;
     box-sizing: border-box;
@@ -5007,9 +5036,9 @@
 }
 
 #app-wechat-window.wc-ui-theme-telegram .wcs-header {
-    height: 66px !important;
-    min-height: 66px !important;
-    padding: 18px 16px 8px !important;
+    height: 118px !important;
+    min-height: 118px !important;
+    padding: 52px 16px 14px !important;
     align-items: center !important;
     background: rgba(246,247,249,0.86) !important;
     border-bottom: 1px solid rgba(15,23,42,0.055) !important;

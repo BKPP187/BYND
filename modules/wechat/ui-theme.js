@@ -356,7 +356,7 @@ function getWechatMessageTimestampValue(msg) {
 
 function getWechatDouyinStoryCharacters() {
     return (window.myCharacters || [])
-        .filter(char => char && !char.isGroupChat)
+        .filter(char => char && !char.isGroupChat && !(typeof isWechatGroupNpcContact === 'function' && isWechatGroupNpcContact(char)))
         .slice()
         .sort((a, b) => {
             const scoreDiff = getWechatDouyinSparkScore(b) - getWechatDouyinSparkScore(a);
@@ -510,6 +510,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
     if (['rednote'].includes(theme.id)) return '';
     if (theme.id === 'qq') {
         return `
+            <button type="button" class="wc-theme-hero-back" onclick="closeApp('wechat')" aria-label="Back to desktop"><i class="ri-arrow-left-s-line"></i></button>
             <div class="wc-theme-hero-main">
                 <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
                 <button type="button" class="wc-theme-hero-user wc-theme-hero-edit" onclick="promptWechatMeField('signature')">
@@ -578,7 +579,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         `;
     }
     if (theme.id === 'line') {
-        const chars = getWechatGroupContacts();
+        const chars = getWechatGroupContacts({ includeGroupNpc: false });
         const unreadTotal = chars.reduce((sum, char) => sum + getTelegramChatUnreadCount(char), 0);
         const lineStatus = signatureText ? `${name} · ${signature}` : name;
         return `
@@ -598,7 +599,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         `;
     }
     if (theme.id === 'hallowrok') {
-        const hasInbox = getWechatGroupContacts().length > 0 || (window.myCharacters || []).some(char => char && char.isGroupChat);
+        const hasInbox = getWechatGroupContacts({ includeGroupNpc: false }).length > 0 || (window.myCharacters || []).some(char => char && char.isGroupChat);
         return `
             <div class="wc-x-inbox-shell">
                 <div class="wc-x-topbar">

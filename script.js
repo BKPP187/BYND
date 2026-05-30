@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initIconGrid === 'function') initIconGrid();
     if (typeof initTheme === 'function') initTheme();
     if (typeof loadCharactersFromStorage === 'function') loadCharactersFromStorage(); 
+    if (typeof initOutingAppRuntime === 'function') initOutingAppRuntime();
     initProactiveNotify();
 });
 
@@ -222,6 +223,15 @@ function openApp(appName) {
             initMonitorApp();
         }
     }
+    // 13. 一起出门
+    else if (appName === 'outing') {
+        const win = document.getElementById('app-outing-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            initOutingApp();
+        }
+    }
     // 13. System Camera
     else if (appName === 'camera') {
         openSystemCamera();
@@ -278,6 +288,7 @@ function closeApp(appName) {
     else if (appName === 'money') winId = 'app-money-window';
     else if (appName === 'dream') winId = 'app-dream-window';
     else if (appName === 'monitor') winId = 'app-monitor-window';
+    else if (appName === 'outing') winId = 'app-outing-window';
     const win = document.getElementById(winId);
     if (win) {
         restoreDesktopPageAfterApp(appName);
@@ -362,7 +373,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260529-mobile-perf27').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=20260529-outing-desktop41').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -3704,6 +3715,462 @@ function toggleMonitorWatcher(charId) {
     if (typeof showWechatToast === 'function') showWechatToast(text);
 }
 window.toggleMonitorWatcher = toggleMonitorWatcher;
+
+// --- BYND Outing / 一起出门 ---
+const OUTING_STATE_KEY = 'bynd_outing_date_state_v1';
+const OUTING_WAKE_DISTANCE_M = 500;
+const OUTING_WAKE_COOLDOWN_MS = 30 * 1000;
+let outingWatchId = null;
+
+function getOutingCharacters() {
+    return Array.isArray(window.myCharacters)
+        ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat)
+        : [];
+}
+
+function getOutingCharName(char) {
+    if (typeof getWechatCharDisplayName === 'function') return getWechatCharDisplayName(char);
+    return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
+}
+
+function getOutingState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(OUTING_STATE_KEY) || '{}');
+        return state && typeof state === 'object' ? state : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function saveOutingState(state) {
+    const safe = {
+        ...(state || {}),
+        trail: Array.isArray(state?.trail) ? state.trail.slice(-60) : []
+    };
+    localStorage.setItem(OUTING_STATE_KEY, JSON.stringify(safe));
+}
+
+function getOutingSelectedChar() {
+    const state = getOutingState();
+    const selectValue = document.getElementById('outing-char-select')?.value || '';
+    const charId = selectValue || state.charId || '';
+    return getOutingCharacters().find(char => char.id === charId) || getOutingCharacters()[0] || null;
+}
+
+function setOutingStatus(text, tone = '') {
+    const el = document.getElementById('outing-location-text');
+    if (!el) return;
+    el.textContent = text || '';
+    el.dataset.tone = tone || '';
+}
+
+function formatOutingTime(ts = Date.now()) {
+    const date = new Date(ts);
+    const safe = Number.isNaN(date.getTime()) ? new Date() : date;
+    return `${String(safe.getHours()).padStart(2, '0')}:${String(safe.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatOutingPoint(point) {
+    if (!point) return '未知位置';
+    return `${Number(point.lat).toFixed(6)}, ${Number(point.lng).toFixed(6)}`;
+}
+
+function getOutingDistanceMeters(a, b) {
+    if (!a || !b) return 0;
+    const toRad = value => Number(value || 0) * Math.PI / 180;
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function addOutingTrail(kind, text, point = null) {
+    const state = getOutingState();
+    const entry = {
+        id: `outing_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
+        kind,
+        text: String(text || '').slice(0, 180),
+        point,
+        createdAt: Date.now()
+    };
+    state.trail = Array.isArray(state.trail) ? state.trail : [];
+    state.trail.push(entry);
+    saveOutingState(state);
+    renderOutingApp();
+    return entry;
+}
+
+function appendOutingMessageToChar(char, msg, options = {}) {
+    if (!char) return false;
+    char.history = Array.isArray(char.history) ? char.history : [];
+    const nextMsg = {
+        ...(msg || {}),
+        isMe: true,
+        timestamp: msg && msg.timestamp ? msg.timestamp : (typeof createMessageTimestamp === 'function' ? createMessageTimestamp() : new Date().toISOString())
+    };
+    if (typeof syncWechatMessageDescription === 'function') syncWechatMessageDescription(nextMsg);
+    char.history.push(nextMsg);
+    if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
+    if (typeof notifyWechatMonitors === 'function') notifyWechatMonitors(char, nextMsg);
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    if (typeof renderChatList === 'function') renderChatList();
+    if (window.currentChatCharId === char.id && typeof refreshChatView === 'function') refreshChatView(char);
+    if (options.autoReply && typeof queueWechatAutoReplyToChar === 'function') queueWechatAutoReplyToChar(char.id, 0, { background: window.currentChatCharId !== char.id });
+    return true;
+}
+
+function buildOutingLocationMessage(point, distanceText, reason) {
+    const lines = [
+        '【一起出门】',
+        reason || '我更新了真实 GPS 位置。',
+        `当前位置：${formatOutingPoint(point)}`,
+        point && Number.isFinite(Number(point.accuracy)) ? `定位精度：约 ${Math.round(point.accuracy)} 米` : '',
+        distanceText ? `移动距离：${distanceText}` : '',
+        '你可以按人设看看我现在可能去了哪里、在附近会看到什么，也可以主动问我拍张照片给你。'
+    ].filter(Boolean);
+    return lines.join('\n');
+}
+
+function wakeOutingChar(point, distance, reason = '') {
+    const char = getOutingSelectedChar();
+    if (!char) return;
+    const state = getOutingState();
+    const distanceText = distance ? `${Math.round(distance)} 米` : '';
+    appendOutingMessageToChar(char, {
+        type: 'text',
+        content: buildOutingLocationMessage(point, distanceText, reason || `我已经移动了 ${distanceText || '一段距离'}，一起出门自动叫醒你。`)
+    }, { autoReply: true });
+    state.lastWakePoint = point;
+    state.lastWakeAt = Date.now();
+    state.wakeCount = Number(state.wakeCount || 0) + 1;
+    saveOutingState(state);
+    addOutingTrail('wake', `已叫醒 ${getOutingCharName(char)}${distanceText ? ` · ${distanceText}` : ''}`, point);
+}
+
+function handleOutingPosition(pos, options = {}) {
+    const coords = pos && pos.coords;
+    if (!coords) return;
+    const point = {
+        lat: coords.latitude,
+        lng: coords.longitude,
+        accuracy: coords.accuracy,
+        ts: Date.now()
+    };
+    const state = getOutingState();
+    const previous = state.currentPoint || null;
+    state.currentPoint = point;
+    state.trail = Array.isArray(state.trail) ? state.trail : [];
+    if (!previous || getOutingDistanceMeters(previous, point) >= 30 || options.manual) {
+        state.trail.push({
+            id: `outing_loc_${Date.now()}`,
+            kind: options.manual ? 'refresh' : 'location',
+            text: options.manual ? '手动刷新定位' : '定位已更新',
+            point,
+            createdAt: Date.now()
+        });
+    }
+    const active = !!state.active;
+    const lastWakePoint = state.lastWakePoint || null;
+    const distance = lastWakePoint ? getOutingDistanceMeters(lastWakePoint, point) : 0;
+    const canWake = active
+        && (!lastWakePoint || distance >= OUTING_WAKE_DISTANCE_M)
+        && (!state.lastWakeAt || Date.now() - state.lastWakeAt >= OUTING_WAKE_COOLDOWN_MS);
+    saveOutingState(state);
+    renderOutingApp();
+    if (canWake) {
+        wakeOutingChar(point, distance, lastWakePoint ? '' : '我开启了一起出门，这是第一次同步真实 GPS 位置。');
+    }
+}
+
+function handleOutingLocationError(err) {
+    const msg = err && err.message ? err.message : '定位权限未允许或当前设备无法获取 GPS。';
+    setOutingStatus(`定位失败：${msg}`, 'error');
+    if (typeof showWechatToast === 'function') showWechatToast('定位失败：' + msg);
+}
+
+function startOutingWatcher() {
+    if (outingWatchId != null) return;
+    if (!navigator.geolocation) {
+        setOutingStatus('当前浏览器不支持 GPS 定位。', 'error');
+        return;
+    }
+    outingWatchId = navigator.geolocation.watchPosition(
+        pos => handleOutingPosition(pos),
+        handleOutingLocationError,
+        { enableHighAccuracy: true, maximumAge: 12000, timeout: 22000 }
+    );
+}
+
+function stopOutingWatcher() {
+    if (outingWatchId == null || !navigator.geolocation) return;
+    navigator.geolocation.clearWatch(outingWatchId);
+    outingWatchId = null;
+}
+
+function renderOutingCharacters() {
+    const select = document.getElementById('outing-char-select');
+    if (!select) return;
+    const trigger = document.getElementById('outing-char-trigger');
+    const triggerName = document.getElementById('outing-char-trigger-name');
+    const menu = document.getElementById('outing-char-menu');
+    const chars = getOutingCharacters();
+    const state = getOutingState();
+    const previous = select.value || state.charId || '';
+    select.innerHTML = chars.length
+        ? chars.map(char => `<option value="${musicEscapeAttr(char.id)}">${musicEscapeHtml(getOutingCharName(char))}</option>`).join('')
+        : '<option value="">先导入角色卡</option>';
+    if (previous && chars.some(char => char.id === previous)) select.value = previous;
+    else if (chars[0]) select.value = chars[0].id;
+    const selected = chars.find(char => char.id === select.value) || null;
+    if (triggerName) triggerName.textContent = selected ? getOutingCharName(selected) : '先导入角色卡';
+    if (trigger) {
+        trigger.disabled = !chars.length;
+        trigger.setAttribute('aria-expanded', 'false');
+    }
+    if (menu) {
+        menu.classList.add('hidden');
+        menu.innerHTML = chars.length ? chars.map(char => {
+            const active = char.id === select.value;
+            const avatar = musicEscapeAttr(char.avatar || DEFAULT_AVATAR || '');
+            const name = musicEscapeHtml(getOutingCharName(char));
+            return `
+                <button type="button" class="${active ? 'active' : ''}" role="option" aria-selected="${active ? 'true' : 'false'}" onclick="selectOutingChar(${quoteWechatJsString(char.id)})">
+                    <img src="${avatar}" alt="" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR || '')}'">
+                    <span>${name}</span>
+                    <i class="${active ? 'ri-check-line' : 'ri-user-heart-line'}"></i>
+                </button>
+            `;
+        }).join('') : '<div class="outing-select-empty">先导入角色卡</div>';
+    }
+    select.onchange = () => {
+        const next = getOutingState();
+        next.charId = select.value;
+        next.lastWakePoint = null;
+        next.wakeCount = 0;
+        saveOutingState(next);
+        renderOutingApp();
+    };
+}
+
+function closeOutingCharMenu() {
+    const trigger = document.getElementById('outing-char-trigger');
+    const menu = document.getElementById('outing-char-menu');
+    if (menu) menu.classList.add('hidden');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+}
+window.closeOutingCharMenu = closeOutingCharMenu;
+
+function toggleOutingCharMenu(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('outing-char-menu');
+    const trigger = document.getElementById('outing-char-trigger');
+    if (!menu || !trigger || trigger.disabled) return;
+    const open = menu.classList.toggle('hidden');
+    trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
+}
+window.toggleOutingCharMenu = toggleOutingCharMenu;
+
+function selectOutingChar(charId) {
+    const select = document.getElementById('outing-char-select');
+    if (!select) return;
+    select.value = charId;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    closeOutingCharMenu();
+}
+window.selectOutingChar = selectOutingChar;
+
+document.addEventListener('click', event => {
+    if (!event.target?.closest?.('#outing-char-picker')) closeOutingCharMenu();
+});
+
+function renderOutingApp() {
+    const state = getOutingState();
+    const chars = getOutingCharacters();
+    const selected = getOutingSelectedChar();
+    const active = !!state.active;
+    const current = state.currentPoint || null;
+    const lastWake = state.lastWakePoint || null;
+    const distance = current && lastWake ? getOutingDistanceMeters(lastWake, current) : 0;
+    const activeName = document.getElementById('outing-active-name');
+    const modeLabel = document.getElementById('outing-mode-label');
+    const toggleBtn = document.getElementById('outing-toggle-btn');
+    const distanceEl = document.getElementById('outing-distance');
+    const wakeEl = document.getElementById('outing-wake-count');
+    const accuracyEl = document.getElementById('outing-accuracy');
+    const photoCard = document.getElementById('outing-photo-card');
+    const photoTime = document.getElementById('outing-photo-time');
+    const logList = document.getElementById('outing-log-list');
+
+    if (activeName) activeName.textContent = selected ? `${getOutingCharName(selected)} 正在和你出门` : '先导入角色卡';
+    if (modeLabel) modeLabel.textContent = active ? 'BEYOND SCREEN ON' : 'OFFLINE';
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('active', active);
+        toggleBtn.innerHTML = active
+            ? '<i class="ri-pause-circle-line"></i><span>关闭</span>'
+            : '<i class="ri-map-pin-line"></i><span>开启</span>';
+    }
+    if (distanceEl) distanceEl.textContent = current && lastWake ? `${Math.round(distance)}m` : '--';
+    if (wakeEl) wakeEl.textContent = String(Number(state.wakeCount || 0));
+    if (accuracyEl) accuracyEl.textContent = current && Number.isFinite(Number(current.accuracy)) ? `±${Math.round(current.accuracy)}m` : '--';
+    if (photoCard) {
+        const image = String(state.lastPhoto || '');
+        photoCard.classList.toggle('has-photo', !!image);
+        const visual = photoCard.querySelector('div');
+        if (visual) visual.innerHTML = image ? `<img src="${musicEscapeAttr(image)}" alt="outing photo">` : '<i class="ri-camera-lens-line"></i>';
+        if (photoTime) photoTime.textContent = state.lastPhotoAt ? formatOutingTime(state.lastPhotoAt) : '还没有照片';
+    }
+    if (!chars.length) {
+        setOutingStatus('还没有可一起出门的角色。', 'warn');
+    } else if (current) {
+        setOutingStatus(`GPS：${formatOutingPoint(current)}${active ? '。移动 500 米后会自动叫醒角色。' : '。开启后开始自动叫醒。'}`);
+    } else {
+        setOutingStatus(active ? '正在等待真实 GPS 定位授权...' : '开启后，每移动 500 米会自动叫醒角色。');
+    }
+    if (logList) {
+        const trail = Array.isArray(state.trail) ? state.trail.slice(-12).reverse() : [];
+        logList.innerHTML = trail.length ? trail.map(entry => `
+            <div class="outing-log-row">
+                <i class="${entry.kind === 'photo' ? 'ri-camera-line' : entry.kind === 'wake' ? 'ri-alarm-warning-line' : 'ri-map-pin-line'}"></i>
+                <span>${musicEscapeHtml(entry.text || '')}</span>
+                <em>${musicEscapeHtml(formatOutingTime(entry.createdAt))}</em>
+            </div>
+        `).join('') : '<div class="outing-empty">还没有出门轨迹</div>';
+    }
+}
+
+function initOutingApp() {
+    renderOutingCharacters();
+    renderOutingApp();
+    if (getOutingState().active) startOutingWatcher();
+}
+window.initOutingApp = initOutingApp;
+
+function initOutingAppRuntime() {
+    if (getOutingState().active) {
+        setTimeout(() => startOutingWatcher(), 800);
+    }
+}
+window.initOutingAppRuntime = initOutingAppRuntime;
+
+function toggleOutingDateMode() {
+    const char = getOutingSelectedChar();
+    if (!char) {
+        if (typeof showWechatToast === 'function') showWechatToast('先导入角色卡');
+        return;
+    }
+    const state = getOutingState();
+    state.charId = char.id;
+    state.active = !state.active;
+    if (!state.active) {
+        stopOutingWatcher();
+        saveOutingState(state);
+        addOutingTrail('stop', `已关闭和 ${getOutingCharName(char)} 的一起出门`, state.currentPoint || null);
+        return;
+    }
+    state.lastWakePoint = null;
+    state.lastWakeAt = 0;
+    state.wakeCount = 0;
+    saveOutingState(state);
+    addOutingTrail('start', `已开启和 ${getOutingCharName(char)} 的一起出门`, state.currentPoint || null);
+    startOutingWatcher();
+    refreshOutingLocation();
+}
+window.toggleOutingDateMode = toggleOutingDateMode;
+
+function refreshOutingLocation() {
+    if (!navigator.geolocation) {
+        setOutingStatus('当前浏览器不支持 GPS 定位。', 'error');
+        return;
+    }
+    setOutingStatus('正在获取真实 GPS 定位...', 'busy');
+    navigator.geolocation.getCurrentPosition(
+        pos => handleOutingPosition(pos, { manual: true }),
+        handleOutingLocationError,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 22000 }
+    );
+}
+window.refreshOutingLocation = refreshOutingLocation;
+
+function captureOutingPhoto() {
+    const char = getOutingSelectedChar();
+    if (!char) {
+        if (typeof showWechatToast === 'function') showWechatToast('先导入角色卡');
+        return;
+    }
+    document.getElementById('outing-camera-input')?.click();
+}
+window.captureOutingPhoto = captureOutingPhoto;
+
+function readOutingImageFile(file, maxWidth = 1280, quality = 0.78) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('照片读取失败'));
+        reader.onload = () => {
+            const raw = reader.result;
+            const img = new Image();
+            img.onerror = () => resolve(raw);
+            img.onload = () => {
+                const scale = Math.min(1, maxWidth / Math.max(img.width, img.height));
+                const width = Math.max(1, Math.round(img.width * scale));
+                const height = Math.max(1, Math.round(img.height * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = raw;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function handleOutingPhotoInput(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    const char = getOutingSelectedChar();
+    if (!char) return;
+    try {
+        setOutingStatus('正在压缩照片并发送给角色...', 'busy');
+        const dataUrl = await readOutingImageFile(file);
+        const state = getOutingState();
+        state.lastPhoto = dataUrl;
+        state.lastPhotoAt = Date.now();
+        saveOutingState(state);
+        const point = state.currentPoint || null;
+        const description = [
+            '【一起出门照片】我刚刚用真实手机拍/选了一张照片给你看。',
+            point ? `拍摄时 GPS：${formatOutingPoint(point)}` : '',
+            point && Number.isFinite(Number(point.accuracy)) ? `定位精度：约 ${Math.round(point.accuracy)} 米` : '',
+            '请直接观察照片内容，并按你的人设和我们的关系自然评论。'
+        ].filter(Boolean).join('\n');
+        appendOutingMessageToChar(char, {
+            type: 'image',
+            content: dataUrl,
+            imageUrl: dataUrl,
+            description
+        }, { autoReply: true });
+        addOutingTrail('photo', `已把照片发给 ${getOutingCharName(char)}`, point);
+        renderOutingApp();
+        if (typeof showWechatToast === 'function') showWechatToast('照片已发给角色');
+    } catch (e) {
+        setOutingStatus(`照片发送失败：${e.message || e}`, 'error');
+    } finally {
+        if (input) input.value = '';
+    }
+}
+window.handleOutingPhotoInput = handleOutingPhotoInput;
+
+function clearOutingTrail() {
+    const state = getOutingState();
+    state.trail = [];
+    saveOutingState(state);
+    renderOutingApp();
+}
+window.clearOutingTrail = clearOutingTrail;
 
 // --- Game App / 小游戏大厅 + 狼人杀 ---
 const GAME_STATE_KEY = 'bynd_game_wolfcha_state_v1';
@@ -7630,7 +8097,7 @@ function desktopEscapeAttr(value) {
 function getDesktopAppDefinition(appRef) {
     const id = typeof appRef === 'string' ? appRef : appRef?.id;
     const name = typeof appRef === 'object' ? appRef?.name : '';
-    const base = DESKTOP_APPS.find(app => app.id === id) || DESKTOP_APPS.find(app => app.name === name);
+    const base = getDesktopAnyAppDefinition(appRef);
     return {
         id: base?.id || id || name || '',
         name: base?.name || name || '应用',
@@ -7651,7 +8118,8 @@ function normalizeDesktopFolder(folder) {
         name: String(safe.name || '文件夹').trim() || '文件夹',
         apps,
         width: Number(safe.width) || null,
-        height: Number(safe.height) || null
+        height: Number(safe.height) || null,
+        size: safe.size === 'large' ? 'large' : 'small'
     };
 }
 
@@ -7674,7 +8142,7 @@ function getDesktopThemeData(source) {
 
 function getDesktopThemeIconUrl(appId, source) {
     const data = getDesktopThemeData(source);
-    const appIndex = DESKTOP_APPS.findIndex(app => app.id === appId);
+    const appIndex = getDesktopAllAppDefinitions().findIndex(app => app.id === appId);
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);
     return appIndex >= 0 ? String(icons[appIndex] || '').trim() : '';
@@ -7694,7 +8162,7 @@ function getDesktopAppIdFromElement(item) {
     const match = onclick.match(/openApp\(['"]([^'"]+)['"]\)/);
     if (match?.[1]) return match[1];
     const label = item.querySelector('span')?.textContent?.trim();
-    return DESKTOP_APPS.find(app => app.name === label)?.id || '';
+    return getDesktopAllAppDefinitions().find(app => app.name === label)?.id || '';
 }
 
 function hydrateDesktopAppElement(item) {
@@ -7737,6 +8205,14 @@ function refreshDesktopThemedIcons(themeData) {
         const app = getDesktopAppDefinition(item.dataset.appId);
         const icon = item.querySelector('.app-icon');
         const label = item.querySelector('span');
+        if (icon) icon.innerHTML = renderDesktopAppIcon(app, { themeData });
+        if (label) label.textContent = app.name;
+    });
+    getDesktopDockItems().forEach(item => {
+        const app = hydrateDesktopDockItem(item);
+        if (!app) return;
+        const icon = item.querySelector('.dock-icon-box');
+        const label = item.querySelector('.dock-label');
         if (icon) icon.innerHTML = renderDesktopAppIcon(app, { themeData });
         if (label) label.textContent = app.name;
     });
@@ -7808,7 +8284,8 @@ function createFolder(app1, app2) {
         name: '文件夹',
         apps: [normalizeDesktopAppRef(app1), normalizeDesktopAppRef(app2)],
         width: null,
-        height: null
+        height: null,
+        size: 'small'
     };
     window._folders.push(folder);
     saveFolders();
@@ -7827,6 +8304,7 @@ function openFolder(folderId) {
     if (!overlay || !grid || !nameInput || !popup) return;
 
     popup.dataset.folderId = folderId;
+    popup.classList.toggle('large-folder', folder.size === 'large');
     applyFolderPopupSize(folder, popup);
     ensureFolderResizeHandle(popup);
     nameInput.value = folder.name;
@@ -7836,7 +8314,12 @@ function openFolder(folderId) {
         syncDesktopFolderIcon(folderId);
     };
 
-    grid.innerHTML = '';
+    grid.innerHTML = `
+        <button type="button" class="folder-size-toggle" onclick="event.stopPropagation();toggleDesktopFolderSize('${desktopEscapeAttr(folderId)}')">
+            <i class="${folder.size === 'large' ? 'ri-collapse-diagonal-line' : 'ri-expand-diagonal-line'}"></i>
+            <span>${folder.size === 'large' ? '小文件夹' : '大文件夹'}</span>
+        </button>
+    `;
     getDesktopFolderApps(folder).forEach(app => {
         const item = document.createElement('div');
         item.className = 'app-item folder-grid-item';
@@ -7865,6 +8348,37 @@ function closeFolderOverlay(e) {
     document.getElementById('folder-overlay').classList.add('hidden');
 }
 
+function toggleDesktopFolderSize(folderId) {
+    const folder = window._folders.find(f => f.id === folderId);
+    if (!folder) return;
+    folder.size = folder.size === 'large' ? 'small' : 'large';
+    if (folder.size === 'large') {
+        folder.width = Math.max(Number(folder.width) || 260, 318);
+        folder.height = Math.max(Number(folder.height) || 0, 430);
+    } else {
+        folder.width = 260;
+        folder.height = null;
+    }
+    saveFolders();
+    syncDesktopFolderIcon(folderId);
+    openFolder(folderId);
+}
+window.toggleDesktopFolderSize = toggleDesktopFolderSize;
+
+function resizeDesktopFolderLayoutIcon(folderId, isLarge) {
+    const item = Array.from(document.querySelectorAll('.desktop-layout-item.is-folder')).find(el => el.dataset.folderId === folderId);
+    const pageArea = item?.closest?.('.desktop-scroll-area');
+    if (!item || !pageArea) return;
+    const left = parseFloat(item.style.left) || item.offsetLeft || 24;
+    const top = parseFloat(item.style.top) || item.offsetTop || 64;
+    applyDesktopLayoutRect(item, pageArea, {
+        left,
+        top,
+        width: isLarge ? 156 : 72,
+        height: isLarge ? 132 : 76
+    }, { mode: 'resize' });
+}
+
 function addToFolder(folderId, app) {
     const folder = window._folders.find(f => f.id === folderId);
     if (!folder) return;
@@ -7887,6 +8401,12 @@ function removeFromFolder(folderId, appId) {
     rebuildDesktop();
 }
 
+const DESKTOP_DOCK_APP_DEFINITIONS = [
+    { id: 'music', name: '音乐', icon: 'ri-music-2-fill' },
+    { id: 'camera', name: '相机', icon: 'ri-camera-lens-line' },
+    { id: 'preset', name: '预设', icon: 'ri-equalizer-line' }
+];
+
 const DESKTOP_APPS = [
     { id: 'wechat', name: '微信', icon: 'ri-wechat-line' },
     { id: 'regex', name: '正则', icon: 'ri-code-s-slash-line' },
@@ -7897,10 +8417,27 @@ const DESKTOP_APPS = [
     { id: 'money', name: '记账', icon: 'ri-money-cny-box-line' },
     { id: 'game', name: 'Game', icon: 'ri-gamepad-line' },
     { id: 'dream', name: '盗梦空间', icon: 'ri-moon-cloudy-line' },
-    { id: 'monitor', name: '监控', icon: 'ri-eye-line' }
+    { id: 'monitor', name: '监控', icon: 'ri-eye-line' },
+    { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' }
 ];
 normalizeDesktopFolders();
 saveFolders();
+
+function getDesktopAllAppDefinitions() {
+    const map = new Map();
+    [...DESKTOP_APPS, ...DESKTOP_DOCK_APP_DEFINITIONS].forEach(app => {
+        if (app && app.id && !map.has(app.id)) map.set(app.id, app);
+    });
+    return Array.from(map.values());
+}
+
+function getDesktopAnyAppDefinition(appRef) {
+    const id = typeof appRef === 'string' ? appRef : appRef?.id;
+    const name = typeof appRef === 'object' ? appRef?.name : '';
+    return getDesktopAllAppDefinitions().find(app => app.id === id)
+        || getDesktopAllAppDefinitions().find(app => app.name === name)
+        || null;
+}
 
 function renderDesktopFolderMiniIcons(folder, options = {}) {
     return getDesktopFolderApps(folder).slice(0, 4).map(app => `<div class="folder-mini-icon">${renderDesktopAppIcon(app, options)}</div>`).join('');
@@ -7919,10 +8456,11 @@ function createDesktopAppElement(app) {
 
 function createDesktopFolderElement(folder) {
     const el = document.createElement('div');
-    el.className = 'app-item is-folder';
+    el.className = `app-item is-folder ${folder?.size === 'large' ? 'folder-large-icon' : 'folder-small-icon'}`;
     el.dataset.folderId = folder.id;
     el.dataset.layoutId = `folder-${folder.id}`;
     el.dataset.layoutType = 'folder';
+    el.dataset.folderSize = folder?.size === 'large' ? 'large' : 'small';
     el.onclick = () => openFolder(folder.id);
     el.innerHTML = `<div class="app-icon">${renderDesktopFolderMiniIcons(folder)}</div><span>${desktopEscapeHtml(folder.name)}</span>`;
     return el;
@@ -8071,11 +8609,16 @@ window.moveAppOutOfFolder = moveAppOutOfFolder;
 function initPageSwipe() {
     const container = document.getElementById('pages-container');
     if (!container) return;
+    if (container.dataset.pageSwipeInit === '1') return;
+    container.dataset.pageSwipeInit = '1';
 
     let currentPage = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
     let startX = 0;
+    let startY = 0;
     let currentX = 0;
+    let currentY = 0;
     let isDragging = false;
+    let swipeIntent = '';
     const getPages = () => Array.from(container.querySelectorAll('.desktop-page'));
 
     function goToPage(idx) {
@@ -8091,6 +8634,11 @@ function initPageSwipe() {
         updateDots();
     }
     window.goToDesktopPage = goToPage;
+    window._desktopPageSwipeState = {
+        begin(e, point) { beginSwipe(e, point || e); },
+        move(e, point) { moveSwipe(e, point || e); },
+        end() { endSwipe(); }
+    };
 
     function updateDots() {
         const dots = document.querySelectorAll('#page-dots .page-dot');
@@ -8100,39 +8648,66 @@ function initPageSwipe() {
     function canSwipeDesktopPage(e) {
         if (!window._editMode) return true;
         const target = e.target;
-        if (target && target.closest && target.closest('.desktop-layout-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return false;
+        if (target && target.closest && target.closest('.dock-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return false;
+        const layoutItem = target && target.closest ? target.closest('.desktop-layout-item') : null;
+        if (layoutItem) {
+            const point = getDesktopPointerPoint(e);
+            const rect = layoutItem.getBoundingClientRect();
+            const innerX = point.x - rect.left;
+            const innerY = point.y - rect.top;
+            const isAppIcon = layoutItem.classList.contains('layout-app');
+            const activeCoreWidth = isAppIcon ? Math.min(rect.width, 86) : rect.width;
+            const activeCoreHeight = isAppIcon ? Math.min(rect.height, 96) : rect.height;
+            const coreLeft = (rect.width - activeCoreWidth) / 2;
+            const coreTop = (rect.height - activeCoreHeight) / 2;
+            const insideCore = innerX >= coreLeft && innerX <= coreLeft + activeCoreWidth && innerY >= coreTop && innerY <= coreTop + activeCoreHeight;
+            if (insideCore) return false;
+        }
         return true;
     }
 
-    container.addEventListener('touchstart', (e) => {
+    const beginSwipe = (e, point) => {
         if (!canSwipeDesktopPage(e)) return;
-        startX = e.touches[0].clientX;
+        startX = point.clientX;
+        startY = point.clientY;
         currentX = startX;
+        currentY = startY;
+        swipeIntent = '';
         isDragging = true;
-    }, { passive: true });
+    };
 
-    container.addEventListener('touchmove', (e) => {
+    const moveSwipe = (e, point) => {
         if (!canSwipeDesktopPage(e)) return;
         if (!isDragging) return;
         const pages = getPages();
-        currentX = e.touches[0].clientX;
+        currentX = point.clientX;
+        currentY = point.clientY;
         const diff = currentX - startX;
+        const diffY = currentY - startY;
+        if (!swipeIntent && (Math.abs(diff) > 8 || Math.abs(diffY) > 8)) {
+            swipeIntent = Math.abs(diff) > Math.abs(diffY) * 1.12 ? 'horizontal' : 'vertical';
+        }
+        if (swipeIntent !== 'horizontal') return;
+        if (e.cancelable) e.preventDefault();
         const offset = -currentPage * 100 + (diff / container.offsetWidth) * 100;
         pages.forEach(p => {
             p.style.transition = 'none';
             p.style.transform = `translateX(${offset}%)`;
         });
-    }, { passive: true });
+    };
 
-    container.addEventListener('touchend', () => {
+    const endSwipe = () => {
         if (!isDragging) return;
         isDragging = false;
         const diff = currentX - startX;
+        const diffY = currentY - startY;
         const pages = getPages();
         const totalPages = Math.max(1, pages.length);
         pages.forEach(p => p.style.transition = '');
 
-        if (Math.abs(diff) > 60) {
+        const threshold = Math.max(24, Math.min(42, container.offsetWidth * 0.1));
+        const horizontal = swipeIntent === 'horizontal' || Math.abs(diff) > Math.abs(diffY) * 1.12;
+        if (horizontal && Math.abs(diff) > threshold) {
             if (diff < 0 && currentPage < totalPages - 1) goToPage(currentPage + 1);
             else if (diff > 0 && currentPage > 0) goToPage(currentPage - 1);
             else goToPage(currentPage);
@@ -8140,10 +8715,36 @@ function initPageSwipe() {
             goToPage(currentPage);
         }
         startX = 0;
+        startY = 0;
         currentX = 0;
+        currentY = 0;
+        swipeIntent = '';
+    };
+
+    container.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) beginSwipe(e, e.touches[0]);
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) moveSwipe(e, e.touches[0]);
+    }, { passive: false });
+
+    container.addEventListener('touchend', endSwipe);
+
+    container.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        beginSwipe(e, e);
     });
 
-    goToPage(0);
+    container.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse') return;
+        moveSwipe(e, e);
+    });
+
+    container.addEventListener('pointerup', endSwipe);
+    container.addEventListener('pointercancel', endSwipe);
+
+    goToPage(currentPage);
 }
 
 // --- 桌面长按布局编辑 ---
@@ -8153,12 +8754,15 @@ const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
-const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set(['app-dream', 'app-monitor']);
+const DESKTOP_DOCK_LAYOUT_MAX = 4;
+const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set();
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
 let _editLongPressTimer = null;
 let _desktopLayoutBackupHtml = '';
 let _desktopDefaultLayoutHtml = '';
+let _desktopDockBackupHtml = '';
+let _desktopDefaultDockHtml = '';
 let _desktopLongPressStart = null;
 let _desktopLongPressTriggered = false;
 let _desktopLongPressActive = false;
@@ -8225,7 +8829,7 @@ function findDesktopBuiltinElement(id) {
     }
     if (id.startsWith('app-')) {
         const appId = id.slice(4);
-        const app = DESKTOP_APPS.find(item => item.id === appId);
+        const app = getDesktopAnyAppDefinition(appId);
         if (app) return createDesktopAppElement(app);
         return Array.from(document.querySelectorAll('.app-item')).find(item => {
             const onclick = item.getAttribute('onclick') || '';
@@ -8286,6 +8890,7 @@ function getDesktopDirectLayoutItems(pageArea) {
     const items = [];
     pageArea.querySelectorAll(':scope > .calendar-widget, :scope > .photo-large, :scope > .app-item, :scope > .desktop-custom-widget').forEach(item => items.push(item));
     pageArea.querySelectorAll(':scope > .bento-box > .photo-large, :scope > .bento-box > .apps-quad > .app-item').forEach(item => items.push(item));
+    pageArea.querySelectorAll(':scope > .page2-app-grid > .app-item').forEach(item => items.push(item));
     return items.filter((item, index, arr) => (
         arr.indexOf(item) === index
         && !item.classList.contains('layout-source-hidden')
@@ -8304,7 +8909,7 @@ function materializeDesktopPage(page) {
         rect: normalizeDesktopLayoutRect(item, pageArea)
     }));
     snapshots.forEach(({ item, rect }) => prepareDesktopLayoutItem(item, pageArea, rect));
-    page.querySelectorAll('.bento-box, .desktop-empty-placeholder').forEach(el => el.classList.add('layout-source-hidden'));
+    page.querySelectorAll('.bento-box, .page2-app-grid, .desktop-empty-placeholder').forEach(el => el.classList.add('layout-source-hidden'));
 }
 
 function materializeExistingDesktopForLayout() {
@@ -8402,9 +9007,660 @@ function addDesktopItemControls(item) {
 
 function selectDesktopLayoutItem(item) {
     document.querySelectorAll('.desktop-layout-item.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.dock-item.selected').forEach(el => el.classList.remove('selected'));
     window._desktopSelectedLayoutItem = item;
     item.classList.add('selected');
-    addDesktopItemControls(item);
+    if (item.classList.contains('desktop-layout-item')) addDesktopItemControls(item);
+}
+
+function getDesktopLayoutItemAppRef(item) {
+    if (!item || !item.classList.contains('layout-app')) return null;
+    if (item.classList.contains('is-folder')) return null;
+    const appId = item.dataset.appId || String(item.dataset.layoutId || '').replace(/^app-/, '');
+    return getDesktopAnyAppDefinition(appId);
+}
+
+function getDesktopRectOverlapScore(sourceRect, targetRect) {
+    const left = Math.max(sourceRect.left, targetRect.left);
+    const right = Math.min(sourceRect.right, targetRect.right);
+    const top = Math.max(sourceRect.top, targetRect.top);
+    const bottom = Math.min(sourceRect.bottom, targetRect.bottom);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    const sourceArea = Math.max(1, sourceRect.width * sourceRect.height);
+    return (width * height) / sourceArea;
+}
+
+function findDesktopFolderMergeTarget(item, pageArea) {
+    if (!item || !pageArea || !item.classList.contains('layout-app') || item.classList.contains('is-folder')) return null;
+    const itemRect = item.getBoundingClientRect();
+    const candidates = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app')).filter(target => target !== item);
+    const scored = candidates.map(target => ({
+        target,
+        score: getDesktopRectOverlapScore(itemRect, target.getBoundingClientRect())
+    })).filter(entry => entry.score >= 0.62)
+      .sort((a, b) => b.score - a.score);
+    return scored[0]?.target || null;
+}
+
+function getDesktopOrderedSlotItems(pageArea, includeDraggedItem) {
+    if (!pageArea) return [];
+    return Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app'))
+        .filter(item => includeDraggedItem || !item.classList.contains('desktop-slot-dragging'))
+        .sort((a, b) => {
+            const aSlot = Number(a.dataset.desktopSlot);
+            const bSlot = Number(b.dataset.desktopSlot);
+            const aHasSlot = Number.isFinite(aSlot);
+            const bHasSlot = Number.isFinite(bSlot);
+            if (aHasSlot && bHasSlot && aSlot !== bSlot) return aSlot - bSlot;
+            const at = parseFloat(a.style.top) || a.offsetTop || 0;
+            const bt = parseFloat(b.style.top) || b.offsetTop || 0;
+            if (Math.abs(at - bt) > 12) return at - bt;
+            return (parseFloat(a.style.left) || a.offsetLeft || 0) - (parseFloat(b.style.left) || b.offsetLeft || 0);
+        });
+}
+
+function getDesktopFallbackSlotMetrics(pageArea) {
+    const width = Math.max(300, pageArea?.clientWidth || 375);
+    const iconWidth = 72;
+    const iconHeight = 82;
+    const columns = Math.max(3, Math.min(4, Math.floor((width - 34) / iconWidth)));
+    const gapX = columns > 1 ? Math.max(10, Math.floor((width - (columns * iconWidth) - 24) / (columns - 1))) : 12;
+    const startX = Math.max(12, Math.round((width - (columns * iconWidth + gapX * (columns - 1))) / 2));
+    return {
+        columns,
+        iconWidth,
+        iconHeight,
+        startX,
+        startY: 18,
+        gapX,
+        gapY: 18
+    };
+}
+
+function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const index = Math.max(0, Number(slotIndex) || 0);
+    const width = item?.offsetWidth || parseFloat(item?.style?.width) || metrics.iconWidth;
+    const height = item?.offsetHeight || parseFloat(item?.style?.height) || metrics.iconHeight;
+    const column = index % metrics.columns;
+    const row = Math.floor(index / metrics.columns);
+    const widgetBottom = Math.max(0, ...Array.from(pageArea?.querySelectorAll?.(':scope > .calendar-widget, :scope > .photo-large, :scope > .desktop-custom-widget') || []).map(widget => (
+        (parseFloat(widget.style.top) || widget.offsetTop || 0) + (widget.offsetHeight || parseFloat(widget.style.height) || 0)
+    )));
+    const startY = Math.max(metrics.startY, widgetBottom ? widgetBottom + 18 : metrics.startY);
+    return clampDesktopLayoutRect({
+        left: metrics.startX + column * (metrics.iconWidth + metrics.gapX) + Math.round((metrics.iconWidth - width) / 2),
+        top: startY + row * (metrics.iconHeight + metrics.gapY),
+        width,
+        height
+    }, pageArea);
+}
+
+function captureDesktopPageSlotRects(pageArea) {
+    if (!pageArea) return [];
+    const items = getDesktopOrderedSlotItems(pageArea, true);
+    const slots = items.map((item, index) => {
+        const rect = clampDesktopLayoutRect({
+            left: parseFloat(item.style.left) || item.offsetLeft || 0,
+            top: parseFloat(item.style.top) || item.offsetTop || 0,
+            width: item.offsetWidth || parseFloat(item.style.width) || 72,
+            height: item.offsetHeight || parseFloat(item.style.height) || 82
+        }, pageArea);
+        item.dataset.desktopSlot = String(index);
+        return rect;
+    });
+    pageArea._desktopSlotRects = slots;
+    return slots;
+}
+
+function ensureDesktopPageSlotRects(pageArea) {
+    if (!pageArea) return [];
+    if (Array.isArray(pageArea._desktopSlotRects) && pageArea._desktopSlotRects.length) return pageArea._desktopSlotRects;
+    return captureDesktopPageSlotRects(pageArea);
+}
+
+function clearDesktopPageSlotRects() {
+    document.querySelectorAll('#pages-container .desktop-scroll-area').forEach(area => {
+        delete area._desktopSlotRects;
+    });
+    document.querySelectorAll('.desktop-layout-item[data-desktop-nudged-by]').forEach(item => {
+        delete item.dataset.desktopNudgedBy;
+    });
+}
+
+function getDesktopSlotRect(pageArea, slotIndex, item) {
+    const index = Math.max(0, Number(slotIndex) || 0);
+    const slots = ensureDesktopPageSlotRects(pageArea);
+    const slot = slots[index];
+    if (!slot) return getDesktopFallbackSlotRect(pageArea, index, item);
+    const width = item?.offsetWidth || parseFloat(item?.style?.width) || slot.width || 72;
+    const height = item?.offsetHeight || parseFloat(item?.style?.height) || slot.height || 82;
+    return clampDesktopLayoutRect({
+        left: slot.left + Math.round(((slot.width || width) - width) / 2),
+        top: slot.top + Math.round(((slot.height || height) - height) / 2),
+        width,
+        height
+    }, pageArea);
+}
+
+function getDesktopSlotIndexFromPoint(pageArea, point, item) {
+    const rect = pageArea.getBoundingClientRect();
+    const scale = getDesktopEditScale();
+    const x = (point.x - rect.left) / scale + (pageArea.scrollLeft || 0);
+    const y = (point.y - rect.top) / scale + (pageArea.scrollTop || 0);
+    const slots = ensureDesktopPageSlotRects(pageArea);
+    const items = getDesktopOrderedSlotItems(pageArea, true);
+    const maxIndex = Math.max(0, items.length + (items.includes(item) ? 0 : 1) - 1);
+    if (!slots.length) {
+        const metrics = getDesktopFallbackSlotMetrics(pageArea);
+        const column = Math.max(0, Math.min(metrics.columns - 1, Math.round((x - metrics.startX - metrics.iconWidth / 2) / (metrics.iconWidth + metrics.gapX))));
+        const row = Math.max(0, Math.floor((y - metrics.startY + metrics.iconHeight / 2) / (metrics.iconHeight + metrics.gapY)));
+        return Math.max(0, Math.min(maxIndex, row * metrics.columns + column));
+    }
+    let bestIndex = 0;
+    let bestDistance = Infinity;
+    slots.forEach((slot, index) => {
+        const cx = slot.left + slot.width / 2;
+        const cy = slot.top + slot.height / 2;
+        const distance = (x - cx) ** 2 + (y - cy) ** 2;
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = index;
+        }
+    });
+    return Math.max(0, Math.min(maxIndex, bestIndex));
+}
+
+function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
+    if (!pageArea || !draggedItem || !draggedItem.classList.contains('layout-app')) return;
+    const items = getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== draggedItem);
+    const index = Math.max(0, Math.min(Number(targetIndex) || 0, items.length));
+    items.splice(index, 0, draggedItem);
+    items.forEach((item, slotIndex) => {
+        item.dataset.desktopSlot = String(slotIndex);
+        const rect = getDesktopSlotRect(pageArea, slotIndex, item);
+        item.style.left = `${Math.round(rect.left)}px`;
+        item.style.top = `${Math.round(rect.top)}px`;
+        item.style.width = `${Math.round(rect.width)}px`;
+        item.style.height = `${Math.round(rect.height)}px`;
+    });
+}
+
+function compactDesktopSlotOrder(pageArea, excludedItem = null) {
+    if (!pageArea) return;
+    getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== excludedItem).forEach((item, index) => {
+        item.dataset.desktopSlot = String(index);
+        const rect = getDesktopSlotRect(pageArea, index, item);
+        item.style.left = `${Math.round(rect.left)}px`;
+        item.style.top = `${Math.round(rect.top)}px`;
+        item.style.width = `${Math.round(rect.width)}px`;
+        item.style.height = `${Math.round(rect.height)}px`;
+    });
+}
+
+function getDesktopStyleRect(item, pageArea) {
+    if (!item || !pageArea) return null;
+    return clampDesktopLayoutRect({
+        left: parseFloat(item.style.left) || item.offsetLeft || 0,
+        top: parseFloat(item.style.top) || item.offsetTop || 0,
+        width: item.offsetWidth || parseFloat(item.style.width) || 72,
+        height: item.offsetHeight || parseFloat(item.style.height) || 82
+    }, pageArea);
+}
+
+function getDesktopRectIntersectionRatio(a, b) {
+    if (!a || !b) return 0;
+    const left = Math.max(a.left, b.left);
+    const right = Math.min(a.left + a.width, b.left + b.width);
+    const top = Math.max(a.top, b.top);
+    const bottom = Math.min(a.top + a.height, b.top + b.height);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    const area = Math.max(1, Math.min(a.width * a.height, b.width * b.height));
+    return (width * height) / area;
+}
+
+function scoreDesktopCandidateOverlap(candidate, pageArea, ignoreItems = []) {
+    const ignored = new Set(ignoreItems.filter(Boolean));
+    return Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item'))
+        .filter(item => !ignored.has(item))
+        .reduce((score, item) => {
+            const rect = getDesktopStyleRect(item, pageArea);
+            return Math.max(score, getDesktopRectIntersectionRatio(candidate, rect));
+        }, 0);
+}
+
+function nudgeDesktopLayoutObstacles(dragItem, pageArea) {
+    if (!dragItem || !pageArea || !dragItem.classList.contains('layout-app')) return false;
+    const dragRect = getDesktopStyleRect(dragItem, pageArea);
+    if (!dragRect) return false;
+    const dragKey = dragItem.dataset.layoutId || 'dragging';
+    const obstacles = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'));
+    let hasObstacle = false;
+    obstacles.forEach(obstacle => {
+        const obstacleRect = getDesktopStyleRect(obstacle, pageArea);
+        if (!obstacleRect) return;
+        if (getDesktopRectIntersectionRatio(dragRect, obstacleRect) < 0.22) return;
+        hasObstacle = true;
+        if (obstacle.dataset.desktopNudgedBy === dragKey) return;
+        const gap = 12;
+        const attempts = [
+            { ...obstacleRect, left: obstacleRect.left - dragRect.width - gap },
+            { ...obstacleRect, left: obstacleRect.left + dragRect.width + gap },
+            { ...obstacleRect, top: obstacleRect.top + dragRect.height + gap },
+            { ...obstacleRect, top: obstacleRect.top - dragRect.height - gap }
+        ].map(rect => clampDesktopLayoutRect(rect, pageArea));
+        const best = attempts
+            .map(rect => ({
+                rect,
+                score: Math.max(
+                    getDesktopRectIntersectionRatio(rect, dragRect),
+                    scoreDesktopCandidateOverlap(rect, pageArea, [dragItem, obstacle])
+                )
+            }))
+            .sort((a, b) => a.score - b.score)[0];
+        if (!best || best.score > 0.42) return;
+        obstacle.dataset.desktopNudgedBy = dragKey;
+        obstacle.style.left = `${Math.round(best.rect.left)}px`;
+        obstacle.style.top = `${Math.round(best.rect.top)}px`;
+        obstacle.style.width = `${Math.round(best.rect.width)}px`;
+        obstacle.style.height = `${Math.round(best.rect.height)}px`;
+    });
+    return hasObstacle;
+}
+
+function findDesktopOpenAppRect(pageArea, item, preferredRect) {
+    if (!pageArea || !item) return preferredRect || null;
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const width = item.offsetWidth || parseFloat(item.style.width) || metrics.iconWidth;
+    const height = item.offsetHeight || parseFloat(item.style.height) || metrics.iconHeight;
+    const candidates = [];
+    const maxRows = Math.max(6, Math.ceil((pageArea.clientHeight || 590) / (metrics.iconHeight + metrics.gapY)));
+    for (let row = 0; row < maxRows; row += 1) {
+        for (let col = 0; col < metrics.columns; col += 1) {
+            candidates.push(clampDesktopLayoutRect({
+                left: metrics.startX + col * (metrics.iconWidth + metrics.gapX) + Math.round((metrics.iconWidth - width) / 2),
+                top: metrics.startY + row * (metrics.iconHeight + metrics.gapY),
+                width,
+                height
+            }, pageArea));
+        }
+    }
+    const source = preferredRect || getDesktopStyleRect(item, pageArea) || candidates[0];
+    const scored = candidates.map(rect => ({
+        rect,
+        overlap: scoreDesktopCandidateOverlap(rect, pageArea, [item]),
+        distance: source ? Math.abs(rect.left - source.left) + Math.abs(rect.top - source.top) : 0
+    })).sort((a, b) => (a.overlap - b.overlap) || (a.distance - b.distance));
+    return (scored.find(entry => entry.overlap < 0.16) || scored[0])?.rect || source;
+}
+
+function repairDesktopAppOverlaps(pageArea) {
+    if (!pageArea) return;
+    const items = getDesktopOrderedSlotItems(pageArea, true);
+    const placed = [];
+    let changed = false;
+    items.forEach(item => {
+        let rect = getDesktopStyleRect(item, pageArea);
+        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.24);
+        const overlapsWidget = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
+            .some(widget => getDesktopRectIntersectionRatio(rect, getDesktopStyleRect(widget, pageArea)) > 0.34);
+        if (overlapsPlaced || overlapsWidget) {
+            rect = findDesktopOpenAppRect(pageArea, item, rect);
+            item.style.left = `${Math.round(rect.left)}px`;
+            item.style.top = `${Math.round(rect.top)}px`;
+            item.style.width = `${Math.round(rect.width)}px`;
+            item.style.height = `${Math.round(rect.height)}px`;
+            changed = true;
+        }
+        placed.push({ item, rect });
+    });
+    if (changed) captureDesktopPageSlotRects(pageArea);
+}
+
+function repairDesktopLayoutOverlaps() {
+    document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(repairDesktopAppOverlaps);
+}
+
+function isPointInsideDesktopDock(point) {
+    const dock = document.querySelector('#home-screen .dock-bar');
+    if (!dock) return false;
+    const rect = dock.getBoundingClientRect();
+    const hitWidth = Math.max(rect.width, 220);
+    const centerX = rect.left + rect.width / 2;
+    const left = centerX - hitWidth / 2;
+    const right = centerX + hitWidth / 2;
+    return point.x >= left - 10 && point.x <= right + 10 && point.y >= rect.top - 18 && point.y <= rect.bottom + 18;
+}
+
+function getDesktopPageAreaFromPoint(point) {
+    if (!point || isPointInsideDesktopDock(point)) return null;
+    const target = document.elementFromPoint(point.x, point.y);
+    if (target?.closest?.('.desktop-edit-toolbar, .desktop-save-modal, .folder-overlay')) return null;
+    const directArea = target?.closest?.('.desktop-scroll-area');
+    if (directArea) return directArea;
+    const directPage = target?.closest?.('.desktop-page');
+    if (directPage) return directPage.querySelector('.desktop-scroll-area');
+
+    const pages = getDesktopPages();
+    for (const page of pages) {
+        const rect = page.getBoundingClientRect();
+        if (point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) {
+            return page.querySelector('.desktop-scroll-area');
+        }
+    }
+
+    const container = document.getElementById('pages-container');
+    const home = document.getElementById('home-screen');
+    const scopeRect = container?.getBoundingClientRect?.() || home?.getBoundingClientRect?.();
+    if (scopeRect && point.x >= scopeRect.left - 12 && point.x <= scopeRect.right + 12 && point.y >= scopeRect.top - 12 && point.y <= scopeRect.bottom + 90) {
+        return getPreferredDesktopPageArea();
+    }
+    return null;
+}
+
+function getDesktopDockItemAppId(item) {
+    if (!item) return '';
+    if (item.dataset.appId) return item.dataset.appId;
+    const onclick = item.getAttribute('onclick') || '';
+    const match = onclick.match(/openApp\(['"]([^'"]+)['"]\)/);
+    if (match?.[1]) return match[1];
+    const label = item.querySelector('.dock-label, span')?.textContent?.trim();
+    return getDesktopAllAppDefinitions().find(app => app.name === label)?.id || '';
+}
+
+function hydrateDesktopDockItem(item) {
+    const appId = getDesktopDockItemAppId(item);
+    if (!item || !appId) return null;
+    const app = getDesktopAnyAppDefinition(appId);
+    if (!app) return null;
+    item.dataset.appId = app.id;
+    item.dataset.layoutId = `app-${app.id}`;
+    item.onclick = () => openApp(app.id);
+    if (!item.querySelector('.dock-icon-box')) {
+        const icon = document.createElement('div');
+        icon.className = 'dock-icon-box';
+        item.insertBefore(icon, item.firstChild);
+    }
+    if (!item.querySelector('.dock-label')) {
+        const label = document.createElement('span');
+        label.className = 'dock-label';
+        item.appendChild(label);
+    }
+    return app;
+}
+
+function createDesktopDockItem(appRef) {
+    const app = getDesktopAppDefinition(appRef);
+    const el = document.createElement('div');
+    el.className = 'dock-item';
+    el.dataset.appId = app.id;
+    el.dataset.layoutId = `app-${app.id}`;
+    el.onclick = () => openApp(app.id);
+    el.innerHTML = `<div class="dock-icon-box">${renderDesktopAppIcon(app)}</div><span class="dock-label">${desktopEscapeHtml(app.name)}</span>`;
+    setupDesktopDockItem(el);
+    return el;
+}
+
+function getDesktopDockItems() {
+    const dock = document.querySelector('#home-screen .dock-bar');
+    return dock ? Array.from(dock.querySelectorAll(':scope > .dock-item')) : [];
+}
+
+function getDesktopDockInsertIndex(point, draggedItem) {
+    if (!point) return getDesktopDockItems().length;
+    const items = getDesktopDockItems().filter(item => item !== draggedItem);
+    if (!items.length) return 0;
+    for (let i = 0; i < items.length; i += 1) {
+        const rect = items[i].getBoundingClientRect();
+        if (point.x < rect.left + rect.width / 2) return i;
+    }
+    return items.length;
+}
+
+function refreshDesktopDockOrder() {
+    getDesktopDockItems().forEach((item, index) => {
+        hydrateDesktopDockItem(item);
+        item.dataset.dockIndex = String(index);
+        setupDesktopDockItem(item);
+    });
+}
+
+function setupDesktopDockItem(item) {
+    if (!item || item._dockLayoutReady) return;
+    item._dockLayoutReady = true;
+    item.dataset.dockLayoutReady = '1';
+    item.addEventListener('pointerdown', startDesktopDockItemDrag, true);
+    item.addEventListener('click', (e) => {
+        if (!window._editMode) return;
+        e.preventDefault();
+        e.stopPropagation();
+        selectDesktopLayoutItem(item);
+    }, true);
+}
+
+function setupDesktopDockEditing() {
+    refreshDesktopDockOrder();
+}
+
+function collectDesktopDockLayout() {
+    return getDesktopDockItems()
+        .map(item => getDesktopDockItemAppId(item))
+        .filter(Boolean)
+        .filter((appId, index, arr) => arr.indexOf(appId) === index);
+}
+
+function applyDesktopDockLayout(appIds) {
+    const dock = document.querySelector('#home-screen .dock-bar');
+    if (!dock || !Array.isArray(appIds)) return;
+    const unique = appIds.filter((appId, index, arr) => appId && arr.indexOf(appId) === index);
+    dock.innerHTML = '';
+    unique.slice(0, DESKTOP_DOCK_LAYOUT_MAX).forEach(appId => {
+        const app = getDesktopAnyAppDefinition(appId);
+        if (app) dock.appendChild(createDesktopDockItem(app));
+    });
+    refreshDesktopDockOrder();
+}
+
+function getDesktopAppElementForTransfer(appId) {
+    if (!appId) return null;
+    let item = Array.from(document.querySelectorAll('.desktop-layout-item.layout-app')).find(el => getDesktopAppIdFromElement(el) === appId);
+    if (item) return item;
+    const app = getDesktopAnyAppDefinition(appId);
+    return app ? createDesktopAppElement(app) : null;
+}
+
+function getPreferredDesktopPageArea() {
+    const index = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+    return ensureDesktopPage(index)?.querySelector('.desktop-scroll-area') || document.querySelector('#pages-container .desktop-page .desktop-scroll-area');
+}
+
+function placeDesktopAppInFirstOpenSlot(item, preferredArea) {
+    const pageArea = preferredArea || getPreferredDesktopPageArea();
+    if (!item || !pageArea) return;
+    pageArea.classList.add('layout-canvas');
+    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+    ensureDesktopPageSlotRects(pageArea);
+    if (item.parentElement !== pageArea) pageArea.appendChild(item);
+    item.classList.add('desktop-layout-item', 'layout-app');
+    item.dataset.layoutId = item.dataset.layoutId || `app-${getDesktopAppIdFromElement(item)}`;
+    item.dataset.layoutType = item.dataset.layoutType || (item.classList.contains('is-folder') ? 'folder' : 'app');
+    item.style.removeProperty('transform');
+    item.style.removeProperty('position');
+    setupDesktopLayoutItem(item);
+    const slot = getDesktopOrderedSlotItems(pageArea, true).filter(el => el !== item).length;
+    const rect = getDesktopSlotRect(pageArea, slot, item);
+    prepareDesktopLayoutItem(item, pageArea, rect);
+    applyDesktopSlotOrder(pageArea, item, slot);
+}
+
+function removeDesktopDuplicateAppIcons(appId, keepItem) {
+    if (!appId) return;
+    document.querySelectorAll('.desktop-layout-item.layout-app').forEach(item => {
+        if (item === keepItem) return;
+        if (getDesktopAppIdFromElement(item) === appId) item.remove();
+    });
+    getDesktopDockItems().forEach(item => {
+        if (item === keepItem) return;
+        if (getDesktopDockItemAppId(item) === appId) item.remove();
+    });
+}
+
+function moveDesktopAppItemToDock(sourceItem, insertIndex) {
+    const dock = document.querySelector('#home-screen .dock-bar');
+    if (!dock || !sourceItem) return false;
+    const appId = getDesktopAppIdFromElement(sourceItem) || getDesktopDockItemAppId(sourceItem);
+    const app = getDesktopAnyAppDefinition(appId);
+    if (!app) return false;
+    const originArea = sourceItem.closest?.('.desktop-scroll-area') || getPreferredDesktopPageArea();
+    const dockItem = sourceItem.classList.contains('dock-item') ? sourceItem : createDesktopDockItem(app);
+    removeDesktopDuplicateAppIcons(appId, dockItem);
+    if (sourceItem !== dockItem) {
+        sourceItem.remove();
+        compactDesktopSlotOrder(originArea);
+    }
+    const items = getDesktopDockItems().filter(item => item !== dockItem);
+    const index = Math.max(0, Math.min(Number(insertIndex) || 0, items.length));
+    dock.insertBefore(dockItem, items[index] || null);
+    while (getDesktopDockItems().length > DESKTOP_DOCK_LAYOUT_MAX) {
+        const overflow = getDesktopDockItems().find(item => item !== dockItem && Number(item.dataset.dockIndex) >= DESKTOP_DOCK_LAYOUT_MAX - 1)
+            || getDesktopDockItems().find(item => item !== dockItem)
+            || getDesktopDockItems()[DESKTOP_DOCK_LAYOUT_MAX];
+        if (!overflow) break;
+        const overflowId = getDesktopDockItemAppId(overflow);
+        overflow.remove();
+        const overflowApp = getDesktopAnyAppDefinition(overflowId);
+        if (overflowApp) placeDesktopAppInFirstOpenSlot(createDesktopAppElement(overflowApp), originArea);
+    }
+    refreshDesktopDockOrder();
+    return true;
+}
+
+function moveDesktopDockItemToPage(dockItem, pageArea, targetIndex) {
+    if (!dockItem || !pageArea) return null;
+    const appId = getDesktopDockItemAppId(dockItem);
+    const app = getDesktopAnyAppDefinition(appId);
+    if (!app) return null;
+    const item = createDesktopAppElement(app);
+    delete pageArea._desktopSlotRects;
+    ensureDesktopPageSlotRects(pageArea);
+    dockItem.remove();
+    placeDesktopAppInFirstOpenSlot(item, pageArea);
+    const index = Number.isFinite(targetIndex) ? targetIndex : getDesktopOrderedSlotItems(pageArea, true).length - 1;
+    applyDesktopSlotOrder(pageArea, item, index);
+    repairDesktopAppOverlaps(pageArea);
+    refreshDesktopDockOrder();
+    return item;
+}
+
+function startDesktopDockItemDrag(e) {
+    if (!window._editMode) return;
+    const dockItem = e.currentTarget;
+    if (!dockItem) return;
+    const dockApp = hydrateDesktopDockItem(dockItem);
+    if (!dockApp) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof dockItem.setPointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
+        try { dockItem.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    selectDesktopLayoutItem(dockItem);
+    const startPoint = getDesktopPointerPoint(e);
+    const previousPointerEvents = dockItem.style.pointerEvents;
+    dockItem.style.pointerEvents = 'none';
+    const ghost = dockItem.cloneNode(true);
+    ghost.classList.add('dock-drag-ghost');
+    document.body.appendChild(ghost);
+    const moveGhost = point => {
+        ghost.style.left = `${Math.round(point.x - ghost.offsetWidth / 2)}px`;
+        ghost.style.top = `${Math.round(point.y - ghost.offsetHeight / 2)}px`;
+    };
+    moveGhost(startPoint);
+
+    const move = ev => {
+        const point = getDesktopPointerPoint(ev);
+        moveGhost(point);
+        if (isPointInsideDesktopDock(point)) {
+            const index = getDesktopDockInsertIndex(point, dockItem);
+            const items = getDesktopDockItems().filter(item => item !== dockItem);
+            document.querySelector('#home-screen .dock-bar')?.insertBefore(dockItem, items[index] || null);
+            refreshDesktopDockOrder();
+            return;
+        }
+        const targetArea = getDesktopPageAreaFromPoint(point);
+        if (targetArea) {
+            ensureDesktopPageSlotRects(targetArea);
+        }
+    };
+    const up = ev => {
+        const point = getDesktopPointerPoint(ev);
+        if (typeof dockItem.releasePointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
+            try { dockItem.releasePointerCapture(e.pointerId); } catch (err) {}
+        }
+        dockItem.style.pointerEvents = previousPointerEvents;
+        ghost.remove();
+        const targetArea = getDesktopPageAreaFromPoint(point);
+        if (targetArea && !isPointInsideDesktopDock(point)) {
+            const targetIndex = getDesktopSlotIndexFromPoint(targetArea, point, null);
+            const pageItem = moveDesktopDockItemToPage(dockItem, targetArea, targetIndex);
+            if (pageItem) selectDesktopLayoutItem(pageItem);
+        } else {
+            const index = getDesktopDockInsertIndex(point, dockItem);
+            const items = getDesktopDockItems().filter(item => item !== dockItem);
+            document.querySelector('#home-screen .dock-bar')?.insertBefore(dockItem, items[index] || null);
+            refreshDesktopDockOrder();
+        }
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+}
+
+function mergeDesktopLayoutAppsIntoFolder(sourceItem, targetItem, pageArea) {
+    const sourceApp = getDesktopLayoutItemAppRef(sourceItem);
+    if (!sourceApp || !targetItem || !pageArea) return false;
+    let folder = null;
+    if (targetItem.classList.contains('is-folder')) {
+        folder = window._folders.find(f => f.id === targetItem.dataset.folderId);
+        if (!folder) return false;
+        addToFolder(folder.id, sourceApp);
+        sourceItem.remove();
+    } else {
+        const targetApp = getDesktopLayoutItemAppRef(targetItem);
+        if (!targetApp || targetApp.id === sourceApp.id) return false;
+        folder = {
+            id: 'folder_' + Date.now(),
+            name: '文件夹',
+            apps: [normalizeDesktopAppRef(targetApp), normalizeDesktopAppRef(sourceApp)],
+            width: null,
+            height: null,
+            size: 'small'
+        };
+        window._folders.push(folder);
+        saveFolders();
+        const rect = {
+            left: parseFloat(targetItem.style.left) || targetItem.offsetLeft || 24,
+            top: parseFloat(targetItem.style.top) || targetItem.offsetTop || 64,
+            width: targetItem.offsetWidth || 72,
+            height: targetItem.offsetHeight || 76
+        };
+        const folderItem = createDesktopFolderElement(folder);
+        pageArea.appendChild(folderItem);
+        prepareDesktopLayoutItem(folderItem, pageArea, rect);
+        targetItem.remove();
+        sourceItem.remove();
+        selectDesktopLayoutItem(folderItem);
+    }
+    if (folder) {
+        saveFolders();
+        if (typeof showWechatToast === 'function') showWechatToast('已合并为文件夹');
+        return true;
+    }
+    return false;
 }
 
 function startDesktopItemDrag(e) {
@@ -8413,37 +9669,101 @@ function startDesktopItemDrag(e) {
     const item = e.currentTarget;
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
+    const sourcePageRect = pageArea.getBoundingClientRect();
     e.preventDefault();
     e.stopPropagation();
     if (typeof item.setPointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
         try { item.setPointerCapture(e.pointerId); } catch (err) {}
     }
     selectDesktopLayoutItem(item);
+    item.classList.add('desktop-layout-dragging');
     const startPoint = getDesktopPointerPoint(e);
     const startX = startPoint.x;
     const startY = startPoint.y;
     const startLeft = parseFloat(item.style.left) || 0;
     const startTop = parseFloat(item.style.top) || 0;
     const scale = getDesktopEditScale();
+    const isAppIcon = item.classList.contains('layout-app');
+    let currentPageArea = pageArea;
+    let hasMoved = false;
+    let pendingDockIndex = -1;
+    if (isAppIcon) {
+        item.classList.add('desktop-slot-dragging');
+        captureDesktopPageSlotRects(pageArea);
+    }
 
     const move = (ev) => {
         const point = getDesktopPointerPoint(ev);
-        const maxLeft = Math.max(8, pageArea.clientWidth - item.offsetWidth - 8);
-        const maxTop = Math.max(8, pageArea.clientHeight - item.offsetHeight - 8);
+        hasMoved = true;
+        const targetPageArea = getDesktopPageAreaFromPoint(point);
+        if (isAppIcon && targetPageArea && targetPageArea !== currentPageArea && !isPointInsideDesktopDock(point)) {
+            targetPageArea.classList.add('layout-canvas');
+            targetPageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+            compactDesktopSlotOrder(currentPageArea);
+            targetPageArea.appendChild(item);
+            currentPageArea = targetPageArea;
+            captureDesktopPageSlotRects(currentPageArea);
+        }
+        if (isAppIcon && isPointInsideDesktopDock(point)) {
+            pendingDockIndex = getDesktopDockInsertIndex(point, null);
+            item.classList.add('desktop-dock-drop-ready');
+            return;
+        }
+        pendingDockIndex = -1;
+        item.classList.remove('desktop-dock-drop-ready');
+        const area = currentPageArea || pageArea;
+        const areaRect = area.getBoundingClientRect();
+        const maxLeft = Math.max(8, area.clientWidth - item.offsetWidth - 8);
+        const maxTop = Math.max(8, area.clientHeight - item.offsetHeight - 8);
         const dx = (point.x - startX) / scale;
         const dy = (point.y - startY) / scale;
-        applyDesktopLayoutRect(item, pageArea, {
-            left: Math.max(8, Math.min(maxLeft, startLeft + dx)),
-            top: Math.max(8, Math.min(maxTop, startTop + dy)),
+        const sourceOffsetX = (sourcePageRect.left - areaRect.left) / scale;
+        const sourceOffsetY = (sourcePageRect.top - areaRect.top) / scale;
+        applyDesktopLayoutRect(item, area, {
+            left: Math.max(8, Math.min(maxLeft, startLeft + dx + sourceOffsetX)),
+            top: Math.max(8, Math.min(maxTop, startTop + dy + sourceOffsetY)),
             width: item.offsetWidth,
             height: item.offsetHeight
         }, { mode: 'move' });
+        if (isAppIcon) {
+            applyDesktopSlotOrder(area, item, getDesktopSlotIndexFromPoint(area, point, item));
+            nudgeDesktopLayoutObstacles(item, area);
+        }
     };
-    const up = () => {
+    const up = (ev) => {
         if (typeof item.releasePointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
             try { item.releasePointerCapture(e.pointerId); } catch (err) {}
         }
-        hideDesktopSnapGuides(pageArea);
+        const point = getDesktopPointerPoint(ev);
+        const area = item.closest('.desktop-scroll-area') || currentPageArea || pageArea;
+        if (isAppIcon && (isPointInsideDesktopDock(point) || pendingDockIndex >= 0)) {
+            moveDesktopAppItemToDock(item, pendingDockIndex >= 0 ? pendingDockIndex : getDesktopDockInsertIndex(point, null));
+            hideDesktopSnapGuides(area);
+            item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            return;
+        }
+        const target = hasMoved ? findDesktopFolderMergeTarget(item, area) : null;
+        if (target && mergeDesktopLayoutAppsIntoFolder(item, target, area)) {
+            hideDesktopSnapGuides(area);
+            item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+            compactDesktopSlotOrder(area);
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            return;
+        }
+        if (isAppIcon) {
+            const finalIndex = getDesktopSlotIndexFromPoint(area, point, item);
+            applyDesktopSlotOrder(area, item, finalIndex);
+            const rect = getDesktopSlotRect(area, Number(item.dataset.desktopSlot), item);
+            item.style.left = `${Math.round(rect.left)}px`;
+            item.style.top = `${Math.round(rect.top)}px`;
+            item.style.width = `${Math.round(rect.width)}px`;
+            item.style.height = `${Math.round(rect.height)}px`;
+        }
+        item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+        hideDesktopSnapGuides(area);
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
     };
@@ -8814,6 +10134,18 @@ function moveSelectedDesktopItemToOtherPage() {
 function renderDesktopEditChrome() {
     const home = document.getElementById('home-screen');
     if (!home || document.getElementById('desktop-edit-toolbar')) return;
+    if (!document.getElementById('desktop-edit-swipe-zone')) {
+        const swipeZone = document.createElement('div');
+        swipeZone.id = 'desktop-edit-swipe-zone';
+        swipeZone.className = 'desktop-edit-swipe-zone';
+        swipeZone.setAttribute('aria-label', '滑动切换桌面屏幕');
+        swipeZone.addEventListener('pointerdown', handleDesktopEditSwipeZonePointerDown);
+        swipeZone.addEventListener('touchstart', handleDesktopEditSwipeZoneTouchStart, { passive: true });
+        swipeZone.addEventListener('touchmove', handleDesktopEditSwipeZoneTouchMove, { passive: false });
+        swipeZone.addEventListener('touchend', handleDesktopEditSwipeZoneTouchEnd);
+        swipeZone.addEventListener('touchcancel', handleDesktopEditSwipeZoneTouchEnd);
+        home.appendChild(swipeZone);
+    }
     const toolbar = document.createElement('div');
     toolbar.id = 'desktop-edit-toolbar';
     toolbar.className = 'desktop-edit-toolbar';
@@ -8835,6 +10167,44 @@ function renderDesktopEditChrome() {
     home.appendChild(toolbar);
 }
 
+function handleDesktopEditSwipeZonePointerDown(e) {
+    if (!window._editMode || !window._desktopPageSwipeState) return;
+    e.stopPropagation();
+    window._desktopPageSwipeState.begin(e, e);
+    const move = ev => {
+        ev.stopPropagation();
+        window._desktopPageSwipeState.move(ev, ev);
+    };
+    const up = ev => {
+        ev.stopPropagation();
+        window._desktopPageSwipeState.end();
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', up, true);
+        window.removeEventListener('pointercancel', up, true);
+    };
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+}
+
+function handleDesktopEditSwipeZoneTouchStart(e) {
+    if (!window._editMode || !window._desktopPageSwipeState || !e.touches?.[0]) return;
+    e.stopPropagation();
+    window._desktopPageSwipeState.begin(e, e.touches[0]);
+}
+
+function handleDesktopEditSwipeZoneTouchMove(e) {
+    if (!window._editMode || !window._desktopPageSwipeState || !e.touches?.[0]) return;
+    e.stopPropagation();
+    window._desktopPageSwipeState.move(e, e.touches[0]);
+}
+
+function handleDesktopEditSwipeZoneTouchEnd(e) {
+    if (!window._editMode || !window._desktopPageSwipeState) return;
+    e.stopPropagation();
+    window._desktopPageSwipeState.end();
+}
+
 function enterEditMode() {
     if (window._editMode) return;
     const pages = document.getElementById('pages-container');
@@ -8842,10 +10212,14 @@ function enterEditMode() {
     if (!pages || !home) return;
     window._editMode = true;
     _desktopLayoutBackupHtml = pages.innerHTML;
+    const dock = document.querySelector('#home-screen .dock-bar');
+    _desktopDockBackupHtml = dock ? dock.innerHTML : '';
     _desktopDefaultPrincessDeletedBackup = localStorage.getItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY);
     _desktopStickyNotesBackup = localStorage.getItem(DESKTOP_STICKY_NOTES_KEY);
     materializeExistingDesktopForLayout();
     document.querySelectorAll('.desktop-layout-item').forEach(setupDesktopLayoutItem);
+    setupDesktopDockEditing();
+    repairDesktopLayoutOverlaps();
     home.classList.add('desktop-editing');
     renderDesktopEditChrome();
     if (navigator.vibrate) navigator.vibrate(20);
@@ -8855,8 +10229,8 @@ function startDesktopEditLongPress(e) {
     const home = document.getElementById('home-screen');
     if (!home || window._editMode) return;
     if (typeof e.button === 'number' && e.button !== 0) return;
-    if (e.target.closest('.app-window, .dock-bar, .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal')) return;
-    if (!e.target.closest('.desktop-scroll-area, .desktop-layout-item, .app-item, .photo-large, .calendar-widget, .desktop-page')) return;
+    if (e.target.closest('.app-window, .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal')) return;
+    if (!e.target.closest('.desktop-scroll-area, .desktop-layout-item, .app-item, .photo-large, .calendar-widget, .desktop-page, .dock-bar, .dock-item')) return;
 
     const point = getDesktopPointerPoint(e);
     _desktopLongPressActive = true;
@@ -8929,8 +10303,10 @@ function promptRestoreDefaultDesktopLayout() {
 
 function collectDesktopLayout() {
     syncDesktopStickyNotesFromDom();
+    const dockAppIds = new Set(collectDesktopDockLayout().map(appId => `app-${appId}`));
     return Array.from(document.querySelectorAll('.desktop-layout-item')).filter(item => (
         !isDesktopStaticPage2AppLayoutId(item.dataset.layoutId)
+        && !dockAppIds.has(item.dataset.layoutId)
     )).map(item => {
         const page = item.closest('.desktop-page');
         const area = item.closest('.desktop-scroll-area');
@@ -8957,6 +10333,7 @@ function saveDesktopLayout() {
     syncDesktopStickyNotesFromDom();
     localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
         items: collectDesktopLayout(),
+        dock: collectDesktopDockLayout(),
         pageCount: getDesktopPages().length,
         savedAt: Date.now()
     }));
@@ -8975,6 +10352,8 @@ function restoreDefaultDesktopLayout() {
         newPages.innerHTML = template;
         pages.replaceWith(newPages);
     }
+    const dock = document.querySelector('#home-screen .dock-bar');
+    if (dock && _desktopDefaultDockHtml) dock.innerHTML = _desktopDefaultDockHtml;
     window._editMode = false;
     window._desktopSelectedLayoutItem = null;
     document.getElementById('home-screen')?.classList.remove('desktop-editing');
@@ -8989,10 +10368,14 @@ function restoreDefaultDesktopLayout() {
 
 function clearDesktopEditChrome() {
     document.getElementById('desktop-edit-toolbar')?.remove();
+    document.getElementById('desktop-edit-swipe-zone')?.remove();
     document.getElementById('desktop-save-modal')?.remove();
     document.querySelectorAll('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete').forEach(el => el.remove());
     document.querySelectorAll('.desktop-snap-guides').forEach(el => el.remove());
     document.querySelectorAll('.desktop-layout-item.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.dock-item.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.desktop-layout-dragging, .desktop-slot-dragging, .desktop-dock-drop-ready').forEach(el => el.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready'));
+    document.querySelectorAll('.dock-drag-ghost').forEach(el => el.remove());
 }
 
 function exitEditMode(saveChanges) {
@@ -9016,6 +10399,8 @@ function exitEditMode(saveChanges) {
         const newPages = oldPages.cloneNode(false);
         newPages.innerHTML = _desktopLayoutBackupHtml;
         oldPages.replaceWith(newPages);
+        const dock = document.querySelector('#home-screen .dock-bar');
+        if (dock) dock.innerHTML = _desktopDockBackupHtml || _desktopDefaultDockHtml || dock.innerHTML;
         _desktopLayoutApplied = false;
         setTimeout(() => {
             initFolderDrag();
@@ -9024,10 +10409,13 @@ function exitEditMode(saveChanges) {
                 item._layoutReady = false;
                 item.removeAttribute('data-layout-ready');
             });
+            setupDesktopDockEditing();
         }, 0);
     }
+    clearDesktopPageSlotRects();
     _desktopDefaultPrincessDeletedBackup = null;
     _desktopStickyNotesBackup = null;
+    _desktopDockBackupHtml = '';
 }
 
 function applySavedDesktopLayout() {
@@ -9038,7 +10426,11 @@ function applySavedDesktopLayout() {
     } catch (e) {
         return;
     }
-    if (!Array.isArray(saved.items) || !saved.items.length) return;
+    if (Array.isArray(saved.dock)) applyDesktopDockLayout(saved.dock);
+    if (!Array.isArray(saved.items) || !saved.items.length) {
+        _desktopLayoutApplied = false;
+        return;
+    }
     _desktopLayoutApplied = true;
     const pageCount = Math.max(saved.pageCount || 0, ...saved.items.map(item => (item.page || 0) + 1), 1);
     for (let i = 0; i < pageCount; i += 1) ensureDesktopPage(i);
@@ -9046,6 +10438,7 @@ function applySavedDesktopLayout() {
     pages.forEach(page => page.querySelector('.desktop-scroll-area')?.classList.add('layout-canvas'));
     saved.items.forEach(record => {
         if (isDesktopStaticPage2AppLayoutId(record && record.id)) return;
+        if (record && String(record.id || '').startsWith('app-') && Array.isArray(saved.dock) && saved.dock.includes(String(record.id).slice(4))) return;
         if (record.type === 'custom' && record.kind !== 'princess') return;
         if (record.type === 'custom' && record.id === DESKTOP_DEFAULT_PRINCESS_ID) return;
         const page = pages[Math.max(0, Math.min(pages.length - 1, record.page || 0))];
@@ -9062,6 +10455,9 @@ function applySavedDesktopLayout() {
     });
     pages.forEach(page => {
         page.querySelectorAll(':scope > .desktop-scroll-area > .app-item:not(.desktop-layout-item)').forEach(el => {
+            el.classList.add('layout-source-hidden');
+        });
+        page.querySelectorAll(':scope > .desktop-scroll-area > .page2-app-grid').forEach(el => {
             el.classList.add('layout-source-hidden');
         });
     });
@@ -9104,9 +10500,10 @@ function ensureMonitorDesktopEntry() {
     const page = ensureDesktopPage(1);
     const area = page?.querySelector('.desktop-scroll-area');
     if (!area) return;
-    area.querySelectorAll(':scope > .app-item, :scope > .desktop-layout-item').forEach(item => {
-        if (isDesktopStaticPage2AppLayoutId(item.dataset.layoutId)) item.remove();
-    });
+    if (area.classList.contains('layout-canvas') || area.querySelector(':scope > .desktop-layout-item')) {
+        area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+        return;
+    }
 
     let grid = area.querySelector(':scope > .page2-app-grid');
     if (!grid) {
@@ -9115,7 +10512,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor'].forEach(appId => {
+    ['dream', 'monitor', 'outing'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -9141,6 +10538,8 @@ function initEditMode() {
     if (!home || home.dataset.editInit === '1') return;
     const pages = document.getElementById('pages-container');
     if (pages && !_desktopDefaultLayoutHtml) _desktopDefaultLayoutHtml = pages.innerHTML;
+    const dock = document.querySelector('#home-screen .dock-bar');
+    if (dock && !_desktopDefaultDockHtml) _desktopDefaultDockHtml = dock.innerHTML;
     home.dataset.editInit = '1';
     home.addEventListener('pointerdown', startDesktopEditLongPress, true);
     ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(type => {
@@ -9161,6 +10560,7 @@ function initEditMode() {
         migrateDesktopStoryAppsToIcons();
         applySavedDesktopLayout();
         ensureMonitorDesktopEntry();
+        setupDesktopDockEditing();
         syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
     }, 50);
 }

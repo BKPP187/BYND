@@ -34,7 +34,7 @@ function cleanChatApiVisibleContent(value) {
     hiddenTags.forEach(tag => {
         const leading = new RegExp(`^\\s*<${tag}\\b[^>]*>`, 'i');
         if (!leading.test(text)) return;
-        const visibleBoundary = text.search(/<content\b|```|[\[【](?:微信|消息|旁白|群聊发言|音乐卡片|链接卡片)[：:\]|】]|<\s*(?:jwy|bqb|status|state|html|div|section|article|style|script|table|svg|canvas)\b|(?:思考完毕|生成回复)[，,。；;：:]?/i);
+        const visibleBoundary = text.search(/<content\b|```|[\[【](?:微信|消息|旁白|群聊发言|QQ群头衔|群头衔|微信改群头衔|QQ群昵称|微信群昵称|群昵称|QQ群名|微信群名|群聊名称|群名称|群名|微信改群名|QQ改群名|群邀请|群拉人|微信群邀请|QQ群邀请|群NPC|音乐卡片|链接卡片)[：:\]|】]|<\s*(?:jwy|bqb|status|state|html|div|section|article|style|script|table|svg|canvas)\b|(?:思考完毕|生成回复)[，,。；;：:]?/i);
         if (visibleBoundary > 0) {
             text = text.slice(visibleBoundary);
         } else {
@@ -568,12 +568,40 @@ function getChatApiGroupMembers(group) {
 }
 
 function getChatApiGroupMemberName(member) {
+    if (member && member.__wechatGroupDisplayName) return member.__wechatGroupDisplayName;
+    if (typeof getWechatQQGroupMemberDisplayName === 'function' && typeof getCurrentChatChar === 'function') {
+        try {
+            const group = getCurrentChatChar();
+            if (group && group.isGroupChat) return getWechatQQGroupMemberDisplayName(group, member);
+        } catch (_) {}
+    }
     if (typeof getWechatGroupMemberName === 'function') {
         try {
             return getWechatGroupMemberName(member);
         } catch (_) {}
     }
     return (member && member.chatConfig && member.chatConfig.nickname) || (member && member.name) || '成员';
+}
+
+function getChatApiGroupMemberRoleLine(group, member) {
+    if (!group?.isGroupChat || !member) return '';
+    let roleLabel = '';
+    if (typeof getWechatQQGroupMemberRole === 'function') {
+        try {
+            const role = getWechatQQGroupMemberRole(group, member.id);
+            roleLabel = role === 'owner' ? '群主' : (role === 'admin' ? '管理员' : '普通成员');
+        } catch (_) {}
+    }
+    if (typeof getWechatQQGroupMemberBadge === 'function') {
+        try {
+            const badge = getWechatQQGroupMemberBadge(group, member.id);
+            if (badge && badge.text) {
+                const titleLine = roleLabel && badge.text !== roleLabel ? `，当前群头衔：${badge.text}` : '';
+                return `，群身份：${roleLabel || badge.text}${titleLine}`;
+            }
+        } catch (_) {}
+    }
+    return roleLabel ? `，群身份：${roleLabel}` : '';
 }
 
 function findChatApiGroupMember(group, value) {
@@ -609,17 +637,23 @@ function normalizeChatApiGroupSpeechContent(content, group) {
 function buildChatApiGroupPrompt(group) {
     const members = getChatApiGroupMembers(group);
     if (!group?.isGroupChat || !members.length) return '';
+    const userProfile = getChatApiUserProfile(group);
+    const userName = userProfile.name || '我';
     const lines = members.map((member, index) => {
-        const displayName = getChatApiGroupMemberName(member);
+        const displayName = typeof getWechatQQGroupMemberDisplayName === 'function'
+            ? getWechatQQGroupMemberDisplayName(group, member)
+            : getChatApiGroupMemberName(member);
+        member.__wechatGroupDisplayName = displayName;
         const realName = member.name && member.name !== displayName ? `，原名：${member.name}` : '';
+        const roleLine = getChatApiGroupMemberRoleLine(group, member);
         const description = truncateChatAnchorText(getChatApiCharacterDescription(member), 420);
         const worldBook = Array.isArray(member.worldBook)
             ? member.worldBook.map(entry => prepareChatApiPromptText(entry.content || entry.entry || entry.value || '', 160)).filter(Boolean).slice(0, 3).join('；')
             : '';
         const details = [description, worldBook ? `世界书：${worldBook}` : ''].filter(Boolean).join('；');
-        return `${index + 1}. ${displayName}${realName}${details ? `：${details}` : ''}`;
+        return `${index + 1}. ${displayName}${realName}${roleLine}${details ? `：${details}` : ''}`;
     });
-    return `\n【微信群聊成员】\n当前对话是群聊「${group.name || '群聊'}」，不是单人私聊。你需要同时扮演群内 AI 成员，所有成员都必须按各自人设、世界书和关系状态发言：\n${lines.join('\n')}\n\n【群聊输出规则】\n- 你不是群聊本身，不能以群名作为说话人。\n- 每条成员发言必须单独输出为：[群聊发言:成员名|消息内容]\n- 成员名必须使用上方列表中的名字或备注，系统会用这个成员自己的头像和名字渲染，不要把“成员名：”写进气泡正文。\n- 用户每次在群里发言后，群内每个成员都要至少给一条短反应；可以有先后和情绪差异，但不要漏掉任何成员。\n- 不要让所有人说同一句话，每个人要按自己的人设、关系和当下心情说不同内容。\n- 严禁替用户发言或替用户行动。\n`;
+    return `\n【微信群聊成员】\n当前对话是群聊「${group.name || '群聊'}」，不是单人私聊。用户「${userName}」就是这个群的群主/创建者；群主不是你要扮演的 AI 成员，不要询问“群主是谁”、不要质疑用户的群主身份。你需要同时扮演群内 AI 成员，所有成员都必须按各自人设、世界书和关系状态发言：\n${lines.join('\n')}\n\n【群聊输出规则】\n- 你不是群聊本身，不能以群名作为说话人。\n- 每条成员发言必须单独输出为：[群聊发言:成员名|消息内容]\n- 成员名必须使用上方列表中的名字或备注，系统会用这个成员自己的头像和名字渲染，不要把“成员名：”写进气泡正文。\n- 上方列出的“当前群头衔/身份”就是成员自己能看见的群头衔；如果某个成员按自己人设不喜欢用户设置的群头衔，可以把 [QQ群头衔:成员名|新头衔|原因] 作为独立消息段输出，只能改自己的头衔，不能替其他成员或用户改。\n- 如果某个成员按人设想改自己的群昵称，可以把 [群昵称:成员名|新昵称|原因] 作为独立消息段输出；只能改自己，不能替其他成员或用户改。\n- 群主或管理员如果按剧情自然需要修改整个群聊名称，可以把 [群名:成员名|新群名|原因] 作为独立消息段输出；普通成员没有权限改群名，不要假装已经改成功。\n- 群管理指令执行结果会由系统灰色提示显示；不要再用成员普通气泡复述“已设置管理员、已修改群名、已改群昵称”等系统动作。\n- 如果某个成员按剧情自然想邀请新成员，可以把 [群邀请:邀请人|成员名|人设/备注|头像URL] 作为独立消息段输出；邀请人必须是自己。系统会优先邀请已有联系人，找不到才按“人设/备注”创建隐藏 NPC 群成员。不要无理由频繁拉人，也不要编造与当前剧情无关的人。\n- 用户每次在群里发言后，群内每个成员都要至少给一条短反应；可以有先后和情绪差异，但不要漏掉任何成员。\n- 不要让所有人说同一句话，每个人要按自己的人设、关系和当下心情说不同内容。\n- 严禁替用户发言或替用户行动。\n`;
 }
 
 function getChatApiGroupHistorySender(group, msg, content) {
@@ -720,7 +754,13 @@ function buildSystemPrompt(char) {
 
     prompt += `\n【行为规则】\n`;
     if (isGroupChat) {
-        prompt += `- 当前是群聊「${char.name || '群聊'}」，必须按群成员身份回复，保持每个成员各自的人设一致性\n`;
+        prompt += `- 当前是群聊「${char.name || '群聊'}」，用户「${userName}」就是群主/创建者；不要询问群主是谁，也不要把任何 AI 成员误认为群主\n`;
+        prompt += `- 必须按群成员身份回复，保持每个成员各自的人设一致性\n`;
+        prompt += `- 群成员可以看见自己当前的群头衔/身份；如果某个成员按人设不喜欢自己的群头衔，可以用 [QQ群头衔:成员名|新头衔|原因] 修改自己的头衔。只能改自己，不能替别人或用户改，也不要频繁修改\n`;
+        prompt += `- 群成员可以按自己喜好修改自己的群昵称，使用 [群昵称:成员名|新昵称|原因]；只能改自己，不能替别人或用户改，也不要频繁修改\n`;
+        prompt += `- 群主或管理员可以按剧情自然修改整个群聊名称，使用 [群名:成员名|新群名|原因]；普通成员没有权限改群名，不要假装已经改成功\n`;
+        prompt += `- 群管理指令执行结果会由系统灰色提示显示；不要再用成员普通气泡复述“已设置管理员、已修改群名、已改群昵称”等系统动作\n`;
+        prompt += `- 群成员可以按剧情自然邀请已有联系人或新 NPC 入群，使用 [群邀请:邀请人|成员名|人设/备注|头像URL]；邀请人必须是自己。只有当人设、关系或当前事件自然需要时才使用，不要无理由频繁拉人\n`;
     } else {
         prompt += `- 始终以「${char.name}」的身份回复，保持角色一致性\n`;
     }
@@ -761,7 +801,7 @@ function buildSystemPrompt(char) {
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
     prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;
     if (isGroupChat) {
-        prompt += `- 群聊回复时，普通成员发言必须使用 [群聊发言:成员名|消息内容] 作为独立消息段，并用 ||| 分隔多条发言；本轮要覆盖群内每个成员，不能漏人；不要把“成员名：”写进消息正文\n`;
+        prompt += `- 群聊回复时，普通成员发言必须使用 [群聊发言:成员名|消息内容] 作为独立消息段，并用 ||| 分隔多条发言；本轮要覆盖群内每个 AI 成员，不能漏人；不要把“成员名：”写进消息正文\n`;
     }
     prompt += `- 每一条普通对白都必须是独立消息段；旁白、角色对白、语音、表情、转账、红包、改备注、监控开关和真正的富文本 UI 都不要混在同一个段落里；旁白只会渲染为普通描述气泡\n`;
     prompt += `- 正则脚本是系统的显示规则，不是你要模仿的回复内容。不要把角色卡/正则里的状态栏字段、以 | 分隔的模板、新闻栏、数值栏、图片URL栏当成普通微信消息发出来；除非用户明确要求展示完整富文本 UI，才可以输出完整 <div>...</div> 或 HTML 代码块，并保持它作为独立段\n`;
@@ -780,6 +820,12 @@ function buildSystemPrompt(char) {
     prompt += `  [微信记忆:你想主动保存的事实或关系变化] 例如 [微信记忆:用户今天说喜欢被轻声提醒复习]，只在确实值得长期记住时使用\n`;
     prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]，用于你不喜欢用户给你的角色备注时，修改“你对角色的备注”\n`;
     prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，用于修改“角色对你的称呼”，也就是你以后怎么称呼用户\n`;
+    if (isGroupChat) {
+        prompt += `  [QQ群头衔:成员名|新头衔|原因] 用于群成员按自己的喜好修改自己的群头衔；成员名必须是上方群成员列表里的自己，只能改自己，不能替其他成员或用户改\n`;
+        prompt += `  [群昵称:成员名|新昵称|原因] 用于群成员按自己的喜好修改自己的群昵称；成员名必须是上方群成员列表里的自己，只能改自己，不能替其他成员或用户改\n`;
+        prompt += `  [群名:成员名|新群名|原因] 用于群主或管理员修改整个群聊名称；成员名必须是上方群成员列表里的自己，普通成员不能使用\n`;
+        prompt += `  [群邀请:邀请人|成员名|人设/备注|头像URL] 用于群成员按剧情自然邀请已有联系人或新 NPC 入群；邀请人必须是上方群成员列表里的自己，头像 URL 可留空\n`;
+    }
     prompt += `  [微信监控:角色本人|原因]、[微信监控:第三视角吐槽|原因] 或 [微信监控:关闭|原因]，用于你按人设主动开启/切换/关闭 BYND 内部剧情监控。角色本人=你自己看；第三视角吐槽=上帝视角/磕糖观众/弹幕吐槽\n`;
     prompt += `  [微信删除联系人:联系人备注或名字|原因]，用于你在监控剧情里非常想删除用户列表里的某个 BYND 角色时发起请求；系统会弹窗征求用户允许，不能直接静默删除；只能删除 BYND 内部联系人，不能声称删除真实手机联系人\n`;
     prompt += `  [微信朋友圈:文字|图片URL]，用于你根据自己的心情主动发朋友圈。只在角色确实想发、且最近聊天/记忆/人设自然触发时使用，必须按人设，不要固定每天发，不要替用户发布朋友圈\n`;
@@ -788,10 +834,11 @@ function buildSystemPrompt(char) {
     prompt += `  [微信表情:贴纸名或情绪] 例如 [微信表情:小狗能有什么坏心思]；如世界书提供了链接，也可用 [微信表情:贴纸名|图片URL]\n`;
     prompt += `  [微信拍一拍:内容] 例如 [微信拍一拍:轻轻拍了拍你的头像]，用于很轻的互动提醒\n`;
     prompt += `  [微信震动:内容] 例如 [微信震动:别装没看见我]，用于角色确实想让用户注意到时，必须少用\n`;
-    prompt += `  [微信音乐:歌名|歌手|URL] 例如 [微信音乐:晴天|周杰伦|https://example.com/song]，用于主动邀请用户一起听歌；没有 URL 可以留空，系统会搜索可播放音源\n`;
-    prompt += `- 你也可以主动给用户发音乐邀请卡片，用户点同意后才会一起播放；如果用户给你发了音乐卡片，你要按人设评价，若不喜欢可以先说明理由再用 [微信音乐:歌名|歌手|] 切歌，URL 可以留空交给系统搜索\n`;
+    prompt += `  [微信音乐:歌名|歌手|URL] 例如 [微信音乐:晴天|周杰伦|https://example.com/song]。未一起听歌时用于主动邀请用户；已经一起听歌时代表在当前音乐列表里切到这首歌，不是重新发邀请卡片。没有 URL 可以留空，系统会搜索可播放音源\n`;
+    prompt += `- 你也可以主动给用户发音乐邀请卡片，用户点同意后才会一起播放；如果用户给你发了音乐卡片，你要按人设评价，若不喜欢可以先说明理由再用 [微信音乐:歌名|歌手|] 切歌。切歌时只输出一次切歌指令，不要连续发多张音乐卡片，不要编造不存在的 URL\n`;
     prompt += `  [微信链接:URL|标题|备注] 例如 [微信链接:https://example.com|想给你看的页面|这个很像你说的那个]，用于发送真实网页链接卡片；不要假装你已经读取了网页正文，除非用户把正文发给你\n`;
     prompt += `  [微信语音电话:来电理由或接通开场] 或 [微信视频电话:来电理由或接通开场]，例如 [微信视频电话:我想现在看看你]。如果用户不在微信聊天页，系统会显示来电灵动岛让用户接听或拒绝\n`;
+    prompt += `- 如果用户明确让你打视频/语音电话、催你“快点打/现在打”，而你按人设决定同意，必须把 [微信视频电话:...] 或 [微信语音电话:...] 作为独立消息段输出；不要只写“我打”“马上打”这种普通文字来假装发起通话\n`;
     prompt += `  [旁白:环境、动作或神态描写] 例如 [旁白:窗外的雨声贴着玻璃滑下来，他把手机扣在掌心，抬眼看你]\n`;
     prompt += `- 只有在剧情确实需要时才使用这些特殊消息指令，不要解释指令本身\n`;
 
@@ -893,8 +940,24 @@ function buildMessages(char, history, maxMessages) {
             const note = msg.note || msg.text || '';
             const url = msg.url || msg.content || '';
             content = `[链接卡片] ${title}${note ? `｜${note}` : ''}${url ? ` ${url}` : ''}`;
-        } else if (['voice', 'transfer', 'redpacket', 'gift', 'intimatePay', 'voiceCall', 'videoCall'].includes(msg.type)) {
+        } else if (msg.type === 'voiceCall' || msg.type === 'videoCall') {
+            const label = msg.type === 'videoCall' ? '视频通话' : '语音通话';
+            const direction = msg.callDirection || msg.direction || (msg.isMe ? 'outgoing' : 'incoming');
+            const status = msg.status || '';
+            const reason = msg.reason || msg.note || '';
+            const actor = direction === 'incoming' ? '角色曾发起来电' : '用户曾发起呼叫';
+            const resultText = status === '已拒绝'
+                ? (direction === 'incoming' ? '用户拒绝了角色的来电' : '角色拒绝了用户的来电')
+                : status === '已取消'
+                    ? (direction === 'incoming' ? '角色取消了来电' : '用户取消了呼叫')
+                    : status === '未接通'
+                        ? (direction === 'incoming' ? '用户未接通角色来电' : '角色未接通用户来电')
+                : status;
+            content = `[历史通话记录] ${label}；${actor}；结果：${resultText}${reason ? `；理由：${reason}` : ''}`;
+        } else if (['voice', 'transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type)) {
             content = msg.description || msg.content || '[微信消息]';
+        } else if (msg.type === 'user_event') {
+            content = msg.content || msg.description || '';
         } else if (msg.type === 'offline_text') {
             content = msg.dialogue || msg.description || '';
         }

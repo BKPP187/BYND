@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -25,9 +25,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=20260529-mobile-perf27">
+    <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260529-mobile-perf27">
+    <link rel="stylesheet" href="style.css?v=20260531-voice-minimax-card3">
 </head>
 <body>
 
@@ -150,6 +150,10 @@
                             <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')">
                                 <div class="app-icon icon-black"><i class="ri-eye-line"></i></div>
                                 <span>监控</span>
+                            </div>
+                            <div class="app-item" data-app-id="outing" data-layout-id="app-outing" onclick="openApp('outing')">
+                                <div class="app-icon icon-black"><i class="ri-map-pin-user-line"></i></div>
+                                <span>一起出门</span>
                             </div>
                         </div>
                     </div>
@@ -469,6 +473,72 @@
                             <em id="monitor-status">等待接入</em>
                         </div>
                         <div class="monitor-char-list" id="monitor-char-list"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-outing-window" class="app-window hidden outing-window">
+            <div class="outing-shell">
+                <div class="outing-topbar">
+                    <button type="button" onclick="closeApp('outing')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>BEYOND SCREEN</span>
+                        <strong>一起出门</strong>
+                    </div>
+                    <button type="button" onclick="refreshOutingLocation()" aria-label="刷新定位"><i class="ri-crosshair-2-line"></i></button>
+                </div>
+                <div class="outing-content">
+                    <section class="outing-map-card">
+                        <div class="outing-map-bg">
+                            <span class="outing-road r1"></span>
+                            <span class="outing-road r2"></span>
+                            <span class="outing-road r3"></span>
+                            <span class="outing-park"></span>
+                            <span class="outing-water"></span>
+                            <span class="outing-pin p1"></span>
+                            <span class="outing-pin p2"></span>
+                            <span class="outing-pin p3"></span>
+                            <article class="outing-polaroid" id="outing-photo-card">
+                                <div><i class="ri-camera-lens-line"></i></div>
+                                <time id="outing-photo-time">还没有照片</time>
+                            </article>
+                        </div>
+                        <div class="outing-map-copy">
+                            <span id="outing-mode-label">OFFLINE</span>
+                            <strong id="outing-active-name">选择一个角色一起出门</strong>
+                            <p id="outing-location-text">开启后，每移动 500 米会自动叫醒角色。</p>
+                        </div>
+                    </section>
+                    <section class="outing-control-card">
+                        <label>
+                            <span>出门对象</span>
+                            <div class="outing-select" id="outing-char-picker">
+                                <select id="outing-char-select" class="outing-native-select" aria-hidden="true" tabindex="-1"></select>
+                                <button type="button" class="outing-select-trigger" id="outing-char-trigger" onclick="toggleOutingCharMenu(event)" aria-haspopup="listbox" aria-expanded="false">
+                                    <span class="outing-select-name" id="outing-char-trigger-name">先导入角色卡</span>
+                                    <i class="ri-arrow-down-s-line"></i>
+                                </button>
+                                <div class="outing-select-menu hidden" id="outing-char-menu" role="listbox"></div>
+                            </div>
+                        </label>
+                        <div class="outing-control-actions">
+                            <button type="button" class="primary" id="outing-toggle-btn" onclick="toggleOutingDateMode()"><i class="ri-map-pin-line"></i><span>开启</span></button>
+                            <button type="button" onclick="captureOutingPhoto()"><i class="ri-camera-line"></i><span>拍照给他看</span></button>
+                        </div>
+                        <input type="file" id="outing-camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleOutingPhotoInput(this)">
+                    </section>
+                    <section class="outing-stats">
+                        <div><span>当前距离</span><strong id="outing-distance">--</strong></div>
+                        <div><span>叫醒次数</span><strong id="outing-wake-count">0</strong></div>
+                        <div><span>定位精度</span><strong id="outing-accuracy">--</strong></div>
+                    </section>
+                    <section class="outing-log-card">
+                        <div class="outing-log-head">
+                            <span>TRAIL</span>
+                            <button type="button" onclick="clearOutingTrail()">清空</button>
+                        </div>
+                        <div class="outing-log-list" id="outing-log-list"></div>
                     </section>
                 </div>
             </div>
@@ -902,7 +972,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.253
+                    Beyond Screen v1.1.279
                 </div>
             </div>
         </div>
@@ -947,6 +1017,81 @@
                     <button class="btn-confirm" onclick="saveApi()" style="background:linear-gradient(135deg,#f8a4b8,#d4749a); flex:1; border-radius:14px;">保存</button>
                 </div>
                 <div id="api-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
+            </div>
+        </div>
+
+        <div id="api-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card api-voice-modal-card" style="background:#fffcf8; border:1.5px solid rgba(139,92,246,0.20); border-radius:24px;">
+                <div class="wc-card-header" style="border-bottom-color:rgba(139,92,246,0.12);">
+                    <span style="color:#6d28d9; font-weight:800;">MiniMax 语音 API</span>
+                    <i class="ri-close-line" onclick="closeApiVoiceModal()" style="color:#8b5cf6;"></i>
+                </div>
+                <div class="wc-card-body" style="gap:12px;">
+                    <label class="api-voice-enable-row">
+                        <span><i class="ri-volume-up-line"></i> 启用官方语音</span>
+                        <input type="checkbox" id="api-voice-enabled">
+                    </label>
+                    <div class="wc-form-group">
+                        <label style="color:#8b5cf6;">名称</label>
+                        <input type="text" id="api-voice-name" placeholder="MiniMax 语音" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#8b5cf6;">官方 Base URL</label>
+                        <input type="text" id="api-voice-url" placeholder="https://api.minimax.io" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#8b5cf6;">MiniMax API Key</label>
+                        <input type="password" id="api-voice-key" placeholder="填 MiniMax 官方 Key" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
+                    </div>
+                    <div class="api-voice-grid">
+                        <label>
+                            <span>模型</span>
+                            <input type="text" id="api-voice-model" placeholder="speech-2.8-turbo">
+                        </label>
+                        <label>
+                            <span>音色 ID</span>
+                            <input type="text" id="api-voice-id" placeholder="voice_id / 克隆音色 ID">
+                        </label>
+                        <label>
+                            <span>Endpoint</span>
+                            <input type="text" id="api-voice-endpoint" placeholder="留空自动 /v1/t2a_v2">
+                        </label>
+                        <label>
+                            <span>GroupId</span>
+                            <input type="text" id="api-voice-group-id" placeholder="旧接口需要时填写">
+                        </label>
+                        <label>
+                            <span>语速</span>
+                            <input type="number" id="api-voice-speed" min="0.5" max="2" step="0.1">
+                        </label>
+                        <label>
+                            <span>音量</span>
+                            <input type="number" id="api-voice-volume" min="0" max="10" step="0.1">
+                        </label>
+                        <label>
+                            <span>音调</span>
+                            <input type="number" id="api-voice-pitch" min="-12" max="12" step="1">
+                        </label>
+                        <label>
+                            <span>格式</span>
+                            <select id="api-voice-format">
+                                <option value="mp3">mp3</option>
+                                <option value="wav">wav</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="api-voice-method">
+                        <strong>接入方法</strong>
+                        <span>默认会请求 MiniMax Base URL + /v1/t2a_v2。</span>
+                        <span>先在 MiniMax 官方创建或克隆音色，拿到 voice_id 后填到音色 ID。浏览器直连如果被 CORS 拦住，就把 Endpoint 换成你自己的 Worker/后端代理。</span>
+                        <span>本地 TTS 需要先在电脑上启动 HTTP 服务并允许 CORS；如果要接进这里，Endpoint 要做成兼容 MiniMax 请求和返回格式的本地代理。</span>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testVoiceApiFromModal()" style="background:transparent; color:#6d28d9; border:1.5px solid rgba(139,92,246,0.35); flex:1; border-radius:14px;">测试语音</button>
+                    <button class="btn-confirm" onclick="saveApiVoiceSettings()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
             </div>
         </div>
 
@@ -1027,9 +1172,10 @@
                 <div class="wc-room-content" id="chat-room-content"></div>
                 <div class="wc-room-footer">
                     <div id="wc-reply-preview" class="wc-reply-preview hidden"></div>
-                    <button type="button" class="wc-voice-btn" onclick="openWechatComposer('voice')" aria-label="语音">
-                        <i class="ri-mic-line"></i>
+                    <button type="button" class="wc-voice-btn" onclick="toggleWechatVoiceInputMode()" aria-label="语音">
+                        <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
                     </button>
+                    <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn hidden" aria-label="按住说话" oncontextmenu="event.preventDefault()" onpointerdown="startWechatHoldVoice(event)" onpointerup="finishWechatHoldVoice(event)" onpointercancel="cancelWechatHoldVoice(event)" onpointerleave="maybeCancelWechatHoldVoice(event)">按住 说话</button>
                     <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." oninput="syncWechatDraftState()" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}">
                     <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" data-placeholder="发消息..." oninput="handleWechatRichInputInput()" onpaste="handleWechatRichInputPaste(event)" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}"></div>
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
@@ -1055,7 +1201,7 @@
                             <div class="wc-toolbar-icon"><svg class="wc-toolbar-smile-svg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                             <span>表情</span>
                         </div>
-                        <div class="wc-toolbar-item" onclick="openWechatComposer('voice')">
+                        <div class="wc-toolbar-item" onclick="toggleWechatVoiceInputMode(true);closeChatToolbar();">
                             <div class="wc-toolbar-icon"><i class="ri-mic-line"></i></div>
                             <span>语音</span>
                         </div>
@@ -1110,6 +1256,24 @@
                             <span>记忆</span>
                         </div>
                     </div>
+                </div>
+                <div id="wc-voice-mode-panel" class="wc-voice-mode-panel hidden">
+                    <div class="wc-voice-mode-tabs">
+                        <button type="button" class="active" data-mode="speech" onclick="setWechatVoiceToolMode('speech')">按住说话</button>
+                        <button type="button" data-mode="tts" onclick="setWechatVoiceToolMode('tts')">文字转语音</button>
+                    </div>
+                    <div id="wc-voice-speech-panel" class="wc-voice-mode-body">
+                        <textarea id="wc-voice-recognized-text" rows="2" placeholder="录音时会尽量实时转文字；不支持转写时仍会发送真实录音"></textarea>
+                        <div class="wc-voice-mode-actions">
+                            <button type="button" onclick="startWechatSpeechRecognition()"><i class="ri-translate-2"></i> 单独转文字</button>
+                            <button type="button" onclick="clearWechatVoiceDraft()">清空</button>
+                        </div>
+                    </div>
+                    <div id="wc-voice-tts-panel" class="wc-voice-mode-body hidden">
+                        <textarea id="wc-voice-tts-input" rows="2" placeholder="输入文字，配置 MiniMax 后会生成可播放语音"></textarea>
+                        <button type="button" class="wc-voice-tts-send" onclick="sendWechatTypedVoice()"><i class="ri-volume-up-line"></i> 发送语音</button>
+                    </div>
+                    <div id="wc-voice-status" class="wc-voice-status">按住底栏按钮说话，松开发送</div>
                 </div>
                 <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
                 <input type="file" id="wc-image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
@@ -1169,6 +1333,17 @@
                                     <input type="range" class="wcs-range" id="wcs-font-size" min="12" max="22" value="15" oninput="document.getElementById('wcs-font-val').textContent=this.value+'px'">
                                     <span class="wcs-range-val" id="wcs-font-val">15px</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div id="wcs-qq-group-entry-wrap" class="hidden">
+                            <div class="wcs-section-title">QQ 群</div>
+                            <div class="wcs-section">
+                                <button type="button" class="wcs-nav-row" onclick="openWechatQQGroupSettings()">
+                                    <span><i class="ri-group-line"></i> QQ 群设置</span>
+                                    <em id="wcs-qq-group-entry-summary">群信息、成员、免打扰等</em>
+                                    <i class="ri-arrow-right-s-line"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -1581,14 +1756,15 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260529-mobile-perf27"></script>
-    <script src="stickers-boltp-share.js?v=20260529-mobile-perf27"></script>
-    <script src="modules/wechat/ui-theme.js?v=20260529-mobile-perf27"></script>
-    <script src="wechat.js?v=20260529-mobile-perf27"></script>
-    <script src="theme.js?v=20260529-mobile-perf27"></script>
-    <script src="settings.js?v=20260529-mobile-perf27"></script>
-    <script src="script.js?v=20260529-mobile-perf27"></script>
-    <script src="WorldBook.js?v=20260529-mobile-perf27"></script>
-    <script src="regular.js?v=20260529-mobile-perf27"></script>
+    <script src="chat-api.js?v=20260531-call-intent1"></script>
+    <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
+    <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
+    <script src="modules/wechat/ui-theme.js?v=20260529-outing-desktop41"></script>
+    <script src="wechat.js?v=20260531-voice-minimax-card3"></script>
+    <script src="theme.js?v=20260529-outing-desktop41"></script>
+    <script src="settings.js?v=20260531-voice-minimax-card3"></script>
+    <script src="script.js?v=20260531-desktop-dock-out4"></script>
+    <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
+    <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>
 </html>

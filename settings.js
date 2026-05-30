@@ -51,8 +51,48 @@ function normalizeApiData(data) {
         ...data,
         apis,
         defaultId,
-        imageDefaultId
+        imageDefaultId,
+        voiceApi: normalizeVoiceApiData(data.voiceApi || data.minimaxVoiceApi || {})
     };
+}
+
+function normalizeVoiceApiData(api) {
+    api = api && typeof api === 'object' ? api : {};
+    return {
+        provider: 'minimax',
+        enabled: !!api.enabled,
+        name: api.name || 'MiniMax 语音',
+        baseUrl: api.baseUrl || 'https://api.minimax.io',
+        apiKey: api.apiKey || '',
+        voiceModel: api.voiceModel || api.model || 'speech-2.8-turbo',
+        voiceId: api.voiceId || '',
+        voiceEndpoint: api.voiceEndpoint || '',
+        voiceGroupId: api.voiceGroupId || '',
+        voiceSpeed: api.voiceSpeed || '1',
+        voiceVolume: api.voiceVolume || '1',
+        voicePitch: api.voicePitch || '0',
+        voiceFormat: api.voiceFormat || 'mp3',
+        _status: api._status || ''
+    };
+}
+
+function isApiVoiceEnabled(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    return !!(
+        api
+        && provider === 'minimax'
+        && api.enabled !== false
+        && String(api.voiceModel || api.model || '').trim()
+        && String(api.voiceId || '').trim()
+    );
+}
+
+function getApiVoiceSummary(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    if (!api || provider !== 'minimax') return '';
+    const model = String(api.voiceModel || api.model || '').trim() || 'MiniMax';
+    const voice = String(api.voiceId || '').trim();
+    return voice ? `${model} · ${voice}` : `${model} · 未填音色`;
 }
 
 // 3. 渲染 API 列表
@@ -106,18 +146,16 @@ function renderApiList() {
 function renderApiRoutePanel(data = getApiData()) {
     const panel = document.getElementById('api-route-panel');
     if (!panel) return;
-    if (!data.apis || data.apis.length === 0) {
-        panel.innerHTML = '';
-        return;
-    }
     const chatApis = data.apis.filter(api => api.model);
     const chatApi = chatApis.find(api => api.id === data.defaultId) || null;
     const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
+    const voiceApi = normalizeVoiceApiData(data.voiceApi);
+    const voiceReady = isApiVoiceEnabled(voiceApi);
     panel.innerHTML = `
         <div class="api-route-head">
             <div>
                 <strong>API 工作台</strong>
-                <span>把聊天和生图拆开管理。一个站支持两种能力就共用；只有聊天模型时，再添加一个生图 API。</span>
+                <span>聊天和生图走中转站 API；MiniMax 语音走官方卡片，避免把官方语音配置混进模型中转站。</span>
             </div>
             <button type="button" onclick="openApiModal()"><i class="ri-add-line"></i> 添加</button>
         </div>
@@ -132,23 +170,33 @@ function renderApiRoutePanel(data = getApiData()) {
                 <span>生图 API</span>
                 ${renderApiRoutePicker('image', imageApi, data.apis.filter(api => api.imageModel), data.imageDefaultId)}
             </div>
+            <div class="api-route-card voice">
+                <i class="ri-volume-up-line"></i>
+                <span>MiniMax 语音</span>
+                <div class="api-voice-route ${voiceReady ? 'ready' : ''}">
+                    <b>${escapeHtml(voiceApi.enabled ? (voiceApi.name || 'MiniMax 语音') : '未启用')}</b>
+                    ${voiceReady ? `<em>${escapeHtml(getApiVoiceSummary(voiceApi))}</em>` : ''}
+                    <button type="button" onclick="openApiVoiceModal()">${voiceReady ? '编辑' : '配置'}</button>
+                </div>
+            </div>
         </div>
     `;
 }
 
 function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
     const isImage = type === 'image';
-    const emptyText = isImage ? '先选择生图模型' : '请选择聊天 API';
+    const isVoice = type === 'voice';
+    const emptyText = isVoice ? '先配置 MiniMax 语音' : (isImage ? '先选择生图模型' : '请选择聊天 API');
     const modelText = selectedApi
-        ? (isImage ? (selectedApi.imageModel || '未选生图模型') : (selectedApi.model || '未选聊天模型'))
+        ? (isVoice ? (getApiVoiceSummary(selectedApi) || '未选语音模型') : (isImage ? (selectedApi.imageModel || '未选生图模型') : (selectedApi.model || '未选聊天模型')))
         : emptyText;
     const list = Array.isArray(apis) ? apis : [];
     const menu = list.length ? list.map(api => {
         const active = api.id === selectedId;
-        const model = isImage ? api.imageModel : api.model;
         const tags = [
             api.model ? `聊天 ${api.model}` : '',
-            api.imageModel ? `生图 ${api.imageModel}` : ''
+            api.imageModel ? `生图 ${api.imageModel}` : '',
+            api.voiceProvider === 'minimax' ? `语音 ${getApiVoiceSummary(api)}` : ''
         ].filter(Boolean).join(' · ') || '未选择模型';
         return `
             <button type="button" class="api-route-option ${active ? 'active' : ''}" onclick="chooseApiRoute('${type}', '${escapeJsString(api.id)}')">
@@ -161,7 +209,7 @@ function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
             </button>
         `;
     }).join('') : `
-        <div class="api-route-empty">${isImage ? '还没有配置生图模型。编辑 API，测试后从生图模型下拉里选一个。' : '还没有可用 API。'}</div>
+        <div class="api-route-empty">${isVoice ? '还没有配置 MiniMax 语音。编辑 API，开启 MiniMax 语音并填写模型、音色 ID。' : (isImage ? '还没有配置生图模型。编辑 API，测试后从生图模型下拉里选一个。' : '还没有可用 API。')}</div>
     `;
     return `
         <div class="api-route-picker" data-route-type="${type}">
@@ -303,6 +351,42 @@ function removeApiModelPicker(selectId) {
     if (picker) picker.remove();
     const el = document.getElementById(selectId);
     if (el) el.classList.remove('api-native-hidden');
+}
+
+function setApiVoiceModalValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = !!value;
+    else el.value = value == null ? '' : String(value);
+}
+
+function fillApiVoiceModal(api = getApiData().voiceApi) {
+    const voice = normalizeVoiceApiData(api);
+    setApiVoiceModalValue('api-voice-enabled', voice.enabled);
+    setApiVoiceModalValue('api-voice-name', voice.name);
+    setApiVoiceModalValue('api-voice-url', voice.baseUrl);
+    setApiVoiceModalValue('api-voice-key', voice.apiKey);
+    setApiVoiceModalValue('api-voice-model', voice.voiceModel);
+    setApiVoiceModalValue('api-voice-id', voice.voiceId);
+    setApiVoiceModalValue('api-voice-endpoint', voice.voiceEndpoint);
+    setApiVoiceModalValue('api-voice-group-id', voice.voiceGroupId);
+    setApiVoiceModalValue('api-voice-speed', voice.voiceSpeed);
+    setApiVoiceModalValue('api-voice-volume', voice.voiceVolume);
+    setApiVoiceModalValue('api-voice-pitch', voice.voicePitch);
+    setApiVoiceModalValue('api-voice-format', voice.voiceFormat);
+}
+
+function openApiVoiceModal() {
+    const modal = document.getElementById('api-voice-modal');
+    const resultEl = document.getElementById('api-voice-test-result');
+    if (!modal) return;
+    if (resultEl) resultEl.innerHTML = '';
+    fillApiVoiceModal();
+    modal.classList.remove('hidden');
+}
+
+function closeApiVoiceModal() {
+    document.getElementById('api-voice-modal')?.classList.add('hidden');
 }
 
 // 4. 打开编辑弹窗
@@ -489,7 +573,10 @@ async function testApiById(apiId) {
     const card = document.querySelector(`.api-card[data-id="${apiId}"] .api-status-dot`);
     if (card) { card.className = 'api-status-dot testing'; }
 
-    const result = await doTestApi(api.baseUrl, api.apiKey);
+    let result = await doTestApi(api.baseUrl, api.apiKey);
+    if (!result.ok && isApiVoiceEnabled(api)) {
+        result = await testMiniMaxVoiceApi(api);
+    }
 
     // 更新状态
     const apiIdx = data.apis.findIndex(a => a.id === apiId);
@@ -597,6 +684,205 @@ function fillImageModelSelect(models) {
     imageSelectEl.style.cursor = 'pointer';
     if (imageHintEl) imageHintEl.textContent = hasImageLike ? '已把疑似生图模型排在前面' : '未识别到明显生图模型，可另加生图 API';
     refreshApiModelPickers();
+}
+
+function getApiVoiceConfigFromModal() {
+    return {
+        provider: 'minimax',
+        enabled: !!document.getElementById('api-voice-enabled')?.checked,
+        name: (document.getElementById('api-voice-name')?.value || '').trim() || 'MiniMax 语音',
+        baseUrl: (document.getElementById('api-voice-url')?.value || '').trim(),
+        apiKey: (document.getElementById('api-voice-key')?.value || '').trim(),
+        voiceModel: (document.getElementById('api-voice-model')?.value || '').trim(),
+        voiceId: (document.getElementById('api-voice-id')?.value || '').trim(),
+        voiceEndpoint: (document.getElementById('api-voice-endpoint')?.value || '').trim(),
+        voiceGroupId: (document.getElementById('api-voice-group-id')?.value || '').trim(),
+        voiceSpeed: (document.getElementById('api-voice-speed')?.value || '').trim(),
+        voiceVolume: (document.getElementById('api-voice-volume')?.value || '').trim(),
+        voicePitch: (document.getElementById('api-voice-pitch')?.value || '').trim(),
+        voiceFormat: (document.getElementById('api-voice-format')?.value || '').trim()
+    };
+}
+
+function normalizeMiniMaxBaseUrl(baseUrl) {
+    const base = String(baseUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return 'https://api.minimax.io';
+    return base;
+}
+
+function buildMiniMaxVoiceEndpoint(api) {
+    const explicit = String(api?.voiceEndpoint || '').trim();
+    let endpoint = explicit || '';
+    if (!endpoint) {
+        const base = normalizeMiniMaxBaseUrl(api?.baseUrl);
+        endpoint = /\/t2a_v2$/i.test(base) ? base : (/\/v1$/i.test(base) ? `${base}/t2a_v2` : `${base}/v1/t2a_v2`);
+    }
+    const groupId = String(api?.voiceGroupId || '').trim();
+    if (!groupId) return endpoint;
+    const join = endpoint.includes('?') ? '&' : '?';
+    return `${endpoint}${join}GroupId=${encodeURIComponent(groupId)}`;
+}
+
+function getMiniMaxAudioMime(format) {
+    const normalized = String(format || 'mp3').toLowerCase();
+    if (normalized === 'wav') return 'audio/wav';
+    if (normalized === 'pcm') return 'audio/L16';
+    return 'audio/mpeg';
+}
+
+function clampMiniMaxNumber(value, fallback, min, max) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(max, Math.max(min, num));
+}
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+}
+
+function decodeMiniMaxAudioData(audio, format) {
+    const raw = String(audio || '').trim();
+    if (!raw) throw new Error('MiniMax 没有返回音频数据');
+    if (/^data:audio\//i.test(raw)) return raw;
+    const mime = getMiniMaxAudioMime(format);
+    const compact = raw.replace(/\s+/g, '');
+    if (/^[0-9a-fA-F]+$/.test(compact) && compact.length % 2 === 0) {
+        const bytes = new Uint8Array(compact.length / 2);
+        for (let i = 0; i < compact.length; i += 2) {
+            bytes[i / 2] = parseInt(compact.slice(i, i + 2), 16);
+        }
+        return `data:${mime};base64,${bytesToBase64(bytes)}`;
+    }
+    return `data:${mime};base64,${compact}`;
+}
+
+async function requestMiniMaxVoiceAudio(text, apiConfig) {
+    const api = apiConfig || getDefaultVoiceApi();
+    const content = String(text || '').trim();
+    if (!content) throw new Error('语音文本为空');
+    if (!isApiVoiceEnabled(api)) throw new Error('还没有配置可用的 MiniMax 语音 API');
+    if (!api.apiKey) throw new Error('MiniMax 语音需要 API Key');
+
+    const format = api.voiceFormat || 'mp3';
+    const resp = await fetch(buildMiniMaxVoiceEndpoint(api), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${api.apiKey}`
+        },
+        body: JSON.stringify({
+            model: api.voiceModel || api.model,
+            text: content,
+            stream: false,
+            language_boost: 'auto',
+            output_format: 'hex',
+            voice_setting: {
+                voice_id: api.voiceId,
+                speed: clampMiniMaxNumber(api.voiceSpeed, 1, 0.5, 2),
+                vol: clampMiniMaxNumber(api.voiceVolume, 1, 0, 10),
+                pitch: clampMiniMaxNumber(api.voicePitch, 0, -12, 12)
+            },
+            audio_setting: {
+                sample_rate: 32000,
+                bitrate: 128000,
+                format,
+                channel: 1
+            }
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    const rawText = await resp.text();
+    let json = {};
+    try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
+    if (!resp.ok) {
+        const detail = json?.base_resp?.status_msg || json?.message || json?.error?.message || rawText || `HTTP ${resp.status}`;
+        throw new Error(String(detail).slice(0, 180));
+    }
+    const code = json?.base_resp?.status_code ?? json?.baseResp?.statusCode ?? 0;
+    if (code && Number(code) !== 0) {
+        throw new Error(json?.base_resp?.status_msg || json?.baseResp?.statusMsg || `MiniMax status ${code}`);
+    }
+    const audio = json?.data?.audio || json?.data?.audio_content || json?.audio || '';
+    const audioUrl = decodeMiniMaxAudioData(audio, format);
+    const rawLength = Number(json?.extra_info?.audio_length || json?.extra_info?.audioLength || 0);
+    const duration = rawLength > 1000 ? Math.round(rawLength / 1000) : Math.round(rawLength || estimateTextAudioDuration(content));
+    return {
+        audioUrl,
+        mimeType: getMiniMaxAudioMime(format),
+        duration: Math.max(1, Math.min(5999, duration)),
+        raw: json
+    };
+}
+
+function estimateTextAudioDuration(text) {
+    const cjk = (String(text || '').match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+    const ascii = String(text || '').replace(/[\u3400-\u9fff\uf900-\ufaff]/g, ' ');
+    const words = (ascii.match(/[A-Za-z0-9]+/g) || []).length;
+    return Math.max(1, Math.ceil((cjk + words * 2) / 4));
+}
+
+async function testMiniMaxVoiceApi(api) {
+    try {
+        await requestMiniMaxVoiceAudio('你好，这是 MiniMax 语音测试。', api);
+        return { ok: true, detail: '(MiniMax 语音可用)', models: [], chatModel: '' };
+    } catch (e) {
+        return { ok: false, error: `MiniMax 语音失败：${e.message || e}`, models: [] };
+    }
+}
+
+async function testVoiceApiFromModal() {
+    const resultEl = document.getElementById('api-voice-test-result') || document.getElementById('api-test-result');
+    const api = getApiVoiceConfigFromModal();
+    if (!resultEl) return;
+    if (!api.baseUrl) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Base URL</span>';
+        return;
+    }
+    const testApi = { ...api, enabled: true };
+    if (!isApiVoiceEnabled(testApi)) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写模型和音色 ID</span>';
+        return;
+    }
+    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 MiniMax 语音...</span>';
+    try {
+        const result = await requestMiniMaxVoiceAudio('你好，这是 MiniMax 语音测试。', testApi);
+        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ MiniMax 语音可用，已试听测试音频</span>';
+        const audio = new Audio(result.audioUrl);
+        audio.play().catch(() => {});
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'MiniMax 语音测试失败')}</span>`;
+    }
+}
+
+function saveApiVoiceSettings() {
+    const resultEl = document.getElementById('api-voice-test-result');
+    const voiceApi = normalizeVoiceApiData(getApiVoiceConfigFromModal());
+    if (voiceApi.enabled) {
+        if (!voiceApi.baseUrl) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 MiniMax 官方 Base URL</span>';
+            return;
+        }
+        if (!voiceApi.apiKey) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 MiniMax API Key</span>';
+            return;
+        }
+        if (!voiceApi.voiceModel || !voiceApi.voiceId) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写语音模型和音色 ID</span>';
+            return;
+        }
+    }
+    const data = getApiData();
+    data.voiceApi = voiceApi;
+    saveApiData(data);
+    closeApiVoiceModal();
+    renderApiList();
 }
 
 // 降级：模型选择框变成输入框
@@ -774,6 +1060,13 @@ function getDefaultImageApi() {
         if (selected && selected.imageModel) return selected;
     }
     return data.apis.find(a => a.imageModel) || null;
+}
+
+function getDefaultVoiceApi() {
+    const data = getApiData();
+    const voiceApi = normalizeVoiceApiData(data.voiceApi);
+    if (isApiVoiceEnabled(voiceApi)) return voiceApi;
+    return null;
 }
 
 // ========== 预设管理 ==========
@@ -1092,7 +1385,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.253';
+const APP_VERSION = 'v1.1.279';
 const ALL_DATA_KEYS = ['my_characters_data', 'my_api_data', 'my_font_data', 'my_user_profile', 'my_theme_data', 'my_sticker_packs', 'my_bubble_presets', 'my_presets_data', 'wechat_user_persona_library_v1', 'wechat_memory_store', 'bynd_money_records_v1'];
 
 // 导出所有数据
