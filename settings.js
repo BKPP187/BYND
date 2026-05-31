@@ -47,12 +47,26 @@ function normalizeApiData(data) {
     if (imageDefaultId && !apis.some(api => api.id === imageDefaultId && api.imageModel)) {
         imageDefaultId = firstImageApi ? firstImageApi.id : null;
     }
+    const voiceApi = normalizeVoiceApiData(data.voiceApi || data.minimaxVoiceApi || {});
+    const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi || data.openaiVoiceApi || {});
+    const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi || data.elevenlabsVoiceApi || {});
+    const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi || data.localTtsApi || {});
     return {
         ...data,
         apis,
         defaultId,
         imageDefaultId,
-        voiceApi: normalizeVoiceApiData(data.voiceApi || data.minimaxVoiceApi || {})
+        voiceApi,
+        openAiVoiceApi,
+        elevenLabsVoiceApi,
+        localVoiceApi,
+        voiceDefaultProvider: normalizeVoiceDefaultProvider(
+            data.voiceDefaultProvider,
+            voiceApi,
+            localVoiceApi,
+            openAiVoiceApi,
+            elevenLabsVoiceApi
+        )
     };
 }
 
@@ -93,6 +107,136 @@ function getApiVoiceSummary(api) {
     const model = String(api.voiceModel || api.model || '').trim() || 'MiniMax';
     const voice = String(api.voiceId || '').trim();
     return voice ? `${model} · ${voice}` : `${model} · 未填音色`;
+}
+
+function normalizeOpenAiVoiceApiData(api) {
+    api = api && typeof api === 'object' ? api : {};
+    return {
+        provider: 'openai',
+        enabled: !!api.enabled,
+        name: api.name || 'OpenAI TTS',
+        baseUrl: api.baseUrl || 'https://api.openai.com/v1',
+        apiKey: api.apiKey || '',
+        voiceModel: api.voiceModel || api.model || 'gpt-4o-mini-tts',
+        voiceId: api.voiceId || api.voice || 'alloy',
+        voiceEndpoint: api.voiceEndpoint || '',
+        voiceFormat: api.voiceFormat || api.format || 'mp3',
+        instructions: api.instructions || '',
+        _status: api._status || ''
+    };
+}
+
+function isOpenAiVoiceEnabled(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    return !!(
+        api
+        && provider === 'openai'
+        && api.enabled !== false
+        && String(api.apiKey || '').trim()
+        && String(api.voiceModel || api.model || '').trim()
+        && String(api.voiceId || api.voice || '').trim()
+    );
+}
+
+function getOpenAiVoiceSummary(api) {
+    if (!api) return '';
+    const model = String(api.voiceModel || api.model || '').trim() || 'OpenAI';
+    const voice = String(api.voiceId || api.voice || '').trim() || 'alloy';
+    return `${model} · ${voice}`;
+}
+
+function normalizeElevenLabsVoiceApiData(api) {
+    api = api && typeof api === 'object' ? api : {};
+    return {
+        provider: 'elevenlabs',
+        enabled: !!api.enabled,
+        name: api.name || 'ElevenLabs',
+        baseUrl: api.baseUrl || 'https://api.elevenlabs.io',
+        apiKey: api.apiKey || '',
+        voiceModel: api.voiceModel || api.model || 'eleven_multilingual_v2',
+        voiceId: api.voiceId || api.voice || '',
+        voiceEndpoint: api.voiceEndpoint || '',
+        voiceFormat: api.voiceFormat || api.format || 'mp3',
+        stability: api.stability || '0.5',
+        similarityBoost: api.similarityBoost || api.similarity_boost || '0.75',
+        style: api.style || '0',
+        useSpeakerBoost: api.useSpeakerBoost !== false,
+        _status: api._status || ''
+    };
+}
+
+function isElevenLabsVoiceEnabled(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    return !!(
+        api
+        && provider === 'elevenlabs'
+        && api.enabled !== false
+        && String(api.apiKey || '').trim()
+        && String(api.voiceId || api.voice || '').trim()
+    );
+}
+
+function getElevenLabsVoiceSummary(api) {
+    if (!api) return '';
+    const model = String(api.voiceModel || api.model || '').trim() || 'ElevenLabs';
+    const voice = String(api.voiceId || api.voice || '').trim();
+    return voice ? `${model} · ${voice}` : `${model} · 未填音色`;
+}
+
+function normalizeLocalVoiceApiData(api) {
+    api = api && typeof api === 'object' ? api : {};
+    return {
+        provider: 'local',
+        enabled: !!api.enabled,
+        name: api.name || '本地 TTS',
+        endpoint: api.endpoint || api.voiceEndpoint || api.baseUrl || '',
+        apiKey: api.apiKey || '',
+        voiceModel: api.voiceModel || api.model || '',
+        voiceId: api.voiceId || api.voice || '',
+        voiceFormat: api.voiceFormat || api.format || 'wav',
+        _status: api._status || ''
+    };
+}
+
+function isLocalVoiceEnabled(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    return !!(
+        api
+        && provider === 'local'
+        && api.enabled !== false
+        && String(api.endpoint || api.voiceEndpoint || '').trim()
+    );
+}
+
+function getVoiceEndpointHost(endpoint) {
+    const raw = String(endpoint || '').trim();
+    if (!raw) return '未填接口';
+    try {
+        const url = new URL(raw, window.location.href);
+        return url.host || raw;
+    } catch (e) {
+        return raw.replace(/^https?:\/\//i, '').split('/')[0] || raw;
+    }
+}
+
+function getLocalVoiceSummary(api) {
+    if (!api) return '';
+    const host = getVoiceEndpointHost(api.endpoint || api.voiceEndpoint);
+    const parts = [api.voiceModel, api.voiceId].map(v => String(v || '').trim()).filter(Boolean);
+    return parts.length ? `${parts.join(' · ')} · ${host}` : host;
+}
+
+function normalizeVoiceDefaultProvider(provider, minimaxApi, localApi, openAiApi, elevenLabsApi) {
+    const saved = ['minimax', 'openai', 'elevenlabs', 'local'].includes(provider) ? provider : '';
+    if (saved === 'local' && isLocalVoiceEnabled(localApi)) return 'local';
+    if (saved === 'minimax' && isApiVoiceEnabled(minimaxApi)) return 'minimax';
+    if (saved === 'openai' && isOpenAiVoiceEnabled(openAiApi)) return 'openai';
+    if (saved === 'elevenlabs' && isElevenLabsVoiceEnabled(elevenLabsApi)) return 'elevenlabs';
+    if (isApiVoiceEnabled(minimaxApi)) return 'minimax';
+    if (isOpenAiVoiceEnabled(openAiApi)) return 'openai';
+    if (isElevenLabsVoiceEnabled(elevenLabsApi)) return 'elevenlabs';
+    if (isLocalVoiceEnabled(localApi)) return 'local';
+    return saved || 'minimax';
 }
 
 // 3. 渲染 API 列表
@@ -150,12 +294,19 @@ function renderApiRoutePanel(data = getApiData()) {
     const chatApi = chatApis.find(api => api.id === data.defaultId) || null;
     const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
     const voiceApi = normalizeVoiceApiData(data.voiceApi);
+    const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
+    const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
     const voiceReady = isApiVoiceEnabled(voiceApi);
+    const openAiVoiceReady = isOpenAiVoiceEnabled(openAiVoiceApi);
+    const elevenLabsVoiceReady = isElevenLabsVoiceEnabled(elevenLabsVoiceApi);
+    const localVoiceReady = isLocalVoiceEnabled(localVoiceApi);
+    const voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi);
     panel.innerHTML = `
         <div class="api-route-head">
             <div>
                 <strong>API 工作台</strong>
-                <span>聊天和生图走中转站 API；MiniMax 语音走官方卡片，避免把官方语音配置混进模型中转站。</span>
+                <span>聊天和生图走中转站 API；语音可以选 MiniMax 官方或本地 TTS，互不混用。</span>
             </div>
             <button type="button" onclick="openApiModal()"><i class="ri-add-line"></i> 添加</button>
         </div>
@@ -172,12 +323,61 @@ function renderApiRoutePanel(data = getApiData()) {
             </div>
             <div class="api-route-card voice">
                 <i class="ri-volume-up-line"></i>
-                <span>MiniMax 语音</span>
-                <div class="api-voice-route ${voiceReady ? 'ready' : ''}">
-                    <b>${escapeHtml(voiceApi.enabled ? (voiceApi.name || 'MiniMax 语音') : '未启用')}</b>
-                    ${voiceReady ? `<em>${escapeHtml(getApiVoiceSummary(voiceApi))}</em>` : ''}
-                    <button type="button" onclick="openApiVoiceModal()">${voiceReady ? '编辑' : '配置'}</button>
+                <span>语音 API</span>
+                <div class="api-voice-choice-grid">
+                    ${renderVoiceProviderRoute({
+                        provider: 'minimax',
+                        title: 'MiniMax',
+                        name: voiceApi.enabled ? (voiceApi.name || 'MiniMax 语音') : '未启用',
+                        summary: voiceReady ? getApiVoiceSummary(voiceApi) : '官方语音接口',
+                        ready: voiceReady,
+                        active: voiceDefaultProvider === 'minimax' && voiceReady,
+                        editAction: 'openApiVoiceModal()'
+                    })}
+                    ${renderVoiceProviderRoute({
+                        provider: 'openai',
+                        title: 'OpenAI',
+                        name: openAiVoiceApi.enabled ? (openAiVoiceApi.name || 'OpenAI TTS') : '未启用',
+                        summary: openAiVoiceReady ? getOpenAiVoiceSummary(openAiVoiceApi) : '通用内置音色',
+                        ready: openAiVoiceReady,
+                        active: voiceDefaultProvider === 'openai' && openAiVoiceReady,
+                        editAction: 'openApiOpenAiVoiceModal()'
+                    })}
+                    ${renderVoiceProviderRoute({
+                        provider: 'elevenlabs',
+                        title: 'ElevenLabs',
+                        name: elevenLabsVoiceApi.enabled ? (elevenLabsVoiceApi.name || 'ElevenLabs') : '未启用',
+                        summary: elevenLabsVoiceReady ? getElevenLabsVoiceSummary(elevenLabsVoiceApi) : '克隆音色/高质量英文',
+                        ready: elevenLabsVoiceReady,
+                        active: voiceDefaultProvider === 'elevenlabs' && elevenLabsVoiceReady,
+                        editAction: 'openApiElevenLabsVoiceModal()'
+                    })}
+                    ${renderVoiceProviderRoute({
+                        provider: 'local',
+                        title: '本地 TTS',
+                        name: localVoiceApi.enabled ? (localVoiceApi.name || '本地 TTS') : '未启用',
+                        summary: localVoiceReady ? getLocalVoiceSummary(localVoiceApi) : '电脑本地 HTTP 接口',
+                        ready: localVoiceReady,
+                        active: voiceDefaultProvider === 'local' && localVoiceReady,
+                        editAction: 'openApiLocalVoiceModal()'
+                    })}
                 </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderVoiceProviderRoute({ provider, title, name, summary, ready, active, editAction }) {
+    return `
+        <div class="api-voice-route ${provider} ${ready ? 'ready' : ''} ${active ? 'active' : ''}">
+            <div class="api-voice-route-main">
+                <strong>${escapeHtml(title)}</strong>
+                <b>${escapeHtml(name || title)}</b>
+                <em>${escapeHtml(summary || '')}</em>
+            </div>
+            <div class="api-voice-route-actions">
+                ${ready ? `<button type="button" class="api-voice-default-btn" onclick="setDefaultVoiceProvider('${provider}')" ${active ? 'disabled' : ''}>${active ? '默认' : '设默认'}</button>` : ''}
+                <button type="button" onclick="${editAction}">${ready ? '编辑' : '配置'}</button>
             </div>
         </div>
     `;
@@ -387,6 +587,85 @@ function openApiVoiceModal() {
 
 function closeApiVoiceModal() {
     document.getElementById('api-voice-modal')?.classList.add('hidden');
+}
+
+function fillApiOpenAiVoiceModal(api = getApiData().openAiVoiceApi) {
+    const voice = normalizeOpenAiVoiceApiData(api);
+    setApiVoiceModalValue('api-openai-voice-enabled', voice.enabled);
+    setApiVoiceModalValue('api-openai-voice-name', voice.name);
+    setApiVoiceModalValue('api-openai-voice-url', voice.baseUrl);
+    setApiVoiceModalValue('api-openai-voice-key', voice.apiKey);
+    setApiVoiceModalValue('api-openai-voice-model', voice.voiceModel);
+    setApiVoiceModalValue('api-openai-voice-id', voice.voiceId);
+    setApiVoiceModalValue('api-openai-voice-endpoint', voice.voiceEndpoint);
+    setApiVoiceModalValue('api-openai-voice-format', voice.voiceFormat);
+    setApiVoiceModalValue('api-openai-voice-instructions', voice.instructions);
+}
+
+function openApiOpenAiVoiceModal() {
+    const modal = document.getElementById('api-openai-voice-modal');
+    const resultEl = document.getElementById('api-openai-voice-test-result');
+    if (!modal) return;
+    if (resultEl) resultEl.innerHTML = '';
+    fillApiOpenAiVoiceModal();
+    modal.classList.remove('hidden');
+}
+
+function closeApiOpenAiVoiceModal() {
+    document.getElementById('api-openai-voice-modal')?.classList.add('hidden');
+}
+
+function fillApiElevenLabsVoiceModal(api = getApiData().elevenLabsVoiceApi) {
+    const voice = normalizeElevenLabsVoiceApiData(api);
+    setApiVoiceModalValue('api-elevenlabs-voice-enabled', voice.enabled);
+    setApiVoiceModalValue('api-elevenlabs-voice-name', voice.name);
+    setApiVoiceModalValue('api-elevenlabs-voice-url', voice.baseUrl);
+    setApiVoiceModalValue('api-elevenlabs-voice-key', voice.apiKey);
+    setApiVoiceModalValue('api-elevenlabs-voice-model', voice.voiceModel);
+    setApiVoiceModalValue('api-elevenlabs-voice-id', voice.voiceId);
+    setApiVoiceModalValue('api-elevenlabs-voice-endpoint', voice.voiceEndpoint);
+    setApiVoiceModalValue('api-elevenlabs-voice-format', voice.voiceFormat);
+    setApiVoiceModalValue('api-elevenlabs-voice-stability', voice.stability);
+    setApiVoiceModalValue('api-elevenlabs-voice-similarity', voice.similarityBoost);
+    setApiVoiceModalValue('api-elevenlabs-voice-style', voice.style);
+    setApiVoiceModalValue('api-elevenlabs-voice-boost', voice.useSpeakerBoost);
+}
+
+function openApiElevenLabsVoiceModal() {
+    const modal = document.getElementById('api-elevenlabs-voice-modal');
+    const resultEl = document.getElementById('api-elevenlabs-voice-test-result');
+    if (!modal) return;
+    if (resultEl) resultEl.innerHTML = '';
+    fillApiElevenLabsVoiceModal();
+    modal.classList.remove('hidden');
+}
+
+function closeApiElevenLabsVoiceModal() {
+    document.getElementById('api-elevenlabs-voice-modal')?.classList.add('hidden');
+}
+
+function fillApiLocalVoiceModal(api = getApiData().localVoiceApi) {
+    const voice = normalizeLocalVoiceApiData(api);
+    setApiVoiceModalValue('api-local-voice-enabled', voice.enabled);
+    setApiVoiceModalValue('api-local-voice-name', voice.name);
+    setApiVoiceModalValue('api-local-voice-endpoint', voice.endpoint);
+    setApiVoiceModalValue('api-local-voice-key', voice.apiKey);
+    setApiVoiceModalValue('api-local-voice-model', voice.voiceModel);
+    setApiVoiceModalValue('api-local-voice-id', voice.voiceId);
+    setApiVoiceModalValue('api-local-voice-format', voice.voiceFormat);
+}
+
+function openApiLocalVoiceModal() {
+    const modal = document.getElementById('api-local-voice-modal');
+    const resultEl = document.getElementById('api-local-voice-test-result');
+    if (!modal) return;
+    if (resultEl) resultEl.innerHTML = '';
+    fillApiLocalVoiceModal();
+    modal.classList.remove('hidden');
+}
+
+function closeApiLocalVoiceModal() {
+    document.getElementById('api-local-voice-modal')?.classList.add('hidden');
 }
 
 // 4. 打开编辑弹窗
@@ -704,6 +983,52 @@ function getApiVoiceConfigFromModal() {
     };
 }
 
+function getApiOpenAiVoiceConfigFromModal() {
+    return {
+        provider: 'openai',
+        enabled: !!document.getElementById('api-openai-voice-enabled')?.checked,
+        name: (document.getElementById('api-openai-voice-name')?.value || '').trim() || 'OpenAI TTS',
+        baseUrl: (document.getElementById('api-openai-voice-url')?.value || '').trim(),
+        apiKey: (document.getElementById('api-openai-voice-key')?.value || '').trim(),
+        voiceModel: (document.getElementById('api-openai-voice-model')?.value || '').trim(),
+        voiceId: (document.getElementById('api-openai-voice-id')?.value || '').trim(),
+        voiceEndpoint: (document.getElementById('api-openai-voice-endpoint')?.value || '').trim(),
+        voiceFormat: (document.getElementById('api-openai-voice-format')?.value || '').trim() || 'mp3',
+        instructions: (document.getElementById('api-openai-voice-instructions')?.value || '').trim()
+    };
+}
+
+function getApiElevenLabsVoiceConfigFromModal() {
+    return {
+        provider: 'elevenlabs',
+        enabled: !!document.getElementById('api-elevenlabs-voice-enabled')?.checked,
+        name: (document.getElementById('api-elevenlabs-voice-name')?.value || '').trim() || 'ElevenLabs',
+        baseUrl: (document.getElementById('api-elevenlabs-voice-url')?.value || '').trim(),
+        apiKey: (document.getElementById('api-elevenlabs-voice-key')?.value || '').trim(),
+        voiceModel: (document.getElementById('api-elevenlabs-voice-model')?.value || '').trim(),
+        voiceId: (document.getElementById('api-elevenlabs-voice-id')?.value || '').trim(),
+        voiceEndpoint: (document.getElementById('api-elevenlabs-voice-endpoint')?.value || '').trim(),
+        voiceFormat: (document.getElementById('api-elevenlabs-voice-format')?.value || '').trim() || 'mp3',
+        stability: (document.getElementById('api-elevenlabs-voice-stability')?.value || '').trim(),
+        similarityBoost: (document.getElementById('api-elevenlabs-voice-similarity')?.value || '').trim(),
+        style: (document.getElementById('api-elevenlabs-voice-style')?.value || '').trim(),
+        useSpeakerBoost: !!document.getElementById('api-elevenlabs-voice-boost')?.checked
+    };
+}
+
+function getApiLocalVoiceConfigFromModal() {
+    return {
+        provider: 'local',
+        enabled: !!document.getElementById('api-local-voice-enabled')?.checked,
+        name: (document.getElementById('api-local-voice-name')?.value || '').trim() || '本地 TTS',
+        endpoint: (document.getElementById('api-local-voice-endpoint')?.value || '').trim(),
+        apiKey: (document.getElementById('api-local-voice-key')?.value || '').trim(),
+        voiceModel: (document.getElementById('api-local-voice-model')?.value || '').trim(),
+        voiceId: (document.getElementById('api-local-voice-id')?.value || '').trim(),
+        voiceFormat: (document.getElementById('api-local-voice-format')?.value || '').trim() || 'wav'
+    };
+}
+
 function normalizeMiniMaxBaseUrl(baseUrl) {
     const base = String(baseUrl || '').trim().replace(/\/+$/, '');
     if (!base) return 'https://api.minimax.io';
@@ -723,8 +1048,40 @@ function buildMiniMaxVoiceEndpoint(api) {
     return `${endpoint}${join}GroupId=${encodeURIComponent(groupId)}`;
 }
 
+function normalizeOpenAiBaseUrl(baseUrl) {
+    const base = String(baseUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return 'https://api.openai.com/v1';
+    return base;
+}
+
+function buildOpenAiVoiceEndpoint(api) {
+    const explicit = String(api?.voiceEndpoint || '').trim();
+    if (explicit) return explicit;
+    const base = normalizeOpenAiBaseUrl(api?.baseUrl);
+    return /\/audio\/speech$/i.test(base) ? base : (/\/v1$/i.test(base) ? `${base}/audio/speech` : `${base}/v1/audio/speech`);
+}
+
+function normalizeElevenLabsBaseUrl(baseUrl) {
+    const base = String(baseUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return 'https://api.elevenlabs.io';
+    return base;
+}
+
+function buildElevenLabsVoiceEndpoint(api) {
+    const explicit = String(api?.voiceEndpoint || '').trim();
+    if (explicit) return explicit;
+    const base = normalizeElevenLabsBaseUrl(api?.baseUrl);
+    const voiceId = encodeURIComponent(String(api?.voiceId || api?.voice || '').trim());
+    const root = /\/v1$/i.test(base) ? base : `${base}/v1`;
+    return `${root}/text-to-speech/${voiceId}`;
+}
+
 function getMiniMaxAudioMime(format) {
     const normalized = String(format || 'mp3').toLowerCase();
+    if (normalized === 'opus') return 'audio/ogg';
+    if (normalized === 'aac') return 'audio/aac';
+    if (normalized === 'flac') return 'audio/flac';
+    if (normalized === 'webm') return 'audio/webm';
     if (normalized === 'wav') return 'audio/wav';
     if (normalized === 'pcm') return 'audio/L16';
     return 'audio/mpeg';
@@ -762,8 +1119,17 @@ function decodeMiniMaxAudioData(audio, format) {
     return `data:${mime};base64,${compact}`;
 }
 
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('音频读取失败'));
+        reader.readAsDataURL(blob);
+    });
+}
+
 async function requestMiniMaxVoiceAudio(text, apiConfig) {
-    const api = apiConfig || getDefaultVoiceApi();
+    const api = apiConfig || normalizeVoiceApiData(getApiData().voiceApi);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
     if (!isApiVoiceEnabled(api)) throw new Error('还没有配置可用的 MiniMax 语音 API');
@@ -821,6 +1187,200 @@ async function requestMiniMaxVoiceAudio(text, apiConfig) {
     };
 }
 
+async function requestOpenAiVoiceAudio(text, apiConfig) {
+    const api = normalizeOpenAiVoiceApiData(apiConfig);
+    const content = String(text || '').trim();
+    if (!content) throw new Error('语音文本为空');
+    if (!isOpenAiVoiceEnabled(api)) throw new Error('还没有配置可用的 OpenAI TTS');
+
+    const format = api.voiceFormat || 'mp3';
+    const body = {
+        model: api.voiceModel || api.model,
+        voice: api.voiceId || api.voice || 'alloy',
+        input: content,
+        response_format: format
+    };
+    if (api.instructions) body.instructions = api.instructions;
+
+    const resp = await fetch(buildOpenAiVoiceEndpoint(api), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${api.apiKey}`
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (/^(audio\/|application\/octet-stream)/i.test(contentType)) {
+        if (!resp.ok) throw new Error(`OpenAI TTS HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        return {
+            audioUrl: await blobToDataUrl(blob),
+            mimeType: blob.type || contentType.split(';')[0] || getMiniMaxAudioMime(format),
+            duration: estimateTextAudioDuration(content),
+            raw: null
+        };
+    }
+
+    const rawText = await resp.text();
+    let json = {};
+    try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
+    if (!resp.ok) {
+        const detail = json?.error?.message || json?.message || rawText || `HTTP ${resp.status}`;
+        throw new Error(String(detail).slice(0, 180));
+    }
+    const audio = json?.data?.audio || json?.audio || json?.audio_base64 || json?.audioBase64 || '';
+    const audioUrl = json?.audio_url || json?.audioUrl || json?.url || json?.data?.url || '';
+    if (audioUrl) return { audioUrl, mimeType: getMiniMaxAudioMime(format), duration: estimateTextAudioDuration(content), raw: json };
+    if (!audio) throw new Error('OpenAI TTS 没有返回音频数据');
+    return {
+        audioUrl: decodeMiniMaxAudioData(audio, format),
+        mimeType: getMiniMaxAudioMime(format),
+        duration: estimateTextAudioDuration(content),
+        raw: json
+    };
+}
+
+async function requestElevenLabsVoiceAudio(text, apiConfig) {
+    const api = normalizeElevenLabsVoiceApiData(apiConfig);
+    const content = String(text || '').trim();
+    if (!content) throw new Error('语音文本为空');
+    if (!isElevenLabsVoiceEnabled(api)) throw new Error('还没有配置可用的 ElevenLabs');
+
+    const format = api.voiceFormat || 'mp3';
+    const resp = await fetch(buildElevenLabsVoiceEndpoint(api), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'audio/mpeg, audio/*, application/json',
+            'xi-api-key': api.apiKey
+        },
+        body: JSON.stringify({
+            text: content,
+            model_id: api.voiceModel || api.model || 'eleven_multilingual_v2',
+            voice_settings: {
+                stability: clampMiniMaxNumber(api.stability, 0.5, 0, 1),
+                similarity_boost: clampMiniMaxNumber(api.similarityBoost, 0.75, 0, 1),
+                style: clampMiniMaxNumber(api.style, 0, 0, 1),
+                use_speaker_boost: api.useSpeakerBoost !== false
+            }
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (/^(audio\/|application\/octet-stream)/i.test(contentType)) {
+        if (!resp.ok) throw new Error(`ElevenLabs HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        return {
+            audioUrl: await blobToDataUrl(blob),
+            mimeType: blob.type || contentType.split(';')[0] || getMiniMaxAudioMime(format),
+            duration: estimateTextAudioDuration(content),
+            raw: null
+        };
+    }
+
+    const rawText = await resp.text();
+    let json = {};
+    try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
+    if (!resp.ok) {
+        const detail = json?.detail?.message || json?.message || json?.error?.message || rawText || `HTTP ${resp.status}`;
+        throw new Error(String(detail).slice(0, 180));
+    }
+    const audioUrl = json?.audio_url || json?.audioUrl || json?.url || json?.data?.url || json?.data?.audio_url || '';
+    if (audioUrl) return { audioUrl, mimeType: getMiniMaxAudioMime(format), duration: estimateTextAudioDuration(content), raw: json };
+    const audio = json?.audio || json?.audio_base64 || json?.audioBase64 || json?.data?.audio || json?.data?.audio_base64 || '';
+    if (!audio) throw new Error('ElevenLabs 没有返回音频数据');
+    return {
+        audioUrl: decodeMiniMaxAudioData(audio, format),
+        mimeType: getMiniMaxAudioMime(format),
+        duration: estimateTextAudioDuration(content),
+        raw: json
+    };
+}
+
+async function requestLocalVoiceAudio(text, apiConfig) {
+    const api = normalizeLocalVoiceApiData(apiConfig);
+    const content = String(text || '').trim();
+    if (!content) throw new Error('语音文本为空');
+    if (!isLocalVoiceEnabled(api)) throw new Error('还没有配置可用的本地 TTS 接口');
+
+    const format = api.voiceFormat || 'wav';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, audio/*'
+    };
+    if (api.apiKey) headers.Authorization = `Bearer ${api.apiKey}`;
+
+    const resp = await fetch(api.endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            text: content,
+            input: content,
+            model: api.voiceModel || '',
+            voice: api.voiceId || '',
+            voice_id: api.voiceId || '',
+            format,
+            response_format: format,
+            voice_setting: { voice_id: api.voiceId || '' },
+            audio_setting: { format }
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (/^(audio\/|application\/octet-stream)/i.test(contentType)) {
+        if (!resp.ok) throw new Error(`本地 TTS HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        return {
+            audioUrl: await blobToDataUrl(blob),
+            mimeType: blob.type || contentType.split(';')[0] || getMiniMaxAudioMime(format),
+            duration: estimateTextAudioDuration(content),
+            raw: null
+        };
+    }
+
+    const rawText = await resp.text();
+    let json = {};
+    try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
+    if (!resp.ok) {
+        const detail = json?.message || json?.error?.message || json?.error || rawText || `HTTP ${resp.status}`;
+        throw new Error(String(detail).slice(0, 180));
+    }
+
+    const audioUrl = json?.data?.audio_url || json?.data?.audioUrl || json?.audio_url || json?.audioUrl || json?.url || json?.data?.url || '';
+    if (audioUrl) {
+        return {
+            audioUrl,
+            mimeType: getMiniMaxAudioMime(format),
+            duration: Number(json?.duration || json?.data?.duration || 0) || estimateTextAudioDuration(content),
+            raw: json
+        };
+    }
+
+    const audio = json?.data?.audio || json?.data?.audio_base64 || json?.data?.audioBase64 || json?.audio || json?.audio_base64 || json?.audioBase64 || '';
+    if (!audio) throw new Error('本地 TTS 没有返回音频数据');
+    return {
+        audioUrl: decodeMiniMaxAudioData(audio, format),
+        mimeType: getMiniMaxAudioMime(format),
+        duration: Number(json?.duration || json?.data?.duration || 0) || estimateTextAudioDuration(content),
+        raw: json
+    };
+}
+
+async function requestDefaultVoiceAudio(text) {
+    const api = getDefaultVoiceApi();
+    if (!api) throw new Error('还没有配置可用的语音 API');
+    const provider = api.provider || api.voiceProvider;
+    if (provider === 'local') return requestLocalVoiceAudio(text, api);
+    if (provider === 'openai') return requestOpenAiVoiceAudio(text, api);
+    if (provider === 'elevenlabs') return requestElevenLabsVoiceAudio(text, api);
+    return requestMiniMaxVoiceAudio(text, api);
+}
+
 function estimateTextAudioDuration(text) {
     const cjk = (String(text || '').match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
     const ascii = String(text || '').replace(/[\u3400-\u9fff\uf900-\ufaff]/g, ' ');
@@ -834,6 +1394,33 @@ async function testMiniMaxVoiceApi(api) {
         return { ok: true, detail: '(MiniMax 语音可用)', models: [], chatModel: '' };
     } catch (e) {
         return { ok: false, error: `MiniMax 语音失败：${e.message || e}`, models: [] };
+    }
+}
+
+async function testOpenAiVoiceApi(api) {
+    try {
+        await requestOpenAiVoiceAudio('你好，这是 OpenAI 语音测试。', api);
+        return { ok: true, detail: '(OpenAI TTS 可用)', models: [], chatModel: '' };
+    } catch (e) {
+        return { ok: false, error: `OpenAI TTS 失败：${e.message || e}`, models: [] };
+    }
+}
+
+async function testElevenLabsVoiceApi(api) {
+    try {
+        await requestElevenLabsVoiceAudio('你好，这是 ElevenLabs 语音测试。', api);
+        return { ok: true, detail: '(ElevenLabs 可用)', models: [], chatModel: '' };
+    } catch (e) {
+        return { ok: false, error: `ElevenLabs 失败：${e.message || e}`, models: [] };
+    }
+}
+
+async function testLocalVoiceApi(api) {
+    try {
+        await requestLocalVoiceAudio('你好，这是本地语音测试。', api);
+        return { ok: true, detail: '(本地 TTS 可用)', models: [], chatModel: '' };
+    } catch (e) {
+        return { ok: false, error: `本地 TTS 失败：${e.message || e}`, models: [] };
     }
 }
 
@@ -861,6 +1448,74 @@ async function testVoiceApiFromModal() {
     }
 }
 
+async function testOpenAiVoiceApiFromModal() {
+    const resultEl = document.getElementById('api-openai-voice-test-result');
+    const api = getApiOpenAiVoiceConfigFromModal();
+    if (!resultEl) return;
+    if (!api.baseUrl && !api.voiceEndpoint) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 OpenAI Base URL</span>';
+        return;
+    }
+    const testApi = { ...api, enabled: true };
+    if (!isOpenAiVoiceEnabled(testApi)) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key、模型和音色</span>';
+        return;
+    }
+    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 OpenAI TTS...</span>';
+    try {
+        const result = await requestOpenAiVoiceAudio('你好，这是 OpenAI 语音测试。', testApi);
+        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ OpenAI TTS 可用，已试听测试音频</span>';
+        const audio = new Audio(result.audioUrl);
+        audio.play().catch(() => {});
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'OpenAI TTS 测试失败')}</span>`;
+    }
+}
+
+async function testElevenLabsVoiceApiFromModal() {
+    const resultEl = document.getElementById('api-elevenlabs-voice-test-result');
+    const api = getApiElevenLabsVoiceConfigFromModal();
+    if (!resultEl) return;
+    if (!api.baseUrl && !api.voiceEndpoint) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 ElevenLabs Base URL</span>';
+        return;
+    }
+    const testApi = { ...api, enabled: true };
+    if (!isElevenLabsVoiceEnabled(testApi)) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key 和 Voice ID</span>';
+        return;
+    }
+    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 ElevenLabs...</span>';
+    try {
+        const result = await requestElevenLabsVoiceAudio('你好，这是 ElevenLabs 语音测试。', testApi);
+        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ ElevenLabs 可用，已试听测试音频</span>';
+        const audio = new Audio(result.audioUrl);
+        audio.play().catch(() => {});
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'ElevenLabs 测试失败')}</span>`;
+    }
+}
+
+async function testLocalVoiceApiFromModal() {
+    const resultEl = document.getElementById('api-local-voice-test-result');
+    const api = getApiLocalVoiceConfigFromModal();
+    if (!resultEl) return;
+    if (!api.endpoint) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写本地 HTTP Endpoint</span>';
+        return;
+    }
+    const testApi = { ...api, enabled: true };
+    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求本地 TTS...</span>';
+    try {
+        const result = await requestLocalVoiceAudio('你好，这是本地语音测试。', testApi);
+        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ 本地 TTS 可用，已试听测试音频</span>';
+        const audio = new Audio(result.audioUrl);
+        audio.play().catch(() => {});
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || '本地 TTS 测试失败')}</span>`;
+    }
+}
+
 function saveApiVoiceSettings() {
     const resultEl = document.getElementById('api-voice-test-result');
     const voiceApi = normalizeVoiceApiData(getApiVoiceConfigFromModal());
@@ -880,8 +1535,105 @@ function saveApiVoiceSettings() {
     }
     const data = getApiData();
     data.voiceApi = voiceApi;
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi);
     saveApiData(data);
     closeApiVoiceModal();
+    renderApiList();
+}
+
+function saveApiOpenAiVoiceSettings() {
+    const resultEl = document.getElementById('api-openai-voice-test-result');
+    const openAiVoiceApi = normalizeOpenAiVoiceApiData(getApiOpenAiVoiceConfigFromModal());
+    if (openAiVoiceApi.enabled) {
+        if (!openAiVoiceApi.baseUrl && !openAiVoiceApi.voiceEndpoint) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 OpenAI Base URL</span>';
+            return;
+        }
+        if (!openAiVoiceApi.apiKey) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 OpenAI API Key</span>';
+            return;
+        }
+        if (!openAiVoiceApi.voiceModel || !openAiVoiceApi.voiceId) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写模型和音色</span>';
+            return;
+        }
+    }
+    const data = getApiData();
+    data.openAiVoiceApi = openAiVoiceApi;
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, openAiVoiceApi, data.elevenLabsVoiceApi);
+    saveApiData(data);
+    closeApiOpenAiVoiceModal();
+    renderApiList();
+}
+
+function saveApiElevenLabsVoiceSettings() {
+    const resultEl = document.getElementById('api-elevenlabs-voice-test-result');
+    const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(getApiElevenLabsVoiceConfigFromModal());
+    if (elevenLabsVoiceApi.enabled) {
+        if (!elevenLabsVoiceApi.baseUrl && !elevenLabsVoiceApi.voiceEndpoint) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 ElevenLabs Base URL</span>';
+            return;
+        }
+        if (!elevenLabsVoiceApi.apiKey) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 ElevenLabs API Key</span>';
+            return;
+        }
+        if (!elevenLabsVoiceApi.voiceId) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Voice ID</span>';
+            return;
+        }
+    }
+    const data = getApiData();
+    data.elevenLabsVoiceApi = elevenLabsVoiceApi;
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, elevenLabsVoiceApi);
+    saveApiData(data);
+    closeApiElevenLabsVoiceModal();
+    renderApiList();
+}
+
+function saveApiLocalVoiceSettings() {
+    const resultEl = document.getElementById('api-local-voice-test-result');
+    const localVoiceApi = normalizeLocalVoiceApiData(getApiLocalVoiceConfigFromModal());
+    if (localVoiceApi.enabled && !localVoiceApi.endpoint) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写本地 HTTP Endpoint</span>';
+        return;
+    }
+    const data = getApiData();
+    data.localVoiceApi = localVoiceApi;
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi);
+    saveApiData(data);
+    closeApiLocalVoiceModal();
+    renderApiList();
+}
+
+function setDefaultVoiceProvider(provider) {
+    const data = getApiData();
+    const voiceApi = normalizeVoiceApiData(data.voiceApi);
+    const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
+    const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
+    if (provider === 'minimax' && !isApiVoiceEnabled(voiceApi)) {
+        alert('MiniMax 语音还没有配置完整。');
+        renderApiList();
+        return;
+    }
+    if (provider === 'openai' && !isOpenAiVoiceEnabled(openAiVoiceApi)) {
+        alert('OpenAI TTS 还没有配置完整。');
+        renderApiList();
+        return;
+    }
+    if (provider === 'elevenlabs' && !isElevenLabsVoiceEnabled(elevenLabsVoiceApi)) {
+        alert('ElevenLabs 还没有配置完整。');
+        renderApiList();
+        return;
+    }
+    if (provider === 'local' && !isLocalVoiceEnabled(localVoiceApi)) {
+        alert('本地 TTS 还没有配置可用 Endpoint。');
+        renderApiList();
+        return;
+    }
+    data.voiceDefaultProvider = provider;
+    saveApiData(data);
     renderApiList();
 }
 
@@ -1065,7 +1817,18 @@ function getDefaultImageApi() {
 function getDefaultVoiceApi() {
     const data = getApiData();
     const voiceApi = normalizeVoiceApiData(data.voiceApi);
+    const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
+    const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
+    const provider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi);
+    if (provider === 'local' && isLocalVoiceEnabled(localVoiceApi)) return localVoiceApi;
+    if (provider === 'minimax' && isApiVoiceEnabled(voiceApi)) return voiceApi;
+    if (provider === 'openai' && isOpenAiVoiceEnabled(openAiVoiceApi)) return openAiVoiceApi;
+    if (provider === 'elevenlabs' && isElevenLabsVoiceEnabled(elevenLabsVoiceApi)) return elevenLabsVoiceApi;
     if (isApiVoiceEnabled(voiceApi)) return voiceApi;
+    if (isOpenAiVoiceEnabled(openAiVoiceApi)) return openAiVoiceApi;
+    if (isElevenLabsVoiceEnabled(elevenLabsVoiceApi)) return elevenLabsVoiceApi;
+    if (isLocalVoiceEnabled(localVoiceApi)) return localVoiceApi;
     return null;
 }
 

@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260531-voice-minimax-card3">
+    <link rel="stylesheet" href="style.css?v=20260531-desktop-widget-builtins1">
 </head>
 <body>
 
@@ -972,7 +972,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.279
+                    Beyond Screen v1.1.319
                 </div>
             </div>
         </div>
@@ -1084,7 +1084,7 @@
                         <strong>接入方法</strong>
                         <span>默认会请求 MiniMax Base URL + /v1/t2a_v2。</span>
                         <span>先在 MiniMax 官方创建或克隆音色，拿到 voice_id 后填到音色 ID。浏览器直连如果被 CORS 拦住，就把 Endpoint 换成你自己的 Worker/后端代理。</span>
-                        <span>本地 TTS 需要先在电脑上启动 HTTP 服务并允许 CORS；如果要接进这里，Endpoint 要做成兼容 MiniMax 请求和返回格式的本地代理。</span>
+                        <span>优势：中文、情绪和克隆音色更适合角色语音，按字符计费更好估成本。劣势：需要官方 Key，浏览器直连可能要代理。</span>
                     </div>
                 </div>
                 <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
@@ -1092,6 +1092,197 @@
                     <button class="btn-confirm" onclick="saveApiVoiceSettings()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9); flex:1; border-radius:14px;">保存</button>
                 </div>
                 <div id="api-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
+            </div>
+        </div>
+
+        <div id="api-openai-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card api-voice-modal-card api-openai-voice-modal-card" style="background:#fbfffd; border:1.5px solid rgba(16,185,129,0.22); border-radius:24px;">
+                <div class="wc-card-header" style="border-bottom-color:rgba(16,185,129,0.14);">
+                    <span style="color:#059669; font-weight:800;">OpenAI TTS API</span>
+                    <i class="ri-close-line" onclick="closeApiOpenAiVoiceModal()" style="color:#059669;"></i>
+                </div>
+                <div class="wc-card-body" style="gap:12px;">
+                    <label class="api-voice-enable-row api-openai-voice-enable-row">
+                        <span><i class="ri-openai-fill"></i> 启用 OpenAI 语音</span>
+                        <input type="checkbox" id="api-openai-voice-enabled">
+                    </label>
+                    <div class="wc-form-group">
+                        <label style="color:#059669;">名称</label>
+                        <input type="text" id="api-openai-voice-name" placeholder="OpenAI TTS" style="background:#f3fff9; border-color:rgba(16,185,129,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#059669;">Base URL</label>
+                        <input type="text" id="api-openai-voice-url" placeholder="https://api.openai.com/v1" style="background:#f3fff9; border-color:rgba(16,185,129,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#059669;">OpenAI API Key</label>
+                        <input type="password" id="api-openai-voice-key" placeholder="填 OpenAI 官方 Key" style="background:#f3fff9; border-color:rgba(16,185,129,0.18); border-radius:14px;">
+                    </div>
+                    <div class="api-voice-grid">
+                        <label>
+                            <span>模型</span>
+                            <input type="text" id="api-openai-voice-model" placeholder="gpt-4o-mini-tts">
+                        </label>
+                        <label>
+                            <span>音色</span>
+                            <input type="text" id="api-openai-voice-id" placeholder="alloy / marin / cedar">
+                        </label>
+                        <label>
+                            <span>Endpoint</span>
+                            <input type="text" id="api-openai-voice-endpoint" placeholder="留空自动 /audio/speech">
+                        </label>
+                        <label>
+                            <span>格式</span>
+                            <select id="api-openai-voice-format">
+                                <option value="mp3">mp3</option>
+                                <option value="wav">wav</option>
+                                <option value="opus">opus</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#059669;">语气指令（可选）</label>
+                        <textarea id="api-openai-voice-instructions" rows="2" placeholder="例如：温柔、自然、像在发微信语音" style="background:#f3fff9; border-color:rgba(16,185,129,0.18); border-radius:14px;"></textarea>
+                    </div>
+                    <div class="api-voice-method api-openai-voice-method">
+                        <strong>接入方法</strong>
+                        <span>默认会请求 Base URL + /audio/speech，音色填 OpenAI 支持的内置 voice。</span>
+                        <span>优势：稳定、通用音色质量好，适合开箱即用。劣势：ChatGPT 里的 Cove 不是公开 TTS API 音色，不适合做“上传声音模仿”的主方案；浏览器直连被 CORS 拦时要走代理。</span>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testOpenAiVoiceApiFromModal()" style="background:transparent; color:#059669; border:1.5px solid rgba(16,185,129,0.35); flex:1; border-radius:14px;">测试语音</button>
+                    <button class="btn-confirm" onclick="saveApiOpenAiVoiceSettings()" style="background:linear-gradient(135deg,#34d399,#059669); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-openai-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
+            </div>
+        </div>
+
+        <div id="api-elevenlabs-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card api-voice-modal-card api-elevenlabs-voice-modal-card" style="background:#fffdf8; border:1.5px solid rgba(245,158,11,0.24); border-radius:24px;">
+                <div class="wc-card-header" style="border-bottom-color:rgba(245,158,11,0.14);">
+                    <span style="color:#b45309; font-weight:800;">ElevenLabs API</span>
+                    <i class="ri-close-line" onclick="closeApiElevenLabsVoiceModal()" style="color:#b45309;"></i>
+                </div>
+                <div class="wc-card-body" style="gap:12px;">
+                    <label class="api-voice-enable-row api-elevenlabs-voice-enable-row">
+                        <span><i class="ri-mic-2-line"></i> 启用 ElevenLabs</span>
+                        <input type="checkbox" id="api-elevenlabs-voice-enabled">
+                    </label>
+                    <div class="wc-form-group">
+                        <label style="color:#b45309;">名称</label>
+                        <input type="text" id="api-elevenlabs-voice-name" placeholder="ElevenLabs" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#b45309;">Base URL</label>
+                        <input type="text" id="api-elevenlabs-voice-url" placeholder="https://api.elevenlabs.io" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#b45309;">ElevenLabs API Key</label>
+                        <input type="password" id="api-elevenlabs-voice-key" placeholder="填 ElevenLabs Key" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
+                    </div>
+                    <div class="api-voice-grid">
+                        <label>
+                            <span>模型</span>
+                            <input type="text" id="api-elevenlabs-voice-model" placeholder="eleven_multilingual_v2">
+                        </label>
+                        <label>
+                            <span>Voice ID</span>
+                            <input type="text" id="api-elevenlabs-voice-id" placeholder="克隆/内置音色 ID">
+                        </label>
+                        <label>
+                            <span>Endpoint</span>
+                            <input type="text" id="api-elevenlabs-voice-endpoint" placeholder="留空自动 /v1/text-to-speech/{voice_id}">
+                        </label>
+                        <label>
+                            <span>格式</span>
+                            <select id="api-elevenlabs-voice-format">
+                                <option value="mp3">mp3</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>稳定度</span>
+                            <input type="number" id="api-elevenlabs-voice-stability" min="0" max="1" step="0.05">
+                        </label>
+                        <label>
+                            <span>相似度</span>
+                            <input type="number" id="api-elevenlabs-voice-similarity" min="0" max="1" step="0.05">
+                        </label>
+                        <label>
+                            <span>风格</span>
+                            <input type="number" id="api-elevenlabs-voice-style" min="0" max="1" step="0.05">
+                        </label>
+                        <label class="api-voice-mini-check">
+                            <span>增强</span>
+                            <input type="checkbox" id="api-elevenlabs-voice-boost">
+                        </label>
+                    </div>
+                    <div class="api-voice-method api-elevenlabs-voice-method">
+                        <strong>接入方法</strong>
+                        <span>默认会请求 Base URL + /v1/text-to-speech/{Voice ID}，Voice ID 从 ElevenLabs 的声音库或克隆声音里复制。</span>
+                        <span>优势：音质和克隆生态成熟，适合高级音色。劣势：免费额度小，商业使用要看套餐，成本通常比 MiniMax 更高；浏览器直连被 CORS 拦时要走代理。</span>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testElevenLabsVoiceApiFromModal()" style="background:transparent; color:#b45309; border:1.5px solid rgba(245,158,11,0.38); flex:1; border-radius:14px;">测试语音</button>
+                    <button class="btn-confirm" onclick="saveApiElevenLabsVoiceSettings()" style="background:linear-gradient(135deg,#f59e0b,#b45309); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-elevenlabs-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
+            </div>
+        </div>
+
+        <div id="api-local-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card api-voice-modal-card api-local-voice-modal-card" style="background:#fafffb; border:1.5px solid rgba(20,184,166,0.22); border-radius:24px;">
+                <div class="wc-card-header" style="border-bottom-color:rgba(20,184,166,0.14);">
+                    <span style="color:#0f766e; font-weight:800;">本地 TTS HTTP API</span>
+                    <i class="ri-close-line" onclick="closeApiLocalVoiceModal()" style="color:#0f766e;"></i>
+                </div>
+                <div class="wc-card-body" style="gap:12px;">
+                    <label class="api-voice-enable-row api-local-voice-enable-row">
+                        <span><i class="ri-computer-line"></i> 启用本地语音</span>
+                        <input type="checkbox" id="api-local-voice-enabled">
+                    </label>
+                    <div class="wc-form-group">
+                        <label style="color:#0f766e;">名称</label>
+                        <input type="text" id="api-local-voice-name" placeholder="本地 TTS" style="background:#f4fffb; border-color:rgba(20,184,166,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#0f766e;">HTTP Endpoint</label>
+                        <input type="text" id="api-local-voice-endpoint" placeholder="http://电脑IP:7862/v1/tts" style="background:#f4fffb; border-color:rgba(20,184,166,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#0f766e;">API Key（可选）</label>
+                        <input type="password" id="api-local-voice-key" placeholder="本地服务需要鉴权时填写" style="background:#f4fffb; border-color:rgba(20,184,166,0.18); border-radius:14px;">
+                    </div>
+                    <div class="api-voice-grid">
+                        <label>
+                            <span>模型</span>
+                            <input type="text" id="api-local-voice-model" placeholder="本地模型名，可留空">
+                        </label>
+                        <label>
+                            <span>音色</span>
+                            <input type="text" id="api-local-voice-id" placeholder="voice / voice_id，可留空">
+                        </label>
+                        <label>
+                            <span>格式</span>
+                            <select id="api-local-voice-format">
+                                <option value="wav">wav</option>
+                                <option value="mp3">mp3</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="api-voice-method api-local-voice-method">
+                        <strong>接入方法</strong>
+                        <span>Endpoint 填电脑上运行的 TTS HTTP 地址，接口需要允许浏览器跨域请求。</span>
+                        <span>请求体会发送 text、model、voice、voice_id、format；返回 audio/*、audio_base64 或 audio_url 都能识别。</span>
+                        <span>优势：成本最低、数据在自己电脑。劣势：离开家里要隧道/VPN/公网服务，手机和 GitHub Pages 测试会受 HTTPS 与局域网限制。</span>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testLocalVoiceApiFromModal()" style="background:transparent; color:#0f766e; border:1.5px solid rgba(20,184,166,0.35); flex:1; border-radius:14px;">测试语音</button>
+                    <button class="btn-confirm" onclick="saveApiLocalVoiceSettings()" style="background:linear-gradient(135deg,#2dd4bf,#0f766e); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-local-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
             </div>
         </div>
 
@@ -1270,7 +1461,7 @@
                         </div>
                     </div>
                     <div id="wc-voice-tts-panel" class="wc-voice-mode-body hidden">
-                        <textarea id="wc-voice-tts-input" rows="2" placeholder="输入文字，配置 MiniMax 后会生成可播放语音"></textarea>
+                        <textarea id="wc-voice-tts-input" rows="2" placeholder="输入文字，配置语音 API 后会生成可播放语音"></textarea>
                         <button type="button" class="wc-voice-tts-send" onclick="sendWechatTypedVoice()"><i class="ri-volume-up-line"></i> 发送语音</button>
                     </div>
                     <div id="wc-voice-status" class="wc-voice-status">按住底栏按钮说话，松开发送</div>
@@ -1760,10 +1951,10 @@
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260529-outing-desktop41"></script>
-    <script src="wechat.js?v=20260531-voice-minimax-card3"></script>
+    <script src="wechat.js?v=20260531-voice-cloud-providers1"></script>
     <script src="theme.js?v=20260529-outing-desktop41"></script>
-    <script src="settings.js?v=20260531-voice-minimax-card3"></script>
-    <script src="script.js?v=20260531-desktop-dock-out4"></script>
+    <script src="settings.js?v=20260531-voice-cloud-providers1"></script>
+    <script src="script.js?v=20260531-desktop-widget-builtins1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>

@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initTheme === 'function') initTheme();
     if (typeof loadCharactersFromStorage === 'function') loadCharactersFromStorage(); 
     if (typeof initOutingAppRuntime === 'function') initOutingAppRuntime();
+    if (typeof initDesktopStatusWidgetRuntime === 'function') initDesktopStatusWidgetRuntime();
     initProactiveNotify();
 });
 
@@ -78,32 +79,33 @@ function unlockPhone() {
 }
 
 function initCalendar() {
-    const dayNameEl = document.getElementById('cal-day-name');
-    const dateNumEl = document.getElementById('cal-date-num');
-    const monthNameEl = document.getElementById('cal-month-name');
-    const gridEl = document.getElementById('cal-grid');
-
-    if (!dateNumEl) return;
+    const widgets = Array.from(document.querySelectorAll('.calendar-widget'));
+    if (!widgets.length) return;
 
     const now = new Date();
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-    dayNameEl.textContent = days[now.getDay()];
-    dateNumEl.textContent = now.getDate();
-    monthNameEl.textContent = months[now.getMonth()];
-
-    gridEl.innerHTML = ''; 
     const today = now.getDate();
-    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); 
+    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-    for (let i = 1; i <= totalDays; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'cal-dot';
-        dot.textContent = i;
-        if (i === today) dot.classList.add('active');
-        gridEl.appendChild(dot);
-    }
+    widgets.forEach(widget => {
+        const dayNameEl = widget.querySelector('.cal-day');
+        const dateNumEl = widget.querySelector('.cal-date');
+        const monthNameEl = widget.querySelector('.cal-month');
+        const gridEl = widget.querySelector('.cal-grid');
+        if (dayNameEl) dayNameEl.textContent = days[now.getDay()];
+        if (dateNumEl) dateNumEl.textContent = today;
+        if (monthNameEl) monthNameEl.textContent = months[now.getMonth()];
+        if (!gridEl) return;
+        gridEl.innerHTML = '';
+        for (let i = 1; i <= totalDays; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'cal-dot';
+            dot.textContent = i;
+            if (i === today) dot.classList.add('active');
+            gridEl.appendChild(dot);
+        }
+    });
 }
 
 // --- 🌟 路由控制 (这里修复了！) ---
@@ -8606,10 +8608,16 @@ function moveAppOutOfFolder(folderId, appId) {
 window.moveAppOutOfFolder = moveAppOutOfFolder;
 
 // --- 📄 页面滑动系统 ---
-function initPageSwipe() {
+function initPageSwipe(options = {}) {
     const container = document.getElementById('pages-container');
     if (!container) return;
-    if (container.dataset.pageSwipeInit === '1') return;
+    const force = !!(options && options.force);
+    if (container.dataset.pageSwipeInit === '1') {
+        if (!force) return;
+        if (typeof container._pageSwipeCleanup === 'function') {
+            container._pageSwipeCleanup();
+        }
+    }
     container.dataset.pageSwipeInit = '1';
 
     let currentPage = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
@@ -8620,6 +8628,11 @@ function initPageSwipe() {
     let isDragging = false;
     let swipeIntent = '';
     const getPages = () => Array.from(container.querySelectorAll('.desktop-page'));
+    const cleanupSwipeListeners = [];
+    const bindSwipe = (type, handler, eventOptions) => {
+        container.addEventListener(type, handler, eventOptions);
+        cleanupSwipeListeners.push(() => container.removeEventListener(type, handler, eventOptions));
+    };
 
     function goToPage(idx) {
         const pages = getPages();
@@ -8721,28 +8734,33 @@ function initPageSwipe() {
         swipeIntent = '';
     };
 
-    container.addEventListener('touchstart', (e) => {
+    bindSwipe('touchstart', (e) => {
         if (e.touches && e.touches[0]) beginSwipe(e, e.touches[0]);
     }, { passive: true });
 
-    container.addEventListener('touchmove', (e) => {
+    bindSwipe('touchmove', (e) => {
         if (e.touches && e.touches[0]) moveSwipe(e, e.touches[0]);
     }, { passive: false });
 
-    container.addEventListener('touchend', endSwipe);
+    bindSwipe('touchend', endSwipe);
 
-    container.addEventListener('pointerdown', (e) => {
+    bindSwipe('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;
         beginSwipe(e, e);
     });
 
-    container.addEventListener('pointermove', (e) => {
+    bindSwipe('pointermove', (e) => {
         if (e.pointerType === 'mouse') return;
         moveSwipe(e, e);
     });
 
-    container.addEventListener('pointerup', endSwipe);
-    container.addEventListener('pointercancel', endSwipe);
+    bindSwipe('pointerup', endSwipe);
+    bindSwipe('pointercancel', endSwipe);
+    container._pageSwipeCleanup = () => {
+        cleanupSwipeListeners.splice(0).forEach(remove => remove());
+        delete container._pageSwipeCleanup;
+        delete container.dataset.pageSwipeInit;
+    };
 
     goToPage(currentPage);
 }
@@ -8750,11 +8768,40 @@ function initPageSwipe() {
 // --- 桌面长按布局编辑 ---
 const DESKTOP_LAYOUT_KEY = 'desktop_layout_v2';
 const DESKTOP_STICKY_NOTES_KEY = 'desktop_sticky_notes_v1';
+const DESKTOP_STATUS_WIDGET_PREFS_KEY = 'desktop_status_widget_prefs_v1';
+const DESKTOP_LOVELY_WIDGET_PREFS_KEY = 'desktop_lovely_widget_prefs_v1';
+const DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT = "BEYOND THE CODE\nTHAT'S WHERE WE'LL BE\nFOREVER FREE";
+const DESKTOP_LOVELY_BUBBLE_COLORS = {
+    blue: 'rgba(184,219,249,0.94)',
+    pink: 'rgba(252,205,221,0.94)',
+    mint: 'rgba(196,235,218,0.94)',
+    yellow: 'rgba(249,230,171,0.94)',
+    purple: 'rgba(220,206,247,0.94)',
+    clear: 'rgba(255,255,255,0)',
+    black: 'rgba(20,22,27,0.88)',
+    gray: 'rgba(152,159,170,0.82)'
+};
+const DESKTOP_LOVELY_BUBBLE_HEX = {
+    blue: '#b8dbf9',
+    pink: '#fccddd',
+    mint: '#c4ebda',
+    yellow: '#f9e6ab',
+    purple: '#dccef7',
+    clear: '#ffffff',
+    black: '#14161b',
+    gray: '#989faa'
+};
+const DESKTOP_STATUS_WEATHER_KEY = 'desktop_status_weather_v1';
+const DESKTOP_STATUS_STEPS_KEY = 'desktop_status_steps_v1';
 const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v1';
+const DESKTOP_DEFAULT_LOVELY_DELETED_KEY = 'desktop_default_lovely_deleted_v1';
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
+const DESKTOP_DEFAULT_LOVELY_ID = 'custom-lovely-default';
+const DESKTOP_CUSTOM_WIDGET_KINDS = new Set(['princess', 'status', 'lovely', 'polaroid', 'calendar', 'photo-square']);
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
 const DESKTOP_DOCK_LAYOUT_MAX = 4;
+const DESKTOP_DELETABLE_BUILTIN_IDS = new Set(['widget-calendar', 'widget-photo-1', 'widget-photo-2']);
 const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set();
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
@@ -8768,7 +8815,11 @@ let _desktopLongPressTriggered = false;
 let _desktopLongPressActive = false;
 let _desktopLayoutApplied = false;
 let _desktopDefaultPrincessDeletedBackup = null;
+let _desktopDefaultLovelyDeletedBackup = null;
 let _desktopStickyNotesBackup = null;
+let _desktopLovelyPrefsBackup = null;
+let _desktopStatusBattery = null;
+let _desktopStatusBatteryBound = false;
 
 function getDesktopPointerPoint(e) {
     const touch = e && e.touches && e.touches[0];
@@ -8837,6 +8888,24 @@ function findDesktopBuiltinElement(id) {
         });
     }
     return null;
+}
+
+function getDesktopBuiltinElementById(id) {
+    if (id === 'widget-calendar') return document.querySelector('.calendar-widget');
+    if (id === 'widget-photo-1') return document.querySelector('.desktop-img-1')?.closest('.photo-large') || null;
+    if (id === 'widget-photo-2') return document.querySelector('.desktop-img-2')?.closest('.photo-large') || null;
+    return null;
+}
+
+function removeDesktopBuiltinElementById(id) {
+    const item = getDesktopBuiltinElementById(id) || document.querySelector(`.desktop-layout-item[data-layout-id="${CSS.escape(String(id || ''))}"]`);
+    if (!item) return false;
+    item.remove();
+    return true;
+}
+
+function collectDesktopDeletedBuiltinIds() {
+    return Array.from(DESKTOP_DELETABLE_BUILTIN_IDS).filter(id => !getDesktopBuiltinElementById(id));
 }
 
 function normalizeDesktopLayoutRect(item, pageArea) {
@@ -8964,7 +9033,7 @@ function setupDesktopLayoutItem(item) {
     item.dataset.layoutReady = '1';
     item.addEventListener('pointerdown', startDesktopItemDrag);
     item.addEventListener('click', (e) => {
-        if (e.target.closest('.pw-note')) return;
+        if (e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
         if (!window._editMode) return;
         e.preventDefault();
         e.stopPropagation();
@@ -8990,7 +9059,7 @@ function addDesktopItemControls(item) {
         moveSelectedDesktopItemToOtherPage();
     });
     item.appendChild(move);
-    if (item.dataset.layoutType === 'custom') {
+    if (item.dataset.layoutType === 'custom' || DESKTOP_DELETABLE_BUILTIN_IDS.has(item.dataset.layoutId || '')) {
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'desktop-item-delete';
@@ -8999,7 +9068,7 @@ function addDesktopItemControls(item) {
         del.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            deleteSelectedDesktopCustomWidget();
+            deleteSelectedDesktopLayoutItem();
         });
         item.appendChild(del);
     }
@@ -9078,6 +9147,60 @@ function getDesktopFallbackSlotMetrics(pageArea) {
     };
 }
 
+function getDesktopFlowSlotRects(pageArea) {
+    if (!pageArea) return [];
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const areaHeight = Math.max(520, pageArea.clientHeight || 590);
+    const maxTop = Math.max(metrics.startY, areaHeight - metrics.iconHeight - 8);
+    const maxRows = Math.max(1, Math.floor((maxTop - metrics.startY) / (metrics.iconHeight + metrics.gapY)) + 1);
+    const obstacles = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
+        .map(item => getDesktopStyleRect(item, pageArea))
+        .filter(Boolean);
+    const slots = [];
+    for (let row = 0; row < maxRows; row += 1) {
+        for (let col = 0; col < metrics.columns; col += 1) {
+            const top = metrics.startY + row * (metrics.iconHeight + metrics.gapY);
+            if (top > maxTop + 1) continue;
+            const rect = {
+                left: metrics.startX + col * (metrics.iconWidth + metrics.gapX),
+                top,
+                width: metrics.iconWidth,
+                height: metrics.iconHeight
+            };
+            const iconCoreRect = {
+                left: rect.left + 8,
+                top: rect.top + 4,
+                width: Math.max(36, rect.width - 16),
+                height: Math.max(48, rect.height - 18)
+            };
+            const blocked = obstacles.some(obstacle => (
+                getDesktopRectIntersectionRatio(rect, obstacle) > 0.52
+                || getDesktopRectIntersectionRatio(iconCoreRect, obstacle) > 0.18
+            ));
+            if (!blocked) slots.push(rect);
+        }
+    }
+    return slots;
+}
+
+function getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots = new Set(), preferredIndex = null) {
+    if (!pageArea || !item || !Array.isArray(slots) || !slots.length) return 0;
+    const preferred = Number(preferredIndex);
+    if (Number.isFinite(preferred) && preferred >= 0 && preferred < slots.length && !usedSlots.has(preferred)) return preferred;
+    const rect = getDesktopStyleRect(item, pageArea);
+    if (!rect) return Math.max(0, slots.findIndex((_, index) => !usedSlots.has(index)));
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const ranked = slots
+        .map((slot, index) => ({
+            index,
+            distance: (cx - (slot.left + slot.width / 2)) ** 2 + (cy - (slot.top + slot.height / 2)) ** 2
+        }))
+        .filter(entry => !usedSlots.has(entry.index))
+        .sort((a, b) => a.distance - b.distance);
+    return ranked[0]?.index ?? 0;
+}
+
 function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
     const metrics = getDesktopFallbackSlotMetrics(pageArea);
     const index = Math.max(0, Number(slotIndex) || 0);
@@ -9085,13 +9208,9 @@ function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
     const height = item?.offsetHeight || parseFloat(item?.style?.height) || metrics.iconHeight;
     const column = index % metrics.columns;
     const row = Math.floor(index / metrics.columns);
-    const widgetBottom = Math.max(0, ...Array.from(pageArea?.querySelectorAll?.(':scope > .calendar-widget, :scope > .photo-large, :scope > .desktop-custom-widget') || []).map(widget => (
-        (parseFloat(widget.style.top) || widget.offsetTop || 0) + (widget.offsetHeight || parseFloat(widget.style.height) || 0)
-    )));
-    const startY = Math.max(metrics.startY, widgetBottom ? widgetBottom + 18 : metrics.startY);
     return clampDesktopLayoutRect({
         left: metrics.startX + column * (metrics.iconWidth + metrics.gapX) + Math.round((metrics.iconWidth - width) / 2),
-        top: startY + row * (metrics.iconHeight + metrics.gapY),
+        top: metrics.startY + row * (metrics.iconHeight + metrics.gapY),
         width,
         height
     }, pageArea);
@@ -9100,6 +9219,17 @@ function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
 function captureDesktopPageSlotRects(pageArea) {
     if (!pageArea) return [];
     const items = getDesktopOrderedSlotItems(pageArea, true);
+    const flowSlots = getDesktopFlowSlotRects(pageArea);
+    if (flowSlots.length) {
+        const usedSlots = new Set();
+        items.forEach(item => {
+            const index = getNearestDesktopFlowSlotIndex(pageArea, item, flowSlots, usedSlots, item.dataset.desktopSlot);
+            usedSlots.add(index);
+            item.dataset.desktopSlot = String(index);
+        });
+        pageArea._desktopSlotRects = flowSlots;
+        return flowSlots;
+    }
     const slots = items.map((item, index) => {
         const rect = clampDesktopLayoutRect({
             left: parseFloat(item.style.left) || item.offsetLeft || 0,
@@ -9151,7 +9281,7 @@ function getDesktopSlotIndexFromPoint(pageArea, point, item) {
     const y = (point.y - rect.top) / scale + (pageArea.scrollTop || 0);
     const slots = ensureDesktopPageSlotRects(pageArea);
     const items = getDesktopOrderedSlotItems(pageArea, true);
-    const maxIndex = Math.max(0, items.length + (items.includes(item) ? 0 : 1) - 1);
+    const maxIndex = slots.length ? slots.length - 1 : Math.max(0, items.length + (items.includes(item) ? 0 : 1) - 1);
     if (!slots.length) {
         const metrics = getDesktopFallbackSlotMetrics(pageArea);
         const column = Math.max(0, Math.min(metrics.columns - 1, Math.round((x - metrics.startX - metrics.iconWidth / 2) / (metrics.iconWidth + metrics.gapX))));
@@ -9174,10 +9304,15 @@ function getDesktopSlotIndexFromPoint(pageArea, point, item) {
 
 function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
     if (!pageArea || !draggedItem || !draggedItem.classList.contains('layout-app')) return;
+    const slots = ensureDesktopPageSlotRects(pageArea);
+    if (!slots.length) return;
+    const index = Math.max(0, Math.min(Number(targetIndex) || 0, slots.length - 1));
+    const usedSlots = new Set([index]);
+    draggedItem.dataset.desktopSlot = String(index);
     const items = getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== draggedItem);
-    const index = Math.max(0, Math.min(Number(targetIndex) || 0, items.length));
-    items.splice(index, 0, draggedItem);
-    items.forEach((item, slotIndex) => {
+    items.forEach(item => {
+        const slotIndex = getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots, item.dataset.desktopSlot);
+        usedSlots.add(slotIndex);
         item.dataset.desktopSlot = String(slotIndex);
         const rect = getDesktopSlotRect(pageArea, slotIndex, item);
         item.style.left = `${Math.round(rect.left)}px`;
@@ -9185,10 +9320,16 @@ function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
         item.style.width = `${Math.round(rect.width)}px`;
         item.style.height = `${Math.round(rect.height)}px`;
     });
+    const draggedRect = getDesktopSlotRect(pageArea, index, draggedItem);
+    draggedItem.style.left = `${Math.round(draggedRect.left)}px`;
+    draggedItem.style.top = `${Math.round(draggedRect.top)}px`;
+    draggedItem.style.width = `${Math.round(draggedRect.width)}px`;
+    draggedItem.style.height = `${Math.round(draggedRect.height)}px`;
 }
 
 function compactDesktopSlotOrder(pageArea, excludedItem = null) {
     if (!pageArea) return;
+    delete pageArea._desktopSlotRects;
     getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== excludedItem).forEach((item, index) => {
         item.dataset.desktopSlot = String(index);
         const rect = getDesktopSlotRect(pageArea, index, item);
@@ -9197,6 +9338,7 @@ function compactDesktopSlotOrder(pageArea, excludedItem = null) {
         item.style.width = `${Math.round(rect.width)}px`;
         item.style.height = `${Math.round(rect.height)}px`;
     });
+    repairDesktopAppOverlaps(pageArea);
 }
 
 function getDesktopStyleRect(item, pageArea) {
@@ -9275,16 +9417,26 @@ function findDesktopOpenAppRect(pageArea, item, preferredRect) {
     const metrics = getDesktopFallbackSlotMetrics(pageArea);
     const width = item.offsetWidth || parseFloat(item.style.width) || metrics.iconWidth;
     const height = item.offsetHeight || parseFloat(item.style.height) || metrics.iconHeight;
-    const candidates = [];
-    const maxRows = Math.max(6, Math.ceil((pageArea.clientHeight || 590) / (metrics.iconHeight + metrics.gapY)));
-    for (let row = 0; row < maxRows; row += 1) {
-        for (let col = 0; col < metrics.columns; col += 1) {
-            candidates.push(clampDesktopLayoutRect({
-                left: metrics.startX + col * (metrics.iconWidth + metrics.gapX) + Math.round((metrics.iconWidth - width) / 2),
-                top: metrics.startY + row * (metrics.iconHeight + metrics.gapY),
-                width,
-                height
-            }, pageArea));
+    const flowSlots = getDesktopFlowSlotRects(pageArea);
+    const candidates = flowSlots.map(slot => clampDesktopLayoutRect({
+        left: slot.left + Math.round(((slot.width || width) - width) / 2),
+        top: slot.top + Math.round(((slot.height || height) - height) / 2),
+        width,
+        height
+    }, pageArea));
+    if (!candidates.length) {
+        const areaHeight = Math.max(520, pageArea.clientHeight || 590);
+        const maxTop = Math.max(metrics.startY, areaHeight - metrics.iconHeight - 8);
+        const maxRows = Math.max(1, Math.floor((maxTop - metrics.startY) / (metrics.iconHeight + metrics.gapY)) + 1);
+        for (let row = 0; row < maxRows; row += 1) {
+            for (let col = 0; col < metrics.columns; col += 1) {
+                candidates.push(clampDesktopLayoutRect({
+                    left: metrics.startX + col * (metrics.iconWidth + metrics.gapX) + Math.round((metrics.iconWidth - width) / 2),
+                    top: metrics.startY + row * (metrics.iconHeight + metrics.gapY),
+                    width,
+                    height
+                }, pageArea));
+            }
         }
     }
     const source = preferredRect || getDesktopStyleRect(item, pageArea) || candidates[0];
@@ -9323,6 +9475,13 @@ function repairDesktopLayoutOverlaps() {
     document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(repairDesktopAppOverlaps);
 }
 
+function settleDesktopAppsAroundWidget(widgetItem, pageArea) {
+    if (!widgetItem || !pageArea || widgetItem.classList.contains('layout-app')) return;
+    delete pageArea._desktopSlotRects;
+    captureDesktopPageSlotRects(pageArea);
+    compactDesktopSlotOrder(pageArea);
+}
+
 function isPointInsideDesktopDock(point) {
     const dock = document.querySelector('#home-screen .dock-bar');
     if (!dock) return false;
@@ -9337,7 +9496,7 @@ function isPointInsideDesktopDock(point) {
 function getDesktopPageAreaFromPoint(point) {
     if (!point || isPointInsideDesktopDock(point)) return null;
     const target = document.elementFromPoint(point.x, point.y);
-    if (target?.closest?.('.desktop-edit-toolbar, .desktop-save-modal, .folder-overlay')) return null;
+    if (target?.closest?.('.desktop-edit-toolbar, .desktop-widget-library, .desktop-save-modal, .folder-overlay')) return null;
     const directArea = target?.closest?.('.desktop-scroll-area');
     if (directArea) return directArea;
     const directPage = target?.closest?.('.desktop-page');
@@ -9665,7 +9824,7 @@ function mergeDesktopLayoutAppsIntoFolder(sourceItem, targetItem, pageArea) {
 
 function startDesktopItemDrag(e) {
     if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return;
-    if (e.target.closest('.pw-note')) return;
+    if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
     const item = e.currentTarget;
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
@@ -9685,6 +9844,7 @@ function startDesktopItemDrag(e) {
     const scale = getDesktopEditScale();
     const isAppIcon = item.classList.contains('layout-app');
     let currentPageArea = pageArea;
+    let movedToPageIndex = getDesktopPageIndex(pageArea.closest('.desktop-page'));
     let hasMoved = false;
     let pendingDockIndex = -1;
     if (isAppIcon) {
@@ -9702,6 +9862,8 @@ function startDesktopItemDrag(e) {
             compactDesktopSlotOrder(currentPageArea);
             targetPageArea.appendChild(item);
             currentPageArea = targetPageArea;
+            movedToPageIndex = getDesktopPageIndex(targetPageArea.closest('.desktop-page'));
+            if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(movedToPageIndex);
             captureDesktopPageSlotRects(currentPageArea);
         }
         if (isAppIcon && isPointInsideDesktopDock(point)) {
@@ -9728,6 +9890,8 @@ function startDesktopItemDrag(e) {
         if (isAppIcon) {
             applyDesktopSlotOrder(area, item, getDesktopSlotIndexFromPoint(area, point, item));
             nudgeDesktopLayoutObstacles(item, area);
+        } else {
+            settleDesktopAppsAroundWidget(item, area);
         }
     };
     const up = (ev) => {
@@ -9761,6 +9925,11 @@ function startDesktopItemDrag(e) {
             item.style.top = `${Math.round(rect.top)}px`;
             item.style.width = `${Math.round(rect.width)}px`;
             item.style.height = `${Math.round(rect.height)}px`;
+            if (Number.isInteger(movedToPageIndex) && typeof window.goToDesktopPage === 'function') {
+                window.goToDesktopPage(movedToPageIndex);
+            }
+        } else {
+            settleDesktopAppsAroundWidget(item, area);
         }
         item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
         hideDesktopSnapGuides(area);
@@ -9801,6 +9970,7 @@ function startDesktopItemResize(e) {
         }, { mode: 'resize' });
     };
     const up = () => {
+        if (!item.classList.contains('layout-app')) settleDesktopAppsAroundWidget(item, pageArea);
         hideDesktopSnapGuides(pageArea);
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
@@ -9809,12 +9979,790 @@ function startDesktopItemResize(e) {
     window.addEventListener('pointerup', up);
 }
 
+function getDesktopStatusCharacters() {
+    if (Array.isArray(window.myCharacters) && window.myCharacters.length) return window.myCharacters;
+    try {
+        const data = JSON.parse(localStorage.getItem('my_characters_data') || '[]');
+        return Array.isArray(data) ? data : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function getDesktopStatusCharacter() {
+    const chars = getDesktopStatusCharacters();
+    if (!chars.length) return null;
+    const currentId = window.currentChatCharId || localStorage.getItem('bynd_music_co_listen_char_v1') || '';
+    const selected = currentId ? chars.find(char => char && char.id === currentId) : null;
+    return selected || chars.find(char => char && !char.isGroupChat) || chars[0] || null;
+}
+
+function getDesktopStatusCharName(char) {
+    if (!char) return '';
+    if (typeof getWechatCharDisplayName === 'function') return getWechatCharDisplayName(char);
+    return (char.chatConfig && char.chatConfig.nickname) || char.name || '';
+}
+
+function getDesktopStatusWidgetPrefs() {
+    try {
+        const prefs = JSON.parse(localStorage.getItem(DESKTOP_STATUS_WIDGET_PREFS_KEY) || '{}');
+        return prefs && typeof prefs === 'object' ? prefs : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveDesktopStatusWidgetPrefs(prefs) {
+    localStorage.setItem(DESKTOP_STATUS_WIDGET_PREFS_KEY, JSON.stringify(prefs && typeof prefs === 'object' ? prefs : {}));
+}
+
+function getDesktopStatusWidgetAvatar(layoutId) {
+    const prefs = getDesktopStatusWidgetPrefs();
+    return prefs.avatars && layoutId ? prefs.avatars[layoutId] || '' : '';
+}
+
+function setDesktopStatusWidgetAvatar(layoutId, avatar) {
+    if (!layoutId || !avatar) return;
+    const prefs = getDesktopStatusWidgetPrefs();
+    prefs.avatars = prefs.avatars && typeof prefs.avatars === 'object' ? prefs.avatars : {};
+    prefs.avatars[layoutId] = avatar;
+    saveDesktopStatusWidgetPrefs(prefs);
+}
+
+function deleteDesktopStatusWidgetPrefs(layoutId) {
+    if (!layoutId) return;
+    const prefs = getDesktopStatusWidgetPrefs();
+    if (prefs.avatars && Object.prototype.hasOwnProperty.call(prefs.avatars, layoutId)) {
+        delete prefs.avatars[layoutId];
+        saveDesktopStatusWidgetPrefs(prefs);
+    }
+}
+
+function readDesktopStatusAvatarFile(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('没有选择头像'));
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('头像读取失败'));
+        reader.onload = () => {
+            const raw = reader.result;
+            const img = new Image();
+            img.onerror = () => resolve(raw);
+            img.onload = () => {
+                const size = 256;
+                const scale = Math.max(size / Math.max(1, img.width), size / Math.max(1, img.height));
+                const width = Math.round(img.width * scale);
+                const height = Math.round(img.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, Math.round((size - width) / 2), Math.round((size - height) / 2), width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.82));
+            };
+            img.src = raw;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function handleDesktopStatusAvatarInput(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    input.value = '';
+    const widget = input.closest('.desktop-widget-status');
+    const layoutId = widget?.dataset?.layoutId || '';
+    if (!widget || !layoutId) return;
+    try {
+        const avatar = await readDesktopStatusAvatarFile(file);
+        setDesktopStatusWidgetAvatar(layoutId, avatar);
+        updateDesktopStatusWidgets();
+    } catch (e) {
+        if (typeof showWechatToast === 'function') showWechatToast(e.message || '头像读取失败');
+    }
+}
+window.handleDesktopStatusAvatarInput = handleDesktopStatusAvatarInput;
+
+function getDesktopStatusBatteryPercent() {
+    if (_desktopStatusBattery && typeof _desktopStatusBattery.level === 'number') {
+        return Math.round(_desktopStatusBattery.level * 100);
+    }
+    if (!('getBattery' in navigator)) return null;
+    const text = document.getElementById('battery-level')?.textContent || '';
+    const match = text.match(/\d+/);
+    return match ? Math.max(0, Math.min(100, Number(match[0]))) : null;
+}
+
+function formatDesktopStatusWidgetDate(now = new Date()) {
+    const weeks = ['日', '一', '二', '三', '四', '五', '六'];
+    return `${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日 · 周${weeks[now.getDay()]}`;
+}
+
+function getDesktopStatusWeatherCache() {
+    try {
+        const data = JSON.parse(localStorage.getItem(DESKTOP_STATUS_WEATHER_KEY) || '{}');
+        return data && typeof data === 'object' ? data : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveDesktopStatusWeatherCache(data) {
+    localStorage.setItem(DESKTOP_STATUS_WEATHER_KEY, JSON.stringify(data && typeof data === 'object' ? data : {}));
+}
+
+function getDesktopWeatherCodeText(code) {
+    const n = Number(code);
+    if (n === 0) return '晴';
+    if ([1, 2].includes(n)) return '少云';
+    if (n === 3) return '多云';
+    if ([45, 48].includes(n)) return '雾';
+    if ([51, 53, 55, 56, 57].includes(n)) return '毛毛雨';
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(n)) return '雨';
+    if ([71, 73, 75, 77, 85, 86].includes(n)) return '雪';
+    if ([95, 96, 99].includes(n)) return '雷雨';
+    return '天气';
+}
+
+function getDesktopStatusWeatherText() {
+    const data = getDesktopStatusWeatherCache();
+    if (!data || typeof data.temp !== 'number') return '授权定位获取天气';
+    const max = typeof data.max === 'number' ? `${Math.round(data.max)}°` : '--';
+    const min = typeof data.min === 'number' ? `${Math.round(data.min)}°` : '--';
+    return `${getDesktopWeatherCodeText(data.code)} ${Math.round(data.temp)}° · ${max}/${min}`;
+}
+
+function setDesktopStatusWeatherText(text, state = '') {
+    document.querySelectorAll('[data-dsw-weather]').forEach(el => {
+        el.textContent = text || '授权定位获取天气';
+        el.dataset.state = state;
+    });
+}
+
+function getDesktopStatusStepsCache() {
+    try {
+        const data = JSON.parse(localStorage.getItem(DESKTOP_STATUS_STEPS_KEY) || '{}');
+        return data && typeof data === 'object' ? data : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveDesktopStatusStepsCache(data) {
+    localStorage.setItem(DESKTOP_STATUS_STEPS_KEY, JSON.stringify(data && typeof data === 'object' ? data : {}));
+}
+
+function getDesktopStatusStepsText() {
+    const data = getDesktopStatusStepsCache();
+    const steps = Number(data.steps);
+    if (!Number.isFinite(steps) || steps < 0) return '步数 未连接';
+    return `步数 ${Math.round(steps)}`;
+}
+
+function setDesktopStatusStepsText(text, state = '') {
+    document.querySelectorAll('[data-dsw-steps]').forEach(el => {
+        el.textContent = text || '步数 未连接';
+        el.dataset.state = state;
+    });
+}
+
+async function readDesktopNativeStepCount() {
+    const bridgeCandidates = [
+        window.BYND_NATIVE,
+        window.BeyondScreenNative,
+        window.Android,
+        window.webkit?.messageHandlers?.byndHealth
+    ].filter(Boolean);
+    for (const bridge of bridgeCandidates) {
+        const fn = bridge.getStepCount || bridge.requestStepCount || bridge.getTodaySteps || bridge.postMessage;
+        if (typeof fn !== 'function') continue;
+        const result = await fn.call(bridge, { type: 'getTodaySteps' });
+        const value = typeof result === 'object' && result ? (result.steps ?? result.stepCount ?? result.todaySteps) : result;
+        const steps = Number(value);
+        if (Number.isFinite(steps) && steps >= 0) return steps;
+    }
+    throw new Error('当前网页环境没有真实步数接口');
+}
+
+async function requestDesktopStatusSteps(options = {}) {
+    if (!document.querySelector('.desktop-widget-status')) return;
+    setDesktopStatusStepsText('正在授权步数...', 'loading');
+    try {
+        const steps = await readDesktopNativeStepCount();
+        saveDesktopStatusStepsCache({ steps: Math.round(steps), updatedAt: Date.now(), source: 'native' });
+        updateDesktopStatusWidgets();
+    } catch (e) {
+        setDesktopStatusStepsText(getDesktopStatusStepsText(), 'error');
+        if (options.force && typeof showWechatToast === 'function') {
+            showWechatToast('网页不能直接读取手机健康步数，需要原生壳子接 HealthKit / Health Connect');
+        }
+    }
+}
+window.requestDesktopStatusSteps = requestDesktopStatusSteps;
+
+function getDesktopCurrentPosition() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('当前浏览器不支持定位'));
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            maximumAge: 20 * 60 * 1000,
+            timeout: 18000
+        });
+    });
+}
+
+async function requestDesktopStatusWeather(options = {}) {
+    if (!document.querySelector('.desktop-widget-status')) return;
+    setDesktopStatusWeatherText('正在定位...', 'loading');
+    try {
+        const position = await getDesktopCurrentPosition();
+        const lat = Number(position.coords.latitude).toFixed(4);
+        const lon = Number(position.coords.longitude).toFixed(4);
+        setDesktopStatusWeatherText('正在获取天气...', 'loading');
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(18000) });
+        if (!resp.ok) throw new Error(`天气接口 HTTP ${resp.status}`);
+        const json = await resp.json();
+        const weather = {
+            lat: Number(lat),
+            lon: Number(lon),
+            temp: Number(json?.current?.temperature_2m),
+            code: Number(json?.current?.weather_code),
+            max: Number(json?.daily?.temperature_2m_max?.[0]),
+            min: Number(json?.daily?.temperature_2m_min?.[0]),
+            updatedAt: Date.now()
+        };
+        if (!Number.isFinite(weather.temp)) throw new Error('天气接口没有返回温度');
+        saveDesktopStatusWeatherCache(weather);
+        updateDesktopStatusWidgets();
+    } catch (e) {
+        const fallback = options.force ? '定位或天气获取失败' : getDesktopStatusWeatherText();
+        setDesktopStatusWeatherText(fallback, 'error');
+        if (options.force && typeof showWechatToast === 'function') showWechatToast(e.message || '天气获取失败');
+    }
+}
+window.requestDesktopStatusWeather = requestDesktopStatusWeather;
+
+function updateDesktopStatusWidgets() {
+    const widgets = document.querySelectorAll('.desktop-widget-status');
+    if (!widgets.length) return;
+    const now = new Date();
+    const timeText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const dateText = formatDesktopStatusWidgetDate(now);
+    const batteryPercent = getDesktopStatusBatteryPercent();
+    const batteryText = batteryPercent == null ? '--%' : `${batteryPercent}%`;
+    const char = getDesktopStatusCharacter();
+    const charName = getDesktopStatusCharName(char);
+    const weatherText = getDesktopStatusWeatherText();
+    const stepsText = getDesktopStatusStepsText();
+    widgets.forEach(widget => {
+        const layoutId = widget.dataset.layoutId || '';
+        const avatar = getDesktopStatusWidgetAvatar(layoutId) || (char && char.avatar) || window.DEFAULT_AVATAR || '';
+        widget.style.setProperty('--dsw-battery-angle', `${Math.max(0, Math.min(100, batteryPercent == null ? 0 : batteryPercent)) * 3.6}deg`);
+        widget.querySelectorAll('[data-dsw-battery]').forEach(el => { el.textContent = batteryText; });
+        widget.querySelectorAll('[data-dsw-time]').forEach(el => { el.textContent = timeText; });
+        widget.querySelectorAll('[data-dsw-date]').forEach(el => { el.textContent = dateText; });
+        widget.querySelectorAll('[data-dsw-weather]').forEach(el => { el.textContent = weatherText; });
+        widget.querySelectorAll('[data-dsw-steps]').forEach(el => { el.textContent = stepsText; });
+        widget.querySelectorAll('[data-dsw-name]').forEach(el => { el.textContent = charName || '角色'; });
+        const img = widget.querySelector('[data-dsw-avatar]');
+        if (img && avatar && img.getAttribute('src') !== avatar) img.src = avatar;
+        if (img) img.alt = charName || '';
+    });
+}
+
+function initDesktopStatusWidgetRuntime() {
+    updateDesktopStatusWidgets();
+    setInterval(updateDesktopStatusWidgets, 30000);
+    if (_desktopStatusBatteryBound || !('getBattery' in navigator)) return;
+    _desktopStatusBatteryBound = true;
+    navigator.getBattery().then(battery => {
+        _desktopStatusBattery = battery;
+        const update = () => updateDesktopStatusWidgets();
+        battery.addEventListener('levelchange', update);
+        battery.addEventListener('chargingchange', update);
+        update();
+    }).catch(() => {});
+}
+
+function getDesktopLovelyWidgetPrefs() {
+    try {
+        const prefs = JSON.parse(localStorage.getItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY) || '{}');
+        return prefs && typeof prefs === 'object' ? prefs : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveDesktopLovelyWidgetPrefs(prefs) {
+    localStorage.setItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY, JSON.stringify(prefs && typeof prefs === 'object' ? prefs : {}));
+}
+
+function normalizeDesktopLovelyChecklist(checks) {
+    const source = Array.isArray(checks) ? checks : [];
+    const rows = source.slice(0, 3).map(item => ({
+        text: String(item?.text || '').slice(0, 40),
+        done: !!item?.done
+    }));
+    while (rows.length < 3) rows.push({ text: '', done: false });
+    return rows;
+}
+
+function normalizeDesktopLovelyBubbleTone(tone) {
+    return Object.prototype.hasOwnProperty.call(DESKTOP_LOVELY_BUBBLE_COLORS, tone) || tone === 'custom' ? tone : 'blue';
+}
+
+function normalizeDesktopLovelyBubbleColor(color) {
+    const value = String(color || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(value)) return value;
+    return '';
+}
+
+function getDesktopLovelyBubbleBg(data) {
+    const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
+    if (tone === 'custom') return normalizeDesktopLovelyBubbleColor(data?.bubbleColor) || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
+    return DESKTOP_LOVELY_BUBBLE_COLORS[tone] || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
+}
+
+function getDesktopLovelyToneColor(tone, customColor, fallbackTone = 'blue') {
+    const safeTone = normalizeDesktopLovelyBubbleTone(tone);
+    if (safeTone === 'custom') return normalizeDesktopLovelyBubbleColor(customColor) || DESKTOP_LOVELY_BUBBLE_COLORS[fallbackTone] || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
+    return DESKTOP_LOVELY_BUBBLE_COLORS[safeTone] || DESKTOP_LOVELY_BUBBLE_COLORS[fallbackTone] || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
+}
+
+function renderDesktopLovelyBubblePalette(data) {
+    const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
+    const customColor = normalizeDesktopLovelyBubbleColor(data?.bubbleColor) || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    const presets = [
+        ['blue', '奶蓝'],
+        ['pink', '奶粉'],
+        ['mint', '薄荷'],
+        ['yellow', '奶黄'],
+        ['purple', '淡紫'],
+        ['clear', '透明'],
+        ['black', '黑色'],
+        ['gray', '灰色']
+    ];
+    return `
+        <div class="lcw-bubble-palette" aria-label="气泡颜色">
+            ${presets.map(([key, label]) => `
+                <button type="button" class="lcw-bubble-swatch ${tone === key ? 'active' : ''}" data-tone="${desktopEscapeAttr(key)}" title="${desktopEscapeAttr(label)}" style="--swatch:${desktopEscapeAttr(DESKTOP_LOVELY_BUBBLE_COLORS[key])};" onclick="setDesktopLovelyBubbleTone(this)"></button>
+            `).join('')}
+            <label class="lcw-bubble-custom ${tone === 'custom' ? 'active' : ''}" title="自定义颜色">
+                <input type="color" value="${desktopEscapeAttr(customColor)}" onchange="setDesktopLovelyBubbleCustomColor(this)">
+            </label>
+        </div>
+    `;
+}
+
+function renderDesktopLovelyColorSwatches(data, part) {
+    const toneKey = part === 'outer' ? 'titleOuterTone' : 'titleInnerTone';
+    const colorKey = part === 'outer' ? 'titleOuterColor' : 'titleInnerColor';
+    const fallback = part === 'outer' ? 'clear' : 'blue';
+    const tone = normalizeDesktopLovelyBubbleTone(data?.[toneKey] || fallback);
+    const customColor = normalizeDesktopLovelyBubbleColor(data?.[colorKey]) || DESKTOP_LOVELY_BUBBLE_HEX[fallback] || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    const presets = [
+        ['blue', '奶蓝'],
+        ['pink', '奶粉'],
+        ['mint', '薄荷'],
+        ['yellow', '奶黄'],
+        ['purple', '淡紫'],
+        ['clear', '透明'],
+        ['black', '黑色'],
+        ['gray', '灰色']
+    ];
+    return `
+        <div class="lcw-title-palette-row" data-part="${desktopEscapeAttr(part)}">
+            <span>${part === 'outer' ? '外' : '内'}</span>
+            ${presets.map(([key, label]) => `
+                <button type="button" class="lcw-title-swatch lcw-bubble-swatch ${tone === key ? 'active' : ''}" data-part="${desktopEscapeAttr(part)}" data-tone="${desktopEscapeAttr(key)}" title="${desktopEscapeAttr(label)}" style="--swatch:${desktopEscapeAttr(DESKTOP_LOVELY_BUBBLE_COLORS[key])};" onclick="setDesktopLovelyTitleTone(this)"></button>
+            `).join('')}
+            <label class="lcw-title-custom lcw-bubble-custom ${tone === 'custom' ? 'active' : ''}" title="自定义颜色">
+                <input type="color" value="${desktopEscapeAttr(customColor)}" data-part="${desktopEscapeAttr(part)}" onchange="setDesktopLovelyTitleCustomColor(this)">
+            </label>
+        </div>
+    `;
+}
+
+function renderDesktopLovelyTitlePalette(data) {
+    return `
+        <div class="lcw-title-palette" aria-label="标题颜色">
+            ${renderDesktopLovelyColorSwatches(data, 'inner')}
+            ${renderDesktopLovelyColorSwatches(data, 'outer')}
+        </div>
+    `;
+}
+
+function getDesktopLovelyWidgetData(layoutId) {
+    const prefs = getDesktopLovelyWidgetPrefs();
+    const data = layoutId && prefs[layoutId] && typeof prefs[layoutId] === 'object' ? prefs[layoutId] : {};
+    return {
+        hero: typeof data.hero === 'string' ? data.hero : '',
+        avatar: typeof data.avatar === 'string' ? data.avatar : '',
+        square: typeof data.square === 'string' ? data.square : '',
+        sticker: typeof data.sticker === 'string' ? data.sticker : '',
+        wall1: typeof data.wall1 === 'string' ? data.wall1 : '',
+        wall2: typeof data.wall2 === 'string' ? data.wall2 : '',
+        wall3: typeof data.wall3 === 'string' ? data.wall3 : '',
+        title: typeof data.title === 'string' ? data.title.slice(0, 28) : '',
+        bubble: typeof data.bubble === 'string' ? data.bubble.slice(0, 140) : '',
+        bubbleTone: normalizeDesktopLovelyBubbleTone(data.bubbleTone),
+        bubbleColor: normalizeDesktopLovelyBubbleColor(data.bubbleColor),
+        titleInnerTone: normalizeDesktopLovelyBubbleTone(data.titleInnerTone || 'blue'),
+        titleInnerColor: normalizeDesktopLovelyBubbleColor(data.titleInnerColor),
+        titleOuterTone: normalizeDesktopLovelyBubbleTone(data.titleOuterTone || 'clear'),
+        titleOuterColor: normalizeDesktopLovelyBubbleColor(data.titleOuterColor),
+        checks: normalizeDesktopLovelyChecklist(data.checks)
+    };
+}
+
+function setDesktopLovelyWidgetData(layoutId, data) {
+    if (!layoutId) return;
+    const prefs = getDesktopLovelyWidgetPrefs();
+    prefs[layoutId] = {
+        ...getDesktopLovelyWidgetData(layoutId),
+        ...(data && typeof data === 'object' ? data : {})
+    };
+    prefs[layoutId].checks = normalizeDesktopLovelyChecklist(prefs[layoutId].checks);
+    prefs[layoutId].bubbleTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].bubbleTone);
+    prefs[layoutId].bubbleColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].bubbleColor);
+    prefs[layoutId].titleInnerTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].titleInnerTone || 'blue');
+    prefs[layoutId].titleInnerColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleInnerColor);
+    prefs[layoutId].titleOuterTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].titleOuterTone || 'clear');
+    prefs[layoutId].titleOuterColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleOuterColor);
+    saveDesktopLovelyWidgetPrefs(prefs);
+}
+
+function deleteDesktopLovelyWidgetPrefs(layoutId) {
+    if (!layoutId) return;
+    const prefs = getDesktopLovelyWidgetPrefs();
+    if (Object.prototype.hasOwnProperty.call(prefs, layoutId)) {
+        delete prefs[layoutId];
+        saveDesktopLovelyWidgetPrefs(prefs);
+    }
+}
+
+function renderDesktopLovelyImageSlot(slot, value, label, className) {
+    const img = value ? `<img src="${desktopEscapeAttr(value)}" alt="">` : `<span class="lcw-placeholder"><i class="ri-image-add-line"></i><em>${desktopEscapeHtml(label)}</em></span>`;
+    const accept = slot === 'sticker' ? 'image/png,image/*' : 'image/*';
+    return `
+        <label class="lcw-photo ${desktopEscapeAttr(className)} lcw-control">
+            ${img}
+            <input class="lcw-input lcw-file" type="file" accept="${accept}" data-lcw-slot="${desktopEscapeAttr(slot)}" onchange="handleDesktopLovelyImageInput(this)">
+        </label>
+    `;
+}
+
+function renderDesktopLovelyPolaroidSlot(slot, value, label, index) {
+    const img = value ? `<img src="${desktopEscapeAttr(value)}" alt="">` : `<span class="lcw-polaroid-placeholder"><i class="ri-image-add-line"></i></span>`;
+    return `
+        <label class="lcw-polaroid lcw-polaroid-${index} lcw-control">
+            <span class="lcw-polaroid-photo">${img}</span>
+            <span class="lcw-polaroid-caption">${desktopEscapeHtml(label)}</span>
+            <input class="lcw-input lcw-file" type="file" accept="image/*" data-lcw-slot="${desktopEscapeAttr(slot)}" onchange="handleDesktopLovelyImageInput(this)">
+        </label>
+    `;
+}
+
+function renderDesktopLovelyWidgetInner(layoutId) {
+    const data = getDesktopLovelyWidgetData(layoutId);
+    const avatar = data.avatar || '';
+    const bubbleBg = getDesktopLovelyBubbleBg(data);
+    const titleInner = getDesktopLovelyToneColor(data.titleInnerTone, data.titleInnerColor, 'blue');
+    const titleOuter = getDesktopLovelyToneColor(data.titleOuterTone, data.titleOuterColor, 'clear');
+    return `
+        <div class="lcw-shell">
+            ${renderDesktopLovelyImageSlot('hero', data.hero, '横向照片', 'lcw-hero')}
+            ${renderDesktopLovelyImageSlot('avatar', avatar, '头像', 'lcw-avatar')}
+            <div class="lcw-bubble-card lcw-control" data-tone="${desktopEscapeAttr(data.bubbleTone)}" style="--lcw-bubble-bg:${desktopEscapeAttr(bubbleBg)};">
+                <span class="lcw-bubble-dot dot-a"></span>
+                <span class="lcw-bubble-dot dot-b"></span>
+                <textarea class="lcw-bubble lcw-input" rows="3" maxlength="140" placeholder="${desktopEscapeAttr(DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT)}" oninput="saveDesktopLovelyText(this)">${desktopEscapeHtml(data.bubble)}</textarea>
+                ${renderDesktopLovelyBubblePalette(data)}
+            </div>
+            <div class="lcw-title-row" data-inner-tone="${desktopEscapeAttr(data.titleInnerTone)}" data-outer-tone="${desktopEscapeAttr(data.titleOuterTone)}" style="--lcw-title-inner:${desktopEscapeAttr(titleInner)}; --lcw-title-outer:${desktopEscapeAttr(titleOuter)};">
+                <span class="lcw-title-mark lcw-title-left" aria-hidden="true">
+                    <svg class="lcw-title-svg lcw-title-svg-left" viewBox="0 0 118 46">
+                        <path class="lcw-title-thin" d="M14 7 L10 35 M26 6 L21 37 M5 16 C16 15, 25 16, 33 18 M3 27 C13 26, 25 27, 34 29" />
+                        <path d="M47 31 C37 27, 41 12, 54 14 C67 16, 66 32, 55 35 C46 37, 40 30, 47 22 C53 15, 63 18, 59 28" />
+                        <path d="M73 31 C63 27, 67 12, 80 14 C93 16, 92 32, 81 35 C72 37, 66 30, 73 22 C79 15, 89 18, 85 28" />
+                        <path class="lcw-title-thin" d="M106 15 C111 11, 116 16, 112 21 C108 27, 100 21, 103 16" />
+                    </svg>
+                </span>
+                <input class="lcw-title-input lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.title || 'Namiii')}" oninput="saveDesktopLovelyTitle(this)">
+                <span class="lcw-title-mark lcw-title-right" aria-hidden="true">
+                    <svg class="lcw-title-svg lcw-title-svg-right" viewBox="0 0 128 46">
+                        <path d="M16 12 C27 6, 36 15, 32 25 C28 36, 12 35, 10 24 C8 15, 17 12, 23 17 C31 24, 24 39, 12 41" />
+                        <path class="lcw-title-thin" d="M47 14 L66 14 M50 30 L68 30 M58 4 C62 4, 62 10, 58 10 C54 10, 54 4, 58 4 M59 34 C63 34, 63 40, 59 40 C55 40, 55 34, 59 34" />
+                        <path d="M83 29 C88 17, 103 17, 109 29" />
+                        <path d="M92 28 C95 32, 99 32, 102 28" />
+                        <path class="lcw-title-thin" d="M119 7 L124 1 M121 19 L127 17 M118 31 L124 37" />
+                    </svg>
+                </span>
+                ${renderDesktopLovelyTitlePalette(data)}
+            </div>
+        </div>
+    `;
+}
+
+function renderDesktopPolaroidWidgetInner(layoutId) {
+    const data = getDesktopLovelyWidgetData(layoutId);
+    return `
+        <div class="lcw-polaroid-widget-shell">
+            <div class="lcw-polaroid-wall">
+                ${renderDesktopLovelyPolaroidSlot('wall1', data.wall1, 'Photo', 1)}
+                ${renderDesktopLovelyPolaroidSlot('wall2', data.wall2, 'Photo', 2)}
+                ${renderDesktopLovelyPolaroidSlot('wall3', data.wall3, 'Photo', 3)}
+            </div>
+        </div>
+    `;
+}
+
+function renderDesktopCalendarWidgetInner() {
+    return `
+        <div class="calendar-widget desktop-calendar-widget-inner">
+            <div class="cal-left">
+                <div class="cal-day">--</div>
+                <div class="cal-date">--</div>
+            </div>
+            <div class="cal-right">
+                <div class="cal-month">--</div>
+                <div class="cal-grid"></div>
+            </div>
+        </div>
+    `;
+}
+
+function renderDesktopPhotoSquareWidgetInner(layoutId) {
+    const data = getDesktopLovelyWidgetData(layoutId);
+    const image = data.square || '';
+    return `
+        <label class="desktop-photo-square-shell lcw-control">
+            ${image ? `<img src="${desktopEscapeAttr(image)}" alt="">` : '<span class="desktop-photo-square-placeholder"><i class="ri-image-add-line"></i></span>'}
+            <input class="lcw-input lcw-file" type="file" accept="image/*" data-lcw-slot="square" onchange="handleDesktopLovelyImageInput(this)">
+        </label>
+    `;
+}
+
+function readDesktopLovelyImageFile(file, slot) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('没有选择图片'));
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('图片读取失败'));
+        reader.onload = () => {
+            const raw = reader.result;
+            const img = new Image();
+            img.onerror = () => resolve(raw);
+            img.onload = () => {
+                const maxSize = slot === 'hero' ? 960 : 520;
+                const scale = Math.min(1, maxSize / Math.max(1, img.width), maxSize / Math.max(1, img.height));
+                const width = Math.max(1, Math.round(img.width * scale));
+                const height = Math.max(1, Math.round(img.height * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(slot === 'sticker' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.84));
+            };
+            img.src = raw;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function handleDesktopLovelyImageInput(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    input.value = '';
+    const widget = input.closest('.desktop-custom-widget');
+    const slot = input.dataset.lcwSlot;
+    if (!widget || !slot) return;
+    try {
+        const image = await readDesktopLovelyImageFile(file, slot);
+        const layoutId = widget.dataset.layoutId;
+        const data = getDesktopLovelyWidgetData(layoutId);
+        data[slot] = image;
+        setDesktopLovelyWidgetData(layoutId, data);
+        const holder = input.closest('.lcw-photo');
+        const squareHolder = input.closest('.desktop-photo-square-shell');
+        const polaroidHolder = input.closest('.lcw-polaroid')?.querySelector('.lcw-polaroid-photo');
+        if (polaroidHolder) {
+            polaroidHolder.querySelector('img, .lcw-polaroid-placeholder')?.remove();
+        } else if (squareHolder) {
+            squareHolder.querySelector('img, .desktop-photo-square-placeholder')?.remove();
+        } else {
+            holder?.querySelector('img, .lcw-placeholder')?.remove();
+        }
+        const img = document.createElement('img');
+        img.src = image;
+        img.alt = '';
+        if (polaroidHolder) {
+            polaroidHolder.appendChild(img);
+        } else if (squareHolder) {
+            squareHolder.insertBefore(img, input);
+        } else {
+            holder?.insertBefore(img, input);
+        }
+    } catch (e) {
+        if (typeof showWechatToast === 'function') showWechatToast(e.message || '图片读取失败');
+    }
+}
+window.handleDesktopLovelyImageInput = handleDesktopLovelyImageInput;
+
+function saveDesktopLovelyText(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.bubble = String(input.value || '').slice(0, 140);
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+}
+window.saveDesktopLovelyText = saveDesktopLovelyText;
+
+function applyDesktopLovelyBubbleColor(widget, data) {
+    const bubbleCard = widget?.querySelector?.('.lcw-bubble-card');
+    if (!bubbleCard) return;
+    const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
+    bubbleCard.dataset.tone = tone;
+    bubbleCard.style.setProperty('--lcw-bubble-bg', getDesktopLovelyBubbleBg(data));
+    bubbleCard.querySelectorAll('.lcw-bubble-swatch').forEach(button => {
+        button.classList.toggle('active', button.dataset.tone === tone);
+    });
+    bubbleCard.querySelector('.lcw-bubble-custom')?.classList.toggle('active', tone === 'custom');
+}
+
+function setDesktopLovelyBubbleTone(button) {
+    const widget = button?.closest?.('.desktop-widget-lovely');
+    const tone = normalizeDesktopLovelyBubbleTone(button?.dataset?.tone);
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.bubbleTone = tone;
+    if (tone !== 'custom') data.bubbleColor = data.bubbleColor || '';
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    applyDesktopLovelyBubbleColor(widget, data);
+}
+window.setDesktopLovelyBubbleTone = setDesktopLovelyBubbleTone;
+
+function setDesktopLovelyBubbleCustomColor(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.bubbleTone = 'custom';
+    data.bubbleColor = normalizeDesktopLovelyBubbleColor(input.value) || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    applyDesktopLovelyBubbleColor(widget, data);
+}
+window.setDesktopLovelyBubbleCustomColor = setDesktopLovelyBubbleCustomColor;
+
+function applyDesktopLovelyTitleColors(widget, data) {
+    const titleRow = widget?.querySelector?.('.lcw-title-row');
+    if (!titleRow) return;
+    const innerTone = normalizeDesktopLovelyBubbleTone(data?.titleInnerTone || 'blue');
+    const outerTone = normalizeDesktopLovelyBubbleTone(data?.titleOuterTone || 'clear');
+    titleRow.dataset.innerTone = innerTone;
+    titleRow.dataset.outerTone = outerTone;
+    titleRow.style.setProperty('--lcw-title-inner', getDesktopLovelyToneColor(innerTone, data?.titleInnerColor, 'blue'));
+    titleRow.style.setProperty('--lcw-title-outer', getDesktopLovelyToneColor(outerTone, data?.titleOuterColor, 'clear'));
+    titleRow.querySelectorAll('.lcw-title-swatch').forEach(button => {
+        const activeTone = button.dataset.part === 'outer' ? outerTone : innerTone;
+        button.classList.toggle('active', button.dataset.tone === activeTone);
+    });
+    titleRow.querySelectorAll('.lcw-title-custom').forEach(label => {
+        const input = label.querySelector('input');
+        const activeTone = input?.dataset?.part === 'outer' ? outerTone : innerTone;
+        label.classList.toggle('active', activeTone === 'custom');
+    });
+}
+
+function setDesktopLovelyTitleTone(button) {
+    const widget = button?.closest?.('.desktop-widget-lovely');
+    const part = button?.dataset?.part === 'outer' ? 'outer' : 'inner';
+    const tone = normalizeDesktopLovelyBubbleTone(button?.dataset?.tone);
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    if (part === 'outer') {
+        data.titleOuterTone = tone;
+    } else {
+        data.titleInnerTone = tone;
+    }
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    applyDesktopLovelyTitleColors(widget, data);
+}
+window.setDesktopLovelyTitleTone = setDesktopLovelyTitleTone;
+
+function setDesktopLovelyTitleCustomColor(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    const part = input?.dataset?.part === 'outer' ? 'outer' : 'inner';
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    if (part === 'outer') {
+        data.titleOuterTone = 'custom';
+        data.titleOuterColor = normalizeDesktopLovelyBubbleColor(input.value) || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    } else {
+        data.titleInnerTone = 'custom';
+        data.titleInnerColor = normalizeDesktopLovelyBubbleColor(input.value) || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    }
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    applyDesktopLovelyTitleColors(widget, data);
+}
+window.setDesktopLovelyTitleCustomColor = setDesktopLovelyTitleCustomColor;
+
+function saveDesktopLovelyTitle(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.title = String(input.value || '').slice(0, 28);
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+}
+window.saveDesktopLovelyTitle = saveDesktopLovelyTitle;
+
+function saveDesktopLovelyChecklist(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.checks = Array.from(widget.querySelectorAll('.lcw-task')).map(row => ({
+        done: !!row.querySelector('.lcw-task-check')?.checked,
+        text: String(row.querySelector('.lcw-task-text')?.value || '').slice(0, 40)
+    }));
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+}
+window.saveDesktopLovelyChecklist = saveDesktopLovelyChecklist;
+
+function syncDesktopLovelyWidgetsFromDom() {
+    document.querySelectorAll('.desktop-widget-lovely').forEach(widget => {
+        const layoutId = widget.dataset.layoutId;
+        if (!layoutId) return;
+        const data = getDesktopLovelyWidgetData(layoutId);
+        const title = widget.querySelector('.lcw-title-input');
+        if (title) data.title = String(title.value || '').slice(0, 28);
+        const bubble = widget.querySelector('.lcw-bubble');
+        if (bubble) data.bubble = String(bubble.value || '').slice(0, 140);
+        const bubbleCard = widget.querySelector('.lcw-bubble-card');
+        if (bubbleCard) data.bubbleTone = normalizeDesktopLovelyBubbleTone(bubbleCard.dataset.tone);
+        const customColor = widget.querySelector('.lcw-bubble-custom input');
+        if (customColor) data.bubbleColor = normalizeDesktopLovelyBubbleColor(customColor.value);
+        const titleRow = widget.querySelector('.lcw-title-row');
+        if (titleRow) {
+            data.titleInnerTone = normalizeDesktopLovelyBubbleTone(titleRow.dataset.innerTone || 'blue');
+            data.titleOuterTone = normalizeDesktopLovelyBubbleTone(titleRow.dataset.outerTone || 'clear');
+        }
+        const titleInnerCustom = widget.querySelector('.lcw-title-custom input[data-part="inner"]');
+        if (titleInnerCustom) data.titleInnerColor = normalizeDesktopLovelyBubbleColor(titleInnerCustom.value);
+        const titleOuterCustom = widget.querySelector('.lcw-title-custom input[data-part="outer"]');
+        if (titleOuterCustom) data.titleOuterColor = normalizeDesktopLovelyBubbleColor(titleOuterCustom.value);
+        data.checks = Array.from(widget.querySelectorAll('.lcw-task')).map(row => ({
+            done: !!row.querySelector('.lcw-task-check')?.checked,
+            text: String(row.querySelector('.lcw-task-text')?.value || '').slice(0, 40)
+        }));
+        setDesktopLovelyWidgetData(layoutId, data);
+    });
+}
+
 function createDesktopCustomWidget(kind, id) {
     const el = document.createElement('div');
-    const safeKind = 'princess';
+    const safeKind = DESKTOP_CUSTOM_WIDGET_KINDS.has(kind) ? kind : 'princess';
     const layoutId = id || `custom-${safeKind}-${Date.now()}`;
     const noteText = getDesktopStickyNoteValue(layoutId);
-    el.className = 'desktop-custom-widget desktop-widget-princess';
+    el.className = `desktop-custom-widget desktop-widget-${safeKind}`;
     el.dataset.layoutType = 'custom';
     el.dataset.widgetKind = safeKind;
     el.dataset.layoutId = layoutId;
@@ -9840,9 +10788,48 @@ function createDesktopCustomWidget(kind, id) {
                     <span class="pw-mini-bow"></span>
                 </div>
             </div>
-        `
+        `,
+        status: `
+            <div class="dsw-shell">
+                <div class="dsw-top">
+                    <div class="dsw-battery-pill">
+                        <strong data-dsw-battery>--%</strong>
+                        <span>剩余电量</span>
+                    </div>
+                    <div class="dsw-ring" aria-hidden="true"><span></span></div>
+                </div>
+                <div class="dsw-card">
+                    <div class="dsw-avatar" onclick="this.querySelector('.dsw-avatar-input')?.click()">
+                        <img data-dsw-avatar src="${desktopEscapeAttr(window.DEFAULT_AVATAR || '')}" alt="">
+                        <input class="dsw-avatar-input" type="file" accept="image/*" onchange="handleDesktopStatusAvatarInput(this)">
+                    </div>
+                    <div class="dsw-mid">
+                        <div class="dsw-symbols" aria-hidden="true">
+                            <i class="ri-heart-3-line"></i>
+                            <i class="ri-sparkling-2-line"></i>
+                            <i class="ri-heart-3-fill"></i>
+                            <i class="ri-send-plane-2-line"></i>
+                            <i class="ri-gift-line"></i>
+                            <i class="ri-sparkling-fill"></i>
+                        </div>
+                        <div class="dsw-date" data-dsw-date>--月--日 · 周-</div>
+                        <button type="button" class="dsw-weather" data-dsw-weather onclick="event.stopPropagation(); requestDesktopStatusWeather({ force: true })">授权定位获取天气</button>
+                    </div>
+                    <div class="dsw-right">
+                        <strong data-dsw-time>--:--</strong>
+                        <button type="button" class="dsw-steps" data-dsw-steps onclick="event.stopPropagation(); requestDesktopStatusSteps({ force: true })">步数 未连接</button>
+                    </div>
+                </div>
+            </div>
+        `,
+        lovely: renderDesktopLovelyWidgetInner(layoutId),
+        polaroid: renderDesktopPolaroidWidgetInner(layoutId),
+        calendar: renderDesktopCalendarWidgetInner(),
+        'photo-square': renderDesktopPhotoSquareWidgetInner(layoutId)
     };
     el.innerHTML = templates[safeKind];
+    if (safeKind === 'status') setTimeout(updateDesktopStatusWidgets, 0);
+    if (safeKind === 'calendar') setTimeout(initCalendar, 0);
     return el;
 }
 
@@ -9876,6 +10863,7 @@ window.saveDesktopStickyNote = saveDesktopStickyNote;
 
 function syncDesktopStickyNotesFromDom() {
     document.querySelectorAll('.desktop-widget-princess .pw-note').forEach(input => saveDesktopStickyNote(input));
+    syncDesktopLovelyWidgetsFromDom();
 }
 
 function snapDesktopNumber(value, step = DESKTOP_SNAP_GRID) {
@@ -10035,12 +11023,17 @@ function applyDesktopLayoutRect(item, pageArea, rect, options = {}) {
 }
 
 function getDesktopCustomWidgetSize(kind) {
+    if (kind === 'lovely') return { width: 340, height: 232 };
+    if (kind === 'polaroid') return { width: 322, height: 128 };
+    if (kind === 'status') return { width: 322, height: 116 };
+    if (kind === 'calendar') return { width: 322, height: 180 };
+    if (kind === 'photo-square') return { width: 156, height: 156 };
     if (kind === 'princess') return { width: 188, height: 188 };
     return { width: 188, height: 188 };
 }
 
 function addDesktopCustomWidget(kind) {
-    if (kind !== 'princess') return;
+    if (!DESKTOP_CUSTOM_WIDGET_KINDS.has(kind)) return;
     if (!window._editMode) enterEditMode();
     const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
     const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
@@ -10055,8 +11048,37 @@ function addDesktopCustomWidget(kind) {
         width: size.width,
         height: size.height
     });
+    if (kind === 'status') {
+        updateDesktopStatusWidgets();
+        requestDesktopStatusWeather({ force: true });
+    }
     selectDesktopLayoutItem(item);
 }
+
+function ensureDesktopLovelyWidget() {
+    if (localStorage.getItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY) === '1') return;
+    const page = ensureDesktopPage(1);
+    const pageArea = page?.querySelector('.desktop-scroll-area');
+    if (!pageArea || pageArea.querySelector('.desktop-widget-lovely')) return;
+    const item = createDesktopCustomWidget('lovely', DESKTOP_DEFAULT_LOVELY_ID);
+    const size = getDesktopCustomWidgetSize('lovely');
+    if (pageArea.classList.contains('layout-canvas') || pageArea.querySelector(':scope > .desktop-layout-item')) {
+        pageArea.appendChild(item);
+        prepareDesktopLayoutItem(item, pageArea, {
+            left: 22,
+            top: 14,
+            width: Math.min(size.width, Math.max(260, pageArea.clientWidth - 44)),
+            height: size.height
+        });
+        compactDesktopSlotOrder(pageArea);
+    } else {
+        pageArea.insertBefore(item, pageArea.firstChild);
+    }
+    pageArea.scrollTop = 0;
+    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+    syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
+}
+window.ensureDesktopLovelyWidget = ensureDesktopLovelyWidget;
 
 function ensureDesktopPrincessWidget() {
     if (localStorage.getItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY) === '1') return;
@@ -10071,17 +11093,27 @@ function ensureDesktopPrincessWidget() {
 }
 window.ensureDesktopPrincessWidget = ensureDesktopPrincessWidget;
 
-function deleteSelectedDesktopCustomWidget() {
+function deleteSelectedDesktopLayoutItem() {
     const item = window._desktopSelectedLayoutItem;
-    if (!item || item.dataset.layoutType !== 'custom') return;
+    if (!item) return;
     const layoutId = item.dataset.layoutId || '';
-    if (layoutId === DESKTOP_DEFAULT_PRINCESS_ID) {
-        localStorage.setItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY, '1');
-    }
-    const notes = getDesktopStickyNotes();
-    if (layoutId && Object.prototype.hasOwnProperty.call(notes, layoutId)) {
-        delete notes[layoutId];
-        localStorage.setItem(DESKTOP_STICKY_NOTES_KEY, JSON.stringify(notes));
+    const isCustom = item.dataset.layoutType === 'custom';
+    const isDeletableBuiltin = DESKTOP_DELETABLE_BUILTIN_IDS.has(layoutId);
+    if (!isCustom && !isDeletableBuiltin) return;
+    if (isCustom) {
+        if (layoutId === DESKTOP_DEFAULT_PRINCESS_ID) {
+            localStorage.setItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY, '1');
+        }
+        if (layoutId === DESKTOP_DEFAULT_LOVELY_ID) {
+            localStorage.setItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY, '1');
+        }
+        if (item.dataset.widgetKind === 'status') deleteDesktopStatusWidgetPrefs(layoutId);
+        if (item.dataset.widgetKind === 'lovely' || item.dataset.widgetKind === 'polaroid' || item.dataset.widgetKind === 'photo-square') deleteDesktopLovelyWidgetPrefs(layoutId);
+        const notes = getDesktopStickyNotes();
+        if (layoutId && Object.prototype.hasOwnProperty.call(notes, layoutId)) {
+            delete notes[layoutId];
+            localStorage.setItem(DESKTOP_STICKY_NOTES_KEY, JSON.stringify(notes));
+        }
     }
     const area = item.closest('.desktop-scroll-area');
     item.remove();
@@ -10090,6 +11122,10 @@ function deleteSelectedDesktopCustomWidget() {
         area.querySelector('.desktop-empty-placeholder')?.classList.remove('layout-source-hidden');
     }
     if (typeof showWechatToast === 'function') showWechatToast('已删除组件，保存布局后生效');
+}
+window.deleteSelectedDesktopLayoutItem = deleteSelectedDesktopLayoutItem;
+function deleteSelectedDesktopCustomWidget() {
+    deleteSelectedDesktopLayoutItem();
 }
 window.deleteSelectedDesktopCustomWidget = deleteSelectedDesktopCustomWidget;
 
@@ -10131,6 +11167,111 @@ function moveSelectedDesktopItemToOtherPage() {
     selectDesktopLayoutItem(item);
 }
 
+function getDesktopWidgetLibraryItems() {
+    return [
+        {
+            kind: 'princess',
+            title: '蝴蝶结',
+            desc: '便签风格小卡片',
+            symbol: '✦',
+            preview: 'princess',
+            tone: 'princess'
+        },
+        {
+            kind: 'status',
+            title: '状态条',
+            desc: '头像、电量、天气、时间',
+            icon: 'ri-dashboard-3-line',
+            preview: 'status',
+            tone: 'status'
+        },
+        {
+            kind: 'calendar',
+            title: '日历',
+            desc: '原桌面日历，可拖动缩放',
+            icon: 'ri-calendar-line',
+            preview: 'calendar',
+            tone: 'calendar'
+        },
+        {
+            kind: 'photo-square',
+            title: '正方形照片',
+            desc: '点击即可更换照片',
+            icon: 'ri-image-line',
+            preview: 'photo-square',
+            tone: 'photo-square'
+        },
+        {
+            kind: 'lovely',
+            title: '拼贴清单',
+            desc: '横图、头像、气泡和标题',
+            icon: 'ri-collage-line',
+            preview: 'lovely',
+            tone: 'lovely'
+        },
+        {
+            kind: 'polaroid',
+            title: '照片墙',
+            desc: '三连拍立得，点击更换照片',
+            icon: 'ri-image-2-line',
+            preview: 'polaroid',
+            tone: 'polaroid'
+        }
+    ];
+}
+
+function renderDesktopWidgetLibraryIcon(item) {
+    if (item.preview) return `<span class="desktop-widget-thumb desktop-widget-thumb-${desktopEscapeAttr(item.preview)}" aria-hidden="true"><i></i></span>`;
+    if (item.symbol) return `<b class="desktop-widget-library-symbol">${desktopEscapeHtml(item.symbol)}</b>`;
+    return `<i class="${desktopEscapeAttr(item.icon || 'ri-layout-grid-line')}"></i>`;
+}
+
+function openDesktopWidgetLibrary() {
+    const home = document.getElementById('home-screen');
+    if (!home || document.getElementById('desktop-widget-library')) return;
+    const modal = document.createElement('div');
+    modal.id = 'desktop-widget-library';
+    modal.className = 'desktop-widget-library';
+    modal.innerHTML = `
+        <div class="desktop-widget-library-card">
+            <div class="desktop-widget-library-head">
+                <div>
+                    <strong>组件</strong>
+                    <span>选择一个小组件添加到当前屏幕</span>
+                </div>
+                <button type="button" onclick="closeDesktopWidgetLibrary()" aria-label="关闭组件库"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="desktop-widget-library-grid">
+                ${getDesktopWidgetLibraryItems().map(item => `
+                    <button type="button" class="desktop-widget-choice ${desktopEscapeAttr(item.tone || '')}" onclick="addDesktopCustomWidgetFromLibrary('${desktopEscapeAttr(item.kind)}')">
+                        <span class="desktop-widget-choice-preview">${renderDesktopWidgetLibraryIcon(item)}</span>
+                        <span class="desktop-widget-choice-copy">
+                            <b>${desktopEscapeHtml(item.title)}</b>
+                            <em>${desktopEscapeHtml(item.desc)}</em>
+                        </span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', event => {
+        if (event.target === modal) closeDesktopWidgetLibrary();
+    });
+    home.appendChild(modal);
+}
+window.openDesktopWidgetLibrary = openDesktopWidgetLibrary;
+
+function closeDesktopWidgetLibrary() {
+    document.getElementById('desktop-widget-library')?.remove();
+}
+window.closeDesktopWidgetLibrary = closeDesktopWidgetLibrary;
+
+function addDesktopCustomWidgetFromLibrary(kind) {
+    closeDesktopWidgetLibrary();
+    addDesktopCustomWidget(kind);
+}
+window.addDesktopCustomWidgetFromLibrary = addDesktopCustomWidgetFromLibrary;
+
 function renderDesktopEditChrome() {
     const home = document.getElementById('home-screen');
     if (!home || document.getElementById('desktop-edit-toolbar')) return;
@@ -10155,7 +11296,7 @@ function renderDesktopEditChrome() {
             <span>拖动图标或组件，点选后可缩放、换屏。</span>
         </div>
         <div class="desktop-widget-tray">
-            <button type="button" onclick="addDesktopCustomWidget('princess')"><b class="desktop-tray-symbol">✦</b><span>蝴蝶结</span></button>
+            <button type="button" class="desktop-widget-library-open" onclick="openDesktopWidgetLibrary()"><i class="ri-shapes-line"></i><span>组件</span></button>
             <button type="button" onclick="addDesktopScreen()"><i class="ri-layout-row-line"></i><span>加屏</span></button>
         </div>
         <div class="desktop-edit-actions">
@@ -10215,7 +11356,9 @@ function enterEditMode() {
     const dock = document.querySelector('#home-screen .dock-bar');
     _desktopDockBackupHtml = dock ? dock.innerHTML : '';
     _desktopDefaultPrincessDeletedBackup = localStorage.getItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY);
+    _desktopDefaultLovelyDeletedBackup = localStorage.getItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY);
     _desktopStickyNotesBackup = localStorage.getItem(DESKTOP_STICKY_NOTES_KEY);
+    _desktopLovelyPrefsBackup = localStorage.getItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY);
     materializeExistingDesktopForLayout();
     document.querySelectorAll('.desktop-layout-item').forEach(setupDesktopLayoutItem);
     setupDesktopDockEditing();
@@ -10229,8 +11372,8 @@ function startDesktopEditLongPress(e) {
     const home = document.getElementById('home-screen');
     if (!home || window._editMode) return;
     if (typeof e.button === 'number' && e.button !== 0) return;
-    if (e.target.closest('.app-window, .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal')) return;
-    if (!e.target.closest('.desktop-scroll-area, .desktop-layout-item, .app-item, .photo-large, .calendar-widget, .desktop-page, .dock-bar, .dock-item')) return;
+    if (e.target.closest('.app-window, .folder-overlay, .desktop-edit-toolbar, .desktop-widget-library, .desktop-save-modal')) return;
+    if (!e.target.closest('.desktop-scroll-area, .desktop-layout-item, .desktop-custom-widget, .app-item, .photo-large, .calendar-widget, .desktop-page, .dock-bar, .dock-item')) return;
 
     const point = getDesktopPointerPoint(e);
     _desktopLongPressActive = true;
@@ -10334,6 +11477,7 @@ function saveDesktopLayout() {
     localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
         items: collectDesktopLayout(),
         dock: collectDesktopDockLayout(),
+        deletedBuiltins: collectDesktopDeletedBuiltinIds(),
         pageCount: getDesktopPages().length,
         savedAt: Date.now()
     }));
@@ -10343,6 +11487,8 @@ function saveDesktopLayout() {
 function restoreDefaultDesktopLayout() {
     localStorage.removeItem(DESKTOP_LAYOUT_KEY);
     localStorage.removeItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY);
+    localStorage.removeItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY);
+    localStorage.removeItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY);
     _desktopLayoutApplied = false;
     document.getElementById('desktop-save-modal')?.remove();
     const pages = document.getElementById('pages-container');
@@ -10361,6 +11507,8 @@ function restoreDefaultDesktopLayout() {
     setTimeout(() => {
         if (typeof rebuildDesktop === 'function') rebuildDesktop();
         if (typeof initFolderDrag === 'function') initFolderDrag();
+        if (typeof ensureMonitorDesktopEntry === 'function') ensureMonitorDesktopEntry();
+        if (typeof ensureDesktopLovelyWidget === 'function') ensureDesktopLovelyWidget();
         if (typeof initPageSwipe === 'function') initPageSwipe();
         if (typeof resetDesktopToFirstPage === 'function') resetDesktopToFirstPage();
     }, 0);
@@ -10368,6 +11516,7 @@ function restoreDefaultDesktopLayout() {
 
 function clearDesktopEditChrome() {
     document.getElementById('desktop-edit-toolbar')?.remove();
+    document.getElementById('desktop-widget-library')?.remove();
     document.getElementById('desktop-edit-swipe-zone')?.remove();
     document.getElementById('desktop-save-modal')?.remove();
     document.querySelectorAll('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete').forEach(el => el.remove());
@@ -10376,6 +11525,18 @@ function clearDesktopEditChrome() {
     document.querySelectorAll('.dock-item.selected').forEach(el => el.classList.remove('selected'));
     document.querySelectorAll('.desktop-layout-dragging, .desktop-slot-dragging, .desktop-dock-drop-ready').forEach(el => el.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready'));
     document.querySelectorAll('.dock-drag-ghost').forEach(el => el.remove());
+}
+
+function restoreDesktopRuntimeAfterEdit() {
+    if (typeof initPageSwipe === 'function') initPageSwipe({ force: true });
+    const currentPage = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+    if (typeof window.goToDesktopPage === 'function') {
+        window.goToDesktopPage(currentPage);
+    } else {
+        syncDesktopPagesAndDots(currentPage);
+    }
+    document.querySelectorAll('#pages-container .desktop-layout-item').forEach(item => setupDesktopLayoutItem(item));
+    setupDesktopDockEditing();
 }
 
 function exitEditMode(saveChanges) {
@@ -10395,6 +11556,16 @@ function exitEditMode(saveChanges) {
         } else {
             localStorage.setItem(DESKTOP_STICKY_NOTES_KEY, _desktopStickyNotesBackup);
         }
+        if (_desktopDefaultLovelyDeletedBackup == null) {
+            localStorage.removeItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY);
+        } else {
+            localStorage.setItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY, _desktopDefaultLovelyDeletedBackup);
+        }
+        if (_desktopLovelyPrefsBackup == null) {
+            localStorage.removeItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY);
+        } else {
+            localStorage.setItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY, _desktopLovelyPrefsBackup);
+        }
         const oldPages = document.getElementById('pages-container');
         const newPages = oldPages.cloneNode(false);
         newPages.innerHTML = _desktopLayoutBackupHtml;
@@ -10404,17 +11575,16 @@ function exitEditMode(saveChanges) {
         _desktopLayoutApplied = false;
         setTimeout(() => {
             initFolderDrag();
-            initPageSwipe();
-            document.querySelectorAll('.desktop-layout-item').forEach(item => {
-                item._layoutReady = false;
-                item.removeAttribute('data-layout-ready');
-            });
-            setupDesktopDockEditing();
+            restoreDesktopRuntimeAfterEdit();
         }, 0);
+    } else {
+        setTimeout(restoreDesktopRuntimeAfterEdit, 0);
     }
     clearDesktopPageSlotRects();
     _desktopDefaultPrincessDeletedBackup = null;
+    _desktopDefaultLovelyDeletedBackup = null;
     _desktopStickyNotesBackup = null;
+    _desktopLovelyPrefsBackup = null;
     _desktopDockBackupHtml = '';
 }
 
@@ -10427,19 +11597,24 @@ function applySavedDesktopLayout() {
         return;
     }
     if (Array.isArray(saved.dock)) applyDesktopDockLayout(saved.dock);
-    if (!Array.isArray(saved.items) || !saved.items.length) {
+    const deletedBuiltins = Array.isArray(saved.deletedBuiltins)
+        ? saved.deletedBuiltins.filter(id => DESKTOP_DELETABLE_BUILTIN_IDS.has(String(id || '')))
+        : [];
+    if ((!Array.isArray(saved.items) || !saved.items.length) && !deletedBuiltins.length) {
         _desktopLayoutApplied = false;
         return;
     }
     _desktopLayoutApplied = true;
-    const pageCount = Math.max(saved.pageCount || 0, ...saved.items.map(item => (item.page || 0) + 1), 1);
+    const savedItems = Array.isArray(saved.items) ? saved.items : [];
+    const pageCount = Math.max(saved.pageCount || 0, ...savedItems.map(item => (item.page || 0) + 1), 1);
     for (let i = 0; i < pageCount; i += 1) ensureDesktopPage(i);
     const pages = getDesktopPages();
     pages.forEach(page => page.querySelector('.desktop-scroll-area')?.classList.add('layout-canvas'));
-    saved.items.forEach(record => {
+    deletedBuiltins.forEach(removeDesktopBuiltinElementById);
+    savedItems.forEach(record => {
         if (isDesktopStaticPage2AppLayoutId(record && record.id)) return;
         if (record && String(record.id || '').startsWith('app-') && Array.isArray(saved.dock) && saved.dock.includes(String(record.id).slice(4))) return;
-        if (record.type === 'custom' && record.kind !== 'princess') return;
+        if (record.type === 'custom' && !DESKTOP_CUSTOM_WIDGET_KINDS.has(record.kind)) return;
         if (record.type === 'custom' && record.id === DESKTOP_DEFAULT_PRINCESS_ID) return;
         const page = pages[Math.max(0, Math.min(pages.length - 1, record.page || 0))];
         const area = page?.querySelector('.desktop-scroll-area');
@@ -10454,6 +11629,9 @@ function applySavedDesktopLayout() {
         page.querySelectorAll('.bento-box').forEach(el => el.classList.add('layout-source-hidden'));
     });
     pages.forEach(page => {
+        page.querySelectorAll(':scope > .desktop-scroll-area > .calendar-widget:not(.desktop-layout-item), :scope > .desktop-scroll-area > .photo-large:not(.desktop-layout-item)').forEach(el => {
+            el.classList.add('layout-source-hidden');
+        });
         page.querySelectorAll(':scope > .desktop-scroll-area > .app-item:not(.desktop-layout-item)').forEach(el => {
             el.classList.add('layout-source-hidden');
         });
@@ -10461,6 +11639,7 @@ function applySavedDesktopLayout() {
             el.classList.add('layout-source-hidden');
         });
     });
+    updateDesktopStatusWidgets();
 }
 
 function migrateDesktopDefaultPrincessWidget() {
@@ -10551,6 +11730,10 @@ function initEditMode() {
     });
     home.addEventListener('click', (e) => {
         if (!_desktopLongPressTriggered) return;
+        if (e.target.closest('.desktop-edit-toolbar, .desktop-widget-library, .desktop-save-modal')) {
+            _desktopLongPressTriggered = false;
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
         _desktopLongPressTriggered = false;
@@ -10560,6 +11743,7 @@ function initEditMode() {
         migrateDesktopStoryAppsToIcons();
         applySavedDesktopLayout();
         ensureMonitorDesktopEntry();
+        ensureDesktopLovelyWidget();
         setupDesktopDockEditing();
         syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
     }, 50);

@@ -9206,24 +9206,27 @@ async function sendWechatTypedVoice() {
         content: text,
         timestamp: createMessageTimestamp()
     };
-    const hasVoiceApi = typeof getDefaultVoiceApi === 'function' && getDefaultVoiceApi();
-    if (hasVoiceApi && typeof requestMiniMaxVoiceAudio === 'function') {
+    const voiceApi = typeof getDefaultVoiceApi === 'function' ? getDefaultVoiceApi() : null;
+    if (voiceApi && typeof requestDefaultVoiceAudio === 'function') {
         try {
-            if (status) status.textContent = '正在生成 MiniMax 语音...';
-            const result = await requestMiniMaxVoiceAudio(text);
+            const provider = voiceApi.provider === 'local' ? '本地 TTS'
+                : (voiceApi.provider === 'openai' ? 'OpenAI'
+                : (voiceApi.provider === 'elevenlabs' ? 'ElevenLabs' : 'MiniMax'));
+            if (status) status.textContent = `正在生成${provider}语音...`;
+            const result = await requestDefaultVoiceAudio(text);
             msg.audioUrl = result.audioUrl;
             msg.audioMime = result.mimeType || 'audio/mpeg';
             msg.duration = result.duration || msg.duration;
         } catch (e) {
-            console.warn('MiniMax TTS failed:', e);
-            if (typeof showWechatToast === 'function') showWechatToast('MiniMax 语音生成失败，已发送文字语音气泡');
+            console.warn('TTS failed:', e);
+            if (typeof showWechatToast === 'function') showWechatToast('语音生成失败，已发送文字语音气泡');
         }
     }
     appendWechatMessage({
         ...msg
     });
     if (input) input.value = '';
-    if (status) status.textContent = msg.audioUrl ? '已发送 MiniMax 语音' : '已发送文字转语音';
+    if (status) status.textContent = msg.audioUrl ? '已发送语音' : '已发送文字转语音';
 }
 
 function startWechatSpeechRecognition() {
