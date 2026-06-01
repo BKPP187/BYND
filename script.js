@@ -8772,7 +8772,7 @@ const DESKTOP_STATUS_WIDGET_PREFS_KEY = 'desktop_status_widget_prefs_v1';
 const DESKTOP_LOVELY_WIDGET_PREFS_KEY = 'desktop_lovely_widget_prefs_v1';
 const DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT = "BEYOND THE CODE\nTHAT'S WHERE WE'LL BE\nFOREVER FREE";
 const DESKTOP_LOVELY_BUBBLE_COLORS = {
-    blue: 'rgba(184,219,249,0.94)',
+    blue: 'rgba(181,218,247,0.72)',
     pink: 'rgba(252,205,221,0.94)',
     mint: 'rgba(196,235,218,0.94)',
     yellow: 'rgba(249,230,171,0.94)',
@@ -9043,7 +9043,7 @@ function setupDesktopLayoutItem(item) {
 
 function addDesktopItemControls(item) {
     item.querySelectorAll(':scope > .desktop-resize-handle, :scope > .desktop-item-move-page, :scope > .desktop-item-delete').forEach(el => el.remove());
-    if (!item.classList.contains('layout-app')) {
+    if (!item.classList.contains('layout-app') || item.classList.contains('is-folder')) {
         const resize = document.createElement('div');
         resize.className = 'desktop-resize-handle';
         resize.addEventListener('pointerdown', startDesktopItemResize);
@@ -9063,7 +9063,7 @@ function addDesktopItemControls(item) {
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'desktop-item-delete';
-        del.innerHTML = '<i class="ri-close-line"></i>';
+        del.innerHTML = '<span aria-hidden="true">×</span>';
         del.setAttribute('aria-label', '删除组件');
         del.addEventListener('click', (e) => {
             e.preventDefault();
@@ -9100,14 +9100,27 @@ function getDesktopRectOverlapScore(sourceRect, targetRect) {
     return (width * height) / sourceArea;
 }
 
-function findDesktopFolderMergeTarget(item, pageArea) {
+function findDesktopFolderMergeTarget(item, pageArea, point) {
     if (!item || !pageArea || !item.classList.contains('layout-app') || item.classList.contains('is-folder')) return null;
     const itemRect = item.getBoundingClientRect();
+    const itemCenter = {
+        x: point?.x ?? (itemRect.left + itemRect.width / 2),
+        y: point?.y ?? (itemRect.top + itemRect.height / 2)
+    };
     const candidates = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app')).filter(target => target !== item);
+    const centered = candidates.find(target => {
+        const rect = target.getBoundingClientRect();
+        const pad = 18;
+        return itemCenter.x >= rect.left - pad
+            && itemCenter.x <= rect.right + pad
+            && itemCenter.y >= rect.top - pad
+            && itemCenter.y <= rect.bottom + pad;
+    });
+    if (centered) return centered;
     const scored = candidates.map(target => ({
         target,
         score: getDesktopRectOverlapScore(itemRect, target.getBoundingClientRect())
-    })).filter(entry => entry.score >= 0.62)
+    })).filter(entry => entry.score >= 0.34)
       .sort((a, b) => b.score - a.score);
     return scored[0]?.target || null;
 }
@@ -9519,6 +9532,21 @@ function getDesktopPageAreaFromPoint(point) {
     return null;
 }
 
+function getDesktopEdgePageAreaForDrag(point, currentPageArea) {
+    if (!point || !currentPageArea || isPointInsideDesktopDock(point)) return null;
+    const container = document.getElementById('pages-container');
+    const rect = container?.getBoundingClientRect?.();
+    if (!rect || point.y < rect.top - 20 || point.y > rect.bottom + 20) return null;
+    const pages = getDesktopPages();
+    const currentIndex = getDesktopPageIndex(currentPageArea.closest('.desktop-page'));
+    const edgeSize = 54;
+    let targetIndex = currentIndex;
+    if (point.x <= rect.left + edgeSize) targetIndex = currentIndex - 1;
+    if (point.x >= rect.right - edgeSize) targetIndex = currentIndex + 1;
+    if (targetIndex === currentIndex || targetIndex < 0 || targetIndex >= pages.length) return null;
+    return pages[targetIndex]?.querySelector('.desktop-scroll-area') || null;
+}
+
 function getDesktopDockItemAppId(item) {
     if (!item) return '';
     if (item.dataset.appId) return item.dataset.appId;
@@ -9824,8 +9852,10 @@ function mergeDesktopLayoutAppsIntoFolder(sourceItem, targetItem, pageArea) {
 
 function startDesktopItemDrag(e) {
     if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return;
-    if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
     const item = e.currentTarget;
+    const isPolaroidWidget = item.classList.contains('desktop-widget-polaroid');
+    if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-input')) return;
+    if (!isPolaroidWidget && e.target.closest('.lcw-control')) return;
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
     const sourcePageRect = pageArea.getBoundingClientRect();
@@ -9843,6 +9873,7 @@ function startDesktopItemDrag(e) {
     const startTop = parseFloat(item.style.top) || 0;
     const scale = getDesktopEditScale();
     const isAppIcon = item.classList.contains('layout-app');
+    const canMoveAcrossPages = isAppIcon || item.classList.contains('desktop-custom-widget') || item.classList.contains('calendar-widget') || item.classList.contains('photo-large');
     let currentPageArea = pageArea;
     let movedToPageIndex = getDesktopPageIndex(pageArea.closest('.desktop-page'));
     let hasMoved = false;
@@ -9855,16 +9886,16 @@ function startDesktopItemDrag(e) {
     const move = (ev) => {
         const point = getDesktopPointerPoint(ev);
         hasMoved = true;
-        const targetPageArea = getDesktopPageAreaFromPoint(point);
-        if (isAppIcon && targetPageArea && targetPageArea !== currentPageArea && !isPointInsideDesktopDock(point)) {
+        const targetPageArea = getDesktopEdgePageAreaForDrag(point, currentPageArea) || getDesktopPageAreaFromPoint(point);
+        if (canMoveAcrossPages && targetPageArea && targetPageArea !== currentPageArea && !isPointInsideDesktopDock(point)) {
             targetPageArea.classList.add('layout-canvas');
             targetPageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
-            compactDesktopSlotOrder(currentPageArea);
+            if (isAppIcon) compactDesktopSlotOrder(currentPageArea);
             targetPageArea.appendChild(item);
             currentPageArea = targetPageArea;
             movedToPageIndex = getDesktopPageIndex(targetPageArea.closest('.desktop-page'));
             if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(movedToPageIndex);
-            captureDesktopPageSlotRects(currentPageArea);
+            if (isAppIcon) captureDesktopPageSlotRects(currentPageArea);
         }
         if (isAppIcon && isPointInsideDesktopDock(point)) {
             pendingDockIndex = getDesktopDockInsertIndex(point, null);
@@ -9908,7 +9939,7 @@ function startDesktopItemDrag(e) {
             window.removeEventListener('pointerup', up);
             return;
         }
-        const target = hasMoved ? findDesktopFolderMergeTarget(item, area) : null;
+        const target = hasMoved ? findDesktopFolderMergeTarget(item, area, point) : null;
         if (target && mergeDesktopLayoutAppsIntoFolder(item, target, area)) {
             hideDesktopSnapGuides(area);
             item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
@@ -9951,8 +9982,9 @@ function startDesktopItemResize(e) {
     const startY = e.clientY;
     const startWidth = item.offsetWidth;
     const startHeight = item.offsetHeight;
-    const minWidth = item.classList.contains('calendar-widget') ? 220 : 118;
-    const minHeight = item.classList.contains('calendar-widget') ? 118 : 96;
+    const isFolder = item.classList.contains('is-folder');
+    const minWidth = item.classList.contains('calendar-widget') ? 220 : isFolder ? 72 : 118;
+    const minHeight = item.classList.contains('calendar-widget') ? 118 : isFolder ? 76 : 96;
     const scale = getDesktopEditScale();
 
     const move = (ev) => {
@@ -10317,6 +10349,12 @@ function normalizeDesktopLovelyBubbleColor(color) {
     return '';
 }
 
+function normalizeDesktopLovelyBubbleOpacity(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 0.72;
+    return Math.max(0.18, Math.min(1, number));
+}
+
 function getDesktopLovelyBubbleBg(data) {
     const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
     if (tone === 'custom') return normalizeDesktopLovelyBubbleColor(data?.bubbleColor) || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
@@ -10329,9 +10367,11 @@ function getDesktopLovelyToneColor(tone, customColor, fallbackTone = 'blue') {
     return DESKTOP_LOVELY_BUBBLE_COLORS[safeTone] || DESKTOP_LOVELY_BUBBLE_COLORS[fallbackTone] || DESKTOP_LOVELY_BUBBLE_COLORS.blue;
 }
 
-function renderDesktopLovelyBubblePalette(data) {
+function renderDesktopLovelyBubblePalette(data, options = {}) {
     const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
     const customColor = normalizeDesktopLovelyBubbleColor(data?.bubbleColor) || DESKTOP_LOVELY_BUBBLE_HEX.blue;
+    const targetId = options.targetId || '';
+    const targetAttr = targetId ? ` data-lcw-target="${desktopEscapeAttr(targetId)}"` : '';
     const presets = [
         ['blue', '奶蓝'],
         ['pink', '奶粉'],
@@ -10345,10 +10385,10 @@ function renderDesktopLovelyBubblePalette(data) {
     return `
         <div class="lcw-bubble-palette" aria-label="气泡颜色">
             ${presets.map(([key, label]) => `
-                <button type="button" class="lcw-bubble-swatch ${tone === key ? 'active' : ''}" data-tone="${desktopEscapeAttr(key)}" title="${desktopEscapeAttr(label)}" style="--swatch:${desktopEscapeAttr(DESKTOP_LOVELY_BUBBLE_COLORS[key])};" onclick="setDesktopLovelyBubbleTone(this)"></button>
+                <button type="button" class="lcw-bubble-swatch ${tone === key ? 'active' : ''}" data-tone="${desktopEscapeAttr(key)}"${targetAttr} title="${desktopEscapeAttr(label)}" style="--swatch:${desktopEscapeAttr(DESKTOP_LOVELY_BUBBLE_COLORS[key])};" onclick="setDesktopLovelyBubbleTone(this)"></button>
             `).join('')}
             <label class="lcw-bubble-custom ${tone === 'custom' ? 'active' : ''}" title="自定义颜色">
-                <input type="color" value="${desktopEscapeAttr(customColor)}" onchange="setDesktopLovelyBubbleCustomColor(this)">
+                <input type="color" value="${desktopEscapeAttr(customColor)}"${targetAttr} onchange="setDesktopLovelyBubbleCustomColor(this)">
             </label>
         </div>
     `;
@@ -10404,9 +10444,10 @@ function getDesktopLovelyWidgetData(layoutId) {
         wall2: typeof data.wall2 === 'string' ? data.wall2 : '',
         wall3: typeof data.wall3 === 'string' ? data.wall3 : '',
         title: typeof data.title === 'string' ? data.title.slice(0, 28) : '',
-        bubble: typeof data.bubble === 'string' ? data.bubble.slice(0, 140) : '',
+        bubble: typeof data.bubble === 'string' ? data.bubble.slice(0, 140) : DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT,
         bubbleTone: normalizeDesktopLovelyBubbleTone(data.bubbleTone),
         bubbleColor: normalizeDesktopLovelyBubbleColor(data.bubbleColor),
+        bubbleOpacity: normalizeDesktopLovelyBubbleOpacity(data.bubbleOpacity),
         titleInnerTone: normalizeDesktopLovelyBubbleTone(data.titleInnerTone || 'blue'),
         titleInnerColor: normalizeDesktopLovelyBubbleColor(data.titleInnerColor),
         titleOuterTone: normalizeDesktopLovelyBubbleTone(data.titleOuterTone || 'clear'),
@@ -10425,6 +10466,7 @@ function setDesktopLovelyWidgetData(layoutId, data) {
     prefs[layoutId].checks = normalizeDesktopLovelyChecklist(prefs[layoutId].checks);
     prefs[layoutId].bubbleTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].bubbleTone);
     prefs[layoutId].bubbleColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].bubbleColor);
+    prefs[layoutId].bubbleOpacity = normalizeDesktopLovelyBubbleOpacity(prefs[layoutId].bubbleOpacity);
     prefs[layoutId].titleInnerTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].titleInnerTone || 'blue');
     prefs[layoutId].titleInnerColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleInnerColor);
     prefs[layoutId].titleOuterTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].titleOuterTone || 'clear');
@@ -10473,11 +10515,13 @@ function renderDesktopLovelyWidgetInner(layoutId) {
         <div class="lcw-shell">
             ${renderDesktopLovelyImageSlot('hero', data.hero, '横向照片', 'lcw-hero')}
             ${renderDesktopLovelyImageSlot('avatar', avatar, '头像', 'lcw-avatar')}
-            <div class="lcw-bubble-card lcw-control" data-tone="${desktopEscapeAttr(data.bubbleTone)}" style="--lcw-bubble-bg:${desktopEscapeAttr(bubbleBg)};">
+            <div class="lcw-bubble-card lcw-control ${data.bubble.trim() ? 'has-text' : 'is-empty'}" data-tone="${desktopEscapeAttr(data.bubbleTone)}" style="--lcw-bubble-bg:${desktopEscapeAttr(bubbleBg)}; --lcw-bubble-opacity:${desktopEscapeAttr(data.bubbleOpacity)};" onclick="openDesktopLovelyBubblePanel('${desktopEscapeAttr(layoutId)}')">
+                <span class="lcw-bubble-bg-layer" aria-hidden="true"></span>
+                <span class="lcw-bubble-deco lcw-bubble-deco-top" aria-hidden="true">14&nbsp; LILY ROSE&nbsp; 𓆩♡𓆪&nbsp; q24X˚ &nbsp;↻</span>
+                <span class="lcw-bubble-deco lcw-bubble-deco-bottom" aria-hidden="true">↝ = pie - nammy ✧ !! &nbsp;&nbsp;&nbsp; ~ Ocen ❄</span>
                 <span class="lcw-bubble-dot dot-a"></span>
                 <span class="lcw-bubble-dot dot-b"></span>
-                <textarea class="lcw-bubble lcw-input" rows="3" maxlength="140" placeholder="${desktopEscapeAttr(DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT)}" oninput="saveDesktopLovelyText(this)">${desktopEscapeHtml(data.bubble)}</textarea>
-                ${renderDesktopLovelyBubblePalette(data)}
+                <textarea class="lcw-bubble lcw-input" rows="3" maxlength="140" placeholder="" onfocus="openDesktopLovelyBubblePanel('${desktopEscapeAttr(layoutId)}')" oninput="saveDesktopLovelyText(this)">${desktopEscapeHtml(data.bubble)}</textarea>
             </div>
             <div class="lcw-title-row" data-inner-tone="${desktopEscapeAttr(data.titleInnerTone)}" data-outer-tone="${desktopEscapeAttr(data.titleOuterTone)}" style="--lcw-title-inner:${desktopEscapeAttr(titleInner)}; --lcw-title-outer:${desktopEscapeAttr(titleOuter)};">
                 <span class="lcw-title-mark lcw-title-left" aria-hidden="true">
@@ -10536,7 +10580,7 @@ function renderDesktopPhotoSquareWidgetInner(layoutId) {
     const data = getDesktopLovelyWidgetData(layoutId);
     const image = data.square || '';
     return `
-        <label class="desktop-photo-square-shell lcw-control">
+        <label class="desktop-photo-square-shell">
             ${image ? `<img src="${desktopEscapeAttr(image)}" alt="">` : '<span class="desktop-photo-square-placeholder"><i class="ri-image-add-line"></i></span>'}
             <input class="lcw-input lcw-file" type="file" accept="image/*" data-lcw-slot="square" onchange="handleDesktopLovelyImageInput(this)">
         </label>
@@ -10615,8 +10659,27 @@ function saveDesktopLovelyText(input) {
     const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
     data.bubble = String(input.value || '').slice(0, 140);
     setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    input.closest('.lcw-bubble-card')?.classList.toggle('has-text', !!data.bubble.trim());
+    input.closest('.lcw-bubble-card')?.classList.toggle('is-empty', !data.bubble.trim());
 }
 window.saveDesktopLovelyText = saveDesktopLovelyText;
+
+function getDesktopLovelyPanelTargetSelector(layoutId) {
+    if (!layoutId) return '';
+    const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(layoutId)
+        : String(layoutId).replace(/["\\]/g, '\\$&');
+    return `.desktop-widget-lovely[data-layout-id="${escaped}"]`;
+}
+
+function getDesktopLovelyWidgetFromControl(control) {
+    const targetId = control?.dataset?.lcwTarget || '';
+    if (targetId) {
+        const widget = document.querySelector(getDesktopLovelyPanelTargetSelector(targetId));
+        if (widget) return widget;
+    }
+    return control?.closest?.('.desktop-widget-lovely') || null;
+}
 
 function applyDesktopLovelyBubbleColor(widget, data) {
     const bubbleCard = widget?.querySelector?.('.lcw-bubble-card');
@@ -10624,14 +10687,22 @@ function applyDesktopLovelyBubbleColor(widget, data) {
     const tone = normalizeDesktopLovelyBubbleTone(data?.bubbleTone);
     bubbleCard.dataset.tone = tone;
     bubbleCard.style.setProperty('--lcw-bubble-bg', getDesktopLovelyBubbleBg(data));
-    bubbleCard.querySelectorAll('.lcw-bubble-swatch').forEach(button => {
+    bubbleCard.style.setProperty('--lcw-bubble-opacity', normalizeDesktopLovelyBubbleOpacity(data?.bubbleOpacity));
+    const layoutId = widget.dataset.layoutId || '';
+    document.querySelectorAll(`.lcw-bubble-swatch${layoutId ? `[data-lcw-target="${desktopEscapeAttr(layoutId)}"]` : ''}`).forEach(button => {
         button.classList.toggle('active', button.dataset.tone === tone);
     });
-    bubbleCard.querySelector('.lcw-bubble-custom')?.classList.toggle('active', tone === 'custom');
+    document.querySelectorAll('.lcw-bubble-custom').forEach(label => {
+        const input = label.querySelector('input');
+        if (layoutId && input?.dataset?.lcwTarget !== layoutId) return;
+        label.classList.toggle('active', tone === 'custom');
+    });
+    const panelRange = document.querySelector(`.desktop-lovely-bubble-panel input[data-lcw-target="${desktopEscapeAttr(layoutId)}"][type="range"]`);
+    if (panelRange) panelRange.value = normalizeDesktopLovelyBubbleOpacity(data?.bubbleOpacity);
 }
 
 function setDesktopLovelyBubbleTone(button) {
-    const widget = button?.closest?.('.desktop-widget-lovely');
+    const widget = getDesktopLovelyWidgetFromControl(button);
     const tone = normalizeDesktopLovelyBubbleTone(button?.dataset?.tone);
     if (!widget) return;
     const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
@@ -10643,7 +10714,7 @@ function setDesktopLovelyBubbleTone(button) {
 window.setDesktopLovelyBubbleTone = setDesktopLovelyBubbleTone;
 
 function setDesktopLovelyBubbleCustomColor(input) {
-    const widget = input?.closest?.('.desktop-widget-lovely');
+    const widget = getDesktopLovelyWidgetFromControl(input);
     if (!widget) return;
     const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
     data.bubbleTone = 'custom';
@@ -10652,6 +10723,49 @@ function setDesktopLovelyBubbleCustomColor(input) {
     applyDesktopLovelyBubbleColor(widget, data);
 }
 window.setDesktopLovelyBubbleCustomColor = setDesktopLovelyBubbleCustomColor;
+
+function setDesktopLovelyBubbleOpacity(input) {
+    const widget = getDesktopLovelyWidgetFromControl(input);
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.bubbleOpacity = normalizeDesktopLovelyBubbleOpacity(input.value);
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    applyDesktopLovelyBubbleColor(widget, data);
+}
+window.setDesktopLovelyBubbleOpacity = setDesktopLovelyBubbleOpacity;
+
+function closeDesktopLovelyBubblePanel() {
+    document.querySelector('.desktop-lovely-bubble-panel')?.remove();
+}
+window.closeDesktopLovelyBubblePanel = closeDesktopLovelyBubblePanel;
+
+function openDesktopLovelyBubblePanel(layoutId) {
+    const widget = document.querySelector(getDesktopLovelyPanelTargetSelector(layoutId));
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(layoutId);
+    closeDesktopLovelyBubblePanel();
+    const panel = document.createElement('div');
+    panel.className = 'desktop-lovely-bubble-panel';
+    panel.innerHTML = `
+        <button type="button" class="desktop-lovely-bubble-panel-backdrop" aria-label="关闭气泡属性" onclick="closeDesktopLovelyBubblePanel()"></button>
+        <div class="desktop-lovely-bubble-sheet" role="dialog" aria-label="气泡属性" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onmousedown="event.stopPropagation()">
+            <div class="desktop-lovely-bubble-sheet-head">
+                <span>气泡属性</span>
+                <button type="button" aria-label="关闭" onclick="closeDesktopLovelyBubblePanel()"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="desktop-lovely-bubble-panel-row">
+                <span>背景</span>
+                ${renderDesktopLovelyBubblePalette(data, { targetId: layoutId })}
+            </div>
+            <label class="desktop-lovely-bubble-panel-row desktop-lovely-opacity-row">
+                <span>透明度</span>
+                <input type="range" min="0.18" max="1" step="0.02" value="${desktopEscapeAttr(data.bubbleOpacity)}" data-lcw-target="${desktopEscapeAttr(layoutId)}" oninput="setDesktopLovelyBubbleOpacity(this)" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onmousedown="event.stopPropagation()">
+            </label>
+        </div>
+    `;
+    (document.getElementById('home-screen') || document.body).appendChild(panel);
+}
+window.openDesktopLovelyBubblePanel = openDesktopLovelyBubblePanel;
 
 function applyDesktopLovelyTitleColors(widget, data) {
     const titleRow = widget?.querySelector?.('.lcw-title-row');
@@ -10738,6 +10852,8 @@ function syncDesktopLovelyWidgetsFromDom() {
         if (bubble) data.bubble = String(bubble.value || '').slice(0, 140);
         const bubbleCard = widget.querySelector('.lcw-bubble-card');
         if (bubbleCard) data.bubbleTone = normalizeDesktopLovelyBubbleTone(bubbleCard.dataset.tone);
+        const bubbleOpacity = widget.querySelector('.lcw-bubble-opacity-control input');
+        if (bubbleOpacity) data.bubbleOpacity = normalizeDesktopLovelyBubbleOpacity(bubbleOpacity.value);
         const customColor = widget.querySelector('.lcw-bubble-custom input');
         if (customColor) data.bubbleColor = normalizeDesktopLovelyBubbleColor(customColor.value);
         const titleRow = widget.querySelector('.lcw-title-row');
@@ -11486,9 +11602,10 @@ function saveDesktopLayout() {
 
 function restoreDefaultDesktopLayout() {
     localStorage.removeItem(DESKTOP_LAYOUT_KEY);
+    localStorage.removeItem(DESKTOP_FOLDER_STORAGE_KEY);
     localStorage.removeItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY);
     localStorage.removeItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY);
-    localStorage.removeItem(DESKTOP_LOVELY_WIDGET_PREFS_KEY);
+    window._folders = [];
     _desktopLayoutApplied = false;
     document.getElementById('desktop-save-modal')?.remove();
     const pages = document.getElementById('pages-container');
@@ -11505,7 +11622,6 @@ function restoreDefaultDesktopLayout() {
     document.getElementById('home-screen')?.classList.remove('desktop-editing');
     clearDesktopEditChrome();
     setTimeout(() => {
-        if (typeof rebuildDesktop === 'function') rebuildDesktop();
         if (typeof initFolderDrag === 'function') initFolderDrag();
         if (typeof ensureMonitorDesktopEntry === 'function') ensureMonitorDesktopEntry();
         if (typeof ensureDesktopLovelyWidget === 'function') ensureDesktopLovelyWidget();
