@@ -11,6 +11,122 @@ function formatChatApiDateTime(value) {
     return `${safeDate.getFullYear()}年${safeDate.getMonth() + 1}月${safeDate.getDate()}日 ${weekdays[safeDate.getDay()]} ${padChatDatePart(safeDate.getHours())}:${padChatDatePart(safeDate.getMinutes())}`;
 }
 
+function getChatApiTimestampValue(value) {
+    if (!value) return 0;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function getChatApiLatestVisibleMessageTime(char) {
+    const history = Array.isArray(char?.history) ? char.history : [];
+    for (let i = history.length - 1; i >= 0; i--) {
+        const msg = history[i];
+        if (!msg || msg.hiddenFromChat || msg.internalEvent || msg.type === 'system_notice') continue;
+        const time = getChatApiTimestampValue(msg.timestamp || msg.createdAt || msg.time);
+        if (time > 0) return time;
+    }
+    return 0;
+}
+
+function formatChatApiElapsed(ms) {
+    const minutes = Math.floor(Math.max(0, ms) / 60000);
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}小时`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}天`;
+    const months = Math.floor(days / 30);
+    return `${months}个月`;
+}
+
+function getChatApiLunarDateParts(date) {
+    try {
+        if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) return null;
+        const formatter = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {
+            month: 'long',
+            day: 'numeric'
+        });
+        const parts = formatter.formatToParts(date);
+        const monthText = (parts.find(part => part.type === 'month') || {}).value || '';
+        const dayText = (parts.find(part => part.type === 'day') || {}).value || '';
+        const monthMap = {
+            '正月': 1,
+            '一月': 1,
+            '二月': 2,
+            '三月': 3,
+            '四月': 4,
+            '五月': 5,
+            '六月': 6,
+            '七月': 7,
+            '八月': 8,
+            '九月': 9,
+            '十月': 10,
+            '冬月': 11,
+            '十一月': 11,
+            '腊月': 12,
+            '十二月': 12
+        };
+        const cleanMonth = monthText.replace(/^闰/, '');
+        const day = parseInt(dayText, 10);
+        const month = monthMap[cleanMonth] || 0;
+        if (!month || !day) return null;
+        return { month, day, isLeap: monthText.startsWith('闰') };
+    } catch (_) {
+        return null;
+    }
+}
+
+function getChatApiFestivalName(date) {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const fixed = {
+        '1-1': '元旦',
+        '2-14': '情人节',
+        '3-8': '妇女节',
+        '4-1': '愚人节',
+        '5-1': '劳动节',
+        '5-20': '520',
+        '6-1': '六一儿童节',
+        '10-1': '国庆节',
+        '12-24': '平安夜',
+        '12-25': '圣诞节'
+    };
+    const fixedName = fixed[`${month}-${day}`] || '';
+    const lunar = getChatApiLunarDateParts(date);
+    if (!lunar || lunar.isLeap) return fixedName;
+    const lunarFestival = {
+        '1-1': '春节',
+        '1-15': '元宵节',
+        '5-5': '端午节',
+        '7-7': '七夕',
+        '7-15': '中元节',
+        '8-15': '中秋节',
+        '9-9': '重阳节',
+        '12-8': '腊八节',
+        '12-23': '小年'
+    }[`${lunar.month}-${lunar.day}`] || '';
+    return [fixedName, lunarFestival].filter(Boolean).join(' / ');
+}
+
+function buildChatApiTemporalAwarenessAnchor(char, timeContext) {
+    const date = timeContext?.iso ? new Date(timeContext.iso) : new Date();
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const nowMs = safeDate.getTime();
+    const lastMs = getChatApiLatestVisibleMessageTime(char);
+    const rows = [];
+    if (lastMs > 0) {
+        const gapMs = Math.max(0, nowMs - lastMs);
+        const lastText = formatChatApiDateTime(lastMs);
+        rows.push(`上一次可见聊天时间：${lastText}，距离现在约${formatChatApiElapsed(gapMs)}。如果间隔达到数小时/数天/更久，角色应自然意识到用户很久没来，而不是像刚刚连续聊天。`);
+    } else {
+        rows.push('这段聊天没有可见历史时间；按第一次/久未联系的状态自然回应。');
+    }
+    const festival = getChatApiFestivalName(safeDate);
+    if (festival) rows.push(`今天的重要日期：${festival}。角色可以按人设自然意识到这个日期，但不要每句话都硬提。`);
+    return `【时间感知上下文】${rows.join('\n')}`;
+}
+
 function cleanChatApiVisibleContent(value) {
     let text = String(value == null ? '' : value);
     if (!text) return '';
@@ -190,6 +306,11 @@ function prependChatApiContextToContent(content, contextText) {
 function buildCurrentTimeAnchor(char) {
     const timeContext = getChatApiCurrentTimeContext(char);
     return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。`;
+}
+
+function buildCurrentTimeAnchor(char) {
+    const timeContext = getChatApiCurrentTimeContext(char);
+    return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。\n${buildChatApiTemporalAwarenessAnchor(char, timeContext)}`;
 }
 
 function buildMemoryAnchor(char) {

@@ -8791,13 +8791,20 @@ const DESKTOP_LOVELY_BUBBLE_HEX = {
     black: '#14161b',
     gray: '#989faa'
 };
+const DESKTOP_NOTES_WIDGET_TONES = {
+    blue: { label: '奶蓝', card: 'rgba(213,238,253,0.76)', accent: '#8ec8ee', back: '#2aa9d6', back2: '#bfeaf8', text: '#65acd7', icon: 'ri-fish-line' },
+    pink: { label: '奶粉', card: 'rgba(253,223,234,0.78)', accent: '#f3a8c4', back: '#f7a8c9', back2: '#fff6b6', text: '#e88eb1', icon: 'ri-footprint-line' },
+    yellow: { label: '奶黄', card: 'rgba(255,231,177,0.78)', accent: '#f5bf59', back: '#ffc863', back2: '#d9efff', text: '#e19c1a', icon: 'ri-ship-line' },
+    mint: { label: '薄荷', card: 'rgba(214,244,230,0.78)', accent: '#83d6ac', back: '#89dcb6', back2: '#d9f0ff', text: '#63b88d', icon: 'ri-leaf-line' },
+    purple: { label: '淡紫', card: 'rgba(229,218,252,0.78)', accent: '#b69be9', back: '#c1a7ef', back2: '#f9d8eb', text: '#9c80d6', icon: 'ri-star-smile-line' }
+};
 const DESKTOP_STATUS_WEATHER_KEY = 'desktop_status_weather_v1';
 const DESKTOP_STATUS_STEPS_KEY = 'desktop_status_steps_v1';
 const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v1';
 const DESKTOP_DEFAULT_LOVELY_DELETED_KEY = 'desktop_default_lovely_deleted_v1';
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
 const DESKTOP_DEFAULT_LOVELY_ID = 'custom-lovely-default';
-const DESKTOP_CUSTOM_WIDGET_KINDS = new Set(['princess', 'status', 'lovely', 'polaroid', 'calendar', 'photo-square']);
+const DESKTOP_CUSTOM_WIDGET_KINDS = new Set(['princess', 'status', 'lovely', 'polaroid', 'calendar', 'photo-square', 'notes-trio', 'catalog']);
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
 const DESKTOP_DOCK_LAYOUT_MAX = 4;
@@ -9532,6 +9539,17 @@ function getDesktopPageAreaFromPoint(point) {
     return null;
 }
 
+function getDesktopDragEdgeDirection(point) {
+    if (!point || isPointInsideDesktopDock(point)) return '';
+    const container = document.getElementById('pages-container');
+    const rect = container?.getBoundingClientRect?.();
+    if (!rect || point.y < rect.top - 20 || point.y > rect.bottom + 20) return '';
+    const edgeSize = 54;
+    if (point.x <= rect.left + edgeSize) return 'left';
+    if (point.x >= rect.right - edgeSize) return 'right';
+    return '';
+}
+
 function getDesktopEdgePageAreaForDrag(point, currentPageArea) {
     if (!point || !currentPageArea || isPointInsideDesktopDock(point)) return null;
     const container = document.getElementById('pages-container');
@@ -9539,10 +9557,10 @@ function getDesktopEdgePageAreaForDrag(point, currentPageArea) {
     if (!rect || point.y < rect.top - 20 || point.y > rect.bottom + 20) return null;
     const pages = getDesktopPages();
     const currentIndex = getDesktopPageIndex(currentPageArea.closest('.desktop-page'));
-    const edgeSize = 54;
+    const edgeDirection = getDesktopDragEdgeDirection(point);
     let targetIndex = currentIndex;
-    if (point.x <= rect.left + edgeSize) targetIndex = currentIndex - 1;
-    if (point.x >= rect.right - edgeSize) targetIndex = currentIndex + 1;
+    if (edgeDirection === 'left') targetIndex = currentIndex - 1;
+    if (edgeDirection === 'right') targetIndex = currentIndex + 1;
     if (targetIndex === currentIndex || targetIndex < 0 || targetIndex >= pages.length) return null;
     return pages[targetIndex]?.querySelector('.desktop-scroll-area') || null;
 }
@@ -9854,8 +9872,8 @@ function startDesktopItemDrag(e) {
     if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return;
     const item = e.currentTarget;
     const isPolaroidWidget = item.classList.contains('desktop-widget-polaroid');
-    if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-input')) return;
-    if (!isPolaroidWidget && e.target.closest('.lcw-control')) return;
+    if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-input, .dnw-tone-picker, .lcw-bubble-palette, .lcw-bubble-custom, .lcw-title-palette')) return;
+    if (!isPolaroidWidget && !item.classList.contains('desktop-custom-widget') && e.target.closest('.lcw-control')) return;
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
     const sourcePageRect = pageArea.getBoundingClientRect();
@@ -9878,6 +9896,7 @@ function startDesktopItemDrag(e) {
     let movedToPageIndex = getDesktopPageIndex(pageArea.closest('.desktop-page'));
     let hasMoved = false;
     let pendingDockIndex = -1;
+    let lockedEdgeDirection = '';
     if (isAppIcon) {
         item.classList.add('desktop-slot-dragging');
         captureDesktopPageSlotRects(pageArea);
@@ -9886,7 +9905,12 @@ function startDesktopItemDrag(e) {
     const move = (ev) => {
         const point = getDesktopPointerPoint(ev);
         hasMoved = true;
-        const targetPageArea = getDesktopEdgePageAreaForDrag(point, currentPageArea) || getDesktopPageAreaFromPoint(point);
+        const edgeDirection = getDesktopDragEdgeDirection(point);
+        if (!edgeDirection || edgeDirection !== lockedEdgeDirection) lockedEdgeDirection = '';
+        const edgePageArea = edgeDirection && edgeDirection !== lockedEdgeDirection
+            ? getDesktopEdgePageAreaForDrag(point, currentPageArea)
+            : null;
+        const targetPageArea = edgePageArea || getDesktopPageAreaFromPoint(point);
         if (canMoveAcrossPages && targetPageArea && targetPageArea !== currentPageArea && !isPointInsideDesktopDock(point)) {
             targetPageArea.classList.add('layout-canvas');
             targetPageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
@@ -9896,6 +9920,7 @@ function startDesktopItemDrag(e) {
             movedToPageIndex = getDesktopPageIndex(targetPageArea.closest('.desktop-page'));
             if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(movedToPageIndex);
             if (isAppIcon) captureDesktopPageSlotRects(currentPageArea);
+            if (edgePageArea) lockedEdgeDirection = edgeDirection;
         }
         if (isAppIcon && isPointInsideDesktopDock(point)) {
             pendingDockIndex = getDesktopDockInsertIndex(point, null);
@@ -10276,7 +10301,8 @@ window.requestDesktopStatusWeather = requestDesktopStatusWeather;
 
 function updateDesktopStatusWidgets() {
     const widgets = document.querySelectorAll('.desktop-widget-status');
-    if (!widgets.length) return;
+    const notesWidgets = document.querySelectorAll('.desktop-widget-notes-trio');
+    if (!widgets.length && !notesWidgets.length) return;
     const now = new Date();
     const timeText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const dateText = formatDesktopStatusWidgetDate(now);
@@ -10299,6 +10325,10 @@ function updateDesktopStatusWidgets() {
         const img = widget.querySelector('[data-dsw-avatar]');
         if (img && avatar && img.getAttribute('src') !== avatar) img.src = avatar;
         if (img) img.alt = charName || '';
+    });
+    notesWidgets.forEach(widget => {
+        widget.querySelectorAll('[data-dnw-time]').forEach(el => { el.textContent = timeText; });
+        widget.querySelectorAll('[data-dnw-weather]').forEach(el => { el.textContent = `weather : ${weatherText}`; });
     });
 }
 
@@ -10435,6 +10465,7 @@ function renderDesktopLovelyTitlePalette(data) {
 function getDesktopLovelyWidgetData(layoutId) {
     const prefs = getDesktopLovelyWidgetPrefs();
     const data = layoutId && prefs[layoutId] && typeof prefs[layoutId] === 'object' ? prefs[layoutId] : {};
+    const noteTone = Object.prototype.hasOwnProperty.call(DESKTOP_NOTES_WIDGET_TONES, data.noteTone) ? data.noteTone : 'blue';
     return {
         hero: typeof data.hero === 'string' ? data.hero : '',
         avatar: typeof data.avatar === 'string' ? data.avatar : '',
@@ -10443,6 +10474,16 @@ function getDesktopLovelyWidgetData(layoutId) {
         wall1: typeof data.wall1 === 'string' ? data.wall1 : '',
         wall2: typeof data.wall2 === 'string' ? data.wall2 : '',
         wall3: typeof data.wall3 === 'string' ? data.wall3 : '',
+        notePhoto1: typeof data.notePhoto1 === 'string' ? data.notePhoto1 : '',
+        notePhoto2: typeof data.notePhoto2 === 'string' ? data.notePhoto2 : '',
+        notePhoto3: typeof data.notePhoto3 === 'string' ? data.notePhoto3 : '',
+        noteText: typeof data.noteText === 'string' ? data.noteText.slice(0, 90) : 'best trio\n\\( > < )/ · *☆',
+        noteTone,
+        catalogHero: typeof data.catalogHero === 'string' ? data.catalogHero : '',
+        catalogAvatar: typeof data.catalogAvatar === 'string' ? data.catalogAvatar : '',
+        catalog1: typeof data.catalog1 === 'string' ? data.catalog1 : '',
+        catalog2: typeof data.catalog2 === 'string' ? data.catalog2 : '',
+        catalog3: typeof data.catalog3 === 'string' ? data.catalog3 : '',
         title: typeof data.title === 'string' ? data.title.slice(0, 28) : '',
         bubble: typeof data.bubble === 'string' ? data.bubble.slice(0, 140) : DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT,
         bubbleTone: normalizeDesktopLovelyBubbleTone(data.bubbleTone),
@@ -10471,6 +10512,8 @@ function setDesktopLovelyWidgetData(layoutId, data) {
     prefs[layoutId].titleInnerColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleInnerColor);
     prefs[layoutId].titleOuterTone = normalizeDesktopLovelyBubbleTone(prefs[layoutId].titleOuterTone || 'clear');
     prefs[layoutId].titleOuterColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleOuterColor);
+    prefs[layoutId].noteTone = Object.prototype.hasOwnProperty.call(DESKTOP_NOTES_WIDGET_TONES, prefs[layoutId].noteTone) ? prefs[layoutId].noteTone : 'blue';
+    prefs[layoutId].noteText = String(prefs[layoutId].noteText || '').slice(0, 90);
     saveDesktopLovelyWidgetPrefs(prefs);
 }
 
@@ -10587,6 +10630,86 @@ function renderDesktopPhotoSquareWidgetInner(layoutId) {
     `;
 }
 
+function renderDesktopNotesTrioPhoto(slot, value, index) {
+    return `
+        <label class="dnw-avatar-slot dnw-avatar-${index}">
+            ${value ? `<img src="${desktopEscapeAttr(value)}" alt="">` : '<span><i class="ri-image-add-line"></i></span>'}
+            <input class="lcw-input lcw-file" type="file" accept="image/*" data-lcw-slot="${desktopEscapeAttr(slot)}" onchange="handleDesktopLovelyImageInput(this)">
+        </label>
+    `;
+}
+
+function renderDesktopNotesTrioToneSwatches(data) {
+    return `
+        <div class="dnw-tone-picker" aria-label="切换颜色">
+            ${Object.entries(DESKTOP_NOTES_WIDGET_TONES).map(([key, tone]) => `
+                <button type="button" class="${data.noteTone === key ? 'active' : ''}" data-tone="${desktopEscapeAttr(key)}" title="${desktopEscapeAttr(tone.label)}" style="--dnw-swatch:${desktopEscapeAttr(tone.card)}; --dnw-swatch-accent:${desktopEscapeAttr(tone.accent)};" onclick="setDesktopNotesTrioTone(this)"></button>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderDesktopNotesTrioWidgetInner(layoutId) {
+    const data = getDesktopLovelyWidgetData(layoutId);
+    const tone = DESKTOP_NOTES_WIDGET_TONES[data.noteTone] || DESKTOP_NOTES_WIDGET_TONES.blue;
+    return `
+        <div class="dnw-shell" data-tone="${desktopEscapeAttr(data.noteTone)}" style="--dnw-card:${desktopEscapeAttr(tone.card)}; --dnw-accent:${desktopEscapeAttr(tone.accent)}; --dnw-back:${desktopEscapeAttr(tone.back)}; --dnw-back2:${desktopEscapeAttr(tone.back2)}; --dnw-text:${desktopEscapeAttr(tone.text)};">
+            <span class="dnw-paperclip" aria-hidden="true"></span>
+            <span class="dnw-back-sheet dnw-back-a" aria-hidden="true"></span>
+            <span class="dnw-back-sheet dnw-back-b" aria-hidden="true"></span>
+            <div class="dnw-card">
+                <div class="dnw-head">
+                    <i class="${desktopEscapeAttr(tone.icon)}"></i>
+                    <span>notes</span>
+                    <i class="${desktopEscapeAttr(tone.icon)}"></i>
+                </div>
+                <textarea class="dnw-text lcw-input" maxlength="90" spellcheck="false" oninput="saveDesktopNotesTrioText(this)">${desktopEscapeHtml(data.noteText)}</textarea>
+                <div class="dnw-doodles" aria-hidden="true">
+                    <span>✦</span><span>⌁⌁</span><span>𓆟</span><span>𓆝</span><span>𓆞</span><span>☆</span>
+                </div>
+                <div class="dnw-avatars">
+                    ${renderDesktopNotesTrioPhoto('notePhoto1', data.notePhoto1, 1)}
+                    ${renderDesktopNotesTrioPhoto('notePhoto2', data.notePhoto2, 2)}
+                    ${renderDesktopNotesTrioPhoto('notePhoto3', data.notePhoto3, 3)}
+                </div>
+                ${renderDesktopNotesTrioToneSwatches(data)}
+            </div>
+        </div>
+    `;
+}
+
+function renderDesktopCatalogPhoto(slot, value, className, label) {
+    return `
+        <label class="${desktopEscapeAttr(className)} dcw-photo-slot">
+            ${value ? `<img src="${desktopEscapeAttr(value)}" alt="">` : `<span><i class="ri-image-add-line"></i><em>${desktopEscapeHtml(label)}</em></span>`}
+            <input class="lcw-input lcw-file" type="file" accept="image/*" data-lcw-slot="${desktopEscapeAttr(slot)}" onchange="handleDesktopLovelyImageInput(this)">
+        </label>
+    `;
+}
+
+function renderDesktopCatalogWidgetInner(layoutId) {
+    const data = getDesktopLovelyWidgetData(layoutId);
+    return `
+        <div class="dcw-shell">
+            <div class="dcw-top">
+                ${renderDesktopCatalogPhoto('catalogHero', data.catalogHero, 'dcw-hero', '上方图片')}
+                ${renderDesktopCatalogPhoto('catalogAvatar', data.catalogAvatar, 'dcw-avatar', '头像')}
+            </div>
+            <div class="dcw-panel">
+                <div class="dcw-panel-head">
+                    <strong>Catalog</strong>
+                    <span>See all <i class="ri-arrow-right-s-line"></i></span>
+                </div>
+                <div class="dcw-grid">
+                    ${renderDesktopCatalogPhoto('catalog1', data.catalog1, 'dcw-thumb dcw-thumb-1', '图片')}
+                    ${renderDesktopCatalogPhoto('catalog2', data.catalog2, 'dcw-thumb dcw-thumb-2', '图片')}
+                    ${renderDesktopCatalogPhoto('catalog3', data.catalog3, 'dcw-thumb dcw-thumb-3', '图片')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function readDesktopLovelyImageFile(file, slot) {
     return new Promise((resolve, reject) => {
         if (!file) return reject(new Error('没有选择图片'));
@@ -10630,7 +10753,13 @@ async function handleDesktopLovelyImageInput(input) {
         const holder = input.closest('.lcw-photo');
         const squareHolder = input.closest('.desktop-photo-square-shell');
         const polaroidHolder = input.closest('.lcw-polaroid')?.querySelector('.lcw-polaroid-photo');
-        if (polaroidHolder) {
+        const notesHolder = input.closest('.dnw-avatar-slot');
+        const catalogHolder = input.closest('.dcw-photo-slot');
+        if (catalogHolder) {
+            catalogHolder.querySelector('img, span')?.remove();
+        } else if (notesHolder) {
+            notesHolder.querySelector('img, span')?.remove();
+        } else if (polaroidHolder) {
             polaroidHolder.querySelector('img, .lcw-polaroid-placeholder')?.remove();
         } else if (squareHolder) {
             squareHolder.querySelector('img, .desktop-photo-square-placeholder')?.remove();
@@ -10640,7 +10769,11 @@ async function handleDesktopLovelyImageInput(input) {
         const img = document.createElement('img');
         img.src = image;
         img.alt = '';
-        if (polaroidHolder) {
+        if (catalogHolder) {
+            catalogHolder.insertBefore(img, input);
+        } else if (notesHolder) {
+            notesHolder.insertBefore(img, input);
+        } else if (polaroidHolder) {
             polaroidHolder.appendChild(img);
         } else if (squareHolder) {
             squareHolder.insertBefore(img, input);
@@ -10652,6 +10785,37 @@ async function handleDesktopLovelyImageInput(input) {
     }
 }
 window.handleDesktopLovelyImageInput = handleDesktopLovelyImageInput;
+
+function saveDesktopNotesTrioText(input) {
+    const widget = input?.closest?.('.desktop-widget-notes-trio');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.noteText = String(input.value || '').slice(0, 90);
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+}
+window.saveDesktopNotesTrioText = saveDesktopNotesTrioText;
+
+function setDesktopNotesTrioTone(button) {
+    const widget = button?.closest?.('.desktop-widget-notes-trio');
+    const toneKey = Object.prototype.hasOwnProperty.call(DESKTOP_NOTES_WIDGET_TONES, button?.dataset?.tone) ? button.dataset.tone : 'blue';
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.noteTone = toneKey;
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+    const nextTone = DESKTOP_NOTES_WIDGET_TONES[toneKey] || DESKTOP_NOTES_WIDGET_TONES.blue;
+    const shell = widget.querySelector('.dnw-shell');
+    if (shell) {
+        shell.dataset.tone = toneKey;
+        shell.style.setProperty('--dnw-card', nextTone.card);
+        shell.style.setProperty('--dnw-accent', nextTone.accent);
+        shell.style.setProperty('--dnw-back', nextTone.back);
+        shell.style.setProperty('--dnw-back2', nextTone.back2);
+        shell.style.setProperty('--dnw-text', nextTone.text);
+        shell.querySelectorAll('.dnw-head i').forEach(icon => { icon.className = nextTone.icon; });
+    }
+    widget.querySelectorAll('.dnw-tone-picker button').forEach(item => item.classList.toggle('active', item === button));
+}
+window.setDesktopNotesTrioTone = setDesktopNotesTrioTone;
 
 function saveDesktopLovelyText(input) {
     const widget = input?.closest?.('.desktop-widget-lovely');
@@ -10871,6 +11035,16 @@ function syncDesktopLovelyWidgetsFromDom() {
         }));
         setDesktopLovelyWidgetData(layoutId, data);
     });
+    document.querySelectorAll('.desktop-widget-notes-trio').forEach(widget => {
+        const layoutId = widget.dataset.layoutId;
+        if (!layoutId) return;
+        const data = getDesktopLovelyWidgetData(layoutId);
+        const text = widget.querySelector('.dnw-text');
+        if (text) data.noteText = String(text.value || '').slice(0, 90);
+        const shell = widget.querySelector('.dnw-shell');
+        if (shell) data.noteTone = Object.prototype.hasOwnProperty.call(DESKTOP_NOTES_WIDGET_TONES, shell.dataset.tone) ? shell.dataset.tone : 'blue';
+        setDesktopLovelyWidgetData(layoutId, data);
+    });
 }
 
 function createDesktopCustomWidget(kind, id) {
@@ -10941,10 +11115,13 @@ function createDesktopCustomWidget(kind, id) {
         lovely: renderDesktopLovelyWidgetInner(layoutId),
         polaroid: renderDesktopPolaroidWidgetInner(layoutId),
         calendar: renderDesktopCalendarWidgetInner(),
-        'photo-square': renderDesktopPhotoSquareWidgetInner(layoutId)
+        'photo-square': renderDesktopPhotoSquareWidgetInner(layoutId),
+        'notes-trio': renderDesktopNotesTrioWidgetInner(layoutId),
+        catalog: renderDesktopCatalogWidgetInner(layoutId)
     };
     el.innerHTML = templates[safeKind];
     if (safeKind === 'status') setTimeout(updateDesktopStatusWidgets, 0);
+    if (safeKind === 'notes-trio') setTimeout(updateDesktopStatusWidgets, 0);
     if (safeKind === 'calendar') setTimeout(initCalendar, 0);
     return el;
 }
@@ -11144,8 +11321,36 @@ function getDesktopCustomWidgetSize(kind) {
     if (kind === 'status') return { width: 322, height: 116 };
     if (kind === 'calendar') return { width: 322, height: 180 };
     if (kind === 'photo-square') return { width: 156, height: 156 };
+    if (kind === 'notes-trio') return { width: 168, height: 168 };
+    if (kind === 'catalog') return { width: 322, height: 322 };
     if (kind === 'princess') return { width: 188, height: 188 };
     return { width: 188, height: 188 };
+}
+
+function findDesktopOpenWidgetRect(pageArea, size) {
+    const width = Math.min(size?.width || 188, Math.max(120, (pageArea?.clientWidth || 375) - 24));
+    const height = Math.min(size?.height || 188, Math.max(120, (pageArea?.clientHeight || 590) - 24));
+    const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
+    const areaHeight = Math.max(520, pageArea?.clientHeight || 590);
+    const candidates = [];
+    const step = 24;
+    const maxTop = Math.max(12, areaHeight - height - 12);
+    const maxLeft = Math.max(12, areaWidth - width - 12);
+    for (let top = 18; top <= maxTop; top += step) {
+        for (let left = 14; left <= maxLeft; left += step) {
+            candidates.push(clampDesktopLayoutRect({ left, top, width, height }, pageArea));
+        }
+    }
+    if (!candidates.length) return clampDesktopLayoutRect({ left: 18, top: 44, width, height }, pageArea);
+    const existing = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item'))
+        .filter(item => !item.classList.contains('desktop-layout-dragging'));
+    const scored = candidates.map(rect => {
+        const overlap = existing.reduce((score, item) => Math.max(score, getDesktopRectIntersectionRatio(rect, getDesktopStyleRect(item, pageArea))), 0);
+        const distance = Math.abs(rect.left - 18) + Math.abs(rect.top - 44);
+        return { rect, overlap, distance };
+    }).sort((a, b) => (a.overlap - b.overlap) || (a.distance - b.distance));
+    const best = scored.find(entry => entry.overlap < 0.08) || scored[0];
+    return best.rect;
 }
 
 function addDesktopCustomWidget(kind) {
@@ -11158,12 +11363,7 @@ function addDesktopCustomWidget(kind) {
     const item = createDesktopCustomWidget(kind);
     const size = getDesktopCustomWidgetSize(kind);
     pageArea.appendChild(item);
-    prepareDesktopLayoutItem(item, pageArea, {
-        left: 22,
-        top: 70 + pageArea.querySelectorAll('.desktop-custom-widget').length * 18,
-        width: size.width,
-        height: size.height
-    });
+    prepareDesktopLayoutItem(item, pageArea, findDesktopOpenWidgetRect(pageArea, size));
     if (kind === 'status') {
         updateDesktopStatusWidgets();
         requestDesktopStatusWeather({ force: true });
@@ -11224,7 +11424,7 @@ function deleteSelectedDesktopLayoutItem() {
             localStorage.setItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY, '1');
         }
         if (item.dataset.widgetKind === 'status') deleteDesktopStatusWidgetPrefs(layoutId);
-        if (item.dataset.widgetKind === 'lovely' || item.dataset.widgetKind === 'polaroid' || item.dataset.widgetKind === 'photo-square') deleteDesktopLovelyWidgetPrefs(layoutId);
+        if (item.dataset.widgetKind === 'lovely' || item.dataset.widgetKind === 'polaroid' || item.dataset.widgetKind === 'photo-square' || item.dataset.widgetKind === 'notes-trio' || item.dataset.widgetKind === 'catalog') deleteDesktopLovelyWidgetPrefs(layoutId);
         const notes = getDesktopStickyNotes();
         if (layoutId && Object.prototype.hasOwnProperty.call(notes, layoutId)) {
             delete notes[layoutId];
@@ -11259,6 +11459,44 @@ function addDesktopScreen() {
     if (typeof showWechatToast === 'function') showWechatToast(`已添加第 ${nextIndex + 1} 屏`);
 }
 window.addDesktopScreen = addDesktopScreen;
+
+function isDesktopScreenEmpty(page) {
+    const area = page?.querySelector?.('.desktop-scroll-area');
+    if (!area) return true;
+    return !Array.from(area.children || []).some(child => {
+        if (!child || child.classList.contains('desktop-empty-placeholder') || child.classList.contains('desktop-snap-guides')) return false;
+        if (child.classList.contains('layout-source-hidden')) return false;
+        return child.matches?.('.desktop-layout-item, .desktop-custom-widget, .app-item, .photo-large, .calendar-widget, .bento-box');
+    });
+}
+
+function deleteEmptyDesktopScreen() {
+    if (!window._editMode) enterEditMode();
+    const pages = getDesktopPages();
+    if (pages.length <= 1) {
+        if (typeof showWechatToast === 'function') showWechatToast('至少保留一个屏幕');
+        return;
+    }
+    const currentIndex = Math.max(0, Math.min(pages.length - 1, Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0));
+    let deleteIndex = isDesktopScreenEmpty(pages[currentIndex]) ? currentIndex : -1;
+    if (deleteIndex < 0) {
+        deleteIndex = pages.findIndex((page, index) => index > 0 && isDesktopScreenEmpty(page));
+    }
+    if (deleteIndex < 0) {
+        if (typeof showWechatToast === 'function') showWechatToast('没有空白屏幕可以删除');
+        return;
+    }
+    if (window._desktopSelectedLayoutItem && pages[deleteIndex].contains(window._desktopSelectedLayoutItem)) {
+        window._desktopSelectedLayoutItem = null;
+    }
+    pages[deleteIndex].remove();
+    const nextIndex = Math.max(0, Math.min(deleteIndex, getDesktopPages().length - 1));
+    window._desktopCurrentPage = nextIndex;
+    syncDesktopPagesAndDots(nextIndex);
+    if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(nextIndex);
+    if (typeof showWechatToast === 'function') showWechatToast('已删除空白屏幕');
+}
+window.deleteEmptyDesktopScreen = deleteEmptyDesktopScreen;
 
 function moveSelectedDesktopItemToOtherPage() {
     const item = window._desktopSelectedLayoutItem;
@@ -11332,6 +11570,22 @@ function getDesktopWidgetLibraryItems() {
             icon: 'ri-image-2-line',
             preview: 'polaroid',
             tone: 'polaroid'
+        },
+        {
+            kind: 'notes-trio',
+            title: 'Notes 三头像',
+            desc: '三张圆图、文字和颜色预设',
+            icon: 'ri-sticky-note-line',
+            preview: 'notes-trio',
+            tone: 'notes-trio'
+        },
+        {
+            kind: 'catalog',
+            title: 'Catalog 相册',
+            desc: '横图、头像和三张缩略图',
+            icon: 'ri-gallery-line',
+            preview: 'catalog',
+            tone: 'catalog'
         }
     ];
 }
@@ -11414,6 +11668,7 @@ function renderDesktopEditChrome() {
         <div class="desktop-widget-tray">
             <button type="button" class="desktop-widget-library-open" onclick="openDesktopWidgetLibrary()"><i class="ri-shapes-line"></i><span>组件</span></button>
             <button type="button" onclick="addDesktopScreen()"><i class="ri-layout-row-line"></i><span>加屏</span></button>
+            <button type="button" onclick="deleteEmptyDesktopScreen()"><i class="ri-delete-bin-6-line"></i><span>删空屏</span></button>
         </div>
         <div class="desktop-edit-actions">
             <button type="button" class="restore" onclick="promptRestoreDefaultDesktopLayout()">恢复原始</button>

@@ -8410,6 +8410,7 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
     let appendedCount = 0;
     let speakerFallbackOffset = 0;
     parsedParts.forEach(part => {
+        if (options.textOnly && part.kind === 'special') return;
         const implicitCallMsg = part.kind === 'text'
             ? buildWechatImplicitCallFromAiText(part.content, char)
             : null;
@@ -8419,6 +8420,7 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         const autoImageMsg = (!implicitCallMsg && !stickerDirectiveMsg && part.kind === 'text')
             ? buildWechatAutoImageMessageFromText(part.content, char)
             : null;
+        if (options.textOnly && (implicitCallMsg || stickerDirectiveMsg || autoImageMsg)) return;
         let aiMsg = part.kind === 'special'
             ? part.msg
             : (implicitCallMsg || stickerDirectiveMsg || autoImageMsg || { type: 'text', isMe: false, content: cleanWechatVisibleContent(part.content), timestamp: createMessageTimestamp() });
@@ -8857,7 +8859,8 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 count += appendWechatAiMessageParts(char, contentEl, text, {
                     groupFallbackStartIndex: count,
                     groupReplyStartIndex: replyStartIndex,
-                    background: options.background
+                    background: options.background,
+                    textOnly: options.textOnly
                 }) || 0;
             }
             return count;
@@ -8865,6 +8868,12 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
 
         // 构建消息并调用API
         const messages = buildMessages(char, char.history || []);
+        if (options.textOnly) {
+            messages.push({
+                role: 'system',
+                content: '【本轮仅允许文字气泡】只输出角色要发给用户看的普通文字消息。禁止输出微信语音、图片、表情、音乐、链接、红包、转账、通话、旁白或任何方括号指令。'
+            });
+        }
         let result = await callChatApi(messages);
         if (!result.ok && /空内容/.test(String(result.error || ''))) {
             messages.push({
@@ -8885,7 +8894,9 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             if (newAiMessageCount === 0) {
                 const retryMessages = messages.concat({
                     role: 'system',
-                    content: '【强制重写】你刚才只输出了 thinking/COT/状态栏/自检/元分析，前端已全部过滤。现在必须只输出 1-3 条可以直接显示在微信气泡里的角色正文。禁止输出 <thinking>、<content>、[消息]、[状态栏]、自检、解释、检查清单、代码块。'
+                    content: options.textOnly
+                        ? '【强制重写】你刚才输出了特殊消息/指令或不可见内容，前端已过滤。现在只能输出 1-3 条普通文字气泡，禁止任何方括号指令、语音、图片、表情、音乐、链接、旁白、代码块。'
+                        : '【强制重写】你刚才只输出了 thinking/COT/状态栏/自检/元分析，前端已全部过滤。现在必须只输出 1-3 条可以直接显示在微信气泡里的角色正文。禁止输出 <thinking>、<content>、[消息]、[状态栏]、自检、解释、检查清单、代码块。'
                 });
                 const retry = await callChatApi(retryMessages);
                 if (retry && retry.ok) {
@@ -10443,7 +10454,8 @@ function rejectWechatIncomingCall() {
     window._wechatIncomingCall = null;
     if (window._wechatActiveCall?.id === call.id) window._wechatActiveCall = null;
     if (char) queueWechatAutoReplyToChar(char.id, 0, {
-        background: window.currentChatCharId !== char.id
+        background: window.currentChatCharId !== char.id,
+        textOnly: true
     });
 }
 
@@ -10541,12 +10553,41 @@ function addWechatCallRecord(call, status, reason = '') {
     renderChatList();
 }
 
+function appendWechatUserEndedCallEvent(char, call, reason = '') {
+    if (!char || !call) return;
+    if (!Array.isArray(char.history)) char.history = [];
+    const label = getWechatCallLabel(call.type);
+    const duration = call.acceptedAt ? Math.max(1, Math.round((Date.now() - call.acceptedAt) / 1000)) : 0;
+    char.history.push({
+        type: 'user_event',
+        isMe: true,
+        hiddenFromChat: true,
+        internalEvent: true,
+        eventKind: 'user_ended_call',
+        callType: call.type,
+        callTimestamp: call.startedAt || '',
+        content: `用户刚刚主动挂断了和你的${label}${duration ? `，通话持续约${formatWechatDuration(duration)}` : ''}${reason ? `。挂断前最后的通话内容：${reason}` : ''}。请按你的人设和当前关系，用普通文字消息自然回应这件事；你知道是用户挂断，不要误以为是你拒绝或你主动挂断，也不要发送语音消息。`,
+        timestamp: createMessageTimestamp()
+    });
+    saveCharactersToStorage();
+}
+
 function endWechatCall(status = '已结束', reason = '') {
     const call = window._wechatActiveCall;
     if (!call || call.ended) return;
+    const char = window.myCharacters.find(c => c.id === call.charId);
+    const userEndedConnectedCall = status === '已结束' && call.acceptedAt;
     call.ended = true;
     clearInterval(call.timerId);
-    addWechatCallRecord(call, call.acceptedAt ? status : '已取消', reason);
+    const recordReason = userEndedConnectedCall && !reason ? '用户挂断了电话' : reason;
+    addWechatCallRecord(call, call.acceptedAt ? status : '已取消', recordReason);
+    if (userEndedConnectedCall && char) {
+        appendWechatUserEndedCallEvent(char, call, reason);
+        queueWechatAutoReplyToChar(char.id, 0, {
+            background: window.currentChatCharId !== char.id,
+            textOnly: true
+        });
+    }
     closeWechatCallScreen(call.id);
 }
 
@@ -11257,6 +11298,41 @@ function isWechatLineTheme() {
     return getWechatUiThemeId() === 'line';
 }
 
+function syncWechatLineRoomHeader(theme = (typeof getWechatUiTheme === 'function' ? getWechatUiTheme() : { id: '' })) {
+    const header = document.querySelector('#app-wechat-window .wc-chat-room .wc-room-header');
+    if (!header) return;
+    let actions = header.querySelector('.wc-line-room-actions');
+    if (!theme || theme.id !== 'line') {
+        actions?.remove();
+        header.classList.remove('wc-line-room-header-ready');
+        delete header.dataset.lineBackCount;
+        const oldBackIcon = Array.from(header.children).find(child => child.tagName === 'I');
+        oldBackIcon?.removeAttribute('data-line-back-count');
+        return;
+    }
+    const currentId = window.currentChatCharId || '';
+    const backCount = (window.myCharacters || []).reduce((sum, char) => {
+        if (!char || char.id === currentId) return sum;
+        return sum + getTelegramChatUnreadCount(char);
+    }, 0);
+    header.dataset.lineBackCount = backCount > 99 ? '99+' : (backCount > 0 ? String(backCount) : '');
+    const backIcon = Array.from(header.children).find(child => child.tagName === 'I');
+    if (backIcon) backIcon.dataset.lineBackCount = header.dataset.lineBackCount || '';
+    if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'wc-line-room-actions';
+        header.appendChild(actions);
+    }
+    actions.innerHTML = `
+        <button type="button" onclick="closeApp('wechat')" aria-label="home"><i class="ri-arrow-left-line"></i></button>
+        <button type="button" onclick="openWechatCurrentChatSearch()" aria-label="search"><i class="ri-search-line"></i></button>
+        <button type="button" onclick="startWechatCall('voiceCall')" aria-label="call"><i class="ri-phone-line"></i></button>
+        <button type="button" onclick="openChatSettings()" aria-label="menu"><i class="ri-menu-line"></i></button>
+    `;
+    header.classList.add('wc-line-room-header-ready');
+}
+window.syncWechatLineRoomHeader = syncWechatLineRoomHeader;
+
 function isWechatXTheme() {
     return getWechatUiThemeId() === 'hallowrok';
 }
@@ -11937,6 +12013,7 @@ function renderLineHomePage(view) {
                     </button>
                 </div>
                 <div class="wc-line-home-actions">
+                    <button type="button" onclick="closeApp('wechat')" aria-label="home"><i class="ri-arrow-left-line"></i></button>
                     <button type="button" onclick="showWechatToast('\u6682\u65e0\u65b0\u901a\u77e5')" aria-label="\u901a\u77e5"><i class="ri-notification-3-line"></i></button>
                     <button type="button" onclick="openWechatGroupCreator()" aria-label="\u6dfb\u52a0\u597d\u53cb"><i class="ri-user-add-line"></i></button>
                     <button type="button" onclick="openWechatMeSettings()" aria-label="\u8bbe\u7f6e"><i class="ri-settings-3-line"></i></button>

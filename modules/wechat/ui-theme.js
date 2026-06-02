@@ -332,6 +332,7 @@ function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
         header.appendChild(actions);
     }
     actions.innerHTML = `
+        <button type="button" onclick="closeApp('wechat')" aria-label="home"><i class="ri-arrow-left-line"></i></button>
         <button type="button" onclick="openWechatCurrentChatSearch()" aria-label="搜索消息"><i class="ri-search-line"></i></button>
         <button type="button" onclick="startWechatCall('voiceCall')" aria-label="通话"><i class="ri-phone-line"></i></button>
         <button type="button" onclick="openChatSettings()" aria-label="菜单"><i class="ri-menu-line"></i></button>
