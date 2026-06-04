@@ -231,7 +231,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .desktop-editing .desktop-layout-item::after { content: none; }
 .desktop-layout-item.selected { outline: 2px solid rgba(236,139,168,0.88); outline-offset: 4px; box-shadow: 0 16px 34px rgba(226,122,154,0.20) !important; z-index: 25; }
 .desktop-layout-item.layout-app { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 18px; background: transparent !important; overflow: visible !important; font-family: var(--app-font-family); font-size: 12px; font-weight: 500; line-height: 1.15; color: #333; letter-spacing: 0; }
-.desktop-layout-item.layout-app span { max-width: 76px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: inherit; color: inherit; line-height: inherit; letter-spacing: 0; text-shadow: none; }
+.desktop-layout-item.layout-app span { max-width: 82px; text-align: center; white-space: normal; overflow: hidden; text-overflow: ellipsis; font: inherit; color: inherit; line-height: 1.12; letter-spacing: 0; text-shadow: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .desktop-snap-guides {
     position: absolute;
     inset: 0;
@@ -1859,9 +1859,12 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     max-width: 70px;
     color: inherit;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     text-shadow: 0 1px 2px rgba(255,255,255,0.72);
 }
 .dream-desktop-entry {
@@ -16666,6 +16669,14 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     text-align: center;
     font-size: 12px;
     color: rgba(36,27,20,0.62);
+}
+.wc-ai-phone-letter-opening {
+    display: block;
+    margin: 38px 0 -22px;
+    color: #2f2418;
+    font-size: 14px;
+    font-style: normal;
+    line-height: 1.7;
 }
 .wc-ai-phone-letter-paper p {
     margin: 44px 0 0;

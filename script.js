@@ -9475,7 +9475,7 @@ function repairDesktopAppOverlaps(pageArea) {
     let changed = false;
     items.forEach(item => {
         let rect = getDesktopStyleRect(item, pageArea);
-        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.24);
+        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.08);
         const overlapsWidget = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
             .some(widget => getDesktopRectIntersectionRatio(rect, getDesktopStyleRect(widget, pageArea)) > 0.34);
         if (overlapsPlaced || overlapsWidget) {
@@ -11874,13 +11874,18 @@ function restoreDefaultDesktopLayout() {
     if (dock && _desktopDefaultDockHtml) dock.innerHTML = _desktopDefaultDockHtml;
     window._editMode = false;
     window._desktopSelectedLayoutItem = null;
+    window._desktopCurrentPage = 0;
+    window._desktopPageSwipeState = null;
+    window._desktopDraggingItem = null;
+    window._desktopDockDraggingItem = null;
     document.getElementById('home-screen')?.classList.remove('desktop-editing');
     clearDesktopEditChrome();
+    if (typeof clearDesktopPageSlotRects === 'function') clearDesktopPageSlotRects();
     setTimeout(() => {
         if (typeof initFolderDrag === 'function') initFolderDrag();
         if (typeof ensureMonitorDesktopEntry === 'function') ensureMonitorDesktopEntry();
         if (typeof ensureDesktopLovelyWidget === 'function') ensureDesktopLovelyWidget();
-        if (typeof initPageSwipe === 'function') initPageSwipe();
+        if (typeof restoreDesktopRuntimeAfterEdit === 'function') restoreDesktopRuntimeAfterEdit();
         if (typeof resetDesktopToFirstPage === 'function') resetDesktopToFirstPage();
     }, 0);
 }
@@ -12010,6 +12015,7 @@ function applySavedDesktopLayout() {
             el.classList.add('layout-source-hidden');
         });
     });
+    repairDesktopLayoutOverlaps();
     updateDesktopStatusWidgets();
 }
 

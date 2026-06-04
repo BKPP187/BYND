@@ -967,6 +967,23 @@ function buildSystemPrompt(char) {
 }
 
 // 2. 构建消息列表
+function isChatApiInternalHistoryMessage(msg) {
+    return !!(
+        !msg
+        || msg.hiddenFromChat
+        || msg.internalEvent
+        || msg.monitorEvent
+        || msg.type === 'system_notice'
+        || msg.type === 'regex_payload'
+        || msg.regexPayload
+        || msg.isRegexPayload
+    );
+}
+
+function isChatApiVisibleUserHistoryMessage(msg) {
+    return !!(msg && msg.isMe && !isChatApiInternalHistoryMessage(msg) && msg.type !== 'user_event');
+}
+
 function buildMessages(char, history, maxMessages) {
     maxMessages = maxMessages || 30; // 微信对话默认带最近 30 条，兼顾角色卡长设定和最近上下文
 
@@ -1032,12 +1049,16 @@ function buildMessages(char, history, maxMessages) {
     const recentHistory = history.slice(-maxMessages);
     let latestUserMsg = null;
     for (let i = recentHistory.length - 1; i >= 0; i--) {
-        if (recentHistory[i] && recentHistory[i].isMe) {
+        if (isChatApiVisibleUserHistoryMessage(recentHistory[i])) {
             latestUserMsg = recentHistory[i];
             break;
         }
     }
     recentHistory.forEach(msg => {
+        if (!msg) return;
+        const isInternalContext = isChatApiInternalHistoryMessage(msg) || msg.type === 'user_event';
+        if (isChatApiInternalHistoryMessage(msg) && msg.type !== 'user_event') return;
+        if (isInternalContext && !msg.content && !msg.description && !msg.dialogue) return;
         // 获取消息内容（处理不同消息类型）
         let content = msg.content || '';
         if (msg.type === 'image' && msg.isMe) {
@@ -1103,7 +1124,7 @@ function buildMessages(char, history, maxMessages) {
         }
 
         messages.push({
-            role: msg.isMe ? 'user' : 'assistant',
+            role: isInternalContext ? 'system' : (msg.isMe ? 'user' : 'assistant'),
             content: content
         });
     });
