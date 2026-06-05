@@ -131,6 +131,22 @@
     --wc-theme-ai-text: #0f1419;
     --wc-theme-user-text: #ffffff;
 }
+#app-wechat-window.wc-ui-theme-couple {
+    --wc-theme-bg: #f8efe6;
+    --wc-theme-header: rgba(255,255,255,0.42);
+    --wc-theme-content: #f8efe6;
+    --wc-theme-card: rgba(255,255,255,0.72);
+    --wc-theme-search: rgba(255,255,255,0.54);
+    --wc-theme-text: #2f2a2d;
+    --wc-theme-muted: rgba(86,78,82,0.54);
+    --wc-theme-border: rgba(255,255,255,0.46);
+    --wc-theme-accent: #f4a7bd;
+    --wc-theme-chat-bg: linear-gradient(160deg, #f8efe6, #f6edf1);
+    --wc-theme-ai-bubble: rgba(255,255,255,0.30);
+    --wc-theme-user-bubble: rgba(252,186,205,0.38);
+    --wc-theme-ai-text: #2f2a2d;
+    --wc-theme-user-text: #32272b;
+}
 
 #app-wechat-window[class*="wc-ui-theme-"] { background: var(--wc-theme-bg) !important; color: var(--wc-theme-text); }
 #app-wechat-window[class*="wc-ui-theme-"] .wechat-header { background: var(--wc-theme-header); color: var(--wc-theme-text); border-bottom-color: var(--wc-theme-border); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }

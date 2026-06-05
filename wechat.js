@@ -2023,6 +2023,7 @@ function openChat(charId) {
     if (floatName) floatName.textContent = chatTitle;
     if (roomHeaderAvatar) roomHeaderAvatar.src = char.avatar || DEFAULT_AVATAR;
     syncWechatLineRoomHeader();
+    syncWechatCoupleThemeHeader(char);
     if (touchedMessageTime || readStateChanged || sanitizedContext) saveCharactersToStorage();
     if (readStateChanged) {
         scheduleWechatChatListRefresh();
@@ -2175,6 +2176,46 @@ function formatMessageTime(msg) {
     const date = rawTime ? new Date(rawTime) : new Date();
     const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
     return `${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatWechatCoupleMessageDateTime(msg) {
+    const rawTime = msg && (msg.timestamp || msg.createdAt || msg.time);
+    const date = rawTime ? new Date(rawTime) : new Date();
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const now = new Date();
+    const dateText = safeDate.getFullYear() === now.getFullYear()
+        ? `${safeDate.getMonth() + 1}月${safeDate.getDate()}日`
+        : `${safeDate.getFullYear()}年${safeDate.getMonth() + 1}月${safeDate.getDate()}日`;
+    return {
+        date: dateText,
+        time: `${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}`
+    };
+}
+
+function getWechatCoupleMessageSenderKey(msg, char = null) {
+    if (!msg || msg.type === 'system_notice') return '';
+    if (msg.isMe) return 'me';
+    return String(
+        msg.senderId
+        || msg.speakerId
+        || msg.senderName
+        || msg.speakerName
+        || (char && char.isGroupChat ? 'group-member' : 'ai')
+    );
+}
+
+function shouldShowWechatCoupleMessageHeader(prevMsg, msg, char = null) {
+    if (!isWechatCoupleTheme()) return true;
+    if (!msg || msg.type === 'system_notice') return true;
+    if (!prevMsg || prevMsg.type === 'system_notice') return true;
+    if (getWechatCoupleMessageSenderKey(prevMsg, char) !== getWechatCoupleMessageSenderKey(msg, char)) return true;
+    const raw = msg.timestamp || msg.createdAt || msg.time;
+    const prevRaw = prevMsg.timestamp || prevMsg.createdAt || prevMsg.time;
+    const date = raw ? new Date(raw) : null;
+    const prevDate = prevRaw ? new Date(prevRaw) : null;
+    if (!date || !prevDate || Number.isNaN(date.getTime()) || Number.isNaN(prevDate.getTime())) return false;
+    if (date.toDateString() !== prevDate.toDateString()) return true;
+    return date.getTime() - prevDate.getTime() >= 10 * 60 * 1000;
 }
 
 function buildMessageMeta(msg) {
@@ -5741,18 +5782,27 @@ function buildWechatImageMessageFromAiText(text, char) {
 
 function buildWechatAutoImageMessageFromText(text, char) {
     const source = cleanWechatVisibleContent(text);
-    if (!source || source.length < 18 || source.length > 620) return null;
+    if (!source || source.length > 620) return null;
     if (hasWechatAiDirectiveSource(source) || looksLikeWechatRichOrRegexSource(source, char)) return null;
+    const shortPhotoIntent = /^(?:你)?(?:看图|看照片|看图片|看这个|给你看(?:一下|一眼|看)?|给你看看|发你看|发张图|发个图|发照片|发自拍|照片来了|图来了|自拍来了|拍给你看)(?:吧|啦|了|一下|一眼)?[。.!！…\s]*$/i.test(source);
     const photoIntent = /(照片|自拍|图片|相片|镜头)/.test(source)
         && /(加载|传了过来|发了过来|发给你|给你看|重新拍|拍给你|拍了一张|发来|传来)/.test(source);
-    if (!photoIntent) return null;
+    if (!shortPhotoIntent && (!photoIntent || source.length < 18)) return null;
+    const recent = Array.isArray(char && char.history)
+        ? char.history.slice().reverse().find(msg => msg && msg.type !== 'system_notice' && !msg.isMe)
+        : null;
+    const recentText = recent ? cleanWechatVisibleContent(recent.content || recent.description || '').slice(0, 160) : '';
+    const sceneHint = shortPhotoIntent
+        ? '角色主动发来一张此刻照片/自拍，回应当前聊天里的“在干嘛/给我看看/看图”等语境。'
+        : `画面描述：${source}`;
     const prompt = [
         `微信聊天中角色刚发来的真实照片。`,
-        `画面描述：${source}`,
+        sceneHint,
+        recentText ? `最近角色上一句：${recentText}` : '',
         char && char.description ? `角色设定：${String(char.description).slice(0, 900)}` : '',
         '手机照片质感，自然光线，真实自拍或随手拍构图，不要文字水印，不要聊天气泡。'
     ].filter(Boolean).join('\n');
-    return buildWechatGeneratedImageMessage(prompt, '照片', char);
+    return buildWechatGeneratedImageMessage(prompt, shortPhotoIntent ? '看图' : '照片', char);
 }
 
 function buildWechatMessageFromAiDirective(command, rawArgs, char) {
@@ -6605,6 +6655,12 @@ function buildWechatHistoryMessageFromParsedPart(part, baseMsg, char) {
 
 function isWechatAutoImageNarrationText(text, char) {
     return !!buildWechatAutoImageMessageFromText(text, char);
+}
+
+function shouldRetryWechatImageDirectiveResponse(content, char) {
+    const source = cleanWechatVisibleContent(content);
+    if (!source || hasWechatAiDirectiveSource(source)) return false;
+    return splitWechatAiResponseSegments(source, char).some(part => buildWechatAutoImageMessageFromText(part, char));
 }
 
 function shouldMigrateWechatMixedAiHistoryMessage(msg) {
@@ -7858,7 +7914,7 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
 }
 
 // 🔥 微信渲染逻辑：只显示纯文本 (Clean & Simple)
-function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
+function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, options = {}) {
     const row = document.createElement('div');
     row.className = `msg-row ${msg.isMe ? 'right' : 'left'}`;
     if (typeof msgIndex === 'number') row.dataset.msgIdx = msgIndex;
@@ -7887,6 +7943,10 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
     if (groupMember) row.classList.add('group-member');
 
     const currentAvatar = msg.isMe ? myAvatar : (groupMember?.avatar || avatarUrl);
+    const showCoupleHeader = !isWechatCoupleTheme() || options.showCoupleHeader !== false;
+    if (isWechatCoupleTheme()) {
+        row.classList.add(showCoupleHeader ? 'couple-group-start' : 'couple-continuation');
+    }
 
     const config = charObj.chatConfig || {};
     const fontSize = config.fontSize || 15;
@@ -7897,7 +7957,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex) {
     const groupMemberLabel = (!msg.isMe && charObj?.isGroupChat && groupMember)
         ? renderWechatQQGroupMessageSenderLabel(charObj, groupMember)
         : '';
-    const avatarHtml = `<img class="${avatarClass}" src="${currentAvatar}">`;
+    const avatarHtml = renderWechatMessageAvatarHtml(displayMsg, currentAvatar, avatarClass, { showCoupleHeader });
     const groupNameHtml = groupMemberLabel;
 
     if (displayMsg.type === 'sticker') {
@@ -8247,6 +8307,7 @@ function markWechatHistoryRepairPassDone(char) {
 function refreshChatView(char) {
     const contentEl = document.getElementById('chat-room-content');
     if (!contentEl) return;
+    syncWechatCoupleThemeHeader(char);
     const shouldRepairHistory = shouldRunWechatHistoryRepairPass(char);
     const migratedMixedAi = shouldRepairHistory && migrateWechatMixedAiHistory(char);
     const migratedNarration = shouldRepairHistory && migrateWechatNarrationHistory(char);
@@ -8280,7 +8341,9 @@ function refreshChatView(char) {
         if (msg && msg.type !== 'system_notice' && shouldShowWechatTimeDivider(prevVisibleMsg, msg)) {
             appendWechatTimeDivider(contentEl, getWechatMessageDate(msg));
         }
-        renderMessageBubble(contentEl, msg, char.avatar, char, index);
+        renderMessageBubble(contentEl, msg, char.avatar, char, index, {
+            showCoupleHeader: shouldShowWechatCoupleMessageHeader(prevVisibleMsg, msg, char)
+        });
         queueWechatPendingImageGeneration(char, msg);
         if (msg && msg.type !== 'system_notice') prevVisibleMsg = msg;
     });
@@ -8915,6 +8978,13 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
         if (result.ok) {
             if (markPendingUserPaymentsCollected(char) && shouldTouchChatUi) {
                 refreshChatView(char);
+            }
+            if (!options.textOnly && shouldRetryWechatImageDirectiveResponse(result.content || '', char)) {
+                const imageRetry = await callChatApi(messages.concat({
+                    role: 'system',
+                    content: '【必须重写为生图指令】你刚才用普通文字说了“看图/照片来了/给你看”等内容，这是错误的。现在如果要发图，必须输出一段 [微信图片:画面提示词|说明]，不要只写普通文字。画面提示词要具体描述角色本人、外观、服饰、表情、姿势、光线、环境，并保持角色参考图的同一张脸和画风。'
+                }));
+                if (imageRetry && imageRetry.ok) result = imageRetry;
             }
             let newAiMessageCount = await appendAiResultToChat(result.content || '');
             if (newAiMessageCount === 0) {
@@ -17224,6 +17294,101 @@ function getWechatCharDisplayName(char) {
     return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '对方';
 }
 
+function isWechatCoupleTheme() {
+    return typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'couple';
+}
+window.isWechatCoupleTheme = isWechatCoupleTheme;
+
+function getWechatCoupleMoodSource(char) {
+    const parts = [];
+    const snapshot = typeof getWechatAiStatusSnapshot === 'function' ? getWechatAiStatusSnapshot(char) : null;
+    if (snapshot && snapshot.fields) {
+        parts.push(
+            snapshot.fields.innerMonologue,
+            snapshot.fields.miniDiary,
+            snapshot.fields.thoughts,
+            snapshot.fields.action,
+            snapshot.fields.gaze,
+            snapshot.reason
+        );
+    }
+    const history = Array.isArray(char && char.history) ? char.history : [];
+    for (let i = history.length - 1; i >= 0 && parts.length < 12; i -= 1) {
+        const msg = history[i];
+        if (!msg || msg.isMe || msg.hiddenFromChat || msg.internalEvent || msg.type === 'system_notice') continue;
+        const text = (typeof getWechatTextMessageVisibleText === 'function'
+            ? getWechatTextMessageVisibleText(msg, char)
+            : (msg.content || msg.description || ''));
+        if (text) parts.push(text);
+    }
+    return stripWechatPromptText(parts.filter(Boolean).join(' '), 900);
+}
+
+function getWechatCoupleMoodKaomoji(char) {
+    const source = getWechatCoupleMoodSource(char);
+    const rules = [
+        { pattern: /害羞|脸红|不好意思|心跳|暧昧|亲|吻|抱|贴近|想你|喜欢|爱|舍不得|撒娇|甜|黏/i, face: '///▽///' },
+        { pattern: /开心|高兴|快乐|笑|哈哈|愉快|期待|雀跃|兴奋|满足|安心/i, face: '> ᵕ <' },
+        { pattern: /难过|委屈|失落|低落|哭|眼泪|孤单|想哭|心酸|疼|难受|不安/i, face: 'T ^ T' },
+        { pattern: /生气|烦|恼|不爽|气死|火大|冷脸|哼|炸毛|忍住/i, face: '>_<#' },
+        { pattern: /吃醋|醋|嫉妒|占有|别扭|嘴硬|不甘心|酸/i, face: '¬_¬' },
+        { pattern: /困|累|疲惫|睡|醒|懒|发呆|迷糊|困倦/i, face: '- ᵕ -' },
+        { pattern: /紧张|慌|怕|担心|小心|试探|犹豫|纠结/i, face: '> <' }
+    ];
+    const matched = rules.find(rule => rule.pattern.test(source));
+    return matched ? matched.face : '> ᵕ <';
+}
+
+function syncWechatCoupleThemeHeader(char = getCurrentChatChar()) {
+    const room = document.getElementById('wechat-chat-room');
+    if (!room) return;
+    let pill = document.getElementById('wc-couple-theme-pill');
+    if (!isWechatCoupleTheme() || !char) {
+        pill?.remove();
+        return;
+    }
+    if (!pill) {
+        pill = document.createElement('button');
+        pill.type = 'button';
+        pill.id = 'wc-couple-theme-pill';
+        pill.className = 'wc-couple-theme-pill';
+        pill.onclick = () => openChatSettings();
+        const contentEl = document.getElementById('chat-room-content');
+        room.insertBefore(pill, contentEl || room.firstChild);
+    }
+    const profile = getWechatChatUserProfile(char);
+    const userAvatar = profile.avatar || DEFAULT_AVATAR;
+    const charAvatar = char.avatar || DEFAULT_AVATAR;
+    const kaomoji = getWechatCoupleMoodKaomoji(char);
+    pill.setAttribute('aria-label', `${getWechatCharDisplayName(char)} 当前心情 ${kaomoji}`);
+    pill.innerHTML = `
+        <img class="wc-couple-user-avatar" src="${wcEscapeAttr(userAvatar)}" onerror="this.src='${DEFAULT_AVATAR}'">
+        <span>${wcEscapeHtml(kaomoji)}</span>
+        <img class="wc-couple-char-avatar" src="${wcEscapeAttr(charAvatar)}" onerror="this.src='${DEFAULT_AVATAR}'">
+    `;
+}
+window.syncWechatCoupleThemeHeader = syncWechatCoupleThemeHeader;
+
+function renderWechatMessageAvatarHtml(msg, avatarUrl, avatarClass, options = {}) {
+    const src = wcEscapeAttr(avatarUrl || DEFAULT_AVATAR);
+    const fallback = wcEscapeAttr(DEFAULT_AVATAR);
+    if (!isWechatCoupleTheme()) {
+        return `<img class="${avatarClass}" src="${src}" onerror="this.src='${fallback}'">`;
+    }
+    if (options.showCoupleHeader === false) return '';
+    const sideClass = msg && msg.isMe ? 'me' : 'ai';
+    const timeParts = formatWechatCoupleMessageDateTime(msg || {});
+    return `
+        <span class="msg-avatar-layer ${sideClass}">
+            <img class="${avatarClass}" src="${src}" onerror="this.src='${fallback}'">
+            <span class="msg-avatar-time">
+                <span>${wcEscapeHtml(timeParts.date)}</span>
+                <span>${wcEscapeHtml(timeParts.time)}</span>
+            </span>
+        </span>
+    `;
+}
+
 function closeWechatMonitorRequestModal() {
     const modal = document.getElementById('wc-monitor-request-modal');
     if (modal) modal.classList.add('hidden');
@@ -17350,6 +17515,7 @@ function syncWechatCurrentChatTitleState(text) {
 function updateWechatCurrentChatHeader(char) {
     if (!char || window.currentChatCharId !== char.id) return;
     syncWechatCurrentChatTitleState('');
+    syncWechatCoupleThemeHeader(char);
     renderChatList();
 }
 
@@ -17847,6 +18013,7 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
         saveCharactersToStorage();
         if (window._wechatAiStatusOpenCharId === char.id) renderWechatAiStatusTicket(char);
         if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
+        if (window.currentChatCharId === char.id) syncWechatCoupleThemeHeader(char);
         return snapshot;
     })();
 
@@ -17857,6 +18024,7 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
         window._wechatAiStatusGenerating.delete(char.id);
         if (window._wechatAiStatusOpenCharId === char.id) renderWechatAiStatusTicket(char);
         if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
+        if (window.currentChatCharId === char.id) syncWechatCoupleThemeHeader(char);
     }
 }
 

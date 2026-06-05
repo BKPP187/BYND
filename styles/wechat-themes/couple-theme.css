@@ -1,0 +1,483 @@
+/* Couple transparent chat theme */
+#app-wechat-window.wc-ui-theme-couple {
+    --wc-theme-bg: #f8efe6;
+    --wc-theme-header: rgba(255,255,255,0.42);
+    --wc-theme-content: #f8efe6;
+    --wc-theme-card: rgba(255,255,255,0.72);
+    --wc-theme-search: rgba(255,255,255,0.54);
+    --wc-theme-text: #2f2a2d;
+    --wc-theme-muted: rgba(86,78,82,0.54);
+    --wc-theme-border: rgba(255,255,255,0.46);
+    --wc-theme-accent: #f4a7bd;
+    --wc-theme-chat-bg: linear-gradient(160deg, #f8efe6, #f6edf1);
+    --wc-theme-ai-bubble: rgba(255,255,255,0.26);
+    --wc-theme-user-bubble: rgba(255,255,255,0.26);
+    --wc-theme-ai-text: #2f2a2d;
+    --wc-theme-user-text: #32272b;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room {
+    background: #f7eee6;
+    color: #2f2a2d;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-me-page {
+    padding-top: 0;
+    background: var(--wc-theme-content);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-me-profile {
+    margin-bottom: 0;
+    border-bottom: 0;
+    background: var(--wc-theme-content);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-me-menu-item:first-of-type {
+    border-top: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-header,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-floating-avatar {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-float-back,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-float-more {
+    top: 54px;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.34);
+    color: rgba(35,31,32,0.86);
+    border: 1px solid rgba(255,255,255,0.46);
+    box-shadow: 0 12px 30px rgba(62,43,38,0.13);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 44;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-float-back {
+    left: 22px;
+    font-size: 28px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-float-more {
+    right: 22px;
+    font-size: 24px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-couple-theme-pill {
+    position: absolute;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 45;
+    min-width: 150px;
+    max-width: 196px;
+    height: 48px;
+    padding: 4px 10px;
+    border: 1px solid rgba(255,255,255,0.54);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.40);
+    box-shadow: 0 14px 36px rgba(73,48,44,0.14), inset 0 1px 0 rgba(255,255,255,0.42);
+    backdrop-filter: blur(18px) saturate(1.18);
+    -webkit-backdrop-filter: blur(18px) saturate(1.18);
+    color: #201b1f;
+    display: grid;
+    grid-template-columns: 38px minmax(46px, 1fr) 38px;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-couple-theme-pill img {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(255,255,255,0.52);
+    border: 2px solid rgba(255,255,255,0.84);
+    box-shadow: 0 6px 16px rgba(73,48,44,0.12);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-couple-theme-pill span {
+    min-width: 0;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 400;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-content {
+    padding: 124px 18px 108px;
+    gap: 9px;
+    background:
+        radial-gradient(circle at 18% 12%, rgba(255,255,255,0.58), transparent 34%),
+        radial-gradient(circle at 82% 72%, rgba(252,205,218,0.28), transparent 36%),
+        linear-gradient(160deg, #f8efe6 0%, #eee2d7 46%, #f6edf1 100%);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-content.has-custom-chat-bg {
+    background: var(--custom-chat-bg-image) center center / cover no-repeat !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row {
+    gap: 5px;
+    padding: 6px 0 7px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left {
+    justify-items: start;
+    padding-right: 54px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right {
+    justify-items: end;
+    padding-left: 54px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.couple-continuation {
+    padding-top: 0;
+    margin-top: -1px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.time {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 5px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-time-divider {
+    background: transparent;
+    color: rgba(91,80,82,0.46);
+    font-size: 12px;
+    font-weight: 520;
+    text-shadow: 0 1px 4px rgba(255,255,255,0.54);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-avatar-layer {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    align-self: flex-start;
+    justify-self: start;
+    margin-top: 1px;
+    position: relative;
+    z-index: 2;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-avatar-layer {
+    flex-direction: row-reverse;
+    justify-self: end;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-avatar-layer .msg-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    opacity: 1;
+    border: 2px solid rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.5);
+    box-shadow: 0 8px 18px rgba(74,54,50,0.15);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-avatar-layer .msg-avatar {
+    width: 38px;
+    height: 38px;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-avatar-time {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 54px;
+    max-width: 78px;
+    color: rgba(86,78,82,0.42);
+    font-size: 11px;
+    line-height: 1.18;
+    font-weight: 560;
+    white-space: normal;
+    text-align: left;
+    text-shadow: 0 1px 4px rgba(255,255,255,0.52);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-avatar-time {
+    text-align: right;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble-shell {
+    width: fit-content;
+    max-width: min(68%, 256px);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left .msg-bubble-shell,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left > .msg-bubble {
+    justify-self: start;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-bubble-shell,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right > .msg-bubble {
+    justify-self: end;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble:not(.sticker) {
+    min-width: 0;
+    max-width: min(68%, 256px);
+    padding: 8px 12px;
+    border-radius: 19px;
+    border: 1px solid rgba(255,255,255,0.48);
+    color: #2a2528;
+    background: rgba(255,255,255,0.30);
+    box-shadow: 0 12px 26px rgba(69,48,42,0.10), inset 0 1px 0 rgba(255,255,255,0.36);
+    backdrop-filter: blur(16px) saturate(1.08);
+    -webkit-backdrop-filter: blur(16px) saturate(1.08);
+    font-weight: 650;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble.green:not(.sticker) {
+    color: #32272b;
+    background: rgba(255,255,255,0.26);
+    border-color: rgba(255,255,255,0.48);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble-shell .msg-bubble {
+    max-width: 100%;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble::before {
+    content: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-text {
+    line-height: 1.48;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room :is(.msg-meta, .msg-media-meta, .msg-sticker-meta) {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble.image-bubble,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble.sticker {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble.image-bubble img {
+    border-radius: 18px;
+    box-shadow: 0 14px 32px rgba(66,45,41,0.16);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-card-footer {
+    color: rgba(66,58,61,0.42);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-footer {
+    left: 14px;
+    right: 14px;
+    bottom: 16px;
+    height: 54px;
+    min-height: 54px;
+    padding: 5px 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.24);
+    border: 1px solid rgba(255,255,255,0.68);
+    box-shadow: 0 14px 30px rgba(72,50,45,0.13), inset 0 1px 0 rgba(255,255,255,0.46);
+    backdrop-filter: blur(18px) saturate(1.12);
+    -webkit-backdrop-filter: blur(18px) saturate(1.12);
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px 38px;
+    align-items: center;
+    gap: 6px;
+    overflow: visible;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-footer::before {
+    display: none;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-input,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-rich-input,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-press-btn {
+    min-width: 0;
+    width: 100%;
+    height: 42px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.10);
+    color: #2f2a2d;
+    border: none;
+    box-shadow: none;
+    padding: 0 8px;
+    text-align: left;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-rich-input {
+    display: none;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-input::placeholder {
+    color: rgba(47,42,45,0.42);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-qq-image-btn,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-qq-camera-btn,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-ai-btn {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-btn,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-sticker-btn,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-send-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.40);
+    color: #2f2a2d !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 6px 16px rgba(72,50,45,0.10), inset 0 1px 0 rgba(255,255,255,0.40);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-btn {
+    grid-column: 1;
+    grid-row: 1;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    background: rgba(255,255,255,0.54);
+    border: 2px solid rgba(47,48,50,0.76);
+    font-size: 20px;
+    order: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-btn i {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-btn::before {
+    content: "";
+    width: 17px;
+    height: 17px;
+    display: block;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10.24 11.616l-4.224 4.192 4.224 4.192c1.088-1.056 1.76-2.56 1.76-4.192s-0.672-3.136-1.76-4.192z'/%3E%3Cpath d='M15.199 6.721l-1.791 1.76c1.856 1.888 3.008 4.48 3.008 7.328s-1.152 5.44-3.008 7.328l1.791 1.76c2.336-2.304 3.809-5.536 3.809-9.088s-1.473-6.784-3.809-9.088z'/%3E%3Cpath d='M20.129 1.793l-1.762 1.76c3.104 3.168 5.025 7.488 5.025 12.256s-1.921 9.088-5.025 12.256l1.762 1.76c3.648-3.616 5.887-8.544 5.887-14.016s-2.239-10.432-5.887-14.016z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10.24 11.616l-4.224 4.192 4.224 4.192c1.088-1.056 1.76-2.56 1.76-4.192s-0.672-3.136-1.76-4.192z'/%3E%3Cpath d='M15.199 6.721l-1.791 1.76c1.856 1.888 3.008 4.48 3.008 7.328s-1.152 5.44-3.008 7.328l1.791 1.76c2.336-2.304 3.809-5.536 3.809-9.088s-1.473-6.784-3.809-9.088z'/%3E%3Cpath d='M20.129 1.793l-1.762 1.76c3.104 3.168 5.025 7.488 5.025 12.256s-1.921 9.088-5.025 12.256l1.762 1.76c3.648-3.616 5.887-8.544 5.887-14.016s-2.239-10.432-5.887-14.016z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-input,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-rich-input,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-voice-press-btn {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-sticker-btn {
+    grid-column: 3;
+    grid-row: 1;
+    background: transparent;
+    box-shadow: none;
+    order: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn {
+    grid-column: 4;
+    grid-row: 1;
+    background: transparent;
+    box-shadow: none;
+    order: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-sticker-btn .wc-smile-svg,
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn .wc-plus-svg {
+    width: 31px;
+    height: 31px;
+    color: rgba(35,31,32,0.88);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn .wc-plus-svg-base {
+    display: none;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn .wc-plus-svg-wechat {
+    display: block !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-add-btn.is-open {
+    transform: rotate(45deg);
+    background: transparent;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-send-btn {
+    grid-column: 4;
+    grid-row: 1;
+    display: none !important;
+    font-size: 18px;
+    background: rgba(47,42,45,0.88);
+    color: #fff !important;
+    order: 0;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room.has-draft .wc-add-btn {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room.has-draft .wc-send-btn {
+    display: inline-flex !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-ai-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    flex: 0 0 28px;
+    padding: 3px;
+    opacity: 0.74;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-ai-btn path {
+    stroke-width: 1.25;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-chat-toolbar {
+    left: auto;
+    right: 14px;
+    bottom: 82px;
+    width: min(376px, calc(100% - 28px));
+    background: rgba(255,255,255,0.64);
+    border-color: rgba(255,255,255,0.62);
+    transform-origin: calc(100% - 26px) calc(100% + 8px);
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-chat-toolbar::after {
+    left: auto;
+    right: 19px;
+    background: rgba(255,255,255,0.64);
+    border-color: rgba(255,255,255,0.62);
+}

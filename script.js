@@ -5900,6 +5900,7 @@ function saveWaterSortState(state) {
 }
 
 function resetWaterSortGame() {
+    clearTimeout(window._waterSortAutoNextTimer);
     const current = getWaterSortState();
     saveWaterSortState(createWaterSortState(current.level || getWaterSortBestLevel()));
     renderGameApp();
@@ -5907,6 +5908,7 @@ function resetWaterSortGame() {
 window.resetWaterSortGame = resetWaterSortGame;
 
 function startWaterSortLevel(level) {
+    clearTimeout(window._waterSortAutoNextTimer);
     const best = getWaterSortBestLevel();
     const safeLevel = Math.max(1, Math.min(best, parseInt(level, 10) || 1));
     saveWaterSortState(createWaterSortState(safeLevel));
@@ -5915,6 +5917,7 @@ function startWaterSortLevel(level) {
 window.startWaterSortLevel = startWaterSortLevel;
 
 function nextWaterSortLevel() {
+    clearTimeout(window._waterSortAutoNextTimer);
     const state = getWaterSortState();
     const nextLevel = Math.max((state.level || 1) + 1, getWaterSortBestLevel());
     localStorage.setItem(WATER_SORT_BEST_LEVEL_KEY, String(nextLevel));
@@ -5922,6 +5925,15 @@ function nextWaterSortLevel() {
     renderGameApp();
 }
 window.nextWaterSortLevel = nextWaterSortLevel;
+
+function scheduleWaterSortAutoNextLevel(level) {
+    clearTimeout(window._waterSortAutoNextTimer);
+    window._waterSortAutoNextTimer = setTimeout(() => {
+        const current = getWaterSortState();
+        if (!current.won || Number(current.level || 1) !== Number(level || 1)) return;
+        nextWaterSortLevel();
+    }, 900);
+}
 
 function isWaterSortWon(tubes) {
     return tubes.every(tube => !tube.length || (tube.length === 4 && tube.every(color => color === tube[0])));
@@ -5969,8 +5981,9 @@ function selectWaterTube(index) {
         if (state.won) {
             const unlocked = Math.max(getWaterSortBestLevel(), (state.level || 1) + 1);
             localStorage.setItem(WATER_SORT_BEST_LEVEL_KEY, String(unlocked));
-            state.message = `第 ${state.level || 1} 关完成，下一关会增加难度。`;
+            state.message = `第 ${state.level || 1} 关完成，正在进入下一关。`;
             setTimeout(() => playMiniGameSound('win'), 170);
+            scheduleWaterSortAutoNextLevel(state.level || 1);
         } else {
             state.message = '倒好了，继续整理颜色。';
         }
@@ -8546,16 +8559,9 @@ function addDesktopAppToCurrentPage(app, offsetIndex = 0) {
     const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
     const pageArea = page?.querySelector('.desktop-scroll-area');
     if (!pageArea) return null;
-    pageArea.classList.add('layout-canvas');
-    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
     const item = createDesktopAppElement(app);
-    pageArea.appendChild(item);
-    prepareDesktopLayoutItem(item, pageArea, {
-        left: 24 + (offsetIndex % 3) * 82,
-        top: 78 + Math.floor(offsetIndex / 3) * 88,
-        width: 72,
-        height: 76
-    });
+    placeDesktopAppInFirstOpenSlot(item, pageArea, offsetIndex);
+    repairDesktopAppOverlaps(pageArea);
     return item;
 }
 
@@ -9681,12 +9687,46 @@ function getPreferredDesktopPageArea() {
     return ensureDesktopPage(index)?.querySelector('.desktop-scroll-area') || document.querySelector('#pages-container .desktop-page .desktop-scroll-area');
 }
 
-function placeDesktopAppInFirstOpenSlot(item, preferredArea) {
+function findDesktopFirstOpenAppSlotRect(pageArea, item, preferredIndex = 0) {
+    if (!pageArea || !item) return null;
+    delete pageArea._desktopSlotRects;
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const width = item.offsetWidth || parseFloat(item.style.width) || metrics.iconWidth;
+    const height = item.offsetHeight || parseFloat(item.style.height) || metrics.iconHeight;
+    const slots = getDesktopFlowSlotRects(pageArea);
+    const start = Math.max(0, Number(preferredIndex) || 0);
+    const orderedSlots = slots
+        .map((slot, index) => ({ slot, index }))
+        .sort((a, b) => {
+            const aWrapped = a.index < start ? a.index + slots.length : a.index;
+            const bWrapped = b.index < start ? b.index + slots.length : b.index;
+            return aWrapped - bWrapped;
+        });
+    const candidates = orderedSlots.map(entry => ({
+        slotIndex: entry.index,
+        rect: clampDesktopLayoutRect({
+            left: entry.slot.left + Math.round(((entry.slot.width || width) - width) / 2),
+            top: entry.slot.top + Math.round(((entry.slot.height || height) - height) / 2),
+            width,
+            height
+        }, pageArea)
+    }));
+    const free = candidates.find(entry => scoreDesktopCandidateOverlap(entry.rect, pageArea, [item]) < 0.08);
+    const best = free || candidates
+        .map(entry => ({ ...entry, score: scoreDesktopCandidateOverlap(entry.rect, pageArea, [item]) }))
+        .sort((a, b) => a.score - b.score)[0];
+    if (best) {
+        item.dataset.desktopSlot = String(best.slotIndex);
+        return best.rect;
+    }
+    return findDesktopOpenAppRect(pageArea, item, getDesktopFallbackSlotRect(pageArea, start, item));
+}
+
+function placeDesktopAppInFirstOpenSlot(item, preferredArea, preferredIndex = 0) {
     const pageArea = preferredArea || getPreferredDesktopPageArea();
     if (!item || !pageArea) return;
     pageArea.classList.add('layout-canvas');
     pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
-    ensureDesktopPageSlotRects(pageArea);
     if (item.parentElement !== pageArea) pageArea.appendChild(item);
     item.classList.add('desktop-layout-item', 'layout-app');
     item.dataset.layoutId = item.dataset.layoutId || `app-${getDesktopAppIdFromElement(item)}`;
@@ -9694,10 +9734,11 @@ function placeDesktopAppInFirstOpenSlot(item, preferredArea) {
     item.style.removeProperty('transform');
     item.style.removeProperty('position');
     setupDesktopLayoutItem(item);
-    const slot = getDesktopOrderedSlotItems(pageArea, true).filter(el => el !== item).length;
-    const rect = getDesktopSlotRect(pageArea, slot, item);
+    const slot = Math.max(0, Number(preferredIndex) || 0);
+    const rect = findDesktopFirstOpenAppSlotRect(pageArea, item, slot);
     prepareDesktopLayoutItem(item, pageArea, rect);
-    applyDesktopSlotOrder(pageArea, item, slot);
+    repairDesktopAppOverlaps(pageArea);
+    captureDesktopPageSlotRects(pageArea);
 }
 
 function removeDesktopDuplicateAppIcons(appId, keepItem) {

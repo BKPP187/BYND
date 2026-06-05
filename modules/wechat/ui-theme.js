@@ -109,6 +109,21 @@ const WECHAT_UI_THEMES = [
         }
     },
     {
+        id: 'couple',
+        name: '恋爱透明主题',
+        tone: '透明恋爱',
+        desc: '独立头像贴纸、透明聊天气泡、情侣头像顶栏和会随角色心情变化的颜文字。',
+        accent: '#f4a7bd',
+        preview: ['#fff4f7', 'rgba(255,255,255,0.36)', '#f4a7bd'],
+        searchPlaceholder: '搜索聊天',
+        tabs: {
+            chat: { label: '聊天', title: '聊天', icon: 'ri-chat-heart-line' },
+            contacts: { label: '联系人', title: '联系人', icon: 'ri-user-heart-line' },
+            discover: { label: '动态', title: '动态', icon: 'ri-heart-pulse-line' },
+            me: { label: '我的', title: '我的', icon: 'ri-user-smile-line' }
+        }
+    },
+    {
         id: 'bynd',
         name: 'BYND 默认',
         tone: '默认',
@@ -284,6 +299,7 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
     if (msgInput && !msgInput.disabled) msgInput.placeholder = getWechatChatInputPlaceholder(theme.id);
     renderWechatThemeChatHeader();
     syncWechatLineRoomHeader(theme);
+    if (typeof syncWechatCoupleThemeHeader === 'function') syncWechatCoupleThemeHeader();
 }
 
 function syncWechatXTabBar(theme = getWechatUiTheme()) {
@@ -668,6 +684,10 @@ function selectWechatUiTheme(themeId) {
     });
     const label = document.getElementById('wc-ui-theme-current');
     if (label) label.textContent = theme.name;
+    if (typeof getCurrentChatChar === 'function' && typeof refreshChatView === 'function') {
+        const currentChar = getCurrentChatChar();
+        if (currentChar) refreshChatView(currentChar);
+    }
     renderChatList();
     const activeView = document.querySelector('.wc-tab-view.active');
     if (activeView?.id === 'wc-view-contacts') renderContacts();
