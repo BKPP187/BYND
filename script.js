@@ -8318,8 +8318,10 @@ function openFolder(folderId) {
     const popup = overlay?.querySelector('.folder-popup');
     if (!overlay || !grid || !nameInput || !popup) return;
 
+    const isEditing = !!window._editMode;
     popup.dataset.folderId = folderId;
     popup.classList.toggle('large-folder', folder.size === 'large');
+    overlay.classList.toggle('folder-editing', isEditing);
     applyFolderPopupSize(folder, popup);
     ensureFolderResizeHandle(popup);
     nameInput.value = folder.name;
@@ -8340,7 +8342,15 @@ function openFolder(folderId) {
         item.className = 'app-item folder-grid-item';
         item.dataset.appId = app.id;
         item.dataset.folderId = folderId;
-        item.onclick = (e) => { e.stopPropagation(); closeFolderOverlay(); openApp(app.id); };
+        item.onclick = (e) => {
+            e.stopPropagation();
+            if (window._editMode) {
+                moveAppOutOfFolder(folderId, app.id, { keepOpen: true });
+                return;
+            }
+            closeFolderOverlay();
+            openApp(app.id);
+        };
         item.innerHTML = `
             <div class="app-icon icon-black">${renderDesktopAppIcon(app)}</div>
             <span>${desktopEscapeHtml(app.name)}</span>
@@ -8350,7 +8360,7 @@ function openFolder(folderId) {
         `;
         item.querySelector('.folder-move-out-btn')?.addEventListener('click', (event) => {
             event.stopPropagation();
-            moveAppOutOfFolder(folderId, app.id);
+            moveAppOutOfFolder(folderId, app.id, { keepOpen: window._editMode });
         });
         grid.appendChild(item);
     });
@@ -8360,7 +8370,10 @@ function openFolder(folderId) {
 
 function closeFolderOverlay(e) {
     if (e && e.target !== e.currentTarget) return;
-    document.getElementById('folder-overlay').classList.add('hidden');
+    const overlay = document.getElementById('folder-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('folder-editing');
 }
 
 function toggleDesktopFolderSize(folderId) {
@@ -8554,18 +8567,34 @@ if (document.readyState === 'loading') {
     initPageSwipe();
 }
 
-function addDesktopAppToCurrentPage(app, offsetIndex = 0) {
-    const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
-    const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
-    const pageArea = page?.querySelector('.desktop-scroll-area');
+function addDesktopAppToCurrentPage(app, offsetIndex = 0, preferredArea = null, options = {}) {
+    const pageArea = preferredArea || (() => {
+        const pageIndex = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+        const page = ensureDesktopPage(pageIndex) || document.querySelector('#pages-container .desktop-page');
+        return page?.querySelector('.desktop-scroll-area') || null;
+    })();
     if (!pageArea) return null;
     const item = createDesktopAppElement(app);
-    placeDesktopAppInFirstOpenSlot(item, pageArea, offsetIndex);
-    repairDesktopAppOverlaps(pageArea);
+    const placed = placeDesktopAppInFirstOpenSlot(item, pageArea, offsetIndex, options);
+    if (!placed) return null;
+    if (!options.strictOpenSlot) repairDesktopAppOverlaps(pageArea);
     return item;
 }
 
-function moveAppOutOfFolder(folderId, appId) {
+function addDesktopAppAfterFolderPage(app, folderPageArea, offsetIndex = 0) {
+    const startPage = folderPageArea?.closest?.('.desktop-page');
+    const startIndex = Math.max(0, getDesktopPageIndex(startPage));
+    const pageCount = Math.max(getDesktopPages().length, startIndex + 1);
+    for (let pageIndex = startIndex; pageIndex <= pageCount; pageIndex += 1) {
+        const area = ensureDesktopPage(pageIndex)?.querySelector('.desktop-scroll-area');
+        if (!area) continue;
+        const item = addDesktopAppToCurrentPage(app, offsetIndex, area, { strictOpenSlot: true });
+        if (item) return item;
+    }
+    return null;
+}
+
+function moveAppOutOfFolder(folderId, appId, options = {}) {
     const folder = window._folders.find(f => f.id === folderId);
     if (!folder) return;
     const originalApps = [...folder.apps];
@@ -8582,11 +8611,13 @@ function moveAppOutOfFolder(folderId, appId) {
         folder.apps = nextApps;
     }
     saveFolders();
-    closeFolderOverlay();
+    const keepOverlayOpen = !!options.keepOpen && !shouldDissolveFolder;
+    if (!keepOverlayOpen) closeFolderOverlay();
 
     const hasLayoutCanvas = !!document.querySelector('#pages-container .desktop-scroll-area.layout-canvas');
     if (window._editMode || hasLayoutCanvas) {
         const folderItem = Array.from(document.querySelectorAll('.app-item.is-folder')).find(item => item.dataset.folderId === folderId);
+        const folderPageArea = folderItem?.closest?.('.desktop-scroll-area') || getPreferredDesktopPageArea();
         if (shouldDissolveFolder) {
             folderItem?.remove();
         } else if (folderItem) {
@@ -8595,7 +8626,9 @@ function moveAppOutOfFolder(folderId, appId) {
             if (icon && currentFolder) icon.innerHTML = renderDesktopFolderMiniIcons(currentFolder);
         }
         let lastItem = null;
-        appsToPlace.forEach((app, index) => { lastItem = addDesktopAppToCurrentPage(app, index); });
+        appsToPlace.forEach((app, index) => {
+            lastItem = addDesktopAppAfterFolderPage(app, folderPageArea, index) || addDesktopAppToCurrentPage(app, index, folderPageArea);
+        });
         if (window._editMode && lastItem) selectDesktopLayoutItem(lastItem);
         if (!window._editMode) {
             localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
@@ -8609,6 +8642,7 @@ function moveAppOutOfFolder(folderId, appId) {
         setTimeout(initFolderDrag, 0);
     }
 
+    if (keepOverlayOpen) openFolder(folderId);
     if (typeof showWechatToast === 'function') showWechatToast(`${movedAppInfo.name} 已移到桌面`);
 }
 window.moveAppOutOfFolder = moveAppOutOfFolder;
@@ -9047,6 +9081,12 @@ function setupDesktopLayoutItem(item) {
     item.addEventListener('pointerdown', startDesktopItemDrag);
     item.addEventListener('click', (e) => {
         if (e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
+        if (item.classList.contains('is-folder') && item.dataset.folderId && !item.dataset.desktopDragMoved) {
+            e.preventDefault();
+            e.stopPropagation();
+            openFolder(item.dataset.folderId);
+            return;
+        }
         if (!window._editMode) return;
         e.preventDefault();
         e.stopPropagation();
@@ -9136,6 +9176,35 @@ function findDesktopFolderMergeTarget(item, pageArea, point) {
     })).filter(entry => entry.score >= 0.34)
       .sort((a, b) => b.score - a.score);
     return scored[0]?.target || null;
+}
+
+function findDesktopDockFolderMergeTarget(pageArea, point, sourceAppId) {
+    if (!pageArea || !point) return null;
+    const candidates = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app')).filter(target => {
+        if (!target) return false;
+        const targetAppId = getDesktopAppIdFromElement(target);
+        return !targetAppId || targetAppId !== sourceAppId;
+    });
+    const centered = candidates.find(target => {
+        const rect = target.getBoundingClientRect();
+        const pad = 18;
+        return point.x >= rect.left - pad
+            && point.x <= rect.right + pad
+            && point.y >= rect.top - pad
+            && point.y <= rect.bottom + pad;
+    });
+    if (centered) return centered;
+    return candidates.map(target => {
+        const rect = target.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        return {
+            target,
+            distance: Math.hypot(point.x - centerX, point.y - centerY),
+            limit: Math.max(rect.width, rect.height) * 0.72
+        };
+    }).filter(entry => entry.distance <= entry.limit)
+      .sort((a, b) => a.distance - b.distance)[0]?.target || null;
 }
 
 function getDesktopOrderedSlotItems(pageArea, includeDraggedItem) {
@@ -9307,7 +9376,8 @@ function getDesktopSlotIndexFromPoint(pageArea, point, item) {
     const y = (point.y - rect.top) / scale + (pageArea.scrollTop || 0);
     const slots = ensureDesktopPageSlotRects(pageArea);
     const items = getDesktopOrderedSlotItems(pageArea, true);
-    const maxIndex = slots.length ? slots.length - 1 : Math.max(0, items.length + (items.includes(item) ? 0 : 1) - 1);
+    const reorderCount = Math.max(1, items.length + (item && !items.includes(item) ? 1 : 0));
+    const maxIndex = Math.max(0, Math.min(slots.length || reorderCount, reorderCount) - 1);
     if (!slots.length) {
         const metrics = getDesktopFallbackSlotMetrics(pageArea);
         const column = Math.max(0, Math.min(metrics.columns - 1, Math.round((x - metrics.startX - metrics.iconWidth / 2) / (metrics.iconWidth + metrics.gapX))));
@@ -9332,13 +9402,12 @@ function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
     if (!pageArea || !draggedItem || !draggedItem.classList.contains('layout-app')) return;
     const slots = ensureDesktopPageSlotRects(pageArea);
     if (!slots.length) return;
-    const index = Math.max(0, Math.min(Number(targetIndex) || 0, slots.length - 1));
-    const usedSlots = new Set([index]);
-    draggedItem.dataset.desktopSlot = String(index);
     const items = getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== draggedItem);
-    items.forEach(item => {
-        const slotIndex = getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots, item.dataset.desktopSlot);
-        usedSlots.add(slotIndex);
+    const index = Math.max(0, Math.min(Number(targetIndex) || 0, Math.min(slots.length, items.length + 1) - 1));
+    const orderedItems = [...items];
+    orderedItems.splice(index, 0, draggedItem);
+    orderedItems.forEach((item, slotIndex) => {
+        if (slotIndex >= slots.length) return;
         item.dataset.desktopSlot = String(slotIndex);
         const rect = getDesktopSlotRect(pageArea, slotIndex, item);
         item.style.left = `${Math.round(rect.left)}px`;
@@ -9346,11 +9415,53 @@ function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
         item.style.width = `${Math.round(rect.width)}px`;
         item.style.height = `${Math.round(rect.height)}px`;
     });
-    const draggedRect = getDesktopSlotRect(pageArea, index, draggedItem);
-    draggedItem.style.left = `${Math.round(draggedRect.left)}px`;
-    draggedItem.style.top = `${Math.round(draggedRect.top)}px`;
-    draggedItem.style.width = `${Math.round(draggedRect.width)}px`;
-    draggedItem.style.height = `${Math.round(draggedRect.height)}px`;
+}
+
+function normalizeDesktopLayoutAppSlotSize(item, pageArea) {
+    if (!item || !pageArea || !item.classList.contains('layout-app') || item.classList.contains('is-folder')) return;
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    item.style.width = `${metrics.iconWidth}px`;
+    item.style.height = `${metrics.iconHeight}px`;
+}
+
+function insertDesktopAppAtSlot(pageArea, item, targetIndex) {
+    if (!pageArea || !item || !item.classList.contains('layout-app')) return;
+    delete pageArea._desktopSlotRects;
+    const slots = ensureDesktopPageSlotRects(pageArea);
+    const existingItems = getDesktopOrderedSlotItems(pageArea, true).filter(entry => entry !== item);
+    const index = Math.max(0, Math.min(Number(targetIndex) || 0, existingItems.length));
+    const orderedItems = [...existingItems];
+    orderedItems.splice(index, 0, item);
+    const capacity = slots.length || orderedItems.length;
+    const overflowItems = [];
+    orderedItems.forEach((entry, slotIndex) => {
+        if (slotIndex >= capacity) {
+            overflowItems.push(entry);
+            return;
+        }
+        normalizeDesktopLayoutAppSlotSize(entry, pageArea);
+        entry.dataset.desktopSlot = String(slotIndex);
+        const rect = getDesktopSlotRect(pageArea, slotIndex, entry);
+        entry.style.left = `${Math.round(rect.left)}px`;
+        entry.style.top = `${Math.round(rect.top)}px`;
+        entry.style.width = `${Math.round(rect.width)}px`;
+        entry.style.height = `${Math.round(rect.height)}px`;
+    });
+    if (overflowItems.length) {
+        const currentPage = pageArea.closest('.desktop-page');
+        const nextIndex = getDesktopPageIndex(currentPage) + 1;
+        const nextArea = ensureDesktopPage(nextIndex)?.querySelector('.desktop-scroll-area');
+        if (nextArea) {
+            nextArea.classList.add('layout-canvas');
+            nextArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+            overflowItems.forEach((entry, overflowIndex) => {
+                nextArea.appendChild(entry);
+                entry.classList.add('desktop-layout-item', 'layout-app');
+                setupDesktopLayoutItem(entry);
+                placeDesktopAppInFirstOpenSlot(entry, nextArea, overflowIndex);
+            });
+        }
+    }
 }
 
 function compactDesktopSlotOrder(pageArea, excludedItem = null) {
@@ -9550,7 +9661,7 @@ function getDesktopDragEdgeDirection(point) {
     const container = document.getElementById('pages-container');
     const rect = container?.getBoundingClientRect?.();
     if (!rect || point.y < rect.top - 20 || point.y > rect.bottom + 20) return '';
-    const edgeSize = 54;
+    const edgeSize = 34;
     if (point.x <= rect.left + edgeSize) return 'left';
     if (point.x >= rect.right - edgeSize) return 'right';
     return '';
@@ -9687,7 +9798,7 @@ function getPreferredDesktopPageArea() {
     return ensureDesktopPage(index)?.querySelector('.desktop-scroll-area') || document.querySelector('#pages-container .desktop-page .desktop-scroll-area');
 }
 
-function findDesktopFirstOpenAppSlotRect(pageArea, item, preferredIndex = 0) {
+function findDesktopFirstOpenAppSlotRect(pageArea, item, preferredIndex = 0, options = {}) {
     if (!pageArea || !item) return null;
     delete pageArea._desktopSlotRects;
     const metrics = getDesktopFallbackSlotMetrics(pageArea);
@@ -9712,6 +9823,13 @@ function findDesktopFirstOpenAppSlotRect(pageArea, item, preferredIndex = 0) {
         }, pageArea)
     }));
     const free = candidates.find(entry => scoreDesktopCandidateOverlap(entry.rect, pageArea, [item]) < 0.08);
+    if (options.strictOpenSlot) {
+        if (free) {
+            item.dataset.desktopSlot = String(free.slotIndex);
+            return free.rect;
+        }
+        return null;
+    }
     const best = free || candidates
         .map(entry => ({ ...entry, score: scoreDesktopCandidateOverlap(entry.rect, pageArea, [item]) }))
         .sort((a, b) => a.score - b.score)[0];
@@ -9722,23 +9840,29 @@ function findDesktopFirstOpenAppSlotRect(pageArea, item, preferredIndex = 0) {
     return findDesktopOpenAppRect(pageArea, item, getDesktopFallbackSlotRect(pageArea, start, item));
 }
 
-function placeDesktopAppInFirstOpenSlot(item, preferredArea, preferredIndex = 0) {
+function placeDesktopAppInFirstOpenSlot(item, preferredArea, preferredIndex = 0, options = {}) {
     const pageArea = preferredArea || getPreferredDesktopPageArea();
-    if (!item || !pageArea) return;
+    if (!item || !pageArea) return false;
     pageArea.classList.add('layout-canvas');
     pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
     if (item.parentElement !== pageArea) pageArea.appendChild(item);
     item.classList.add('desktop-layout-item', 'layout-app');
     item.dataset.layoutId = item.dataset.layoutId || `app-${getDesktopAppIdFromElement(item)}`;
     item.dataset.layoutType = item.dataset.layoutType || (item.classList.contains('is-folder') ? 'folder' : 'app');
+    normalizeDesktopLayoutAppSlotSize(item, pageArea);
     item.style.removeProperty('transform');
     item.style.removeProperty('position');
     setupDesktopLayoutItem(item);
     const slot = Math.max(0, Number(preferredIndex) || 0);
-    const rect = findDesktopFirstOpenAppSlotRect(pageArea, item, slot);
+    const rect = findDesktopFirstOpenAppSlotRect(pageArea, item, slot, options);
+    if (!rect) {
+        item.remove();
+        return false;
+    }
     prepareDesktopLayoutItem(item, pageArea, rect);
-    repairDesktopAppOverlaps(pageArea);
+    if (!options.strictOpenSlot) repairDesktopAppOverlaps(pageArea);
     captureDesktopPageSlotRects(pageArea);
+    return true;
 }
 
 function removeDesktopDuplicateAppIcons(appId, keepItem) {
@@ -9789,15 +9913,72 @@ function moveDesktopDockItemToPage(dockItem, pageArea, targetIndex) {
     const app = getDesktopAnyAppDefinition(appId);
     if (!app) return null;
     const item = createDesktopAppElement(app);
+    removeDesktopDuplicateAppIcons(app.id, item);
     delete pageArea._desktopSlotRects;
-    ensureDesktopPageSlotRects(pageArea);
     dockItem.remove();
-    placeDesktopAppInFirstOpenSlot(item, pageArea);
+    pageArea.classList.add('layout-canvas');
+    pageArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+    pageArea.appendChild(item);
+    item.classList.add('desktop-layout-item', 'layout-app');
+    item.dataset.layoutId = item.dataset.layoutId || `app-${app.id}`;
+    item.dataset.layoutType = 'app';
+    normalizeDesktopLayoutAppSlotSize(item, pageArea);
+    item.style.removeProperty('transform');
+    item.style.removeProperty('position');
+    setupDesktopLayoutItem(item);
     const index = Number.isFinite(targetIndex) ? targetIndex : getDesktopOrderedSlotItems(pageArea, true).length - 1;
-    applyDesktopSlotOrder(pageArea, item, index);
-    repairDesktopAppOverlaps(pageArea);
+    insertDesktopAppAtSlot(pageArea, item, index);
     refreshDesktopDockOrder();
     return item;
+}
+
+function mergeDesktopDockItemIntoFolder(dockItem, targetItem, pageArea) {
+    if (!dockItem || !targetItem || !pageArea) return false;
+    const appId = getDesktopDockItemAppId(dockItem);
+    const sourceApp = getDesktopAnyAppDefinition(appId);
+    if (!sourceApp) return false;
+    let folder = null;
+    let folderItem = null;
+    if (targetItem.classList.contains('is-folder')) {
+        folder = window._folders.find(f => f.id === targetItem.dataset.folderId);
+        if (!folder || folder.apps?.some(app => app?.id === sourceApp.id)) return false;
+        folder.apps.push(normalizeDesktopAppRef(sourceApp));
+        saveFolders();
+        dockItem.remove();
+        syncDesktopFolderIcon(folder.id);
+        folderItem = targetItem;
+    } else {
+        const targetApp = getDesktopLayoutItemAppRef(targetItem);
+        if (!targetApp || targetApp.id === sourceApp.id) return false;
+        folder = {
+            id: 'folder_' + Date.now(),
+            name: '文件夹',
+            apps: [normalizeDesktopAppRef(targetApp), normalizeDesktopAppRef(sourceApp)],
+            width: null,
+            height: null,
+            size: 'small'
+        };
+        window._folders.push(folder);
+        saveFolders();
+        const rect = {
+            left: parseFloat(targetItem.style.left) || targetItem.offsetLeft || 24,
+            top: parseFloat(targetItem.style.top) || targetItem.offsetTop || 64,
+            width: targetItem.offsetWidth || 72,
+            height: targetItem.offsetHeight || 76
+        };
+        folderItem = createDesktopFolderElement(folder);
+        pageArea.appendChild(folderItem);
+        prepareDesktopLayoutItem(folderItem, pageArea, rect);
+        targetItem.remove();
+        dockItem.remove();
+    }
+    if (!folderItem) return false;
+    removeDesktopDuplicateAppIcons(sourceApp.id, folderItem);
+    folderItem.classList.remove('desktop-folder-merge-target');
+    selectDesktopLayoutItem(folderItem);
+    refreshDesktopDockOrder();
+    if (typeof showWechatToast === 'function') showWechatToast('已合并为文件夹');
+    return true;
 }
 
 function startDesktopDockItemDrag(e) {
@@ -9814,6 +9995,15 @@ function startDesktopDockItemDrag(e) {
     selectDesktopLayoutItem(dockItem);
     const startPoint = getDesktopPointerPoint(e);
     const previousPointerEvents = dockItem.style.pointerEvents;
+    let pendingFolderMergeTarget = null;
+    const setPendingFolderMergeTarget = target => {
+        if (pendingFolderMergeTarget && pendingFolderMergeTarget !== target) {
+            pendingFolderMergeTarget.classList.remove('desktop-folder-merge-target');
+        }
+        pendingFolderMergeTarget = target || null;
+        if (pendingFolderMergeTarget) pendingFolderMergeTarget.classList.add('desktop-folder-merge-target');
+    };
+    const clearPendingFolderMergeTarget = () => setPendingFolderMergeTarget(null);
     dockItem.style.pointerEvents = 'none';
     const ghost = dockItem.cloneNode(true);
     ghost.classList.add('dock-drag-ghost');
@@ -9828,6 +10018,7 @@ function startDesktopDockItemDrag(e) {
         const point = getDesktopPointerPoint(ev);
         moveGhost(point);
         if (isPointInsideDesktopDock(point)) {
+            clearPendingFolderMergeTarget();
             const index = getDesktopDockInsertIndex(point, dockItem);
             const items = getDesktopDockItems().filter(item => item !== dockItem);
             document.querySelector('#home-screen .dock-bar')?.insertBefore(dockItem, items[index] || null);
@@ -9837,6 +10028,9 @@ function startDesktopDockItemDrag(e) {
         const targetArea = getDesktopPageAreaFromPoint(point);
         if (targetArea) {
             ensureDesktopPageSlotRects(targetArea);
+            setPendingFolderMergeTarget(findDesktopDockFolderMergeTarget(targetArea, point, dockApp.id));
+        } else {
+            clearPendingFolderMergeTarget();
         }
     };
     const up = ev => {
@@ -9848,10 +10042,17 @@ function startDesktopDockItemDrag(e) {
         ghost.remove();
         const targetArea = getDesktopPageAreaFromPoint(point);
         if (targetArea && !isPointInsideDesktopDock(point)) {
-            const targetIndex = getDesktopSlotIndexFromPoint(targetArea, point, null);
-            const pageItem = moveDesktopDockItemToPage(dockItem, targetArea, targetIndex);
-            if (pageItem) selectDesktopLayoutItem(pageItem);
+            const mergeTarget = pendingFolderMergeTarget || findDesktopDockFolderMergeTarget(targetArea, point, dockApp.id);
+            if (mergeTarget && mergeDesktopDockItemIntoFolder(dockItem, mergeTarget, targetArea)) {
+                clearPendingFolderMergeTarget();
+            } else {
+                clearPendingFolderMergeTarget();
+                const targetIndex = getDesktopSlotIndexFromPoint(targetArea, point, null);
+                const pageItem = moveDesktopDockItemToPage(dockItem, targetArea, targetIndex);
+                if (pageItem) selectDesktopLayoutItem(pageItem);
+            }
         } else {
+            clearPendingFolderMergeTarget();
             const index = getDesktopDockInsertIndex(point, dockItem);
             const items = getDesktopDockItems().filter(item => item !== dockItem);
             document.querySelector('#home-screen .dock-bar')?.insertBefore(dockItem, items[index] || null);
@@ -9918,6 +10119,7 @@ function startDesktopItemDrag(e) {
     const pageArea = item.closest('.desktop-scroll-area');
     if (!pageArea) return;
     const sourcePageRect = pageArea.getBoundingClientRect();
+    delete item.dataset.desktopDragMoved;
     e.preventDefault();
     e.stopPropagation();
     if (typeof item.setPointerCapture === 'function' && typeof e.pointerId !== 'undefined') {
@@ -9932,12 +10134,25 @@ function startDesktopItemDrag(e) {
     const startTop = parseFloat(item.style.top) || 0;
     const scale = getDesktopEditScale();
     const isAppIcon = item.classList.contains('layout-app');
+    const isFolderIcon = item.classList.contains('is-folder') && !!item.dataset.folderId;
     const canMoveAcrossPages = isAppIcon || item.classList.contains('desktop-custom-widget') || item.classList.contains('calendar-widget') || item.classList.contains('photo-large');
     let currentPageArea = pageArea;
     let movedToPageIndex = getDesktopPageIndex(pageArea.closest('.desktop-page'));
     let hasMoved = false;
+    let maxMovedDistance = 0;
     let pendingDockIndex = -1;
     let lockedEdgeDirection = '';
+    let edgeHoverDirection = '';
+    let edgeHoverSince = 0;
+    let pendingFolderMergeTarget = null;
+    const setPendingFolderMergeTarget = target => {
+        if (pendingFolderMergeTarget && pendingFolderMergeTarget !== target) {
+            pendingFolderMergeTarget.classList.remove('desktop-folder-merge-target');
+        }
+        pendingFolderMergeTarget = target || null;
+        if (pendingFolderMergeTarget) pendingFolderMergeTarget.classList.add('desktop-folder-merge-target');
+    };
+    const clearPendingFolderMergeTarget = () => setPendingFolderMergeTarget(null);
     if (isAppIcon) {
         item.classList.add('desktop-slot-dragging');
         captureDesktopPageSlotRects(pageArea);
@@ -9945,12 +10160,34 @@ function startDesktopItemDrag(e) {
 
     const move = (ev) => {
         const point = getDesktopPointerPoint(ev);
-        hasMoved = true;
-        const edgeDirection = getDesktopDragEdgeDirection(point);
-        if (!edgeDirection || edgeDirection !== lockedEdgeDirection) lockedEdgeDirection = '';
-        const edgePageArea = edgeDirection && edgeDirection !== lockedEdgeDirection
-            ? getDesktopEdgePageAreaForDrag(point, currentPageArea)
-            : null;
+        const movedDistance = Math.hypot(point.x - startX, point.y - startY);
+        maxMovedDistance = Math.max(maxMovedDistance, movedDistance);
+        const moveThreshold = isFolderIcon ? 16 : 6;
+        if (movedDistance > moveThreshold) {
+            hasMoved = true;
+            item.dataset.desktopDragMoved = '1';
+        }
+        if (!hasMoved) return;
+        const activeArea = currentPageArea || pageArea;
+        const pointerMergeTarget = isAppIcon ? findDesktopFolderMergeTarget(item, activeArea, point) : null;
+        const pointerSlotIndex = isAppIcon ? getDesktopSlotIndexFromPoint(activeArea, point, item) : -1;
+        const currentSlotIndex = isAppIcon ? Number(item.dataset.desktopSlot) : -1;
+        const pointerIsOnDesktopIcon = !!pointerMergeTarget
+            || (Number.isFinite(pointerSlotIndex) && Number.isFinite(currentSlotIndex) && pointerSlotIndex !== currentSlotIndex);
+        const edgeDirection = pointerIsOnDesktopIcon ? '' : getDesktopDragEdgeDirection(point);
+        if (!edgeDirection) {
+            lockedEdgeDirection = '';
+            edgeHoverDirection = '';
+            edgeHoverSince = 0;
+        } else if (edgeDirection !== edgeHoverDirection) {
+            edgeHoverDirection = edgeDirection;
+            edgeHoverSince = Date.now();
+        }
+        if (edgeDirection && edgeDirection !== lockedEdgeDirection && Date.now() - edgeHoverSince < 760) {
+            edgeHoverDirection = edgeDirection;
+        }
+        const edgeReady = edgeDirection && edgeDirection !== lockedEdgeDirection && Date.now() - edgeHoverSince >= 760;
+        const edgePageArea = edgeReady ? getDesktopEdgePageAreaForDrag(point, currentPageArea) : null;
         const targetPageArea = edgePageArea || getDesktopPageAreaFromPoint(point);
         if (canMoveAcrossPages && targetPageArea && targetPageArea !== currentPageArea && !isPointInsideDesktopDock(point)) {
             targetPageArea.classList.add('layout-canvas');
@@ -9966,6 +10203,7 @@ function startDesktopItemDrag(e) {
         if (isAppIcon && isPointInsideDesktopDock(point)) {
             pendingDockIndex = getDesktopDockInsertIndex(point, null);
             item.classList.add('desktop-dock-drop-ready');
+            clearPendingFolderMergeTarget();
             return;
         }
         pendingDockIndex = -1;
@@ -9985,9 +10223,17 @@ function startDesktopItemDrag(e) {
             height: item.offsetHeight
         }, { mode: 'move' });
         if (isAppIcon) {
-            applyDesktopSlotOrder(area, item, getDesktopSlotIndexFromPoint(area, point, item));
+            const mergeTarget = (area === activeArea ? pointerMergeTarget : null) || findDesktopFolderMergeTarget(item, area, point);
+            if (mergeTarget) {
+                setPendingFolderMergeTarget(mergeTarget);
+                return;
+            }
+            clearPendingFolderMergeTarget();
+            const slotIndex = area === activeArea && pointerSlotIndex >= 0 ? pointerSlotIndex : getDesktopSlotIndexFromPoint(area, point, item);
+            applyDesktopSlotOrder(area, item, slotIndex);
             nudgeDesktopLayoutObstacles(item, area);
         } else {
+            clearPendingFolderMergeTarget();
             settleDesktopAppsAroundWidget(item, area);
         }
     };
@@ -9997,23 +10243,35 @@ function startDesktopItemDrag(e) {
         }
         const point = getDesktopPointerPoint(ev);
         const area = item.closest('.desktop-scroll-area') || currentPageArea || pageArea;
+        if (isFolderIcon && (!hasMoved || maxMovedDistance <= 18)) {
+            item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+            hideDesktopSnapGuides(area);
+            clearPendingFolderMergeTarget();
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            openFolder(item.dataset.folderId);
+            return;
+        }
         if (isAppIcon && (isPointInsideDesktopDock(point) || pendingDockIndex >= 0)) {
             moveDesktopAppItemToDock(item, pendingDockIndex >= 0 ? pendingDockIndex : getDesktopDockInsertIndex(point, null));
             hideDesktopSnapGuides(area);
             item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+            clearPendingFolderMergeTarget();
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
             return;
         }
-        const target = hasMoved ? findDesktopFolderMergeTarget(item, area, point) : null;
+        const target = hasMoved ? (pendingFolderMergeTarget || findDesktopFolderMergeTarget(item, area, point)) : null;
         if (target && mergeDesktopLayoutAppsIntoFolder(item, target, area)) {
             hideDesktopSnapGuides(area);
             item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+            clearPendingFolderMergeTarget();
             compactDesktopSlotOrder(area);
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
             return;
         }
+        clearPendingFolderMergeTarget();
         if (isAppIcon) {
             const finalIndex = getDesktopSlotIndexFromPoint(area, point, item);
             applyDesktopSlotOrder(area, item, finalIndex);
@@ -10029,6 +10287,9 @@ function startDesktopItemDrag(e) {
             settleDesktopAppsAroundWidget(item, area);
         }
         item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
+        if (item.dataset.desktopDragMoved) {
+            setTimeout(() => { delete item.dataset.desktopDragMoved; }, 0);
+        }
         hideDesktopSnapGuides(area);
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
