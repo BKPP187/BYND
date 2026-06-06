@@ -11818,6 +11818,33 @@ function cancelDesktopEditLongPress(e) {
     _desktopLongPressStart = null;
 }
 
+function shouldSuppressDesktopNativeLongPress(target) {
+    if (!target || !target.closest) return false;
+    if (!target.closest('#home-screen')) return false;
+    if (target.closest('input, textarea, select, [contenteditable="true"], .lcw-input, .pw-note')) return false;
+    return !!target.closest([
+        '.pages-container',
+        '.desktop-page',
+        '.desktop-scroll-area',
+        '.app-item',
+        '.app-icon',
+        '.dock-bar',
+        '.dock-item',
+        '.desktop-layout-item',
+        '.desktop-custom-widget',
+        '.photo-large',
+        '.calendar-widget',
+        '.desktop-edit-swipe-zone',
+        '.page-dots'
+    ].join(','));
+}
+
+function suppressDesktopNativeLongPress(e) {
+    if (!shouldSuppressDesktopNativeLongPress(e.target)) return;
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+}
+
 function promptSaveDesktopLayout() {
     const home = document.getElementById('home-screen');
     if (!home || document.getElementById('desktop-save-modal')) return;
@@ -12138,6 +12165,9 @@ function initEditMode() {
     const dock = document.querySelector('#home-screen .dock-bar');
     if (dock && !_desktopDefaultDockHtml) _desktopDefaultDockHtml = dock.innerHTML;
     home.dataset.editInit = '1';
+    ['contextmenu', 'dragstart', 'selectstart'].forEach(type => {
+        home.addEventListener(type, suppressDesktopNativeLongPress, true);
+    });
     home.addEventListener('pointerdown', startDesktopEditLongPress, true);
     ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(type => {
         home.addEventListener(type, cancelDesktopEditLongPress, true);

@@ -7,6 +7,56 @@ window.currentChatCharId = null;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="100" fill="#f0f0f0"/><circle cx="100" cy="85" r="35" fill="#ccc"/><ellipse cx="100" cy="160" rx="50" ry="35" fill="#ccc"/></svg>');
 window.DEFAULT_AVATAR = DEFAULT_AVATAR;
+
+function isWechatRealAvatarSource(value) {
+    if (typeof value !== 'string') return false;
+    const src = value.trim();
+    return !!src && src !== DEFAULT_AVATAR && src !== 'undefined' && src !== 'null';
+}
+
+function getWechatFirstRealAvatarSource(...sources) {
+    for (const source of sources) {
+        if (Array.isArray(source)) {
+            const found = getWechatFirstRealAvatarSource(...source);
+            if (isWechatRealAvatarSource(found)) return found;
+        } else if (isWechatRealAvatarSource(source)) {
+            return source.trim();
+        }
+    }
+    return '';
+}
+
+function getWechatCharAvatarSource(char, fallback = DEFAULT_AVATAR) {
+    if (!char) return fallback || DEFAULT_AVATAR;
+    const config = char.chatConfig || {};
+    const avatar = getWechatFirstRealAvatarSource(
+        char.avatar,
+        char._smallAvatar,
+        char.avatarGallery,
+        config.avatar,
+        config.profileAvatar,
+        config.imageReference
+    );
+    if (avatar) return avatar;
+    if (char.isGroupChat && typeof buildWechatGroupAvatar === 'function') {
+        return buildWechatGroupAvatar(char) || fallback || DEFAULT_AVATAR;
+    }
+    return fallback || DEFAULT_AVATAR;
+}
+window.getWechatCharAvatarSource = getWechatCharAvatarSource;
+
+function normalizeWechatCharacterAvatarData(char) {
+    if (!char || typeof char !== 'object') return char;
+    if (Array.isArray(char.avatarGallery)) {
+        char.avatarGallery = char.avatarGallery.filter(isWechatRealAvatarSource);
+    } else {
+        char.avatarGallery = [];
+    }
+    const avatar = getWechatCharAvatarSource(char, '');
+    if (avatar) char.avatar = avatar;
+    return char;
+}
+
 const WECHAT_QQ_GROUP_USER_ID = '__wechat_qq_group_user__';
 window.WECHAT_QQ_GROUP_USER_ID = WECHAT_QQ_GROUP_USER_ID;
 const WECHAT_AUTO_COLLAPSE_AFTER = 56;
@@ -21,6 +71,11 @@ const WECHAT_MEMORY_DEFAULTS = {
 const WECHAT_MOMENTS_STORAGE_KEY = 'wechat_moments_store';
 const WECHAT_VIDEO_STORAGE_KEY = 'wechat_video_state';
 const WECHAT_LIVE_STORAGE_KEY = 'wechat_live_state';
+const WECHAT_CHARACTERS_STORAGE_KEY = 'my_characters_data';
+const WECHAT_CHARACTERS_META_KEY = 'my_characters_data_meta';
+const WECHAT_CHARACTERS_DB_NAME = 'XuexiCharactersDB';
+const WECHAT_CHARACTERS_DB_STORE = 'characters';
+const WECHAT_CHARACTERS_DB_KEY = 'full';
 const WECHAT_SHOP_STORAGE_KEY = 'wechat_shop_store';
 const WECHAT_TAKEOUT_STORAGE_KEY = 'wechat_takeout_store';
 const WECHAT_SHOP_AGGREGATE_SOURCE_ID = 'bynd-aggregate';
@@ -328,7 +383,7 @@ function renderChatList() {
         item.classList.toggle('wc-chat-muted', isMuted);
         item.classList.toggle('wc-chat-hidden-preview', isHiddenPreview);
         const displayName = isGroup ? getWechatQQGroupDisplayName(char) : ((char.chatConfig && char.chatConfig.nickname) || char.name);
-        const avatar = char.avatar || (isGroup ? buildWechatGroupAvatar(char) : DEFAULT_AVATAR);
+        const avatar = getWechatCharAvatarSource(char, isGroup ? buildWechatGroupAvatar(char) : DEFAULT_AVATAR);
         const douyinUnread = isDouyinTheme ? getWechatDouyinUnreadCount(char) : 0;
         const douyinSpark = isDouyinTheme ? getWechatDouyinSparkScore(char) : 0;
         const douyinUnreadHtml = isDouyinTheme && douyinUnread > 0
@@ -2019,9 +2074,10 @@ function openChat(charId) {
     const floatImg = document.getElementById('wc-float-avatar-img');
     const floatName = document.getElementById('wc-float-name');
     const roomHeaderAvatar = document.getElementById('chat-room-header-avatar');
-    if (floatImg) floatImg.src = char.avatar || DEFAULT_AVATAR;
+    const charAvatar = getWechatCharAvatarSource(char);
+    if (floatImg) floatImg.src = charAvatar;
     if (floatName) floatName.textContent = chatTitle;
-    if (roomHeaderAvatar) roomHeaderAvatar.src = char.avatar || DEFAULT_AVATAR;
+    if (roomHeaderAvatar) roomHeaderAvatar.src = charAvatar;
     syncWechatLineRoomHeader();
     syncWechatCoupleThemeHeader(char);
     if (touchedMessageTime || readStateChanged || sanitizedContext) saveCharactersToStorage();
@@ -7942,7 +7998,17 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     }
     if (groupMember) row.classList.add('group-member');
 
-    const currentAvatar = msg.isMe ? myAvatar : (groupMember?.avatar || avatarUrl);
+    const currentAvatar = msg.isMe
+        ? myAvatar
+        : getWechatFirstRealAvatarSource(
+            groupMember?.avatar,
+            msg.avatar,
+            msg.avatarUrl,
+            msg.senderAvatar,
+            msg.speakerAvatar,
+            avatarUrl,
+            getWechatCharAvatarSource(charObj, '')
+        ) || DEFAULT_AVATAR;
     const showCoupleHeader = !isWechatCoupleTheme() || options.showCoupleHeader !== false;
     if (isWechatCoupleTheme()) {
         row.classList.add(showCoupleHeader ? 'couple-group-start' : 'couple-continuation');
@@ -8341,7 +8407,7 @@ function refreshChatView(char) {
         if (msg && msg.type !== 'system_notice' && shouldShowWechatTimeDivider(prevVisibleMsg, msg)) {
             appendWechatTimeDivider(contentEl, getWechatMessageDate(msg));
         }
-        renderMessageBubble(contentEl, msg, char.avatar, char, index, {
+        renderMessageBubble(contentEl, msg, getWechatCharAvatarSource(char, ''), char, index, {
             showCoupleHeader: shouldShowWechatCoupleMessageHeader(prevVisibleMsg, msg, char)
         });
         queueWechatPendingImageGeneration(char, msg);
@@ -9056,7 +9122,7 @@ function setWechatVoiceToolMode(mode) {
     document.getElementById('wc-voice-speech-panel')?.classList.toggle('hidden', nextMode !== 'speech');
     document.getElementById('wc-voice-tts-panel')?.classList.toggle('hidden', nextMode !== 'tts');
     const status = document.getElementById('wc-voice-status');
-    if (status) status.textContent = nextMode === 'tts' ? '输入文字后发送成语音气泡' : '按住底栏按钮说话，松开发送';
+    if (status) status.textContent = nextMode === 'tts' ? '输入文字，发送后显示为语音气泡' : '按住底栏按钮说话，松开发送';
 }
 
 function setWechatVoiceInputMode(active, options = {}) {
@@ -9323,24 +9389,21 @@ async function sendWechatTypedVoice() {
     const voiceApi = typeof getDefaultVoiceApi === 'function' ? getDefaultVoiceApi() : null;
     if (voiceApi && typeof requestDefaultVoiceAudio === 'function') {
         try {
-            const provider = voiceApi.provider === 'local' ? '本地 TTS'
-                : (voiceApi.provider === 'openai' ? 'OpenAI'
-                : (voiceApi.provider === 'elevenlabs' ? 'ElevenLabs' : 'MiniMax'));
-            if (status) status.textContent = `正在生成${provider}语音...`;
+            if (status) status.textContent = '正在生成语音气泡...';
             const result = await requestDefaultVoiceAudio(text);
             msg.audioUrl = result.audioUrl;
             msg.audioMime = result.mimeType || 'audio/mpeg';
             msg.duration = result.duration || msg.duration;
         } catch (e) {
             console.warn('TTS failed:', e);
-            if (typeof showWechatToast === 'function') showWechatToast('语音生成失败，已发送文字语音气泡');
+            if (typeof showWechatToast === 'function') showWechatToast('已发送语音气泡');
         }
     }
     appendWechatMessage({
         ...msg
     });
     if (input) input.value = '';
-    if (status) status.textContent = msg.audioUrl ? '已发送语音' : '已发送文字转语音';
+    if (status) status.textContent = '已发送语音气泡';
 }
 
 function startWechatSpeechRecognition() {
@@ -11249,62 +11312,233 @@ function initSwipeHandlers() {
 
 // --- D. 本地存储：角色数据持久化 ---
 
-function saveCharactersToStorage() {
+function getWechatCharacterStorageMeta() {
     try {
-        const data = window.myCharacters.map(char => ({
-            id: char.id,
-            name: char.name,
-            description: char.description || '',
-            avatar: char._smallAvatar || char.avatar || '',
-            lastMsg: char.lastMsg,
-            worldBook: char.worldBook || [],
-            regex: char.regex || [],
-            alternates: char.alternates || [],
-            first_mes_original: char.first_mes_original || '',
-            first_mes: char.first_mes || '',
-            currentGreetingIndex: char.currentGreetingIndex || 0,
-            isGroupNpc: !!char.isGroupNpc,
-            groupNpc: !!char.groupNpc,
-            npcOriginGroupId: char.npcOriginGroupId || '',
-            npcCreatedByMemberId: char.npcCreatedByMemberId || '',
-            npcCreatedAt: char.npcCreatedAt || 0,
-            isGroupChat: !!char.isGroupChat,
-            groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
-            groupCreatedAt: char.groupCreatedAt || 0,
-            chatConfig: char.chatConfig || {},
-            history: char.history || []
-        }));
-        const jsonStr = JSON.stringify(data);
-        localStorage.setItem('my_characters_data', jsonStr);
-        console.log("✅ 角色数据已保存，大小:", (jsonStr.length / 1024).toFixed(1) + "KB");
+        const meta = JSON.parse(localStorage.getItem(WECHAT_CHARACTERS_META_KEY) || '{}');
+        return meta && typeof meta === 'object' ? meta : {};
     } catch (e) {
-        if (e.name === 'QuotaExceededError') {
-            try {
-                const data = window.myCharacters.map(char => ({
-                    id: char.id, name: char.name, description: char.description || '', avatar: '',
-                    lastMsg: char.lastMsg, worldBook: char.worldBook || [], regex: char.regex || [],
-                    alternates: char.alternates || [],
-                    first_mes_original: char.first_mes_original || '',
-                    first_mes: char.first_mes || '',
-                    currentGreetingIndex: char.currentGreetingIndex || 0,
-                    isGroupNpc: !!char.isGroupNpc,
-                    groupNpc: !!char.groupNpc,
-                    npcOriginGroupId: char.npcOriginGroupId || '',
-                    npcCreatedByMemberId: char.npcCreatedByMemberId || '',
-                    npcCreatedAt: char.npcCreatedAt || 0,
-                    isGroupChat: !!char.isGroupChat,
-                    groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
-                    groupCreatedAt: char.groupCreatedAt || 0,
-                    chatConfig: char.chatConfig || {},
-                    history: char.history || []
-                }));
-                localStorage.setItem('my_characters_data', JSON.stringify(data));
-                console.warn("⚠️ 存储空间紧张，头像和世界书已省略");
-            } catch (e2) {
-                alert("❌ 存储空间不足，角色数据无法保存");
-            }
-        } else { console.error("保存角色数据失败:", e); }
+        return {};
     }
+}
+
+function setWechatCharacterStorageMeta(meta) {
+    try {
+        localStorage.setItem(WECHAT_CHARACTERS_META_KEY, JSON.stringify(meta || {}));
+    } catch (e) {
+        console.warn('角色存储状态写入失败', e);
+    }
+}
+
+function openWechatCharactersDB() {
+    return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            reject(new Error('当前浏览器不支持 IndexedDB'));
+            return;
+        }
+        const req = indexedDB.open(WECHAT_CHARACTERS_DB_NAME, 1);
+        req.onupgradeneeded = () => {
+            if (!req.result.objectStoreNames.contains(WECHAT_CHARACTERS_DB_STORE)) {
+                req.result.createObjectStore(WECHAT_CHARACTERS_DB_STORE);
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+}
+
+async function saveWechatCharactersToIndexedDb(characters, updatedAt = Date.now()) {
+    const db = await openWechatCharactersDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(WECHAT_CHARACTERS_DB_STORE, 'readwrite');
+        tx.objectStore(WECHAT_CHARACTERS_DB_STORE).put({
+            updatedAt,
+            characters
+        }, WECHAT_CHARACTERS_DB_KEY);
+        tx.oncomplete = () => resolve({ updatedAt, characters });
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB 写入失败'));
+    });
+}
+window.saveWechatCharactersToIndexedDb = saveWechatCharactersToIndexedDb;
+
+async function loadWechatCharactersFromIndexedDb() {
+    const db = await openWechatCharactersDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(WECHAT_CHARACTERS_DB_STORE, 'readonly');
+        const req = tx.objectStore(WECHAT_CHARACTERS_DB_STORE).get(WECHAT_CHARACTERS_DB_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error || new Error('IndexedDB 读取失败'));
+    });
+}
+window.loadWechatCharactersFromIndexedDb = loadWechatCharactersFromIndexedDb;
+
+function compactWechatChatConfigForLocal(config = {}) {
+    const compact = { ...config };
+    [
+        'chatBgImage',
+        'imageReference',
+        'videoCallBg',
+        'momentCovers',
+        'xCover',
+        'lineCover',
+        'telegramCover',
+        'customWallpaper',
+        'backgroundImage'
+    ].forEach(key => delete compact[key]);
+    return compact;
+}
+
+function serializeWechatCharacterForStorage(char) {
+    normalizeWechatCharacterAvatarData(char);
+    return {
+        id: char.id,
+        name: char.name,
+        description: char.description || '',
+        avatar: getWechatCharAvatarSource(char, ''),
+        _smallAvatar: char._smallAvatar || '',
+        avatarGallery: Array.isArray(char.avatarGallery) ? char.avatarGallery.filter(isWechatRealAvatarSource) : [],
+        lastMsg: char.lastMsg,
+        worldBook: char.worldBook || [],
+        regex: char.regex || [],
+        alternates: char.alternates || [],
+        first_mes_original: char.first_mes_original || '',
+        first_mes: char.first_mes || '',
+        currentGreetingIndex: char.currentGreetingIndex || 0,
+        isGroupNpc: !!char.isGroupNpc,
+        groupNpc: !!char.groupNpc,
+        npcOriginGroupId: char.npcOriginGroupId || '',
+        npcCreatedByMemberId: char.npcCreatedByMemberId || '',
+        npcCreatedAt: char.npcCreatedAt || 0,
+        isGroupChat: !!char.isGroupChat,
+        groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
+        groupCreatedAt: char.groupCreatedAt || 0,
+        chatConfig: char.chatConfig || {},
+        history: char.history || []
+    };
+}
+
+function buildWechatCharacterStorageData(source = window.myCharacters || []) {
+    return (Array.isArray(source) ? source : []).map(serializeWechatCharacterForStorage);
+}
+
+function compactWechatCharacterForLocal(char, updatedAt) {
+    const avatar = getWechatCharAvatarSource(char, '');
+    return {
+        id: char.id,
+        name: char.name,
+        description: char.description || '',
+        avatar,
+        _smallAvatar: char._smallAvatar || '',
+        avatarGallery: avatar ? [avatar] : [],
+        lastMsg: char.lastMsg || '',
+        isGroupNpc: !!char.isGroupNpc,
+        groupNpc: !!char.groupNpc,
+        npcOriginGroupId: char.npcOriginGroupId || '',
+        npcCreatedByMemberId: char.npcCreatedByMemberId || '',
+        npcCreatedAt: char.npcCreatedAt || 0,
+        isGroupChat: !!char.isGroupChat,
+        groupMembers: Array.isArray(char.groupMembers)
+            ? char.groupMembers.map(member => ({
+                id: member.id || '',
+                name: member.name || '',
+                nickname: member.nickname || '',
+                remark: member.remark || '',
+                title: member.title || '',
+                role: member.role || '',
+                avatar: getWechatFirstRealAvatarSource(member.avatar, member._smallAvatar) || ''
+            }))
+            : [],
+        groupCreatedAt: char.groupCreatedAt || 0,
+        chatConfig: compactWechatChatConfigForLocal(char.chatConfig || {}),
+        history: [],
+        worldBook: [],
+        regex: [],
+        alternates: [],
+        first_mes_original: '',
+        first_mes: '',
+        currentGreetingIndex: char.currentGreetingIndex || 0,
+        __indexedDbBacked: true,
+        __storageUpdatedAt: updatedAt
+    };
+}
+
+function isWechatCompactCharacterSnapshot(chars) {
+    return Array.isArray(chars) && chars.some(char => char && char.__indexedDbBacked);
+}
+
+function writeWechatCharactersCompactLocal(data, updatedAt) {
+    const compact = data.map(char => compactWechatCharacterForLocal(char, updatedAt));
+    const json = JSON.stringify(compact);
+    try {
+        localStorage.setItem(WECHAT_CHARACTERS_STORAGE_KEY, json);
+    } catch (e) {
+        localStorage.removeItem(WECHAT_CHARACTERS_STORAGE_KEY);
+        localStorage.setItem(WECHAT_CHARACTERS_STORAGE_KEY, json);
+    }
+    setWechatCharacterStorageMeta({
+        mode: 'indexeddb',
+        updatedAt,
+        count: data.length,
+        localSize: json.length
+    });
+}
+
+async function persistWechatCharactersSnapshot(data, updatedAt = Date.now(), options = {}) {
+    const fullJson = JSON.stringify(data);
+    const meta = getWechatCharacterStorageMeta();
+    const preferIndexedDb = !!options.preferIndexedDb || meta.mode === 'indexeddb' || fullJson.length > 2400000;
+
+    if (!preferIndexedDb) {
+        try {
+            localStorage.setItem(WECHAT_CHARACTERS_STORAGE_KEY, fullJson);
+            setWechatCharacterStorageMeta({
+                mode: 'full',
+                updatedAt,
+                count: data.length,
+                localSize: fullJson.length
+            });
+            saveWechatCharactersToIndexedDb(data, updatedAt).catch(err => console.warn('角色 IndexedDB 备份失败', err));
+            console.log("✅ 角色数据已保存，大小:", (fullJson.length / 1024).toFixed(1) + "KB");
+            return true;
+        } catch (e) {
+            if (e.name !== 'QuotaExceededError') throw e;
+        }
+    }
+
+    await saveWechatCharactersToIndexedDb(data, updatedAt);
+    try {
+        writeWechatCharactersCompactLocal(data, updatedAt);
+    } catch (compactErr) {
+        console.warn('角色轻量索引写入失败，完整数据已保存在 IndexedDB', compactErr);
+        try { localStorage.removeItem(WECHAT_CHARACTERS_STORAGE_KEY); } catch (e) {}
+        setWechatCharacterStorageMeta({
+            mode: 'indexeddb',
+            updatedAt,
+            count: data.length,
+            localSize: 0
+        });
+    }
+    console.log("✅ 角色数据已保存到大容量存储，localStorage 仅保留轻量索引");
+    return true;
+}
+
+function showWechatCharacterStorageError(err) {
+    console.error('保存角色数据失败:', err);
+    const message = '存储空间不足，角色数据暂时无法保存。请先到设置里导出备份，再清理浏览器站点数据或删除不用的角色。';
+    if (typeof showWechatToast === 'function') {
+        showWechatToast(message);
+    } else {
+        alert('❌ ' + message);
+    }
+}
+
+function saveCharactersToStorage() {
+    const data = buildWechatCharacterStorageData();
+    const updatedAt = Date.now();
+    window._wechatCharactersSavePromise = (window._wechatCharactersSavePromise || Promise.resolve())
+        .catch(() => {})
+        .then(() => persistWechatCharactersSnapshot(data, updatedAt))
+        .catch(showWechatCharacterStorageError);
+    return window._wechatCharactersSavePromise;
 }
 
 // 异步压缩所有角色头像后再保存
@@ -11335,21 +11569,58 @@ function compressAndSaveCharacters() {
     if (!hasLarge) saveCharactersToStorage();
 }
 
-function loadCharactersFromStorage() {
-    try {
-        const raw = localStorage.getItem('my_characters_data');
-        if (!raw) { console.log("无已保存的角色数据"); return; }
-        const data = JSON.parse(raw);
-        if (Array.isArray(data) && data.length > 0) {
-            window.myCharacters = data;
-            console.log("✅ 已加载", data.length, "个角色");
-            applyWechatUiTheme();
-            renderChatList();
-        }
-    } catch (e) {
-        console.error("加载角色数据失败:", e);
+function applyLoadedWechatCharacters(data, sourceLabel) {
+    window.myCharacters = data.map(normalizeWechatCharacterAvatarData);
+    console.log("✅ 已加载", data.length, "个角色", sourceLabel || '');
+    applyWechatUiTheme();
+    renderChatList();
+    const currentChar = getCurrentChatChar?.();
+    if (currentChar && document.getElementById('wechat-chat-room')?.classList.contains('active')) {
+        refreshChatView(currentChar);
     }
 }
+
+function loadCharactersFromStorage() {
+    try {
+        const raw = localStorage.getItem(WECHAT_CHARACTERS_STORAGE_KEY);
+        let localData = null;
+        const meta = getWechatCharacterStorageMeta();
+        if (raw) localData = JSON.parse(raw);
+        if (Array.isArray(localData) && localData.length > 0) {
+            applyLoadedWechatCharacters(localData, meta.mode === 'indexeddb' ? '(轻量索引)' : '');
+        } else if (!raw) {
+            console.log("无已保存的角色数据");
+        }
+
+        loadWechatCharactersFromIndexedDb().then(record => {
+            const data = record && Array.isArray(record.characters) ? record.characters : null;
+            if (!data || !data.length) return;
+            const shouldUseIndexedDb = !Array.isArray(localData)
+                || !localData.length
+                || meta.mode === 'indexeddb'
+                || isWechatCompactCharacterSnapshot(localData)
+                || Number(record.updatedAt || 0) >= Number(meta.updatedAt || 0);
+            if (shouldUseIndexedDb) applyLoadedWechatCharacters(data, '(IndexedDB)');
+        }).catch(err => {
+            if (meta.mode === 'indexeddb') console.warn('读取大容量角色数据失败', err);
+        });
+    } catch (e) {
+        console.error("加载角色数据失败:", e);
+        loadWechatCharactersFromIndexedDb().then(record => {
+            const data = record && Array.isArray(record.characters) ? record.characters : null;
+            if (data && data.length) applyLoadedWechatCharacters(data, '(IndexedDB fallback)');
+        }).catch(err => console.error("加载 IndexedDB 角色数据失败:", err));
+    }
+}
+
+async function saveWechatImportedCharactersData(characters, updatedAt = Date.now()) {
+    const data = buildWechatCharacterStorageData(Array.isArray(characters) ? characters : []);
+    if (data.length) {
+        await persistWechatCharactersSnapshot(data, updatedAt, { preferIndexedDb: true });
+    }
+    return data;
+}
+window.saveWechatImportedCharactersData = saveWechatImportedCharactersData;
 
 // --- 📑 微信 Tab 切换 ---
 
@@ -16517,13 +16788,11 @@ function openChatSettings() {
     if (!char) return;
 
     const room = document.getElementById('wechat-chat-room');
-    if (room) room.classList.add('settings-open');
-    const backEl = document.querySelector('.wc-float-back');
-    const moreEl = document.querySelector('.wc-float-more');
-    const avatarEl = document.getElementById('wc-floating-avatar');
-    if (backEl) backEl.style.display = 'none';
-    if (moreEl) moreEl.style.display = 'none';
-    if (avatarEl) avatarEl.style.display = 'none';
+    if (room) {
+        room.classList.remove('settings-closing');
+        room.classList.add('settings-opening');
+        room.classList.add('settings-open');
+    }
 
     const config = char.chatConfig || {};
     const profile = getWechatChatUserProfile(char);
@@ -16602,7 +16871,12 @@ function openChatSettings() {
     if (panel) {
         panel.style.display = 'flex';
         panel.classList.remove('active');
-        requestAnimationFrame(() => panel.classList.add('active'));
+        requestAnimationFrame(() => {
+            panel.classList.add('active');
+            requestAnimationFrame(() => {
+                if (room) room.classList.remove('settings-opening');
+            });
+        });
     }
 }
 
@@ -16612,26 +16886,26 @@ function closeChatSettings(event) {
     const panel = document.getElementById('wc-chat-settings-panel');
     closeWechatQQGroupSettings();
     const room = document.getElementById('wechat-chat-room');
-    const restoreChatChrome = () => {
-        if (room) room.classList.remove('settings-open');
-        const backEl = document.querySelector('.wc-float-back');
-        const moreEl = document.querySelector('.wc-float-more');
-        const avatarEl = document.getElementById('wc-floating-avatar');
-        if (backEl) backEl.style.display = '';
-        if (moreEl) moreEl.style.display = '';
-        if (avatarEl) avatarEl.style.display = '';
+    const revealChatChromeBehindPanel = () => {
+        if (!room) return;
+        room.classList.remove('settings-opening', 'settings-open');
+        room.classList.add('settings-closing');
+    };
+    const finishChatChromeRestore = () => {
+        if (room) room.classList.remove('settings-opening', 'settings-open', 'settings-closing');
     };
     if (panel && panel.classList.contains('active')) {
+        revealChatChromeBehindPanel();
         panel.classList.remove('active');
         setTimeout(() => {
             if (!panel.classList.contains('active')) {
                 panel.style.display = 'none';
-                restoreChatChrome();
+                requestAnimationFrame(() => finishChatChromeRestore());
             }
         }, 300);
     } else {
         if (panel) panel.style.display = 'none';
-        restoreChatChrome();
+        finishChatChromeRestore();
     }
 
     if (room && window.currentChatCharId) {
@@ -17358,7 +17632,7 @@ function syncWechatCoupleThemeHeader(char = getCurrentChatChar()) {
     }
     const profile = getWechatChatUserProfile(char);
     const userAvatar = profile.avatar || DEFAULT_AVATAR;
-    const charAvatar = char.avatar || DEFAULT_AVATAR;
+    const charAvatar = getWechatCharAvatarSource(char);
     const kaomoji = getWechatCoupleMoodKaomoji(char);
     pill.setAttribute('aria-label', `${getWechatCharDisplayName(char)} 当前心情 ${kaomoji}`);
     pill.innerHTML = `
@@ -17375,8 +17649,8 @@ function renderWechatMessageAvatarHtml(msg, avatarUrl, avatarClass, options = {}
     if (!isWechatCoupleTheme()) {
         return `<img class="${avatarClass}" src="${src}" onerror="this.src='${fallback}'">`;
     }
-    if (options.showCoupleHeader === false) return '';
     const sideClass = msg && msg.isMe ? 'me' : 'ai';
+    if (options.showCoupleHeader === false) return '';
     const timeParts = formatWechatCoupleMessageDateTime(msg || {});
     return `
         <span class="msg-avatar-layer ${sideClass}">

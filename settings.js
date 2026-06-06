@@ -2148,9 +2148,10 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.380';
+const APP_VERSION = 'v1.1.394';
 const ALL_DATA_KEYS = [
     'my_characters_data',
+    'my_characters_data_meta',
     'my_api_data',
     'my_font_data',
     'my_user_profile',
@@ -2183,6 +2184,17 @@ async function exportAllData() {
             if (raw) exportData[key] = JSON.parse(raw);
         } catch (e) { console.warn('导出跳过 ' + key, e); }
     });
+
+    // 角色完整数据可能已迁到 IndexedDB，导出时用完整数据覆盖轻量索引。
+    try {
+        if (typeof loadWechatCharactersFromIndexedDb === 'function') {
+            const record = await loadWechatCharactersFromIndexedDb().catch(() => null);
+            if (record && Array.isArray(record.characters) && record.characters.length) {
+                exportData.my_characters_data = record.characters;
+                exportData._wechatCharactersIndexedDb = { updatedAt: record.updatedAt || Date.now() };
+            }
+        }
+    } catch (e) { console.warn('导出 IndexedDB 角色数据跳过', e); }
 
     // IndexedDB 字体文件
     try {
@@ -2227,12 +2239,24 @@ async function importAllData(input) {
 
         if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
 
-        // 恢复 localStorage
+        // 恢复 localStorage。角色数据单独处理，避免大备份再次撑爆 localStorage。
         ALL_DATA_KEYS.forEach(key => {
+            if (key === 'my_characters_data' || key === 'my_characters_data_meta') return;
             if (data[key]) {
                 localStorage.setItem(key, JSON.stringify(data[key]));
             }
         });
+
+        if (Array.isArray(data.my_characters_data)) {
+            const updatedAt = data._wechatCharactersIndexedDb?.updatedAt || Date.now();
+            if (typeof saveWechatImportedCharactersData === 'function') {
+                await saveWechatImportedCharactersData(data.my_characters_data, updatedAt);
+            } else {
+                localStorage.setItem('my_characters_data', JSON.stringify(data.my_characters_data));
+            }
+        } else if (data.my_characters_data) {
+            localStorage.setItem('my_characters_data', JSON.stringify(data.my_characters_data));
+        }
 
         // 恢复 IndexedDB 字体文件
         if (data._fontBlobs) {
