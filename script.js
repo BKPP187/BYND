@@ -4184,6 +4184,11 @@ const SYNC_GAME_CHAR_KEY = 'bynd_game_sync_char_v1';
 const CARDMATCH_RULES_SKIP_KEY = 'bynd_game_cardmatch_rules_skip_date_v1';
 const ACTING_GAME_STATE_KEY = 'bynd_game_acting_state_v1';
 const GAME_2048_STATE_KEY = 'bynd_game_2048_state_v1';
+const CATPOT_STATE_KEY = 'bynd_game_catpot_state_v5';
+const CATPOT_ROUND_MS = 90000;
+const CATPOT_CUSTOMER_PATIENCE_MS = 22000;
+const CATPOT_CUSTOMER_COUNT = 3;
+const CATPOT_TARGET_CUSTOMERS = 18;
 const JUMP_GAME_STATE_KEY = 'bynd_game_jump_state_v1';
 const JUMP_GAME_BEST_KEY = 'bynd_game_jump_best_v1';
 const WATER_SORT_STATE_KEY = 'bynd_game_water_sort_state_v1';
@@ -4203,10 +4208,28 @@ const BOARD_GAME_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
 const GOMOKU_BOARD_SIZE = 15;
 const GOMOKU_DIRECTIONS = [[1, 0], [0, 1], [1, 1], [1, -1]];
 const GAME_ROLES = ['狼人', '预言家', '女巫', '守卫', '村民', '村民', '村民', '村民', '村民', '猎人'];
+const CATPOT_INGREDIENTS = [
+    { id: 'egg', name: '笑脸煎蛋', asset: 'assets/cat-breakfast-pot/food/egg.png', color: '#ffd95f' },
+    { id: 'youtiao', name: '软乎油条', asset: 'assets/cat-breakfast-pot/food/youtiao.png', color: '#e8a94b' },
+    { id: 'pawball', name: '猫爪包子', asset: 'assets/cat-breakfast-pot/food/pawball-v8.png', color: '#ffb7c5' },
+    { id: 'fish', name: '小鱼干', asset: 'assets/cat-breakfast-pot/food/fish.png', color: '#9db7c9' },
+    { id: 'scallion', name: '迷你葱芽', asset: 'assets/cat-breakfast-pot/food/scallion.png', color: '#8edb82' },
+    { id: 'carrot', name: '爱心胡萝卜', asset: 'assets/cat-breakfast-pot/food/carrot.png', color: '#ff985d' },
+    { id: 'tofu', name: '星星豆腐', asset: 'assets/cat-breakfast-pot/food/tofu.png', color: '#ffe8a8' }
+];
+const CATPOT_CATS = [
+    { cat: '橘子猫', mood: '想要暖暖早餐' },
+    { cat: '奶盖猫', mood: '今天要软乎乎' },
+    { cat: '花花猫', mood: '喜欢彩色摆盘' },
+    { cat: '小围裙猫', mood: '想吃招牌早餐锅' },
+    { cat: '三花猫', mood: '想要可爱一点' },
+    { cat: '黑糖猫', mood: '肚子咕噜咕噜' }
+];
 const GAME_LIBRARY = [
     { id: 'wolfcha', title: 'BYND 狼人杀', tag: '多人推理', icon: 'ri-shield-star-fill', genre: 'Social deduction', category: 'role', accent: '#e5484d', desc: '先选择陪玩的角色，再随机身份开局。角色会按人设参与发言。' },
     { id: 'acting', title: '谁是演技派', tag: '沉浸剧本', icon: 'ri-movie-2-line', genre: 'Script roleplay', category: 'role', accent: '#c99b5d', desc: '选择角色，AI 生成非俗套剧本和你的报纸档案，旁白推动剧情。' },
     { id: 'chicken', title: '肥鸡大冒险', tag: '像素飞行', icon: 'ri-flight-takeoff-line', genre: 'Tap arcade', category: 'arcade', accent: '#22b8ff', desc: '点击让小角色飞起来，穿过砖墙空隙，吃金币刷新纪录。' },
+    { id: 'catpot', title: '猫猫早餐锅', tag: '治愈摆盘', icon: 'ri-restaurant-2-line', genre: 'Cute cooking', category: 'arcade', accent: '#ff9f6e', desc: '按猫猫订单把煎蛋、油条和猫爪包子放进早餐锅，完成后会有啵啵反馈。' },
     { id: 'jump', title: '跳一跳', tag: '蓄力跳跃', icon: 'ri-arrow-up-circle-line', genre: 'Timing arcade', category: 'arcade', accent: '#111318', desc: '按住蓄力，松手跳到下一块平台，力度越准分数越高。' },
     { id: 'watersort', title: '倒水排序', tag: '颜色解谜', icon: 'ri-goblet-line', genre: 'Water Sort', category: 'board', accent: '#2f80ed', desc: '把同色水倒到一起，每个瓶子只能装同一种颜色。' },
     { id: '2048', title: '2048', tag: '数字合成', icon: 'ri-layout-grid-fill', genre: 'Number puzzle', category: 'board', accent: '#ffb02e', desc: '上下左右推动方块，合成更高数字，随时可重新开局。' },
@@ -4569,6 +4592,10 @@ function renderGameApp() {
     }
     if (activeGame === 'cardmatch') {
         renderCardMatchGame(el);
+        return;
+    }
+    if (activeGame === 'catpot') {
+        renderCatPotGame(el);
         return;
     }
     if (activeGame === 'acting') {
@@ -5289,6 +5316,420 @@ function renderCardMatchGame(el) {
             </div>
         </section>
     `;
+}
+
+function createCatPotOrder(level = 1) {
+    const shuffled = [...CATPOT_INGREDIENTS].sort(() => Math.random() - 0.5);
+    const kindCount = Math.min(4, 2 + Math.floor(Math.max(1, level) / 4));
+    const maxTotal = Math.min(6, 3 + Math.floor(Math.max(1, level) / 5));
+    const wants = {};
+    let total = 0;
+    shuffled.slice(0, kindCount).forEach((item, index) => {
+        const canDouble = level > 1 && total < maxTotal - 1 && (index === 0 || Math.random() > 0.62);
+        const count = canDouble ? 2 : 1;
+        wants[item.id] = count;
+        total += count;
+    });
+    const guest = CATPOT_CATS[Math.floor(Math.random() * CATPOT_CATS.length)] || CATPOT_CATS[0];
+    return { ...guest, wants, bornAt: Date.now(), patienceMs: Math.max(12000, CATPOT_CUSTOMER_PATIENCE_MS - Math.min(7000, level * 420)) };
+}
+
+function isValidCatPotOrder(order) {
+    return order && order.wants && Object.keys(order.wants).some(id => CATPOT_INGREDIENTS.some(item => item.id === id));
+}
+
+function createCatPotOrders(level = 1, count = CATPOT_CUSTOMER_COUNT) {
+    return Array.from({ length: count }, (_, index) => createCatPotOrder(level + index));
+}
+
+function createCatPotState(level = 1, score = 0, streak = 0, order = null) {
+    const now = Date.now();
+    return {
+        level: Math.max(1, Number(level) || 1),
+        order: isValidCatPotOrder(order) ? order : createCatPotOrder(level),
+        orders: isValidCatPotOrder(order) ? [order, ...createCatPotOrders(level + 1, CATPOT_CUSTOMER_COUNT - 1)] : createCatPotOrders(level),
+        placed: [],
+        score,
+        streak,
+        missed: 0,
+        wrongs: 0,
+        served: score,
+        target: CATPOT_TARGET_CUSTOMERS,
+        roundStartedAt: now,
+        roundEndsAt: now + CATPOT_ROUND_MS,
+        rush: 1,
+        finished: false,
+        feedback: '早餐高峰开始啦，连续给猫猫们出餐。',
+        feedbackType: 'ready',
+        justCompleted: false
+    };
+}
+
+function normalizeCatPotState(state) {
+    const now = Date.now();
+    const level = Math.max(1, Number(state.level) || Number(state.orderIndex) + 1 || 1);
+    const normalized = {
+        ...createCatPotState(level, Number(state.score) || 0, Number(state.streak) || 0, state.order),
+        ...state,
+        level,
+        score: Number(state.score) || 0,
+        streak: Number(state.streak) || 0,
+        missed: Number(state.missed) || 0,
+        wrongs: Number(state.wrongs) || 0,
+        served: Number(state.served) || Number(state.score) || 0,
+        target: Number(state.target) || CATPOT_TARGET_CUSTOMERS,
+        rush: Number(state.rush) || 1,
+        roundStartedAt: Number(state.roundStartedAt) || now,
+        roundEndsAt: Number(state.roundEndsAt) || (now + CATPOT_ROUND_MS),
+        orders: Array.isArray(state.orders) && state.orders.some(isValidCatPotOrder) ? state.orders.filter(isValidCatPotOrder).slice(0, CATPOT_CUSTOMER_COUNT) : (isValidCatPotOrder(state.order) ? [state.order] : createCatPotOrders(level)),
+        placed: Array.isArray(state.placed) ? state.placed.filter(id => CATPOT_INGREDIENTS.some(item => item.id === id)).slice(0, 9) : []
+    };
+    while (normalized.orders.length < CATPOT_CUSTOMER_COUNT) normalized.orders.push(createCatPotOrder(normalized.level + normalized.orders.length));
+    normalized.order = normalized.orders[0];
+    if (!Number(normalized.order.bornAt)) normalized.order.bornAt = now;
+    if (!Number(normalized.order.patienceMs)) normalized.order.patienceMs = Math.max(12000, CATPOT_CUSTOMER_PATIENCE_MS - Math.min(7000, level * 420));
+    if (now >= normalized.roundEndsAt) {
+        normalized.finished = true;
+        normalized.placed = [];
+        normalized.feedback = `营业结束：服务 ${normalized.served || 0} 位猫猫，错菜 ${normalized.wrongs || 0} 次，走失 ${normalized.missed || 0} 位。`;
+        normalized.feedbackType = (normalized.served || 0) >= 8 ? 'served' : 'ready';
+    } else if (!normalized.finished) {
+        const activeOrder = normalized.orders[0];
+        const activePatience = activeOrder.patienceMs || CATPOT_CUSTOMER_PATIENCE_MS;
+        const activeExpired = now - (activeOrder.bornAt || now) > activePatience;
+        if (activeExpired) {
+            normalized.orders.shift();
+            normalized.missed += 1;
+            normalized.streak = 0;
+            normalized.level += 1;
+            while (normalized.orders.length < CATPOT_CUSTOMER_COUNT) normalized.orders.push(createCatPotOrder(normalized.level + normalized.orders.length));
+            if (normalized.orders[0]) normalized.orders[0].bornAt = now;
+            normalized.order = normalized.orders[0];
+            normalized.feedback = '有猫猫等太久走掉了，别让下一位空等。';
+            normalized.feedbackType = 'wrong';
+        }
+        normalized.order = normalized.orders[0];
+    }
+    return normalized;
+}
+
+function getCatPotState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(CATPOT_STATE_KEY) || '{}');
+        if (state && Array.isArray(state.placed)) {
+            const normalized = normalizeCatPotState(state);
+            if (JSON.stringify(normalized) !== JSON.stringify(state)) saveCatPotState(normalized);
+            return normalized;
+        }
+    } catch (e) {}
+    const state = createCatPotState();
+    saveCatPotState(state);
+    return state;
+}
+
+function saveCatPotState(state) {
+    localStorage.setItem(CATPOT_STATE_KEY, JSON.stringify(state));
+}
+
+function getCatPotOrder(state) {
+    if (!Array.isArray(state.orders) || !state.orders.some(isValidCatPotOrder)) {
+        state.orders = createCatPotOrders(state.level || 1);
+    }
+    state.orders = state.orders.filter(isValidCatPotOrder);
+    while (state.orders.length < CATPOT_CUSTOMER_COUNT) {
+        state.orders.push(createCatPotOrder((state.level || 1) + state.orders.length));
+    }
+    state.order = state.orders[0];
+    return state.order;
+}
+
+function getCatPotIngredient(id) {
+    return CATPOT_INGREDIENTS.find(item => item.id === id) || CATPOT_INGREDIENTS[0];
+}
+
+function countCatPotPlaced(state) {
+    return state.placed.reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+    }, {});
+}
+
+function isCatPotOrderComplete(state) {
+    const order = getCatPotOrder(state);
+    const counts = countCatPotPlaced(state);
+    return Object.entries(order.wants).every(([id, need]) => (counts[id] || 0) >= need);
+}
+
+function isCatPotPlateExactMatch(order, counts) {
+    if (!isValidCatPotOrder(order)) return false;
+    const wantedIds = Object.keys(order.wants);
+    const plateIds = Object.keys(counts).filter(id => counts[id] > 0);
+    if (wantedIds.length !== plateIds.length) return false;
+    return wantedIds.every(id => (counts[id] || 0) === order.wants[id]);
+}
+
+function findCatPotMatchingOrder(state) {
+    const counts = countCatPotPlaced(state);
+    return (state.orders || []).find(order => isCatPotPlateExactMatch(order, counts)) || null;
+}
+
+function catPotPlaySound(type) {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!window._catPotAudioCtx) window._catPotAudioCtx = new AudioCtx();
+        const ctx = window._catPotAudioCtx;
+        if (ctx.state === 'suspended') ctx.resume();
+        const now = ctx.currentTime;
+        const notes = type === 'success' ? [523, 659, 784] : type === 'wrong' ? [196, 164] : type === 'drop' ? [392, 523] : [440];
+        notes.forEach((freq, index) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type === 'wrong' ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq, now + index * 0.07);
+            gain.gain.setValueAtTime(0.0001, now + index * 0.07);
+            gain.gain.exponentialRampToValueAtTime(type === 'success' ? 0.16 : 0.1, now + index * 0.07 + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.07 + 0.16);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(now + index * 0.07);
+            osc.stop(now + index * 0.07 + 0.18);
+        });
+    } catch (e) {}
+}
+
+function catPotAddIngredient(id) {
+    const item = getCatPotIngredient(id);
+    const state = getCatPotState();
+    if (state.finished) {
+        resetCatPotGame();
+        return;
+    }
+    const counts = countCatPotPlaced(state);
+    if (state.placed.length >= 7) {
+        state.feedback = '这份餐已经太满了，先上菜或清盘。';
+        state.feedbackType = 'wrong';
+        state.justCompleted = false;
+        saveCatPotState(state);
+        catPotPlaySound('wrong');
+        renderGameApp();
+        return;
+    }
+    state.placed.push(id);
+    const matched = findCatPotMatchingOrder(state);
+    state.justCompleted = !!matched;
+    state.feedback = matched ? `这份餐匹配 ${matched.cat}，可以上菜。` : `${item.name} 已加入餐盘，继续对照顾客订单。`;
+    state.feedbackType = state.justCompleted ? 'complete' : 'drop';
+    saveCatPotState(state);
+    catPotPlaySound(state.justCompleted ? 'success' : 'drop');
+    renderGameApp();
+}
+window.catPotAddIngredient = catPotAddIngredient;
+
+function catPotRemoveIngredient(index) {
+    const state = getCatPotState();
+    if (state.finished) return;
+    if (index < 0 || index >= state.placed.length) return;
+    const [removed] = state.placed.splice(index, 1);
+    state.justCompleted = false;
+    state.feedback = `${getCatPotIngredient(removed).name} 回到篮子里了。`;
+    state.feedbackType = 'ready';
+    saveCatPotState(state);
+    catPotPlaySound('tap');
+    renderGameApp();
+}
+window.catPotRemoveIngredient = catPotRemoveIngredient;
+
+function catPotServe() {
+    const state = getCatPotState();
+    if (state.finished) {
+        resetCatPotGame();
+        return;
+    }
+    const matched = findCatPotMatchingOrder(state);
+    if (!matched) {
+        state.feedback = state.placed.length ? '错菜！这份餐不属于任何正在等的顾客，扣连击。' : '餐盘是空的，不能上菜。';
+        state.feedbackType = 'wrong';
+        state.justCompleted = false;
+        state.streak = 0;
+        state.wrongs = (state.wrongs || 0) + 1;
+        state.roundEndsAt = Math.max(Date.now() + 8000, (state.roundEndsAt || Date.now()) - 3000);
+        if (Array.isArray(state.orders) && state.orders[0]) {
+            state.orders[0].bornAt = Math.max(Date.now() - (state.orders[0].patienceMs || CATPOT_CUSTOMER_PATIENCE_MS) + 5000, (state.orders[0].bornAt || Date.now()) - 3000);
+        }
+        saveCatPotState(state);
+        catPotPlaySound('wrong');
+        renderGameApp();
+        return;
+    }
+    const wasFrontOrder = Array.isArray(state.orders) && state.orders[0] === matched;
+    const next = createCatPotState((state.level || 1) + 1, state.score + 1, state.streak + 1);
+    next.roundStartedAt = state.roundStartedAt;
+    next.roundEndsAt = state.roundEndsAt;
+    next.missed = state.missed || 0;
+    next.wrongs = state.wrongs || 0;
+    next.served = (state.served || state.score || 0) + 1;
+    next.target = state.target || CATPOT_TARGET_CUSTOMERS;
+    next.rush = Math.min(5, 1 + Math.floor((state.score + 1) / 3));
+    next.orders = (state.orders || []).filter(order => order !== matched);
+    while (next.orders.length < CATPOT_CUSTOMER_COUNT) next.orders.push(createCatPotOrder(next.level + next.orders.length));
+    if (wasFrontOrder && next.orders[0]) next.orders[0].bornAt = Date.now();
+    next.order = next.orders[0];
+    const fast = getCatPotPatienceLeft(matched) >= 70;
+    if (fast) {
+        next.score += 1;
+        next.feedback = `${matched.cat} 收到正确早餐，快速出餐 +1 小费。`;
+    } else {
+        next.feedback = `${matched.cat} 收到正确早餐，下一位马上来。`;
+    }
+    next.feedbackType = 'served';
+    next.justCompleted = true;
+    if (next.served >= next.target) {
+        next.finished = true;
+        next.placed = [];
+        next.feedback = `营业结束：服务 ${next.served} 位猫猫，错菜 ${next.wrongs || 0} 次，走失 ${next.missed || 0} 位。`;
+        next.feedbackType = 'served';
+    }
+    saveCatPotState(next);
+    catPotPlaySound('success');
+    renderGameApp();
+}
+window.catPotServe = catPotServe;
+
+function resetCatPotGame() {
+    const state = createCatPotState();
+    saveCatPotState(state);
+    catPotPlaySound('tap');
+    renderGameApp();
+}
+window.resetCatPotGame = resetCatPotGame;
+
+function catPotClearPlate() {
+    const state = getCatPotState();
+    state.placed = [];
+    state.justCompleted = false;
+    state.feedback = '餐盘已清空，重新按顾客订单制作。';
+    state.feedbackType = 'ready';
+    saveCatPotState(state);
+    catPotPlaySound('tap');
+    renderGameApp();
+}
+window.catPotClearPlate = catPotClearPlate;
+
+function getCatPotTimeLeft(state) {
+    return Math.max(0, Math.ceil(((state.roundEndsAt || Date.now()) - Date.now()) / 1000));
+}
+
+function getCatPotPatienceLeft(order) {
+    const left = Math.max(0, (order.bornAt || Date.now()) + (order.patienceMs || CATPOT_CUSTOMER_PATIENCE_MS) - Date.now());
+    return Math.max(0, Math.min(100, Math.round((left / (order.patienceMs || CATPOT_CUSTOMER_PATIENCE_MS)) * 100)));
+}
+
+function renderCatPotFoodIcon(item, extraClass = '') {
+    return `<img class="catpot-food-img ${extraClass}" src="${musicEscapeAttr(item.asset)}" alt="${musicEscapeAttr(item.name)}">`;
+}
+
+function renderCatPotGame(el) {
+    const state = getCatPotState();
+    const order = getCatPotOrder(state);
+    const counts = countCatPotPlaced(state);
+    const complete = !!findCatPotMatchingOrder(state);
+    const timeLeft = getCatPotTimeLeft(state);
+    const patienceLeft = getCatPotPatienceLeft(order);
+    const queueCount = Math.max(0, (state.target || CATPOT_TARGET_CUSTOMERS) - (state.served || 0));
+    const placed = state.placed.map((id, index) => {
+        const item = getCatPotIngredient(id);
+        return `
+            <button type="button" class="catpot-placed catpot-placed-${index}" onclick="catPotRemoveIngredient(${index})" title="拿回 ${musicEscapeAttr(item.name)}">
+                ${renderCatPotFoodIcon(item, 'in-pot')}
+            </button>
+        `;
+    }).join('');
+    el.innerHTML = `
+        <section class="catpot-game" data-catpot-order="${musicEscapeAttr(String(order.bornAt || ''))}" data-catpot-finished="${state.finished ? '1' : '0'}">
+            <div class="catpot-bg"></div>
+            <div class="catpot-order-card">
+                <div class="catpot-cat">
+                    <img class="catpot-cat-art" src="assets/cat-breakfast-pot/ui/cat-customer.png" alt="猫猫客人">
+                    <div>
+                        <span>早餐高峰</span>
+                        <strong>按订单配餐</strong>
+                    </div>
+                </div>
+                <div class="catpot-stats">
+                    <span>时间 <b data-catpot-time>${timeLeft}s</b></span>
+                    <span>营业 <b data-catpot-score>${state.served || 0}/${state.target || CATPOT_TARGET_CUSTOMERS}</b></span>
+                    <span>待客 <b data-catpot-queue>${queueCount}</b></span>
+                </div>
+                <div class="catpot-patience"><i data-catpot-patience style="width:${patienceLeft}%"></i></div>
+                <div class="catpot-ticket">
+                    <div class="catpot-current-guest">
+                        <span>当前 ${musicEscapeHtml(order.cat)}</span>
+                        <b>${patienceLeft}%</b>
+                    </div>
+                    <div class="catpot-main-order-grid">
+                        ${Object.entries(order.wants).map(([id, need]) => {
+                            const item = getCatPotIngredient(id);
+                            const done = counts[id] || 0;
+                            return `
+                                <div class="catpot-order-sticker ${done === need ? 'done' : ''} ${done > need ? 'over' : ''}">
+                                    ${renderCatPotFoodIcon(item, 'order')}
+                                    <b>${done}/${need}</b>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="catpot-queue-strip">
+                        ${(state.orders || []).slice(1).map(guest => `
+                            <span>${musicEscapeHtml(guest.cat)} 候餐</span>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="catpot-pot-wrap ${complete ? 'complete' : ''} ${state.feedbackType === 'wrong' ? 'shake' : ''} ${state.rush >= 3 ? 'rush' : ''}">
+                <div class="catpot-pot">
+                    <img class="catpot-pot-art" src="assets/cat-breakfast-pot/ui/pot-empty.png" alt="空猫耳早餐锅">
+                    ${placed || '<div class="catpot-empty">把食材放进猫耳早餐锅</div>'}
+                    <img class="catpot-sparkles" src="assets/cat-breakfast-pot/ui/sparkles.png" alt="">
+                </div>
+                <div class="catpot-feedback ${state.feedbackType}">${musicEscapeHtml(state.feedback)}</div>
+            </div>
+            <div class="catpot-basket">
+                <img class="catpot-basket-art" src="assets/cat-breakfast-pot/ui/basket.png" alt="">
+                ${CATPOT_INGREDIENTS.map(item => {
+                    const disabled = state.placed.length >= 7;
+                    return `
+                        <button type="button" class="catpot-food-btn ${disabled ? 'muted' : ''}" onclick="catPotAddIngredient('${musicEscapeAttr(item.id)}')">
+                            ${renderCatPotFoodIcon(item)}
+                            <span>${musicEscapeHtml(item.name)}</span>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+            <div class="catpot-actions">
+                <button type="button" onclick="catPotClearPlate()"><i class="ri-delete-bin-line"></i> 清盘</button>
+                <button type="button" class="catpot-serve ${complete ? 'ready' : ''}" onclick="catPotServe()"><i class="ri-paw-print-fill"></i> ${state.finished ? '再开一局' : '上菜'}</button>
+            </div>
+        </section>
+    `;
+    if (!window._catPotRushTimer) {
+        window._catPotRushTimer = setInterval(() => {
+            if (!getActiveGame || getActiveGame() !== 'catpot') return;
+            const current = getCatPotState();
+            const timeNode = document.querySelector('[data-catpot-time]');
+            const scoreNode = document.querySelector('[data-catpot-score]');
+            const queueNode = document.querySelector('[data-catpot-queue]');
+            const patienceNode = document.querySelector('[data-catpot-patience]');
+            if (timeNode) timeNode.textContent = `${getCatPotTimeLeft(current)}s`;
+            if (scoreNode) scoreNode.textContent = `${current.served || 0}/${current.target || CATPOT_TARGET_CUSTOMERS}`;
+            if (queueNode) queueNode.textContent = String(Math.max(0, (current.target || CATPOT_TARGET_CUSTOMERS) - (current.served || 0)));
+            if (patienceNode) patienceNode.style.width = `${getCatPotPatienceLeft(getCatPotOrder(current))}%`;
+            const root = document.querySelector('.catpot-game');
+            const renderedOrder = root ? root.getAttribute('data-catpot-order') : '';
+            const currentOrder = String(getCatPotOrder(current).bornAt || '');
+            const renderedFinished = root ? root.getAttribute('data-catpot-finished') === '1' : false;
+            if (current.finished !== renderedFinished || (currentOrder && renderedOrder && currentOrder !== renderedOrder)) renderGameApp();
+        }, 1000);
+    }
 }
 
 function create2048State() {

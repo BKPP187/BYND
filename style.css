@@ -10206,6 +10206,1427 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .mini-card-lines b { color: #c59b43 !important; }
 
+.game-window.game-mode-catpot .game-content {
+    background:
+        linear-gradient(rgba(255,248,231,0.72), rgba(255,248,231,0.86)),
+        url("assets/cat-breakfast-pot/ui/kitchen-bg.png") center / cover no-repeat,
+        #fff1df;
+}
+.catpot-game {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    color: #684932;
+    isolation: isolate;
+}
+.catpot-scene-art {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+.catpot-order-card {
+    position: absolute;
+    left: 13%;
+    right: 13%;
+    top: 5.5%;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 2px solid rgba(255,255,255,0.9);
+    border-radius: 18px;
+    background: rgba(255,248,224,0.86);
+    box-shadow: 0 8px 18px rgba(122,75,34,0.12);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+.catpot-cat {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.catpot-cat-face {
+    position: relative;
+    flex: 0 0 37px;
+    width: 37px;
+    height: 37px;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 46% 46%;
+    background: #f3a45f;
+    box-shadow: 0 7px 0 rgba(174,109,45,0.14);
+}
+.catpot-cat-face::before,
+.catpot-cat-face::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    width: 14px;
+    height: 14px;
+    border: 3px solid #fff;
+    border-radius: 5px 10px 5px 10px;
+    background: #f3a45f;
+}
+.catpot-cat-face::before {
+    left: 5px;
+    transform: rotate(-24deg);
+}
+.catpot-cat-face::after {
+    right: 5px;
+    transform: rotate(24deg);
+}
+.catpot-cat-face i {
+    position: absolute;
+    left: 10px;
+    top: 16px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #5d331c;
+    box-shadow: 13px 0 0 #5d331c, 6px 8px 0 -1px #7d4528;
+}
+.catpot-cat span,
+.catpot-cat strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.catpot-cat span {
+    font-size: 10px;
+    color: #b06f42;
+}
+.catpot-cat strong {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #5d3d27;
+}
+.catpot-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+}
+.catpot-stats span {
+    min-width: 52px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #ffe3ad;
+    color: #815126;
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+}
+.catpot-ticket {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 5px;
+}
+.catpot-ticket-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 28px;
+    padding: 3px 6px;
+    border: 1px dashed rgba(191,130,65,0.38);
+    border-radius: 14px;
+    background: rgba(255,247,222,0.82);
+}
+.catpot-ticket-item.done {
+    background: rgba(199,237,181,0.8);
+    border-color: rgba(97,164,91,0.42);
+}
+.catpot-ticket-item span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+    font-weight: 800;
+}
+.catpot-ticket-item b {
+    font-size: 10px;
+    color: #9b6431;
+}
+.catpot-pot-wrap {
+    position: relative;
+    z-index: 4;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.catpot-pot-wrap.shake {
+    animation: catpot-shake 0.28s ease;
+}
+.catpot-pot {
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    top: 40.5%;
+    height: 22%;
+    border: 0;
+    border-radius: 44%;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: auto;
+}
+.catpot-pot::before,
+.catpot-pot::after {
+    display: none;
+}
+.catpot-broth {
+    display: none;
+}
+.catpot-empty {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 150px;
+    transform: translate(-50%, -50%);
+    color: transparent;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+}
+.catpot-placed {
+    position: absolute;
+    width: 52px;
+    height: 45px;
+    border: 0;
+    background: transparent;
+    transform: translate(-50%, -50%);
+    animation: catpot-pop 0.28s ease both;
+    cursor: pointer;
+    z-index: 2;
+}
+.catpot-placed-0 { left: 35%; top: 42%; }
+.catpot-placed-1 { left: 60%; top: 42%; }
+.catpot-placed-2 { left: 48%; top: 58%; }
+.catpot-placed-3 { left: 72%; top: 58%; }
+.catpot-placed-4 { left: 28%; top: 62%; }
+.catpot-placed-5 { left: 50%; top: 32%; }
+.catpot-placed-6 { left: 66%; top: 73%; }
+.catpot-placed-7 { left: 37%; top: 75%; }
+.catpot-placed-8 { left: 80%; top: 38%; }
+.catpot-feedback {
+    position: absolute;
+    left: 19%;
+    right: 19%;
+    top: 66%;
+    z-index: 5;
+    min-height: 30px;
+    padding: 7px 10px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: rgba(255,252,242,0.92);
+    color: #7b5132;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    box-shadow: 0 10px 22px rgba(141,88,44,0.14);
+}
+.catpot-feedback.complete,
+.catpot-feedback.served {
+    color: #6d7130;
+    background: rgba(255,244,169,0.95);
+}
+.catpot-feedback.wrong {
+    color: #9a5347;
+    background: rgba(255,226,218,0.95);
+}
+.catpot-basket {
+    position: absolute;
+    left: 7.5%;
+    right: 7.5%;
+    bottom: 8.5%;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.catpot-food-btn {
+    min-width: 0;
+    height: 61px;
+    padding: 5px 2px 4px;
+    border: 2px solid rgba(255,255,255,0.74);
+    border-radius: 13px;
+    background: rgba(255,248,229,0.72);
+    box-shadow: 0 4px 0 rgba(161,98,42,0.08);
+    color: #70472b;
+    cursor: pointer;
+}
+.catpot-food-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 4px 0 rgba(161,98,42,0.12);
+}
+.catpot-food-btn.muted {
+    opacity: 0.45;
+}
+.catpot-food-btn span {
+    display: block;
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px;
+    font-weight: 900;
+}
+.catpot-actions {
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    bottom: 1.6%;
+    z-index: 7;
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 9px;
+}
+.catpot-actions button {
+    height: 40px;
+    border: 2px solid rgba(255,255,255,0.88);
+    border-radius: 18px;
+    background: rgba(255,249,232,0.94);
+    color: #7a4d2e;
+    font-size: 14px;
+    font-weight: 900;
+    box-shadow: 0 9px 0 rgba(153,91,41,0.13);
+}
+.catpot-actions .catpot-serve {
+    background: #ffb05e;
+    color: #5a3218;
+}
+.catpot-actions .catpot-serve.ready {
+    animation: catpot-serve-ready 1.25s ease-in-out infinite;
+}
+.catpot-food {
+    position: relative;
+    display: inline-block;
+    width: 35px;
+    height: 29px;
+    vertical-align: middle;
+    filter: drop-shadow(0 3px 0 rgba(113,76,42,0.12));
+}
+.catpot-food.small {
+    width: 26px;
+    height: 22px;
+    transform: scale(0.78);
+    transform-origin: center;
+}
+.catpot-food.in-pot {
+    width: 49px;
+    height: 41px;
+}
+.catpot-egg {
+    border-radius: 54% 46% 55% 45%;
+    background: #fffdf1;
+    border: 2px solid #fff;
+}
+.catpot-egg i {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: #ffd64f;
+    box-shadow: inset 0 -2px 0 rgba(206,137,32,0.2);
+}
+.catpot-egg i::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 7px;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: #7c4b22;
+    box-shadow: 7px 0 0 #7c4b22, 4px 5px 0 -1px #7c4b22;
+}
+.catpot-youtiao i {
+    position: absolute;
+    top: 5px;
+    width: 18px;
+    height: 29px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f5c06b, #db9138);
+    border: 2px solid #fff0c8;
+}
+.catpot-youtiao i:first-child {
+    left: 8px;
+    transform: rotate(-8deg);
+}
+.catpot-youtiao i:last-child {
+    right: 8px;
+    transform: rotate(8deg);
+}
+.catpot-pawball {
+    border-radius: 50%;
+    background: #fff7ed;
+    border: 2px solid #fff;
+}
+.catpot-pawball::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 16px;
+    width: 13px;
+    height: 11px;
+    border-radius: 50%;
+    background: #ff9faf;
+}
+.catpot-pawball::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff9faf;
+    box-shadow: 10px -3px 0 #ff9faf, 19px 0 0 #ff9faf;
+}
+.catpot-fish {
+    border-radius: 52% 42% 42% 52%;
+    background: #d9e5ec;
+    border: 2px solid #fff;
+    transform: rotate(-8deg);
+}
+.catpot-fish::before {
+    content: '';
+    position: absolute;
+    right: -11px;
+    top: 9px;
+    border-left: 14px solid #c7d6df;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+}
+.catpot-fish::after {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 10px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #36454e;
+}
+.catpot-scallion i {
+    position: absolute;
+    bottom: 2px;
+    width: 11px;
+    height: 31px;
+    border-radius: 8px 8px 5px 5px;
+    background: linear-gradient(180deg, #62bd55 0%, #fbf6db 78%);
+    border: 1px solid rgba(255,255,255,0.85);
+}
+.catpot-scallion i:nth-child(1) { left: 9px; transform: rotate(-15deg); }
+.catpot-scallion i:nth-child(2) { left: 19px; }
+.catpot-scallion i:nth-child(3) { left: 29px; transform: rotate(15deg); }
+.catpot-carrot {
+    width: 38px;
+    height: 32px;
+    transform: rotate(-45deg);
+}
+.catpot-carrot::before,
+.catpot-carrot::after {
+    content: '';
+    position: absolute;
+    width: 21px;
+    height: 31px;
+    border-radius: 18px 18px 0 0;
+    background: #ff8b4d;
+    border: 2px solid #fff0d4;
+}
+.catpot-carrot::before {
+    left: 16px;
+    transform: rotate(-45deg);
+    transform-origin: 0 100%;
+}
+.catpot-carrot::after {
+    left: 0;
+    transform: rotate(45deg);
+    transform-origin: 100% 100%;
+}
+.catpot-tofu {
+    border-radius: 12px;
+    background: #ffe8a8;
+    border: 2px solid #fff6dc;
+    clip-path: polygon(50% 0, 62% 33%, 98% 33%, 69% 55%, 80% 93%, 50% 70%, 20% 93%, 31% 55%, 2% 33%, 38% 33%);
+}
+.catpot-sparkles {
+    display: none;
+}
+.catpot-pot-wrap.complete .catpot-sparkles {
+    display: block;
+}
+.catpot-sparkles i {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #fff8a8;
+    animation: catpot-spark 1s ease-in-out infinite;
+}
+.catpot-sparkles i:nth-child(1) { left: 24%; top: 20%; }
+.catpot-sparkles i:nth-child(2) { left: 73%; top: 28%; animation-delay: 0.16s; }
+.catpot-sparkles i:nth-child(3) { left: 54%; top: 74%; animation-delay: 0.32s; }
+@keyframes catpot-pop {
+    from { opacity: 0; transform: translate(-50%, -60%) scale(0.72) rotate(-8deg); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+}
+@keyframes catpot-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-3px); }
+}
+@keyframes catpot-spark {
+    0%, 100% { opacity: 0.32; transform: translateY(0) scale(0.8); }
+    50% { opacity: 1; transform: translateY(-8px) scale(1.18); }
+}
+@keyframes catpot-serve-ready {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+.game-window.game-mode-catpot .game-content {
+    background:
+        linear-gradient(180deg, rgba(255,246,225,0.92) 0%, rgba(255,230,221,0.96) 100%),
+        #fff1df !important;
+}
+.game-window.game-mode-catpot .game-header {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 20;
+    height: 38px;
+    padding: 5px 14px;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none;
+}
+.game-window.game-mode-catpot .game-header > button {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: rgba(255, 248, 232, 0.58);
+    color: #6f4427;
+    box-shadow: 0 4px 10px rgba(112, 68, 32, 0.12);
+    pointer-events: auto;
+}
+.game-window.game-mode-catpot .game-header > div {
+    display: none;
+}
+.game-window.game-mode-catpot .game-content {
+    padding: 0 !important;
+}
+.catpot-game {
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    min-height: 100%;
+    height: 100%;
+    background:
+        linear-gradient(180deg, rgba(255,246,225,0.02), rgba(255,235,224,0.14)),
+        url("assets/cat-breakfast-pot/ui/kitchen-bg.png") center top / cover no-repeat;
+}
+.catpot-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+        linear-gradient(180deg, rgba(255,244,223,0.02) 0%, rgba(255,244,223,0.16) 30%, rgba(255,231,228,0.20) 72%, rgba(255,223,226,0.35) 100%);
+    opacity: 1;
+    pointer-events: none;
+}
+.catpot-order-card {
+    left: 7%;
+    right: 7%;
+    top: 6.4%;
+    min-height: 222px;
+    padding: 35px 30px 30px 106px;
+    border: 0;
+    border-radius: 18px;
+    background: url("assets/cat-breakfast-pot/ui/order-board-wide-v8.png") center / 100% 100% no-repeat;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.catpot-order-card::before {
+    content: '';
+    position: absolute;
+    left: 13%;
+    right: 13%;
+    bottom: -64px;
+    height: 88px;
+    z-index: -1;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255, 245, 218, 0.98), rgba(255, 238, 210, 0.90));
+    box-shadow: 0 0 0 8px rgba(255, 245, 218, 0.18);
+}
+.catpot-cat {
+    gap: 8px;
+}
+.catpot-cat-art {
+    position: absolute;
+    left: -22px;
+    bottom: -28px;
+    width: 130px;
+    height: auto;
+    filter: drop-shadow(0 8px 7px rgba(141,88,44,0.15));
+}
+.catpot-cat span {
+    font-size: 11px;
+    color: #a56a3f;
+}
+.catpot-cat strong {
+    font-size: 15px;
+    color: #6f4427;
+}
+.catpot-stats {
+    gap: 4px;
+}
+.catpot-stats span {
+    min-width: 54px;
+    padding: 4px 7px;
+    background: #fff0bc;
+    border: 1px solid rgba(190,121,59,0.22);
+}
+.catpot-ticket {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    margin-top: 8px;
+    gap: 8px;
+}
+.catpot-ticket-item {
+    min-height: 38px;
+    padding: 4px 8px;
+    border-radius: 13px;
+    background: rgba(255,248,228,0.72);
+}
+.catpot-ticket-item.done {
+    background: rgba(205,239,188,0.78);
+}
+.catpot-ticket-item span {
+    font-size: 9px;
+}
+.catpot-pot-wrap {
+    z-index: 2;
+}
+.catpot-pot {
+    left: -0.5%;
+    right: -0.5%;
+    top: 38.8%;
+    height: 32.8%;
+    border-radius: 0;
+}
+.catpot-pot-art {
+    position: absolute;
+    left: 50%;
+    top: 51%;
+    width: 108%;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 15px 13px rgba(132,82,43,0.18));
+    pointer-events: none;
+}
+.catpot-empty {
+    left: 50%;
+    top: 50%;
+    width: 120px;
+    min-height: 28px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.62);
+    color: rgba(120,75,42,0.64);
+    font-size: 10px;
+    line-height: 1.25;
+}
+.catpot-placed {
+    width: 76px;
+    height: 70px;
+    padding: 0;
+    z-index: 4;
+}
+.catpot-placed-0 { left: 38%; top: 47%; }
+.catpot-placed-1 { left: 60%; top: 47%; }
+.catpot-placed-2 { left: 50%; top: 60%; }
+.catpot-placed-3 { left: 72%; top: 59%; }
+.catpot-placed-4 { left: 29%; top: 61%; }
+.catpot-placed-5 { left: 49%; top: 36%; }
+.catpot-placed-6 { left: 64%; top: 72%; }
+.catpot-placed-7 { left: 38%; top: 75%; }
+.catpot-placed-8 { left: 78%; top: 40%; }
+.catpot-food-img {
+    display: block;
+    width: 38px;
+    height: 36px;
+    object-fit: contain;
+    margin: 0 auto;
+    filter: drop-shadow(0 4px 2px rgba(112,70,34,0.16));
+    pointer-events: none;
+}
+.catpot-food-img.small {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+}
+.catpot-food-img.in-pot {
+    width: 100%;
+    height: 100%;
+}
+.catpot-feedback {
+    left: 12%;
+    right: 12%;
+    top: 69.2%;
+    z-index: 7;
+}
+.catpot-basket {
+    left: 1.2%;
+    right: 1.2%;
+    bottom: 4.9%;
+    z-index: 5;
+    grid-template-columns: repeat(7, minmax(0,1fr));
+    grid-auto-rows: 76px;
+    gap: 1px;
+    min-height: 126px;
+    padding: 28px 15px 16px;
+}
+.catpot-basket-art {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    filter: drop-shadow(0 8px 6px rgba(129,77,38,0.16));
+    pointer-events: none;
+}
+.catpot-food-btn {
+    height: 76px;
+    padding: 4px 1px 4px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255,249,232,0.78);
+    box-shadow: none;
+}
+.catpot-food-btn .catpot-food-img {
+    width: min(44px, 10.8vw);
+    height: 42px;
+    filter: drop-shadow(0 5px 3px rgba(112,70,34,0.20)) saturate(1.08);
+}
+.catpot-food-btn:active {
+    transform: translateY(2px) scale(0.98);
+    box-shadow: none;
+}
+.catpot-food-btn.muted {
+    opacity: 0.56;
+    filter: saturate(0.82);
+}
+.catpot-food-btn span {
+    margin-top: 2px;
+    font-size: 7px;
+    color: #70472b;
+}
+.catpot-actions {
+    left: 24%;
+    right: 24%;
+    bottom: 0.35%;
+    z-index: 8;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 8px;
+}
+.catpot-actions button {
+    height: 28px;
+    border-radius: 17px;
+    font-size: 11px;
+}
+.catpot-actions .catpot-serve {
+    border: 0;
+    background: url("assets/cat-breakfast-pot/ui/serve-button.png") center / 100% 100% no-repeat;
+    color: #7a3d1b;
+    text-shadow: 0 1px 0 rgba(255,245,210,0.88);
+    box-shadow: none;
+}
+.catpot-sparkles {
+    position: absolute;
+    left: 31%;
+    top: 18%;
+    z-index: 6;
+    display: none;
+    width: 38%;
+    height: auto;
+    opacity: 0.82;
+    pointer-events: none;
+}
+.catpot-pot-wrap.complete .catpot-sparkles {
+    display: block;
+    animation: catpot-spark 1s ease-in-out infinite;
+}
+
+/* Production layered cat-pot layout: the concept image is not used as gameplay art. */
+.game-window.game-mode-catpot .game-content {
+    background: #fff1df !important;
+    padding: 0 !important;
+}
+.game-window.game-mode-catpot .game-header {
+    height: 34px;
+    padding: 5px 12px;
+}
+.catpot-game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255,248,232,0.02), rgba(255,224,226,0.10)),
+        url("assets/cat-breakfast-pot/ui/kitchen-bg.png") center / cover no-repeat !important;
+    color: #6e472a;
+}
+.catpot-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(255,255,255,0.26), rgba(255,255,255,0) 28%),
+        linear-gradient(180deg, rgba(255,245,221,0.04) 0%, rgba(255,231,226,0.18) 100%);
+}
+.catpot-order-card {
+    position: absolute;
+    left: 15.5%;
+    top: 5.2%;
+    z-index: 4;
+    width: 56.5%;
+    min-height: 284px;
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    grid-template-rows: 7px 7px minmax(0,1fr);
+    gap: 4px;
+    padding: 62px 26px 30px 40px;
+    border: 0;
+    border-radius: 20px;
+    background: url("assets/cat-breakfast-pot/ui/order-board-clean-v4.png") center / 100% 100% no-repeat;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transform: rotate(-2.2deg);
+    transform-origin: 50% 8%;
+}
+.catpot-order-card::before,
+.catpot-order-card::after {
+    content: none !important;
+}
+.catpot-order-card::before {
+    content: "" !important;
+    position: absolute;
+    left: 50%;
+    top: -7px;
+    z-index: 5;
+    display: block;
+    width: 58px;
+    height: 66px;
+    background: url("assets/cat-breakfast-pot/ui/paw-clip-crisp-v13.png") center / contain no-repeat;
+    filter: drop-shadow(0 5px 4px rgba(116,69,34,0.20));
+    pointer-events: none;
+    transform: translateX(-50%) rotate(2.2deg);
+}
+.catpot-cat {
+    display: flex;
+    align-items: center;
+    align-self: start;
+    min-width: 0;
+    gap: 8px;
+    padding-left: 8px;
+}
+.catpot-cat > div {
+    display: none;
+}
+.catpot-cat-art {
+    position: absolute;
+    left: -73px;
+    bottom: -12px;
+    width: 126px;
+    height: auto;
+    z-index: 2;
+    filter: drop-shadow(0 8px 8px rgba(132,82,43,0.16));
+    pointer-events: none;
+}
+.catpot-cat span,
+.catpot-cat strong {
+    display: block;
+    max-width: 126px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.catpot-cat span {
+    font-size: 10px;
+    color: #a76b3f;
+}
+.catpot-cat strong {
+    margin-top: 0;
+    font-size: 14px;
+    color: #6f4427;
+    line-height: 1.08;
+}
+.catpot-stats {
+    position: absolute;
+    right: -86px;
+    top: 22px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    transform: rotate(2.2deg);
+}
+.catpot-stats span {
+    min-width: 64px;
+    padding: 4px 8px;
+    border: 2px solid rgba(255,255,255,0.90);
+    border-radius: 999px;
+    background: rgba(255,244,201,0.96);
+    color: #815126;
+    font-size: 10px;
+    font-weight: 900;
+    text-align: center;
+    box-shadow: 0 5px 0 rgba(150,88,39,0.12), 0 0 0 1px rgba(188,117,55,0.08) inset;
+}
+.catpot-stats b {
+    color: #c85d35;
+}
+.catpot-patience {
+    grid-column: 1 / -1;
+    height: 7px;
+    margin: 1px 24px 0 12px;
+    border: 1px solid rgba(180,107,51,0.20);
+    border-radius: 999px;
+    background: rgba(255,238,203,0.82);
+    overflow: hidden;
+}
+.catpot-patience i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #a9df82, #ffd66e 62%, #ff9d88);
+    transition: width 0.25s ease;
+}
+.catpot-ticket {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 20px minmax(0,1fr) 24px;
+    gap: 5px;
+    margin-top: 2px;
+    max-height: 174px;
+    overflow: hidden;
+}
+.catpot-current-guest {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 0 13px;
+    color: #7a4d2e;
+    font-size: 10px;
+    font-weight: 950;
+}
+.catpot-current-guest span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.catpot-current-guest b {
+    flex: 0 0 auto;
+    color: #d16c43;
+    font-size: 10px;
+}
+.catpot-main-order-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-auto-rows: 62px;
+    gap: 5px 14px;
+    align-content: start;
+    padding: 2px 15px 0;
+    min-height: 0;
+}
+.catpot-order-sticker {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+.catpot-order-sticker.done {
+    filter: saturate(1.05);
+}
+.catpot-order-sticker.over {
+    animation: catpot-shake 0.32s ease;
+}
+.catpot-order-sticker b {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    min-width: 25px;
+    padding: 2px 5px;
+    border: 2px solid #fff8e9;
+    border-radius: 999px;
+    background: #ffcf75;
+    color: #7a4324;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 4px 0 rgba(137,80,38,0.12);
+}
+.catpot-order-sticker.done b {
+    background: #cfe98d;
+}
+.catpot-order-sticker.over b {
+    background: #ff9c8d;
+}
+.catpot-queue-strip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 12px 0 10px;
+}
+.catpot-queue-strip span {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 4px 6px;
+    border: 1px dashed rgba(197,126,65,0.28);
+    border-radius: 999px;
+    background: rgba(255,246,221,0.58);
+    color: #9b6431;
+    font-size: 8px;
+    font-weight: 900;
+    text-align: center;
+}
+.catpot-customer-order {
+    display: grid;
+    grid-template-columns: 70px minmax(0,1fr);
+    gap: 5px;
+    align-items: center;
+    min-height: 34px;
+    padding: 3px 6px;
+    border: 1px solid rgba(192,129,64,0.20);
+    border-radius: 12px;
+    background: rgba(255,253,242,0.56);
+}
+.catpot-customer-order.front {
+    background: rgba(255,245,210,0.78);
+    border-color: rgba(204,128,62,0.34);
+}
+.catpot-customer-order.match {
+    background: rgba(225,246,190,0.86);
+    border-color: rgba(103,165,79,0.38);
+}
+.catpot-customer-head {
+    min-width: 0;
+}
+.catpot-customer-head span,
+.catpot-customer-head b {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 940;
+}
+.catpot-customer-head span {
+    color: #70472b;
+    font-size: 10px;
+}
+.catpot-customer-head b {
+    margin-top: 2px;
+    color: #c55f37;
+    font-size: 10px;
+}
+.catpot-customer-foods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 4px;
+    min-width: 0;
+}
+.catpot-ticket-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 27px;
+    padding: 2px 4px;
+    border: 1px dashed rgba(191,130,65,0.38);
+    border-radius: 10px;
+    background: rgba(255,248,228,0.76);
+}
+.catpot-ticket-item.done {
+    background: rgba(205,239,188,0.80);
+    border-color: rgba(97,164,91,0.42);
+}
+.catpot-ticket-item.over {
+    background: rgba(255,226,218,0.86);
+    border-color: rgba(195,94,75,0.42);
+}
+.catpot-ticket-item span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px;
+    font-weight: 900;
+    color: #70472b;
+}
+.catpot-ticket-item b {
+    flex: 0 0 auto;
+    font-size: 9px;
+    color: #9b6431;
+}
+.catpot-pot-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+.catpot-pot {
+    position: absolute;
+    left: -2.5%;
+    right: -2.5%;
+    top: 42.2%;
+    height: 31.5%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: auto;
+}
+.catpot-pot-art {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 106%;
+    height: 100%;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 15px 13px rgba(132,82,43,0.18));
+    pointer-events: none;
+}
+.catpot-empty {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    width: 128px;
+    min-height: 30px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.62);
+    color: rgba(120,75,42,0.68);
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1.25;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}
+.catpot-placed {
+    position: absolute;
+    z-index: 5;
+    width: 76px;
+    height: 70px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    animation: catpot-pop 0.28s ease both;
+}
+.catpot-placed-0 { left: 38%; top: 47%; }
+.catpot-placed-1 { left: 60%; top: 47%; }
+.catpot-placed-2 { left: 50%; top: 60%; }
+.catpot-placed-3 { left: 72%; top: 59%; }
+.catpot-placed-4 { left: 29%; top: 61%; }
+.catpot-placed-5 { left: 49%; top: 36%; }
+.catpot-placed-6 { left: 64%; top: 72%; }
+.catpot-placed-7 { left: 38%; top: 75%; }
+.catpot-placed-8 { left: 78%; top: 40%; }
+.catpot-food-img {
+    display: block;
+    width: 38px;
+    height: 36px;
+    object-fit: contain;
+    margin: 0 auto;
+    filter: drop-shadow(0 4px 2px rgba(112,70,34,0.16));
+    pointer-events: none;
+}
+.catpot-food-img.small {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+}
+.catpot-food-img.order {
+    width: 64px;
+    height: 58px;
+    filter: drop-shadow(0 5px 0 rgba(255,255,255,0.92)) drop-shadow(0 7px 5px rgba(112,70,34,0.20));
+}
+.catpot-food-img.in-pot {
+    width: 100%;
+    height: 100%;
+}
+.catpot-sparkles {
+    position: absolute;
+    left: 31%;
+    top: 18%;
+    z-index: 6;
+    display: none;
+    width: 38%;
+    height: auto;
+    opacity: 0.84;
+    pointer-events: none;
+}
+.catpot-pot-wrap.complete .catpot-sparkles {
+    display: block;
+    animation: catpot-spark 1s ease-in-out infinite;
+}
+.catpot-pot-wrap.rush .catpot-pot {
+    animation: catpot-busy-pot 1.6s ease-in-out infinite;
+}
+.catpot-feedback {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 71.3%;
+    z-index: 8;
+    min-height: 30px;
+    padding: 7px 10px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: rgba(255,252,242,0.94);
+    color: #7b5132;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+    box-shadow: 0 10px 22px rgba(141,88,44,0.14);
+}
+.catpot-feedback.complete,
+.catpot-feedback.served {
+    color: #6d7130;
+    background: rgba(255,244,169,0.95);
+}
+.catpot-feedback.wrong {
+    color: #9a5347;
+    background: rgba(255,226,218,0.95);
+}
+.catpot-basket {
+    position: absolute;
+    left: 1.5%;
+    right: 1.5%;
+    bottom: 4.8%;
+    z-index: 9;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0,1fr));
+    grid-auto-rows: 76px;
+    gap: 1px;
+    min-height: 126px;
+    padding: 28px 15px 16px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.catpot-basket-art {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    filter: drop-shadow(0 8px 6px rgba(129,77,38,0.16));
+    pointer-events: none;
+}
+.catpot-food-btn {
+    min-width: 0;
+    height: 76px;
+    padding: 4px 1px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255,249,232,0.82);
+    box-shadow: none;
+    color: #70472b;
+    cursor: pointer;
+}
+.catpot-food-btn .catpot-food-img {
+    width: min(44px, 10.8vw);
+    height: 42px;
+    filter: drop-shadow(0 5px 3px rgba(112,70,34,0.20)) saturate(1.08);
+}
+.catpot-food-btn:active {
+    transform: translateY(2px) scale(0.98);
+    box-shadow: none;
+}
+.catpot-food-btn.muted {
+    opacity: 0.54;
+    filter: saturate(0.82);
+}
+.catpot-food-btn span {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 7px;
+    font-weight: 900;
+    color: #70472b;
+}
+.catpot-actions {
+    position: absolute;
+    left: 24%;
+    right: 24%;
+    bottom: 0.4%;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 8px;
+}
+.catpot-actions button {
+    height: 28px;
+    border: 2px solid rgba(255,255,255,0.88);
+    border-radius: 17px;
+    background: rgba(255,249,232,0.94);
+    color: #7a4d2e;
+    font-size: 11px;
+    font-weight: 900;
+    box-shadow: 0 7px 0 rgba(153,91,41,0.12);
+}
+.catpot-actions .catpot-serve {
+    border: 0;
+    background: url("assets/cat-breakfast-pot/ui/serve-button.png") center / 100% 100% no-repeat;
+    color: #7a3d1b;
+    text-shadow: 0 1px 0 rgba(255,245,210,0.88);
+    box-shadow: none;
+}
+.catpot-actions .catpot-serve.ready {
+    animation: catpot-serve-ready 1.25s ease-in-out infinite;
+}
+
+@keyframes catpot-busy-pot {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+@media (max-height: 720px) {
+    .catpot-order-card {
+        left: 15.5%;
+        right: auto;
+        top: 4.0%;
+        width: 56.5%;
+        min-height: 280px;
+        grid-template-rows: 7px 7px minmax(0,1fr);
+        padding: 60px 22px 28px 36px;
+    }
+    .catpot-order-card::before {
+        left: 50%;
+        top: -3px;
+        width: 52px;
+        height: 60px;
+        transform: translateX(-50%) rotate(2.2deg);
+    }
+    .catpot-cat {
+        padding-left: 6px;
+    }
+    .catpot-cat-art {
+        left: -64px;
+        bottom: -10px;
+        width: 112px;
+    }
+    .catpot-cat strong {
+        max-width: 112px;
+        font-size: 13px;
+    }
+    .catpot-stats {
+        right: -82px;
+        top: 17px;
+        gap: 4px;
+    }
+    .catpot-stats span {
+        min-width: 61px;
+        padding: 3px 6px;
+        font-size: 9px;
+    }
+    .catpot-patience {
+        margin: 0 20px 0 10px;
+    }
+    .catpot-ticket {
+        grid-template-rows: 19px minmax(0,1fr) 23px;
+        max-height: 168px;
+        gap: 5px;
+    }
+    .catpot-main-order-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        grid-auto-rows: 58px;
+        gap: 5px 11px;
+        padding: 0 11px;
+    }
+    .catpot-food-img.order {
+        width: 60px;
+        height: 54px;
+    }
+    .catpot-order-sticker b {
+        min-width: 22px;
+        padding: 2px 4px;
+        font-size: 9px;
+    }
+    .catpot-queue-strip span {
+        padding: 3px 5px;
+        font-size: 7px;
+    }
+    .catpot-pot {
+        top: 42.4%;
+        height: 30%;
+    }
+    .catpot-feedback {
+        top: 70.6%;
+    }
+    .catpot-basket {
+        bottom: 4.6%;
+        grid-auto-rows: 68px;
+        min-height: 112px;
+        padding: 25px 13px 14px;
+    }
+    .catpot-food-btn {
+        height: 68px;
+    }
+    .catpot-food-btn .catpot-food-img {
+        height: 37px;
+    }
+}
+
 .game-window.game-mode-chicken .game-content {
     background: #4dccff;
 }
