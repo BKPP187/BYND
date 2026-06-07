@@ -4211,7 +4211,7 @@ const GAME_ROLES = ['狼人', '预言家', '女巫', '守卫', '村民', '村民
 const CATPOT_INGREDIENTS = [
     { id: 'egg', name: '笑脸煎蛋', asset: 'assets/cat-breakfast-pot/food/egg.png', color: '#ffd95f' },
     { id: 'youtiao', name: '软乎油条', asset: 'assets/cat-breakfast-pot/food/youtiao.png', color: '#e8a94b' },
-    { id: 'pawball', name: '猫爪包子', asset: 'assets/cat-breakfast-pot/food/pawball-v8.png', color: '#ffb7c5' },
+    { id: 'pawball', name: '猫爪包子', asset: 'assets/cat-breakfast-pot/food/pawball-direct-v11.png', color: '#ffb7c5' },
     { id: 'fish', name: '小鱼干', asset: 'assets/cat-breakfast-pot/food/fish.png', color: '#9db7c9' },
     { id: 'scallion', name: '迷你葱芽', asset: 'assets/cat-breakfast-pot/food/scallion.png', color: '#8edb82' },
     { id: 'carrot', name: '爱心胡萝卜', asset: 'assets/cat-breakfast-pot/food/carrot.png', color: '#ff985d' },
