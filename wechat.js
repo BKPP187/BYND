@@ -3249,6 +3249,34 @@ function isWechatRichInputEnabled() {
     return ['wechat', 'qq'].includes(getWechatUiThemeId()) && !!getWechatRichInputElement();
 }
 
+function isWechatMobileKeyboardContext() {
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(ua)
+        || (navigator.maxTouchPoints > 1 && window.matchMedia?.('(max-width: 820px)')?.matches);
+}
+
+function handleWechatMessageInputCompositionStart() {
+    window._wechatInputComposing = true;
+}
+window.handleWechatMessageInputCompositionStart = handleWechatMessageInputCompositionStart;
+
+function handleWechatMessageInputCompositionEnd(event) {
+    window._wechatInputComposing = false;
+    if (event?.target?.id === 'wc-rich-msg-input') handleWechatRichInputInput();
+    else syncWechatDraftState();
+}
+window.handleWechatMessageInputCompositionEnd = handleWechatMessageInputCompositionEnd;
+
+function handleWechatMessageInputKeydown(event) {
+    if (!event || event.key !== 'Enter') return;
+    if (event.isComposing || event.keyCode === 229 || event.which === 229 || window._wechatInputComposing) return;
+    if (isWechatMobileKeyboardContext()) return;
+    if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    sendWechatMessage();
+}
+window.handleWechatMessageInputKeydown = handleWechatMessageInputKeydown;
+
 function isWechatSelectionInside(element) {
     const selection = window.getSelection && window.getSelection();
     if (!selection || !selection.rangeCount || !element) return false;

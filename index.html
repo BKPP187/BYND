@@ -973,7 +973,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.407
+                    Beyond Screen v1.1.408
                 </div>
             </div>
         </div>
@@ -1368,8 +1368,8 @@
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
                     </button>
                     <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn hidden" aria-label="按住说话" oncontextmenu="event.preventDefault()" onpointerdown="startWechatHoldVoice(event)" onpointerup="finishWechatHoldVoice(event)" onpointercancel="cancelWechatHoldVoice(event)" onpointerleave="maybeCancelWechatHoldVoice(event)">按住 说话</button>
-                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." oninput="syncWechatDraftState()" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}">
-                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" data-placeholder="发消息..." oninput="handleWechatRichInputInput()" onpaste="handleWechatRichInputPaste(event)" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWechatMessage();}"></div>
+                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)">
+                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></div>
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
                     <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
