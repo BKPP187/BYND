@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260608-monitor-coread419">
+    <link rel="stylesheet" href="style.css?v=20260608-coread-sources420">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260606-couple-transparent-shell1">
 </head>
 <body>
@@ -570,19 +570,6 @@
                             <input id="coread-search-input" type="search" placeholder="搜索书名 / 作者 / ISBN" onkeydown="if(event.key==='Enter') searchCoReadBooks()">
                             <button type="button" onclick="searchCoReadBooks()">书城</button>
                         </div>
-                        <div class="coread-source-row">
-                            <button type="button" onclick="loadCoReadDefaultSources()">加载书源</button>
-                            <button type="button" onclick="searchCoReadBooks()">书源搜索</button>
-                            <button type="button" onclick="toggleCoReadSourceManager()">书源管理</button>
-                        </div>
-                        <div class="coread-source-manager hidden" id="coread-source-manager">
-                            <div class="coread-source-status" id="coread-source-status">未加载书源</div>
-                            <div class="coread-source-input">
-                                <input id="coread-source-url-input" type="url" placeholder="粘贴 Legado / 阅读 书源 JSON 链接">
-                                <button type="button" onclick="importCoReadSourceUrl()">导入</button>
-                            </div>
-                            <div class="coread-source-list" id="coread-source-list"></div>
-                        </div>
                     </section>
                     <section class="coread-daily" data-coread-panel="discover">
                         <div class="coread-daily-copy">
@@ -1122,7 +1109,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.419
+                    Beyond Screen v1.1.420
                 </div>
             </div>
         </div>
@@ -2100,8 +2087,8 @@
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
     <script src="wechat.js?v=20260608-couple-avatar419"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
-    <script src="settings.js?v=20260608-couple-avatar419"></script>
-    <script src="script.js?v=20260608-monitor-coread419"></script>
+    <script src="settings.js?v=20260608-coread-sources420"></script>
+    <script src="script.js?v=20260608-coread-sources420"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>
