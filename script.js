@@ -9214,10 +9214,27 @@ function removeFromFolder(folderId, appId) {
 
 // --- Co-reading / 共读小说 ---
 const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
+const COREAD_DAILY_KEY = 'bynd_coread_daily_v1';
 let coreadActiveBookId = '';
 let coreadActiveCharId = '';
 let coreadBusy = false;
 let coreadSearchCache = [];
+let coreadActiveTab = 'discover';
+let coreadDailyLoading = false;
+
+const COREAD_DAILY_SEEDS = [
+    '中文 小说 文学', '幻想 小说', 'romance fiction', 'mystery fiction',
+    'science fiction', 'historical fiction', 'poetry', 'essay literature',
+    'young adult fantasy', 'contemporary novel', 'classic literature', 'short stories'
+];
+
+const COREAD_DAILY_LINES = [
+    '今天不急着读完，先把第一句留给喜欢的人。',
+    '随机翻到的书，也可能刚好撞进当前剧情。',
+    '让 char 坐到书页旁边，故事会多出另一种呼吸。',
+    '每日一书，每日一言，像有人把新的门轻轻推开。',
+    '读同一本书时，沉默也会变成聊天记录。'
+];
 
 function getCoReadCharacters() {
     return Array.isArray(window.myCharacters)
@@ -9274,7 +9291,7 @@ function getCoReadPageText(book) {
 
 function renderCoReadBookCard(book) {
     const active = book.id === coreadActiveBookId ? 'active' : '';
-    const source = book.source === 'search' ? 'Open Library' : (book.source || '本地');
+    const source = book.source === 'search' ? '在线搜索' : (book.source || '本地');
     return `
         <button type="button" class="coread-book ${active}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
             <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
@@ -9293,16 +9310,167 @@ function renderCoReadCharOptions() {
     `).join('') || '<div class="coread-empty">先导入角色卡</div>';
 }
 
+function getCoReadThoughts() {
+    return getCoReadLibrary()
+        .flatMap(book => Array.isArray(book.thoughts)
+            ? book.thoughts.map(item => ({ ...item, bookTitle: book.title || '未命名书籍' }))
+            : [])
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .slice(0, 40);
+}
+
+function renderCoReadThoughts() {
+    const list = document.getElementById('coread-thought-list');
+    if (!list) return;
+    const thoughts = getCoReadThoughts();
+    list.innerHTML = thoughts.map(item => `
+        <article class="coread-thought-card">
+            <div>
+                <strong>${musicEscapeHtml(item.charName || 'char')}</strong>
+                <span>${musicEscapeHtml(item.bookTitle || '共读')}</span>
+            </div>
+            <p>${musicEscapeHtml(item.text || '')}</p>
+            <em>第 ${Math.max(1, Number(item.page || 0) + 1)} 页</em>
+        </article>
+    `).join('') || `
+        <div class="coread-empty coread-thought-empty">
+            还没有共读想法。进入书架，选一本书和一个 char，让 char 写第一条旁注。
+        </div>
+    `;
+}
+
+function renderCoReadMePanel() {
+    const list = document.getElementById('coread-me-char-list');
+    if (!list) return;
+    const chars = getCoReadCharacters();
+    list.innerHTML = chars.map(char => {
+        const active = char.id === coreadActiveCharId ? 'active' : '';
+        const count = getCoReadThoughts().filter(item => item.charId === char.id).length;
+        return `
+            <button type="button" class="${active}" onclick="selectCoReadChar('${musicEscapeAttr(char.id)}')">
+                <img src="${musicEscapeAttr(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                <span><strong>${musicEscapeHtml(getCoReadCharName(char))}</strong><em>${count} 条旁注</em></span>
+                <i class="ri-check-line"></i>
+            </button>
+        `;
+    }).join('') || '<div class="coread-empty">先导入角色卡</div>';
+}
+
 function renderCoReadReader() {
     const book = getCoReadBook(coreadActiveBookId);
     const title = document.getElementById('coread-reader-title');
     const body = document.getElementById('coread-reader-body');
     const meta = document.getElementById('coread-reader-meta');
     if (title) title.textContent = book ? (book.title || '未命名书籍') : '选择一本书';
-    if (meta) meta.textContent = book ? `${book.author || '未知作者'} · 第 ${Math.max(1, Number(book.page || 0) + 1)} 页` : '导入 txt/md，或用 Open Library 搜索加入书架';
+    if (meta) meta.textContent = book ? `${book.author || '未知作者'} · 第 ${Math.max(1, Number(book.page || 0) + 1)} 页` : '导入 txt/md，或用在线书城搜索加入书架';
     if (body) {
         const text = book ? getCoReadPageText(book) : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
         body.textContent = text;
+    }
+}
+
+function getCoReadTodayKey() {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getCoReadDailyCache() {
+    try {
+        const cache = JSON.parse(localStorage.getItem(COREAD_DAILY_KEY) || '{}');
+        return cache && typeof cache === 'object' ? cache : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function saveCoReadDailyCache(cache) {
+    localStorage.setItem(COREAD_DAILY_KEY, JSON.stringify(cache && typeof cache === 'object' ? cache : {}));
+}
+
+function buildCoReadFallbackDaily() {
+    const today = getCoReadTodayKey();
+    const line = COREAD_DAILY_LINES[Math.abs(today.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % COREAD_DAILY_LINES.length];
+    return {
+        title: '今日惊喜书页',
+        author: '在线书城同步中',
+        line,
+        tone: '随机推送 · 每日一书',
+        volume: `VOL.${String(new Date().getDate()).padStart(2, '0')}`,
+        source: 'daily-fallback',
+        url: '',
+        description: '打开共读后会尝试从在线书城抽取每日推荐。'
+    };
+}
+
+function getCoReadDailyRecommendation() {
+    const cache = getCoReadDailyCache();
+    const today = getCoReadTodayKey();
+    return cache.date === today && cache.book ? cache.book : buildCoReadFallbackDaily();
+}
+
+async function refreshCoReadDailyRecommendation(force = false) {
+    if (coreadDailyLoading) return;
+    const cache = getCoReadDailyCache();
+    const today = getCoReadTodayKey();
+    if (!force && cache.date === today && cache.book && cache.book.title && cache.book.source !== 'daily-fallback') {
+        renderCoReadDaily();
+        return;
+    }
+    coreadDailyLoading = true;
+    renderCoReadDaily();
+    try {
+        const seedBase = today.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0) + (force ? Math.floor(Math.random() * 1000) : 0);
+        const seed = COREAD_DAILY_SEEDS[Math.abs(seedBase) % COREAD_DAILY_SEEDS.length];
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(seed)}&maxResults=20&orderBy=relevance`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`daily search ${resp.status}`);
+        const data = await resp.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        const candidates = items.map(item => {
+            const info = item.volumeInfo || {};
+            return {
+                title: stripWechatPromptText(info.title || '', 80),
+                author: Array.isArray(info.authors) ? stripWechatPromptText(info.authors.slice(0, 2).join(' / '), 80) : '',
+                line: stripWechatPromptText(info.subtitle || info.description || COREAD_DAILY_LINES[Math.floor(Math.random() * COREAD_DAILY_LINES.length)], 72),
+                tone: stripWechatPromptText((Array.isArray(info.categories) ? info.categories.slice(0, 2).join(' · ') : '') || seed, 42),
+                volume: `VOL.${String(new Date().getDate()).padStart(2, '0')}`,
+                source: 'Google Books Daily',
+                url: info.infoLink || item.selfLink || '',
+                description: stripWechatPromptText(info.description || '', 520)
+            };
+        }).filter(item => item.title);
+        const picked = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+        const book = picked || buildCoReadFallbackDaily();
+        saveCoReadDailyCache({ date: today, book, updatedAt: Date.now() });
+    } catch (e) {
+        const fallback = buildCoReadFallbackDaily();
+        const current = getCoReadDailyCache();
+        if (!current.book || force) saveCoReadDailyCache({ date: today, book: fallback, updatedAt: Date.now() });
+    } finally {
+        coreadDailyLoading = false;
+        renderCoReadDaily();
+    }
+}
+
+function renderCoReadDaily() {
+    const rec = getCoReadDailyRecommendation();
+    const volume = document.getElementById('coread-daily-volume');
+    const title = document.getElementById('coread-daily-title');
+    const line = document.getElementById('coread-daily-line');
+    const card = document.getElementById('coread-daily-card');
+    if (volume) volume.textContent = rec.volume;
+    if (title) title.textContent = rec.title;
+    if (line) line.textContent = rec.line;
+    if (card) {
+        card.innerHTML = `
+            <button type="button" class="coread-daily-book" onclick="addCoReadRecommendedBook()">
+                <span>${coreadDailyLoading ? 'LOADING' : 'DAILY BOOK'}</span>
+                <strong>${musicEscapeHtml(rec.title)}</strong>
+                <em>${musicEscapeHtml(rec.author)}</em>
+                <small>${musicEscapeHtml(rec.tone)}</small>
+            </button>
+            <button type="button" class="coread-daily-refresh" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一本"><i class="ri-refresh-line"></i></button>
+        `;
     }
 }
 
@@ -9315,17 +9483,27 @@ function renderCoReadApp() {
     if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
     if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
     if (chars) chars.innerHTML = renderCoReadCharOptions();
-    if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : 'Open Library 可搜索书籍元数据；正文请导入文件或链接。';
+    if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : 'Google Books 优先，Open Library 备用。';
+    const content = document.querySelector('.coread-content');
+    if (content) content.dataset.tab = coreadActiveTab;
+    document.querySelectorAll('.coread-bottom-nav button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.coreadTab === coreadActiveTab);
+    });
+    renderCoReadDaily();
     renderCoReadReader();
+    renderCoReadThoughts();
+    renderCoReadMePanel();
 }
 
 function initCoReadApp() {
     renderCoReadApp();
+    refreshCoReadDailyRecommendation(false);
 }
 window.initCoReadApp = initCoReadApp;
 
 function selectCoReadBook(bookId) {
     coreadActiveBookId = bookId || '';
+    coreadActiveTab = 'shelf';
     renderCoReadApp();
 }
 window.selectCoReadBook = selectCoReadBook;
@@ -9335,6 +9513,27 @@ function selectCoReadChar(charId) {
     renderCoReadApp();
 }
 window.selectCoReadChar = selectCoReadChar;
+
+function setCoReadTab(tab) {
+    coreadActiveTab = tab || 'discover';
+    const content = document.querySelector('.coread-content');
+    if (content) content.dataset.tab = coreadActiveTab;
+    renderCoReadApp();
+}
+window.setCoReadTab = setCoReadTab;
+
+function addCoReadRecommendedBook() {
+    const rec = getCoReadDailyRecommendation();
+    addCoReadBook({
+        title: rec.title,
+        author: rec.author,
+        source: 'daily',
+        url: rec.url || '',
+        description: rec.description || rec.line || '',
+        content: `每日推荐：${rec.title}\n作者：${rec.author || '未知'}\n来源：${rec.source || '每日推荐'} ${rec.url || ''}\n\n${rec.description || rec.line || '可以先加入书架，再导入 txt/md 正文开始共读。'}`
+    });
+}
+window.addCoReadRecommendedBook = addCoReadRecommendedBook;
 
 function addCoReadBook(book) {
     const library = getCoReadLibrary();
@@ -9352,6 +9551,7 @@ function addCoReadBook(book) {
     library.unshift(safe);
     saveCoReadLibrary(library);
     coreadActiveBookId = safe.id;
+    coreadActiveTab = 'shelf';
     renderCoReadApp();
 }
 
@@ -9392,31 +9592,94 @@ async function searchCoReadBooks() {
     const box = document.getElementById('coread-search-results');
     const query = String(input && input.value || '').trim();
     if (!query || !box) return;
-    box.innerHTML = '<div class="coread-empty">搜索中...</div>';
+    box.innerHTML = '<div class="coread-empty coread-searching">搜索中...</div>';
+    const exactResult = {
+        title: query,
+        author: '',
+        url: '',
+        source: '手动加入',
+        description: '按当前输入的书名加入书架'
+    };
     try {
-        const resp = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8`);
+        const google = await searchCoReadGoogleBooks(query);
+        const openLibrary = google.length >= 4 ? [] : await searchCoReadOpenLibrary(query);
+        const seen = new Set();
+        coreadSearchCache = [exactResult, ...google, ...openLibrary].filter(item => {
+            const key = `${String(item.title || '').toLowerCase()}|${String(item.author || '').toLowerCase()}`;
+            if (!item.title || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, 12);
+        box.innerHTML = renderCoReadSearchResults(query);
+    } catch (e) {
+        coreadSearchCache = [exactResult];
+        box.innerHTML = renderCoReadSearchResults(query, '在线搜索失败，已保留手动加入入口');
+    }
+}
+window.searchCoReadBooks = searchCoReadBooks;
+
+async function searchCoReadGoogleBooks(query) {
+    const terms = [
+        `intitle:${query}`,
+        query
+    ];
+    const all = [];
+    for (const term of terms) {
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(term)}&langRestrict=zh&maxResults=8`;
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
         const data = await resp.json();
-        const docs = Array.isArray(data.docs) ? data.docs : [];
-        coreadSearchCache = docs.map(doc => ({
-            title: doc.title || '未命名书籍',
-            author: Array.isArray(doc.author_name) ? doc.author_name.slice(0, 2).join(' / ') : '',
-            url: doc.key ? `https://openlibrary.org${doc.key}` : 'https://openlibrary.org'
-        }));
-        box.innerHTML = coreadSearchCache.map((doc, index) => {
+        const items = Array.isArray(data.items) ? data.items : [];
+        items.forEach(item => {
+            const info = item.volumeInfo || {};
+            all.push({
+                title: info.title || '',
+                author: Array.isArray(info.authors) ? info.authors.slice(0, 2).join(' / ') : '',
+                url: info.infoLink || item.selfLink || '',
+                source: 'Google Books',
+                description: info.description || ''
+            });
+        });
+        if (all.length) break;
+    }
+    return all;
+}
+
+async function searchCoReadOpenLibrary(query) {
+    const resp = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8`);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const docs = Array.isArray(data.docs) ? data.docs : [];
+    return docs.map(doc => ({
+        title: doc.title || '未命名书籍',
+        author: Array.isArray(doc.author_name) ? doc.author_name.slice(0, 2).join(' / ') : '',
+        url: doc.key ? `https://openlibrary.org${doc.key}` : 'https://openlibrary.org',
+        source: 'Open Library',
+        description: doc.first_sentence && Array.isArray(doc.first_sentence) ? doc.first_sentence[0] : ''
+    }));
+}
+
+function renderCoReadSearchResults(query, note = '') {
+    const rows = coreadSearchCache.map((doc, index) => {
             const title = doc.title || '未命名书籍';
             const author = doc.author || '';
             return `
                 <button type="button" onclick="addCoReadSearchResult(${index})">
                     <span>${musicEscapeHtml(title)}</span>
-                    <em>${musicEscapeHtml(author || 'Open Library')}</em>
+                    <em>${musicEscapeHtml(author || doc.source || '书名加入')}</em>
                 </button>
             `;
-        }).join('') || '<div class="coread-empty">没有搜到结果</div>';
-    } catch (e) {
-        box.innerHTML = '<div class="coread-empty">搜索失败，稍后再试</div>';
-    }
+    }).join('');
+    const external = `
+        <div class="coread-external-search">
+            <span>${musicEscapeHtml(note || `没有想要的结果？继续用外部书城搜索「${query}」`)}</span>
+            <button type="button" onclick="openCoReadExternalSearch('douban')">豆瓣</button>
+            <button type="button" onclick="openCoReadExternalSearch('weread')">微信读书</button>
+            <button type="button" onclick="openCoReadExternalSearch('google')">Google</button>
+        </div>
+    `;
+    return rows + external;
 }
-window.searchCoReadBooks = searchCoReadBooks;
 
 function addCoReadSearchResult(index) {
     const item = coreadSearchCache[Math.max(0, Number(index || 0))];
@@ -9424,13 +9687,26 @@ function addCoReadSearchResult(index) {
     addCoReadBook({
         title: item.title,
         author: item.author,
-        source: 'search',
+        source: item.source || 'search',
         url: item.url,
-        description: `Open Library 条目：${item.url}`,
-        content: `书名：${item.title}\n作者：${item.author || '未知'}\n来源：${item.url}\n\n这是搜索结果元数据，不含完整正文。导入 txt/md 后可以按页共读。`
+        description: item.description || `${item.source || '搜索'} 条目：${item.url}`,
+        content: `书名：${item.title}\n作者：${item.author || '未知'}\n来源：${item.source || '搜索'} ${item.url || ''}\n\n${item.description || '这是搜索结果元数据，不含完整正文。导入 txt/md 后可以按页共读。'}`
     });
 }
 window.addCoReadSearchResult = addCoReadSearchResult;
+
+function openCoReadExternalSearch(source) {
+    const query = String(document.getElementById('coread-search-input')?.value || getCoReadBook(coreadActiveBookId)?.title || getCoReadDailyRecommendation().title || '').trim();
+    if (!query) return;
+    const encoded = encodeURIComponent(query);
+    const urls = {
+        douban: `https://search.douban.com/book/subject_search?search_text=${encoded}`,
+        weread: `https://weread.qq.com/web/search/books?keyword=${encoded}`,
+        google: `https://books.google.com/books?q=${encoded}`
+    };
+    window.open(urls[source] || urls.google, '_blank', 'noopener');
+}
+window.openCoReadExternalSearch = openCoReadExternalSearch;
 
 function turnCoReadPage(delta) {
     const library = getCoReadLibrary();
@@ -9476,7 +9752,26 @@ async function askCoReadComment() {
                 ].filter(Boolean).join('\n\n')
             }
         ]);
-        if (output) output.textContent = result && result.ok ? result.content : (result && result.error) || 'char 没有回应。';
+        const text = result && result.ok ? result.content : '';
+        if (output) output.textContent = text || (result && result.error) || 'char 没有回应。';
+        if (text) {
+            const library = getCoReadLibrary();
+            const record = library.find(item => item.id === book.id);
+            if (record) {
+                record.thoughts = Array.isArray(record.thoughts) ? record.thoughts : [];
+                record.thoughts.unshift({
+                    id: `thought_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                    charId: char.id,
+                    charName: getCoReadCharName(char),
+                    text,
+                    page: Number(record.page || 0),
+                    createdAt: Date.now()
+                });
+                record.thoughts = record.thoughts.slice(0, 80);
+                saveCoReadLibrary(library);
+            }
+            renderCoReadThoughts();
+        }
     } catch (e) {
         if (output) output.textContent = '生成失败，稍后再试。';
     } finally {

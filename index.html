@@ -564,7 +564,36 @@
                     <button type="button" onclick="askCoReadComment()" aria-label="让 char 评论"><i class="ri-chat-quote-line"></i></button>
                 </div>
                 <div class="coread-content">
-                    <section class="coread-tools">
+                    <section class="coread-search-hero" data-coread-panel="discover">
+                        <div class="coread-searchbar">
+                            <i class="ri-search-line"></i>
+                            <input id="coread-search-input" type="search" placeholder="搜索书名 / 作者 / ISBN" onkeydown="if(event.key==='Enter') searchCoReadBooks()">
+                            <button type="button" onclick="searchCoReadBooks()">书城</button>
+                        </div>
+                        <div class="coread-source-row">
+                            <button type="button" onclick="openCoReadExternalSearch('douban')">豆瓣</button>
+                            <button type="button" onclick="openCoReadExternalSearch('weread')">微信读书</button>
+                            <button type="button" onclick="openCoReadExternalSearch('google')">Google Books</button>
+                        </div>
+                    </section>
+                    <section class="coread-daily" data-coread-panel="discover">
+                        <div class="coread-daily-copy">
+                            <span id="coread-daily-volume">VOL.08</span>
+                            <strong id="coread-daily-title">今日共读</strong>
+                            <p id="coread-daily-line">把角色放进书页里，读到的就不只是故事。</p>
+                        </div>
+                        <div class="coread-daily-card" id="coread-daily-card">
+                            <button type="button" class="coread-daily-book" onclick="addCoReadRecommendedBook()">
+                                <span>DAILY BOOK</span>
+                                <strong>今日惊喜书页</strong>
+                                <em>在线书城同步中</em>
+                                <small>随机推送 · 每日一书</small>
+                            </button>
+                            <button type="button" class="coread-daily-refresh" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一本"><i class="ri-refresh-line"></i></button>
+                        </div>
+                    </section>
+                    <section id="coread-search-results" class="coread-search-results" data-coread-panel="discover"></section>
+                    <section class="coread-import-strip" data-coread-panel="shelf">
                         <label class="coread-file">
                             <i class="ri-file-upload-line"></i>
                             <span>导入 txt / md / doc</span>
@@ -574,13 +603,8 @@
                             <input id="coread-url-input" type="url" placeholder="粘贴书籍链接">
                             <button type="button" onclick="addCoReadUrl()"><i class="ri-add-line"></i></button>
                         </div>
-                        <div class="coread-search">
-                            <input id="coread-search-input" type="search" placeholder="Open Library 搜书名 / 作者">
-                            <button type="button" onclick="searchCoReadBooks()"><i class="ri-search-line"></i></button>
-                        </div>
-                        <div id="coread-search-results" class="coread-search-results"></div>
                     </section>
-                    <section class="coread-layout">
+                    <section class="coread-layout" data-coread-panel="shelf">
                         <aside class="coread-sidebar">
                             <div class="coread-panel-head"><strong>书架</strong><em id="coread-status">等待导入</em></div>
                             <div id="coread-book-list" class="coread-book-list"></div>
@@ -603,7 +627,35 @@
                             </section>
                         </main>
                     </section>
+                    <section class="coread-thoughts" data-coread-panel="thoughts">
+                        <div class="coread-section-title">
+                            <span>NOTES</span>
+                            <strong>共读想法</strong>
+                            <button type="button" onclick="askCoReadComment()"><i class="ri-chat-quote-line"></i>让 char 写旁注</button>
+                        </div>
+                        <div id="coread-thought-list" class="coread-thought-list"></div>
+                    </section>
+                    <section class="coread-me" data-coread-panel="me">
+                        <div class="coread-section-title">
+                            <span>PROFILE</span>
+                            <strong>共读对象</strong>
+                        </div>
+                        <div id="coread-me-char-list" class="coread-me-char-list"></div>
+                        <div class="coread-me-guide">
+                            <i class="ri-book-open-line"></i>
+                            <div>
+                                <strong>共读规则</strong>
+                                <p>选择一本书和一个 char 后，旁注会按角色卡、世界书、记忆和最近聊天推演，不写通用书评。</p>
+                            </div>
+                        </div>
+                    </section>
                 </div>
+                <nav class="coread-bottom-nav">
+                    <button type="button" class="active" data-coread-tab="discover" onclick="setCoReadTab('discover')"><i class="ri-compass-3-fill"></i><span>发现</span></button>
+                    <button type="button" data-coread-tab="shelf" onclick="setCoReadTab('shelf')"><i class="ri-book-2-line"></i><span>书架</span></button>
+                    <button type="button" data-coread-tab="thoughts" onclick="setCoReadTab('thoughts')"><i class="ri-chat-quote-line"></i><span>想法</span></button>
+                    <button type="button" data-coread-tab="me" onclick="setCoReadTab('me')"><i class="ri-user-heart-line"></i><span>我</span></button>
+                </nav>
             </div>
         </div>
 
@@ -1052,7 +1104,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.413
+                    Beyond Screen v1.1.414
                 </div>
             </div>
         </div>
