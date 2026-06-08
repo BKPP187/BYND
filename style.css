@@ -1712,16 +1712,17 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .lcw-title-row {
     position: absolute;
-    left: 5%;
-    right: 5%;
-    top: 84%;
+    left: -2%;
+    right: 3%;
+    top: 90%;
     width: auto;
     z-index: 6;
     min-height: 64px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(92px, 0.76fr);
+    grid-template-columns: 118px minmax(100px, 132px);
     align-items: end;
-    gap: 26px;
+    justify-content: space-between;
+    gap: 18px;
     --lcw-title-inner: #1c1c1c;
     --lcw-title-outer: rgba(255,255,255,0);
     color: var(--lcw-title-inner);
@@ -1734,7 +1735,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .lcw-title-card {
     min-width: 0;
     min-height: 50px;
-    padding: 10px 12px;
+    padding: 10px 11px;
     border-radius: 0;
     background: rgba(255,255,255,0.92);
     color: #1c1c1c;
@@ -1758,6 +1759,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     align-self: end;
     min-height: 44px;
     padding: 9px 10px;
+    transform: translateY(4px);
 }
 .lcw-title-input,
 .lcw-title-subtitle,
