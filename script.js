@@ -4434,6 +4434,52 @@ function startWolfchaGame(charIds = getWolfchaSetupIds(), shouldRender = true) {
 window.resetWolfchaGame = resetWolfchaGame;
 window.startWolfchaGame = startWolfchaGame;
 
+function getWolfchaUserPlayer(state = null) {
+    const players = Array.isArray(state?.players) ? state.players : [];
+    return players.find(player => player && player.isUser) || null;
+}
+
+function isWolfchaRoleVisibleToUser(player, state = null) {
+    if (!player) return false;
+    if (player.isUser) return true;
+    const userPlayer = getWolfchaUserPlayer(state);
+    return !!(userPlayer && userPlayer.role === '狼人' && player.role === '狼人');
+}
+
+function getWolfchaPlayerRoleLabel(player, state = null) {
+    if (!player) return '身份隐藏';
+    if (isWolfchaRoleVisibleToUser(player, state)) return player.role || '未知身份';
+    return player.alive === false ? '身份封存' : '身份隐藏';
+}
+
+function getWolfchaPlayerRoleClass(player, state = null) {
+    if (!player) return 'hidden';
+    if (!isWolfchaRoleVisibleToUser(player, state)) return 'hidden';
+    return player.role === '狼人' ? 'wolf' : '';
+}
+
+function getWolfchaRoleIconForPlayer(player, state = null) {
+    if (!isWolfchaRoleVisibleToUser(player, state)) return 'ri-lock-2-line';
+    const role = player && player.role;
+    if (role === '狼人') return 'ri-moon-clear-fill';
+    if (role === '预言家') return 'ri-eye-2-fill';
+    if (role === '女巫') return 'ri-flask-line';
+    if (role === '守卫') return 'ri-shield-star-fill';
+    if (role === '猎人') return 'ri-crosshair-2-line';
+    return 'ri-user-smile-line';
+}
+
+function getWolfchaPublicLogText(entry, state = null) {
+    const item = normalizeWolfchaLogEntry(entry);
+    const players = Array.isArray(state?.players) ? state.players : [];
+    const player = item.playerId ? players.find(row => row.id === item.playerId) : null;
+    const text = String(item.text || '');
+    if (player && !isWolfchaRoleVisibleToUser(player, state)) {
+        return text.replace(/身份是\s*(狼人|预言家|女巫|守卫|猎人|村民)[。.!！]?/g, '身份已由裁判记录，玩家视角不公开。');
+    }
+    return text;
+}
+
 function getGameHubFilter() {
     const saved = localStorage.getItem(GAME_HUB_FILTER_KEY);
     return ['all', 'role', 'study', 'arcade', 'board'].includes(saved) ? saved : 'all';
@@ -4496,7 +4542,7 @@ function renderWolfchaSetup(el) {
                 <div class="wolfcha-setup-sigil" aria-hidden="true"><i class="ri-moon-clear-fill"></i></div>
                 <span>BYND WEREWOLF</span>
                 <strong>选择陪你入局的角色</strong>
-                <p>你会自动加入牌局。选择角色后随机分配身份，开局后由旁白推进，角色发言会按人设调用 API。</p>
+                <p>你会自动加入牌局。开局后只有你的身份可见；如果你是狼人，会额外看到同阵营狼人。其他身份由裁判持有。</p>
                 <div class="wolfcha-setup-omens" aria-hidden="true">
                     <i></i><i></i><i></i><i></i>
                 </div>
@@ -4654,8 +4700,10 @@ function renderGameApp() {
         .slice(-1)[0];
     const waitingUserSpeech = !!state.awaitingUserSpeech && selected?.isUser;
     const phaseText = state.phase === 'night' ? '夜晚行动' : '白日发言';
-    const selectedRole = selected?.role || '未知身份';
+    const selectedRole = getWolfchaPlayerRoleLabel(selected, state);
+    const selectedRoleIcon = getWolfchaRoleIconForPlayer(selected, state);
     const dialogMetaText = lastNarrator?.text && lastNarrator.text !== lastLog.text ? lastNarrator.text : '';
+    const dialogText = getWolfchaPublicLogText(lastLog, state);
     el.innerHTML = `
         <section class="wolfcha-stage ${state.phase === 'night' ? 'night' : ''}">
             <div class="wolfcha-table-aura" aria-hidden="true"></div>
@@ -4680,7 +4728,7 @@ function renderGameApp() {
                 <div class="wolfcha-speaker-card">
                     <div class="wolfcha-role-card">
                         <span>${musicEscapeHtml(selectedRole)}</span>
-                        <i class="${selectedRole === '狼人' ? 'ri-moon-clear-fill' : selectedRole === '预言家' ? 'ri-eye-2-fill' : 'ri-shield-star-fill'}"></i>
+                        <i class="${selectedRoleIcon}"></i>
                         <b>${musicEscapeHtml(phaseText)}</b>
                     </div>
                     <div class="wolfcha-avatar-large">${selected?.avatar ? `<img src="${musicEscapeAttr(selected.avatar)}" alt="${musicEscapeAttr(selected.name)}">` : '<i class="ri-user-smile-line"></i>'}</div>
@@ -4691,8 +4739,8 @@ function renderGameApp() {
                 </div>
                 <div class="wolfcha-dialog">
                     <strong>${musicEscapeHtml(lastLog.name || selected?.name || '旁白')}</strong>
-                    <p>${musicEscapeHtml(lastLog.text || '人到齐了，开始吧。')}</p>
-                    ${dialogMetaText ? `<span>${musicEscapeHtml(dialogMetaText)}</span>` : ''}
+                    <p>${musicEscapeHtml(dialogText || '人到齐了，开始吧。')}</p>
+                    ${dialogMetaText ? `<span>${musicEscapeHtml(getWolfchaPublicLogText(lastNarrator, state))}</span>` : ''}
                 </div>
             </div>
             <div class="wolfcha-actions">
@@ -4705,7 +4753,7 @@ function renderGameApp() {
         <section class="wolfcha-player-rail">
             ${players.map(player => `
                 <button type="button" class="wolfcha-player ${player.id === state.selectedId ? 'active' : ''} ${player.alive === false ? 'dead' : ''}" onclick="selectWolfchaPlayer('${musicEscapeAttr(player.id)}')">
-                    <span class="wolfcha-role ${player.role === '狼人' ? 'wolf' : ''}">${musicEscapeHtml(player.role || '未知')}</span>
+                    <span class="wolfcha-role ${getWolfchaPlayerRoleClass(player, state)}">${musicEscapeHtml(getWolfchaPlayerRoleLabel(player, state))}</span>
                     <div>${player.avatar ? `<img src="${musicEscapeAttr(player.avatar)}" alt="${musicEscapeAttr(player.name)}">` : '<i class="ri-user-line"></i>'}</div>
                     <strong><em>${player.number}</em>${musicEscapeHtml(player.name)}</strong>
                 </button>
@@ -8458,6 +8506,7 @@ ${getWolfchaSpeechHistoryText(state)}
 【发言要求】
 - 只输出「${player.name}」的一段玩家发言，不要写旁白、舞台说明、系统说明、JSON、Markdown 或引号。
 - 不要输出微信特殊指令，不要使用 ||| 分段。
+- 你只知道自己的身份，以及规则允许你知道的信息；裁判拥有上帝视角，但你不能用上帝视角发言。
 - 按你的身份目标说话：狼人要伪装和带节奏，好人要找狼、站边、质疑或保护关键玩家。
 - 不要编造未发生的查验、救药、毒药、守护、枪击、投票结果；只能基于上面的公开信息和你的身份推理。
 - 发言要像真实狼人杀玩家，允许有角色口吻、情绪、试探、拉踩、反问，但不要自曝隐藏身份，除非符合当前策略。
@@ -8779,7 +8828,9 @@ function wolfchaVoteSelected() {
             type: 'narrator',
             name: '旁白',
             playerId: player.id,
-            text: `${player.name} 被投票出局，身份是 ${player.role}。`
+            text: isWolfchaRoleVisibleToUser(player, state)
+                ? `${player.name} 被投票出局，身份是 ${player.role}。`
+                : `${player.name} 被投票出局，身份已由裁判记录，玩家视角不公开。`
         });
         pushWolfchaLog(state, { type: 'narrator', name: '旁白', text: '放逐结束，接下来进入夜晚。点击「旁白继续」开始夜间行动。' });
     });
