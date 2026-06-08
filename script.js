@@ -10854,7 +10854,8 @@ const DESKTOP_LAYOUT_KEY = 'desktop_layout_v2';
 const DESKTOP_STICKY_NOTES_KEY = 'desktop_sticky_notes_v1';
 const DESKTOP_STATUS_WIDGET_PREFS_KEY = 'desktop_status_widget_prefs_v1';
 const DESKTOP_LOVELY_WIDGET_PREFS_KEY = 'desktop_lovely_widget_prefs_v1';
-const DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT = "BEYOND THE CODE\nTHAT'S WHERE WE'LL BE\nFOREVER FREE";
+const DESKTOP_LOVELY_LEGACY_BUBBLE_TEXT = "BEYOND THE CODE\nTHAT'S WHERE WE'LL BE\nFOREVER FREE";
+const DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT = "FACEBOOK\nCHU ANH一梅";
 const DESKTOP_LOVELY_BUBBLE_COLORS = {
     blue: 'rgba(181,218,247,0.72)',
     pink: 'rgba(252,205,221,0.94)',
@@ -12830,8 +12831,9 @@ function getDesktopLovelyWidgetData(layoutId) {
         catalog1: typeof data.catalog1 === 'string' ? data.catalog1 : '',
         catalog2: typeof data.catalog2 === 'string' ? data.catalog2 : '',
         catalog3: typeof data.catalog3 === 'string' ? data.catalog3 : '',
-        title: typeof data.title === 'string' ? data.title.slice(0, 28) : '',
-        bubble: typeof data.bubble === 'string' ? data.bubble.slice(0, 140) : DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT,
+        title: typeof data.title === 'string' ? data.title.slice(0, 28) : 'CHU ANH',
+        subtitle: typeof data.subtitle === 'string' ? data.subtitle.slice(0, 28) : '疗愈院・♡',
+        bubble: typeof data.bubble === 'string' && data.bubble.trim() !== DESKTOP_LOVELY_LEGACY_BUBBLE_TEXT ? data.bubble.slice(0, 140) : DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT,
         bubbleTone: normalizeDesktopLovelyBubbleTone(data.bubbleTone),
         bubbleColor: normalizeDesktopLovelyBubbleColor(data.bubbleColor),
         bubbleOpacity: normalizeDesktopLovelyBubbleOpacity(data.bubbleOpacity),
@@ -12860,6 +12862,11 @@ function setDesktopLovelyWidgetData(layoutId, data) {
     prefs[layoutId].titleOuterColor = normalizeDesktopLovelyBubbleColor(prefs[layoutId].titleOuterColor);
     prefs[layoutId].noteTone = Object.prototype.hasOwnProperty.call(DESKTOP_NOTES_WIDGET_TONES, prefs[layoutId].noteTone) ? prefs[layoutId].noteTone : 'blue';
     prefs[layoutId].noteText = String(prefs[layoutId].noteText || '').slice(0, 90);
+    if (!prefs[layoutId].title || prefs[layoutId].title === 'Namiii') prefs[layoutId].title = 'CHU ANH';
+    prefs[layoutId].title = String(prefs[layoutId].title || '').slice(0, 28);
+    prefs[layoutId].subtitle = String(prefs[layoutId].subtitle || '').slice(0, 28);
+    if (!prefs[layoutId].bubble || prefs[layoutId].bubble === DESKTOP_LOVELY_LEGACY_BUBBLE_TEXT) prefs[layoutId].bubble = DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT;
+    prefs[layoutId].bubble = String(prefs[layoutId].bubble || '').slice(0, 140);
     saveDesktopLovelyWidgetPrefs(prefs);
 }
 
@@ -12897,40 +12904,23 @@ function renderDesktopLovelyPolaroidSlot(slot, value, label, index) {
 function renderDesktopLovelyWidgetInner(layoutId) {
     const data = getDesktopLovelyWidgetData(layoutId);
     const avatar = data.avatar || '';
-    const bubbleBg = getDesktopLovelyBubbleBg(data);
     const titleInner = getDesktopLovelyToneColor(data.titleInnerTone, data.titleInnerColor, 'blue');
     const titleOuter = getDesktopLovelyToneColor(data.titleOuterTone, data.titleOuterColor, 'clear');
+    const bubbleLines = String(data.bubble || DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT).split(/\n+/);
     return `
         <div class="lcw-shell">
             ${renderDesktopLovelyImageSlot('hero', data.hero, '横向照片', 'lcw-hero')}
             ${renderDesktopLovelyImageSlot('avatar', avatar, '头像', 'lcw-avatar')}
-            <div class="lcw-bubble-card lcw-control ${data.bubble.trim() ? 'has-text' : 'is-empty'}" data-tone="${desktopEscapeAttr(data.bubbleTone)}" style="--lcw-bubble-bg:${desktopEscapeAttr(bubbleBg)}; --lcw-bubble-opacity:${desktopEscapeAttr(data.bubbleOpacity)};" onclick="openDesktopLovelyBubblePanel('${desktopEscapeAttr(layoutId)}')">
-                <span class="lcw-bubble-bg-layer" aria-hidden="true"></span>
-                <span class="lcw-bubble-deco lcw-bubble-deco-top" aria-hidden="true">14&nbsp; LILY ROSE&nbsp; 𓆩♡𓆪&nbsp; q24X˚ &nbsp;↻</span>
-                <span class="lcw-bubble-deco lcw-bubble-deco-bottom" aria-hidden="true">↝ = pie - nammy ✧ !! &nbsp;&nbsp;&nbsp; ~ Ocen ❄</span>
-                <span class="lcw-bubble-dot dot-a"></span>
-                <span class="lcw-bubble-dot dot-b"></span>
-                <textarea class="lcw-bubble lcw-input" rows="3" maxlength="140" placeholder="" onfocus="openDesktopLovelyBubblePanel('${desktopEscapeAttr(layoutId)}')" oninput="saveDesktopLovelyText(this)">${desktopEscapeHtml(data.bubble)}</textarea>
-            </div>
             <div class="lcw-title-row" data-inner-tone="${desktopEscapeAttr(data.titleInnerTone)}" data-outer-tone="${desktopEscapeAttr(data.titleOuterTone)}" style="--lcw-title-inner:${desktopEscapeAttr(titleInner)}; --lcw-title-outer:${desktopEscapeAttr(titleOuter)};">
-                <span class="lcw-title-mark lcw-title-left" aria-hidden="true">
-                    <svg class="lcw-title-svg lcw-title-svg-left" viewBox="0 0 118 46">
-                        <path class="lcw-title-thin" d="M14 7 L10 35 M26 6 L21 37 M5 16 C16 15, 25 16, 33 18 M3 27 C13 26, 25 27, 34 29" />
-                        <path d="M47 31 C37 27, 41 12, 54 14 C67 16, 66 32, 55 35 C46 37, 40 30, 47 22 C53 15, 63 18, 59 28" />
-                        <path d="M73 31 C63 27, 67 12, 80 14 C93 16, 92 32, 81 35 C72 37, 66 30, 73 22 C79 15, 89 18, 85 28" />
-                        <path class="lcw-title-thin" d="M106 15 C111 11, 116 16, 112 21 C108 27, 100 21, 103 16" />
-                    </svg>
-                </span>
-                <input class="lcw-title-input lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.title || 'Namiii')}" oninput="saveDesktopLovelyTitle(this)">
-                <span class="lcw-title-mark lcw-title-right" aria-hidden="true">
-                    <svg class="lcw-title-svg lcw-title-svg-right" viewBox="0 0 128 46">
-                        <path d="M16 12 C27 6, 36 15, 32 25 C28 36, 12 35, 10 24 C8 15, 17 12, 23 17 C31 24, 24 39, 12 41" />
-                        <path class="lcw-title-thin" d="M47 14 L66 14 M50 30 L68 30 M58 4 C62 4, 62 10, 58 10 C54 10, 54 4, 58 4 M59 34 C63 34, 63 40, 59 40 C55 40, 55 34, 59 34" />
-                        <path d="M83 29 C88 17, 103 17, 109 29" />
-                        <path d="M92 28 C95 32, 99 32, 102 28" />
-                        <path class="lcw-title-thin" d="M119 7 L124 1 M121 19 L127 17 M118 31 L124 37" />
-                    </svg>
-                </span>
+                <div class="lcw-title-card lcw-title-card-left">
+                    <span aria-hidden="true">꒰ ˚ CHU ANH ˚ ꒱</span>
+                    <input class="lcw-title-input lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.title || 'CHU ANH')}" oninput="saveDesktopLovelyTitle(this)">
+                    <input class="lcw-title-subtitle lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.subtitle || '疗愈院・♡')}" oninput="saveDesktopLovelySubtitle(this)">
+                </div>
+                <div class="lcw-title-card lcw-title-card-right">
+                    <input class="lcw-bubble lcw-input" type="text" maxlength="60" value="${desktopEscapeAttr(bubbleLines[0] || 'FACEBOOK')}" oninput="saveDesktopLovelyText(this)">
+                    <input class="lcw-bubble lcw-bubble-sub lcw-input" type="text" maxlength="60" value="${desktopEscapeAttr(bubbleLines.slice(1).join(' ') || 'CHU ANH一梅')}" oninput="saveDesktopLovelyText(this)">
+                </div>
                 ${renderDesktopLovelyTitlePalette(data)}
             </div>
         </div>
@@ -13167,10 +13157,11 @@ function saveDesktopLovelyText(input) {
     const widget = input?.closest?.('.desktop-widget-lovely');
     if (!widget) return;
     const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
-    data.bubble = String(input.value || '').slice(0, 140);
+    const lines = Array.from(widget.querySelectorAll('.lcw-title-card-right .lcw-bubble'))
+        .map(item => String(item.value || '').trim())
+        .filter(Boolean);
+    data.bubble = (lines.length ? lines.join('\n') : String(input.value || '')).slice(0, 140);
     setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
-    input.closest('.lcw-bubble-card')?.classList.toggle('has-text', !!data.bubble.trim());
-    input.closest('.lcw-bubble-card')?.classList.toggle('is-empty', !data.bubble.trim());
 }
 window.saveDesktopLovelyText = saveDesktopLovelyText;
 
@@ -13339,6 +13330,15 @@ function saveDesktopLovelyTitle(input) {
 }
 window.saveDesktopLovelyTitle = saveDesktopLovelyTitle;
 
+function saveDesktopLovelySubtitle(input) {
+    const widget = input?.closest?.('.desktop-widget-lovely');
+    if (!widget) return;
+    const data = getDesktopLovelyWidgetData(widget.dataset.layoutId);
+    data.subtitle = String(input.value || '').slice(0, 28);
+    setDesktopLovelyWidgetData(widget.dataset.layoutId, data);
+}
+window.saveDesktopLovelySubtitle = saveDesktopLovelySubtitle;
+
 function saveDesktopLovelyChecklist(input) {
     const widget = input?.closest?.('.desktop-widget-lovely');
     if (!widget) return;
@@ -13359,7 +13359,15 @@ function syncDesktopLovelyWidgetsFromDom() {
         const title = widget.querySelector('.lcw-title-input');
         if (title) data.title = String(title.value || '').slice(0, 28);
         const bubble = widget.querySelector('.lcw-bubble');
-        if (bubble) data.bubble = String(bubble.value || '').slice(0, 140);
+        if (bubble) {
+            data.bubble = Array.from(widget.querySelectorAll('.lcw-title-card-right .lcw-bubble'))
+                .map(input => String(input.value || '').trim())
+                .filter(Boolean)
+                .join('\n')
+                .slice(0, 140);
+        }
+        const subtitle = widget.querySelector('.lcw-title-subtitle');
+        if (subtitle) data.subtitle = String(subtitle.value || '').slice(0, 28);
         const bubbleCard = widget.querySelector('.lcw-bubble-card');
         if (bubbleCard) data.bubbleTone = normalizeDesktopLovelyBubbleTone(bubbleCard.dataset.tone);
         const bubbleOpacity = widget.querySelector('.lcw-bubble-opacity-control input');
