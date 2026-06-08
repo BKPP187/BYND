@@ -9226,6 +9226,7 @@ let coreadBusy = false;
 let coreadSearchCache = [];
 let coreadActiveTab = 'discover';
 let coreadDailyLoading = false;
+let coreadSearchRunId = 0;
 
 const COREAD_DAILY_SEEDS = [
     '中文 小说 文学', '幻想 小说', 'romance fiction', 'mystery fiction',
@@ -9316,15 +9317,34 @@ async function coReadFetchText(url, options = {}) {
     ];
     let lastError = null;
     for (const target of attempts) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Number(options.timeoutMs || 4500));
         try {
-            const resp = await fetch(target, options);
+            const fetchOptions = { ...options, signal: controller.signal };
+            delete fetchOptions.timeoutMs;
+            delete fetchOptions.quiet;
+            const resp = await fetch(target, fetchOptions);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             return await resp.text();
         } catch (e) {
             lastError = e;
+        } finally {
+            clearTimeout(timer);
         }
     }
     throw lastError || new Error('fetch failed');
+}
+
+function coReadWithTimeout(promise, timeoutMs, fallback) {
+    let timer = null;
+    return Promise.race([
+        promise,
+        new Promise(resolve => {
+            timer = setTimeout(() => resolve(fallback), timeoutMs);
+        })
+    ]).finally(() => {
+        if (timer) clearTimeout(timer);
+    });
 }
 
 function normalizeCoReadSourceList(payload) {
@@ -9349,15 +9369,20 @@ async function importCoReadSourcesFromUrl(url) {
 async function loadCoReadDefaultSources() {
     setCoReadSourceStatus('正在加载内置书源...');
     let total = 0;
+    let failed = 0;
     for (const url of COREAD_DEFAULT_SOURCE_URLS) {
         try {
             total += await importCoReadSourcesFromUrl(url);
         } catch (e) {
-            console.warn('load coread source failed:', url, e);
+            failed += 1;
         }
     }
     renderCoReadSourceManager();
-    setCoReadSourceStatus(total ? `已加载/更新 ${getCoReadSources().length} 个书源` : '书源加载失败，可以手动粘贴书源 JSON 链接');
+    if (total) {
+        setCoReadSourceStatus(`已加载/更新 ${getCoReadSources().length} 个书源${failed ? `，${failed} 个订阅暂不可用` : ''}`);
+    } else {
+        setCoReadSourceStatus('默认订阅暂不可用，可以手动粘贴书源 JSON 链接');
+    }
 }
 window.loadCoReadDefaultSources = loadCoReadDefaultSources;
 
@@ -9995,20 +10020,24 @@ function parseCoReadSourceSearchHtml(html, source, query) {
 async function searchCoReadBookSources(query) {
     const sources = getCoReadSources()
         .filter(source => source && source.enabled !== false && source.ruleSearch && source.searchUrl)
-        .slice(0, 10);
+        .sort((a, b) => {
+            const aPost = /,\s*\{[\s\S]*method[\s\S]*POST/i.test(String(a.searchUrl || '')) ? 1 : 0;
+            const bPost = /,\s*\{[\s\S]*method[\s\S]*POST/i.test(String(b.searchUrl || '')) ? 1 : 0;
+            return aPost - bPost;
+        })
+        .slice(0, 6);
     if (!sources.length) return [];
-    const results = [];
-    for (const source of sources) {
+    const settled = await Promise.allSettled(sources.map(async source => {
         try {
             const request = buildCoReadSourceSearchRequest(source, query);
-            if (!request) continue;
-            const html = await coReadFetchText(request.url, request.options);
-            results.push(...parseCoReadSourceSearchHtml(html, source, query));
-            if (results.length >= 12) break;
+            if (!request) return [];
+            const html = await coReadFetchText(request.url, { ...(request.options || {}), timeoutMs: 2600, quiet: true });
+            return parseCoReadSourceSearchHtml(html, source, query);
         } catch (e) {
-            console.warn('coread source search failed:', source.bookSourceName, e);
+            return [];
         }
-    }
+    }));
+    const results = settled.flatMap(item => item.status === 'fulfilled' && Array.isArray(item.value) ? item.value : []);
     return results.slice(0, 12);
 }
 
@@ -10017,7 +10046,7 @@ async function searchCoReadBooks() {
     const box = document.getElementById('coread-search-results');
     const query = String(input && input.value || '').trim();
     if (!query || !box) return;
-    box.innerHTML = '<div class="coread-empty coread-searching">搜索中...</div>';
+    const runId = ++coreadSearchRunId;
     const exactResult = {
         title: query,
         author: '',
@@ -10025,10 +10054,15 @@ async function searchCoReadBooks() {
         source: '手动加入',
         description: '按当前输入的书名加入书架'
     };
+    coreadSearchCache = [exactResult];
+    box.innerHTML = renderCoReadSearchResults(query, '正在搜索书源，已可先按书名加入书架。');
     try {
-        const sourceResults = await searchCoReadBookSources(query);
-        const google = sourceResults.length ? [] : await searchCoReadGoogleBooks(query);
-        const openLibrary = sourceResults.length || google.length >= 4 ? [] : await searchCoReadOpenLibrary(query);
+        const sourceResults = await coReadWithTimeout(searchCoReadBookSources(query), 3200, []);
+        if (runId !== coreadSearchRunId) return;
+        const google = sourceResults.length ? [] : await coReadWithTimeout(searchCoReadGoogleBooks(query), 3200, []);
+        if (runId !== coreadSearchRunId) return;
+        const openLibrary = sourceResults.length || google.length >= 4 ? [] : await coReadWithTimeout(searchCoReadOpenLibrary(query), 2600, []);
+        if (runId !== coreadSearchRunId) return;
         const seen = new Set();
         coreadSearchCache = [...sourceResults, exactResult, ...google, ...openLibrary].filter(item => {
             const key = `${String(item.title || '').toLowerCase()}|${String(item.author || '').toLowerCase()}`;
@@ -10036,8 +10070,9 @@ async function searchCoReadBooks() {
             seen.add(key);
             return true;
         }).slice(0, 12);
-        box.innerHTML = renderCoReadSearchResults(query);
+        box.innerHTML = renderCoReadSearchResults(query, sourceResults.length ? '已从书源解析到结果，可直接加入书架。' : '书源暂未返回，已显示可加入书架的兜底结果。');
     } catch (e) {
+        if (runId !== coreadSearchRunId) return;
         coreadSearchCache = [exactResult];
         box.innerHTML = renderCoReadSearchResults(query, '在线搜索失败，已保留手动加入入口');
     }
