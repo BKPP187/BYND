@@ -19059,7 +19059,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .coread-read-cover {
     aspect-ratio: 0.72 / 1;
     border-radius: 12px;
-    background: linear-gradient(145deg, #e7ded2, #fbf8f2);
+    background:
+        linear-gradient(90deg, rgba(46,41,36,0.12) 0 10px, transparent 10px),
+        radial-gradient(circle at 72% 20%, rgba(255,255,255,0.72), transparent 28%),
+        linear-gradient(145deg, #d9c9b7, #f8f1e7 54%, #b7a18d);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -19067,8 +19070,28 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     color: #6f6256;
     font-size: 18px;
     font-weight: 930;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+    position: relative;
 }
-.coread-read-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.coread-read-cover::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 18px;
+    top: 20%;
+    height: 1px;
+    background: rgba(46,41,36,0.18);
+    box-shadow: 0 16px 0 rgba(46,41,36,0.12), 0 32px 0 rgba(46,41,36,0.10);
+}
+.coread-read-cover span {
+    position: relative;
+    z-index: 1;
+    max-width: 72%;
+    text-align: center;
+    line-height: 1.2;
+    color: #4d4036;
+}
+.coread-read-cover img { width: 100%; height: 100%; object-fit: cover; display: block; position: relative; z-index: 2; }
 .coread-read-card strong,
 .coread-read-card em {
     min-width: 0;

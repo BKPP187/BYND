@@ -9380,6 +9380,68 @@ function getCoReadBook(bookId) {
     return getCoReadLibrary().find(book => book.id === bookId) || null;
 }
 
+function normalizeCoReadCoverUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    return raw
+        .replace(/^http:\/\//i, 'https://')
+        .replace(/zoom=\d+/i, 'zoom=2')
+        .replace(/&edge=curl/gi, '');
+}
+
+async function fetchCoReadCoverFromMetadata(title, author = '') {
+    const query = [title, author].filter(Boolean).join(' ');
+    if (!query.trim()) return '';
+    try {
+        const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:${title} ${author || ''}`)}&maxResults=5`;
+        const resp = await fetch(googleUrl);
+        if (resp.ok) {
+            const data = await resp.json();
+            const items = Array.isArray(data.items) ? data.items : [];
+            for (const item of items) {
+                const links = item.volumeInfo && item.volumeInfo.imageLinks || {};
+                const cover = normalizeCoReadCoverUrl(links.extraLarge || links.large || links.medium || links.thumbnail || links.smallThumbnail);
+                if (cover) return cover;
+            }
+        }
+    } catch (_) {}
+    try {
+        const open = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author || '')}&limit=1`);
+        if (open.ok) {
+            const data = await open.json();
+            const doc = Array.isArray(data.docs) ? data.docs[0] : null;
+            if (doc && doc.cover_i) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
+        }
+    } catch (_) {}
+    return '';
+}
+
+async function ensureCoReadBookCover(bookId) {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item.id === bookId);
+    if (!book || book.coverUrl || book.coverResolving) return;
+    book.coverResolving = true;
+    saveCoReadLibrary(library);
+    try {
+        const cover = await fetchCoReadCoverFromMetadata(book.title, book.author);
+        const latest = getCoReadLibrary();
+        const target = latest.find(item => item.id === bookId);
+        if (target) {
+            target.coverUrl = cover || target.coverUrl || '';
+            target.coverResolving = false;
+            saveCoReadLibrary(latest);
+        }
+    } catch (_) {
+        const latest = getCoReadLibrary();
+        const target = latest.find(item => item.id === bookId);
+        if (target) {
+            target.coverResolving = false;
+            saveCoReadLibrary(latest);
+        }
+    }
+    renderCoReadDashboard();
+}
+
 function getCoReadCharName(char) {
     return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
 }
@@ -9495,7 +9557,7 @@ function renderCoReadDashboard() {
             return `
                 <button type="button" class="coread-read-card ${book.id === coreadActiveBookId ? 'active' : ''}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
                     <div class="coread-read-cover">
-                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
+                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${book.coverResolving ? '...' : musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
                     </div>
                     <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
                     <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
@@ -9504,6 +9566,9 @@ function renderCoReadDashboard() {
                 </button>
             `;
         }).join('') || '<div class="coread-empty">书架还空着。先从书源搜索或导入一本书。</div>';
+        library.filter(book => book && !book.coverUrl && !book.coverResolving && book.title).slice(0, 4).forEach(book => {
+            ensureCoReadBookCover(book.id);
+        });
     }
     if (progress) {
         const total = library.length;
@@ -9745,6 +9810,9 @@ function addCoReadBook(book) {
         author: String(book.author || '').slice(0, 120),
         source: String(book.source || 'local'),
         url: String(book.url || ''),
+        coverUrl: normalizeCoReadCoverUrl(book.coverUrl || ''),
+        rating: Math.max(0, Math.min(5, Number(book.rating || 0))),
+        sourceData: book.sourceData || null,
         content: String(book.content || ''),
         description: String(book.description || ''),
         page: 0,
@@ -9755,6 +9823,7 @@ function addCoReadBook(book) {
     coreadActiveBookId = safe.id;
     coreadActiveTab = 'shelf';
     renderCoReadApp();
+    if (!safe.coverUrl) ensureCoReadBookCover(safe.id);
 }
 
 async function importCoReadFile(input) {
@@ -9994,6 +10063,7 @@ async function searchCoReadGoogleBooks(query) {
                 author: Array.isArray(info.authors) ? info.authors.slice(0, 2).join(' / ') : '',
                 url: info.infoLink || item.selfLink || '',
                 source: 'Google Books',
+                coverUrl: normalizeCoReadCoverUrl(info.imageLinks && (info.imageLinks.extraLarge || info.imageLinks.large || info.imageLinks.medium || info.imageLinks.thumbnail || info.imageLinks.smallThumbnail)),
                 description: info.description || ''
             });
         });
@@ -10012,6 +10082,7 @@ async function searchCoReadOpenLibrary(query) {
         author: Array.isArray(doc.author_name) ? doc.author_name.slice(0, 2).join(' / ') : '',
         url: doc.key ? `https://openlibrary.org${doc.key}` : 'https://openlibrary.org',
         source: 'Open Library',
+        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : '',
         description: doc.first_sentence && Array.isArray(doc.first_sentence) ? doc.first_sentence[0] : ''
     }));
 }
