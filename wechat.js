@@ -17851,6 +17851,12 @@ function isWechatStatusPlaceholderValue(value) {
         /^等待.*生成/,
         /^状态.*生成/,
         /^生成失败/,
+        /当前剧情.*(?:没有|暂无|未).{0,12}(?:描写|描述|变化|内容)/,
+        /(?:没有|暂无|未).{0,8}(?:新|具体|特别|明确)?.{0,6}(?:描写|描述|变化|记录|内容)/,
+        /保持角色设定/,
+        /沿用当前角色设定/,
+        /按.*人设.*保持当前状态/,
+        /不适用|无该器官/,
         /未.{0,4}描写/,
         /固定占位/,
         /模板化省略/
@@ -18106,6 +18112,53 @@ function parseWechatJsonObject(text) {
     return null;
 }
 
+function getWechatAiStatusPersonaKind(char) {
+    return (typeof getWechatAiPhonePersonaKind === 'function') ? getWechatAiPhonePersonaKind(char) : 'daily';
+}
+
+function getWechatAiStatusOutfitFallback(char, kind) {
+    const charName = getWechatCharDisplayName(char);
+    const rows = {
+        government: `${charName}穿着克制的通勤正装，袖口和领口还带着刚结束事务后的整齐压痕。`,
+        idol: `${charName}身上的造型服仍按通告要求收拾妥帖，外套和配饰都贴着后台灯光下的状态。`,
+        student: `${charName}穿着符合校园日常的衣物，书包或外套还停在刚才聊天时顺手放下的位置。`,
+        medical: `${charName}的值班服或通勤衣物还带着工作后的褶皱，袖口收得很利落。`,
+        business: `${charName}的衬衫和外套保持着会面后的整齐，领口比白天松了一点。`,
+        creator: `${charName}穿着适合长时间创作的衣物，袖口沾着工作痕迹，身上还留着材料或光影的气息。`,
+        fantasy: `${charName}身上的衣物遵循所在世界的身份礼制，外层与随身物件仍保持警戒时的收束感。`,
+        daily: `${charName}穿着符合当前场景和人设的衣物，细节停在刚才互动后的状态里。`
+    };
+    return rows[kind] || rows.daily;
+}
+
+function getWechatAiStatusBodyFallback(char, userName, kind, lastUserText, lastAiText) {
+    const persona = getWechatCharacterPersonaText(char, 5000);
+    const feminine = /女|她|少女|姑娘|小姐|公主|皇后|妻|姐姐|妹妹/.test(persona)
+        && !/阴茎|阳具|男根|男性器官|扶她|双性|futa|alpha|abo/i.test(persona);
+    const contextHint = lastUserText || lastAiText
+        ? `受刚才那段对话牵动`
+        : `受当前情绪和场景牵动`;
+    if (kind === 'fantasy') {
+        return feminine
+            ? `${contextHint}，腹下与腿间被衣料稳稳覆住，身体反应仍遵循她所在世界的礼法与力量设定。`
+            : `${contextHint}，下腹和胯间隔着衣料微微绷紧，仍被当前身份、礼法或契约感压住。`;
+    }
+    if (kind === 'medical') {
+        return feminine
+            ? `${contextHint}，腹下与腿间因疲惫和克制微微发紧，身体还停在值班后的清醒边缘。`
+            : `${contextHint}，下身隔着衣料有些发紧，但仍被疲惫和职业性的克制压回原位。`;
+    }
+    if (kind === 'student') {
+        return feminine
+            ? `${contextHint}，腹下与腿间被日常衣物收着，紧张感停在很轻的身体反应里。`
+            : `${contextHint}，胯间隔着衣料有一点紧绷，仍停在青涩又克制的状态里。`;
+    }
+    if (feminine) {
+        return `${contextHint}，腹下与腿间被当前衣物覆住，细微的紧张和热意贴着她的人设留在身体里。`;
+    }
+    return `${contextHint}，下身隔着衣料保持着具体的紧绷感，仍按当前人设和场景尺度克制地收住。`;
+}
+
 function getWechatAiStatusFallback(char, reason = 'fallback') {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
@@ -18115,6 +18168,7 @@ function getWechatAiStatusFallback(char, reason = 'fallback') {
     const lastUser = history.slice().reverse().find(msg => msg && msg.isMe);
     const lastAiText = stripWechatPromptText(getWechatMessagePromptContent(lastAi), 56);
     const lastUserText = stripWechatPromptText(getWechatMessagePromptContent(lastUser), 56);
+    const kind = getWechatAiStatusPersonaKind(char);
 
     return {
         updatedAt: Date.now(),
@@ -18124,11 +18178,11 @@ function getWechatAiStatusFallback(char, reason = 'fallback') {
             innerMonologue: lastAiText ? `还停在刚才那句「${lastAiText}」的情绪里。` : `正在等${userName}先开口。`,
             miniDiary: lastUserText ? `想回头再和${userName}说清楚「${lastUserText}」这件事。` : `把和${userName}的聊天窗口留在最前面。`,
             thoughts: `在判断下一句话该不该更靠近一点。`,
-            outfit: '沿用当前角色设定，聊天里没有新的服饰变化。',
+            outfit: getWechatAiStatusOutfitFallback(char, kind),
             posture: '靠近手机，停在刚回复后的姿势。',
             action: '看着聊天窗口，等下一条消息。',
             gaze: `目光落在${userName}的聊天框上。`,
-            penis: '当前剧情没有新的身体描写，保持角色设定。'
+            penis: getWechatAiStatusBodyFallback(char, userName, kind, lastUserText, lastAiText)
         }
     };
 }
@@ -18185,7 +18239,7 @@ function normalizeWechatAiStatusSnapshot(raw, char, reason = 'api') {
 
 function getWechatAiStatusSnapshot(char) {
     const snapshot = char && char.chatConfig && char.chatConfig.aiStatusSnapshot;
-    if (snapshot && snapshot.fields) return snapshot;
+    if (snapshot && snapshot.fields && isWechatAiStatusSnapshotComplete(snapshot)) return snapshot;
     return null;
 }
 
@@ -18285,7 +18339,9 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
             const result = await callChatApi([
                 {
                     role: 'system',
-                    content: `你是 BYND 的微信角色状态收据生成器。你的任务不是继续聊天，而是根据真实上下文生成「${char.name || '角色'}」此刻的状态快照。只返回 JSON，不要 Markdown，不要解释。JSON 字段必须包含：innerMonologue, miniDiary, thoughts, outfit, posture, action, gaze, penis。miniDiary 是想对用户说但没说出口的话。必须综合角色卡、人设、启用预设、正则设定、世界书、当前聊天备注/称呼、记忆、朋友圈、最近聊天和上一轮状态。用户给角色设置的备注只是身份元信息，不是用户名字，也不一定是聊天主题；如果最近聊天没有谈到名字/备注/称呼，不要让内心独白、小日记或想法围绕备注展开。不要编造用户没有说过的名字争议。所有字段都按最近聊天情绪和角色人设自然生成，禁止固定占位、模板化省略、拒绝式套话或“未特别描写”。`
+                    content: `你是 BYND 的微信角色状态收据生成器。你的任务不是继续聊天，而是根据真实上下文生成「${char.name || '角色'}」此刻的状态快照。只返回 JSON，不要 Markdown，不要解释。JSON 字段必须包含：innerMonologue, miniDiary, thoughts, outfit, posture, action, gaze, penis。miniDiary 是想对用户说但没说出口的话。必须综合角色卡、人设、启用预设、正则设定、世界书、当前聊天备注/称呼、记忆、朋友圈、最近聊天和上一轮状态。用户给角色设置的备注只是身份元信息，不是用户名字，也不一定是聊天主题；如果最近聊天没有谈到名字/备注/称呼，不要让内心独白、小日记或想法围绕备注展开。不要编造用户没有说过的名字争议。所有字段都按最近聊天情绪和角色人设自然生成，禁止固定占位、模板化省略、拒绝式套话或“未特别描写”。
+outfit、posture、action、gaze、penis 都必须写当前这一刻的具体状态；禁止写“没有新的描写/没有变化/保持角色设定/沿用设定/不适用/无该器官/当前剧情没有……”。
+penis 是身体/生理状态字段，必须按当前上下文、人设、世界书、服饰、姿势、情绪和剧情尺度推演；如果角色卡明确有阴茎/男性器官/扶她/双性/ABO 等设定，就写该器官此刻在衣物、姿势和情绪影响下的具体状态；如果角色设定确实不对应该器官，也必须写与该角色身体设定相符的下腹/腿间/敏感处等具体身体状态，不能用否定句绕过。不要擅自升级情色程度，只按最近聊天和世界书已有尺度书写。`
                 },
                 {
                     role: 'user',
