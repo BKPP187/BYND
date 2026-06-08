@@ -9215,6 +9215,11 @@ function removeFromFolder(folderId, appId) {
 // --- Co-reading / 共读小说 ---
 const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
 const COREAD_DAILY_KEY = 'bynd_coread_daily_v1';
+const COREAD_SOURCE_KEY = 'bynd_coread_sources_v1';
+const COREAD_DEFAULT_SOURCE_URLS = [
+    'https://lifves.com/api/v2/booksource/list',
+    'https://someok.github.io/booksources/data.json'
+];
 let coreadActiveBookId = '';
 let coreadActiveCharId = '';
 let coreadBusy = false;
@@ -9254,6 +9259,122 @@ function getCoReadLibrary() {
 function saveCoReadLibrary(list) {
     localStorage.setItem(COREAD_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 80)));
 }
+
+function getCoReadSources() {
+    try {
+        const list = JSON.parse(localStorage.getItem(COREAD_SOURCE_KEY) || '[]');
+        return Array.isArray(list) ? list.filter(item => item && item.bookSourceName && item.searchUrl) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function saveCoReadSources(list) {
+    const seen = new Set();
+    const normalized = (Array.isArray(list) ? list : [])
+        .filter(item => item && item.bookSourceName && item.bookSourceUrl && item.searchUrl && item.ruleSearch)
+        .filter(item => {
+            const key = `${item.bookSourceName}|${item.bookSourceUrl}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .slice(0, 80);
+    localStorage.setItem(COREAD_SOURCE_KEY, JSON.stringify(normalized));
+}
+
+function setCoReadSourceStatus(text) {
+    const el = document.getElementById('coread-source-status');
+    if (el) el.textContent = text || '';
+}
+
+function renderCoReadSourceManager() {
+    const list = document.getElementById('coread-source-list');
+    const sources = getCoReadSources();
+    setCoReadSourceStatus(sources.length ? `已加载 ${sources.length} 个书源，搜索会优先使用书源解析` : '未加载书源');
+    if (!list) return;
+    list.innerHTML = sources.slice(0, 24).map((source, index) => `
+        <button type="button" title="${musicEscapeAttr(source.bookSourceUrl || '')}">
+            <span>${musicEscapeHtml(source.bookSourceName || `书源 ${index + 1}`)}</span>
+            <em>${musicEscapeHtml(source.bookSourceGroup || source.bookSourceUrl || '')}</em>
+        </button>
+    `).join('') || '<div class="coread-empty">还没有书源。点击加载书源，或粘贴 Legado / 阅读 JSON 链接导入。</div>';
+}
+
+function toggleCoReadSourceManager() {
+    const panel = document.getElementById('coread-source-manager');
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+    renderCoReadSourceManager();
+}
+window.toggleCoReadSourceManager = toggleCoReadSourceManager;
+
+async function coReadFetchText(url, options = {}) {
+    const attempts = [
+        url,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    ];
+    let lastError = null;
+    for (const target of attempts) {
+        try {
+            const resp = await fetch(target, options);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return await resp.text();
+        } catch (e) {
+            lastError = e;
+        }
+    }
+    throw lastError || new Error('fetch failed');
+}
+
+function normalizeCoReadSourceList(payload) {
+    const raw = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload?.sources) ? payload.sources : []));
+    return raw.filter(item => item && item.bookSourceName && item.bookSourceUrl && item.searchUrl && item.ruleSearch);
+}
+
+async function importCoReadSourcesFromUrl(url) {
+    const rawUrl = String(url || '').trim();
+    if (!rawUrl) return 0;
+    const text = await coReadFetchText(rawUrl);
+    const json = JSON.parse(text.replace(/^\uFEFF/, ''));
+    const imported = normalizeCoReadSourceList(json);
+    const existing = getCoReadSources();
+    saveCoReadSources([...existing, ...imported]);
+    renderCoReadSourceManager();
+    return imported.length;
+}
+
+async function loadCoReadDefaultSources() {
+    setCoReadSourceStatus('正在加载内置书源...');
+    let total = 0;
+    for (const url of COREAD_DEFAULT_SOURCE_URLS) {
+        try {
+            total += await importCoReadSourcesFromUrl(url);
+        } catch (e) {
+            console.warn('load coread source failed:', url, e);
+        }
+    }
+    renderCoReadSourceManager();
+    setCoReadSourceStatus(total ? `已加载/更新 ${getCoReadSources().length} 个书源` : '书源加载失败，可以手动粘贴书源 JSON 链接');
+}
+window.loadCoReadDefaultSources = loadCoReadDefaultSources;
+
+async function importCoReadSourceUrl() {
+    const input = document.getElementById('coread-source-url-input');
+    const url = String(input && input.value || '').trim();
+    if (!url) return;
+    setCoReadSourceStatus('正在导入书源...');
+    try {
+        const count = await importCoReadSourcesFromUrl(url);
+        if (input) input.value = '';
+        setCoReadSourceStatus(count ? `已导入 ${count} 个书源` : '这个链接没有解析到可用书源');
+    } catch (e) {
+        setCoReadSourceStatus('导入失败：请确认是 Legado / 阅读 JSON 书源链接');
+    }
+}
+window.importCoReadSourceUrl = importCoReadSourceUrl;
 
 function getCoReadBook(bookId) {
     return getCoReadLibrary().find(book => book.id === bookId) || null;
@@ -9354,6 +9475,83 @@ function renderCoReadMePanel() {
             </button>
         `;
     }).join('') || '<div class="coread-empty">先导入角色卡</div>';
+}
+
+function getCoReadBookProgress(book) {
+    const contentLength = String(book && book.content || '').length;
+    if (!contentLength) return Math.min(100, Math.max(0, Number(book && book.progress || 0)));
+    const pageCount = Math.max(1, Math.ceil(contentLength / 1400));
+    return Math.round((Math.min(pageCount - 1, Number(book.page || 0)) + 1) / pageCount * 100);
+}
+
+function renderCoReadDashboard() {
+    const current = document.getElementById('coread-current-reads');
+    const progress = document.getElementById('coread-progress-card');
+    const library = getCoReadLibrary();
+    if (current) {
+        current.innerHTML = library.slice(0, 6).map(book => {
+            const pct = getCoReadBookProgress(book);
+            const stars = Math.max(0, Math.min(5, Number(book.rating || 0)));
+            return `
+                <button type="button" class="coread-read-card ${book.id === coreadActiveBookId ? 'active' : ''}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
+                    <div class="coread-read-cover">
+                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
+                    </div>
+                    <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                    <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
+                    <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
+                    <small>${pct}%</small>
+                </button>
+            `;
+        }).join('') || '<div class="coread-empty">书架还空着。先从书源搜索或导入一本书。</div>';
+    }
+    if (progress) {
+        const total = library.length;
+        const completed = library.filter(book => getCoReadBookProgress(book) >= 100).length;
+        const pages = library.reduce((sum, book) => sum + Math.max(1, Number(book.page || 0) + 1), 0);
+        const avg = total ? Math.round(library.reduce((sum, book) => sum + getCoReadBookProgress(book), 0) / total) : 0;
+        progress.innerHTML = `
+            <div class="coread-ring" style="--coread-progress:${avg * 3.6}deg"><strong>${avg}%</strong><span>Completed</span></div>
+            <div class="coread-progress-stats">
+                <span><strong>${total}</strong><em>书架藏书</em></span>
+                <span><strong>${completed}</strong><em>已读完</em></span>
+                <span><strong>${pages}</strong><em>累计页数</em></span>
+            </div>
+        `;
+    }
+}
+
+function renderCoReadCalendarStats() {
+    const stats = document.getElementById('coread-me-stats');
+    const calendar = document.getElementById('coread-reading-calendar');
+    const library = getCoReadLibrary();
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthBooks = library.filter(book => {
+        const ts = Number(book.createdAt || 0);
+        return ts >= monthStart.getTime();
+    });
+    const avg = library.length ? Math.round(library.reduce((sum, book) => sum + getCoReadBookProgress(book), 0) / library.length) : 0;
+    if (stats) {
+        stats.innerHTML = `
+            <div><strong>${monthBooks.length}</strong><span>本月加入</span></div>
+            <div><strong>${avg}%</strong><span>平均进度</span></div>
+            <div><strong>${getCoReadThoughts().length}</strong><span>共读旁注</span></div>
+        `;
+    }
+    if (calendar) {
+        const activeDays = new Set(monthBooks.map(book => new Date(book.createdAt || Date.now()).getDate()));
+        calendar.innerHTML = `
+            <div class="coread-calendar-head"><strong>${now.getFullYear()} / ${now.getMonth() + 1}</strong><span>Monthly Reading Log</span></div>
+            <div class="coread-calendar-grid">
+                ${Array.from({ length: daysInMonth }, (_, i) => {
+                    const day = i + 1;
+                    return `<span class="${activeDays.has(day) ? 'active' : ''}">${day}</span>`;
+                }).join('')}
+            </div>
+        `;
+    }
 }
 
 function renderCoReadReader() {
@@ -9491,13 +9689,17 @@ function renderCoReadApp() {
     });
     renderCoReadDaily();
     renderCoReadReader();
+    renderCoReadDashboard();
     renderCoReadThoughts();
     renderCoReadMePanel();
+    renderCoReadCalendarStats();
+    renderCoReadSourceManager();
 }
 
 function initCoReadApp() {
     renderCoReadApp();
     refreshCoReadDailyRecommendation(false);
+    if (!getCoReadSources().length) loadCoReadDefaultSources();
 }
 window.initCoReadApp = initCoReadApp;
 
@@ -9577,6 +9779,19 @@ async function addCoReadUrl() {
     const input = document.getElementById('coread-url-input');
     const url = String(input && input.value || '').trim();
     if (!url) return;
+    if (/\.json(?:\?|#|$)|booksource|shuyuan|booksources|legado/i.test(url)) {
+        try {
+            const count = await importCoReadSourcesFromUrl(url);
+            if (input) input.value = '';
+            setCoReadTab('discover');
+            const panel = document.getElementById('coread-source-manager');
+            if (panel) panel.classList.remove('hidden');
+            setCoReadSourceStatus(count ? `已从链接导入 ${count} 个书源` : '链接已读取，但没有解析到书源');
+            return;
+        } catch (e) {
+            setCoReadSourceStatus('链接不是可解析书源，按普通书籍链接加入书架');
+        }
+    }
     addCoReadBook({
         title: url.replace(/^https?:\/\//, '').slice(0, 80),
         source: 'url',
@@ -9586,6 +9801,147 @@ async function addCoReadUrl() {
     input.value = '';
 }
 window.addCoReadUrl = addCoReadUrl;
+
+function buildCoReadSourceSearchRequest(source, query) {
+    const raw = String(source.searchUrl || '').trim();
+    if (!raw) return null;
+    let path = raw;
+    let options = {};
+    const comma = raw.indexOf(',{');
+    if (comma > 0) {
+        path = raw.slice(0, comma);
+        const optionText = raw.slice(comma + 1)
+            .replace(/'/g, '"')
+            .replace(/\{\{key\}\}/g, encodeURIComponent(query));
+        try {
+            options = JSON.parse(optionText);
+        } catch (_) {
+            options = {};
+        }
+    }
+    path = path
+        .replace(/\{\{key\}\}/g, encodeURIComponent(query))
+        .replace(/\{\{page\}\}/g, '1');
+    const url = /^https?:\/\//i.test(path)
+        ? path
+        : new URL(path || '/', source.bookSourceUrl).href;
+    const method = String(options.method || options.Method || 'GET').toUpperCase();
+    const body = options.body ? String(options.body).replace(/\{\{key\}\}/g, encodeURIComponent(query)) : undefined;
+    return {
+        url,
+        options: method === 'GET' ? {} : {
+            method,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        }
+    };
+}
+
+function applyCoReadLegadoReplace(value, rule) {
+    let text = String(value == null ? '' : value).trim();
+    const parts = String(rule || '').split('##');
+    if (parts.length >= 3) {
+        try {
+            text = text.replace(new RegExp(parts[1], 'g'), parts[2].replace(/###$/g, ''));
+        } catch (_) {}
+    } else if (parts.length === 2) {
+        try {
+            text = text.replace(new RegExp(parts[1], 'g'), '');
+        } catch (_) {}
+    }
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function parseCoReadRulePart(rule) {
+    const clean = String(rule || '').split('##')[0].split('&&')[0].trim();
+    const at = clean.lastIndexOf('@');
+    return at >= 0
+        ? { selector: clean.slice(0, at).trim(), attr: clean.slice(at + 1).trim() || 'text' }
+        : { selector: clean, attr: 'text' };
+}
+
+function selectCoReadRuleNodes(root, selector) {
+    let clean = String(selector || '').trim();
+    if (!clean) return [root];
+    if (clean.startsWith('-')) clean = clean.slice(1).trim();
+    let index = null;
+    clean = clean.replace(/\.(-?\d+)(?::[-\d]+)*$/g, (_, n) => {
+        index = Number(n);
+        return '';
+    });
+    let nodes = [];
+    try {
+        nodes = Array.from(root.querySelectorAll(clean || '*'));
+    } catch (_) {
+        nodes = [];
+    }
+    if (index != null) {
+        const picked = index < 0 ? nodes[nodes.length + index] : nodes[index];
+        return picked ? [picked] : [];
+    }
+    return nodes;
+}
+
+function readCoReadRule(root, rule, baseUrl = '') {
+    if (!rule) return '';
+    const { selector, attr } = parseCoReadRulePart(rule);
+    const nodes = selectCoReadRuleNodes(root, selector);
+    const values = nodes.map(node => {
+        if (!node) return '';
+        if (attr === 'text' || attr === 'textNodes') return node.textContent || '';
+        if (attr === 'html') return node.innerHTML || '';
+        const value = node.getAttribute(attr) || '';
+        if ((attr === 'href' || attr === 'src') && value && baseUrl) {
+            try { return new URL(value, baseUrl).href; } catch (_) {}
+        }
+        return value;
+    }).filter(Boolean);
+    return applyCoReadLegadoReplace(values.join(' '), rule);
+}
+
+function parseCoReadSourceSearchHtml(html, source, query) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const rule = source.ruleSearch || {};
+    const listRule = rule.bookList || '';
+    const roots = selectCoReadRuleNodes(doc, listRule).slice(0, 8);
+    return roots.map(root => {
+        const title = readCoReadRule(root, rule.name, source.bookSourceUrl);
+        const bookUrl = readCoReadRule(root, rule.bookUrl, source.bookSourceUrl);
+        if (!title && !bookUrl) return null;
+        return {
+            title: title || query,
+            author: readCoReadRule(root, rule.author, source.bookSourceUrl),
+            url: bookUrl,
+            source: source.bookSourceName,
+            sourceType: 'bookSource',
+            description: readCoReadRule(root, rule.intro, source.bookSourceUrl),
+            coverUrl: readCoReadRule(root, rule.coverUrl, source.bookSourceUrl),
+            lastChapter: readCoReadRule(root, rule.lastChapter, source.bookSourceUrl),
+            kind: readCoReadRule(root, rule.kind, source.bookSourceUrl),
+            bookSourceUrl: source.bookSourceUrl
+        };
+    }).filter(Boolean);
+}
+
+async function searchCoReadBookSources(query) {
+    const sources = getCoReadSources()
+        .filter(source => source && source.enabled !== false && source.ruleSearch && source.searchUrl)
+        .slice(0, 10);
+    if (!sources.length) return [];
+    const results = [];
+    for (const source of sources) {
+        try {
+            const request = buildCoReadSourceSearchRequest(source, query);
+            if (!request) continue;
+            const html = await coReadFetchText(request.url, request.options);
+            results.push(...parseCoReadSourceSearchHtml(html, source, query));
+            if (results.length >= 12) break;
+        } catch (e) {
+            console.warn('coread source search failed:', source.bookSourceName, e);
+        }
+    }
+    return results.slice(0, 12);
+}
 
 async function searchCoReadBooks() {
     const input = document.getElementById('coread-search-input');
@@ -9601,10 +9957,11 @@ async function searchCoReadBooks() {
         description: '按当前输入的书名加入书架'
     };
     try {
-        const google = await searchCoReadGoogleBooks(query);
-        const openLibrary = google.length >= 4 ? [] : await searchCoReadOpenLibrary(query);
+        const sourceResults = await searchCoReadBookSources(query);
+        const google = sourceResults.length ? [] : await searchCoReadGoogleBooks(query);
+        const openLibrary = sourceResults.length || google.length >= 4 ? [] : await searchCoReadOpenLibrary(query);
         const seen = new Set();
-        coreadSearchCache = [exactResult, ...google, ...openLibrary].filter(item => {
+        coreadSearchCache = [...sourceResults, exactResult, ...google, ...openLibrary].filter(item => {
             const key = `${String(item.title || '').toLowerCase()}|${String(item.author || '').toLowerCase()}`;
             if (!item.title || seen.has(key)) return false;
             seen.add(key);
@@ -9666,16 +10023,15 @@ function renderCoReadSearchResults(query, note = '') {
             return `
                 <button type="button" onclick="addCoReadSearchResult(${index})">
                     <span>${musicEscapeHtml(title)}</span>
-                    <em>${musicEscapeHtml(author || doc.source || '书名加入')}</em>
+                    <em>${musicEscapeHtml([author, doc.source, doc.lastChapter].filter(Boolean).join(' · ') || '书名加入')}</em>
                 </button>
             `;
     }).join('');
     const external = `
         <div class="coread-external-search">
-            <span>${musicEscapeHtml(note || `没有想要的结果？继续用外部书城搜索「${query}」`)}</span>
-            <button type="button" onclick="openCoReadExternalSearch('douban')">豆瓣</button>
-            <button type="button" onclick="openCoReadExternalSearch('weread')">微信读书</button>
-            <button type="button" onclick="openCoReadExternalSearch('google')">Google</button>
+            <span>${musicEscapeHtml(note || `书源结果会直接加入书架；若没有结果，可先加载/导入更多书源后重搜「${query}」。`)}</span>
+            <button type="button" onclick="loadCoReadDefaultSources()">加载书源</button>
+            <button type="button" onclick="toggleCoReadSourceManager()">管理</button>
         </div>
     `;
     return rows + external;
@@ -9690,7 +10046,15 @@ function addCoReadSearchResult(index) {
         source: item.source || 'search',
         url: item.url,
         description: item.description || `${item.source || '搜索'} 条目：${item.url}`,
-        content: `书名：${item.title}\n作者：${item.author || '未知'}\n来源：${item.source || '搜索'} ${item.url || ''}\n\n${item.description || '这是搜索结果元数据，不含完整正文。导入 txt/md 后可以按页共读。'}`
+        coverUrl: item.coverUrl || '',
+        rating: 0,
+        sourceData: item.sourceType === 'bookSource' ? {
+            bookSourceUrl: item.bookSourceUrl || '',
+            bookUrl: item.url || '',
+            lastChapter: item.lastChapter || '',
+            kind: item.kind || ''
+        } : null,
+        content: `书名：${item.title}\n作者：${item.author || '未知'}\n来源：${item.source || '搜索'} ${item.url || ''}\n${item.lastChapter ? `最新章节：${item.lastChapter}\n` : ''}\n${item.kind ? `分类：${item.kind}\n` : ''}\n${item.description || '已从搜索结果加入书架。后续可以继续导入正文或章节解析。'}`
     });
 }
 window.addCoReadSearchResult = addCoReadSearchResult;

@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260606-couple-transparent-shell1">
+    <link rel="stylesheet" href="style.css?v=20260608-coread-sources416">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260606-couple-transparent-shell1">
 </head>
 <body>
@@ -571,9 +571,17 @@
                             <button type="button" onclick="searchCoReadBooks()">书城</button>
                         </div>
                         <div class="coread-source-row">
-                            <button type="button" onclick="openCoReadExternalSearch('douban')">豆瓣</button>
-                            <button type="button" onclick="openCoReadExternalSearch('weread')">微信读书</button>
-                            <button type="button" onclick="openCoReadExternalSearch('google')">Google Books</button>
+                            <button type="button" onclick="loadCoReadDefaultSources()">加载书源</button>
+                            <button type="button" onclick="searchCoReadBooks()">书源搜索</button>
+                            <button type="button" onclick="toggleCoReadSourceManager()">书源管理</button>
+                        </div>
+                        <div class="coread-source-manager hidden" id="coread-source-manager">
+                            <div class="coread-source-status" id="coread-source-status">未加载书源</div>
+                            <div class="coread-source-input">
+                                <input id="coread-source-url-input" type="url" placeholder="粘贴 Legado / 阅读 书源 JSON 链接">
+                                <button type="button" onclick="importCoReadSourceUrl()">导入</button>
+                            </div>
+                            <div class="coread-source-list" id="coread-source-list"></div>
                         </div>
                     </section>
                     <section class="coread-daily" data-coread-panel="discover">
@@ -603,6 +611,14 @@
                             <input id="coread-url-input" type="url" placeholder="粘贴书籍链接">
                             <button type="button" onclick="addCoReadUrl()"><i class="ri-add-line"></i></button>
                         </div>
+                    </section>
+                    <section class="coread-dashboard" data-coread-panel="shelf">
+                        <div class="coread-dash-head">
+                            <span>BOOK LOVER DASHBOARD</span>
+                            <strong>阅读宇宙</strong>
+                        </div>
+                        <div class="coread-current-reads" id="coread-current-reads"></div>
+                        <div class="coread-progress-card" id="coread-progress-card"></div>
                     </section>
                     <section class="coread-layout" data-coread-panel="shelf">
                         <aside class="coread-sidebar">
@@ -641,6 +657,8 @@
                             <strong>共读对象</strong>
                         </div>
                         <div id="coread-me-char-list" class="coread-me-char-list"></div>
+                        <div class="coread-me-stats" id="coread-me-stats"></div>
+                        <div class="coread-reading-calendar" id="coread-reading-calendar"></div>
                         <div class="coread-me-guide">
                             <i class="ri-book-open-line"></i>
                             <div>
@@ -1104,7 +1122,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.415
+                    Beyond Screen v1.1.416
                 </div>
             </div>
         </div>
@@ -2085,8 +2103,8 @@
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
     <script src="wechat.js?v=20260606-couple-transparent-shell1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
-    <script src="settings.js?v=20260606-couple-transparent-shell1"></script>
-    <script src="script.js?v=20260606-couple-transparent-shell1"></script>
+    <script src="settings.js?v=20260608-coread-sources416"></script>
+    <script src="script.js?v=20260608-coread-sources416"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>

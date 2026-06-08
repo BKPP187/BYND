@@ -18850,6 +18850,74 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     font-weight: 820;
     box-shadow: 0 10px 22px rgba(61,53,45,0.05);
 }
+.coread-source-manager {
+    border-radius: 24px;
+    background: rgba(255,255,255,0.88);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+}
+.coread-source-manager.hidden { display: none; }
+.coread-source-status {
+    color: #766a5f;
+    font-size: 12px;
+    font-weight: 820;
+}
+.coread-source-input {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 64px;
+    gap: 8px;
+}
+.coread-source-input input {
+    min-width: 0;
+    height: 40px;
+    border: none;
+    border-radius: 18px;
+    background: #f3eee7;
+    color: #292520;
+    padding: 0 12px;
+    outline: none;
+    font-size: 13px;
+}
+.coread-source-input button {
+    border: none;
+    border-radius: 18px;
+    background: #2e2924;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 860;
+}
+.coread-source-list {
+    max-height: 176px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 7px;
+}
+.coread-source-list button {
+    min-width: 0;
+    min-height: 48px;
+    border: none;
+    border-radius: 16px;
+    background: #f8f5ef;
+    color: #2a251f;
+    padding: 8px 9px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+.coread-source-list span,
+.coread-source-list em {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.coread-source-list span { font-size: 12px; font-weight: 880; }
+.coread-source-list em { margin-top: 2px; color: #958879; font-size: 10px; font-style: normal; }
 .coread-daily {
     min-height: 318px;
     border-radius: 7px;
@@ -18940,6 +19008,119 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .coread-url input { height: 38px; font-size: 15px; font-weight: 760; }
 .coread-url button { width: 38px; height: 38px; background: #eee8df; color: #725d48; }
 .coread-layout { grid-template-columns: 122px minmax(0,1fr); gap: 10px; }
+.coread-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 158px;
+    gap: 10px;
+}
+.coread-dash-head {
+    grid-column: 1 / -1;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.90);
+    padding: 15px 16px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+}
+.coread-dash-head span {
+    color: #9b8068;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+}
+.coread-dash-head strong {
+    display: block;
+    margin-top: 4px;
+    color: #211f1c;
+    font-size: 22px;
+    font-weight: 930;
+}
+.coread-current-reads {
+    min-width: 0;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.88);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 9px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+}
+.coread-read-card {
+    min-width: 0;
+    border: none;
+    border-radius: 16px;
+    background: #fbf8f2;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    text-align: left;
+    color: #28231f;
+}
+.coread-read-card.active { background: #2e2924; color: #fff; }
+.coread-read-cover {
+    aspect-ratio: 0.72 / 1;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #e7ded2, #fbf8f2);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6f6256;
+    font-size: 18px;
+    font-weight: 930;
+}
+.coread-read-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.coread-read-card strong,
+.coread-read-card em {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.coread-read-card strong { color: inherit; font-size: 12px; font-weight: 900; }
+.coread-read-card em { color: currentColor; opacity: 0.62; font-size: 10px; font-style: normal; }
+.coread-card-stars { color: #d4a846; font-size: 10px; letter-spacing: 0; }
+.coread-read-card small { color: currentColor; opacity: 0.72; font-size: 10px; font-weight: 820; }
+.coread-progress-card {
+    border-radius: 24px;
+    background: rgba(255,255,255,0.88);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+}
+.coread-ring {
+    width: 102px;
+    height: 102px;
+    border-radius: 50%;
+    background: conic-gradient(#244967 var(--coread-progress, 0deg), #eee8df 0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #244967;
+    position: relative;
+}
+.coread-ring::before {
+    content: '';
+    position: absolute;
+    inset: 13px;
+    border-radius: 50%;
+    background: #fff;
+}
+.coread-ring strong,
+.coread-ring span {
+    position: relative;
+    z-index: 1;
+}
+.coread-ring strong { font-size: 22px; font-weight: 930; }
+.coread-ring span { color: #7f786f; font-size: 10px; font-weight: 820; }
+.coread-progress-stats { width: 100%; display: grid; gap: 7px; }
+.coread-progress-stats span { min-height: 36px; border-radius: 13px; background: #f8f5ef; display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: center; gap: 8px; padding: 0 9px; }
+.coread-progress-stats strong { color: #211f1c; font-size: 15px; font-weight: 930; }
+.coread-progress-stats em { color: #877a6d; font-size: 10px; font-style: normal; font-weight: 800; }
 .coread-sidebar { position: sticky; top: 0; }
 .coread-panel-head strong { color: #221f1c; font-size: 16px; line-height: 1.1; }
 .coread-panel-head em { color: #9b8b7a; font-size: 11px; }
@@ -19131,6 +19312,59 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .coread-me-char-list em { color: currentColor; opacity: 0.62; font-size: 12px; font-style: normal; }
 .coread-me-char-list i { justify-self: end; color: currentColor; opacity: 0; font-size: 20px; }
 .coread-me-char-list button.active i { opacity: 1; }
+.coread-me-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 9px;
+}
+.coread-me-stats div {
+    min-height: 72px;
+    border-radius: 22px;
+    background: rgba(255,255,255,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 14px 30px rgba(61,53,45,0.06);
+}
+.coread-me-stats strong { color: #211f1c; font-size: 22px; font-weight: 930; }
+.coread-me-stats span { color: #85796c; font-size: 11px; font-weight: 820; }
+.coread-reading-calendar {
+    border-radius: 26px;
+    background: rgba(255,255,255,0.92);
+    padding: 15px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+}
+.coread-calendar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.coread-calendar-head strong { color: #211f1c; font-size: 15px; font-weight: 920; }
+.coread-calendar-head span { color: #958879; font-size: 11px; font-weight: 820; }
+.coread-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+.coread-calendar-grid span {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    background: #f4eee7;
+    color: #8d8175;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+}
+.coread-calendar-grid span.active {
+    background: #2e2924;
+    color: #fff;
+}
 .coread-me-guide {
     border-radius: 26px;
     background: #eee8df;
@@ -19172,6 +19406,8 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     .coread-daily-copy p { font-size: 15px; }
     .coread-daily-card strong { font-size: 32px; }
     .coread-import-strip { grid-template-columns: 1fr; }
+    .coread-dashboard { grid-template-columns: 1fr; }
+    .coread-current-reads { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .coread-layout { grid-template-columns: 112px minmax(0,1fr); }
     .coread-reader-body { min-height: 330px; }
     .coread-external-search { grid-template-columns: 1fr; }
