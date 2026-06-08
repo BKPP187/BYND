@@ -7,10 +7,11 @@ const THEME_ICON_TARGETS = [
     {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
     {i:'ri-moon-cloudy-line', n:'盗梦空间'}, {i:'ri-eye-line', n:'监控'},
     {i:'ri-map-pin-user-line', n:'一起出门'},
+    {i:'ri-book-open-line', n:'共读'}, {i:'ri-image-2-line', n:'相册'},
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
     {i:'ri-equalizer-line', n:'预设'}
 ];
-const THEME_DESKTOP_ICON_COUNT = 11;
+const THEME_DESKTOP_ICON_COUNT = 13;
 const THEME_DOCK_ICON_START = THEME_DESKTOP_ICON_COUNT;
 const THEME_LIBRARY_KEY = 'bynd_theme_library_v1';
 
@@ -40,6 +41,20 @@ function normalizeThemeIconList(icons) {
     const normalized = new Array(THEME_ICON_TARGETS.length).fill('');
     if (icons.length >= THEME_ICON_TARGETS.length) {
         return icons.slice(0, THEME_ICON_TARGETS.length);
+    }
+    if (icons.length === 14) {
+        for (let i = 0; i < 11; i++) normalized[i] = icons[i] || '';
+        normalized[THEME_DOCK_ICON_START] = icons[11] || '';
+        normalized[THEME_DOCK_ICON_START + 1] = icons[12] || '';
+        normalized[THEME_DOCK_ICON_START + 2] = icons[13] || '';
+        return normalized;
+    }
+    if (icons.length === 13) {
+        for (let i = 0; i < 10; i++) normalized[i] = icons[i] || '';
+        normalized[THEME_DOCK_ICON_START] = icons[10] || '';
+        normalized[THEME_DOCK_ICON_START + 1] = icons[11] || '';
+        normalized[THEME_DOCK_ICON_START + 2] = icons[12] || '';
+        return normalized;
     }
     if (icons.length === THEME_ICON_TARGETS.length - 1) {
         for (let i = 0; i < 10; i++) normalized[i] = icons[i] || '';
