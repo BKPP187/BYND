@@ -234,7 +234,25 @@ function openApp(appName) {
             initOutingApp();
         }
     }
-    // 13. System Camera
+    // 14. 共读
+    else if (appName === 'coread') {
+        const win = document.getElementById('app-coread-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            initCoReadApp();
+        }
+    }
+    // 15. 相册
+    else if (appName === 'album') {
+        const win = document.getElementById('app-album-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            initAlbumApp();
+        }
+    }
+    // 16. System Camera
     else if (appName === 'camera') {
         openSystemCamera();
     }
@@ -291,6 +309,8 @@ function closeApp(appName) {
     else if (appName === 'dream') winId = 'app-dream-window';
     else if (appName === 'monitor') winId = 'app-monitor-window';
     else if (appName === 'outing') winId = 'app-outing-window';
+    else if (appName === 'coread') winId = 'app-coread-window';
+    else if (appName === 'album') winId = 'app-album-window';
     const win = document.getElementById(winId);
     if (win) {
         restoreDesktopPageAfterApp(appName);
@@ -9192,6 +9212,359 @@ function removeFromFolder(folderId, appId) {
     rebuildDesktop();
 }
 
+// --- Co-reading / 共读小说 ---
+const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
+let coreadActiveBookId = '';
+let coreadActiveCharId = '';
+let coreadBusy = false;
+let coreadSearchCache = [];
+
+function getCoReadCharacters() {
+    return Array.isArray(window.myCharacters)
+        ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat)
+        : [];
+}
+
+function getCoReadLibrary() {
+    try {
+        const list = JSON.parse(localStorage.getItem(COREAD_LIBRARY_KEY) || '[]');
+        return Array.isArray(list) ? list.filter(item => item && item.id) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function saveCoReadLibrary(list) {
+    localStorage.setItem(COREAD_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 80)));
+}
+
+function getCoReadBook(bookId) {
+    return getCoReadLibrary().find(book => book.id === bookId) || null;
+}
+
+function getCoReadCharName(char) {
+    return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
+}
+
+function getCoReadRecentContext(char) {
+    const history = Array.isArray(char && char.history) ? char.history : [];
+    return history.slice(-12).map(msg => {
+        const who = msg.isMe ? '用户' : getCoReadCharName(char);
+        const text = String(msg.description || msg.content || msg.dialogue || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        return text ? `${who}: ${text.slice(0, 220)}` : '';
+    }).filter(Boolean).join('\n') || '暂无最近聊天。';
+}
+
+function getCoReadWorldBookText(char) {
+    const entries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    return entries.slice(0, 12).map(entry => {
+        const key = entry.key || entry.keys || entry.keyword || '';
+        const content = String(entry.content || entry.entry || entry.value || '').replace(/\s+/g, ' ').slice(0, 420);
+        return content ? `${key ? `【${key}】` : ''}${content}` : '';
+    }).filter(Boolean).join('\n');
+}
+
+function getCoReadPageText(book) {
+    const content = String(book && book.content || book && book.description || '');
+    if (!content) return '这本书目前只有书名和来源链接，还没有正文。';
+    const page = Math.max(0, Number(book.page || 0));
+    const size = 1400;
+    return content.slice(page * size, (page + 1) * size) || content.slice(-size);
+}
+
+function renderCoReadBookCard(book) {
+    const active = book.id === coreadActiveBookId ? 'active' : '';
+    const source = book.source === 'search' ? 'Open Library' : (book.source || '本地');
+    return `
+        <button type="button" class="coread-book ${active}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
+            <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
+            <em>${musicEscapeHtml(book.author || source)}</em>
+        </button>
+    `;
+}
+
+function renderCoReadCharOptions() {
+    const chars = getCoReadCharacters();
+    return chars.map(char => `
+        <button type="button" class="${char.id === coreadActiveCharId ? 'active' : ''}" onclick="selectCoReadChar('${musicEscapeAttr(char.id)}')">
+            <img src="${musicEscapeAttr(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+            <span>${musicEscapeHtml(getCoReadCharName(char))}</span>
+        </button>
+    `).join('') || '<div class="coread-empty">先导入角色卡</div>';
+}
+
+function renderCoReadReader() {
+    const book = getCoReadBook(coreadActiveBookId);
+    const title = document.getElementById('coread-reader-title');
+    const body = document.getElementById('coread-reader-body');
+    const meta = document.getElementById('coread-reader-meta');
+    if (title) title.textContent = book ? (book.title || '未命名书籍') : '选择一本书';
+    if (meta) meta.textContent = book ? `${book.author || '未知作者'} · 第 ${Math.max(1, Number(book.page || 0) + 1)} 页` : '导入 txt/md，或用 Open Library 搜索加入书架';
+    if (body) {
+        const text = book ? getCoReadPageText(book) : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
+        body.textContent = text;
+    }
+}
+
+function renderCoReadApp() {
+    const list = document.getElementById('coread-book-list');
+    const chars = document.getElementById('coread-char-list');
+    const status = document.getElementById('coread-status');
+    const library = getCoReadLibrary();
+    if (!coreadActiveBookId && library[0]) coreadActiveBookId = library[0].id;
+    if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
+    if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
+    if (chars) chars.innerHTML = renderCoReadCharOptions();
+    if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : 'Open Library 可搜索书籍元数据；正文请导入文件或链接。';
+    renderCoReadReader();
+}
+
+function initCoReadApp() {
+    renderCoReadApp();
+}
+window.initCoReadApp = initCoReadApp;
+
+function selectCoReadBook(bookId) {
+    coreadActiveBookId = bookId || '';
+    renderCoReadApp();
+}
+window.selectCoReadBook = selectCoReadBook;
+
+function selectCoReadChar(charId) {
+    coreadActiveCharId = charId || '';
+    renderCoReadApp();
+}
+window.selectCoReadChar = selectCoReadChar;
+
+function addCoReadBook(book) {
+    const library = getCoReadLibrary();
+    const safe = {
+        id: book.id || `book_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title: String(book.title || '未命名书籍').slice(0, 120),
+        author: String(book.author || '').slice(0, 120),
+        source: String(book.source || 'local'),
+        url: String(book.url || ''),
+        content: String(book.content || ''),
+        description: String(book.description || ''),
+        page: 0,
+        createdAt: Date.now()
+    };
+    library.unshift(safe);
+    saveCoReadLibrary(library);
+    coreadActiveBookId = safe.id;
+    renderCoReadApp();
+}
+
+async function importCoReadFile(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const asText = ['txt', 'md', 'markdown', 'json', 'csv'].includes(ext) || /^text\//i.test(file.type || '');
+    const content = asText
+        ? await file.text()
+        : `已加入书架：${file.name}\n\n当前浏览器静态版只直接抽取 txt/md 正文。doc/docx/pdf 可以先加入书架记录来源；如需逐页共读，请转成 txt 后导入，或粘贴可访问的正文链接。`;
+    addCoReadBook({
+        title: file.name.replace(/\.[^.]+$/, ''),
+        author: '',
+        source: asText ? 'file' : ext || 'file',
+        content
+    });
+    input.value = '';
+}
+window.importCoReadFile = importCoReadFile;
+
+async function addCoReadUrl() {
+    const input = document.getElementById('coread-url-input');
+    const url = String(input && input.value || '').trim();
+    if (!url) return;
+    addCoReadBook({
+        title: url.replace(/^https?:\/\//, '').slice(0, 80),
+        source: 'url',
+        url,
+        content: `来源链接：${url}\n\n如果这是可公开访问的正文链接，请把正文复制为 txt 导入；char 评论会基于标题、链接和当前可见文本生成。`
+    });
+    input.value = '';
+}
+window.addCoReadUrl = addCoReadUrl;
+
+async function searchCoReadBooks() {
+    const input = document.getElementById('coread-search-input');
+    const box = document.getElementById('coread-search-results');
+    const query = String(input && input.value || '').trim();
+    if (!query || !box) return;
+    box.innerHTML = '<div class="coread-empty">搜索中...</div>';
+    try {
+        const resp = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8`);
+        const data = await resp.json();
+        const docs = Array.isArray(data.docs) ? data.docs : [];
+        coreadSearchCache = docs.map(doc => ({
+            title: doc.title || '未命名书籍',
+            author: Array.isArray(doc.author_name) ? doc.author_name.slice(0, 2).join(' / ') : '',
+            url: doc.key ? `https://openlibrary.org${doc.key}` : 'https://openlibrary.org'
+        }));
+        box.innerHTML = coreadSearchCache.map((doc, index) => {
+            const title = doc.title || '未命名书籍';
+            const author = doc.author || '';
+            return `
+                <button type="button" onclick="addCoReadSearchResult(${index})">
+                    <span>${musicEscapeHtml(title)}</span>
+                    <em>${musicEscapeHtml(author || 'Open Library')}</em>
+                </button>
+            `;
+        }).join('') || '<div class="coread-empty">没有搜到结果</div>';
+    } catch (e) {
+        box.innerHTML = '<div class="coread-empty">搜索失败，稍后再试</div>';
+    }
+}
+window.searchCoReadBooks = searchCoReadBooks;
+
+function addCoReadSearchResult(index) {
+    const item = coreadSearchCache[Math.max(0, Number(index || 0))];
+    if (!item) return;
+    addCoReadBook({
+        title: item.title,
+        author: item.author,
+        source: 'search',
+        url: item.url,
+        description: `Open Library 条目：${item.url}`,
+        content: `书名：${item.title}\n作者：${item.author || '未知'}\n来源：${item.url}\n\n这是搜索结果元数据，不含完整正文。导入 txt/md 后可以按页共读。`
+    });
+}
+window.addCoReadSearchResult = addCoReadSearchResult;
+
+function turnCoReadPage(delta) {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item.id === coreadActiveBookId);
+    if (!book) return;
+    const maxPage = Math.max(0, Math.ceil(String(book.content || '').length / 1400) - 1);
+    book.page = Math.max(0, Math.min(maxPage, Number(book.page || 0) + Number(delta || 0)));
+    saveCoReadLibrary(library);
+    renderCoReadApp();
+}
+window.turnCoReadPage = turnCoReadPage;
+
+async function askCoReadComment() {
+    const book = getCoReadBook(coreadActiveBookId);
+    const char = getCoReadCharacters().find(item => item.id === coreadActiveCharId);
+    const output = document.getElementById('coread-comment');
+    if (!book || !char || coreadBusy) return;
+    coreadBusy = true;
+    if (output) output.textContent = '...';
+    renderCoReadApp();
+    try {
+        const userProfile = typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {});
+        const identity = typeof buildWechatIdentityContextPrompt === 'function' ? buildWechatIdentityContextPrompt(char, userProfile) : '';
+        const worldBook = getCoReadWorldBookText(char);
+        const memory = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
+        const persona = String(char.description || '').slice(0, 4200);
+        const result = await callChatApi([
+            {
+                role: 'system',
+                content: '你是 BYND 共读小说功能里的角色即时旁白生成器。必须让角色按自己的人设、世界书、当前关系和最近聊天语境发表读后反应。不要写通用书评，不要脱离角色，不要用系统口吻，不要替用户总结。'
+            },
+            {
+                role: 'user',
+                content: [
+                    identity,
+                    persona ? `【角色卡/人设】\n${persona}` : '',
+                    worldBook ? `【世界书】\n${worldBook}` : '',
+                    memory ? `【角色记忆】\n${memory}` : '',
+                    `【最近聊天】\n${getCoReadRecentContext(char)}`,
+                    `【正在共读的书】\n标题：${book.title}\n作者：${book.author || '未知'}\n来源：${book.url || book.source || '本地'}`,
+                    `【当前页文本】\n${getCoReadPageText(book).slice(0, 1800)}`,
+                    '请用角色会对用户说出口的语气，写 1-3 段短评论。'
+                ].filter(Boolean).join('\n\n')
+            }
+        ]);
+        if (output) output.textContent = result && result.ok ? result.content : (result && result.error) || 'char 没有回应。';
+    } catch (e) {
+        if (output) output.textContent = '生成失败，稍后再试。';
+    } finally {
+        coreadBusy = false;
+        renderCoReadApp();
+    }
+}
+window.askCoReadComment = askCoReadComment;
+
+// --- Chat Album / 相册 ---
+const CHAT_ALBUM_KEY = 'bynd_chat_album_v1';
+
+function getChatAlbumStore() {
+    try {
+        const list = JSON.parse(localStorage.getItem(CHAT_ALBUM_KEY) || '[]');
+        return Array.isArray(list) ? list.filter(Boolean) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function saveChatAlbumStore(list) {
+    localStorage.setItem(CHAT_ALBUM_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 500)));
+}
+
+function recordWechatGeneratedImageToAlbum(char, msg) {
+    const url = msg && (msg.imageUrl || msg.content);
+    if (!char || !url) return;
+    const list = getChatAlbumStore();
+    if (list.some(item => item.url === url)) return;
+    list.unshift({
+        id: `album_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        charId: char.id || '',
+        charName: getCoReadCharName(char),
+        avatar: char.avatar || DEFAULT_AVATAR,
+        url,
+        description: String(msg.description || msg.imagePrompt || '').slice(0, 260),
+        prompt: String(msg.imagePrompt || '').slice(0, 800),
+        createdAt: Date.now()
+    });
+    saveChatAlbumStore(list);
+    if (!document.getElementById('app-album-window')?.classList.contains('hidden')) renderAlbumApp();
+}
+window.recordWechatGeneratedImageToAlbum = recordWechatGeneratedImageToAlbum;
+
+function renderAlbumApp() {
+    const tabs = document.getElementById('album-char-tabs');
+    const grid = document.getElementById('album-grid');
+    const status = document.getElementById('album-status');
+    if (!tabs || !grid) return;
+    const chars = getCoReadCharacters();
+    const store = getChatAlbumStore();
+    const active = window._albumActiveCharId || (chars[0] && chars[0].id) || '';
+    window._albumActiveCharId = active;
+    tabs.innerHTML = chars.map(char => {
+        const count = store.filter(item => item.charId === char.id).length;
+        return `
+            <button type="button" class="${char.id === active ? 'active' : ''}" onclick="selectAlbumChar('${musicEscapeAttr(char.id)}')">
+                <img src="${musicEscapeAttr(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                <span>${musicEscapeHtml(getCoReadCharName(char))}</span>
+                <em>${count}</em>
+            </button>
+        `;
+    }).join('') || '<div class="album-empty">先导入角色卡</div>';
+    const rows = store.filter(item => !active || item.charId === active);
+    grid.innerHTML = rows.map(item => `
+        <figure class="album-photo">
+            <img src="${musicEscapeAttr(item.url)}" alt="${musicEscapeAttr(item.description || item.charName || '聊天图片')}" loading="lazy">
+            <figcaption>
+                <strong>${musicEscapeHtml(item.charName || '角色')}</strong>
+                <span>${musicEscapeHtml(item.description || '聊天生成图片')}</span>
+            </figcaption>
+        </figure>
+    `).join('') || '<div class="album-empty">这个角色还没有聊天生成图</div>';
+    if (status) status.textContent = `已保存 ${store.length} 张聊天生成图`;
+}
+
+function initAlbumApp() {
+    renderAlbumApp();
+}
+window.initAlbumApp = initAlbumApp;
+
+function selectAlbumChar(charId) {
+    window._albumActiveCharId = charId || '';
+    renderAlbumApp();
+}
+window.selectAlbumChar = selectAlbumChar;
+
 const DESKTOP_DOCK_APP_DEFINITIONS = [
     { id: 'music', name: '音乐', icon: 'ri-music-2-fill' },
     { id: 'camera', name: '相机', icon: 'ri-camera-lens-line' },
@@ -9209,7 +9582,9 @@ const DESKTOP_APPS = [
     { id: 'game', name: 'Game', icon: 'ri-gamepad-line' },
     { id: 'dream', name: '盗梦空间', icon: 'ri-moon-cloudy-line' },
     { id: 'monitor', name: '监控', icon: 'ri-eye-line' },
-    { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' }
+    { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' },
+    { id: 'coread', name: '共读', icon: 'ri-book-open-line' },
+    { id: 'album', name: '相册', icon: 'ri-image-2-line' }
 ];
 normalizeDesktopFolders();
 saveFolders();
@@ -12958,6 +13333,7 @@ function restoreDefaultDesktopLayout() {
     const pages = document.getElementById('pages-container');
     const template = _desktopDefaultLayoutHtml || _desktopLayoutBackupHtml;
     if (pages && template) {
+        if (typeof pages._pageSwipeCleanup === 'function') pages._pageSwipeCleanup();
         const newPages = pages.cloneNode(false);
         newPages.innerHTML = template;
         pages.replaceWith(newPages);
@@ -12974,6 +13350,7 @@ function restoreDefaultDesktopLayout() {
     clearDesktopEditChrome();
     if (typeof clearDesktopPageSlotRects === 'function') clearDesktopPageSlotRects();
     setTimeout(() => {
+        if (typeof syncDesktopPagesAndDots === 'function') syncDesktopPagesAndDots(0);
         if (typeof initFolderDrag === 'function') initFolderDrag();
         if (typeof ensureMonitorDesktopEntry === 'function') ensureMonitorDesktopEntry();
         if (typeof ensureDesktopLovelyWidget === 'function') ensureDesktopLovelyWidget();
@@ -12997,7 +13374,10 @@ function clearDesktopEditChrome() {
 
 function restoreDesktopRuntimeAfterEdit() {
     if (typeof initPageSwipe === 'function') initPageSwipe({ force: true });
-    const currentPage = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+    const pages = typeof getDesktopPages === 'function' ? getDesktopPages() : [];
+    const maxPage = Math.max(0, pages.length - 1);
+    const currentPage = Math.max(0, Math.min(maxPage, Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0));
+    window._desktopCurrentPage = currentPage;
     if (typeof window.goToDesktopPage === 'function') {
         window.goToDesktopPage(currentPage);
     } else {
@@ -13160,7 +13540,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor', 'outing'].forEach(appId => {
+    ['dream', 'monitor', 'outing', 'coread', 'album'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;

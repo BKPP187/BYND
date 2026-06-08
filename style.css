@@ -17870,6 +17870,36 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     background: #fff;
     border-color: #d1d1d6;
 }
+.wc-ai-phone-compose-active input {
+    min-width: 0;
+    height: 31px;
+    border: 1px solid #d1d1d6;
+    border-radius: 16px;
+    background: #fff;
+    color: #111827;
+    padding: 0 11px;
+    font-size: 13px;
+    outline: none;
+}
+.wc-ai-phone-compose-active button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #007aff;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+.wc-ai-phone-proxy-tag {
+    display: block;
+    margin-top: 3px;
+    color: rgba(255,255,255,0.64);
+    font-size: 9px;
+    line-height: 1.2;
+}
 .wc-ai-phone-map-preview {
     position: relative;
     overflow: hidden;
@@ -18694,3 +18724,75 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 /* === End LINE chat final overrides 20260602 === */
 .outing-log-row em { color: #8a948f; font-size: 10px; font-style: normal; font-weight: 780; }
 .outing-empty { min-height: 54px; display: flex; align-items: center; justify-content: center; color: #8a948f; font-size: 12px; }
+
+/* --- Co-reading / 共读 --- */
+.coread-window { background: #f4f1ea; color: #222; }
+.coread-shell, .album-shell { height: 100%; display: flex; flex-direction: column; background: #f7f4ed; }
+.coread-topbar, .album-topbar { height: 96px; padding: 46px 16px 12px; display: grid; grid-template-columns: 38px minmax(0,1fr) 38px; align-items: center; gap: 10px; border-bottom: 1px solid rgba(40,35,28,0.08); background: rgba(247,244,237,0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.coread-topbar button, .album-topbar button { width: 36px; height: 36px; border: none; border-radius: 50%; background: rgba(255,255,255,0.82); color: #24211d; display: flex; align-items: center; justify-content: center; font-size: 21px; box-shadow: 0 8px 18px rgba(64,52,39,0.08); }
+.coread-topbar div, .album-topbar div { min-width: 0; text-align: center; }
+.coread-topbar span, .album-topbar span { display: block; color: #8a7660; font-size: 10px; font-weight: 900; letter-spacing: 0.14em; }
+.coread-topbar strong, .album-topbar strong { display: block; margin-top: 2px; color: #221f1b; font-size: 17px; font-weight: 920; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coread-content { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 12px 22px; display: flex; flex-direction: column; gap: 12px; }
+.coread-tools { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.coread-file, .coread-url, .coread-search { min-height: 44px; border-radius: 18px; background: rgba(255,255,255,0.86); border: 1px solid rgba(255,255,255,0.92); display: grid; grid-template-columns: 30px minmax(0,1fr) 38px; align-items: center; gap: 8px; padding: 0 8px 0 12px; box-shadow: 0 10px 24px rgba(65,54,43,0.07); }
+.coread-file { grid-template-columns: 30px minmax(0,1fr); cursor: pointer; }
+.coread-file input { display: none; }
+.coread-file i, .coread-url button, .coread-search button { color: #7b6044; }
+.coread-file span { min-width: 0; color: #453c33; font-size: 13px; font-weight: 820; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coread-url input, .coread-search input { min-width: 0; width: 100%; border: none; outline: none; background: transparent; color: #2b2722; font-size: 13px; }
+.coread-url button, .coread-search button { width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(123,96,68,0.10); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.coread-search-results { display: flex; flex-direction: column; gap: 6px; }
+.coread-search-results button { min-height: 42px; border: none; border-radius: 15px; background: rgba(255,255,255,0.82); color: #2b2722; padding: 7px 10px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.coread-search-results span, .coread-book span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 840; }
+.coread-search-results em, .coread-book em { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8a7a68; font-size: 11px; font-style: normal; }
+.coread-layout { display: grid; grid-template-columns: 118px minmax(0,1fr); gap: 10px; align-items: start; }
+.coread-sidebar { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.coread-panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; padding: 0 2px; }
+.coread-panel-head strong { color: #2a251f; font-size: 13px; font-weight: 900; }
+.coread-panel-head em { min-width: 0; color: #9a8975; font-size: 10px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coread-book-list, .coread-char-list { display: flex; flex-direction: column; gap: 7px; }
+.coread-book, .coread-char-list button { width: 100%; min-height: 54px; border: none; border-radius: 17px; background: rgba(255,255,255,0.82); color: #2b2722; padding: 8px 9px; box-shadow: 0 10px 22px rgba(65,54,43,0.06); text-align: left; }
+.coread-book.active, .coread-char-list button.active { background: #2d2a25; color: #fff; }
+.coread-book.active em, .coread-char-list button.active span { color: rgba(255,255,255,0.78); }
+.coread-char-list button { display: grid; grid-template-columns: 30px minmax(0,1fr); align-items: center; gap: 7px; min-height: 42px; }
+.coread-char-list img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.coread-char-list span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; font-size: 12px; font-weight: 820; }
+.coread-reader { min-width: 0; border-radius: 22px; background: #fffdf8; box-shadow: 0 18px 38px rgba(65,54,43,0.10); overflow: hidden; }
+.coread-reader-head { min-height: 58px; padding: 9px; display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; gap: 8px; border-bottom: 1px solid rgba(45,42,37,0.06); }
+.coread-reader-head button { width: 32px; height: 32px; border: none; border-radius: 50%; background: rgba(45,42,37,0.07); color: #35302a; font-size: 18px; }
+.coread-reader-head div { min-width: 0; text-align: center; }
+.coread-reader-head strong, .coread-reader-head span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coread-reader-head strong { color: #211d19; font-size: 14px; font-weight: 920; }
+.coread-reader-head span { margin-top: 2px; color: #9a8975; font-size: 10px; }
+.coread-reader-body { min-height: 330px; max-height: 48vh; margin: 0; padding: 20px 18px; overflow-y: auto; color: #24211d; font-size: 16px; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; font-family: Georgia, "Times New Roman", "Noto Serif SC", serif; }
+.coread-comment-card { margin: 0 10px 12px; padding: 12px; border-radius: 17px; background: #f1ece3; }
+.coread-comment-card div { display: flex; align-items: center; gap: 6px; color: #6f5338; font-size: 12px; font-weight: 900; }
+.coread-comment-card p { margin: 7px 0 0; color: #453c33; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.coread-empty, .album-empty { min-height: 48px; border-radius: 16px; background: rgba(255,255,255,0.55); color: #958674; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; font-size: 12px; }
+
+/* --- Chat Album / 相册 --- */
+.album-window { background: #f4f5f2; color: #202522; }
+.album-shell { background: #f4f5f2; }
+.album-topbar { grid-template-columns: 38px minmax(0,1fr) 74px; background: rgba(244,245,242,0.92); }
+.album-topbar em { min-width: 0; color: #69766e; font-size: 10px; font-style: normal; font-weight: 820; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-content { flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0,1fr); gap: 10px; padding: 12px; }
+.album-char-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.album-char-tabs button { flex: 0 0 auto; min-width: 96px; height: 42px; border: none; border-radius: 18px; background: rgba(255,255,255,0.84); color: #26302b; padding: 5px 8px; display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 6px; box-shadow: 0 10px 22px rgba(62,76,68,0.07); }
+.album-char-tabs button.active { background: #21342a; color: #fff; }
+.album-char-tabs img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.album-char-tabs span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 850; color: inherit; }
+.album-char-tabs em { color: inherit; opacity: 0.72; font-size: 10px; font-style: normal; font-weight: 820; }
+.album-grid { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start; }
+.album-photo { min-width: 0; margin: 0; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 14px 30px rgba(62,76,68,0.10); }
+.album-photo img { width: 100%; aspect-ratio: 1 / 1.16; object-fit: cover; display: block; background: #e8ece8; }
+.album-photo figcaption { padding: 8px 9px 10px; }
+.album-photo strong, .album-photo span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-photo strong { color: #222b26; font-size: 12px; font-weight: 900; }
+.album-photo span { margin-top: 2px; color: #718078; font-size: 10px; }
+
+@media (max-width: 430px) {
+    .coread-layout { grid-template-columns: 104px minmax(0,1fr); gap: 8px; }
+    .coread-reader-body { padding: 18px 14px; font-size: 15px; }
+    .album-grid { gap: 8px; }
+}

@@ -15779,6 +15779,9 @@ async function resolveWechatAiGeneratedImage(char, msg) {
         msg.imageUrl = result.url;
         msg.imagePending = false;
         msg.imageError = '';
+        if (typeof window.recordWechatGeneratedImageToAlbum === 'function') {
+            window.recordWechatGeneratedImageToAlbum(char, msg);
+        }
     } else {
         msg.imagePending = false;
         msg.imageError = result.error || '图片生成失败';
@@ -20186,6 +20189,69 @@ function renderWechatAiPhoneChatRows(snapshot, char) {
     `).join('');
 }
 
+function getWechatAiPhoneContactReplyStore(char) {
+    if (!char) return { threads: {}, pending: [] };
+    char.chatConfig = char.chatConfig || {};
+    const store = char.chatConfig.aiPhoneContactReplies && typeof char.chatConfig.aiPhoneContactReplies === 'object'
+        ? char.chatConfig.aiPhoneContactReplies
+        : {};
+    store.threads = store.threads && typeof store.threads === 'object' ? store.threads : {};
+    store.pending = Array.isArray(store.pending) ? store.pending : [];
+    char.chatConfig.aiPhoneContactReplies = store;
+    return store;
+}
+
+function getWechatAiPhoneContactKey(contact, index) {
+    return `${index}:${String(contact && contact.name || '联系人').trim() || '联系人'}`;
+}
+
+function getWechatAiPhoneStoredContactRows(char, contact, index) {
+    const store = getWechatAiPhoneContactReplyStore(char);
+    const key = getWechatAiPhoneContactKey(contact, index);
+    return Array.isArray(store.threads[key]) ? store.threads[key].slice(-18) : [];
+}
+
+function appendWechatAiPhoneContactReply(char, contact, index, text) {
+    const clean = stripWechatPromptText(text, 600);
+    if (!char || !clean || index <= 0) return false;
+    const store = getWechatAiPhoneContactReplyStore(char);
+    const key = getWechatAiPhoneContactKey(contact, index);
+    const event = {
+        id: `phone_reply_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        contactKey: key,
+        contactName: contact && contact.name || '联系人',
+        contactPreview: contact && contact.text || '',
+        userReply: clean,
+        createdAt: Date.now()
+    };
+    store.threads[key] = Array.isArray(store.threads[key]) ? store.threads[key] : [];
+    store.threads[key].push({
+        isCharSide: true,
+        text: clean,
+        time: '刚刚',
+        type: 'text',
+        byUserProxy: true
+    });
+    store.pending.push(event);
+    saveCharactersToStorage();
+    return true;
+}
+
+function submitWechatAiPhoneContactReply(charId, chatIndex) {
+    const char = (window.myCharacters || []).find(c => c.id === charId);
+    const snapshot = char && char.chatConfig && char.chatConfig.aiPhoneSnapshot;
+    const chats = Array.isArray(snapshot && snapshot.chats) ? snapshot.chats : [];
+    const index = Math.max(0, Number(chatIndex || 0));
+    const input = document.getElementById('wc-ai-phone-contact-reply-input');
+    const text = String(input && input.value || '').trim();
+    if (!char || !text || index <= 0) return;
+    if (appendWechatAiPhoneContactReply(char, chats[index], index, text)) {
+        input.value = '';
+        renderWechatAiPhone(char);
+    }
+}
+window.submitWechatAiPhoneContactReply = submitWechatAiPhoneContactReply;
+
 function renderWechatAiPhoneConversationRows(snapshot, char, index) {
     const chats = Array.isArray(snapshot.chats) ? snapshot.chats : [];
     const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : {});
@@ -20213,6 +20279,10 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
             .filter(item => item.text || item.type === 'music_card' || item.type === 'image');
     }
 
+    if (index > 0) {
+        rows = rows.concat(getWechatAiPhoneStoredContactRows(char, contact, index));
+    }
+
     if (!rows.length) {
         rows = [
             { isCharSide: false, text: contact.text || '这条聊天还停在预览里。', time: contact.time || '', type: 'text' },
@@ -20238,6 +20308,7 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
                 ${item.isCharSide ? '' : avatarHtml}
                 <div class="${bubbleClass}">
                     ${renderWechatAiPhoneMessageContent(item, char)}
+                    ${item.byUserProxy ? '<small class="wc-ai-phone-proxy-tag">由用户代发</small>' : ''}
                 </div>
                 ${item.isCharSide ? avatarHtml : ''}
             </div>
@@ -20386,6 +20457,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
         const chats = Array.isArray(snapshot.chats) ? snapshot.chats : [];
         const contact = chats[chatIndex] || chats[0] || { name: getWechatAiPhoneUserDisplayName(char), text: '' };
         const userAvatar = ((typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char).avatar : '') || DEFAULT_AVATAR;
+        const canProxyReply = chatIndex > 0 && !isLoading;
         return `
             <div class="wc-ai-phone-chat-room">
                 <div class="wc-ai-phone-imessage-head">
@@ -20399,11 +20471,19 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                 <div class="wc-ai-phone-conversation">
                     ${renderWechatAiPhoneConversationRows(snapshot, char, chatIndex)}
                 </div>
-                <div class="wc-ai-phone-compose">
-                    <i class="ri-add-circle-line"></i>
-                    <span>iMessage</span>
-                    <i class="ri-mic-fill"></i>
-                </div>
+                ${canProxyReply ? `
+                    <form class="wc-ai-phone-compose wc-ai-phone-compose-active" onsubmit="event.preventDefault(); submitWechatAiPhoneContactReply('${wcEscapeAttr(char.id)}', ${chatIndex});">
+                        <i class="ri-add-circle-line"></i>
+                        <input id="wc-ai-phone-contact-reply-input" type="text" placeholder="替 ${wcEscapeAttr(char.name || 'char')} 回复联系人">
+                        <button type="submit" aria-label="发送"><i class="ri-send-plane-2-fill"></i></button>
+                    </form>
+                ` : `
+                    <div class="wc-ai-phone-compose">
+                        <i class="ri-add-circle-line"></i>
+                        <span>${chatIndex === 0 ? '这是你和 char 的聊天' : 'iMessage'}</span>
+                        <i class="ri-mic-fill"></i>
+                    </div>
+                `}
             </div>
         `;
     }
@@ -20692,7 +20772,72 @@ function closeWechatAiPhoneBrowserItem() {
     if (char) renderWechatAiPhone(char);
 }
 
+function buildWechatAiPhoneContactReplyReactionPrompt(char, events) {
+    const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : {});
+    const identity = typeof buildWechatIdentityContextPrompt === 'function' ? buildWechatIdentityContextPrompt(char, userProfile) : '';
+    const characterCard = typeof getWechatCharacterPersonaText === 'function'
+        ? getWechatCharacterPersonaText(char, 5200)
+        : String(char && char.description || '').slice(0, 5200);
+    const worldBook = typeof buildWechatWorldBookPrompt === 'function' ? buildWechatWorldBookPrompt(char) : '';
+    const memory = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
+    const recent = typeof buildWechatRecentHistoryForPrompt === 'function'
+        ? buildWechatRecentHistoryForPrompt(char, 18)
+        : (Array.isArray(char && char.history) ? char.history.slice(-18).map(msg => `${msg.isMe ? '用户' : getWechatCharDisplayName(char)}: ${msg.content || msg.description || ''}`).join('\n') : '');
+    const eventText = events.map((event, index) => [
+        `事件 ${index + 1}`,
+        `联系人：${event.contactName || '联系人'}`,
+        event.contactPreview ? `原聊天预览：${event.contactPreview}` : '',
+        `用户拿着/看着 char 的小手机，替 char 发出的回复：${event.userReply}`
+    ].filter(Boolean).join('\n')).join('\n\n');
+    return [
+        identity,
+        characterCard ? `【角色卡/人设】\n${characterCard}` : '',
+        worldBook,
+        memory,
+        `【最近聊天】\n${recent || '暂无最近聊天。'}`,
+        `【刚发生的手机事件】\n${eventText}`,
+        '请作为这个 char，在普通聊天里对用户发一条自然回应。char 明确知道用户查看了自己的小手机，也知道用户替自己回复了联系人/NPC。必须按人设、世界书、当前关系和情绪推演反应，可以质问、害羞、纵容、冷处理、调侃或顺势推进剧情，但不要写系统说明，不要模板化，不要脱离角色。'
+    ].filter(Boolean).join('\n\n');
+}
+
+async function triggerWechatAiPhoneContactReplyReaction(char, events) {
+    if (!char || !Array.isArray(events) || !events.length || typeof callChatApi !== 'function') return;
+    try {
+        const result = await callChatApi([
+            {
+                role: 'system',
+                content: '你是 BYND 微信聊天里的角色本体，只输出角色发给用户的一条消息内容。'
+            },
+            {
+                role: 'user',
+                content: buildWechatAiPhoneContactReplyReactionPrompt(char, events)
+            }
+        ]);
+        const content = result && result.ok ? stripWechatPromptText(result.content, 1600) : '';
+        if (!content) return;
+        const msg = {
+            type: 'text',
+            isMe: false,
+            content,
+            timestamp: Date.now()
+        };
+        if (typeof syncWechatMessageDescription === 'function') syncWechatMessageDescription(msg);
+        char.history = Array.isArray(char.history) ? char.history : [];
+        char.history.push(msg);
+        saveCharactersToStorage();
+        renderChatList();
+        if (window.currentChatCharId === char.id && typeof refreshChatView === 'function') refreshChatView(char);
+    } catch (e) {
+        console.warn('ai phone contact reply reaction failed:', e);
+    }
+}
+
 function closeWechatAiPhone() {
+    const charId = window._wechatAiPhoneOpenCharId;
+    const char = (window.myCharacters || []).find(c => c.id === charId);
+    const store = char ? getWechatAiPhoneContactReplyStore(char) : null;
+    const pending = store && Array.isArray(store.pending) ? store.pending.splice(0, 8) : [];
+    if (pending.length) saveCharactersToStorage();
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     window._wechatAiPhoneOpenCharId = '';
@@ -20700,6 +20845,7 @@ function closeWechatAiPhone() {
     window._wechatAiPhoneChatIndex = 0;
     window._wechatAiPhoneMemoIndex = -1;
     window._wechatAiPhoneBrowserIndex = -1;
+    if (char && pending.length) triggerWechatAiPhoneContactReplyReaction(char, pending);
 }
 
 // ========== 微信记忆系统 ==========

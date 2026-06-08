@@ -156,6 +156,14 @@
                                 <div class="app-icon icon-black"><i class="ri-map-pin-user-line"></i></div>
                                 <span>一起出门</span>
                             </div>
+                            <div class="app-item" data-app-id="coread" data-layout-id="app-coread" onclick="openApp('coread')">
+                                <div class="app-icon icon-black"><i class="ri-book-open-line"></i></div>
+                                <span>共读</span>
+                            </div>
+                            <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')">
+                                <div class="app-icon icon-black"><i class="ri-image-2-line"></i></div>
+                                <span>相册</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -541,6 +549,77 @@
                         </div>
                         <div class="outing-log-list" id="outing-log-list"></div>
                     </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-coread-window" class="app-window hidden coread-window">
+            <div class="coread-shell">
+                <div class="coread-topbar">
+                    <button type="button" onclick="closeApp('coread')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>SHARED READING</span>
+                        <strong>和 char 共读小说</strong>
+                    </div>
+                    <button type="button" onclick="askCoReadComment()" aria-label="让 char 评论"><i class="ri-chat-quote-line"></i></button>
+                </div>
+                <div class="coread-content">
+                    <section class="coread-tools">
+                        <label class="coread-file">
+                            <i class="ri-file-upload-line"></i>
+                            <span>导入 txt / md / doc</span>
+                            <input type="file" accept=".txt,.md,.markdown,.doc,.docx,.pdf,text/*" onchange="importCoReadFile(this)">
+                        </label>
+                        <div class="coread-url">
+                            <input id="coread-url-input" type="url" placeholder="粘贴书籍链接">
+                            <button type="button" onclick="addCoReadUrl()"><i class="ri-add-line"></i></button>
+                        </div>
+                        <div class="coread-search">
+                            <input id="coread-search-input" type="search" placeholder="Open Library 搜书名 / 作者">
+                            <button type="button" onclick="searchCoReadBooks()"><i class="ri-search-line"></i></button>
+                        </div>
+                        <div id="coread-search-results" class="coread-search-results"></div>
+                    </section>
+                    <section class="coread-layout">
+                        <aside class="coread-sidebar">
+                            <div class="coread-panel-head"><strong>书架</strong><em id="coread-status">等待导入</em></div>
+                            <div id="coread-book-list" class="coread-book-list"></div>
+                            <div class="coread-panel-head"><strong>一起读</strong><em>char list</em></div>
+                            <div id="coread-char-list" class="coread-char-list"></div>
+                        </aside>
+                        <main class="coread-reader">
+                            <div class="coread-reader-head">
+                                <button type="button" onclick="turnCoReadPage(-1)"><i class="ri-arrow-left-s-line"></i></button>
+                                <div>
+                                    <strong id="coread-reader-title">选择一本书</strong>
+                                    <span id="coread-reader-meta">Kindle-style reader</span>
+                                </div>
+                                <button type="button" onclick="turnCoReadPage(1)"><i class="ri-arrow-right-s-line"></i></button>
+                            </div>
+                            <article id="coread-reader-body" class="coread-reader-body"></article>
+                            <section class="coread-comment-card">
+                                <div><i class="ri-chat-heart-line"></i><strong>char 的旁注</strong></div>
+                                <p id="coread-comment">选择角色后，可以让 char 按人设和世界书评论当前页。</p>
+                            </section>
+                        </main>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-album-window" class="app-window hidden album-window">
+            <div class="album-shell">
+                <div class="album-topbar">
+                    <button type="button" onclick="closeApp('album')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
+                    <div>
+                        <span>CHAT GALLERY</span>
+                        <strong>相册</strong>
+                    </div>
+                    <em id="album-status">等待同步</em>
+                </div>
+                <div class="album-content">
+                    <aside id="album-char-tabs" class="album-char-tabs"></aside>
+                    <main id="album-grid" class="album-grid"></main>
                 </div>
             </div>
         </div>
@@ -973,7 +1052,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.412
+                    Beyond Screen v1.1.413
                 </div>
             </div>
         </div>
