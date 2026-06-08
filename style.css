@@ -18173,6 +18173,41 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+.wc-ai-phone-letter-formal {
+    margin-top: 34px;
+    color: #2f2418;
+    font-size: 14px;
+    line-height: 1.85;
+}
+.wc-ai-phone-letter-formal p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-letter-greeting,
+.wc-ai-phone-letter-body p,
+.wc-ai-phone-letter-closing {
+    text-indent: 2em;
+}
+.wc-ai-phone-letter-body {
+    margin-top: 12px;
+}
+.wc-ai-phone-letter-body p + p {
+    margin-top: 10px;
+}
+.wc-ai-phone-letter-closing {
+    margin-top: 18px !important;
+}
+.wc-ai-phone-letter-wish {
+    margin-top: 2px !important;
+}
+.wc-ai-phone-letter-signature,
+.wc-ai-phone-letter-date {
+    text-align: right;
+}
+.wc-ai-phone-letter-signature {
+    margin-top: 22px !important;
+}
 .wc-ai-phone-letter-paper footer {
     margin-top: 42px;
     border-top: 1px solid rgba(36,27,20,0.42);
