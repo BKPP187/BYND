@@ -12400,6 +12400,144 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     color: #8a909a;
     font-size: 13px;
 }
+.sync-game-round {
+    display: flex;
+    flex-direction: column;
+}
+.sync-game-loading {
+    margin-top: 22px;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #8a909a;
+    font-size: 13px;
+    font-weight: 850;
+}
+.sync-game-loading i,
+.sync-game-actions button i.ri-loader-4-line {
+    animation: spin 0.9s linear infinite;
+}
+.sync-answer-status {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.sync-answer-status span {
+    min-height: 40px;
+    padding: 9px 10px;
+    border-radius: 16px;
+    background: #f1f3f7;
+    color: #59616d;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 850;
+}
+.sync-answer-box {
+    margin-top: 16px;
+    display: block;
+}
+.sync-answer-box span {
+    display: block;
+    margin-bottom: 8px;
+    color: #8a909a;
+    font-size: 12px;
+    font-weight: 900;
+}
+.sync-answer-box textarea {
+    width: 100%;
+    min-height: 94px;
+    resize: vertical;
+    border: 1px solid rgba(22,26,34,0.08);
+    border-radius: 20px;
+    background: #f8f9fb;
+    color: #20242d;
+    padding: 14px 15px;
+    font-size: 15px;
+    line-height: 1.55;
+    outline: none;
+}
+.sync-answer-box textarea:focus {
+    border-color: rgba(211,172,82,0.48);
+    box-shadow: 0 0 0 4px rgba(211,172,82,0.12);
+}
+.sync-game-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.mini-game-card .sync-game-actions button.ghost {
+    background: #eef0f4 !important;
+    color: #5f6875 !important;
+    box-shadow: none;
+}
+.sync-result-score {
+    margin-top: 18px;
+    width: 112px;
+    height: 112px;
+    border-radius: 32px;
+    background: linear-gradient(145deg, #171a22, #2d3340);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 16px 34px rgba(25,28,35,0.18);
+}
+.sync-result-score.matched {
+    background: linear-gradient(145deg, #d8b45d, #e9cf85);
+    color: #151515;
+}
+.sync-result-score b {
+    font-size: 38px;
+    line-height: 1;
+    font-weight: 950;
+}
+.sync-result-score span {
+    margin-top: 5px;
+    font-size: 12px;
+    font-weight: 900;
+}
+.sync-answer-compare {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.sync-answer-compare article {
+    min-height: 116px;
+    padding: 14px;
+    border-radius: 22px;
+    background: #f5f6f9;
+    border: 1px solid rgba(22,26,34,0.06);
+}
+.sync-answer-compare span {
+    color: #8a909a;
+    font-size: 11px;
+    font-weight: 900;
+}
+.sync-answer-compare p {
+    margin-top: 8px !important;
+    color: #20242d !important;
+    font-size: 15px !important;
+    line-height: 1.45 !important;
+}
+.sync-answer-compare em {
+    display: block;
+    margin-top: 8px;
+    color: #8a909a;
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.45;
+}
+.sync-judge-reason {
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(216,180,93,0.12);
+}
 .mini-game-card button[disabled] {
     opacity: 0.42;
     pointer-events: none;

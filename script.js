@@ -4181,6 +4181,7 @@ const WOLFCHA_SETUP_KEY = 'bynd_game_wolfcha_setup_v1';
 const WOLFCHA_ENTRY_KEY = 'bynd_game_wolfcha_entry_v1';
 const GAME_HUB_FILTER_KEY = 'bynd_game_hub_filter_v1';
 const SYNC_GAME_CHAR_KEY = 'bynd_game_sync_char_v1';
+const SYNC_GAME_STATE_KEY = 'bynd_game_sync_state_v2';
 const CARDMATCH_RULES_SKIP_KEY = 'bynd_game_cardmatch_rules_skip_date_v1';
 const ACTING_GAME_STATE_KEY = 'bynd_game_acting_state_v1';
 const GAME_2048_STATE_KEY = 'bynd_game_2048_state_v1';
@@ -4236,7 +4237,7 @@ const GAME_LIBRARY = [
     { id: 'gomoku', title: '五子棋', tag: '双人落子', icon: 'ri-grid-line', genre: 'Board duel', category: 'board', accent: '#111318', desc: '黑白双方轮流落子，任意方向先连成五子获胜。' },
     { id: 'chess', title: '国际象棋', tag: '棋盘对弈', icon: 'ri-vip-crown-2-line', genre: 'Classic board', category: 'board', accent: '#7c5cff', desc: '轻量棋盘模式，可选择棋子并移动，先用于角色共玩流程。' },
     { id: 'xiangqi', title: '中国象棋', tag: '楚河汉界', icon: 'ri-shield-cross-line', genre: 'Classic board', category: 'board', accent: '#d94b3d', desc: '九路十行棋盘，可选择棋子移动，后续可继续补完整规则。' },
-    { id: 'sync', title: '默契问答', tag: 'AI互动', icon: 'ri-chat-smile-3-line', genre: 'Co-op talk', category: 'role', accent: '#5b7cfa', desc: '抽一个问题，让当前角色猜你会怎么回答。' },
+    { id: 'sync', title: '默契问答', tag: 'AI互动', icon: 'ri-chat-smile-3-line', genre: 'Co-op talk', category: 'role', accent: '#5b7cfa', desc: '裁判出题，你和角色分别作答，再判定默契度。' },
     { id: 'cardmatch', title: '语言翻牌', tag: '学习联动', icon: 'ri-flashlight-line', genre: 'Study arcade', category: 'study', accent: '#34a853', desc: '用学习卡做小游戏，随机抽一张多语言卡来回忆。' },
     { id: 'coming-board', title: '桌游房间', tag: '即将开放', icon: 'ri-dice-5-line', genre: 'Board games', category: 'role', accent: '#ff9f0a', desc: '预留给真心话、抽卡、跑团类玩法，后续接入角色列表。', comingSoon: true },
     { id: 'coming-puzzle', title: '解谜档案', tag: '即将开放', icon: 'ri-folder-shield-2-line', genre: 'Mystery', category: 'role', accent: '#8e8e93', desc: '预留给多角色剧情推理和线索收集，不会只固定成狼人杀。', comingSoon: true }
@@ -5222,14 +5223,236 @@ function getSyncGameChar() {
 function selectSyncGameChar(id) {
     if (!getWolfchaCharacters().some(char => char.id === id)) return;
     localStorage.setItem(SYNC_GAME_CHAR_KEY, id);
+    clearSyncGameState();
     renderGameApp();
 }
 window.selectSyncGameChar = selectSyncGameChar;
+
+function getSyncGameState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(SYNC_GAME_STATE_KEY) || '{}') || {};
+        return state.phase ? state : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveSyncGameState(state) {
+    localStorage.setItem(SYNC_GAME_STATE_KEY, JSON.stringify(state || {}));
+}
+
+function clearSyncGameState() {
+    localStorage.removeItem(SYNC_GAME_STATE_KEY);
+}
+
+function getSyncFallbackQuestions() {
+    return [
+        { question: '如果今晚只能留下一样东西陪你们，你们会选热饮、音乐还是一盏灯？', judgeTip: '看核心选择是否一致，也允许同义表达。' },
+        { question: '如果要一起临时出门，你们会先确认路线、天气还是对方的心情？', judgeTip: '判断优先级是否一致。' },
+        { question: '收到一张空白明信片时，你们会先写地点、日期还是一句想说的话？', judgeTip: '比较第一反应。' },
+        { question: '如果把今天存成一张照片，你们觉得画面里最重要的会是什么？', judgeTip: '比较画面重点和情绪重点。' }
+    ];
+}
+
+function pickSyncFallbackQuestion() {
+    const list = getSyncFallbackQuestions();
+    return list[Math.floor(Math.random() * list.length)] || list[0];
+}
+
+function extractSyncJsonPayload(text) {
+    if (typeof extractActingJsonPayload === 'function') return extractActingJsonPayload(text);
+    const raw = String(text || '').trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const candidates = [raw, start >= 0 && end > start ? raw.slice(start, end + 1) : ''].filter(Boolean);
+    for (const candidate of candidates) {
+        try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed === 'object') return parsed;
+        } catch (_) {}
+    }
+    return null;
+}
+
+function cleanSyncGameText(value, maxLength = 180) {
+    const text = compactActingText(value, maxLength);
+    return text || '';
+}
+
+function getSyncGameContext(char) {
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    const charName = getMusicCharName(char);
+    const userName = profile.name || '用户';
+    const persona = cleanSyncGameText([
+        char?.description,
+        char?.personality,
+        char?.scenario,
+        char?.system_prompt || char?.systemPrompt
+    ].filter(Boolean).join('\n'), 900);
+    const world = typeof getActingWorldBookText === 'function' ? cleanSyncGameText(getActingWorldBookText(char), 700) : '';
+    const recent = typeof getActingRecentChatText === 'function' ? cleanSyncGameText(getActingRecentChatText(char), 700) : '';
+    return { profile, charName, userName, persona, world, recent };
+}
+
+function buildSyncJudgeQuestionMessages(char) {
+    const ctx = getSyncGameContext(char);
+    return [
+        {
+            role: 'system',
+            content: '你是 BYND 小游戏「默契问答」的系统裁判，只负责出题。只返回 JSON，不要 Markdown，不要解释。格式：{"question":"一个双方都能独立作答的问题","judgeTip":"判定一致性的标准"}。问题必须轻松、具体、可由用户和角色分别作答；不要让角色猜用户；不要要求现实隐私；不要出现血腥、露骨或高风险内容。'
+        },
+        {
+            role: 'user',
+            content: `用户名：${ctx.userName}\n角色名：${ctx.charName}\n【角色人设】${ctx.persona || '无'}\n${ctx.world ? `【世界书】${ctx.world}\n` : ''}${ctx.recent ? `【最近聊天】${ctx.recent}\n` : ''}请裁判出一道适合他们同时作答的默契题。`
+        }
+    ];
+}
+
+function buildSyncCharAnswerMessages(char, question) {
+    const base = typeof buildMessages === 'function'
+        ? buildMessages(char, Array.isArray(char.history) ? char.history.slice(-8) : [])
+        : [{ role: 'system', content: `你是${getMusicCharName(char)}。` }];
+    base.push({
+        role: 'user',
+        content: `我们正在玩「默契问答」。系统裁判的问题是：「${question}」\n请你以${getMusicCharName(char)}本人身份独立作答，不要猜用户会怎么答，也不要询问用户。只返回 JSON：{"answer":"你的答案，30字以内","reason":"一句很短的理由，可留空"}。`
+    });
+    return base;
+}
+
+function buildSyncJudgeResultMessages(state) {
+    return [
+        {
+            role: 'system',
+            content: '你是 BYND 小游戏「默契问答」的系统裁判，只负责比较两份答案是否默契一致。只返回 JSON，不要 Markdown，不要解释。格式：{"matched":true或false,"score":0到100,"verdict":"一句裁判播报","reason":"为什么一致或不一致"}。语义一致即可判 true，不要求逐字相同；明显不同、优先级不同或对象不同判 false。'
+        },
+        {
+            role: 'user',
+            content: `题目：${state.question}\n判定标准：${state.judgeTip || '语义和优先级是否一致'}\n用户答案：${state.userAnswer}\n角色答案：${state.charAnswer}\n请裁判判定。`
+        }
+    ];
+}
+
+function normalizeSyncQuestionPayload(payload) {
+    const fallback = pickSyncFallbackQuestion();
+    return {
+        question: cleanSyncGameText(payload?.question || payload?.title || payload?.text || fallback.question, 120) || fallback.question,
+        judgeTip: cleanSyncGameText(payload?.judgeTip || payload?.standard || payload?.rule || fallback.judgeTip, 120) || fallback.judgeTip
+    };
+}
+
+function normalizeSyncCharAnswerPayload(payload, char) {
+    const fallback = `${getMusicCharName(char)}会先按自己的直觉选一个最在意的答案。`;
+    return {
+        answer: cleanSyncGameText(payload?.answer || payload?.text || payload?.content || fallback, 60) || fallback,
+        reason: cleanSyncGameText(payload?.reason || payload?.why || '', 90)
+    };
+}
+
+function normalizeSyncJudgePayload(payload, state) {
+    const normalize = value => String(value || '').replace(/\s+/g, '').toLowerCase();
+    const user = normalize(state.userAnswer);
+    const char = normalize(state.charAnswer);
+    const fallbackMatched = !!user && !!char && (user === char || user.includes(char) || char.includes(user));
+    const matched = typeof payload?.matched === 'boolean'
+        ? payload.matched
+        : /^(true|yes|一致|相同|默契|match)$/i.test(String(payload?.matched || payload?.result || '').trim()) || fallbackMatched;
+    const score = Number.isFinite(Number(payload?.score)) ? Math.max(0, Math.min(100, Number(payload.score))) : (matched ? 88 : 42);
+    return {
+        matched,
+        score,
+        verdict: cleanSyncGameText(payload?.verdict || payload?.title || (matched ? '裁判判定：默契命中' : '裁判判定：这题没对上'), 60),
+        reason: cleanSyncGameText(payload?.reason || payload?.comment || (matched ? '两边答案的重点基本一致。' : '两边答案的重点不在同一处。'), 140)
+    };
+}
+
+function renderSyncGameRound(char, state) {
+    const charName = char ? getMusicCharName(char) : '角色';
+    if (!state || state.phase === 'idle') {
+        return `
+            <div class="mini-game-card sync-game-round">
+                <span>默契问答</span>
+                <strong>裁判出题，你和 ${musicEscapeHtml(charName)} 分别作答</strong>
+                <p>系统裁判会先抽一题；${musicEscapeHtml(charName)} 会暗中作答，你也写下自己的答案，最后由裁判判断是否一致。</p>
+                <button type="button" onclick="startSyncMiniGame()" ${char ? '' : 'disabled'}><i class="ri-sparkling-2-line"></i> 裁判出题</button>
+            </div>
+        `;
+    }
+    if (state.phase === 'asking') {
+        return `
+            <div class="mini-game-card sync-game-round">
+                <span>系统裁判</span>
+                <strong>正在出题</strong>
+                <p>裁判会出一道双方都能独立回答的问题，不会让 ${musicEscapeHtml(charName)} 猜你。</p>
+                <div class="sync-game-loading"><i class="ri-loader-4-line"></i><em>Preparing question</em></div>
+            </div>
+        `;
+    }
+    if (state.phase === 'answering' || state.phase === 'judging') {
+        const busy = state.phase === 'judging';
+        return `
+            <div class="mini-game-card sync-game-round">
+                <span>系统裁判出题</span>
+                <strong>${musicEscapeHtml(state.question || '这一题还没准备好')}</strong>
+                <p>${musicEscapeHtml(state.judgeTip || '两边独立作答后，裁判比较答案重点是否一致。')}</p>
+                <div class="sync-answer-status">
+                    <span><i class="ri-user-smile-line"></i>${musicEscapeHtml(charName)} 已暗中作答</span>
+                    <span><i class="ri-user-heart-line"></i>等待你的答案</span>
+                </div>
+                <label class="sync-answer-box">
+                    <span>你的答案</span>
+                    <textarea id="sync-user-answer" maxlength="80" rows="3" placeholder="写下你的第一反应" ${busy ? 'disabled' : ''}>${musicEscapeHtml(state.userAnswer || '')}</textarea>
+                </label>
+                <div class="sync-game-actions">
+                    <button type="button" onclick="submitSyncGameAnswer()" ${busy ? 'disabled' : ''}><i class="${busy ? 'ri-loader-4-line' : 'ri-scales-3-line'}"></i> ${busy ? '裁判判定中' : '提交给裁判'}</button>
+                    <button type="button" class="ghost" onclick="resetSyncMiniGame()" ${busy ? 'disabled' : ''}>换一题</button>
+                </div>
+            </div>
+        `;
+    }
+    if (state.phase === 'result') {
+        const result = state.result || {};
+        return `
+            <div class="mini-game-card sync-game-round">
+                <span>${result.matched ? '默契命中' : '差一点点'}</span>
+                <strong>${musicEscapeHtml(result.verdict || '裁判结果')}</strong>
+                <p>${musicEscapeHtml(state.question || '')}</p>
+                <div class="sync-result-score ${result.matched ? 'matched' : 'missed'}">
+                    <b>${Math.round(Number(result.score) || 0)}</b><span>默契度</span>
+                </div>
+                <div class="sync-answer-compare">
+                    <article><span>你的答案</span><p>${musicEscapeHtml(state.userAnswer || '空')}</p></article>
+                    <article><span>${musicEscapeHtml(charName)} 的答案</span><p>${musicEscapeHtml(state.charAnswer || '空')}</p>${state.charReason ? `<em>${musicEscapeHtml(state.charReason)}</em>` : ''}</article>
+                </div>
+                <p class="sync-judge-reason">${musicEscapeHtml(result.reason || '')}</p>
+                <div class="sync-game-actions">
+                    <button type="button" onclick="startSyncMiniGame()"><i class="ri-sparkling-2-line"></i> 再来一题</button>
+                    <button type="button" class="ghost" onclick="resetSyncMiniGame()">重新准备</button>
+                </div>
+            </div>
+        `;
+    }
+    if (state.phase === 'error') {
+        return `
+            <div class="mini-game-card sync-game-round">
+                <span>默契问答</span>
+                <strong>这一题暂时失败</strong>
+                <p>${musicEscapeHtml(state.error || '没有生成成功。')}</p>
+                <button type="button" onclick="startSyncMiniGame()" ${char ? '' : 'disabled'}><i class="ri-refresh-line"></i> 重试</button>
+            </div>
+        `;
+    }
+    return '';
+}
 
 function renderSyncGame(el) {
     const chars = getWolfchaCharacters();
     const selectedId = getSyncGameCharId();
     const char = getSyncGameChar();
+    const savedState = getSyncGameState();
+    const state = char && savedState?.selectedCharId === char.id ? savedState : null;
     el.innerHTML = `
         <section class="mini-game-panel">
             <div class="sync-player-card">
@@ -5243,33 +5466,81 @@ function renderSyncGame(el) {
                     `).join('') : '<p>先在微信导入角色，再一起玩默契问答。</p>'}
                 </div>
             </div>
-            <div class="mini-game-card">
-                <span>默契问答</span>
-                <strong>${musicEscapeHtml(char ? getMusicCharName(char) : '先选择一个角色')} 会猜你怎么回答</strong>
-                <p id="sync-game-text">选好角色后，对方会抛一个轻问题并猜你的答案。</p>
-                <button type="button" onclick="startSyncMiniGame()" ${char ? '' : 'disabled'}><i class="ri-sparkling-2-line"></i> 开始一题</button>
-            </div>
+            ${renderSyncGameRound(char, state)}
         </section>
     `;
 }
 
 async function startSyncMiniGame() {
-    const box = document.getElementById('sync-game-text');
     const char = getSyncGameChar();
-    if (box) box.textContent = char ? `${getMusicCharName(char)} 正在想题目...` : '先选择一个陪你玩的角色。';
-    if (!char || typeof callChatApi !== 'function') return;
-    try {
-        const messages = typeof buildMessages === 'function'
-            ? buildMessages(char, Array.isArray(char.history) ? char.history.slice(-6) : [])
-            : [{ role: 'system', content: `你是${getMusicCharName(char)}。` }];
-        messages.push({ role: 'user', content: '我们正在玩默契问答。请出一个轻松的问题，并猜你觉得我会怎么回答，80字以内。' });
-        const result = await callChatApi(messages);
-        if (box) box.textContent = result.ok ? result.content : result.error;
-    } catch (e) {
-        if (box) box.textContent = '这一题暂时没连上 API。';
+    if (!char) {
+        if (typeof showWechatToast === 'function') showWechatToast('先选择一个陪你玩的角色');
+        return;
     }
+    saveSyncGameState({ phase: 'asking', selectedCharId: char.id, startedAt: Date.now() });
+    renderGameApp();
+    try {
+        let questionData = pickSyncFallbackQuestion();
+        if (typeof callChatApi === 'function') {
+            const questionResult = await callChatApi(buildSyncJudgeQuestionMessages(char), { max_tokens: 520, temperature: 0.72 });
+            if (questionResult && questionResult.ok) questionData = normalizeSyncQuestionPayload(extractSyncJsonPayload(questionResult.content));
+        }
+        let charData = normalizeSyncCharAnswerPayload(null, char);
+        if (typeof callChatApi === 'function') {
+            const charResult = await callChatApi(buildSyncCharAnswerMessages(char, questionData.question), { max_tokens: 420, temperature: 0.68 });
+            if (charResult && charResult.ok) charData = normalizeSyncCharAnswerPayload(extractSyncJsonPayload(charResult.content) || { answer: charResult.content }, char);
+        }
+        saveSyncGameState({
+            phase: 'answering',
+            selectedCharId: char.id,
+            question: questionData.question,
+            judgeTip: questionData.judgeTip,
+            charAnswer: charData.answer,
+            charReason: charData.reason,
+            userAnswer: '',
+            startedAt: Date.now()
+        });
+    } catch (e) {
+        saveSyncGameState({ phase: 'error', selectedCharId: char.id, error: `这一题暂时没连上裁判：${e.message || e}` });
+    }
+    renderGameApp();
 }
 window.startSyncMiniGame = startSyncMiniGame;
+
+async function submitSyncGameAnswer() {
+    const char = getSyncGameChar();
+    const state = getSyncGameState();
+    const input = document.getElementById('sync-user-answer');
+    const answer = cleanSyncGameText(input && input.value, 90);
+    if (!char || !state || state.phase !== 'answering') return;
+    if (!answer) {
+        if (typeof showWechatToast === 'function') showWechatToast('先写下你的答案');
+        return;
+    }
+    const judgingState = { ...state, userAnswer: answer, phase: 'judging' };
+    saveSyncGameState(judgingState);
+    renderGameApp();
+    try {
+        let resultData = normalizeSyncJudgePayload(null, judgingState);
+        if (typeof callChatApi === 'function') {
+            const result = await callChatApi(buildSyncJudgeResultMessages(judgingState), { max_tokens: 520, temperature: 0.35 });
+            if (result && result.ok) resultData = normalizeSyncJudgePayload(extractSyncJsonPayload(result.content), judgingState);
+        }
+        saveSyncGameState({ ...judgingState, phase: 'result', result: resultData });
+    } catch (e) {
+        const resultData = normalizeSyncJudgePayload(null, judgingState);
+        resultData.reason = `裁判 API 暂时不可用，先按文本相似度判定：${resultData.reason}`;
+        saveSyncGameState({ ...judgingState, phase: 'result', result: resultData });
+    }
+    renderGameApp();
+}
+window.submitSyncGameAnswer = submitSyncGameAnswer;
+
+function resetSyncMiniGame() {
+    clearSyncGameState();
+    renderGameApp();
+}
+window.resetSyncMiniGame = resetSyncMiniGame;
 
 function getTodayDateKey() {
     const now = new Date();
