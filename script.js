@@ -9405,6 +9405,22 @@ function getCoReadBook(bookId) {
     return getCoReadLibrary().find(book => book.id === bookId) || null;
 }
 
+function deleteCoReadBook(bookId) {
+    const id = String(bookId || '');
+    if (!id) return;
+    const library = getCoReadLibrary();
+    const book = library.find(item => item.id === id);
+    if (!book) return;
+    if (!confirm(`删除《${book.title || '这本书'}》？`)) return;
+    const next = library.filter(item => item.id !== id);
+    saveCoReadLibrary(next);
+    if (coreadActiveBookId === id) {
+        coreadActiveBookId = next[0] ? next[0].id : '';
+    }
+    renderCoReadApp();
+}
+window.deleteCoReadBook = deleteCoReadBook;
+
 function normalizeCoReadCoverUrl(url) {
     const raw = String(url || '').trim();
     if (!raw) return '';
@@ -9501,10 +9517,15 @@ function renderCoReadBookCard(book) {
     const active = book.id === coreadActiveBookId ? 'active' : '';
     const source = book.source === 'search' ? '在线搜索' : (book.source || '本地');
     return `
-        <button type="button" class="coread-book ${active}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
-            <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
-            <em>${musicEscapeHtml(book.author || source)}</em>
-        </button>
+        <div class="coread-book ${active}">
+            <button type="button" class="coread-book-main" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
+                <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
+                <em>${musicEscapeHtml(book.author || source)}</em>
+            </button>
+            <button type="button" class="coread-book-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
+                <i class="ri-delete-bin-6-line"></i>
+            </button>
+        </div>
     `;
 }
 
@@ -9580,15 +9601,20 @@ function renderCoReadDashboard() {
             const pct = getCoReadBookProgress(book);
             const stars = Math.max(0, Math.min(5, Number(book.rating || 0)));
             return `
-                <button type="button" class="coread-read-card ${book.id === coreadActiveBookId ? 'active' : ''}" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
-                    <div class="coread-read-cover">
-                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${book.coverResolving ? '...' : musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
-                    </div>
-                    <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
-                    <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
-                    <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
-                    <small>${pct}%</small>
-                </button>
+                <article class="coread-read-card ${book.id === coreadActiveBookId ? 'active' : ''}">
+                    <button type="button" class="coread-read-main" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
+                        <div class="coread-read-cover">
+                            ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${book.coverResolving ? '...' : musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
+                        </div>
+                        <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                        <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
+                        <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
+                        <small>${pct}%</small>
+                    </button>
+                    <button type="button" class="coread-read-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </article>
             `;
         }).join('') || '<div class="coread-empty">书架还空着。先从书源搜索或导入一本书。</div>';
         library.filter(book => book && !book.coverUrl && !book.coverResolving && book.title).slice(0, 4).forEach(book => {

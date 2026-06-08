@@ -9748,7 +9748,7 @@ const WECHAT_MONITOR_MAX_WATCHERS = 3;
 const WECHAT_MONITOR_LEVELS = ['silent', 'island', 'barrage', 'warning'];
 const WECHAT_MONITOR_MODE_LABELS = {
     persona: '按角色人设',
-    observer: '第三视角吐槽'
+    observer: '第三方视角吐槽'
 };
 window._wechatMonitorLastRequestAt = window._wechatMonitorLastRequestAt || {};
 
@@ -9782,7 +9782,7 @@ function getWechatMonitorMode(char) {
 }
 
 function getWechatMonitorModePrompt(mode) {
-    if (mode === 'observer') return '采用第三视角吐槽，包含上帝视角、磕糖观众和看剧弹幕感：像观众在看 user 和角色演出的剧，轻松点评、捕捉误会和张力，可以好嗑、吐槽、旁白，但不要攻击用户，也不要走控制或威胁路线。';
+    if (mode === 'observer') return '采用第三方视角吐槽，必须像裁判/旁白/磕糖观众在看 user 和角色演出的剧，轻松点评、捕捉误会和张力，可以好嗑、吐槽、旁白，但不要攻击用户，也不要走控制或威胁路线。除非完全没有可吐槽内容，否则 level 优先返回 barrage，并给 3-8 条短弹幕。';
     return '采用角色本人视角，必须贴合角色卡、人设、关系和记忆，可吃味、嘴硬或吐槽，但默认是娱乐化反应，不要偏激。';
 }
 
@@ -9834,7 +9834,7 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
         },
         {
             role: 'system',
-            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。你正在以「${watcherName}」的身份看到用户刚刚给另一个 BYND 角色「${targetName}」发的消息。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃味、嘴硬或旁白。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；如果角色按人设强烈想删除某个 BYND 内部联系人，返回 {"name":"联系人名或备注","reason":"原因"}，系统会弹窗征求用户允许。普通消息可 silent/island；有戏剧张力时优先用 barrage，像观众刷弹幕；只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。`
+            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。你正在以「${watcherName}」的身份看到用户刚刚给另一个 BYND 角色「${targetName}」发的消息。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃味、嘴硬或旁白。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；如果角色按人设强烈想删除某个 BYND 内部联系人，返回 {"name":"联系人名或备注","reason":"原因"}，系统会弹窗征求用户允许。普通消息可 silent/island；有戏剧张力时优先用 barrage，像观众刷弹幕；如果当前模式是「第三方视角吐槽」，除非完全无内容，否则必须返回 level:"barrage" 并让 barrage 至少 3 条。只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。`
         },
         {
             role: 'user',
@@ -9869,12 +9869,14 @@ function normalizeWechatMonitorReaction(raw) {
     return { level, island, warning, barrage, deleteContact };
 }
 
-function escalateWechatMonitorLevel(state, reaction, targetChar) {
+function escalateWechatMonitorLevel(state, reaction, targetChar, watcher) {
     let level = reaction.level;
+    const mode = getWechatMonitorMode(watcher);
     const now = Date.now();
     const sameTarget = state.lastTargetId === targetChar.id && state.lastAt && now - state.lastAt < 10 * 60 * 1000;
     const suspicion = sameTarget ? Math.min(10, Number(state.suspicion || 0) + Math.max(1, getWechatMonitorLevelIndex(level))) : getWechatMonitorLevelIndex(level);
     if (sameTarget && suspicion >= 3 && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('barrage')) level = 'barrage';
+    if (mode === 'observer' && level !== 'silent' && getWechatMonitorLevelIndex(level) < getWechatMonitorLevelIndex('barrage')) level = 'barrage';
     state.suspicion = suspicion;
     state.lastTargetId = targetChar.id;
     state.lastAt = now;
@@ -9907,7 +9909,7 @@ async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventI
         return;
     }
 
-    const level = escalateWechatMonitorLevel(state, reaction, targetChar);
+    const level = escalateWechatMonitorLevel(state, reaction, targetChar, watcher);
     state.processedIds.push(eventId);
     state.processedIds = state.processedIds.slice(-40);
     state.lastError = '';
@@ -17667,9 +17669,9 @@ function syncWechatCoupleThemeHeader(char = getCurrentChatChar()) {
     const kaomoji = getWechatCoupleMoodKaomoji(char);
     pill.setAttribute('aria-label', `${getWechatCharDisplayName(char)} 当前心情 ${kaomoji}`);
     pill.innerHTML = `
-        <img class="wc-couple-user-avatar" src="${wcEscapeAttr(userAvatar)}" onerror="this.src='${DEFAULT_AVATAR}'">
-        <span>${wcEscapeHtml(kaomoji)}</span>
         <img class="wc-couple-char-avatar" src="${wcEscapeAttr(charAvatar)}" onerror="this.src='${DEFAULT_AVATAR}'">
+        <span>${wcEscapeHtml(kaomoji)}</span>
+        <img class="wc-couple-user-avatar" src="${wcEscapeAttr(userAvatar)}" onerror="this.src='${DEFAULT_AVATAR}'">
     `;
 }
 window.syncWechatCoupleThemeHeader = syncWechatCoupleThemeHeader;

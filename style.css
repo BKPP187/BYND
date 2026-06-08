@@ -4704,14 +4704,12 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wcs-monitor-mode-card-row { align-items: flex-start; flex-direction: column; gap: 8px; }
 .wcs-monitor-mode-card-row > span { color: #526173; font-size: 12px; font-weight: 780; }
 .wcs-monitor-mode-options { width: 100%; display: grid; grid-template-columns: 1fr; gap: 7px; }
-.wcs-monitor-mode-options button { min-width: 0; min-height: 52px; border: 1px solid rgba(15,23,42,0.055); border-radius: 16px; background: rgba(255,255,255,0.66); color: #1f2937; padding: 10px 12px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 1px 9px; align-items: center; text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.58); }
-.wcs-monitor-mode-options button i { grid-row: 1 / 3; width: 32px; height: 32px; border-radius: 12px; background: rgba(17,24,39,0.06); color: #111827; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.wcs-monitor-mode-options button { min-width: 0; min-height: 46px; border: 1px solid rgba(15,23,42,0.055); border-radius: 16px; background: rgba(255,255,255,0.66); color: #1f2937; padding: 8px 12px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 9px; align-items: center; text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.58); }
+.wcs-monitor-mode-options button i { width: 32px; height: 32px; border-radius: 12px; background: rgba(17,24,39,0.06); color: #111827; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .wcs-monitor-mode-options b { min-width: 0; color: #111827; font-size: 12px; font-weight: 850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wcs-monitor-mode-options em { min-width: 0; color: #7c8797; font-size: 10px; font-style: normal; line-height: 1.26; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wcs-monitor-mode-options button.active { background: #111827; color: #fff; box-shadow: 0 10px 26px rgba(15,23,42,0.16); }
 .wcs-monitor-mode-options button.active i { background: rgba(255,255,255,0.14); color: #fff; }
 .wcs-monitor-mode-options button.active b { color: #fff; }
-.wcs-monitor-mode-options button.active em { color: rgba(255,255,255,0.66); }
 
 .wcs-bubble-preset-wrap { position: relative; min-width: 0; }
 .wcs-bubble-trigger { width: 100%; height: 38px; border: none; border-radius: 18px; background: rgba(17,24,39,0.055); color: #1f2937; padding: 0 11px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 760; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.68); }
@@ -18753,6 +18751,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .coread-panel-head em { min-width: 0; color: #9a8975; font-size: 10px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .coread-book-list, .coread-char-list { display: flex; flex-direction: column; gap: 7px; }
 .coread-book, .coread-char-list button { width: 100%; min-height: 54px; border: none; border-radius: 17px; background: rgba(255,255,255,0.82); color: #2b2722; padding: 8px 9px; box-shadow: 0 10px 22px rgba(65,54,43,0.06); text-align: left; }
+.coread-book { display: grid; grid-template-columns: minmax(0,1fr) 30px; align-items: center; gap: 5px; }
+.coread-book-main { min-width: 0; border: none; background: transparent; color: inherit; padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.coread-book-delete { width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(45,42,37,0.07); color: #7e6b58; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.coread-book.active .coread-book-delete { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.88); }
 .coread-book.active, .coread-char-list button.active { background: #2d2a25; color: #fff; }
 .coread-book.active em, .coread-char-list button.active span { color: rgba(255,255,255,0.78); }
 .coread-char-list button { display: grid; grid-template-columns: 30px minmax(0,1fr); align-items: center; gap: 7px; min-height: 42px; }
@@ -19049,13 +19051,39 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     border-radius: 16px;
     background: #fbf8f2;
     padding: 8px;
+    position: relative;
+    color: #28231f;
+}
+.coread-read-main {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 5px;
     text-align: left;
-    color: #28231f;
+    color: inherit;
 }
 .coread-read-card.active { background: #2e2924; color: #fff; }
+.coread-read-delete {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 3;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(32,29,25,0.68);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 8px 18px rgba(32,29,25,0.16);
+}
 .coread-read-cover {
     aspect-ratio: 0.72 / 1;
     border-radius: 12px;
