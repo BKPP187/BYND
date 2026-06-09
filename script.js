@@ -10943,6 +10943,8 @@ const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v
 const DESKTOP_DEFAULT_LOVELY_DELETED_KEY = 'desktop_default_lovely_deleted_v1';
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
 const DESKTOP_DEFAULT_LOVELY_ID = 'custom-lovely-default';
+const DESKTOP_DEFAULT_LOVELY_OLD_TOP = 14;
+const DESKTOP_DEFAULT_LOVELY_TOP = 104;
 const DESKTOP_CUSTOM_WIDGET_KINDS = new Set(['princess', 'status', 'lovely', 'polaroid', 'calendar', 'photo-square', 'notes-trio', 'catalog']);
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
@@ -12971,10 +12973,6 @@ function renderDesktopLovelyWidgetInner(layoutId) {
                     <input class="lcw-title-input lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.title || 'CHU ANH')}" oninput="saveDesktopLovelyTitle(this)">
                     <input class="lcw-title-subtitle lcw-input" type="text" maxlength="28" value="${desktopEscapeAttr(data.subtitle || '疗愈院・♡')}" oninput="saveDesktopLovelySubtitle(this)">
                 </div>
-                <div class="lcw-title-card lcw-title-card-right">
-                    <input class="lcw-bubble lcw-input" type="text" maxlength="60" value="${desktopEscapeAttr(bubbleLines[0] || 'FACEBOOK')}" oninput="saveDesktopLovelyText(this)">
-                    <input class="lcw-bubble lcw-bubble-sub lcw-input" type="text" maxlength="60" value="${desktopEscapeAttr(bubbleLines.slice(1).join(' ') || 'CHU ANH一梅')}" oninput="saveDesktopLovelyText(this)">
-                </div>
                 ${renderDesktopLovelyTitlePalette(data)}
             </div>
         </div>
@@ -13790,12 +13788,13 @@ function ensureDesktopLovelyWidget() {
         pageArea.appendChild(item);
         prepareDesktopLayoutItem(item, pageArea, {
             left: 22,
-            top: 14,
+            top: DESKTOP_DEFAULT_LOVELY_TOP,
             width: Math.min(size.width, Math.max(260, pageArea.clientWidth - 44)),
             height: size.height
         });
         compactDesktopSlotOrder(pageArea);
     } else {
+        item.style.marginTop = `${DESKTOP_DEFAULT_LOVELY_TOP}px`;
         pageArea.insertBefore(item, pageArea.firstChild);
     }
     pageArea.scrollTop = 0;
@@ -14478,6 +14477,25 @@ function migrateDesktopDefaultPrincessWidget() {
     localStorage.removeItem(DESKTOP_DEFAULT_PRINCESS_DELETED_KEY);
 }
 
+function migrateDesktopDefaultLovelyWidget() {
+    let saved = null;
+    try {
+        saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}');
+    } catch (e) {
+        saved = null;
+    }
+    if (!saved || !Array.isArray(saved.items)) return;
+    let changed = false;
+    saved.items.forEach(item => {
+        if (!item || item.id !== DESKTOP_DEFAULT_LOVELY_ID) return;
+        const top = Number(item.top);
+        if (!Number.isFinite(top) || top > DESKTOP_DEFAULT_LOVELY_OLD_TOP + 24) return;
+        item.top = DESKTOP_DEFAULT_LOVELY_TOP;
+        changed = true;
+    });
+    if (changed) localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify(saved));
+}
+
 function migrateDesktopStoryAppsToIcons() {
     let saved = null;
     try {
@@ -14560,6 +14578,7 @@ function initEditMode() {
     }, true);
     setTimeout(() => {
         migrateDesktopDefaultPrincessWidget();
+        migrateDesktopDefaultLovelyWidget();
         migrateDesktopStoryAppsToIcons();
         applySavedDesktopLayout();
         ensureMonitorDesktopEntry();
