@@ -3628,6 +3628,25 @@ function getMonitorRecentSummary(char) {
     return (msg.isMe ? '你：' : `${getMonitorCharName(char)}：`) + text.slice(0, 34);
 }
 
+function getMonitorMode(char) {
+    const mode = char && char.chatConfig && char.chatConfig.monitorMode;
+    return mode === 'observer' || mode === 'god' || mode === 'cp' ? 'observer' : 'persona';
+}
+
+function normalizeMonitorBarrageSpeed(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 1;
+    return Math.min(1.6, Math.max(0.7, Math.round(num * 10) / 10));
+}
+
+function getMonitorSpeedText(value) {
+    const speed = normalizeMonitorBarrageSpeed(value);
+    if (speed >= 1.35) return '很快';
+    if (speed >= 1.1) return '偏快';
+    if (speed <= 0.8) return '慢速';
+    return '标准';
+}
+
 function getMonitorStatusText(chars) {
     const enabled = chars.filter(char => !!(char.chatConfig && char.chatConfig.monitorEnabled));
     if (!chars.length) return '未导入角色';
@@ -3654,6 +3673,8 @@ function renderMonitorCharacters() {
     }
     list.innerHTML = chars.map(char => {
         const enabled = !!(char.chatConfig && char.chatConfig.monitorEnabled);
+        const mode = getMonitorMode(char);
+        const speed = normalizeMonitorBarrageSpeed(char.chatConfig && char.chatConfig.monitorBarrageSpeed);
         const state = (char.chatConfig && char.chatConfig.monitorState) || {};
         const lastLevel = state.lastLevel ? `上次强度：${state.lastLevel}` : '等待下一条 BYND 内部消息';
         const lastError = state.lastError ? `<small class="monitor-error">${musicEscapeHtml(state.lastError)}</small>` : '';
@@ -3669,6 +3690,16 @@ function renderMonitorCharacters() {
                     </div>
                     <p>${musicEscapeHtml(getMonitorRecentSummary(char))}</p>
                     <em>${musicEscapeHtml(lastLevel)}</em>
+                    <div class="monitor-char-config">
+                        <select onchange="setMonitorWatcherMode('${musicEscapeAttr(char.id)}', this.value)">
+                            <option value="persona" ${mode === 'persona' ? 'selected' : ''}>角色本人</option>
+                            <option value="observer" ${mode === 'observer' ? 'selected' : ''}>第三方吐槽</option>
+                        </select>
+                        <label>
+                            <span>弹幕 ${musicEscapeHtml(getMonitorSpeedText(speed))}</span>
+                            <input type="range" min="0.7" max="1.6" step="0.1" value="${speed}" oninput="setMonitorWatcherSpeed('${musicEscapeAttr(char.id)}', this.value)">
+                        </label>
+                    </div>
                     ${lastError}
                 </div>
                 <div class="monitor-char-actions">
@@ -3720,6 +3751,29 @@ function refreshMonitorWatcher(charId) {
     if (typeof showWechatToast === 'function') showWechatToast(`${getMonitorCharName(char)} 的监控状态已更新`);
 }
 window.refreshMonitorWatcher = refreshMonitorWatcher;
+
+function setMonitorWatcherMode(charId, mode) {
+    const char = getMonitorCharacters().find(item => item.id === charId);
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.monitorMode = mode === 'observer' ? 'observer' : 'persona';
+    char.chatConfig.monitorState = char.chatConfig.monitorState || {};
+    char.chatConfig.monitorState.lastError = '';
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    renderMonitorCharacters();
+    if (typeof showWechatToast === 'function') showWechatToast(`${getMonitorCharName(char)} 已切换监控视角`);
+}
+window.setMonitorWatcherMode = setMonitorWatcherMode;
+
+function setMonitorWatcherSpeed(charId, value) {
+    const char = getMonitorCharacters().find(item => item.id === charId);
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.monitorBarrageSpeed = normalizeMonitorBarrageSpeed(value);
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    renderMonitorCharacters();
+}
+window.setMonitorWatcherSpeed = setMonitorWatcherSpeed;
 
 function toggleMonitorWatcher(charId) {
     const char = getMonitorCharacters().find(item => item.id === charId);

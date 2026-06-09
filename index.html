@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260608-lovely-signature422">
+    <link rel="stylesheet" href="style.css?v=20260609-monitor-worldbook424">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260606-couple-transparent-shell1">
 </head>
 <body>
@@ -1109,7 +1109,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.422
+                    Beyond Screen v1.1.424
                 </div>
             </div>
         </div>
@@ -1812,6 +1812,20 @@
                                         </button>
                                     </div>
                                 </div>
+                                <div class="wcs-monitor-speed-row">
+                                    <span>弹幕速度</span>
+                                    <input type="range" id="wcs-monitor-barrage-speed" min="0.7" max="1.6" step="0.1" value="1" oninput="updateWechatMonitorSpeedLabel(this.value)">
+                                    <b id="wcs-monitor-barrage-speed-label">标准</b>
+                                </div>
+                            </div>
+                            <div class="wcs-worldbook-box">
+                                <div class="wcs-worldbook-head">
+                                    <span><i class="ri-book-open-line"></i> 聊天世界书</span>
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(true)">全选</button>
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(false)">清空</button>
+                                </div>
+                                <div class="wcs-worldbook-list" id="wcs-prompt-worldbook-list"></div>
+                                <p>只勾选要进入聊天提示词的世界书；表情包、贴纸世界书可以不勾，但不会影响贴纸读取。</p>
                             </div>
                             <div class="wcs-full-row">
                                 <label>时间模式</label>
@@ -2085,10 +2099,10 @@
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
-    <script src="wechat.js?v=20260608-couple-avatar419"></script>
+    <script src="wechat.js?v=20260609-monitor-worldbook424"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
-    <script src="settings.js?v=20260608-lovely-signature422"></script>
-    <script src="script.js?v=20260608-lovely-signature422"></script>
+    <script src="settings.js?v=20260609-monitor-worldbook424"></script>
+    <script src="script.js?v=20260609-monitor-worldbook424"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>
