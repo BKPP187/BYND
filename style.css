@@ -818,8 +818,12 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     --lcw-blue-deep: #8bb9e3;
     --lcw-line: rgba(143,189,230,0.72);
     --lcw-ink: #8aaeda;
+    --lcw-avatar-left: 3.5%;
+    --lcw-avatar-top: 32%;
+    --lcw-avatar-size: 34cqw;
+    --lcw-title-gap: 8px;
     width: 100%;
-    min-height: 232px;
+    min-height: 304px;
     padding: 0;
     border: none;
     border-radius: 22px;
@@ -831,8 +835,8 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .desktop-widget-lovely.desktop-layout-item {
     min-width: 300px;
-    min-height: 232px;
-    height: 232px !important;
+    min-height: 304px;
+    height: 304px !important;
 }
 .desktop-widget-polaroid {
     width: 100%;
@@ -1267,7 +1271,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 232px;
+    min-height: 304px;
     border: none;
     border-radius: 0;
     background: transparent;
@@ -1328,10 +1332,10 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     background: rgba(255,255,255,0.18);
 }
 .lcw-avatar {
-    left: 3.5%;
-    top: 37%;
+    left: var(--lcw-avatar-left);
+    top: var(--lcw-avatar-top);
     z-index: 5;
-    width: 34%;
+    width: var(--lcw-avatar-size);
     aspect-ratio: 1 / 1;
     border-radius: 50%;
     box-shadow: 0 10px 22px rgba(139,185,226,0.16);
@@ -1712,11 +1716,11 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .lcw-title-row {
     position: absolute;
-    left: 0%;
-    top: 73%;
-    width: 41%;
+    left: var(--lcw-avatar-left);
+    top: calc(var(--lcw-avatar-top) + var(--lcw-avatar-size) + var(--lcw-title-gap));
+    width: var(--lcw-avatar-size);
     z-index: 6;
-    min-height: 48px;
+    min-height: 44px;
     display: block;
     --lcw-title-inner: #1c1c1c;
     --lcw-title-outer: rgba(255,255,255,0);
