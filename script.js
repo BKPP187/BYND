@@ -13722,7 +13722,7 @@ function applyDesktopLayoutRect(item, pageArea, rect, options = {}) {
 }
 
 function getDesktopCustomWidgetSize(kind) {
-    if (kind === 'lovely') return { width: 340, height: 304 };
+    if (kind === 'lovely') return { width: 340, height: 248 };
     if (kind === 'polaroid') return { width: 322, height: 128 };
     if (kind === 'status') return { width: 322, height: 116 };
     if (kind === 'calendar') return { width: 322, height: 180 };
@@ -14495,7 +14495,7 @@ function migrateDesktopDefaultLovelyWidget() {
         }
         const height = Number(item.height);
         const defaultHeight = getDesktopCustomWidgetSize('lovely').height;
-        if (!Number.isFinite(height) || height < defaultHeight) {
+        if (!Number.isFinite(height) || height < defaultHeight || height === 264 || height === 304) {
             item.height = defaultHeight;
             changed = true;
         }
