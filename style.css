@@ -453,29 +453,48 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 }
 .desktop-widget-thumb-lovely {
     background:
-        linear-gradient(180deg, rgba(220,242,255,0.95) 0 42%, transparent 42%),
-        linear-gradient(145deg, rgba(255,255,255,0.64), rgba(199,226,247,0.60));
+        radial-gradient(circle at 77% 81%, rgba(255,213,234,0.68) 0 3px, transparent 4px),
+        radial-gradient(circle at 88% 20%, rgba(255,255,255,0.74) 0 2px, transparent 3px),
+        linear-gradient(145deg, rgba(250,253,255,0.86), rgba(214,237,255,0.78));
 }
 .desktop-widget-thumb-lovely::before {
     content: "";
     position: absolute;
-    left: 9px;
-    top: 30px;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #7fc7ff, #fff);
-    box-shadow: 0 8px 14px rgba(93,139,179,0.18);
+    left: 8px;
+    right: 8px;
+    top: 7px;
+    height: 32px;
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(130,197,249,0.92), rgba(255,218,235,0.82) 58%, rgba(255,245,201,0.86)),
+        linear-gradient(180deg, rgba(255,255,255,0.55), transparent);
+    box-shadow: 0 9px 18px rgba(93,139,179,0.14);
 }
 .desktop-widget-thumb-lovely::after {
     content: "";
     position: absolute;
-    right: 10px;
-    top: 37px;
-    width: 58%;
-    height: 24px;
-    border-radius: 12px;
-    background: rgba(184,219,249,0.92);
+    left: 13px;
+    top: 29px;
+    width: 27px;
+    height: 27px;
+    box-sizing: border-box;
+    border: 3px solid rgba(255,255,255,0.94);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #b7dcff 58%, #85bced);
+    box-shadow: 0 8px 14px rgba(93,139,179,0.20);
+}
+.desktop-widget-thumb-lovely > i {
+    position: absolute;
+    left: 11px;
+    top: 59px;
+    width: 34px;
+    height: 8px;
+    display: block;
+    border-radius: 999px;
+    background:
+        linear-gradient(rgba(79,101,124,0.66), rgba(79,101,124,0.66)) center 0 / 28px 3px no-repeat,
+        linear-gradient(rgba(123,154,185,0.54), rgba(123,154,185,0.54)) center 5px / 22px 2px no-repeat;
+    font-size: 0;
 }
 .desktop-widget-thumb-polaroid {
     background: linear-gradient(145deg, #fff9e8, #fff0f8);

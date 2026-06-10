@@ -13964,8 +13964,8 @@ function getDesktopWidgetLibraryItems() {
         },
         {
             kind: 'lovely',
-            title: '拼贴清单',
-            desc: '横图、头像、气泡和标题',
+            title: '头像签名',
+            desc: '横图、圆头像和下方签名',
             icon: 'ri-collage-line',
             preview: 'lovely',
             tone: 'lovely'
