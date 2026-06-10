@@ -1,5 +1,9 @@
 // --- 🤖 chat-api.js: 通用 AI 对话引擎 ---
 
+const CHAT_API_MIN_COMPLETION_TOKENS = 1800;
+const CHAT_API_STATUS_MIN_COMPLETION_TOKENS = 2200;
+const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
+
 function padChatDatePart(value) {
     return String(value).padStart(2, '0');
 }
@@ -216,6 +220,93 @@ function getChatApiRawResponseContent(json) {
     }
 
     return '';
+}
+
+function getChatApiFinishReason(json) {
+    const choice = json?.choices?.[0] || {};
+    const message = choice.message || {};
+    const output = Array.isArray(json?.output) ? json.output : [];
+    const lastOutput = output.length ? output[output.length - 1] : null;
+    const candidates = [
+        choice.finish_reason,
+        choice.finishReason,
+        choice.native_finish_reason,
+        choice.stop_reason,
+        choice.finish_details?.type,
+        choice.finishDetails?.type,
+        choice.incomplete_details?.reason,
+        choice.incompleteDetails?.reason,
+        message.finish_reason,
+        message.finishReason,
+        message.stop_reason,
+        json?.finish_reason,
+        json?.finishReason,
+        json?.stop_reason,
+        json?.incomplete_details?.reason,
+        json?.incompleteDetails?.reason,
+        lastOutput?.finish_reason,
+        lastOutput?.finishReason,
+        lastOutput?.incomplete_details?.reason,
+        lastOutput?.incompleteDetails?.reason
+    ];
+    for (const value of candidates) {
+        const text = String(value == null ? '' : value).trim();
+        if (text) return text.toLowerCase();
+    }
+    return '';
+}
+
+function isChatApiLengthFinishReason(reason) {
+    const text = String(reason || '').trim().toLowerCase();
+    if (!text) return false;
+    return text === 'length'
+        || text === 'max_tokens'
+        || text === 'max_output_tokens'
+        || text === 'token_limit'
+        || /max[_ -]?(?:output[_ -]?)?tokens?|token[_ -]?limit|output[_ -]?limit|truncat|length/.test(text);
+}
+
+function getChatApiOverlapLength(left, right, maxLength = 180) {
+    const a = String(left || '').slice(-maxLength);
+    const b = String(right || '').slice(0, maxLength);
+    const max = Math.min(a.length, b.length);
+    for (let length = max; length >= 12; length -= 1) {
+        if (a.slice(-length) === b.slice(0, length)) return length;
+    }
+    return 0;
+}
+
+function mergeChatApiContinuationContent(first, second) {
+    const left = cleanChatApiVisibleContent(first).trim();
+    const right = cleanChatApiVisibleContent(second).trim();
+    if (!left) return right;
+    if (!right) return left;
+    if (right.startsWith(left)) return right;
+    if (left.endsWith(right)) return left;
+    const overlap = getChatApiOverlapLength(left, right);
+    if (overlap > 0) return left + right.slice(overlap);
+    if (/[.!?;:)\]}>\u3002\uff01\uff1f\uff1b\uff1a\uff09\uff3d\u300d\u300f\u201d]$/.test(left)) {
+        return `${left}\n${right}`;
+    }
+    return left + right;
+}
+
+function buildChatApiLengthContinuationMessages(messages, content) {
+    return (Array.isArray(messages) ? messages : []).concat(
+        {
+            role: 'assistant',
+            content: cleanChatApiVisibleContent(content)
+        },
+        {
+            role: 'user',
+            content: [
+                'Your previous assistant reply was cut off by the provider output limit.',
+                'Continue from the exact interruption point.',
+                'Output only the remaining user-visible WeChat reply text.',
+                'Do not repeat existing text and do not explain.'
+            ].join(' ')
+        }
+    );
 }
 
 if (typeof window !== 'undefined') {
@@ -1159,13 +1250,16 @@ async function callChatApi(messages, options = {}) {
         model: api.model,
         messages: messages,
         temperature: options.temperature ?? (preset ? preset.temperature : 0.8),
-        max_tokens: options.max_tokens ?? (preset ? preset.max_tokens : 1000)
+        max_tokens: options.max_tokens ?? (preset ? preset.max_tokens : CHAT_API_MIN_COMPLETION_TOKENS)
     };
     const needsStatusBlockBudget = Array.isArray(messages) && messages.some(msg =>
         msg && typeof msg.content === 'string' && /状态栏\/酒馆正则块强约束|状态栏格式|状态栏|status\s*bar|weibo-status-bar|<\s*(?:jwy|status|state)\b/i.test(msg.content)
     );
-    if (needsStatusBlockBudget && options.max_tokens == null && Number(params.max_tokens || 0) < 1800) {
-        params.max_tokens = 1800;
+    if (options.max_tokens == null && Number(params.max_tokens || 0) < CHAT_API_MIN_COMPLETION_TOKENS) {
+        params.max_tokens = CHAT_API_MIN_COMPLETION_TOKENS;
+    }
+    if (needsStatusBlockBudget && options.max_tokens == null && Number(params.max_tokens || 0) < CHAT_API_STATUS_MIN_COMPLETION_TOKENS) {
+        params.max_tokens = CHAT_API_STATUS_MIN_COMPLETION_TOKENS;
     }
     if (preset) {
         if (preset.top_p != null && preset.top_p !== 1) params.top_p = preset.top_p;
@@ -1198,10 +1292,26 @@ async function callChatApi(messages, options = {}) {
 
         const json = await resp.json();
         const rawContent = getChatApiRawResponseContent(json);
-        const content = cleanChatApiVisibleContent(rawContent);
+        let content = cleanChatApiVisibleContent(rawContent);
 
         if (!content) {
             return { ok: false, error: 'AI 返回了空内容' };
+        }
+
+        const finishReason = getChatApiFinishReason(json);
+        if (isChatApiLengthFinishReason(finishReason) && !options.skipLengthContinuation) {
+            const continuationMessages = buildChatApiLengthContinuationMessages(messages, content);
+            const continuationResult = await callChatApi(continuationMessages, {
+                ...options,
+                skipLengthContinuation: true,
+                skipStatusValidationRetry: true,
+                max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS)
+            });
+            if (continuationResult && continuationResult.ok) {
+                content = mergeChatApiContinuationContent(content, continuationResult.content);
+            } else if (continuationResult && continuationResult.error) {
+                console.warn('chat api length continuation failed:', continuationResult.error);
+            }
         }
 
         const statusReport = options.skipStatusValidationRetry
@@ -1215,7 +1325,7 @@ async function callChatApi(messages, options = {}) {
             const retryResult = await callChatApi(retryMessages, {
                 ...options,
                 skipStatusValidationRetry: true,
-                max_tokens: Math.max(Number(params.max_tokens) || 0, 1800)
+                max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_STATUS_MIN_COMPLETION_TOKENS)
             });
             if (retryResult && retryResult.ok && !getChatApiIncompleteStatusBlockReport(retryResult.content, messages)) {
                 return retryResult;
