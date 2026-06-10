@@ -20332,20 +20332,43 @@ function getWechatAiPhoneStoredContactRows(char, contact, index) {
     return Array.isArray(store.threads[key]) ? store.threads[key].slice(-18) : [];
 }
 
+function buildWechatAiPhoneContactPreviewRow(contact) {
+    if (!contact || contact.byUserProxy) return null;
+    const text = stripWechatPromptText(contact.text || contact.lastMessage || contact.message || contact.preview || '', 600);
+    if (!text) return null;
+    return {
+        isCharSide: false,
+        text,
+        time: stripWechatPromptText(contact.time || contact.status || '', 16),
+        type: 'text',
+        fromPreview: true
+    };
+}
+
+function hasWechatAiPhoneContactRowText(rows, text) {
+    const target = stripWechatPromptText(text, 600);
+    if (!target) return false;
+    return (Array.isArray(rows) ? rows : []).some(row => stripWechatPromptText(row && row.text, 600) === target);
+}
+
 function appendWechatAiPhoneContactReply(char, contact, index, text) {
     const clean = stripWechatPromptText(text, 600);
     if (!char || !clean || index <= 0) return false;
     const store = getWechatAiPhoneContactReplyStore(char);
     const key = getWechatAiPhoneContactKey(contact, index);
+    const previewRow = buildWechatAiPhoneContactPreviewRow(contact);
     const event = {
         id: `phone_reply_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         contactKey: key,
         contactName: contact && contact.name || '联系人',
-        contactPreview: contact && contact.text || '',
+        contactPreview: previewRow ? previewRow.text : (contact && contact.text || ''),
         userReply: clean,
         createdAt: Date.now()
     };
     store.threads[key] = Array.isArray(store.threads[key]) ? store.threads[key] : [];
+    if (previewRow && !hasWechatAiPhoneContactRowText(store.threads[key], previewRow.text)) {
+        store.threads[key].push(previewRow);
+    }
     store.threads[key].push({
         isCharSide: true,
         text: clean,
@@ -20353,6 +20376,14 @@ function appendWechatAiPhoneContactReply(char, contact, index, text) {
         type: 'text',
         byUserProxy: true
     });
+    const snapshotChats = char.chatConfig && char.chatConfig.aiPhoneSnapshot && Array.isArray(char.chatConfig.aiPhoneSnapshot.chats)
+        ? char.chatConfig.aiPhoneSnapshot.chats
+        : [];
+    if (snapshotChats[index]) {
+        snapshotChats[index].text = clean;
+        snapshotChats[index].time = '刚刚';
+        snapshotChats[index].byUserProxy = true;
+    }
     store.pending.push(event);
     saveCharactersToStorage();
     return true;
@@ -20369,6 +20400,7 @@ function submitWechatAiPhoneContactReply(charId, chatIndex) {
     if (appendWechatAiPhoneContactReply(char, chats[index], index, text)) {
         input.value = '';
         renderWechatAiPhone(char);
+        flushWechatAiPhoneContactReplyReactions(char);
     }
 }
 window.submitWechatAiPhoneContactReply = submitWechatAiPhoneContactReply;
@@ -20401,7 +20433,12 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
     }
 
     if (index > 0) {
-        rows = rows.concat(getWechatAiPhoneStoredContactRows(char, contact, index));
+        const storedRows = getWechatAiPhoneStoredContactRows(char, contact, index);
+        const previewRow = buildWechatAiPhoneContactPreviewRow(contact);
+        if (previewRow && !hasWechatAiPhoneContactRowText(storedRows, previewRow.text)) {
+            rows.push(previewRow);
+        }
+        rows = rows.concat(storedRows);
     }
 
     if (!rows.length) {
@@ -20953,12 +20990,20 @@ async function triggerWechatAiPhoneContactReplyReaction(char, events) {
     }
 }
 
-function closeWechatAiPhone() {
-    const charId = window._wechatAiPhoneOpenCharId;
-    const char = (window.myCharacters || []).find(c => c.id === charId);
+function flushWechatAiPhoneContactReplyReactions(char) {
     const store = char ? getWechatAiPhoneContactReplyStore(char) : null;
     const pending = store && Array.isArray(store.pending) ? store.pending.splice(0, 8) : [];
     if (pending.length) saveCharactersToStorage();
+    if (char && pending.length) {
+        triggerWechatAiPhoneContactReplyReaction(char, pending);
+        return true;
+    }
+    return false;
+}
+
+function closeWechatAiPhone() {
+    const charId = window._wechatAiPhoneOpenCharId;
+    const char = (window.myCharacters || []).find(c => c.id === charId);
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     window._wechatAiPhoneOpenCharId = '';
@@ -20966,7 +21011,7 @@ function closeWechatAiPhone() {
     window._wechatAiPhoneChatIndex = 0;
     window._wechatAiPhoneMemoIndex = -1;
     window._wechatAiPhoneBrowserIndex = -1;
-    if (char && pending.length) triggerWechatAiPhoneContactReplyReaction(char, pending);
+    flushWechatAiPhoneContactReplyReactions(char);
 }
 
 // ========== 微信记忆系统 ==========
