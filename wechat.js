@@ -2288,11 +2288,15 @@ function isWechatRegexPayloadMessage(msg, char = null) {
 }
 window.isWechatRegexPayloadMessage = isWechatRegexPayloadMessage;
 
+function isWechatHiddenChatSurfaceMessage(msg) {
+    return !!(msg && (msg.hiddenFromChat || msg.internalEvent || msg.monitorEvent));
+}
+
 function getWechatLastChatMessage(char) {
     const history = Array.isArray(char?.history) ? char.history : [];
     for (let i = history.length - 1; i >= 0; i--) {
         const msg = history[i];
-        if (msg && msg.type !== 'system_notice' && !msg.hiddenFromChat && !msg.internalEvent && !isWechatRegexPayloadMessage(msg, char)) return msg;
+        if (msg && msg.type !== 'system_notice' && !isWechatHiddenChatSurfaceMessage(msg) && !isWechatRegexPayloadMessage(msg, char)) return msg;
     }
     return null;
 }
@@ -2323,6 +2327,7 @@ function getTelegramChatUnreadCount(char) {
     if (lastReadAt > 0) {
         history.forEach(msg => {
             if (!msg || msg.type === 'system_notice' || msg.isMe) return;
+            if (isWechatHiddenChatSurfaceMessage(msg)) return;
             if (isWechatRegexPayloadMessage(msg, char)) return;
             if (getWechatMessageTimestampValue(msg) > lastReadAt) count += 1;
         });
@@ -2330,6 +2335,7 @@ function getTelegramChatUnreadCount(char) {
         for (let i = history.length - 1; i >= 0; i--) {
             const msg = history[i];
             if (!msg || msg.type === 'system_notice') continue;
+            if (isWechatHiddenChatSurfaceMessage(msg)) continue;
             if (msg.isMe) break;
             if (isWechatRegexPayloadMessage(msg, char)) continue;
             count += 1;
@@ -7616,7 +7622,7 @@ function getWechatRecentUserCallRequest(char) {
     const chunks = [];
     for (let i = char.history.length - 1; i >= 0 && chunks.length < 4; i -= 1) {
         const msg = char.history[i];
-        if (!msg || msg.hiddenFromChat || msg.internalEvent) continue;
+        if (!msg || isWechatHiddenChatSurfaceMessage(msg)) continue;
         if (!msg.isMe) break;
         const text = getWechatTextMessageVisibleText(msg, char) || msg.content || msg.description || '';
         if (text) chunks.unshift(String(text));
@@ -8460,7 +8466,7 @@ function refreshChatView(char) {
     let prevVisibleMsg = null;
     history.slice(startIndex).forEach((msg, offset) => {
         const index = startIndex + offset;
-        if (msg && (msg.hiddenFromChat || msg.internalEvent)) return;
+        if (isWechatHiddenChatSurfaceMessage(msg)) return;
         if (msg && msg.type !== 'system_notice' && shouldShowWechatTimeDivider(prevVisibleMsg, msg)) {
             appendWechatTimeDivider(contentEl, getWechatMessageDate(msg));
         }
@@ -9957,6 +9963,7 @@ async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventI
 }
 
 function appendWechatMonitorRecord(watcher, targetChar, userMsg, reaction, level) {
+    if (getWechatMonitorMode(watcher) === 'observer') return;
     const text = reaction.warning || reaction.island || reaction.barrage[0] || '';
     if (!text) return;
     const targetName = getWechatCharDisplayName(targetChar);
@@ -17733,7 +17740,7 @@ function getWechatCoupleMoodSource(char) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     for (let i = history.length - 1; i >= 0 && parts.length < 12; i -= 1) {
         const msg = history[i];
-        if (!msg || msg.isMe || msg.hiddenFromChat || msg.internalEvent || msg.type === 'system_notice') continue;
+        if (!msg || msg.isMe || isWechatHiddenChatSurfaceMessage(msg) || msg.type === 'system_notice') continue;
         const text = (typeof getWechatTextMessageVisibleText === 'function'
             ? getWechatTextMessageVisibleText(msg, char)
             : (msg.content || msg.description || ''));
