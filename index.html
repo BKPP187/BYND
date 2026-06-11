@@ -27,8 +27,8 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260609-monitor-worldbook424">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260606-couple-transparent-shell1">
+    <link rel="stylesheet" href="style.css?v=20260611-netease-music1">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260611-couple-chat-save1">
 </head>
 <body>
 
@@ -208,6 +208,14 @@
                     <i class="ri-search-line"></i>
                     <input type="search" id="music-search-input" value="周杰伦" placeholder="搜索中文 / 英文 / 歌手 / 专辑" oninput="handleMusicSearchInput(this.value)">
                 </div>
+                <button type="button" class="music-netease-entry" id="music-netease-entry" onclick="openNeteaseView()">
+                    <span class="mn-entry-logo"><i class="ri-netease-cloud-music-fill"></i></span>
+                    <span class="mn-entry-meta">
+                        <strong>网易云音乐</strong>
+                        <em id="music-netease-entry-status">未登录 · 扫码登录导入歌单</em>
+                    </span>
+                    <i class="ri-arrow-right-s-line"></i>
+                </button>
                 <div class="music-source-panel">
                     <div class="music-source-chips" id="music-source-chips">
                         <button type="button" data-source="smart" class="active" onclick="setMusicSourceMode('smart')">多源</button>
@@ -225,6 +233,10 @@
                     <label>
                         <span>自定义聚合后端</span>
                         <input type="url" id="music-go-api-base" placeholder="http://127.0.0.1:8080">
+                    </label>
+                    <label>
+                        <span>网易云 API 服务（空着用默认本机 18867）</span>
+                        <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:18867">
                     </label>
                     <p>歌曲海不再打开外部网页；点击后会用应用内音乐源搜索。</p>
                     <div class="music-playlist-import">
@@ -310,6 +322,50 @@
                         </div>
                     </section>
                 </div>
+            </div>
+            <div class="music-netease-view hidden" id="music-netease-view">
+                <section class="mn-section active" data-section="login">
+                    <div class="mn-header">
+                        <button type="button" onclick="closeNeteaseView()" aria-label="关闭网易云"><i class="ri-arrow-left-s-line"></i></button>
+                        <strong>网易云音乐</strong>
+                        <span></span>
+                    </div>
+                    <div class="mn-login-body">
+                        <span class="mn-login-logo"><i class="ri-netease-cloud-music-fill"></i></span>
+                        <strong class="mn-login-title">扫码登录</strong>
+                        <div class="mn-qr-box" id="mn-qr-img"></div>
+                        <p class="mn-qr-status" id="mn-qr-status">正在获取二维码...</p>
+                        <button type="button" class="mn-qr-refresh" onclick="startNeteaseQrLogin()"><i class="ri-refresh-line"></i><span>刷新二维码</span></button>
+                        <p class="mn-login-tip">登录信息只存在这台设备的浏览器里，走你自己的本地 API。</p>
+                    </div>
+                </section>
+                <section class="mn-section" data-section="mine">
+                    <div class="mn-header mn-header-red">
+                        <button type="button" onclick="closeNeteaseView()" aria-label="关闭网易云"><i class="ri-arrow-left-s-line"></i></button>
+                        <strong>我的</strong>
+                        <button type="button" onclick="neteaseLogout()" aria-label="退出登录"><i class="ri-logout-box-r-line"></i></button>
+                    </div>
+                    <div class="mn-body" id="mn-mine-body"></div>
+                </section>
+                <section class="mn-section" data-section="playlist">
+                    <div class="mn-header mn-header-red">
+                        <button type="button" onclick="switchNeteaseSection('mine')" aria-label="返回我的"><i class="ri-arrow-left-s-line"></i></button>
+                        <strong id="mn-playlist-title">歌单</strong>
+                        <span></span>
+                    </div>
+                    <div class="mn-body" id="mn-playlist-body"></div>
+                </section>
+                <section class="mn-section mn-section-player" data-section="player">
+                    <div class="mn-header mn-header-player">
+                        <button type="button" onclick="neteasePlayerBack()" aria-label="收起播放页"><i class="ri-arrow-down-s-line"></i></button>
+                        <div class="mn-player-titles">
+                            <strong id="mn-player-title">未在播放</strong>
+                            <em id="mn-player-artist"></em>
+                        </div>
+                        <span></span>
+                    </div>
+                    <div class="mn-player-body" id="mn-player-body"></div>
+                </section>
             </div>
             <div class="music-bottom-nav">
                 <button type="button" class="active" data-music-tab="home" onclick="switchMusicMainTab('home')"><i class="ri-home-5-fill"></i><span>主页</span></button>
@@ -2099,10 +2155,11 @@
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
-    <script src="wechat.js?v=20260609-monitor-worldbook424"></script>
+    <script src="wechat.js?v=20260611-couple-chat-save1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
     <script src="settings.js?v=20260609-monitor-worldbook424"></script>
-    <script src="script.js?v=20260609-monitor-worldbook424"></script>
+    <script src="script.js?v=20260611-netease-music1"></script>
+    <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>

@@ -129,10 +129,11 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 45;
-    min-width: 150px;
-    max-width: 196px;
+    width: min(48vw, 232px);
+    max-width: calc(100% - 176px);
+    min-width: 168px;
     height: 48px;
-    padding: 4px 10px;
+    padding: 4px 11px;
     border: 1px solid rgba(255,255,255,0.54);
     border-radius: 999px;
     background: rgba(255,255,255,0.40);
@@ -141,9 +142,9 @@
     -webkit-backdrop-filter: blur(18px) saturate(1.18);
     color: #201b1f;
     display: grid;
-    grid-template-columns: 38px minmax(46px, 1fr) 38px;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     cursor: pointer;
     transition: none !important;
     will-change: auto;
@@ -169,6 +170,8 @@
     font-weight: 400;
     letter-spacing: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-content {

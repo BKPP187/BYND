@@ -9138,12 +9138,11 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 newAiMessageCount += completed;
             }
             if (newAiMessageCount > 0) {
+                await saveCharactersToStorage();
+                renderChatList();
                 showWechatDesktopMessageIsland(char);
-                try {
-                    await requestWechatAiStatusSnapshot(char, { reason: 'after_reply', force: true });
-                } catch (e) {
-                    console.warn('ai status snapshot failed:', e);
-                }
+                requestWechatAiStatusSnapshot(char, { reason: 'after_reply', force: true })
+                    .catch(e => console.warn('ai status snapshot failed:', e));
                 scheduleWechatMemoryExtraction(char, 'after_reply');
             } else if (typeof showWechatToast === 'function') {
                 showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');

@@ -1153,14 +1153,31 @@ function renderMusicMainTab() {
     }
 }
 
+function renderMusicHomePlaylists() {
+    const list = getMusicPlaylistsStore();
+    if (!list.length) return '';
+    return `
+        <div class="music-home-playlists">
+            <div class="music-home-playlists-title">我的歌单<em>${list.length}</em></div>
+            ${list.map(item => `
+                <button type="button" class="music-home-playlist-row" onclick="loadImportedMusicPlaylist('${musicEscapeAttr(item.id)}')">
+                    <i class="ri-play-list-2-line"></i>
+                    <span>${musicEscapeHtml(item.name || item.platformLabel || '导入歌单')}</span>
+                    <em>${Array.isArray(item.tracks) ? item.tracks.length : 0} 首</em>
+                </button>
+            `).join('')}
+        </div>
+    `;
+}
+
 function renderMusicList() {
     const list = document.getElementById('music-track-list');
     if (!list) return;
     if (!musicTracks.length) {
-        list.innerHTML = `<div class="music-empty-state"><strong>没有搜索结果</strong><span>换个歌名、歌手或切换音乐源试试。</span></div>`;
+        list.innerHTML = `${renderMusicHomePlaylists()}<div class="music-empty-state"><strong>没有搜索结果</strong><span>换个歌名、歌手或切换音乐源试试。</span></div>`;
         return;
     }
-    list.innerHTML = musicTracks.map((track, index) => {
+    list.innerHTML = renderMusicHomePlaylists() + musicTracks.map((track, index) => {
         const artwork = getMusicArtwork(track);
         const liked = isMusicFavorite(track);
         return `
@@ -1387,6 +1404,10 @@ function toggleMusicPlayback(forcePlay) {
     const track = musicTracks[musicCurrentIndex];
     if (!track) return;
     if (!track.audioUrl) {
+        if (track.sourceKey === 'netease' && track.remoteId && typeof window.resolveAndPlayNeteaseMusic === 'function') {
+            window.resolveAndPlayNeteaseMusic(track, true);
+            return;
+        }
         showMusicStatus('这条结果没有可播放的完整音频，换一首试试。');
         return;
     }
@@ -2219,6 +2240,12 @@ async function fetchMusicSourceLyrics(track) {
                     };
                 }
             }
+        } catch (e) {}
+    }
+    if (track.sourceKey === 'netease' && track.remoteId && typeof window.fetchNeteaseLyricLines === 'function') {
+        try {
+            const lyrics = await window.fetchNeteaseLyricLines(track.remoteId);
+            if (lyrics) return lyrics;
         } catch (e) {}
     }
     if (track.sourceKey === 'meting' && track.sourceMeta) {
