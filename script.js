@@ -69,6 +69,7 @@ function unlockPhone() {
     document.getElementById('lock-screen')?.classList.add('unlocked');
     document.getElementById('home-screen')?.classList.remove('hidden');
     resetDesktopToFirstPage();
+    if (typeof scheduleDesktopVisibleLayoutRepair === 'function') scheduleDesktopVisibleLayoutRepair();
     
     // 触发变色检查
     const statusBar = document.querySelector('.status-bar');
@@ -10991,6 +10992,7 @@ let _desktopLongPressStart = null;
 let _desktopLongPressTriggered = false;
 let _desktopLongPressActive = false;
 let _desktopLayoutApplied = false;
+let _desktopLayoutNeedsVisiblePersist = false;
 let _desktopDefaultPrincessDeletedBackup = null;
 let _desktopDefaultLovelyDeletedBackup = null;
 let _desktopStickyNotesBackup = null;
@@ -11118,18 +11120,66 @@ function prepareDesktopLayoutItem(item, pageArea, rect) {
 
 function clampDesktopLayoutRect(rect, pageArea) {
     const source = rect || {};
-    const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
-    const areaHeight = Math.max(520, pageArea?.clientHeight || 590);
+    const hasMeasuredBounds = hasDesktopUsableLayoutBounds(pageArea);
+    const areaWidth = Math.max(260, hasMeasuredBounds ? pageArea.clientWidth : 375);
+    const areaHeight = Math.max(520, hasMeasuredBounds ? pageArea.clientHeight : 590);
     const minWidth = Math.min(220, Math.max(54, Number(source.width) || 96));
     const minHeight = Math.min(140, Math.max(58, Number(source.height) || 96));
-    const width = Math.max(54, Math.min(areaWidth - 16, Number(source.width) || minWidth));
-    const height = Math.max(58, Math.min(areaHeight - 16, Number(source.height) || minHeight));
+    const width = hasMeasuredBounds
+        ? Math.max(54, Math.min(areaWidth - 16, Number(source.width) || minWidth))
+        : Math.max(54, Number(source.width) || minWidth);
+    const height = hasMeasuredBounds
+        ? Math.max(58, Math.min(areaHeight - 16, Number(source.height) || minHeight))
+        : Math.max(58, Number(source.height) || minHeight);
+    const left = Number(source.left);
+    const top = Number(source.top);
     return {
-        left: Math.max(8, Math.min(areaWidth - width - 8, Number(source.left) || 8)),
-        top: Math.max(8, Math.min(areaHeight - height - 8, Number(source.top) || 8)),
+        left: hasMeasuredBounds
+            ? Math.max(8, Math.min(areaWidth - width - 8, Number.isFinite(left) ? left : 8))
+            : Math.max(8, Number.isFinite(left) ? left : 8),
+        top: hasMeasuredBounds
+            ? Math.max(8, Math.min(areaHeight - height - 8, Number.isFinite(top) ? top : 8))
+            : Math.max(8, Number.isFinite(top) ? top : 8),
         width,
         height
     };
+}
+
+function hasDesktopUsableLayoutBounds(pageArea) {
+    return !!(pageArea && pageArea.clientWidth > 0 && pageArea.clientHeight > 0);
+}
+
+function getDesktopRawStyleRect(item, fallback = {}) {
+    if (!item) return null;
+    const styleLeft = parseFloat(item.style.left);
+    const styleTop = parseFloat(item.style.top);
+    const styleWidth = parseFloat(item.style.width);
+    const styleHeight = parseFloat(item.style.height);
+    return {
+        left: Number.isFinite(styleLeft) ? styleLeft : (Number(fallback.left) || item.offsetLeft || 0),
+        top: Number.isFinite(styleTop) ? styleTop : (Number(fallback.top) || item.offsetTop || 0),
+        width: Number.isFinite(styleWidth) && styleWidth > 0 ? styleWidth : (item.offsetWidth || Number(fallback.width) || 72),
+        height: Number.isFinite(styleHeight) && styleHeight > 0 ? styleHeight : (item.offsetHeight || Number(fallback.height) || 82)
+    };
+}
+
+function desktopRectsDiffer(a, b, tolerance = 1) {
+    if (!a || !b) return false;
+    return Math.abs((a.left || 0) - (b.left || 0)) > tolerance
+        || Math.abs((a.top || 0) - (b.top || 0)) > tolerance
+        || Math.abs((a.width || 0) - (b.width || 0)) > tolerance
+        || Math.abs((a.height || 0) - (b.height || 0)) > tolerance;
+}
+
+function setDesktopLayoutItemRect(item, rect) {
+    if (!item || !rect) return false;
+    const current = getDesktopRawStyleRect(item);
+    if (!desktopRectsDiffer(current, rect)) return false;
+    item.style.left = `${Math.round(rect.left)}px`;
+    item.style.top = `${Math.round(rect.top)}px`;
+    item.style.width = `${Math.round(rect.width)}px`;
+    item.style.height = `${Math.round(rect.height)}px`;
+    return true;
 }
 
 function getDesktopDirectLayoutItems(pageArea) {
@@ -11610,12 +11660,7 @@ function compactDesktopSlotOrder(pageArea, excludedItem = null) {
 
 function getDesktopStyleRect(item, pageArea) {
     if (!item || !pageArea) return null;
-    return clampDesktopLayoutRect({
-        left: parseFloat(item.style.left) || item.offsetLeft || 0,
-        top: parseFloat(item.style.top) || item.offsetTop || 0,
-        width: item.offsetWidth || parseFloat(item.style.width) || 72,
-        height: item.offsetHeight || parseFloat(item.style.height) || 82
-    }, pageArea);
+    return clampDesktopLayoutRect(getDesktopRawStyleRect(item), pageArea);
 }
 
 function getDesktopRectIntersectionRatio(a, b) {
@@ -11716,7 +11761,7 @@ function findDesktopOpenAppRect(pageArea, item, preferredRect) {
 }
 
 function repairDesktopAppOverlaps(pageArea) {
-    if (!pageArea) return;
+    if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return false;
     const items = getDesktopOrderedSlotItems(pageArea, true);
     const placed = [];
     let changed = false;
@@ -11736,10 +11781,50 @@ function repairDesktopAppOverlaps(pageArea) {
         placed.push({ item, rect });
     });
     if (changed) captureDesktopPageSlotRects(pageArea);
+    return changed;
+}
+
+function repairDesktopWidgetOverlaps(pageArea) {
+    if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return false;
+    const items = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
+        .sort((a, b) => {
+            const ar = getDesktopRawStyleRect(a);
+            const br = getDesktopRawStyleRect(b);
+            if (Math.abs(ar.top - br.top) > 8) return ar.top - br.top;
+            return ar.left - br.left;
+        });
+    const placed = [];
+    let changed = false;
+    items.forEach(item => {
+        let rect = getDesktopStyleRect(item, pageArea);
+        if (!rect) return;
+        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.16);
+        if (overlapsPlaced) {
+            const currentScore = scoreDesktopCandidateOverlap(rect, pageArea, [item]);
+            const candidate = findDesktopOpenWidgetRect(pageArea, {
+                width: rect.width,
+                height: rect.height
+            }, rect, [item]);
+            const candidateScore = candidate ? scoreDesktopCandidateOverlap(candidate, pageArea, [item]) : Infinity;
+            if (candidate && candidateScore + 0.01 < currentScore && candidateScore < 0.34) {
+                setDesktopLayoutItemRect(item, candidate);
+                rect = candidate;
+                changed = true;
+            }
+        }
+        placed.push({ item, rect });
+    });
+    return changed;
 }
 
 function repairDesktopLayoutOverlaps() {
-    document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(repairDesktopAppOverlaps);
+    let changed = false;
+    document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(pageArea => {
+        if (!hasDesktopUsableLayoutBounds(pageArea)) return;
+        if (repairDesktopWidgetOverlaps(pageArea)) changed = true;
+        if (repairDesktopAppOverlaps(pageArea)) changed = true;
+    });
+    return changed;
 }
 
 function settleDesktopAppsAroundWidget(widgetItem, pageArea) {
@@ -13762,7 +13847,7 @@ function getDesktopCustomWidgetSize(kind) {
     return { width: 188, height: 188 };
 }
 
-function findDesktopOpenWidgetRect(pageArea, size) {
+function findDesktopOpenWidgetRect(pageArea, size, preferredRect = null, ignoreItems = []) {
     const width = Math.min(size?.width || 188, Math.max(120, (pageArea?.clientWidth || 375) - 24));
     const height = Math.min(size?.height || 188, Math.max(120, (pageArea?.clientHeight || 590) - 24));
     const areaWidth = Math.max(260, pageArea?.clientWidth || 375);
@@ -13777,11 +13862,13 @@ function findDesktopOpenWidgetRect(pageArea, size) {
         }
     }
     if (!candidates.length) return clampDesktopLayoutRect({ left: 18, top: 44, width, height }, pageArea);
+    const ignored = new Set(ignoreItems.filter(Boolean));
     const existing = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item'))
-        .filter(item => !item.classList.contains('desktop-layout-dragging'));
+        .filter(item => !item.classList.contains('desktop-layout-dragging') && !ignored.has(item));
     const scored = candidates.map(rect => {
         const overlap = existing.reduce((score, item) => Math.max(score, getDesktopRectIntersectionRatio(rect, getDesktopStyleRect(item, pageArea))), 0);
-        const distance = Math.abs(rect.left - 18) + Math.abs(rect.top - 44);
+        const source = preferredRect || { left: 18, top: 44 };
+        const distance = Math.abs(rect.left - source.left) + Math.abs(rect.top - source.top);
         return { rect, overlap, distance };
     }).sort((a, b) => (a.overlap - b.overlap) || (a.distance - b.distance));
     const best = scored.find(entry => entry.overlap < 0.08) || scored[0];
@@ -14383,6 +14470,107 @@ function restoreDesktopRuntimeAfterEdit() {
     setupDesktopDockEditing();
 }
 
+function normalizeDesktopSavedLayoutItems(items, dockItems = []) {
+    if (!Array.isArray(items)) return [];
+    const dockAppIds = new Set((Array.isArray(dockItems) ? dockItems : []).map(appId => String(appId || '')).filter(Boolean));
+    const seen = new Set();
+    const normalized = [];
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+        const record = items[i];
+        if (!record || typeof record !== 'object') continue;
+        const id = String(record.id || '').trim();
+        if (!id || seen.has(id) || isDesktopStaticPage2AppLayoutId(id)) continue;
+        if (id.startsWith('app-') && dockAppIds.has(id.slice(4))) continue;
+        const type = String(record.type || (id.startsWith('app-') ? 'app' : 'builtin'));
+        const kind = String(record.kind || '');
+        if (type === 'custom' && !DESKTOP_CUSTOM_WIDGET_KINDS.has(kind)) continue;
+        if (type === 'custom' && id === DESKTOP_DEFAULT_PRINCESS_ID) continue;
+        const page = Number(record.page);
+        seen.add(id);
+        normalized.unshift({
+            ...record,
+            id,
+            type,
+            kind,
+            page: Number.isFinite(page) && page > 0 ? Math.floor(page) : 0
+        });
+    }
+    return normalized;
+}
+
+function hasDesktopMeasurableLayoutCanvas() {
+    return Array.from(document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas'))
+        .some(hasDesktopUsableLayoutBounds);
+}
+
+function persistDesktopLayoutRepair(existing = null) {
+    let saved = existing;
+    if (!saved) {
+        try {
+            saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {};
+        } catch (e) {
+            saved = {};
+        }
+    }
+    const hadSavedLayout = Array.isArray(saved.items) || Array.isArray(saved.dock) || Array.isArray(saved.deletedBuiltins);
+    if (!hadSavedLayout) return false;
+    try {
+        const now = Date.now();
+        localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({
+            ...saved,
+            items: collectDesktopLayout(),
+            dock: collectDesktopDockLayout(),
+            deletedBuiltins: collectDesktopDeletedBuiltinIds(),
+            pageCount: getDesktopPages().length,
+            savedAt: saved.savedAt || now,
+            repairedAt: now
+        }));
+        _desktopLayoutNeedsVisiblePersist = false;
+        return true;
+    } catch (e) {
+        console.warn('desktop layout repair persist failed:', e);
+        return false;
+    }
+}
+
+function clampDesktopVisibleLayoutItems() {
+    let changed = false;
+    document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(pageArea => {
+        if (!hasDesktopUsableLayoutBounds(pageArea)) return;
+        pageArea.querySelectorAll(':scope > .desktop-layout-item').forEach(item => {
+            const safeRect = clampDesktopLayoutRect(getDesktopRawStyleRect(item), pageArea);
+            if (setDesktopLayoutItemRect(item, safeRect)) changed = true;
+        });
+    });
+    return changed;
+}
+
+function repairDesktopLayoutForVisibleViewport(options = {}) {
+    const home = document.getElementById('home-screen');
+    if (home?.classList.contains('hidden') || window._editMode) return false;
+    let changed = false;
+    if (clampDesktopVisibleLayoutItems()) changed = true;
+    if (repairDesktopLayoutOverlaps()) changed = true;
+    if ((changed || _desktopLayoutNeedsVisiblePersist) && options.persist !== false) {
+        persistDesktopLayoutRepair(options.saved || null);
+    }
+    return changed;
+}
+
+function scheduleDesktopVisibleLayoutRepair(options = {}) {
+    if (window._desktopVisibleLayoutRepairPending) return;
+    window._desktopVisibleLayoutRepairPending = true;
+    const run = () => {
+        window._desktopVisibleLayoutRepairPending = false;
+        repairDesktopLayoutForVisibleViewport({ persist: true, ...options });
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => requestAnimationFrame(run));
+    } else {
+        setTimeout(run, 0);
+    }
+}
+
 function exitEditMode(saveChanges) {
     if (!window._editMode) return;
     window._editMode = false;
@@ -14449,7 +14637,10 @@ function applySavedDesktopLayout() {
         return;
     }
     _desktopLayoutApplied = true;
-    const savedItems = Array.isArray(saved.items) ? saved.items : [];
+    const rawSavedItems = Array.isArray(saved.items) ? saved.items : [];
+    const savedItems = normalizeDesktopSavedLayoutItems(rawSavedItems, saved.dock);
+    const savedItemsSanitized = savedItems.length !== rawSavedItems.length
+        || savedItems.some((item, index) => item.id !== String(rawSavedItems[index]?.id || '').trim());
     const pageCount = Math.max(saved.pageCount || 0, ...savedItems.map(item => (item.page || 0) + 1), 1);
     for (let i = 0; i < pageCount; i += 1) ensureDesktopPage(i);
     const pages = getDesktopPages();
@@ -14483,7 +14674,14 @@ function applySavedDesktopLayout() {
             el.classList.add('layout-source-hidden');
         });
     });
-    repairDesktopLayoutOverlaps();
+    const repaired = repairDesktopLayoutOverlaps();
+    if (savedItemsSanitized || repaired) {
+        if (hasDesktopMeasurableLayoutCanvas()) {
+            persistDesktopLayoutRepair(saved);
+        } else {
+            _desktopLayoutNeedsVisiblePersist = true;
+        }
+    }
     updateDesktopStatusWidgets();
 }
 
@@ -14621,6 +14819,7 @@ function initEditMode() {
         ensureDesktopLovelyWidget();
         setupDesktopDockEditing();
         syncDesktopPagesAndDots(Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0);
+        scheduleDesktopVisibleLayoutRepair();
     }, 50);
 }
 
