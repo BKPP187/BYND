@@ -920,8 +920,10 @@ window.saveMusicSourceSettingsFromUI = saveMusicSourceSettingsFromUI;
 function openGequhaiMusicSearch() {
     const input = document.getElementById('music-search-input');
     const query = String(input?.value || '周杰伦').trim() || '周杰伦';
-    window.open(`https://www.gequhai.com/s/${encodeURIComponent(query)}`, '_blank', 'noopener');
-    showMusicStatus('已打开歌曲海外部搜索；它不是稳定播放器 API。');
+    localStorage.setItem(MUSIC_SOURCE_MODE_KEY, 'smart');
+    syncMusicSourceUI();
+    searchMusic(query);
+    showMusicStatus('歌曲海不再跳转外部网站，已改用应用内音乐源搜索。');
 }
 window.openGequhaiMusicSearch = openGequhaiMusicSearch;
 
