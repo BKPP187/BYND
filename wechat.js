@@ -2852,6 +2852,8 @@ function isWechatAiMetaLeakContent(value) {
         .replace(/\s+/g, ' ')
         .trim();
     if (!text) return true;
+    if (/^[|‖｜\s]+$/.test(text)) return true;
+    if (/^(?:<\/?[a-z][\w-]*\s*\/?>\s*)+$/i.test(text)) return true;
     if (/^\[(?:语音通话|视频通话)\]\s*(?:角色发起，用户处理|用户发起，角色处理)；结果：/i.test(text)) return true;
     if (/^[-\s]*[（(]?自检[）)]?\s*$/i.test(text)) return true;
     if (/^[-\s]*(?:\[?(?:消息|状态栏|狀態欄|状态|狀態|自检|自檢|内心OS|思考|反思|判断|行动|计划|策略)\]?)[：:]/i.test(text)) return true;
@@ -7296,21 +7298,30 @@ function applyWechatNicknameDirective(rawArgs, char) {
 }
 
 function splitWechatAiResponseSegments(content, char) {
-    const source = cleanWechatVisibleContent(content);
+    let source = cleanWechatVisibleContent(content);
     if (!source) return [];
-    if (isWechatStandaloneRichOrRegexSource(source, char) && !hasWechatAiDirectiveSource(source)) return [source];
-    const richRanges = getWechatRichCandidateRanges(source);
+    // AI 偶发把 [旁白:] 写成 [旁-白:] / [旁 白:] 等变体，统一归一化再解析
+    source = source.replace(/([\[【])\s*旁[\s\-‐–—·_]?白\s*([:：])/g, '$1旁白$2');
+    // 判定独立卡片/算保护区前，把 2+ 连竖线替换成等长占位符（坐标不变）：
+    // 分隔符连击会被误认成管子卡片字段——既不能让整串被当成独立卡片提前返回，
+    // 也不能被圈进保护区导致拆分失效
+    const sourceForRanges = source.replace(/\|{2,}/g, run => '\u0001'.repeat(run.length));
+    if (isWechatStandaloneRichOrRegexSource(sourceForRanges, char) && !hasWechatAiDirectiveSource(source)) return [source];
+    const richRanges = getWechatRichCandidateRanges(sourceForRanges);
     const isInsideRichRange = index => richRanges.some(range => index >= range.start && index < range.end);
     const segments = [];
     let buffer = '';
     let quote = null;
     for (let i = 0; i < source.length; i += 1) {
         const ch = source[i];
-        const next2 = source.slice(i, i + 3);
-        if (!quote && next2 === '|||' && !isInsideRichRange(i)) {
+        // 分隔符按"连续 2 根及以上竖线"识别：AI 常少打成 || 或狂打 ||||||，
+        // 单根 | 保留（照片卡等格式用它做字段分隔）
+        if (!quote && ch === '|' && source[i + 1] === '|' && !isInsideRichRange(i)) {
+            let runEnd = i;
+            while (source[runEnd] === '|') runEnd += 1;
             if (buffer.trim() && !isWechatAiMetaLeakContent(buffer)) segments.push(buffer.trim());
             buffer = '';
-            i += 2;
+            i = runEnd - 1;
             continue;
         }
         if (!quote && source.slice(i, i + 3) === '```') {
@@ -10745,7 +10756,7 @@ async function sendWechatCallMessage() {
         if (window._wechatActiveCall?.id !== call.id || call.ended) return;
         if (result.ok) {
             const reply = parseWechatCallEndReply(result.content, call);
-            reply.message.split('|||').map(s => s.trim()).filter(Boolean).forEach(part => {
+            reply.message.split(/\|{2,}/).map(s => s.trim()).filter(s => s && !/^[|‖｜\s]+$/.test(s)).forEach(part => {
                 addWechatCallLine('assistant', part);
             });
             if (reply.ended && window._wechatActiveCall?.id === call.id && !call.ended) {
