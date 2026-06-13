@@ -4436,7 +4436,47 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-room-footer .wc-add-btn.is-open { transform: rotate(45deg); opacity: 1; background: rgba(17,17,17,0.08); }
 .wc-room-footer .wc-add-btn:active { transform: scale(0.92) rotate(45deg); opacity: 0.95; }
 .wc-room-footer .wc-send-btn { color: #111 !important; font-size: 18px; cursor: pointer; }
-.wc-input { flex: 1; height: 36px; border: none; border-radius: 18px; padding: 0 14px; font-size: 15px; outline: none; background: transparent; }
+.wc-input { flex: 1; height: 36px; min-height: 36px; max-height: 96px; border: none; border-radius: 18px; padding: 8px 14px; font-size: 15px; line-height: 20px; outline: none; background: transparent; box-sizing: border-box; resize: none; overflow-y: hidden; font-family: inherit; }
+textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-word; -webkit-appearance: none; appearance: none; }
+#app-wechat-window .wc-chat-room .wc-room-footer { height: auto !important; }
+#app-wechat-window .wc-chat-room textarea.wc-input {
+    min-height: 36px !important;
+    max-height: 96px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    line-height: 20px !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: hidden !important;
+    resize: none !important;
+    box-sizing: border-box !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-room-footer {
+    align-items: flex-end !important;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-room-footer {
+    grid-template-rows: minmax(44px, auto) 34px !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-rich-input,
+#app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-rich-input {
+    display: block !important;
+    height: auto !important;
+    min-height: 32px !important;
+    max-height: 96px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    line-height: 20px !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    align-items: initial !important;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-rich-input {
+    min-height: 46px !important;
+    padding: 12px 15px !important;
+}
 .wc-voice-press-btn {
     flex: 1 1 auto;
     min-width: 0;

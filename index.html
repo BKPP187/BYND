@@ -27,8 +27,8 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260611-netease-music1">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260611-couple-chat-save1">
+    <link rel="stylesheet" href="style.css?v=20260613-narration-regex-rate1">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260613-narration-regex-rate1">
 </head>
 <body>
 
@@ -1165,7 +1165,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.425
+                    Beyond Screen v1.1.428
                 </div>
             </div>
         </div>
@@ -1560,8 +1560,8 @@
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
                     </button>
                     <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn hidden" aria-label="按住说话" oncontextmenu="event.preventDefault()" onpointerdown="startWechatHoldVoice(event)" onpointerup="finishWechatHoldVoice(event)" onpointercancel="cancelWechatHoldVoice(event)" onpointerleave="maybeCancelWechatHoldVoice(event)">按住 说话</button>
-                    <input type="text" class="wc-input" id="wc-msg-input" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)">
-                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></div>
+                    <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="enter" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></textarea>
+                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="enter" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></div>
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
                     <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
@@ -2151,11 +2151,11 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260612-wechat-segments1"></script>
+    <script src="chat-api.js?v=20260613-narration-regex-rate1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
-    <script src="wechat.js?v=20260612-wechat-segments1"></script>
+    <script src="wechat.js?v=20260613-narration-regex-rate1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
     <script src="settings.js?v=20260609-monitor-worldbook424"></script>
     <script src="script.js?v=20260611-netease-music1"></script>

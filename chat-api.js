@@ -3,6 +3,55 @@
 const CHAT_API_MIN_COMPLETION_TOKENS = 1800;
 const CHAT_API_STATUS_MIN_COMPLETION_TOKENS = 2200;
 const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
+const CHAT_API_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
+
+function isChatApiRateLimitErrorText(error) {
+    const text = String(error || '');
+    return /(^|[^0-9])429([^0-9]|$)|rate.?limit|too many requests|quota|请求.*频繁|限流/i.test(text);
+}
+
+function getChatApiRateLimitRetryMs(resp, detail = '') {
+    let retryAfter = '';
+    try {
+        retryAfter = resp && resp.headers && resp.headers.get && resp.headers.get('retry-after') || '';
+    } catch (_) {}
+    const seconds = Number.parseFloat(retryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) return Math.min(30 * 60 * 1000, Math.max(30 * 1000, seconds * 1000));
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs) && dateMs > Date.now()) return Math.min(30 * 60 * 1000, Math.max(30 * 1000, dateMs - Date.now()));
+    const detailText = String(detail || '');
+    const match = detailText.match(/(?:retry|again|after|wait|重试|稍后|等待)[^\d]{0,16}(\d+(?:\.\d+)?)\s*(ms|毫秒|s|sec|second|seconds|秒|m|min|minute|minutes|分钟)?/i);
+    if (match) {
+        const value = Number.parseFloat(match[1]);
+        const unit = String(match[2] || 's').toLowerCase();
+        if (Number.isFinite(value) && value > 0) {
+            const ms = /m|min|minute|分钟/.test(unit) ? value * 60 * 1000 : (/ms|毫秒/.test(unit) ? value : value * 1000);
+            return Math.min(30 * 60 * 1000, Math.max(30 * 1000, ms));
+        }
+    }
+    return CHAT_API_RATE_LIMIT_PAUSE_MS;
+}
+
+function setChatApiRateLimitPause(error, ms = CHAT_API_RATE_LIMIT_PAUSE_MS) {
+    const pauseMs = Math.max(30 * 1000, Number(ms) || CHAT_API_RATE_LIMIT_PAUSE_MS);
+    const until = Date.now() + pauseMs;
+    if (typeof window !== 'undefined') {
+        window._chatApiRateLimitPausedUntil = Math.max(Number(window._chatApiRateLimitPausedUntil) || 0, until);
+    }
+    console.warn('chat api paused by rate limit:', error);
+    return until;
+}
+
+function getChatApiRateLimitPauseRemainingMs() {
+    if (typeof window === 'undefined') return 0;
+    return Math.max(0, (Number(window._chatApiRateLimitPausedUntil) || 0) - Date.now());
+}
+
+function formatChatApiRateLimitPause(ms) {
+    const seconds = Math.ceil(Math.max(0, Number(ms) || 0) / 1000);
+    if (seconds >= 60) return `${Math.ceil(seconds / 60)} 分钟`;
+    return `${Math.max(1, seconds)} 秒`;
+}
 
 function padChatDatePart(value) {
     return String(value).padStart(2, '0');
@@ -1241,6 +1290,17 @@ async function callChatApi(messages, options = {}) {
         return { ok: false, error: '还没选模型哦～\n去设置里测试 API 然后选一个模型' };
     }
 
+    const pauseRemainingMs = getChatApiRateLimitPauseRemainingMs();
+    const shouldRespectRateLimitPause = !!(options.background || options.respectRateLimitPause);
+    if (!options.force && shouldRespectRateLimitPause && pauseRemainingMs > 0) {
+        return {
+            ok: false,
+            error: `API 请求太频繁，已暂停自动请求，约 ${formatChatApiRateLimitPause(pauseRemainingMs)} 后再试`,
+            rateLimited: true,
+            retryAfterMs: pauseRemainingMs
+        };
+    }
+
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const headers = { 'Content-Type': 'application/json' };
     if (api.apiKey) headers['Authorization'] = `Bearer ${api.apiKey}`;
@@ -1284,10 +1344,22 @@ async function callChatApi(messages, options = {}) {
                 detail = errJson.error?.message || errJson.message || errText;
             } catch (_) {}
             const detailText = String(detail || '');
+            const isRateLimited = resp.status === 429 || isChatApiRateLimitErrorText(detailText);
+            let retryAfterMs = 0;
+            if (isRateLimited) {
+                retryAfterMs = getChatApiRateLimitRetryMs(resp, detailText);
+                setChatApiRateLimitPause(detailText || resp.status, retryAfterMs);
+            }
             const visionHint = /image|vision|multi[- ]?modal|content\s*array|image_url/i.test(detailText)
                 ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
                 : '';
-            return { ok: false, error: `API 错误 (${resp.status}): ${detailText.slice(0, 160)}${visionHint}` };
+            const rateLimitHint = isRateLimited ? `，已暂停自动请求约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
+            return {
+                ok: false,
+                error: `API 错误 (${resp.status})${rateLimitHint}: ${detailText.slice(0, 160)}${visionHint}`,
+                rateLimited: isRateLimited,
+                retryAfterMs
+            };
         }
 
         const json = await resp.json();

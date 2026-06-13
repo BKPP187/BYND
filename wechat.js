@@ -68,6 +68,10 @@ const WECHAT_MEMORY_DEFAULTS = {
     keepRecent: 5,
     extractEvery: 4
 };
+const WECHAT_BACKGROUND_API_PAUSE_MS = 8 * 60 * 1000;
+const WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS = 3 * 60 * 1000;
+const WECHAT_AI_STATUS_AUTO_RETRY_COOLDOWN_MS = 90 * 1000;
+const WECHAT_HISTORY_REPAIR_SCHEMA_VERSION = '20260613-narration-regex-split1';
 const WECHAT_MOMENTS_STORAGE_KEY = 'wechat_moments_store';
 const WECHAT_VIDEO_STORAGE_KEY = 'wechat_video_state';
 const WECHAT_LIVE_STORAGE_KEY = 'wechat_live_state';
@@ -2197,6 +2201,7 @@ function getWechatHistoryVersionKey(char) {
     const last = history[history.length - 1] || {};
     const lastText = String(last.content || last.description || last.dialogue || last.text || '');
     return [
+        WECHAT_HISTORY_REPAIR_SCHEMA_VERSION,
         char && char.id || '',
         history.length,
         last.id || '',
@@ -3275,6 +3280,36 @@ function handleWechatMessageInputCompositionEnd(event) {
 }
 window.handleWechatMessageInputCompositionEnd = handleWechatMessageInputCompositionEnd;
 
+function insertWechatPlainInputLineBreak(inputEl) {
+    if (!inputEl) return;
+    const start = Number.isFinite(inputEl.selectionStart) ? inputEl.selectionStart : inputEl.value.length;
+    const end = Number.isFinite(inputEl.selectionEnd) ? inputEl.selectionEnd : start;
+    inputEl.value = `${inputEl.value.slice(0, start)}\n${inputEl.value.slice(end)}`;
+    const nextPos = start + 1;
+    try {
+        inputEl.setSelectionRange(nextPos, nextPos);
+    } catch (e) {}
+    syncWechatDraftState();
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function handleWechatMessageInputBeforeInput(event) {
+    if (!event || !['insertLineBreak', 'insertParagraph'].includes(event.inputType)) return;
+    if (event.isComposing || window._wechatInputComposing) return;
+    if (!isWechatMobileKeyboardContext()) return;
+    if (event.target?.id === 'wc-rich-msg-input') {
+        event.preventDefault();
+        insertWechatRichInputLineBreak();
+        handleWechatRichInputInput();
+        return;
+    }
+    if (event.target?.id === 'wc-msg-input' && ['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
+        event.preventDefault();
+        insertWechatPlainInputLineBreak(event.target);
+    }
+}
+window.handleWechatMessageInputBeforeInput = handleWechatMessageInputBeforeInput;
+
 function handleWechatMessageInputKeydown(event) {
     if (!event || event.key !== 'Enter') return;
     if (event.isComposing || event.keyCode === 229 || event.which === 229 || window._wechatInputComposing) return;
@@ -3538,8 +3573,11 @@ function insertWechatRichInputLineBreak() {
     richEl.focus();
     const selection = window.getSelection && window.getSelection();
     if (!selection || !selection.rangeCount || !isWechatSelectionInside(richEl)) {
-        richEl.appendChild(document.createElement('br'));
-        richEl.appendChild(document.createTextNode(''));
+        const br = document.createElement('br');
+        const spacer = document.createTextNode('');
+        richEl.appendChild(br);
+        richEl.appendChild(spacer);
+        setWechatRichInputCaretAfter(spacer);
         return;
     }
     const range = selection.getRangeAt(0);
@@ -4898,6 +4936,7 @@ async function requestWechatMusicReaction(charOrId, msgTimestamp) {
         ? (window.myCharacters || []).find(c => c.id === charOrId)
         : charOrId;
     if (!char || typeof callChatApi !== 'function') return;
+    if (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused()) return;
     if (window._wechatAiBusy) {
         setTimeout(() => requestWechatMusicReaction(char.id, msgTimestamp), 1500);
         return;
@@ -4918,7 +4957,7 @@ async function requestWechatMusicReaction(charOrId, msgTimestamp) {
             role: 'system',
             content: `用户刚给你发了一张音乐卡片：《${info.title}》${info.artist ? ` - ${info.artist}` : ''}。你要像真的在微信里一起听歌一样，按你的人设、心情、记忆和最近上下文评价这首歌。喜欢就自然回复；如果你不喜欢、觉得不合气氛，或人设上会想掌控歌单，可以切歌。切歌时先用一条短消息说理由，再单独输出一段 [微信音乐:你想换的歌名|歌手|]，第三栏 URL 可以留空，系统会搜索可播放音源。不要每次都切歌，不要编造不存在的 URL。`
         });
-        const result = await callChatApi(messages);
+        const result = await callChatApi(messages, { background: true });
         if (result && result.ok) {
             const parts = splitWechatAiResponseSegments(result.content, char);
             let appended = 0;
@@ -5953,12 +5992,20 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
     if (command === '旁白' || command === '微信旁白') {
         const content = args.join('|').trim();
         if (!content) return null;
+        if (looksLikeWechatRichOrRegexSource(content, char)) {
+            return {
+                ...base,
+                type: 'text',
+                content
+            };
+        }
+        const narration = normalizeWechatOfflineNarrationText(content);
+        if (!narration) return null;
         return {
             ...base,
-            type: 'text',
-            content: looksLikeWechatRichOrRegexSource(content, char)
-                ? content
-                : normalizeWechatOfflineNarrationText(content)
+            type: 'offline_narration',
+            content: narration,
+            description: ''
         };
     }
 
@@ -6534,7 +6581,7 @@ function getWechatRichCandidateRanges(source) {
         }
     };
     collect(/```(?:html|xml|markdown)?\s*[\s\S]*?```/gi);
-    collect(/<\s*(jwy|status|state)\b[^>]*>[\s\S]*?<\/\s*\1\s*>(?:\s*(?:\r?\n)+\s*[^<\n]{1,220}\|[^\n]*){0,6}/gi);
+    collect(/<\s*(jwy|status|state)\b[^>]*>[\s\S]*?<\/\s*\1\s*>/gi);
     collect(/<\s*html\b[\s\S]*?<\/\s*html\s*>/gi);
     collect(/<\s*([A-Za-z][\w:-]*)\b[^>]*>[\s\S]*?<\/\s*\1\s*>/gi);
 
@@ -6708,7 +6755,13 @@ function pushWechatSplitTextPart(target, kind, content) {
         ? normalizeWechatOfflineNarrationText(content)
         : cleanWechatVisibleContent(content);
     if (!text) return;
-    target.push({ kind: 'text', content: text });
+    target.push({ kind: kind === 'narration' ? 'narration' : 'text', content: text });
+}
+
+function pushWechatNarrationPart(target, content) {
+    const text = normalizeWechatOfflineNarrationText(content);
+    if (!text) return;
+    target.push({ kind: 'narration', content: text });
 }
 
 function normalizeWechatOfflineNarrationText(value) {
@@ -6740,7 +6793,7 @@ function stripWechatUserAgencyFromNarration(value) {
 function buildWechatOfflineNarrationPart(content) {
     const text = normalizeWechatOfflineNarrationText(content);
     if (!text) return null;
-    return { kind: 'text', content: text };
+    return { kind: 'narration', content: text };
 }
 
 function buildWechatHistoryMessageFromParsedPart(part, baseMsg, char) {
@@ -6758,6 +6811,15 @@ function buildWechatHistoryMessageFromParsedPart(part, baseMsg, char) {
     const content = cleanWechatVisibleContent(part.content || '');
     if (!content) return null;
     if (shouldDropWechatAiPipeStatusPayload(content, char)) return null;
+    if (part.kind === 'narration') {
+        return {
+            ...base,
+            type: 'offline_narration',
+            isMe: false,
+            content: normalizeWechatOfflineNarrationText(content),
+            description: ''
+        };
+    }
     const stickerMsg = buildWechatStickerMessageFromAiText(content, char);
     if (stickerMsg && stickerMsg.content) {
         return attachWechatGroupSpeaker({
@@ -6791,6 +6853,7 @@ function shouldMigrateWechatMixedAiHistoryMessage(msg) {
     const raw = cleanWechatVisibleContent(msg.content || msg.description || '');
     if (!raw) return false;
     if (hasWechatUnclosedDirectiveTail(raw)) return true;
+    if (hasWechatAiDirectiveSource(raw)) return true;
     if (/^\s*\]/.test(raw)) return true;
     if (/\[(?:语音通话|视频通话)\]/.test(raw)) return true;
     if (/[\[【](?:微信旁白|旁白)[\]】]/.test(raw)) return true;
@@ -6932,7 +6995,7 @@ function migrateWechatNarrationHistory(char) {
             }
             nextHistory.push({
                 ...msg,
-                type: 'text',
+                type: 'offline_narration',
                 isMe: false,
                 content: normalized,
                 description: ''
@@ -6952,8 +7015,13 @@ function migrateWechatNarrationHistory(char) {
                     changed = true;
                     return;
                 }
-                msg.content = normalized;
-                delete msg.description;
+                msg = {
+                    ...msg,
+                    type: 'offline_narration',
+                    isMe: false,
+                    content: normalized,
+                    description: ''
+                };
                 changed = true;
             }
         }
@@ -7099,10 +7167,20 @@ function appendWechatNarrationContentParts(target, content, char) {
         return;
     }
     splitWechatSentenceChunks(normalizeWechatOfflineNarrationText(source), 92)
-        .forEach(chunk => pushWechatSplitTextPart(target, 'narration', chunk));
+        .forEach(chunk => pushWechatNarrationPart(target, chunk));
 }
 
 function appendWechatDirectivePart(target, command, args, char) {
+    if (command === '旁白' || command === '微信旁白') {
+        const msg = buildWechatMessageFromAiDirective(command, args, char);
+        if (!msg) return;
+        if (msg.type === 'offline_narration') {
+            pushWechatNarrationPart(target, msg.content || msg.description || '');
+        } else {
+            appendWechatPlainAiTextParts(target, msg.content || msg.description || '', char);
+        }
+        return;
+    }
     if (command === '微信改备注') {
         const msg = applyWechatNicknameDirective(args, char);
         if (msg) target.push({ kind: 'special', msg });
@@ -8056,6 +8134,21 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         return;
     }
 
+    if (msg.type === 'offline_narration') {
+        const narration = normalizeWechatOfflineNarrationText(msg.content || msg.description || '');
+        if (!narration) return;
+        row.className = 'msg-row narration';
+        row.innerHTML = `
+            <div class="msg-offline-narration">
+                <i class="ri-chat-quote-line"></i>
+                <span>${renderWechatMarkdownLite(narration)}</span>
+                ${buildMessageMeta({ ...msg, isMe: false })}
+            </div>
+        `;
+        container.appendChild(row);
+        return;
+    }
+
     const profile = getWechatChatUserProfile(charObj);
     const myAvatar = profile.avatar || DEFAULT_AVATAR;
     let displayMsg = msg;
@@ -8613,7 +8706,7 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
     let appendedCount = 0;
     let speakerFallbackOffset = 0;
     parsedParts.forEach(part => {
-        if (options.textOnly && part.kind === 'special') return;
+        if (options.textOnly && (part.kind === 'special' || part.kind === 'narration')) return;
         const implicitCallMsg = part.kind === 'text'
             ? buildWechatImplicitCallFromAiText(part.content, char)
             : null;
@@ -8626,7 +8719,9 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         if (options.textOnly && (implicitCallMsg || stickerDirectiveMsg || autoImageMsg)) return;
         let aiMsg = part.kind === 'special'
             ? part.msg
-            : (implicitCallMsg || stickerDirectiveMsg || autoImageMsg || { type: 'text', isMe: false, content: cleanWechatVisibleContent(part.content), timestamp: createMessageTimestamp() });
+            : (part.kind === 'narration'
+                ? { type: 'offline_narration', isMe: false, content: normalizeWechatOfflineNarrationText(part.content), description: '', timestamp: createMessageTimestamp() }
+                : (implicitCallMsg || stickerDirectiveMsg || autoImageMsg || { type: 'text', isMe: false, content: cleanWechatVisibleContent(part.content), timestamp: createMessageTimestamp() }));
         if (aiMsg && !aiMsg.isMe && !isWechatRenderableMessage(aiMsg, char)) return;
         if (aiMsg && char?.isGroupChat && !aiMsg.isMe) {
             const fallbackStart = Number(options.groupFallbackStartIndex) || 0;
@@ -9010,8 +9105,12 @@ async function completeWechatGroupMissingReplies(char, contentEl, replyStartInde
 
         await new Promise(resolve => setTimeout(resolve, 320 + Math.random() * 260));
         const result = await callChatApi(messages);
-        if (!result.ok || !result.content) {
-            console.warn('group catch-up reply failed:', result.error || result);
+        if (!result || !result.ok || !result.content) {
+            const errorText = result && result.error;
+            if (pauseWechatBackgroundApiIfRateLimited(errorText)) {
+                setWechatAiRateLimitPause(errorText);
+            }
+            console.warn('group catch-up reply failed:', errorText || result);
             break;
         }
 
@@ -9040,19 +9139,40 @@ function isWechatApiRateLimitError(error) {
     return /(^|[^0-9])429([^0-9]|$)|rate.?limit|too many requests|quota|请求.*频繁|限流/i.test(text);
 }
 
-function setWechatAiRateLimitPause(error, seconds = 45) {
-    const until = Date.now() + Math.max(5, Number(seconds) || 45) * 1000;
+function setWechatAiRateLimitPause(error, seconds = 300) {
+    const pauseSeconds = Math.max(30, Number(seconds) || 300);
+    const until = Date.now() + pauseSeconds * 1000;
     window._wechatAiRateLimitPausedUntil = Math.max(Number(window._wechatAiRateLimitPausedUntil) || 0, until);
+    setWechatBackgroundApiPause(error, Math.max(WECHAT_BACKGROUND_API_PAUSE_MS, pauseSeconds * 1000));
     console.warn('wechat ai auto reply paused by rate limit:', error);
 }
 
 function isWechatAiRateLimitPaused() {
-    return Date.now() < (Number(window._wechatAiRateLimitPausedUntil) || 0);
+    const chatApiPauseMs = typeof getChatApiRateLimitPauseRemainingMs === 'function'
+        ? getChatApiRateLimitPauseRemainingMs()
+        : Math.max(0, (Number(window._chatApiRateLimitPausedUntil) || 0) - Date.now());
+    return chatApiPauseMs > 0 || Date.now() < (Number(window._wechatAiRateLimitPausedUntil) || 0);
+}
+
+function setWechatBackgroundApiPause(error, ms = WECHAT_BACKGROUND_API_PAUSE_MS) {
+    const until = Date.now() + Math.max(30 * 1000, Number(ms) || WECHAT_BACKGROUND_API_PAUSE_MS);
+    window._wechatBackgroundApiPausedUntil = Math.max(Number(window._wechatBackgroundApiPausedUntil) || 0, until);
+    console.warn('wechat background api paused by rate limit:', error);
+}
+
+function isWechatBackgroundApiPaused() {
+    return Date.now() < (Number(window._wechatBackgroundApiPausedUntil) || 0);
+}
+
+function pauseWechatBackgroundApiIfRateLimited(error) {
+    if (!isWechatApiRateLimitError(error)) return false;
+    setWechatBackgroundApiPause(error);
+    return true;
 }
 
 async function triggerAiAfterMessage(char, contentEl, options = {}) {
     if (window._wechatAiBusy) return;
-    if (isWechatAiRateLimitPaused() && !options.force) return;
+    if (options.background && isWechatAiRateLimitPaused() && !options.force) return;
     window._wechatAiBusy = true;
     const shouldTouchChatUi = !options.background && window.currentChatCharId === char?.id;
     if (shouldTouchChatUi) setWechatBusyState(true);
@@ -9093,7 +9213,11 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 content: '【本轮仅允许文字气泡】只输出角色要发给用户看的普通文字消息。禁止输出微信语音、图片、表情、音乐、链接、红包、转账、通话、旁白或任何方括号指令。'
             });
         }
-        let result = await callChatApi(messages);
+        const chatApiOptions = {
+            background: !!options.background,
+            force: !!options.force
+        };
+        let result = await callChatApi(messages, chatApiOptions);
         if (!result.ok && isWechatApiRateLimitError(result.error)) {
             setWechatAiRateLimitPause(result.error);
             if (typeof showWechatToast === 'function' && shouldTouchChatUi) showWechatToast('API 请求太频繁，自动回复已短暂停止');
@@ -9104,7 +9228,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 role: 'system',
                 content: '【重新生成】上一轮响应没有可见微信正文。请只输出本轮要发给用户看的微信消息；不要只输出 thinking/COT/状态栏/正则块。若需要状态栏或正则块，必须放在至少一条可见消息之后，且保持独立。'
             });
-            result = await callChatApi(messages);
+            result = await callChatApi(messages, chatApiOptions);
             if (!result.ok && isWechatApiRateLimitError(result.error)) {
                 setWechatAiRateLimitPause(result.error);
                 if (typeof showWechatToast === 'function' && shouldTouchChatUi) showWechatToast('API 请求太频繁，自动回复已短暂停止');
@@ -9123,7 +9247,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 const imageRetry = await callChatApi(messages.concat({
                     role: 'system',
                     content: '【必须重写为生图指令】你刚才用普通文字说了“看图/照片来了/给你看”等内容，这是错误的。现在如果要发图，必须输出一段 [微信图片:画面提示词|说明]，不要只写普通文字。画面提示词要具体描述角色本人、外观、服饰、表情、姿势、光线、环境，并保持角色参考图的同一张脸和画风。'
-                }));
+                }), chatApiOptions);
                 if (imageRetry && imageRetry.ok) result = imageRetry;
             }
             let newAiMessageCount = await appendAiResultToChat(result.content || '');
@@ -9134,7 +9258,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                         ? '【强制重写】你刚才输出了特殊消息/指令或不可见内容，前端已过滤。现在只能输出 1-3 条普通文字气泡，禁止任何方括号指令、语音、图片、表情、音乐、链接、旁白、代码块。'
                         : '【强制重写】你刚才只输出了 thinking/COT/状态栏/自检/元分析，前端已全部过滤。现在必须只输出 1-3 条可以直接显示在微信气泡里的角色正文。禁止输出 <thinking>、<content>、[消息]、[状态栏]、自检、解释、检查清单、代码块。'
                 });
-                const retry = await callChatApi(retryMessages);
+                const retry = await callChatApi(retryMessages, chatApiOptions);
                 if (retry && !retry.ok && isWechatApiRateLimitError(retry.error)) {
                     setWechatAiRateLimitPause(retry.error);
                     if (typeof showWechatToast === 'function' && shouldTouchChatUi) showWechatToast('API 请求太频繁，自动回复已短暂停止');
@@ -9152,7 +9276,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 await saveCharactersToStorage();
                 renderChatList();
                 showWechatDesktopMessageIsland(char);
-                requestWechatAiStatusSnapshot(char, { reason: 'after_reply', force: true })
+                requestWechatAiStatusSnapshot(char, { reason: 'after_reply' })
                     .catch(e => console.warn('ai status snapshot failed:', e));
                 scheduleWechatMemoryExtraction(char, 'after_reply');
             } else if (typeof showWechatToast === 'function') {
@@ -9176,9 +9300,25 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
     }
 }
 
+function resizeWechatMessageInput() {
+    const inputEl = document.getElementById('wc-msg-input');
+    if (inputEl && inputEl.tagName === 'TEXTAREA' && !isWechatRichInputEnabled()) {
+        inputEl.style.setProperty('height', '36px', 'important');
+        const maxHeight = 96;
+        const nextHeight = Math.min(maxHeight, Math.max(36, inputEl.scrollHeight || 36));
+        inputEl.style.setProperty('height', `${nextHeight}px`, 'important');
+        inputEl.style.setProperty('overflow-y', inputEl.scrollHeight > maxHeight ? 'auto' : 'hidden', 'important');
+    }
+    const richEl = getWechatRichInputElement?.();
+    if (richEl && isWechatRichInputEnabled()) {
+        richEl.scrollTop = richEl.scrollHeight;
+    }
+}
+
 function syncWechatDraftState() {
     const room = document.getElementById('wechat-chat-room');
     const inputEl = document.getElementById('wc-msg-input');
+    resizeWechatMessageInput();
     if (!room || !inputEl) return;
     room.classList.toggle('has-draft', !!getWechatMessageInputValue({ markers: false }).trim());
 }
@@ -9935,6 +10075,7 @@ function escalateWechatMonitorLevel(state, reaction, targetChar, watcher) {
 
 async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventId) {
     if (!watcher || !targetChar || !eventId || typeof callChatApi !== 'function') return;
+    if (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused()) return;
     const state = getWechatMonitorState(watcher);
     if (state.processedIds.includes(eventId)) return;
     const requestKey = `${watcher.id}:${targetChar.id}`;
@@ -9944,7 +10085,7 @@ async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventI
     }
     window._wechatMonitorLastRequestAt[requestKey] = now;
 
-    const result = await callChatApi(buildWechatMonitorMessages(watcher, targetChar, userMsg));
+    const result = await callChatApi(buildWechatMonitorMessages(watcher, targetChar, userMsg), { background: true });
     if (!result || !result.ok) {
         state.lastError = (result && result.error) || '监控剧情 API 调用失败';
         saveCharactersToStorage();
@@ -12106,11 +12247,13 @@ function cleanWechatXReaderMarkdown(text) {
 
 async function translateWechatXNewsBodyIfNeeded(item) {
     if (!item || !item.bodyOriginal || item.bodyCn || isWechatXChineseText(item.bodyOriginal) || typeof callChatApi !== 'function') return;
+    if (isWechatBackgroundApiPaused()) return;
     const source = String(item.bodyOriginal || '').slice(0, 3600);
     const result = await callChatApi([
         { role: 'system', content: '你是新闻翻译编辑。把原文翻译成自然中文，只保留原文事实，不要编造，不要总结成一句话。输出 3 到 8 段正文，不要 Markdown 标题。' },
         { role: 'user', content: `标题：${item.title || ''}\n\n原文正文：\n${source}` }
-    ]);
+    ], { background: true });
+    if (!result || !result.ok) pauseWechatBackgroundApiIfRateLimited(result && result.error);
     if (result && result.ok && result.content && isWechatXChineseText(result.content)) {
         item.bodyCn = String(result.content).trim().slice(0, 2600);
     }
@@ -12290,14 +12433,18 @@ async function translateWechatXNewsItemsIfNeeded(items, options = {}) {
         .filter(row => row.item && row.item.title && !row.item.titleCn && !isWechatXChineseText(row.item.title))
         .slice(0, 6);
     if (!pending.length || typeof callChatApi !== 'function') return false;
+    if (isWechatBackgroundApiPaused()) return false;
     if (window._wechatXNewsTranslating) return false;
     window._wechatXNewsTranslating = true;
     try {
         const result = await callChatApi([
             { role: 'system', content: '你是新闻标题翻译器。只输出 JSON 数组，不要解释。把英文新闻标题翻译成简洁自然的中文，每项对应输入顺序。' },
             { role: 'user', content: JSON.stringify(pending.map(row => row.item.title)) }
-        ]);
-        if (!result || !result.ok) return false;
+        ], { background: true });
+        if (!result || !result.ok) {
+            pauseWechatBackgroundApiIfRateLimited(result && result.error);
+            return false;
+        }
         const raw = String(result.content || '').replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
         const arr = JSON.parse(raw);
         if (!Array.isArray(arr)) return false;
@@ -12807,6 +12954,7 @@ async function requestWechatAiContactProfile(charId, force = false) {
     if (!char || window._wechatContactProfileGenerating.has(charId)) return;
     char.chatConfig = char.chatConfig || {};
     if (!force && hasUsableWechatContactProfile(char)) return;
+    if (!force && (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused())) return;
 
     window._wechatContactProfileGenerating.add(charId);
     char.chatConfig.contactProfileError = '';
@@ -12824,10 +12972,11 @@ async function requestWechatAiContactProfile(charId, force = false) {
                 role: 'user',
                 content: `角色设定：\n${String(char.description || '').slice(0, 6000)}\n\n请生成你的微信公开资料。`
             }
-        ]);
+        ], { background: !force });
     } catch (e) {
         console.warn('contact profile generation failed', e);
     }
+    if (!result || !result.ok) pauseWechatBackgroundApiIfRateLimited(result && result.error);
 
     char.chatConfig = char.chatConfig || {};
     if (result.ok) {
@@ -18377,6 +18526,28 @@ function getWechatAiStatusSnapshot(char) {
     return null;
 }
 
+function isWechatAutoStatusSnapshotReason(reason) {
+    return /^(after_reply|music_reaction)$/.test(String(reason || ''));
+}
+
+function shouldSkipWechatAiStatusSnapshotRequest(char, options = {}) {
+    if (!char || options.force) return false;
+    if (isWechatBackgroundApiPaused()) return true;
+    if (!isWechatAutoStatusSnapshotReason(options.reason)) return false;
+    const now = Date.now();
+    const snapshot = getWechatAiStatusSnapshot(char);
+    const snapshotAt = Number(snapshot && snapshot.updatedAt) || 0;
+    if (snapshotAt && now - snapshotAt < WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS) return true;
+    const lastRequestedAt = Number(char.chatConfig && char.chatConfig.aiStatusAutoRequestedAt) || 0;
+    return !!(lastRequestedAt && now - lastRequestedAt < WECHAT_AI_STATUS_AUTO_RETRY_COOLDOWN_MS);
+}
+
+function markWechatAiStatusAutoRequest(char, options = {}) {
+    if (!char || !isWechatAutoStatusSnapshotReason(options.reason)) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.aiStatusAutoRequestedAt = Date.now();
+}
+
 function buildWechatIdentityContextPrompt(char, userProfile = null) {
     const profile = userProfile || ((typeof getWechatChatUserProfile === 'function')
         ? getWechatChatUserProfile(char)
@@ -18452,15 +18623,20 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
         : charOrId;
     if (!char) return null;
     char.chatConfig = char.chatConfig || {};
+    if (shouldSkipWechatAiStatusSnapshotRequest(char, options)) {
+        return getWechatAiStatusSnapshot(char);
+    }
     window._wechatAiStatusGenerating = window._wechatAiStatusGenerating || new Map();
     if (window._wechatAiStatusGenerating.has(char.id)) {
         return window._wechatAiStatusGenerating.get(char.id);
     }
+    markWechatAiStatusAutoRequest(char, options);
 
     const promise = (async () => {
         let snapshot = null;
         let errorText = '';
         try {
+            const isBackgroundStatusRequest = isWechatAutoStatusSnapshotReason(options.reason) && !options.force;
             const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '用户' });
             const identityAnchor = buildWechatIdentityContextPrompt(char, userProfile);
             const presetAnchor = buildWechatPresetPromptForStatus(char);
@@ -18481,16 +18657,24 @@ penis 是身体/生理状态字段，必须按当前上下文、人设、世界�
                     role: 'user',
                     content: `${identityAnchor}\n${characterCard ? `\n【角色卡/人设】\n${characterCard}\n` : ''}${presetAnchor ? `\n${presetAnchor}\n` : ''}${regexAnchor ? `\n${regexAnchor}\n` : ''}${worldBookAnchor ? `\n${worldBookAnchor}\n` : ''}${memoryAnchor ? `\n${memoryAnchor}\n` : ''}\n【最近聊天上下文】\n${buildWechatRecentHistoryForPrompt(char, 24)}\n${momentsAnchor ? `\n${momentsAnchor}` : ''}${previousStatus ? `\n【上一轮状态】\n${previousStatus}` : ''}`
                 }
-            ]);
+            ], {
+                max_tokens: 1600,
+                temperature: 0.45,
+                skipLengthContinuation: true,
+                skipStatusValidationRetry: true,
+                background: isBackgroundStatusRequest
+            });
             if (result && result.ok) {
                 snapshot = normalizeWechatAiStatusSnapshot(parseWechatJsonObject(result.content), char, options.reason || 'api');
                 if (!snapshot) errorText = 'API 没有返回可解析的状态 JSON';
             } else {
                 errorText = (result && result.error) || 'API 状态生成失败';
+                pauseWechatBackgroundApiIfRateLimited(errorText);
             }
         } catch (e) {
             console.warn('request ai status failed:', e);
             errorText = 'API 状态生成失败';
+            pauseWechatBackgroundApiIfRateLimited(e && (e.message || e));
         }
 
         if (snapshot) {
@@ -19975,12 +20159,15 @@ function getWechatAiPhoneRenderSnapshot(char) {
     return buildWechatAiPhoneFallback(char);
 }
 
-async function requestWechatAiPhoneSnapshot(charOrId) {
+async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
     const char = typeof charOrId === 'string'
         ? (window.myCharacters || []).find(c => c.id === charOrId)
         : charOrId;
     if (!char) return null;
     char.chatConfig = char.chatConfig || {};
+    if (!options.force && (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused())) {
+        return getWechatAiPhoneSnapshot(char);
+    }
     delete char.chatConfig.aiPhoneUsageLog;
     window._wechatAiPhoneGenerating = window._wechatAiPhoneGenerating || new Map();
     if (window._wechatAiPhoneGenerating.has(char.id)) return window._wechatAiPhoneGenerating.get(char.id);
@@ -20024,7 +20211,8 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                     content: `【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}`
                 }
             ];
-            let result = await callChatApi(buildMessages(), { max_tokens: 2600, temperature: 0.78 });
+            const phoneApiOptions = { max_tokens: 2600, temperature: 0.78, background: !options.force };
+            let result = await callChatApi(buildMessages(), phoneApiOptions);
             if (result && result.ok) {
                 let parsed = parseWechatJsonObject(result.content);
                 let rawJsonText = result.content || '';
@@ -20038,7 +20226,7 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                             role: 'user',
                             content: String(rawJsonText || '').slice(0, 9000)
                         }
-                    ], { max_tokens: 2600, temperature: 0 });
+                    ], { max_tokens: 2600, temperature: 0, background: !options.force });
                     if (repair && repair.ok) {
                         rawJsonText = repair.content || rawJsonText;
                         parsed = parseWechatJsonObject(repair.content);
@@ -20047,7 +20235,7 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                 if (!parsed) {
                     const retry = await callChatApi(
                         buildMessages('上一次不是合法 JSON 或被截断。这次只给极短 minified JSON；每组 2 条；不要任何多余文字。'),
-                        { max_tokens: 2200, temperature: 0.45 }
+                        { max_tokens: 2200, temperature: 0.45, background: !options.force }
                     );
                     if (retry && retry.ok) {
                         rawJsonText = retry.content || rawJsonText;
@@ -20059,7 +20247,7 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                     snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
                     const gap = getWechatAiPhoneSnapshotGapSummary(snapshot);
                     if (gap) {
-                        const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设和世界书定制补齐；不要重写已有字段，不要套模板。`), { max_tokens: 2400, temperature: 0.62 });
+                        const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设和世界书定制补齐；不要重写已有字段，不要套模板。`), { max_tokens: 2400, temperature: 0.62, background: !options.force });
                         if (retry && retry.ok) {
                             const retryParsed = parseWechatJsonObject(retry.content);
                             if (retryParsed) {
@@ -20083,12 +20271,14 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                 snapshot = buildWechatAiPhoneFallback(char);
                 snapshot.generatedBy = 'error';
                 snapshot.syncError = result && result.error ? result.error : 'AI 小手机同步失败';
+                pauseWechatBackgroundApiIfRateLimited(snapshot.syncError);
             }
         } catch (e) {
             console.warn('request ai phone failed:', e);
             snapshot = buildWechatAiPhoneFallback(char);
             snapshot.generatedBy = 'error';
             snapshot.syncError = e && e.message ? e.message : 'AI 小手机同步异常';
+            pauseWechatBackgroundApiIfRateLimited(snapshot.syncError);
         }
         char.chatConfig.aiPhoneSnapshot = snapshot;
         saveCharactersToStorage();
@@ -20970,6 +21160,7 @@ function buildWechatAiPhoneContactReplyReactionPrompt(char, events) {
 
 async function triggerWechatAiPhoneContactReplyReaction(char, events) {
     if (!char || !Array.isArray(events) || !events.length || typeof callChatApi !== 'function') return;
+    if (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused()) return;
     try {
         const result = await callChatApi([
             {
@@ -20980,7 +21171,11 @@ async function triggerWechatAiPhoneContactReplyReaction(char, events) {
                 role: 'user',
                 content: buildWechatAiPhoneContactReplyReactionPrompt(char, events)
             }
-        ]);
+        ], { background: true });
+        if (!result || !result.ok) {
+            pauseWechatBackgroundApiIfRateLimited(result && result.error);
+            return;
+        }
         const content = result && result.ok ? stripWechatPromptText(result.content, 1600) : '';
         if (!content) return;
         const msg = {
@@ -21476,6 +21671,7 @@ function getWechatExtractableMessageCount(history, startIndex) {
 
 function scheduleWechatMemoryExtraction(char, reason = 'after_reply') {
     if (!char || !char.id || typeof callChatApi !== 'function') return;
+    if (isWechatBackgroundApiPaused()) return;
     const history = Array.isArray(char.history) ? char.history : [];
     if (!history.length) return;
     const store = getWechatMemoryStore();
@@ -21498,6 +21694,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
         ? (window.myCharacters || []).find(c => c.id === charOrId)
         : charOrId;
     if (!char || !char.id || typeof callChatApi !== 'function') return null;
+    if (reason !== 'manual' && isWechatBackgroundApiPaused()) return null;
     window._wechatMemoryExtractionBusy = window._wechatMemoryExtractionBusy || new Set();
     if (window._wechatMemoryExtractionBusy.has(char.id)) return null;
     const history = Array.isArray(char.history) ? char.history : [];
@@ -21526,7 +21723,13 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
                 role: 'user',
                 content: `${buildWechatIdentityContextPrompt(char, userProfile)}\n\n【已有记忆清单】\n${buildWechatMemoryExistingManifest(bucket)}\n\n【新增聊天片段】\n${transcriptRows.map(row => row.line).join('\n')}`
             }
-        ]);
+        ], {
+            max_tokens: 1200,
+            temperature: 0.25,
+            skipLengthContinuation: true,
+            skipStatusValidationRetry: true,
+            background: reason !== 'manual'
+        });
 
         const freshStore = getWechatMemoryStore();
         const sourceStart = transcriptRows[0].index;
@@ -21550,6 +21753,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
             return memories;
         }
         freshBucket.meta.extractionError = (result && result.error) || '记忆整理失败';
+        pauseWechatBackgroundApiIfRateLimited(freshBucket.meta.extractionError);
         saveWechatMemoryStore(freshStore);
         return null;
     } finally {

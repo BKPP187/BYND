@@ -435,6 +435,23 @@
     display: none;
 }
 
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-footer {
+    height: auto !important;
+}
+
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room textarea.wc-input {
+    min-height: 42px !important;
+    max-height: 96px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    line-height: 22px !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: hidden !important;
+    resize: none !important;
+    box-sizing: border-box !important;
+}
+
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-input::placeholder {
     color: rgba(47,42,45,0.42);
 }
