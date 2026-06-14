@@ -9282,6 +9282,7 @@ function addToFolder(folderId, app) {
         folder.apps.push(appRef);
         saveFolders();
         rebuildDesktop();
+        syncDesktopFolderIcon(folderId);
     }
 }
 
@@ -10973,8 +10974,9 @@ const DESKTOP_DEFAULT_PRINCESS_DELETED_KEY = 'desktop_default_princess_deleted_v
 const DESKTOP_DEFAULT_LOVELY_DELETED_KEY = 'desktop_default_lovely_deleted_v1';
 const DESKTOP_DEFAULT_PRINCESS_ID = 'custom-princess-default';
 const DESKTOP_DEFAULT_LOVELY_ID = 'custom-lovely-default';
-const DESKTOP_DEFAULT_LOVELY_OLD_TOP = 14;
-const DESKTOP_DEFAULT_LOVELY_TOP = 104;
+const DESKTOP_DEFAULT_LOVELY_LEGACY_TOP = 14;
+const DESKTOP_DEFAULT_LOVELY_OLD_TOP = 104;
+const DESKTOP_DEFAULT_LOVELY_TOP = 48;
 const DESKTOP_CUSTOM_WIDGET_KINDS = new Set(['princess', 'status', 'lovely', 'polaroid', 'calendar', 'photo-square', 'notes-trio', 'catalog']);
 const DESKTOP_SNAP_GRID = 12;
 const DESKTOP_SNAP_TOLERANCE = 9;
@@ -11333,6 +11335,29 @@ function getDesktopRectOverlapScore(sourceRect, targetRect) {
     return (width * height) / sourceArea;
 }
 
+function getDesktopFolderMergeHitRect(target) {
+    const rect = target?.querySelector?.('.app-icon')?.getBoundingClientRect?.()
+        || target?.getBoundingClientRect?.();
+    if (!rect) return null;
+    const inset = Math.max(4, Math.min(rect.width || 0, rect.height || 0) * 0.14);
+    return {
+        left: rect.left + inset,
+        right: rect.right - inset,
+        top: rect.top + inset,
+        bottom: rect.bottom - inset,
+        width: Math.max(1, rect.width - inset * 2),
+        height: Math.max(1, rect.height - inset * 2)
+    };
+}
+
+function isDesktopPointInsideRect(point, rect, pad = 0) {
+    if (!point || !rect) return false;
+    return point.x >= rect.left - pad
+        && point.x <= rect.right + pad
+        && point.y >= rect.top - pad
+        && point.y <= rect.bottom + pad;
+}
+
 function findDesktopFolderMergeTarget(item, pageArea, point) {
     if (!item || !pageArea || !item.classList.contains('layout-app') || item.classList.contains('is-folder')) return null;
     const itemRect = item.getBoundingClientRect();
@@ -11341,19 +11366,14 @@ function findDesktopFolderMergeTarget(item, pageArea, point) {
         y: point?.y ?? (itemRect.top + itemRect.height / 2)
     };
     const candidates = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app')).filter(target => target !== item);
-    const centered = candidates.find(target => {
-        const rect = target.getBoundingClientRect();
-        const pad = 18;
-        return itemCenter.x >= rect.left - pad
-            && itemCenter.x <= rect.right + pad
-            && itemCenter.y >= rect.top - pad
-            && itemCenter.y <= rect.bottom + pad;
-    });
+    const centered = candidates.find(target => isDesktopPointInsideRect(itemCenter, getDesktopFolderMergeHitRect(target), 5));
     if (centered) return centered;
+    if (point) return null;
+    const sourceIconRect = item.querySelector?.('.app-icon')?.getBoundingClientRect?.() || itemRect;
     const scored = candidates.map(target => ({
         target,
-        score: getDesktopRectOverlapScore(itemRect, target.getBoundingClientRect())
-    })).filter(entry => entry.score >= 0.34)
+        score: getDesktopRectOverlapScore(sourceIconRect, getDesktopFolderMergeHitRect(target) || target.getBoundingClientRect())
+    })).filter(entry => entry.score >= 0.52)
       .sort((a, b) => b.score - a.score);
     return scored[0]?.target || null;
 }
@@ -11365,23 +11385,16 @@ function findDesktopDockFolderMergeTarget(pageArea, point, sourceAppId) {
         const targetAppId = getDesktopAppIdFromElement(target);
         return !targetAppId || targetAppId !== sourceAppId;
     });
-    const centered = candidates.find(target => {
-        const rect = target.getBoundingClientRect();
-        const pad = 18;
-        return point.x >= rect.left - pad
-            && point.x <= rect.right + pad
-            && point.y >= rect.top - pad
-            && point.y <= rect.bottom + pad;
-    });
+    const centered = candidates.find(target => isDesktopPointInsideRect(point, getDesktopFolderMergeHitRect(target), 5));
     if (centered) return centered;
     return candidates.map(target => {
-        const rect = target.getBoundingClientRect();
+        const rect = getDesktopFolderMergeHitRect(target) || target.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
         return {
             target,
             distance: Math.hypot(point.x - centerX, point.y - centerY),
-            limit: Math.max(rect.width, rect.height) * 0.72
+            limit: Math.max(rect.width, rect.height) * 0.42
         };
     }).filter(entry => entry.distance <= entry.limit)
       .sort((a, b) => a.distance - b.distance)[0]?.target || null;
@@ -12190,6 +12203,7 @@ function mergeDesktopDockItemIntoFolder(dockItem, targetItem, pageArea) {
     if (!folderItem) return false;
     removeDesktopDuplicateAppIcons(sourceApp.id, folderItem);
     folderItem.classList.remove('desktop-folder-merge-target');
+    playDesktopFolderMergeAnimation(folderItem);
     selectDesktopLayoutItem(folderItem);
     refreshDesktopDockOrder();
     if (typeof showWechatToast === 'function') showWechatToast('已合并为文件夹');
@@ -12286,11 +12300,14 @@ function mergeDesktopLayoutAppsIntoFolder(sourceItem, targetItem, pageArea) {
     const sourceApp = getDesktopLayoutItemAppRef(sourceItem);
     if (!sourceApp || !targetItem || !pageArea) return false;
     let folder = null;
+    let animatedFolderItem = null;
     if (targetItem.classList.contains('is-folder')) {
         folder = window._folders.find(f => f.id === targetItem.dataset.folderId);
         if (!folder) return false;
         addToFolder(folder.id, sourceApp);
         sourceItem.remove();
+        animatedFolderItem = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.is-folder'))
+            .find(item => item.dataset.folderId === folder.id) || targetItem;
     } else {
         const targetApp = getDesktopLayoutItemAppRef(targetItem);
         if (!targetApp || targetApp.id === sourceApp.id) return false;
@@ -12315,14 +12332,24 @@ function mergeDesktopLayoutAppsIntoFolder(sourceItem, targetItem, pageArea) {
         prepareDesktopLayoutItem(folderItem, pageArea, rect);
         targetItem.remove();
         sourceItem.remove();
+        animatedFolderItem = folderItem;
         selectDesktopLayoutItem(folderItem);
     }
     if (folder) {
         saveFolders();
+        if (animatedFolderItem) playDesktopFolderMergeAnimation(animatedFolderItem);
         if (typeof showWechatToast === 'function') showWechatToast('已合并为文件夹');
         return true;
     }
     return false;
+}
+
+function playDesktopFolderMergeAnimation(folderItem) {
+    if (!folderItem) return;
+    folderItem.classList.remove('desktop-folder-created');
+    void folderItem.offsetWidth;
+    folderItem.classList.add('desktop-folder-created');
+    setTimeout(() => folderItem.classList.remove('desktop-folder-created'), 420);
 }
 
 function startDesktopItemDrag(e) {
@@ -14716,7 +14743,9 @@ function migrateDesktopDefaultLovelyWidget() {
     saved.items.forEach(item => {
         if (!item || item.id !== DESKTOP_DEFAULT_LOVELY_ID) return;
         const top = Number(item.top);
-        if (Number.isFinite(top) && top <= DESKTOP_DEFAULT_LOVELY_OLD_TOP + 24) {
+        const isLegacyTop = Number.isFinite(top) && top <= DESKTOP_DEFAULT_LOVELY_LEGACY_TOP + 24;
+        const isPreviousDefaultTop = Number.isFinite(top) && Math.abs(top - DESKTOP_DEFAULT_LOVELY_OLD_TOP) <= 24;
+        if (isLegacyTop || isPreviousDefaultTop) {
             item.top = DESKTOP_DEFAULT_LOVELY_TOP;
             changed = true;
         }

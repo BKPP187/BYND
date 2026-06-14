@@ -237,9 +237,13 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .desktop-layout-item.is-folder { padding: 7px 7px 6px; background: rgba(255,255,255,0.30) !important; border-radius: 20px; box-shadow: 0 12px 28px rgba(15,23,42,0.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); justify-content: flex-start; }
 .desktop-layout-item.is-folder .app-icon { width: 100% !important; height: calc(100% - 24px) !important; min-width: 0 !important; min-height: 48px !important; max-width: none !important; max-height: none !important; flex: 1 1 auto !important; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); place-items: center; align-content: center; justify-content: center; gap: clamp(5px, 9%, 10px); padding: clamp(8px, 10%, 14px); border-radius: 16px; box-shadow: none; }
 .desktop-layout-item.is-folder .folder-mini-icon { width: min(100%, 44px); height: auto; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; border-radius: 7px; font-size: 10px; justify-self: center; align-self: center; }
+.desktop-layout-item.is-folder.folder-small-icon .app-icon { grid-template-columns: repeat(2, 18px) !important; grid-template-rows: repeat(2, 18px) !important; place-content: center !important; gap: 4px !important; padding: 5px !important; overflow: hidden !important; }
+.desktop-layout-item.is-folder.folder-small-icon .folder-mini-icon { width: 18px !important; height: 18px !important; aspect-ratio: auto; border-radius: 5px; }
 .desktop-layout-item.is-folder > span { width: 100%; max-width: 100% !important; margin-top: 4px; align-self: center; text-align: center; font-size: 12px; }
+.desktop-layout-item.desktop-folder-created .app-icon { animation: desktopFolderCreated 0.38s cubic-bezier(0.2, 0.9, 0.2, 1); }
 .folder-resize-handle { position: absolute; right: 8px; bottom: 8px; width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(255,255,255,0.94); color: #6b7280; box-shadow: 0 8px 18px rgba(15,23,42,0.14); display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: nwse-resize; touch-action: none; z-index: 3; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes desktopFolderCreated { 0% { transform: scale(0.82); opacity: 0.72; } 58% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes jiggle { 0%,100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
 .edit-mode .app-item { animation: jiggle 0.3s infinite ease-in-out; position: relative; }
 .edit-mode .app-item:nth-child(2) { animation-delay: 0.05s; }
