@@ -19471,6 +19471,97 @@ function withWechatAiPhoneRealUserChat(snapshot, char, displayName = '') {
     return source;
 }
 
+function getWechatAiPhoneContinuityContacts(char) {
+    const store = getWechatAiPhoneContactReplyStore(char);
+    const events = Array.isArray(store.events) ? store.events.slice(-10) : [];
+    const latestByName = new Map();
+    events.forEach(event => {
+        const name = stripWechatPromptText(event.contactName || '', 32);
+        const key = event.contactNameKey || getWechatAiPhoneContactNameKey(name);
+        if (key && name) latestByName.set(key, { ...event, contactName: name, contactNameKey: key });
+    });
+    return Array.from(latestByName.values()).reverse().map(event => {
+        const rows = mergeWechatAiPhoneContactRows(
+            event.contactKey && Array.isArray(store.threads[event.contactKey]) ? store.threads[event.contactKey] : [],
+            event.contactNameKey && Array.isArray(store.threadsByName[event.contactNameKey]) ? store.threadsByName[event.contactNameKey] : []
+        );
+        const lastRow = rows.slice().reverse().find(row => row && row.text);
+        return {
+            name: event.contactName,
+            text: stripWechatPromptText((lastRow && lastRow.text) || event.userReply || event.contactPreview || '有一条代发后的聊天', 82),
+            time: (lastRow && lastRow.time) || (event.createdAt ? formatWechatSnapshotTime(event.createdAt) : '最近'),
+            byContinuity: true,
+            contactNameKey: event.contactNameKey
+        };
+    }).filter(item => item.name && item.text).slice(0, 4);
+}
+
+function mergeWechatAiPhoneContinuityChats(chats, char) {
+    const source = Array.isArray(chats) ? chats.filter(Boolean) : [];
+    const userRow = source[0] || buildWechatAiPhoneRealUserChatRow(char);
+    const generated = source.slice(1);
+    const continuity = getWechatAiPhoneContinuityContacts(char);
+    const output = [userRow];
+    const seen = new Set();
+    const pushContact = (item) => {
+        const key = getWechatAiPhoneContactNameKey(item && item.name);
+        if (!key || seen.has(key)) return;
+        output.push(item);
+        seen.add(key);
+    };
+    continuity.forEach(item => {
+        const key = getWechatAiPhoneContactNameKey(item.name);
+        const generatedMatch = generated.find(row => getWechatAiPhoneContactNameKey(row && row.name) === key);
+        pushContact(generatedMatch || item);
+    });
+    generated.forEach(pushContact);
+    return output.slice(0, 5);
+}
+
+function syncWechatAiPhoneGeneratedContactContinuity(char, chats) {
+    const store = getWechatAiPhoneContactReplyStore(char);
+    (Array.isArray(chats) ? chats : []).slice(1).forEach((contact, offset) => {
+        const index = offset + 1;
+        const nameKey = getWechatAiPhoneContactNameKey(contact && contact.name);
+        const hasContinuity = !!(nameKey && Array.isArray(store.events) && store.events.some(event => (
+            (event.contactNameKey || getWechatAiPhoneContactNameKey(event.contactName)) === nameKey
+        )));
+        if (!hasContinuity) return;
+        const previewRow = buildWechatAiPhoneContactPreviewRow(contact);
+        if (!previewRow) return;
+        const rows = getWechatAiPhoneStoredContactRows(char, contact, index);
+        if (hasWechatAiPhoneContactRowText(rows, previewRow.text)) return;
+        setWechatAiPhoneStoredContactRows(char, contact, index, rows.concat({
+            ...previewRow,
+            generatedContinuation: true
+        }));
+    });
+}
+
+function buildWechatAiPhoneProxyContinuityContext(char) {
+    const store = getWechatAiPhoneContactReplyStore(char);
+    const events = Array.isArray(store.events) ? store.events.slice(-6) : [];
+    if (!events.length) return '';
+    const blocks = events.map((event, index) => {
+        const name = stripWechatPromptText(event.contactName || '联系人', 32);
+        const rows = mergeWechatAiPhoneContactRows(
+            event.contactKey && Array.isArray(store.threads[event.contactKey]) ? store.threads[event.contactKey] : [],
+            event.contactNameKey && Array.isArray(store.threadsByName[event.contactNameKey]) ? store.threadsByName[event.contactNameKey] : []
+        ).slice(-5);
+        const rowText = rows.map(row => {
+            const speaker = row.byUserProxy ? '用户代 char 发' : (row.isCharSide ? 'char' : name);
+            return `${speaker}: ${row.text}`;
+        }).join('\n');
+        return [
+            `事件${index + 1} 联系人：${name}`,
+            event.contactPreview ? `原预览：${stripWechatPromptText(event.contactPreview, 90)}` : '',
+            `用户代发：${stripWechatPromptText(event.userReply, 120)}`,
+            rowText ? `现有线程：\n${rowText}` : ''
+        ].filter(Boolean).join('\n');
+    });
+    return stripWechatPromptText(blocks.join('\n\n'), 1800);
+}
+
 function stringifyWechatAiPhoneRecordValue(value) {
     if (value == null) return '';
     if (Array.isArray(value)) {
@@ -20207,7 +20298,11 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         return list.length ? list : [realUserChat];
     };
 
-    const chats = normalizeChats(pickWechatAiPhoneField(data, ['chats', 'chatList', 'contacts', 'messages', 'wechatChats', 'imessages', '微信', '信息', '聊天列表', '通讯录']));
+    const chats = mergeWechatAiPhoneContinuityChats(
+        normalizeChats(pickWechatAiPhoneField(data, ['chats', 'chatList', 'contacts', 'messages', 'wechatChats', 'imessages', '微信', '信息', '聊天列表', '通讯录'])),
+        char
+    );
+    syncWechatAiPhoneGeneratedContactContinuity(char, chats);
 
     const browserRows = getWechatAiPhoneBrowserRows({ browser: pickWechatAiPhoneField(data, ['browser', 'browserHistory', 'safari', 'webHistory', 'searchHistory', 'recentSearches', '浏览器', '浏览记录', 'Safari']) }, char);
     const walletRows = getWechatAiPhoneWalletRows({ walletRecords: pickWechatAiPhoneField(data, ['walletRecords', 'bills', 'transactions', 'payments', 'cards', 'passes', '钱包记录', '账单', '交易记录', '卡包']) }, char);
@@ -20311,6 +20406,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
             ].filter(Boolean).join('\n\n');
             const statusText = JSON.stringify(status.fields || {});
             const historyText = buildWechatRecentHistoryForPrompt(char, 14);
+            const proxyContinuityText = buildWechatAiPhoneProxyContinuityContext(char);
             const buildMessages = (extraRule = '') => [
                 {
                     role: 'system',
@@ -20318,6 +20414,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]。
 数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
+如果【小手机代发连续性】不为空，chats 优先保留其中 1-2 个联系人/NPC，并自然续写他们在 char 手机里的下一条聊天预览。NPC 可以察觉语气变化、追问、误会、接受、顺着办理、谨慎确认或觉得不像本人，但必须按联系人身份、上下文、关系和语气灵活变化；不要每次固定说“不像你发的”。
 gameRecords 只能写这个 char 自己按人设、世界书、职业、年龄、生活方式会玩的游戏；禁止复制用户手机/桌面/BYND 小游戏库里的游戏，也不要因为用户手机里有某个游戏就让 char 玩。若角色人设明显不玩游戏，gameRecords 可以为空数组。
 【状态】只可作为时间/地点/最近上下文的参考；memos、scheduleRecords、diaryLetters 禁止直接复制状态栏字段、innerMonologue、thoughts、action、miniDiary 原文，也不要写成情绪独白。
 memos 是 char 认为重要、需要自己记住或回头处理的事情；必须来自角色卡/世界书/长期记忆/最近聊天的推演，例如承诺、禁忌、任务、关系要点、职业待办。不要把状态栏、身体动作、当前心情搬进备忘录。
@@ -20327,7 +20424,7 @@ diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日�
                 },
                 {
                     role: 'user',
-                    content: `【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}`
+                    content: `【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}\n【小手机代发连续性】${proxyContinuityText || '暂无'}`
                 }
             ];
             const phoneApiOptions = { max_tokens: 2600, temperature: 0.78, background: !options.force };
@@ -20630,13 +20727,15 @@ function renderWechatAiPhoneChatRows(snapshot, char) {
 }
 
 function getWechatAiPhoneContactReplyStore(char) {
-    if (!char) return { threads: {}, pending: [] };
+    if (!char) return { threads: {}, threadsByName: {}, pending: [], events: [] };
     char.chatConfig = char.chatConfig || {};
     const store = char.chatConfig.aiPhoneContactReplies && typeof char.chatConfig.aiPhoneContactReplies === 'object'
         ? char.chatConfig.aiPhoneContactReplies
         : {};
     store.threads = store.threads && typeof store.threads === 'object' ? store.threads : {};
+    store.threadsByName = store.threadsByName && typeof store.threadsByName === 'object' ? store.threadsByName : {};
     store.pending = Array.isArray(store.pending) ? store.pending : [];
+    store.events = Array.isArray(store.events) ? store.events.slice(-18) : [];
     char.chatConfig.aiPhoneContactReplies = store;
     return store;
 }
@@ -20645,10 +20744,64 @@ function getWechatAiPhoneContactKey(contact, index) {
     return `${index}:${String(contact && contact.name || '联系人').trim() || '联系人'}`;
 }
 
+function getWechatAiPhoneContactNameKey(value) {
+    return stripWechatPromptText(value, 42).replace(/\s+/g, '').toLowerCase();
+}
+
+function normalizeWechatAiPhoneContactRow(row) {
+    if (!row) return null;
+    const text = stripWechatPromptText(row.text || row.message || row.content || row.preview || '', 600);
+    if (!text) return null;
+    return {
+        isCharSide: !!row.isCharSide,
+        text,
+        time: stripWechatPromptText(row.time || row.meta || '', 16),
+        type: row.type || 'text',
+        byUserProxy: !!row.byUserProxy,
+        fromPreview: !!row.fromPreview,
+        generatedContinuation: !!row.generatedContinuation
+    };
+}
+
+function getWechatAiPhoneContactRowSignature(row) {
+    const side = row && row.isCharSide ? 'self' : 'other';
+    const proxy = row && row.byUserProxy ? 'proxy' : '';
+    return `${side}:${proxy}:${stripWechatPromptText(row && row.text, 600)}`;
+}
+
+function mergeWechatAiPhoneContactRows(...lists) {
+    const seen = new Set();
+    const rows = [];
+    lists.flat().forEach(row => {
+        const normalized = normalizeWechatAiPhoneContactRow(row);
+        if (!normalized) return;
+        const signature = getWechatAiPhoneContactRowSignature(normalized);
+        if (seen.has(signature)) return;
+        seen.add(signature);
+        rows.push(normalized);
+    });
+    return rows.slice(-24);
+}
+
+function setWechatAiPhoneStoredContactRows(char, contact, index, rows) {
+    if (!char || !contact) return [];
+    const store = getWechatAiPhoneContactReplyStore(char);
+    const key = getWechatAiPhoneContactKey(contact, index);
+    const nameKey = getWechatAiPhoneContactNameKey(contact.name || '');
+    const merged = mergeWechatAiPhoneContactRows(rows);
+    store.threads[key] = merged;
+    if (nameKey) store.threadsByName[nameKey] = merged;
+    return merged;
+}
+
 function getWechatAiPhoneStoredContactRows(char, contact, index) {
     const store = getWechatAiPhoneContactReplyStore(char);
     const key = getWechatAiPhoneContactKey(contact, index);
-    return Array.isArray(store.threads[key]) ? store.threads[key].slice(-18) : [];
+    const nameKey = getWechatAiPhoneContactNameKey(contact && contact.name);
+    return mergeWechatAiPhoneContactRows(
+        Array.isArray(store.threads[key]) ? store.threads[key] : [],
+        nameKey && Array.isArray(store.threadsByName[nameKey]) ? store.threadsByName[nameKey] : []
+    ).slice(-18);
 }
 
 function buildWechatAiPhoneContactPreviewRow(contact) {
@@ -20675,26 +20828,31 @@ function appendWechatAiPhoneContactReply(char, contact, index, text) {
     if (!char || !clean || index <= 0) return false;
     const store = getWechatAiPhoneContactReplyStore(char);
     const key = getWechatAiPhoneContactKey(contact, index);
+    const contactName = contact && contact.name || '联系人';
+    const contactNameKey = getWechatAiPhoneContactNameKey(contactName);
     const previewRow = buildWechatAiPhoneContactPreviewRow(contact);
     const event = {
         id: `phone_reply_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         contactKey: key,
-        contactName: contact && contact.name || '联系人',
+        contactName,
+        contactNameKey,
         contactPreview: previewRow ? previewRow.text : (contact && contact.text || ''),
         userReply: clean,
         createdAt: Date.now()
     };
-    store.threads[key] = Array.isArray(store.threads[key]) ? store.threads[key] : [];
-    if (previewRow && !hasWechatAiPhoneContactRowText(store.threads[key], previewRow.text)) {
-        store.threads[key].push(previewRow);
+    const existingRows = getWechatAiPhoneStoredContactRows(char, contact, index);
+    const nextRows = existingRows.slice();
+    if (previewRow && !hasWechatAiPhoneContactRowText(nextRows, previewRow.text)) {
+        nextRows.push(previewRow);
     }
-    store.threads[key].push({
+    nextRows.push({
         isCharSide: true,
         text: clean,
         time: '刚刚',
         type: 'text',
         byUserProxy: true
     });
+    setWechatAiPhoneStoredContactRows(char, contact, index, nextRows);
     const snapshotChats = char.chatConfig && char.chatConfig.aiPhoneSnapshot && Array.isArray(char.chatConfig.aiPhoneSnapshot.chats)
         ? char.chatConfig.aiPhoneSnapshot.chats
         : [];
@@ -20704,6 +20862,8 @@ function appendWechatAiPhoneContactReply(char, contact, index, text) {
         snapshotChats[index].byUserProxy = true;
     }
     store.pending.push(event);
+    store.events.push(event);
+    store.events = store.events.slice(-18);
     saveCharactersToStorage();
     return true;
 }
@@ -20754,10 +20914,10 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
     if (index > 0) {
         const storedRows = getWechatAiPhoneStoredContactRows(char, contact, index);
         const previewRow = buildWechatAiPhoneContactPreviewRow(contact);
+        rows = rows.concat(storedRows);
         if (previewRow && !hasWechatAiPhoneContactRowText(storedRows, previewRow.text)) {
             rows.push(previewRow);
         }
-        rows = rows.concat(storedRows);
     }
 
     if (!rows.length) {
