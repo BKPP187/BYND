@@ -19393,16 +19393,13 @@ function buildWechatAiPhoneFallback(char) {
     const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : ((typeof getUserProfile === 'function') ? getUserProfile() : { name: '\u7528\u6237' });
     const userName = getWechatAiPhoneUserDisplayName(char, userProfile);
     const pack = getWechatAiPhonePersonaFallbackPack(char, userName, fields);
-    const history = Array.isArray(char && char.history) ? char.history : [];
-    const lastMsg = history.slice().reverse().find(msg => msg && msg.type !== 'system_notice' && !isWechatRegexPayloadMessage(msg, char));
-    const lastText = stripWechatPromptText(getWechatMessagePromptContent(lastMsg), 62) || '\u8fd8\u6ca1\u6709\u65b0\u6d88\u606f';
+    const realUserChat = buildWechatAiPhoneRealUserChatRow(char, userName);
+    const fallbackContacts = (Array.isArray(pack.chats) ? pack.chats.slice(1) : []).filter(Boolean);
     return {
         updatedAt: Date.now(),
         schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: 'local',
-        chats: Array.isArray(pack.chats) && pack.chats.length ? pack.chats : [
-            { name: userName, text: lastText, time: formatWechatSnapshotTime(Date.now()) }
-        ],
+        chats: [realUserChat, ...fallbackContacts].slice(0, 5),
         memos: normalizeWechatAiPhoneMemoList(pack.memos || []),
         browser: Array.isArray(pack.browser) ? pack.browser : [],
         wallet: pack.wallet || `${getWechatCharDisplayName(char)}的钱包记录正在按角色卡同步。`,
@@ -19438,6 +19435,40 @@ function setWechatAiPhoneUserRemark(char, value) {
     char.chatConfig = char.chatConfig || {};
     char.chatConfig.aiPhoneUserRemark = next;
     return next;
+}
+
+function isWechatAiPhoneRealUserMessage(msg, char) {
+    return !!(
+        msg
+        && msg.isMe === true
+        && msg.type !== 'system_notice'
+        && !msg.monitorEvent
+        && !isWechatRegexPayloadMessage(msg, char)
+    );
+}
+
+function buildWechatAiPhoneRealUserChatRow(char, displayName = '') {
+    const userName = displayName || getWechatAiPhoneUserDisplayName(char);
+    const history = Array.isArray(char && char.history) ? char.history : [];
+    const lastUserMsg = history.slice().reverse().find(msg => isWechatAiPhoneRealUserMessage(msg, char));
+    const text = lastUserMsg
+        ? (stripWechatPromptText(getWechatAiPhoneMessageText(lastUserMsg), 72) || '发来一条消息')
+        : '还没有真实聊天记录';
+    return {
+        name: userName,
+        text,
+        time: lastUserMsg ? formatMessageTime(lastUserMsg) : ''
+    };
+}
+
+function withWechatAiPhoneRealUserChat(snapshot, char, displayName = '') {
+    const source = snapshot && typeof snapshot === 'object' ? { ...snapshot } : buildWechatAiPhoneFallback(char);
+    const userRow = buildWechatAiPhoneRealUserChatRow(char, displayName || source.userRemark || '');
+    const contacts = (Array.isArray(source.chats) ? source.chats.slice(1) : [])
+        .filter(item => item && String(item.name || '').trim() && String(item.name || '').trim() !== userRow.name)
+        .slice(0, 4);
+    source.chats = [userRow, ...contacts];
+    return source;
 }
 
 function stringifyWechatAiPhoneRecordValue(value) {
@@ -20149,27 +20180,34 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
     const fallback = buildWechatAiPhoneFallback(char);
     const explicitRemark = stripWechatPromptText(pickWechatAiPhoneField(data, ['userRemark', 'userAlias', 'userContactName', 'userNickname', 'savedName', 'remarkForUser', '用户备注', '用户通讯录备注', '给用户的备注']), 24);
     const userDisplayName = explicitRemark ? setWechatAiPhoneUserRemark(char, explicitRemark) : getWechatAiPhoneUserRemark(char);
+    const realUserChat = buildWechatAiPhoneRealUserChatRow(char, userDisplayName);
     const reservedByndNames = new Set((window.myCharacters || [])
         .filter(item => item && item.id !== (char && char.id))
         .flatMap(item => [item.name, item.chatConfig && item.chatConfig.nickname])
         .filter(Boolean)
         .map(name => String(name).trim()));
     const normalizeChats = (value) => {
-        if (!Array.isArray(value)) return fallback.chats;
-        const list = value.map((item, index) => {
-            if (typeof item === 'string') return { name: index === 0 ? userDisplayName : item, text: '聊天', time: '' };
+        const fallbackContacts = (Array.isArray(fallback.chats) ? fallback.chats.slice(1) : []).filter(Boolean);
+        if (!Array.isArray(value)) return [realUserChat, ...fallbackContacts].slice(0, 5);
+        const contacts = value.map((item) => {
+            if (typeof item === 'string') return { name: item, text: '聊天', time: '' };
             return {
-                name: stripWechatPromptText(index === 0 ? (item.name || item.with || item.contact || userDisplayName) : (item.name || item.with || item.contact || '联系人'), 32),
+                name: stripWechatPromptText(item.name || item.with || item.contact || '联系人', 32),
                 text: stripWechatPromptText(item.text || item.lastMessage || item.message || '', 82),
                 time: stripWechatPromptText(item.time || item.status || '', 16)
             };
-        }).filter((item, index) => item.name && (index === 0 || (!reservedByndNames.has(item.name) && !shouldDropWechatAiPhoneRowForPersona(item, char)))).slice(0, 5);
-        if (list.length) list[0].name = userDisplayName;
-        return list.length ? list : fallback.chats;
+        }).filter(item => (
+            item.name
+            && item.name !== userDisplayName
+            && !/^(我|用户|user)$/i.test(item.name)
+            && !reservedByndNames.has(item.name)
+            && !shouldDropWechatAiPhoneRowForPersona(item, char)
+        ));
+        const list = [realUserChat, ...contacts, ...fallbackContacts].slice(0, 5);
+        return list.length ? list : [realUserChat];
     };
 
     const chats = normalizeChats(pickWechatAiPhoneField(data, ['chats', 'chatList', 'contacts', 'messages', 'wechatChats', 'imessages', '微信', '信息', '聊天列表', '通讯录']));
-    if (chats.length) chats[0].name = userDisplayName;
 
     const browserRows = getWechatAiPhoneBrowserRows({ browser: pickWechatAiPhoneField(data, ['browser', 'browserHistory', 'safari', 'webHistory', 'searchHistory', 'recentSearches', '浏览器', '浏览记录', 'Safari']) }, char);
     const walletRows = getWechatAiPhoneWalletRows({ walletRecords: pickWechatAiPhoneField(data, ['walletRecords', 'bills', 'transactions', 'payments', 'cards', 'passes', '钱包记录', '账单', '交易记录', '卡包']) }, char);
@@ -20235,7 +20273,7 @@ function getWechatAiPhoneRenderSnapshot(char) {
         && snapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION
         && (snapshot.generatedBy === 'api' || snapshot.generatedBy === 'error')
     ) {
-        return snapshot;
+        return withWechatAiPhoneRealUserChat(snapshot, char);
     }
     return buildWechatAiPhoneFallback(char);
 }
@@ -20279,13 +20317,13 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
                     content: `你是「${char.name}」本人手机的数据生成器。读角色卡/世界书/记忆后，按这个角色真实生活合理生成 iPhone 数据。只返回一个可 JSON.parse 的压缩 JSON 对象；不要 Markdown、不要解释、不要换行排版、不要省略号。
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]。
-数量：除 gameRecords 外，每个数组 2-3 条；chats 第一条必须是用户；diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
+数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
 gameRecords 只能写这个 char 自己按人设、世界书、职业、年龄、生活方式会玩的游戏；禁止复制用户手机/桌面/BYND 小游戏库里的游戏，也不要因为用户手机里有某个游戏就让 char 玩。若角色人设明显不玩游戏，gameRecords 可以为空数组。
 【状态】只可作为时间/地点/最近上下文的参考；memos、scheduleRecords、diaryLetters 禁止直接复制状态栏字段、innerMonologue、thoughts、action、miniDiary 原文，也不要写成情绪独白。
 memos 是 char 认为重要、需要自己记住或回头处理的事情；必须来自角色卡/世界书/长期记忆/最近聊天的推演，例如承诺、禁忌、任务、关系要点、职业待办。不要把状态栏、身体动作、当前心情搬进备忘录。
 scheduleRecords 必须按 char 的人设世界推演：身份/职业/阶层、时代或世界规则、当天责任、当前剧情、与 user 的关系都要影响行程。现代角色写真实日历；古风/异能/末世/架空角色也要把小手机视为 BYND 映射界面，行程内容仍遵守其世界逻辑。禁止套“整理灵感/创作录制/私密日记”等模板，除非角色资料明确支持。
 diaryLetters 必须是 char 第一人称写给 user 的正式书信，不是日记、草稿、内心独白或旁白。每封信严格包含六部分：salutation=称呼且以冒号结尾；greeting=问候语；body=正文，必须用“我”对“你”写，按 char 与 user 的关系和世界书重写；closing=祝颂引语如“此致/祝”；wish=祝愿语如“敬礼/顺安/平安无虞”；signature=署名；date=日期。严禁第三视角叙述，不能写“${char.name}希望/他把/她觉得/TA会/这个角色想”等旁白句式。title 必须像角色亲手写在信封上的标题：结合当前 char 的身份、职业、关系、最近聊天或当天行程生成，每条都要独特。禁止使用“没有发出去的话/夜里的草稿/折起来的便签/未寄出的信/私密日记/日记/草稿/便签/未命名信件”等通用模板标题。
-规则：不能空白；不能写未授权查看；不能套模板或固定低余额；不能复制用户手机/桌面/应用使用记录；所有字段必须是 char 自己手机里的数据。必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。${extraRule ? `\n修正：${extraRule}` : ''}`
+规则：不能空白；不能写未授权查看；不能套模板或固定低余额；不能复制用户手机/桌面/应用使用记录；所有字段必须是 char 自己手机里的数据。必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。严禁根据【最近聊天】改写、续写、概括成 user 没说过的新句子；user 聊天预览只能由系统真实聊天记录生成。${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
@@ -20723,10 +20761,12 @@ function renderWechatAiPhoneConversationRows(snapshot, char, index) {
     }
 
     if (!rows.length) {
-        rows = [
-            { isCharSide: false, text: contact.text || '这条聊天还停在预览里。', time: contact.time || '', type: 'text' },
-            { isCharSide: true, text: index === 0 ? '我看到了。' : '先放在这里，晚点再回。', time: '', type: 'text' }
-        ];
+        rows = index === 0
+            ? [{ isCharSide: false, text: '还没有真实聊天记录', time: '', type: 'text' }]
+            : [
+                { isCharSide: false, text: contact.text || '这条聊天还停在预览里。', time: contact.time || '', type: 'text' },
+                { isCharSide: true, text: '先放在这里，晚点再回。', time: '', type: 'text' }
+            ];
     }
 
     return rows.map(item => {
