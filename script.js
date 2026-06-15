@@ -918,16 +918,6 @@ function saveMusicSourceSettingsFromUI() {
 }
 window.saveMusicSourceSettingsFromUI = saveMusicSourceSettingsFromUI;
 
-function openGequhaiMusicSearch() {
-    const input = document.getElementById('music-search-input');
-    const query = String(input?.value || '周杰伦').trim() || '周杰伦';
-    localStorage.setItem(MUSIC_SOURCE_MODE_KEY, 'smart');
-    syncMusicSourceUI();
-    searchMusic(query);
-    showMusicStatus('歌曲海不再跳转外部网站，已改用应用内音乐源搜索。');
-}
-window.openGequhaiMusicSearch = openGequhaiMusicSearch;
-
 function getMusicPlaylistsStore() {
     try {
         const list = JSON.parse(localStorage.getItem(MUSIC_PLAYLISTS_KEY) || '[]');

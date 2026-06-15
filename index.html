@@ -221,7 +221,6 @@
                         <button type="button" data-source="smart" class="active" onclick="setMusicSourceMode('smart')">多源</button>
                         <button type="button" data-source="netease" onclick="setMusicSourceMode('netease')">网易云</button>
                         <button type="button" data-source="archive" onclick="setMusicSourceMode('archive')">公开</button>
-                        <button type="button" data-source="gequhai" onclick="openGequhaiMusicSearch()">歌曲海</button>
                     </div>
                     <button type="button" class="music-source-config-toggle" onclick="toggleMusicSourceConfig()" aria-label="更多设置"><i class="ri-equalizer-3-line"></i><span>更多设置</span></button>
                 </div>
@@ -238,7 +237,7 @@
                         <span>网易云 API 服务（空着用默认本机 18867）</span>
                         <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:18867">
                     </label>
-                    <p>歌曲海不再打开外部网页；点击后会用应用内音乐源搜索。</p>
+                    <p>音乐源只用于应用内搜索，不作为外部跳转入口。</p>
                     <div class="music-playlist-import">
                         <div>
                             <span>导入歌单</span>
@@ -1165,7 +1164,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.437
+                    Beyond Screen v1.1.438
                 </div>
             </div>
         </div>
@@ -2158,7 +2157,7 @@
     <script src="wechat.js?v=20260615-ai-phone-proxy-thread1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
     <script src="settings.js?v=20260609-monitor-worldbook424"></script>
-    <script src="script.js?v=20260614-desktop-folder-drag2"></script>
+    <script src="script.js?v=20260615-music-source-search1"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
