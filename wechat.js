@@ -2269,7 +2269,6 @@ function shouldShowWechatCoupleMessageHeader(prevMsg, msg, char = null) {
     if (!isWechatCoupleTheme()) return true;
     if (!msg || msg.type === 'system_notice') return true;
     if (!prevMsg || prevMsg.type === 'system_notice') return true;
-    if (msg.type === 'offline_narration' || prevMsg.type === 'offline_narration') return true;
     if (getWechatCoupleMessageSenderKey(prevMsg, char) !== getWechatCoupleMessageSenderKey(msg, char)) return true;
     const raw = msg.timestamp || msg.createdAt || msg.time;
     const prevRaw = prevMsg.timestamp || prevMsg.createdAt || prevMsg.time;
@@ -8579,7 +8578,7 @@ function refreshChatView(char) {
             showCoupleHeader: shouldShowWechatCoupleMessageHeader(prevVisibleMsg, msg, char)
         });
         queueWechatPendingImageGeneration(char, msg);
-        if (msg && msg.type !== 'system_notice') prevVisibleMsg = msg;
+        if (msg && msg.type !== 'system_notice' && msg.type !== 'offline_narration') prevVisibleMsg = msg;
     });
     contentEl.scrollTop = contentEl.scrollHeight;
     requestAnimationFrame(() => { contentEl.scrollTop = contentEl.scrollHeight; });
