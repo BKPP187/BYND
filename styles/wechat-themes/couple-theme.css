@@ -195,18 +195,22 @@
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left,
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    column-gap: 7px;
     align-items: start;
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left {
+    grid-template-columns: 44px minmax(0, max-content);
+    justify-content: start;
     justify-items: start;
-    padding-right: 54px;
+    padding-right: 32px;
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right {
+    grid-template-columns: minmax(0, max-content) 44px;
+    justify-content: end;
     justify-items: end;
-    padding-left: 54px;
+    padding-left: 32px;
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.couple-continuation {
@@ -241,8 +245,14 @@
     z-index: 2;
 }
 
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left .msg-avatar-layer {
+    grid-column: 1;
+    grid-row: 1;
+}
+
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-avatar-layer {
-    flex-direction: row-reverse;
+    grid-column: 2;
+    grid-row: 1;
     justify-self: end;
 }
 
@@ -262,22 +272,7 @@
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-avatar-time {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 54px;
-    max-width: 78px;
-    color: rgba(86,78,82,0.42);
-    font-size: 11px;
-    line-height: 1.18;
-    font-weight: 560;
-    white-space: normal;
-    text-align: left;
-    text-shadow: 0 1px 4px rgba(255,255,255,0.52);
-}
-
-#app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-avatar-time {
-    text-align: right;
+    display: none;
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-bubble-shell {
@@ -287,6 +282,8 @@
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left .msg-bubble-shell,
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.left > .msg-bubble {
+    grid-column: 2;
+    grid-row: 1;
     justify-self: start;
     margin-left: 0;
     margin-right: 0;
@@ -294,6 +291,8 @@
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right .msg-bubble-shell,
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .msg-row.right > .msg-bubble {
+    grid-column: 1;
+    grid-row: 1;
     justify-self: end;
     margin-left: 0;
     margin-right: 0;
