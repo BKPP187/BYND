@@ -9973,13 +9973,27 @@ function getWechatMonitorModePrompt(mode) {
 
 function getWechatMonitorWatchers(targetChar) {
     const targetId = targetChar && targetChar.id;
-    return (window.myCharacters || [])
-        .filter(char => {
-            if (!char || char.isGroupChat || !char.chatConfig || !char.chatConfig.monitorEnabled) return false;
-            if (getWechatMonitorMode(char) === 'observer') return true;
-            return char.id !== targetId;
-        })
-        .slice(0, WECHAT_MONITOR_MAX_WATCHERS);
+    const candidates = (window.myCharacters || []).filter(char => (
+        char && char.id && !char.isGroupChat && char.chatConfig && char.chatConfig.monitorEnabled
+    ));
+    const selected = [];
+    const seen = new Set();
+    const push = (char) => {
+        if (!char || !char.id || seen.has(char.id)) return;
+        selected.push(char);
+        seen.add(char.id);
+    };
+
+    // In observer mode the active chat itself is the watcher, so it must not
+    // be pushed out by older global monitor entries before the max watcher cap.
+    push(candidates.find(char => char.id === targetId && getWechatMonitorMode(char) === 'observer'));
+    candidates.forEach(char => {
+        if (getWechatMonitorMode(char) === 'observer') push(char);
+    });
+    candidates.forEach(char => {
+        if (char.id !== targetId && getWechatMonitorMode(char) !== 'observer') push(char);
+    });
+    return selected.slice(0, WECHAT_MONITOR_MAX_WATCHERS);
 }
 
 function notifyWechatMonitors(targetChar, userMsg) {
@@ -10041,6 +10055,60 @@ function getWechatMonitorLevelIndex(level) {
     return Math.max(0, WECHAT_MONITOR_LEVELS.indexOf(normalizeWechatMonitorLevel(level)));
 }
 
+function markWechatMonitorEventProcessed(state, eventId) {
+    if (!state || !eventId) return;
+    state.processedIds = Array.isArray(state.processedIds) ? state.processedIds : [];
+    if (!state.processedIds.includes(eventId)) state.processedIds.push(eventId);
+    state.processedIds = state.processedIds.slice(-40);
+}
+
+function buildWechatObserverFallbackReaction(watcher, targetChar, userMsg) {
+    const targetName = getWechatCharDisplayName(targetChar);
+    const observed = getWechatMessagePlainSummary(userMsg, 24);
+    const hasObservedText = observed && observed !== '[消息]';
+    const barrage = [
+        '旁观席先占个位',
+        `${targetName}这边的气氛开始微妙了`,
+        '这条消息一发，剧情线动了',
+        hasObservedText ? `刚才那句「${observed}」值得看后续` : '这段互动值得看后续',
+        `镜头给到${targetName}，看反应`
+    ].filter(Boolean);
+    return {
+        level: 'barrage',
+        island: '第三方弹幕正在刷新',
+        warning: '',
+        barrage,
+        deleteContact: null
+    };
+}
+
+function fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, state, message) {
+    if (!state) return;
+    state.lastError = stripWechatPromptText(message || '监控剧情暂时无法调用 API', 90);
+    if (getWechatMonitorMode(watcher) !== 'observer') {
+        saveCharactersToStorage();
+        return;
+    }
+    const reaction = buildWechatObserverFallbackReaction(watcher, targetChar, userMsg);
+    markWechatMonitorEventProcessed(state, eventId);
+    state.lastTargetId = targetChar.id;
+    state.lastAt = Date.now();
+    state.lastLevel = 'barrage';
+    presentWechatMonitorReaction(watcher, targetChar, reaction, 'barrage');
+    saveCharactersToStorage();
+}
+
+function ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction) {
+    if (getWechatMonitorMode(watcher) !== 'observer' || !reaction) return reaction;
+    const fallback = buildWechatObserverFallbackReaction(watcher, targetChar, userMsg);
+    if (normalizeWechatMonitorLevel(reaction.level) === 'silent') reaction.level = 'barrage';
+    if (!reaction.island) reaction.island = fallback.island;
+    if (!Array.isArray(reaction.barrage) || !reaction.barrage.length) reaction.barrage = fallback.barrage;
+    reaction.warning = reaction.warning || '';
+    reaction.deleteContact = null;
+    return reaction;
+}
+
 function normalizeWechatMonitorReaction(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const level = normalizeWechatMonitorLevel(raw.level);
@@ -10074,8 +10142,7 @@ function escalateWechatMonitorLevel(state, reaction, targetChar, watcher) {
 }
 
 async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventId) {
-    if (!watcher || !targetChar || !eventId || typeof callChatApi !== 'function') return;
-    if (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused()) return;
+    if (!watcher || !targetChar || !eventId) return;
     const state = getWechatMonitorState(watcher);
     if (state.processedIds.includes(eventId)) return;
     const requestKey = `${watcher.id}:${targetChar.id}`;
@@ -10085,23 +10152,37 @@ async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventI
     }
     window._wechatMonitorLastRequestAt[requestKey] = now;
 
+    if (typeof callChatApi !== 'function') {
+        fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, state, '监控剧情无法调用 API');
+        return;
+    }
+    if (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused()) {
+        fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, state, 'API 请求太频繁，监控剧情已临时降级显示');
+        return;
+    }
+
     const result = await callChatApi(buildWechatMonitorMessages(watcher, targetChar, userMsg), { background: true });
     if (!result || !result.ok) {
         state.lastError = (result && result.error) || '监控剧情 API 调用失败';
+        if (result && (result.rateLimited || isWechatApiRateLimitError(result.error))) {
+            setWechatAiRateLimitPause(result.error, Math.ceil((Number(result.retryAfterMs) || 0) / 1000) || 300);
+        }
+        fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, state, state.lastError);
         saveCharactersToStorage();
         return;
     }
 
-    const reaction = normalizeWechatMonitorReaction(parseWechatJsonObject(result.content));
+    let reaction = normalizeWechatMonitorReaction(parseWechatJsonObject(result.content));
     if (!reaction) {
         state.lastError = '监控剧情 API 没有返回可解析 JSON';
+        fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, state, state.lastError);
         saveCharactersToStorage();
         return;
     }
+    reaction = ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction);
 
     const level = escalateWechatMonitorLevel(state, reaction, targetChar, watcher);
-    state.processedIds.push(eventId);
-    state.processedIds = state.processedIds.slice(-40);
+    markWechatMonitorEventProcessed(state, eventId);
     state.lastError = '';
     if (getWechatMonitorMode(watcher) !== 'observer') {
         appendWechatMonitorRecord(watcher, targetChar, userMsg, reaction, level);
