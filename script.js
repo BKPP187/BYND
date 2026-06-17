@@ -9290,8 +9290,10 @@ function removeFromFolder(folderId, appId) {
 // --- Co-reading / 共读小说 ---
 const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
 const COREAD_DAILY_KEY = 'bynd_coread_daily_v1';
+const COREAD_DAILY_PARTICIPANTS_KEY = 'bynd_coread_daily_participants_v1';
 const COREAD_SOURCE_KEY = 'bynd_coread_sources_v1';
 const COREAD_SOURCE_VERSION_KEY = 'bynd_coread_sources_version_v1';
+const COREAD_READER_SETTINGS_KEY = 'bynd_coread_reader_settings_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
 const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=20260608-moxing71';
 const COREAD_DEFAULT_SOURCE_URLS = [
@@ -9305,6 +9307,9 @@ let coreadSearchCache = [];
 let coreadActiveTab = 'discover';
 let coreadDailyLoading = false;
 let coreadSearchRunId = 0;
+let coreadTocOpen = false;
+let coreadSettingsOpen = false;
+const coreadResolvingBookIds = new Set();
 
 const COREAD_DAILY_SEEDS = [
     '中文 小说 文学', '幻想 小说', 'romance fiction', 'mystery fiction',
@@ -9319,6 +9324,20 @@ const COREAD_DAILY_LINES = [
     '每日一书，每日一言，像有人把新的门轻轻推开。',
     '读同一本书时，沉默也会变成聊天记录。'
 ];
+
+const COREAD_OBFUSCATED_TEXT_MAP = {
+    '': '这', '': '天', '': '里', '': '之', '': '地', '': '大',
+    '': '和', '': '美', '': '如', '': '以', '': '下', '': '么',
+    '': '后', '': '为', '': '上', '': '道', '': '来', '': '然',
+    '': '而', '': '对', '': '于', '': '没', '': '用', '': '自',
+    '': '要', '': '时', '': '心', '': '个', '': '小', '': '事',
+    '': '第', '': '发', '': '可', '': '想', '': '样', '': '家',
+    '': '开', '': '们', '': '起', '': '出'
+};
+const COREAD_PAGE_SIZE = 480;
+const COREAD_RESOLVE_VERSION = 3;
+const COREAD_META_VERSION = 1;
+const COREAD_CHAPTER_VERSION = 1;
 
 function getCoReadCharacters() {
     return Array.isArray(window.myCharacters)
@@ -9338,6 +9357,149 @@ function getCoReadLibrary() {
 function saveCoReadLibrary(list) {
     localStorage.setItem(COREAD_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 80)));
 }
+
+const COREAD_READER_DEFAULT_SETTINGS = {
+    fontSize: 18,
+    pageMode: 'paged',
+    color: 'ivory',
+    wallpaper: ''
+};
+
+const COREAD_READER_COLORS = {
+    ivory: { label: '米白', bg: '#fff9ed', color: '#26211c' },
+    paper: { label: '纸黄', bg: '#f4ecd9', color: '#2d261d' },
+    green: { label: '浅绿', bg: '#edf4e8', color: '#233124' },
+    gray: { label: '灰调', bg: '#eef0ee', color: '#222629' },
+    dark: { label: '夜间', bg: '#1f211f', color: '#d9d2c3' }
+};
+
+function getCoReadReaderSettings() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(COREAD_READER_SETTINGS_KEY) || '{}');
+        const settings = { ...COREAD_READER_DEFAULT_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
+        settings.fontSize = Math.max(15, Math.min(26, Number(settings.fontSize || COREAD_READER_DEFAULT_SETTINGS.fontSize)));
+        settings.pageMode = settings.pageMode === 'scroll' ? 'scroll' : 'paged';
+        settings.color = COREAD_READER_COLORS[settings.color] ? settings.color : COREAD_READER_DEFAULT_SETTINGS.color;
+        settings.wallpaper = String(settings.wallpaper || '');
+        return settings;
+    } catch (_) {
+        return { ...COREAD_READER_DEFAULT_SETTINGS };
+    }
+}
+
+function saveCoReadReaderSettings(next) {
+    const current = getCoReadReaderSettings();
+    const settings = { ...current, ...(next && typeof next === 'object' ? next : {}) };
+    localStorage.setItem(COREAD_READER_SETTINGS_KEY, JSON.stringify(settings));
+    applyCoReadReaderSettings();
+    renderCoReadSettings();
+    renderCoReadReader();
+}
+
+function applyCoReadReaderSettings() {
+    const shell = document.querySelector('.coread-shell');
+    if (!shell) return;
+    const settings = getCoReadReaderSettings();
+    const color = COREAD_READER_COLORS[settings.color] || COREAD_READER_COLORS.ivory;
+    shell.dataset.coreadPageMode = settings.pageMode;
+    shell.dataset.coreadColor = settings.color;
+    shell.classList.toggle('coread-has-wallpaper', Boolean(settings.wallpaper));
+    shell.style.setProperty('--coread-font-size', `${settings.fontSize}px`);
+    shell.style.setProperty('--coread-reader-bg', color.bg);
+    shell.style.setProperty('--coread-reader-color', color.color);
+    shell.style.setProperty('--coread-wallpaper', settings.wallpaper ? `url("${settings.wallpaper}")` : 'none');
+}
+
+function renderCoReadSettings() {
+    const drawer = document.getElementById('coread-settings-drawer');
+    const fontLabel = document.getElementById('coread-font-size-label');
+    const modeBox = document.getElementById('coread-page-mode-options');
+    const colorBox = document.getElementById('coread-color-options');
+    const settings = getCoReadReaderSettings();
+    if (drawer) {
+        drawer.classList.toggle('open', coreadSettingsOpen);
+        drawer.setAttribute('aria-hidden', coreadSettingsOpen ? 'false' : 'true');
+    }
+    if (fontLabel) fontLabel.textContent = String(settings.fontSize);
+    if (modeBox) {
+        const modes = [
+            { id: 'paged', label: '分页' },
+            { id: 'scroll', label: '滚动' }
+        ];
+        modeBox.innerHTML = modes.map(mode => `
+            <button type="button" class="${settings.pageMode === mode.id ? 'active' : ''}" onclick="setCoReadPageMode('${mode.id}')">${mode.label}</button>
+        `).join('');
+    }
+    if (colorBox) {
+        colorBox.innerHTML = Object.entries(COREAD_READER_COLORS).map(([id, item]) => `
+            <button type="button" class="${settings.color === id ? 'active' : ''}" onclick="setCoReadReaderColor('${id}')" aria-label="${musicEscapeAttr(item.label)}">
+                <i style="background:${musicEscapeAttr(item.bg)}; color:${musicEscapeAttr(item.color)}"></i>
+                <span>${musicEscapeHtml(item.label)}</span>
+            </button>
+        `).join('');
+    }
+}
+
+function toggleCoReadSettings(open) {
+    coreadSettingsOpen = typeof open === 'boolean' ? open : !coreadSettingsOpen;
+    if (coreadSettingsOpen) coreadTocOpen = false;
+    renderCoReadToc();
+    renderCoReadSettings();
+}
+window.toggleCoReadSettings = toggleCoReadSettings;
+
+function changeCoReadFontSize(delta) {
+    const settings = getCoReadReaderSettings();
+    saveCoReadReaderSettings({ fontSize: Math.max(15, Math.min(26, settings.fontSize + Number(delta || 0))) });
+}
+window.changeCoReadFontSize = changeCoReadFontSize;
+
+function setCoReadPageMode(mode) {
+    saveCoReadReaderSettings({ pageMode: mode === 'scroll' ? 'scroll' : 'paged' });
+}
+window.setCoReadPageMode = setCoReadPageMode;
+
+function setCoReadReaderColor(color) {
+    saveCoReadReaderSettings({ color: COREAD_READER_COLORS[color] ? color : 'ivory' });
+}
+window.setCoReadReaderColor = setCoReadReaderColor;
+
+function uploadCoReadWallpaper(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        const dataUrl = String(reader.result || '');
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const maxSide = 1400;
+                const scale = Math.min(1, maxSide / Math.max(img.width || maxSide, img.height || maxSide));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round((img.width || maxSide) * scale));
+                canvas.height = Math.max(1, Math.round((img.height || maxSide) * scale));
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                saveCoReadReaderSettings({ wallpaper: canvas.toDataURL('image/jpeg', 0.82) });
+            } catch (_) {
+                saveCoReadReaderSettings({ wallpaper: dataUrl });
+            }
+            input.value = '';
+        };
+        img.onerror = () => {
+            saveCoReadReaderSettings({ wallpaper: dataUrl });
+            input.value = '';
+        };
+        img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+}
+window.uploadCoReadWallpaper = uploadCoReadWallpaper;
+
+function clearCoReadWallpaper() {
+    saveCoReadReaderSettings({ wallpaper: '' });
+}
+window.clearCoReadWallpaper = clearCoReadWallpaper;
 
 function getCoReadSources() {
     try {
@@ -9406,11 +9568,36 @@ function toggleCoReadSourceManager() {
 }
 window.toggleCoReadSourceManager = toggleCoReadSourceManager;
 
+function normalizeCoReadChapterUrl(url, baseUrl = '') {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    const match = raw.match(/https?:\/\/[^\s"'<>）)]+/i) || raw.match(/^[^\s"'<>）)]+/);
+    const clean = match ? match[0] : raw;
+    try {
+        return new URL(clean, baseUrl || undefined).href;
+    } catch (_) {
+        return clean;
+    }
+}
+
 async function coReadFetchText(url, options = {}) {
-    const attempts = [
-        url,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
+    const rawUrl = normalizeCoReadChapterUrl(url) || String(url || '').trim();
+    const isHttp = /^https?:\/\//i.test(rawUrl);
+    const isProxyUrl = /^https?:\/\/(?:r\.jina\.ai|corsproxy\.io|api\.allorigins\.win)\//i.test(rawUrl);
+    const isZhenhun = !isProxyUrl && /zhenhunxiaoshuo\.com/i.test(rawUrl);
+    const attempts = (isZhenhun
+        ? [
+            isHttp ? `https://r.jina.ai/${rawUrl}` : '',
+            isHttp ? `https://corsproxy.io/?${encodeURIComponent(rawUrl)}` : '',
+            rawUrl,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`
+        ]
+        : [
+            isHttp ? `https://corsproxy.io/?${encodeURIComponent(rawUrl)}` : '',
+            rawUrl,
+            isHttp ? `https://r.jina.ai/${rawUrl}` : '',
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`
+        ]).filter(Boolean);
     let lastError = null;
     for (const target of attempts) {
         const controller = new AbortController();
@@ -9553,6 +9740,37 @@ async function fetchCoReadCoverFromMetadata(title, author = '') {
     return '';
 }
 
+function buildCoReadGeneratedCoverUrl(title, author = '') {
+    const shortTitle = cleanCoReadReadableText(title || '共读').replace(/\s+/g, '').slice(0, 6) || '共读';
+    const shortAuthor = cleanCoReadReadableText(author || '').replace(/\s+/g, ' ').slice(0, 18);
+    const seed = Array.from(`${shortTitle}${shortAuthor}`).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+    const palettes = [
+        ['#eee4d4', '#bba58a', '#6c5945'],
+        ['#e7eddc', '#9db48f', '#405f47'],
+        ['#e8e2d8', '#c4a6a0', '#6a4e4a'],
+        ['#e4e6df', '#9aa7aa', '#344b54'],
+        ['#f0e7da', '#d3b36f', '#604d31']
+    ];
+    const [paper, accent, ink] = palettes[Math.abs(seed) % palettes.length];
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="360" height="520" viewBox="0 0 360 520">
+            <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#fffaf0"/>
+                    <stop offset="0.45" stop-color="${paper}"/>
+                    <stop offset="1" stop-color="${accent}"/>
+                </linearGradient>
+            </defs>
+            <rect width="360" height="520" rx="10" fill="url(#g)"/>
+            <rect x="0" y="0" width="42" height="520" fill="${ink}" opacity="0.13"/>
+            <rect x="62" y="62" width="236" height="330" rx="4" fill="#fffaf0" opacity="0.32" stroke="${ink}" stroke-opacity="0.13"/>
+            <text x="180" y="210" text-anchor="middle" fill="${ink}" font-size="42" font-family="Georgia, 'Noto Serif SC', serif" font-weight="800">${musicEscapeHtml(shortTitle)}</text>
+            <text x="180" y="452" text-anchor="middle" fill="${ink}" opacity="0.72" font-size="22" font-family="'Noto Serif SC', serif">${musicEscapeHtml(shortAuthor || 'BYND')}</text>
+        </svg>
+    `.replace(/\s{2,}/g, ' ').trim();
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 async function ensureCoReadBookCover(bookId) {
     const library = getCoReadLibrary();
     const book = library.find(item => item.id === bookId);
@@ -9564,7 +9782,7 @@ async function ensureCoReadBookCover(bookId) {
         const latest = getCoReadLibrary();
         const target = latest.find(item => item.id === bookId);
         if (target) {
-            target.coverUrl = cover || target.coverUrl || '';
+            target.coverUrl = cover || target.coverUrl || buildCoReadGeneratedCoverUrl(target.title, target.author);
             target.coverResolving = false;
             saveCoReadLibrary(latest);
         }
@@ -9572,6 +9790,7 @@ async function ensureCoReadBookCover(bookId) {
         const latest = getCoReadLibrary();
         const target = latest.find(item => item.id === bookId);
         if (target) {
+            target.coverUrl = target.coverUrl || buildCoReadGeneratedCoverUrl(target.title, target.author);
             target.coverResolving = false;
             saveCoReadLibrary(latest);
         }
@@ -9602,21 +9821,45 @@ function getCoReadWorldBookText(char) {
 }
 
 function getCoReadPageText(book) {
+    if (book && book.resolving) return book.resolveStatus || '正在解析正文和章节，稍等一下。';
     const content = String(book && book.content || book && book.description || '');
     if (!content) return '这本书目前只有书名和来源链接，还没有正文。';
     const page = Math.max(0, Number(book.page || 0));
-    const size = 1400;
+    const size = COREAD_PAGE_SIZE;
     return content.slice(page * size, (page + 1) * size) || content.slice(-size);
+}
+
+function isCoReadUsefulContent(text) {
+    const clean = String(text || '').replace(/\s+/g, '');
+    if (clean.length < 300) return false;
+    if (/^书名[:：].{0,80}作者[:：]/.test(clean)) return false;
+    return true;
+}
+
+function isCoReadLikelyDirectoryContent(text) {
+    const clean = String(text || '').replace(/\s+/g, ' ');
+    return (clean.match(/第\s*\d+\s*章/g) || []).length >= 5;
+}
+
+function shouldResolveCoReadBookContent(book) {
+    if (!book || !book.url || coreadResolvingBookIds.has(book.id)) return false;
+    const contentLength = String(book.content || '').length;
+    if (isCoReadUrlTitle(book.title) && Number(book.resolveMetaVersion || 0) < COREAD_META_VERSION) return true;
+    if (Number(book.resolveChapterVersion || 0) < COREAD_CHAPTER_VERSION) return true;
+    if (!isCoReadUsefulContent(book.content)) return true;
+    if (Number(book.resolveVersion || 0) < COREAD_RESOLVE_VERSION && isCoReadLikelyDirectoryContent(book.content)) return true;
+    return Number(book.resolveVersion || 0) < COREAD_RESOLVE_VERSION && contentLength < 6000;
 }
 
 function renderCoReadBookCard(book) {
     const active = book.id === coreadActiveBookId ? 'active' : '';
     const source = book.source === 'search' ? '在线搜索' : (book.source || '本地');
+    const status = book.resolving ? '解析中' : (isCoReadUsefulContent(book.content) ? '可阅读' : (book.resolveStatus || source));
     return `
         <div class="coread-book ${active}">
             <button type="button" class="coread-book-main" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
                 <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
-                <em>${musicEscapeHtml(book.author || source)}</em>
+                <em>${musicEscapeHtml([book.author, status].filter(Boolean).join(' · '))}</em>
             </button>
             <button type="button" class="coread-book-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
                 <i class="ri-delete-bin-6-line"></i>
@@ -9684,9 +9927,177 @@ function renderCoReadMePanel() {
 function getCoReadBookProgress(book) {
     const contentLength = String(book && book.content || '').length;
     if (!contentLength) return Math.min(100, Math.max(0, Number(book && book.progress || 0)));
-    const pageCount = Math.max(1, Math.ceil(contentLength / 1400));
+    const pageCount = Math.max(1, Math.ceil(contentLength / COREAD_PAGE_SIZE));
     return Math.round((Math.min(pageCount - 1, Number(book.page || 0)) + 1) / pageCount * 100);
 }
+
+function getCoReadPageCount(book) {
+    const contentLength = String(book && book.content || '').length;
+    return Math.max(1, Math.ceil(contentLength / COREAD_PAGE_SIZE));
+}
+
+function getCoReadChapterPage(chapter) {
+    const raw = chapter && chapter.page;
+    if (raw === null || raw === undefined || raw === '') return null;
+    const page = Number(raw);
+    return Number.isFinite(page) ? Math.max(0, page) : null;
+}
+
+function getCoReadChapters(book) {
+    const content = String(book && book.content || '');
+    const stored = Array.isArray(book && book.chapters) ? book.chapters : [];
+    const chapters = stored
+        .filter(chapter => chapter && chapter.title)
+        .map((chapter, index) => ({
+            title: cleanCoReadReadableText(chapter.title).replace(/\s+/g, ' ').slice(0, 72),
+            url: chapter.url || '',
+            page: getCoReadChapterPage(chapter),
+            index
+        }));
+    const seen = new Set();
+    const pattern = /(?:^|\n)([^\n]{0,28}第\s*[一二三四五六七八九十百千万零〇\d]+\s*[章节回卷][^\n]{0,56})/g;
+    let match = null;
+    while (content && (match = pattern.exec(content)) && chapters.length < 360) {
+        const title = cleanCoReadReadableText(match[1]).replace(/\s+/g, ' ').slice(0, 72);
+        if (!title || seen.has(title)) continue;
+        seen.add(title);
+        const page = Math.max(0, Math.floor(match.index / COREAD_PAGE_SIZE));
+        const existing = chapters.find(chapter => chapter.title === title || chapter.title.includes(title) || title.includes(chapter.title));
+        if (existing) existing.page = Number.isFinite(Number(existing.page)) ? Math.min(existing.page, page) : page;
+        else chapters.push({ title, page, url: '', index: chapters.length });
+    }
+    if (!chapters.length) {
+        const pageCount = getCoReadPageCount(book);
+        return Array.from({ length: Math.min(pageCount, 80) }, (_, index) => ({
+            title: `第 ${index + 1} 页`,
+            page: index
+        }));
+    }
+    return chapters;
+}
+
+function getCoReadCurrentChapter(book) {
+    const page = Math.max(0, Number(book && book.page || 0));
+    const chapters = getCoReadChapters(book);
+    return [...chapters].reverse().find(chapter => {
+        const chapterPage = getCoReadChapterPage(chapter);
+        return chapterPage != null && chapterPage <= page;
+    }) || chapters[0] || null;
+}
+
+function renderCoReadToc() {
+    const drawer = document.getElementById('coread-toc-drawer');
+    const bookBox = document.getElementById('coread-toc-book');
+    const currentBox = document.getElementById('coread-toc-current');
+    const listBox = document.getElementById('coread-toc-list');
+    const book = getCoReadBook(coreadActiveBookId);
+    if (drawer) {
+        drawer.classList.toggle('open', coreadTocOpen);
+        drawer.setAttribute('aria-hidden', coreadTocOpen ? 'false' : 'true');
+    }
+    if (!book) {
+        if (bookBox) bookBox.innerHTML = '';
+        if (currentBox) currentBox.innerHTML = '';
+        if (listBox) listBox.innerHTML = '<div class="coread-empty">先选择一本书</div>';
+        return;
+    }
+    const page = Math.max(0, Number(book.page || 0));
+    const pageCount = getCoReadPageCount(book);
+    const chapters = getCoReadChapters(book);
+    const current = getCoReadCurrentChapter(book);
+    if (bookBox) {
+        bookBox.innerHTML = `
+            <div class="coread-toc-cover">${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}</div>
+            <div>
+                <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
+            </div>
+        `;
+    }
+    if (currentBox) {
+        currentBox.innerHTML = `
+            <span>正在阅读·${musicEscapeHtml(current ? current.title : `第 ${page + 1} 页`)}</span>
+            <em>${page + 1}/${pageCount}</em>
+        `;
+    }
+    if (listBox) {
+        listBox.innerHTML = chapters.map((chapter, index) => {
+            const active = current && chapter.title === current.title ? 'active' : '';
+            const chapterPage = getCoReadChapterPage(chapter);
+            const done = chapterPage != null && chapterPage < page ? ' done' : '';
+            return `
+                <button type="button" class="${active}${done}" onclick="jumpCoReadChapter(${index})">
+                    <span>${musicEscapeHtml(chapter.title)}</span>
+                    <i class="ri-checkbox-circle-fill"></i>
+                </button>
+            `;
+        }).join('') || '<div class="coread-empty">还没有目录</div>';
+    }
+}
+
+function toggleCoReadToc(open) {
+    coreadTocOpen = typeof open === 'boolean' ? open : !coreadTocOpen;
+    if (coreadTocOpen) coreadSettingsOpen = false;
+    renderCoReadSettings();
+    renderCoReadToc();
+}
+window.toggleCoReadToc = toggleCoReadToc;
+
+async function jumpCoReadChapter(index) {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item.id === coreadActiveBookId);
+    if (!book) return;
+    const chapter = getCoReadChapters(book)[Number(index || 0)];
+    if (!chapter) return;
+    let targetPage = getCoReadChapterPage(chapter);
+    if (targetPage == null && chapter.url) {
+        book.resolving = true;
+        book.resolveStatus = `正在加载${chapter.title || '章节'}`;
+        saveCoReadLibrary(library);
+        renderCoReadApp();
+        try {
+            const chapterUrl = normalizeCoReadChapterUrl(chapter.url);
+            const raw = await coReadFetchText(chapterUrl, { timeoutMs: 20000, quiet: true });
+            const text = extractCoReadChapterText(raw, chapterUrl);
+            const latest = getCoReadLibrary();
+            const target = latest.find(item => item.id === coreadActiveBookId);
+            if (!target) return;
+            if (isCoReadUsefulContent(text)) {
+                const prefix = target.content ? '\n\n' : '';
+                targetPage = Math.max(0, Math.floor((String(target.content || '').length + prefix.length) / COREAD_PAGE_SIZE));
+                target.content = `${target.content || ''}${prefix}${chapter.title || '章节'}\n\n${text}`.slice(0, 120000);
+                const chapterIndex = Number.isFinite(Number(chapter.index)) ? Number(chapter.index) : Number(index || 0);
+                if (Array.isArray(target.chapters) && target.chapters[chapterIndex]) {
+                    target.chapters[chapterIndex].page = targetPage;
+                }
+                target.resolveStatus = '章节已加载';
+            } else {
+                target.resolveStatus = '这一章暂时加载失败';
+            }
+            target.resolving = false;
+            target.page = targetPage == null ? Number(target.page || 0) : Math.max(0, Math.min(getCoReadPageCount(target) - 1, targetPage));
+            saveCoReadLibrary(latest);
+            coreadTocOpen = false;
+            renderCoReadApp();
+            return;
+        } catch (_) {
+            const latest = getCoReadLibrary();
+            const target = latest.find(item => item.id === coreadActiveBookId);
+            if (target) {
+                target.resolving = false;
+                target.resolveStatus = '这一章暂时加载失败';
+                saveCoReadLibrary(latest);
+            }
+            renderCoReadApp();
+            return;
+        }
+    }
+    book.page = Math.max(0, Math.min(getCoReadPageCount(book) - 1, Number(targetPage || 0)));
+    saveCoReadLibrary(library);
+    coreadTocOpen = false;
+    renderCoReadApp();
+}
+window.jumpCoReadChapter = jumpCoReadChapter;
 
 function renderCoReadDashboard() {
     const current = document.getElementById('coread-current-reads');
@@ -9705,7 +10116,7 @@ function renderCoReadDashboard() {
                         <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
                         <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
                         <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
-                        <small>${pct}%</small>
+                        <small>${book.resolving ? '解析中' : `${pct}%`}</small>
                     </button>
                     <button type="button" class="coread-read-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
                         <i class="ri-close-line"></i>
@@ -9713,7 +10124,7 @@ function renderCoReadDashboard() {
                 </article>
             `;
         }).join('') || '<div class="coread-empty">书架还空着。先从书源搜索或导入一本书。</div>';
-        library.filter(book => book && !book.coverUrl && !book.coverResolving && book.title).slice(0, 4).forEach(book => {
+        library.filter(book => book && !book.coverUrl && !book.coverResolving && book.title && !isCoReadUrlTitle(book.title)).slice(0, 4).forEach(book => {
             ensureCoReadBookCover(book.id);
         });
     }
@@ -9771,10 +10182,20 @@ function renderCoReadReader() {
     const title = document.getElementById('coread-reader-title');
     const body = document.getElementById('coread-reader-body');
     const meta = document.getElementById('coread-reader-meta');
+    const settings = getCoReadReaderSettings();
     if (title) title.textContent = book ? (book.title || '未命名书籍') : '选择一本书';
-    if (meta) meta.textContent = book ? `${book.author || '未知作者'} · 第 ${Math.max(1, Number(book.page || 0) + 1)} 页` : '导入 txt/md，或用在线书城搜索加入书架';
+    if (meta) {
+        const pageCount = book && book.content ? Math.max(1, Math.ceil(String(book.content || '').length / COREAD_PAGE_SIZE)) : 1;
+        meta.textContent = book
+            ? `${book.author || '未知作者'} · ${settings.pageMode === 'scroll' ? '滚动阅读' : `第 ${Math.max(1, Number(book.page || 0) + 1)} / ${pageCount} 页`}${book.resolveStatus ? ` · ${book.resolveStatus}` : ''}`
+            : '导入 txt/md，或用在线书城搜索加入书架';
+    }
     if (body) {
-        const text = book ? getCoReadPageText(book) : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
+        const text = book
+            ? (settings.pageMode === 'scroll' && !book.resolving
+                ? String(book.content || book.description || '这本书目前只有书名和来源链接，还没有正文。')
+                : getCoReadPageText(book))
+            : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
         body.textContent = text;
     }
 }
@@ -9782,6 +10203,33 @@ function renderCoReadReader() {
 function getCoReadTodayKey() {
     const date = new Date();
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getCoReadDailyParticipants() {
+    const today = getCoReadTodayKey();
+    try {
+        const cache = JSON.parse(localStorage.getItem(COREAD_DAILY_PARTICIPANTS_KEY) || '{}');
+        if (cache && cache.date === today && Number.isFinite(Number(cache.value))) {
+            return Number(cache.value);
+        }
+    } catch (_) {
+        // Regenerate below if the cached shape is invalid.
+    }
+    const min = 46000;
+    const max = 268000;
+    let random = Math.random();
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        const bucket = new Uint32Array(1);
+        window.crypto.getRandomValues(bucket);
+        random = bucket[0] / 0xffffffff;
+    }
+    const value = Math.floor(min + random * (max - min + 1));
+    try {
+        localStorage.setItem(COREAD_DAILY_PARTICIPANTS_KEY, JSON.stringify({ date: today, value }));
+    } catch (_) {
+        // localStorage may be unavailable in private contexts; the random value still renders.
+    }
+    return value;
 }
 
 function getCoReadDailyCache() {
@@ -9816,6 +10264,23 @@ function getCoReadDailyRecommendation() {
     const cache = getCoReadDailyCache();
     const today = getCoReadTodayKey();
     return cache.date === today && cache.book ? cache.book : buildCoReadFallbackDaily();
+}
+
+function getCoReadHolidaySense(date = new Date()) {
+    const mmdd = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const map = {
+        '01-01': { title: '元旦', line: '新的一年，也给故事留一个新的开头。', theme: 'NEW YEAR' },
+        '02-14': { title: '情人节', line: '把心动写进书页，和喜欢的人慢慢读。', theme: 'LOVE' },
+        '05-01': { title: '劳动节', line: '忙碌之后，留一页给自己安静下来。', theme: 'REST' },
+        '06-01': { title: '童心', line: '有些故事，会把人带回最柔软的年纪。', theme: 'CHILDHOOD' },
+        '10-01': { title: '国庆', line: '山河辽阔，故事也值得慢慢走过。', theme: 'NATIONAL DAY' },
+        '12-25': { title: '冬日', line: '把暖意藏进一页书里，等夜色慢下来。', theme: 'WINTER' }
+    };
+    const dragonBoat = ['05-30', '05-31', '06-01', '06-02', '06-03'];
+    if (dragonBoat.includes(mmdd)) {
+        return { title: '端午', line: '除了中国传统节日，这些传统文化你也不能忘', theme: 'DRAGON BOAT FESTIVAL' };
+    }
+    return map[mmdd] || null;
 }
 
 async function refreshCoReadDailyRecommendation(force = false) {
@@ -9864,24 +10329,68 @@ async function refreshCoReadDailyRecommendation(force = false) {
 
 function renderCoReadDaily() {
     const rec = getCoReadDailyRecommendation();
+    const holiday = getCoReadHolidaySense();
     const volume = document.getElementById('coread-daily-volume');
     const title = document.getElementById('coread-daily-title');
     const line = document.getElementById('coread-daily-line');
     const card = document.getElementById('coread-daily-card');
+    const participants = getCoReadDailyParticipants();
+    const senseTitle = holiday ? holiday.title : '惊喜';
+    const senseLine = holiday ? holiday.line : (rec.line || '你缺的有趣叫仪式感，赠你生活达人养成秘籍');
     if (volume) volume.textContent = rec.volume;
-    if (title) title.textContent = rec.title;
-    if (line) line.textContent = rec.line;
+    if (title) title.textContent = holiday ? holiday.title : '今日惊喜书页';
+    if (line) line.textContent = senseLine;
     if (card) {
         card.innerHTML = `
-            <button type="button" class="coread-daily-book" onclick="addCoReadRecommendedBook()">
-                <span>${coreadDailyLoading ? 'LOADING' : 'DAILY BOOK'}</span>
-                <strong>${musicEscapeHtml(rec.title)}</strong>
-                <em>${musicEscapeHtml(rec.author)}</em>
-                <small>${musicEscapeHtml(rec.tone)}</small>
+            <button type="button" class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}" onclick="addCoReadRecommendedBook()">
+                <span>${musicEscapeHtml(rec.volume || 'VOL.17')}</span>
+                <b>SENSE</b>
+                <i aria-hidden="true"></i>
+                <em>${musicEscapeHtml(senseLine)}</em>
+                <strong>${musicEscapeHtml(senseTitle)}</strong>
+                <small>${musicEscapeHtml(holiday ? holiday.theme : `${participants}人 · 参与话题`)}</small>
             </button>
             <button type="button" class="coread-daily-refresh" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一本"><i class="ri-refresh-line"></i></button>
         `;
     }
+}
+
+function updateCoReadTopbar() {
+    const topbar = document.querySelector('.coread-topbar');
+    if (!topbar) return;
+    const eyebrow = topbar.querySelector('span');
+    const title = topbar.querySelector('strong');
+    const rightBtn = topbar.querySelector('button:last-child');
+    const backIcon = topbar.querySelector('button:first-child i');
+    const tabs = {
+        discover: { title: '发现', action: '书城', onclick: "setCoReadTab('shelf')" },
+        shelf: { title: '书架', action: '发现', onclick: "setCoReadTab('discover')" },
+        thoughts: { title: '想法', action: '书城', onclick: "setCoReadTab('shelf')" },
+        me: { title: '我', action: '书城', onclick: "setCoReadTab('shelf')" }
+    };
+    const config = tabs[coreadActiveTab];
+    topbar.classList.toggle('coread-ios-topbar', !!config);
+    if (!config) {
+        if (eyebrow) eyebrow.textContent = 'SHARED READING';
+        if (title) title.textContent = '和 char 共读小说';
+        if (rightBtn) {
+            rightBtn.classList.remove('coread-topbar-text-btn');
+            rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
+            rightBtn.setAttribute('onclick', 'askCoReadComment()');
+            rightBtn.setAttribute('aria-label', '让 char 评论');
+        }
+        if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
+        return;
+    }
+    if (eyebrow) eyebrow.textContent = '';
+    if (title) title.textContent = config.title;
+    if (rightBtn) {
+        rightBtn.classList.add('coread-topbar-text-btn');
+        rightBtn.textContent = config.action;
+        rightBtn.setAttribute('onclick', config.onclick);
+        rightBtn.setAttribute('aria-label', config.action);
+    }
+    if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
 }
 
 function renderCoReadApp() {
@@ -9889,6 +10398,10 @@ function renderCoReadApp() {
     const chars = document.getElementById('coread-char-list');
     const status = document.getElementById('coread-status');
     const library = getCoReadLibrary();
+    if (coreadActiveTab !== 'reader') {
+        coreadTocOpen = false;
+        coreadSettingsOpen = false;
+    }
     if (!coreadActiveBookId && library[0]) coreadActiveBookId = library[0].id;
     if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
     if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
@@ -9896,16 +10409,40 @@ function renderCoReadApp() {
     if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : '内置书城优先，公开书目备用。';
     const content = document.querySelector('.coread-content');
     if (content) content.dataset.tab = coreadActiveTab;
+    const shell = document.querySelector('.coread-shell');
+    if (shell) shell.classList.toggle('coread-reader-mode', coreadActiveTab === 'reader');
+    applyCoReadReaderSettings();
+    updateCoReadTopbar();
+    const backBtn = document.querySelector('.coread-topbar button:first-child');
+    if (backBtn) {
+        backBtn.setAttribute('onclick', coreadActiveTab === 'reader' ? "setCoReadTab('shelf')" : "closeApp('coread')");
+        backBtn.setAttribute('aria-label', coreadActiveTab === 'reader' ? '返回书架' : '返回');
+    }
     document.querySelectorAll('.coread-bottom-nav button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.coreadTab === coreadActiveTab);
     });
     renderCoReadDaily();
     renderCoReadReader();
+    renderCoReadToc();
+    renderCoReadSettings();
     renderCoReadDashboard();
     renderCoReadThoughts();
     renderCoReadMePanel();
     renderCoReadCalendarStats();
     renderCoReadSourceManager();
+    let currentLibrary = library;
+    const stuck = currentLibrary.find(book => book && book.url && book.resolving && Number(book.resolveVersion || 0) < COREAD_RESOLVE_VERSION && !coreadResolvingBookIds.has(book.id));
+    if (stuck) {
+        stuck.resolving = false;
+        stuck.resolveStatus = '等待重新解析正文';
+        saveCoReadLibrary(currentLibrary);
+        currentLibrary = getCoReadLibrary();
+    }
+    const expandable = currentLibrary.find(book => book.id === coreadActiveBookId && shouldResolveCoReadBookContent(book))
+        || currentLibrary.find(book => shouldResolveCoReadBookContent(book));
+    if (expandable) {
+        setTimeout(() => resolveCoReadBookContent(expandable.id), 0);
+    }
 }
 
 function initCoReadApp() {
@@ -9919,7 +10456,7 @@ window.initCoReadApp = initCoReadApp;
 
 function selectCoReadBook(bookId) {
     coreadActiveBookId = bookId || '';
-    coreadActiveTab = 'shelf';
+    coreadActiveTab = 'reader';
     renderCoReadApp();
 }
 window.selectCoReadBook = selectCoReadBook;
@@ -9937,6 +10474,11 @@ function setCoReadTab(tab) {
     renderCoReadApp();
 }
 window.setCoReadTab = setCoReadTab;
+
+function closeCoReadReader() {
+    setCoReadTab('shelf');
+}
+window.closeCoReadReader = closeCoReadReader;
 
 function addCoReadRecommendedBook() {
     const rec = getCoReadDailyRecommendation();
@@ -9962,18 +10504,386 @@ function addCoReadBook(book) {
         coverUrl: normalizeCoReadCoverUrl(book.coverUrl || ''),
         rating: Math.max(0, Math.min(5, Number(book.rating || 0))),
         sourceData: book.sourceData || null,
+        chapters: Array.isArray(book.chapters) ? book.chapters.slice(0, 360) : [],
         content: String(book.content || ''),
         description: String(book.description || ''),
+        resolving: false,
+        resolveStatus: book.url && !isCoReadUsefulContent(book.content || '') ? '等待解析正文' : '',
+        resolveVersion: book.url && isCoReadUsefulContent(book.content || '') ? COREAD_RESOLVE_VERSION : 0,
+        resolveMetaVersion: book.url && isCoReadUrlTitle(book.title || '') ? 0 : COREAD_META_VERSION,
+        resolveChapterVersion: Array.isArray(book.chapters) && book.chapters.length ? COREAD_CHAPTER_VERSION : 0,
         page: 0,
         createdAt: Date.now()
     };
     library.unshift(safe);
     saveCoReadLibrary(library);
     coreadActiveBookId = safe.id;
-    coreadActiveTab = 'shelf';
+    coreadActiveTab = 'reader';
     renderCoReadApp();
-    if (!safe.coverUrl) ensureCoReadBookCover(safe.id);
+    if (!safe.coverUrl && !isCoReadUrlTitle(safe.title)) ensureCoReadBookCover(safe.id);
+    if (shouldResolveCoReadBookContent(safe)) resolveCoReadBookContent(safe.id);
 }
+
+function cleanCoReadReadableText(text) {
+    return String(text || '')
+        .replace(/\r/g, '\n')
+        .replace(/[-]/g, ch => COREAD_OBFUSCATED_TEXT_MAP[ch] || ch)
+        .replace(/……?（?内容加载失败！?）?[\s\S]*$/g, '')
+        .replace(/抱歉，章节内容不支持该浏览器显示[\s\S]*$/g, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>|<\/div>|<\/h[1-6]>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim();
+}
+
+function collectCoReadJsonTexts(value, out = []) {
+    if (value == null) return out;
+    if (typeof value === 'string') {
+        const text = cleanCoReadReadableText(value);
+        if (text.length > 180) out.push(text);
+        return out;
+    }
+    if (Array.isArray(value)) {
+        value.forEach(item => collectCoReadJsonTexts(item, out));
+        return out;
+    }
+    if (typeof value === 'object') {
+        const preferred = ['content', 'chapterContent', 'bookContent', 'text', 'body', 'html', 'data'];
+        preferred.forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(value, key)) collectCoReadJsonTexts(value[key], out);
+        });
+        Object.keys(value).forEach(key => {
+            if (!preferred.includes(key)) collectCoReadJsonTexts(value[key], out);
+        });
+    }
+    return out;
+}
+
+function extractCoReadTextFromJson(raw) {
+    try {
+        const data = JSON.parse(String(raw || '').replace(/^\uFEFF/, ''));
+        const pieces = collectCoReadJsonTexts(data)
+            .filter(text => !/^https?:\/\//i.test(text) && !/^\d+$/.test(text))
+            .sort((a, b) => b.length - a.length);
+        return pieces.slice(0, 8).join('\n\n');
+    } catch (_) {
+        return '';
+    }
+}
+
+function cleanCoReadBookTitle(title) {
+    let text = cleanCoReadReadableText(title).replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    text = text
+        .replace(/^Title:\s*/i, '')
+        .replace(/(?:最新章节|小说全文|全文阅读|无弹窗|免费阅读|章节目录|在线阅读|小说网|镇魂小说网).*$/i, '')
+        .replace(/[（(][^）)]{1,40}[）)]/g, '')
+        .split(/[_｜|]/)[0]
+        .replace(/\s*[-—]\s*(?:小说|小说网|在线阅读|全文阅读).*$/i, '')
+        .replace(/小说$/i, '')
+        .replace(/^www\.[^\s/]+.*$/i, '')
+        .trim();
+    return text.length > 1 ? text.slice(0, 80) : '';
+}
+
+function cleanCoReadBookAuthor(author) {
+    let text = cleanCoReadReadableText(author).replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    text = text
+        .replace(/^作者\s*[:：]?\s*/i, '')
+        .replace(/\s*(?:著|作者|写的|作品).*$/i, '')
+        .replace(/[|｜_].*$/g, '')
+        .trim();
+    return text && !/^https?:\/\//i.test(text) ? text.slice(0, 60) : '';
+}
+
+function isCoReadUrlTitle(title) {
+    const text = String(title || '').trim();
+    return !text || /^https?:\/\//i.test(text) || /^www\./i.test(text) || /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(text);
+}
+
+function extractCoReadMetadataFromHtml(raw, baseUrl = '') {
+    const text = String(raw || '');
+    const meta = { title: '', author: '', coverUrl: '' };
+    const jinaTitle = text.match(/^\s*Title:\s*([^\n]+)/i);
+    const titleAuthor = jinaTitle && jinaTitle[1].match(/[（(]([^）)]{2,30})[）)]/);
+    if (titleAuthor) meta.author = cleanCoReadBookAuthor(titleAuthor[1]);
+    if (jinaTitle) meta.title = cleanCoReadBookTitle(jinaTitle[1]);
+    const jinaMarkdownHead = text.match(/Markdown Content:\s*\n+\s*#\s*([^\n]+)/i);
+    if (!meta.title && jinaMarkdownHead) meta.title = cleanCoReadBookTitle(jinaMarkdownHead[1]);
+    try {
+        const doc = new DOMParser().parseFromString(text, 'text/html');
+        const readAttr = selector => doc.querySelector(selector)?.getAttribute('content') || '';
+        const readText = selector => doc.querySelector(selector)?.textContent || '';
+        meta.title = meta.title
+            || cleanCoReadBookTitle(readAttr('meta[property="og:title"], meta[name="og:title"]'))
+            || cleanCoReadBookTitle(readAttr('meta[name="twitter:title"]'))
+            || cleanCoReadBookTitle(readText('h1, .book-title, .bookname, #info h1, .info h1, title'));
+        meta.author = meta.author
+            || cleanCoReadBookAuthor(readAttr('meta[name="author"], meta[property="book:author"], meta[property="article:author"]'))
+            || cleanCoReadBookAuthor(readText('.author, .book-author, .writer, #info p, .info p'));
+        const cover = readAttr('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"]')
+            || doc.querySelector('.cover img, .book-cover img, #fmimg img, img.cover')?.getAttribute('src')
+            || '';
+        if (cover) {
+            try {
+                meta.coverUrl = normalizeCoReadCoverUrl(new URL(cover, baseUrl).href);
+            } catch (_) {
+                meta.coverUrl = normalizeCoReadCoverUrl(cover);
+            }
+        }
+    } catch (_) {}
+    const plain = cleanCoReadReadableText(text);
+    if (!meta.author) {
+        const authorMatch = plain.match(/(?:作者|作\s*者)\s*[:：]\s*([^\n\r《》_｜|]{1,40})/);
+        if (authorMatch) meta.author = cleanCoReadBookAuthor(authorMatch[1]);
+    }
+    if (!meta.title) {
+        const titleMatch = plain.match(/(?:书名|小说名)\s*[:：]\s*([^\n\r《》_｜|]{1,60})/);
+        if (titleMatch) meta.title = cleanCoReadBookTitle(titleMatch[1]);
+    }
+    return meta;
+}
+
+function mergeCoReadMetadata(target, meta = {}) {
+    if (!target || !meta) return;
+    if (meta.title && (isCoReadUrlTitle(target.title) || target.source === 'url')) {
+        target.title = meta.title;
+        if (!target.coverUrl) target.coverResolving = false;
+    }
+    if (meta.author && (!target.author || target.author === '未知作者')) {
+        target.author = meta.author;
+    }
+    if (meta.coverUrl && !target.coverUrl) {
+        target.coverUrl = meta.coverUrl;
+    }
+}
+
+function extractCoReadTextFromHtml(html, baseUrl = '') {
+    const raw = String(html || '');
+    if (/^\s*Title:\s*/i.test(raw) && /\n\n/.test(raw)) {
+        return cleanCoReadReadableText(raw.replace(/^\s*Title:[^\n]*\n+(?:URL Source|URL):[^\n]*\n+(?:Published Time:[^\n]*\n+)?(?:Markdown Content:\n+)?/i, ''));
+    }
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    doc.querySelectorAll('script,style,noscript,nav,header,footer,iframe,form,button,.nav,.header,.footer,.ads,.advertisement,.comment,.comments').forEach(node => node.remove());
+    const selectors = [
+        '.article-content', '#content', '.content', '.chapter-content', '.chapter_content', '.read-content',
+        '.reader-content', '.article-content', '.book-content', '.novelcontent',
+        '.txt', '.txtnav', '.entry-content', '.post-content', 'article', 'main'
+    ];
+    const candidates = selectors
+        .flatMap(selector => Array.from(doc.querySelectorAll(selector)))
+        .map(node => cleanCoReadReadableText(node.innerHTML || node.textContent || ''))
+        .filter(text => text.length > 240);
+    if (!candidates.length) {
+        const bodyText = cleanCoReadReadableText(doc.body ? doc.body.innerHTML : raw);
+        if (bodyText.length > 500) candidates.push(bodyText);
+    }
+    return candidates.sort((a, b) => b.length - a.length)[0] || '';
+}
+
+function extractCoReadChapterText(raw, url = '') {
+    const jsonText = extractCoReadTextFromJson(raw);
+    if (isCoReadUsefulContent(jsonText)) return jsonText;
+    const htmlText = extractCoReadTextFromHtml(raw, url);
+    if (isCoReadUsefulContent(htmlText)) return htmlText;
+    try {
+        const doc = new DOMParser().parseFromString(String(raw || ''), 'text/html');
+        const article = doc.querySelector('article.article-content, .article-content, .entry-content, .post-content');
+        const text = cleanCoReadReadableText(article ? (article.innerHTML || article.textContent || '') : '');
+        if (isCoReadUsefulContent(text)) return text;
+    } catch (_) {}
+    return htmlText || jsonText || '';
+}
+
+function findCoReadContinuationLinks(html, baseUrl = '') {
+    const raw = String(html || '');
+    const links = [];
+    const seen = new Set();
+    const add = href => {
+        if (!href || /javascript:|#|mailto:/i.test(href)) return;
+        try {
+            const url = new URL(href, baseUrl).href;
+            if (!seen.has(url)) {
+                seen.add(url);
+                links.push(url);
+            }
+        } catch (_) {}
+    };
+    const nextFromScript = raw.match(/t2018_1\s*:\s*['"]([^'"]+)['"]/);
+    if (nextFromScript) add(nextFromScript[1]);
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    Array.from(doc.querySelectorAll('a[href]')).forEach(a => {
+        const label = cleanCoReadReadableText(a.textContent || '');
+        const href = a.getAttribute('href') || '';
+        if (/下一页|下一章|下页|下章|继续阅读/i.test(label)) add(href);
+    });
+    return links;
+}
+
+function findCoReadChapterLinks(html, baseUrl = '') {
+    const raw = String(html || '');
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    const links = [];
+    const seen = new Set();
+    const add = (title, href) => {
+        if (!href || /javascript:|#|mailto:/i.test(href)) return;
+        try {
+            const url = normalizeCoReadChapterUrl(href, baseUrl);
+            if (!seen.has(url)) {
+                seen.add(url);
+                links.push({ title: title || '正文', url });
+            }
+        } catch (_) {}
+    };
+    Array.from(doc.querySelectorAll('a[href]')).forEach(a => {
+        const label = cleanCoReadReadableText(a.textContent || '');
+        const href = a.getAttribute('href') || '';
+        const looksChapter = /第\s*[一二三四五六七八九十百千万零〇\d]+\s*[章节回卷]|第.{1,16}[章节回卷]|chapter|正文|目录|阅读|最新章/i.test(label)
+            || (/chapter|read|book|novel|\/\d+\.html|\/\d+\/?$/i.test(href) && !/简介|介绍|作者|评论|目录/.test(label));
+        if (looksChapter) add(label, href);
+    });
+    Array.from(raw.matchAll(/\[([^\]]*第\s*[一二三四五六七八九十百千万零〇\d]+\s*[章节回卷][^\]]*)\]\((https?:\/\/[^)\s]+)(?:\s+["'][^"']*["'])?\)/g))
+        .forEach(match => add(cleanCoReadReadableText(match[1]), match[2]));
+    return links.slice(0, 360).map((chapter, index) => ({
+        title: cleanCoReadReadableText(chapter.title).replace(/\s+/g, ' ').slice(0, 88) || `第 ${index + 1} 章`,
+        url: chapter.url,
+        page: getCoReadChapterPage(chapter)
+    }));
+}
+
+async function extractCoReadReadableContent(url, title = '') {
+    const rawUrl = String(url || '').trim();
+    const result = { content: '', meta: {}, chapters: [] };
+    if (!/^https?:\/\//i.test(rawUrl)) return result;
+    const first = await coReadFetchText(rawUrl, { timeoutMs: 6500, quiet: true });
+    result.meta = extractCoReadMetadataFromHtml(first, rawUrl);
+    const jsonText = extractCoReadTextFromJson(first);
+    if (isCoReadUsefulContent(jsonText) && !isCoReadLikelyDirectoryContent(jsonText)) {
+        result.content = jsonText;
+        return result;
+    }
+    const chapters = findCoReadChapterLinks(first, rawUrl);
+    result.chapters = chapters;
+    if (chapters.length >= 3) {
+        const picked = [];
+        for (const chapter of chapters.slice(0, 3)) {
+            try {
+                const chapterRaw = await coReadFetchText(chapter.url, { timeoutMs: 12000, quiet: true });
+                const chapterText = extractCoReadChapterText(chapterRaw, chapter.url);
+                if (isCoReadUsefulContent(chapterText)) {
+                    chapter.page = Math.max(0, Math.floor(picked.join('\n\n').length / COREAD_PAGE_SIZE));
+                    picked.push(`${chapter.title || title || '章节'}\n\n${chapterText}`);
+                }
+            } catch (_) {}
+            if (picked.join('\n\n').length > 7000) break;
+        }
+        if (picked.length) {
+            result.content = picked.join('\n\n');
+            return result;
+        }
+    }
+    const pageText = extractCoReadTextFromHtml(first, rawUrl);
+    if (isCoReadUsefulContent(pageText) && !isCoReadLikelyDirectoryContent(pageText) && !/目录|最新章节|全部章节/.test(pageText.slice(0, 500))) {
+        const pieces = [pageText];
+        const seen = new Set([rawUrl]);
+        let nextUrl = findCoReadContinuationLinks(first, rawUrl).find(link => !seen.has(link));
+        for (let i = 0; nextUrl && i < 3 && pieces.join('\n\n').length < 9000; i += 1) {
+            seen.add(nextUrl);
+            try {
+                const nextRaw = await coReadFetchText(nextUrl, { timeoutMs: 12000, quiet: true });
+                const nextText = extractCoReadChapterText(nextRaw, nextUrl);
+                if (isCoReadUsefulContent(nextText) && !pieces.includes(nextText)) {
+                    pieces.push(nextText);
+                }
+                nextUrl = findCoReadContinuationLinks(nextRaw, nextUrl).find(link => !seen.has(link));
+            } catch (_) {
+                nextUrl = '';
+            }
+        }
+        result.content = pieces.join('\n\n');
+        return result;
+    }
+    const picked = [];
+    for (const chapter of chapters.slice(0, 4)) {
+        try {
+            const chapterRaw = await coReadFetchText(chapter.url, { timeoutMs: 12000, quiet: true });
+            const chapterText = extractCoReadChapterText(chapterRaw, chapter.url);
+            if (chapterText && chapterText.length > 260) {
+                chapter.page = Math.max(0, Math.floor(picked.join('\n\n').length / COREAD_PAGE_SIZE));
+                picked.push(`${chapter.title || title || '章节'}\n\n${chapterText}`);
+            }
+        } catch (_) {}
+        if (picked.join('\n\n').length > 5200) break;
+    }
+    result.content = picked.join('\n\n') || (pageText.length > 500 ? pageText : '');
+    return result;
+}
+
+async function resolveCoReadBookContent(bookId) {
+    const id = String(bookId || '');
+    if (!id) return;
+    if (coreadResolvingBookIds.has(id)) return;
+    let library = getCoReadLibrary();
+    let book = library.find(item => item.id === id);
+    if (!shouldResolveCoReadBookContent(book)) return;
+    coreadResolvingBookIds.add(id);
+    book.resolving = true;
+    book.resolveStatus = isCoReadUsefulContent(book.content) ? '正在扩展正文' : '正在解析正文';
+    saveCoReadLibrary(library);
+    renderCoReadApp();
+    try {
+        const parsed = await extractCoReadReadableContent(book.url, book.title);
+        const text = typeof parsed === 'string' ? parsed : String(parsed && parsed.content || '');
+        library = getCoReadLibrary();
+        book = library.find(item => item.id === id);
+        if (!book) return;
+        mergeCoReadMetadata(book, parsed && parsed.meta);
+        book.resolveMetaVersion = COREAD_META_VERSION;
+        if (parsed && Array.isArray(parsed.chapters)) {
+            book.chapters = parsed.chapters.slice(0, 360);
+        }
+        book.resolveChapterVersion = COREAD_CHAPTER_VERSION;
+        if (isCoReadUsefulContent(text)) {
+            book.content = text.slice(0, 120000);
+            book.description = book.description || text.slice(0, 240);
+            book.resolveStatus = '正文已解析';
+            book.resolveVersion = COREAD_RESOLVE_VERSION;
+        } else {
+            book.resolveStatus = '未解析到正文，可导入 txt/md';
+            book.resolveVersion = COREAD_RESOLVE_VERSION;
+        }
+        book.resolving = false;
+        saveCoReadLibrary(library);
+        if (!book.coverUrl) ensureCoReadBookCover(book.id);
+    } catch (_) {
+        library = getCoReadLibrary();
+        book = library.find(item => item.id === id);
+        if (book) {
+            book.resolving = false;
+            book.resolveStatus = '解析失败，可导入 txt/md';
+            book.resolveVersion = COREAD_RESOLVE_VERSION;
+            book.resolveMetaVersion = COREAD_META_VERSION;
+            book.resolveChapterVersion = COREAD_CHAPTER_VERSION;
+            saveCoReadLibrary(library);
+        }
+    } finally {
+        coreadResolvingBookIds.delete(id);
+    }
+    renderCoReadApp();
+}
+window.resolveCoReadBookContent = resolveCoReadBookContent;
 
 async function importCoReadFile(input) {
     const file = input && input.files && input.files[0];
@@ -10028,10 +10938,12 @@ function buildCoReadSourceSearchRequest(source, query) {
     const comma = raw.indexOf(',{');
     if (comma > 0) {
         path = raw.slice(0, comma);
+        const escapedQuery = JSON.stringify(query).slice(1, -1);
         const optionText = raw.slice(comma + 1)
-            .replace(/'/g, '"')
-            .replace(/"\{\{key\}\}"/g, JSON.stringify(query))
-            .replace(/\{\{key\}\}/g, JSON.stringify(query))
+            .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_, text) => JSON.stringify(text.replace(/\\'/g, "'")))
+            .replace(/(:\s*)\{\{key\}\}/g, `$1${JSON.stringify(query)}`)
+            .replace(/(:\s*)\{\{page\}\}/g, (_, prefix) => `${prefix}1`)
+            .replace(/\{\{key\}\}/g, escapedQuery)
             .replace(/\{\{page\}\}/g, '1');
         try {
             options = JSON.parse(optionText);
@@ -10098,10 +11010,19 @@ function readCoReadJsonPath(data, path) {
         walk(data);
         return found;
     }
-    clean = clean.replace(/^\$\./, '').replace(/^\$/, '').replace(/\[\*\]/g, '');
+    clean = clean
+        .replace(/^\$\./, '')
+        .replace(/^\$/, '')
+        .replace(/\[(\d+)\]/g, '.$1')
+        .replace(/\[\*\]/g, '.*');
     if (!clean) return data;
     return clean.split('.').filter(Boolean).reduce((value, key) => {
-        if (Array.isArray(value)) return value.flatMap(item => item && item[key] != null ? item[key] : []);
+        if (Array.isArray(value)) {
+            if (key === '*') return value.flatMap(item => Array.isArray(item) ? item : [item]);
+            if (/^\d+$/.test(key)) return value[Number(key)] != null ? value[Number(key)] : '';
+            return value.flatMap(item => item && item[key] != null ? item[key] : []);
+        }
+        if (key === '*') return value && typeof value === 'object' ? Object.values(value) : [];
         return value && value[key] != null ? value[key] : '';
     }, data);
 }
@@ -10111,12 +11032,21 @@ function readCoReadJsonRule(item, rule, baseUrl = '') {
     const parts = String(rule).split('||');
     for (const part of parts) {
         let text = String(part || '').trim();
-        text = text.replace(/\{\{\s*(\$\.[^}]+)\s*\}\}/g, (_, path) => {
-            const value = readCoReadJsonPath(item, path);
+        const readTemplate = path => {
+            let clean = String(path || '').trim();
+            clean = clean.replace(/^book\./, '$.');
+            if (!clean.startsWith('$')) clean = `$.${clean}`;
+            const value = readCoReadJsonPath(item, clean);
             return Array.isArray(value) ? value.join(' ') : String(value == null ? '' : value);
-        });
+        };
+        text = text
+            .replace(/\{\{\s*([^}]+)\s*\}\}/g, (_, path) => readTemplate(path))
+            .replace(/\{\s*(\$[.$][^}]+)\s*\}/g, (_, path) => readTemplate(path));
         let value = '';
         if (text.startsWith('$.') || text.startsWith('$..') || text === '$') {
+            const raw = readCoReadJsonPath(item, text);
+            value = Array.isArray(raw) ? raw.join(' ') : String(raw == null ? '' : raw);
+        } else if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\[\d+\]|\[\*\])*$/.test(text)) {
             const raw = readCoReadJsonPath(item, text);
             value = Array.isArray(raw) ? raw.join(' ') : String(raw == null ? '' : raw);
         } else {
@@ -10134,15 +11064,42 @@ function readCoReadJsonRule(item, rule, baseUrl = '') {
 function parseCoReadRulePart(rule) {
     const clean = String(rule || '').split('##')[0].split('&&')[0].trim();
     const at = clean.lastIndexOf('@');
-    return at >= 0
-        ? { selector: clean.slice(0, at).trim(), attr: clean.slice(at + 1).trim() || 'text' }
+    if (at < 0) return { selector: clean, attr: 'text' };
+    const attr = clean.slice(at + 1).trim() || 'text';
+    const isAttr = /^(text|textNodes|ownText|html|href|src|data-original|_src|title|alt|content|value|all)$/i.test(attr);
+    return isAttr
+        ? { selector: clean.slice(0, at).trim(), attr }
         : { selector: clean, attr: 'text' };
+}
+
+function normalizeCoReadLegadoSelector(selector) {
+    return String(selector || '').split('@').map(part => {
+        let clean = part.trim();
+        clean = clean.replace(/^tag\./, '');
+        clean = clean.replace(/^id\.([^\s>+~.#:[\]]+)/, '#$1');
+        clean = clean.replace(/^class\.([^\s>+~:[\]]+(?:\s+[^\s>+~:[\]]+)*)/, (_, names) => {
+            return String(names || '').trim().split(/\s+/).filter(Boolean).map(name => `.${name}`).join('');
+        });
+        clean = clean.replace(/(^|[\s>+~])tag\./g, '$1');
+        clean = clean.replace(/(^|[\s>+~])id\.([^\s>+~.#:[\]]+)/g, '$1#$2');
+        clean = clean.replace(/(^|[\s>+~])class\.([^\s>+~.#:[\]]+)/g, '$1.$2');
+        return clean;
+    }).filter(Boolean).join(' ');
 }
 
 function selectCoReadRuleNodes(root, selector) {
     let clean = String(selector || '').trim();
     if (!clean) return [root];
+    if (clean.includes('||')) {
+        const seen = new Set();
+        return clean.split('||').flatMap(part => selectCoReadRuleNodes(root, part)).filter(node => {
+            if (!node || seen.has(node)) return false;
+            seen.add(node);
+            return true;
+        });
+    }
     if (clean.startsWith('-')) clean = clean.slice(1).trim();
+    clean = normalizeCoReadLegadoSelector(clean);
     let index = null;
     clean = clean.replace(/\.(-?\d+)(?::[-\d]+)*$/g, (_, n) => {
         index = Number(n);
@@ -10163,19 +11120,24 @@ function selectCoReadRuleNodes(root, selector) {
 
 function readCoReadRule(root, rule, baseUrl = '') {
     if (!rule) return '';
-    const { selector, attr } = parseCoReadRulePart(rule);
-    const nodes = selectCoReadRuleNodes(root, selector);
-    const values = nodes.map(node => {
-        if (!node) return '';
-        if (attr === 'text' || attr === 'textNodes') return node.textContent || '';
-        if (attr === 'html') return node.innerHTML || '';
-        const value = node.getAttribute(attr) || '';
-        if ((attr === 'href' || attr === 'src') && value && baseUrl) {
-            try { return new URL(value, baseUrl).href; } catch (_) {}
-        }
-        return value;
-    }).filter(Boolean);
-    return applyCoReadLegadoReplace(values.join(' '), rule);
+    const parts = String(rule).split('||');
+    for (const part of parts) {
+        const { selector, attr } = parseCoReadRulePart(part);
+        const nodes = selectCoReadRuleNodes(root, selector);
+        const values = nodes.map(node => {
+            if (!node) return '';
+            if (attr === 'text' || attr === 'textNodes' || attr === 'ownText') return node.textContent || '';
+            if (attr === 'html') return node.innerHTML || '';
+            const value = node.getAttribute(attr) || '';
+            if ((attr === 'href' || attr === 'src' || attr === 'data-original' || attr === '_src') && value && baseUrl) {
+                try { return new URL(value, baseUrl).href; } catch (_) {}
+            }
+            return value;
+        }).filter(Boolean);
+        const value = applyCoReadLegadoReplace(values.join(' '), part);
+        if (value) return value;
+    }
+    return '';
 }
 
 function parseCoReadSourceSearchHtml(html, source, query) {
@@ -10236,26 +11198,161 @@ async function searchCoReadBookSources(query) {
     const sources = getCoReadSources()
         .filter(source => source && source.enabled !== false && source.ruleSearch && source.searchUrl)
         .sort((a, b) => {
+            const aJson = /^\$|^[A-Za-z_$][\w$]*(?:\.|\[|$)/.test(String(a.ruleSearch?.bookList || '')) ? 0 : 1;
+            const bJson = /^\$|^[A-Za-z_$][\w$]*(?:\.|\[|$)/.test(String(b.ruleSearch?.bookList || '')) ? 0 : 1;
+            if (aJson !== bJson) return aJson - bJson;
             const aPost = /,\s*\{[\s\S]*method[\s\S]*POST/i.test(String(a.searchUrl || '')) ? 1 : 0;
             const bPost = /,\s*\{[\s\S]*method[\s\S]*POST/i.test(String(b.searchUrl || '')) ? 1 : 0;
             return aPost - bPost;
         })
-        .slice(0, 6);
+        .slice(0, 18);
     if (!sources.length) return [];
-    const settled = await Promise.allSettled(sources.map(async source => {
-        try {
-            const request = buildCoReadSourceSearchRequest(source, query);
-            if (!request) return [];
-            const html = await coReadFetchText(request.url, { ...(request.options || {}), timeoutMs: 2600, quiet: true });
-            return /^\s*[\[{]/.test(html)
-                ? parseCoReadSourceSearchJson(html, source, query)
-                : parseCoReadSourceSearchHtml(html, source, query);
-        } catch (e) {
-            return [];
-        }
-    }));
-    const results = settled.flatMap(item => item.status === 'fulfilled' && Array.isArray(item.value) ? item.value : []);
+    const results = [];
+    for (let i = 0; i < sources.length && results.length < 12; i += 6) {
+        const batch = sources.slice(i, i + 6);
+        const settled = await Promise.allSettled(batch.map(async source => {
+            try {
+                const request = buildCoReadSourceSearchRequest(source, query);
+                if (!request) return [];
+                const html = await coReadFetchText(request.url, { ...(request.options || {}), timeoutMs: 4200, quiet: true });
+                return /^\s*[\[{]/.test(html)
+                    ? parseCoReadSourceSearchJson(html, source, query)
+                    : parseCoReadSourceSearchHtml(html, source, query);
+            } catch (e) {
+                return [];
+            }
+        }));
+        results.push(...settled.flatMap(item => item.status === 'fulfilled' && Array.isArray(item.value) ? item.value : []));
+        if (results.length >= 4) break;
+    }
     return results.slice(0, 12);
+}
+
+async function searchCoReadReadableWeb(query) {
+    const rawQuery = String(query || '').trim();
+    if (!rawQuery) return [];
+    const url = `https://www.yodu.org/sa/all-${encodeURIComponent(rawQuery)}-1.html`;
+    try {
+        const raw = await coReadFetchText(`https://r.jina.ai/${url}`, { timeoutMs: 5200, quiet: true });
+        if (!raw || !raw.includes(rawQuery)) return [];
+        const startUrl = (raw.match(/开始阅读[\s\S]{0,180}?\]\((https?:\/\/www\.yodu\.org\/book\/[^)\s"]+)/) || [])[1]
+            || (raw.match(/\]\((https?:\/\/www\.yodu\.org\/book\/\d+\/\d+\.html)[^)]*\)/) || [])[1];
+        if (!startUrl) return [];
+        const headings = Array.from(raw.matchAll(/^#\s+(.+)$/gm)).map(match => cleanCoReadReadableText(match[1]));
+        const title = headings.find(item => item === rawQuery) || headings.find(item => item && !/全文在线阅读|有度中文网/.test(item)) || rawQuery;
+        const author = cleanCoReadReadableText((raw.match(/\*\*\[([^\]]{1,80})\]\(https?:\/\/www\.yodu\.org\/authorarticle\//) || [])[1] || '');
+        const coverUrl = (raw.match(/!\[[^\]]*?\]\((https?:\/\/www\.yodu\.org\/files\/article\/image\/[^)\s]+)/) || [])[1] || '';
+        const bodyStart = raw.indexOf(author || title);
+        const bodyEnd = raw.indexOf('开始阅读');
+        const description = cleanCoReadReadableText(raw.slice(
+            bodyStart >= 0 ? bodyStart : 0,
+            bodyEnd > 0 ? bodyEnd : Math.min(raw.length, 6200)
+        )).slice(0, 520);
+        return [{
+            title,
+            author,
+            url: startUrl,
+            source: '有度中文网',
+            sourceType: 'readableWeb',
+            description,
+            coverUrl,
+            lastChapter: '从第一章开始',
+            kind: '可解析正文'
+        }];
+    } catch (_) {
+        return [];
+    }
+}
+
+function parseCoReadZhenhunSearch(raw, query) {
+    const rows = [];
+    const seen = new Set();
+    const add = (label, url, titleAttr = '') => {
+        const cleanUrl = normalizeCoReadChapterUrl(url);
+        if (!cleanUrl || !/zhenhunxiaoshuo\.com\/[^/?#]+\/?$/i.test(cleanUrl)) return;
+        if (/\/(?:chunai|chunai\d+|yanqing|yanqing\d+|baihexiaoshuo|作者|chaxun|priest)\//i.test(cleanUrl)) return;
+        const text = cleanCoReadReadableText(label || titleAttr || query).replace(/\s+/g, ' ').trim();
+        if (!text || seen.has(cleanUrl)) return;
+        seen.add(cleanUrl);
+        const title = cleanCoReadBookTitle(titleAttr || text) || cleanCoReadBookTitle(text) || query;
+        let author = '';
+        const authorMatch = text.replace(title, '').match(/[\s　]+([^\s　]{2,12})$/);
+        if (authorMatch && !/小说|全文|免费|阅读|镇魂/.test(authorMatch[1])) author = cleanCoReadBookAuthor(authorMatch[1]);
+        rows.push({
+            title,
+            author,
+            url: cleanUrl,
+            source: '镇魂小说网',
+            sourceType: 'readableWeb',
+            description: text,
+            coverUrl: '',
+            lastChapter: '目录可解析',
+            kind: '可解析正文'
+        });
+    };
+    Array.from(String(raw || '').matchAll(/\[([^\]]{1,120})\]\((https?:\/\/www\.zhenhunxiaoshuo\.com\/[^)\s"]+)(?:\s+"([^"]+)")?\)/g))
+        .forEach(match => add(match[1], match[2], match[3] || ''));
+    Array.from(String(raw || '').matchAll(/<a\b[^>]*href=["'](https?:\/\/www\.zhenhunxiaoshuo\.com\/[^"']+)["'][^>]*>([\s\S]{1,180}?)<\/a>/gi))
+        .forEach(match => add(match[2].replace(/<[^>]+>/g, ' '), match[1], ''));
+    return rows.filter(item => {
+        const haystack = `${item.title} ${item.author} ${item.description}`.toLowerCase();
+        return haystack.includes(String(query || '').toLowerCase()) || rows.length <= 4;
+    }).slice(0, 10);
+}
+
+function getCoReadZhenhunKnownResults(query) {
+    const rawQuery = String(query || '').trim();
+    if (!rawQuery) return [];
+    const known = [
+        { title: '魔道祖师', author: '墨香铜臭', slug: 'modaozushi' },
+        { title: '天官赐福', author: '墨香铜臭', slug: 'tianguancifu' },
+        { title: '人渣反派自救系统', author: '墨香铜臭', slug: 'renzhafanpaizijiuxitong' }
+    ];
+    return known.filter(book => `${book.title} ${book.author}`.includes(rawQuery) || rawQuery.includes(book.title) || rawQuery.includes(book.author))
+        .map(book => ({
+            title: book.title,
+            author: book.author,
+            url: `https://www.zhenhunxiaoshuo.com/${book.slug}/`,
+            source: '镇魂小说网',
+            sourceType: 'readableWeb',
+            description: `${book.author}作品，目录可解析。`,
+            coverUrl: '',
+            lastChapter: '目录可解析',
+            kind: '可解析正文'
+        }));
+}
+
+async function searchCoReadZhenhun(query) {
+    const rawQuery = String(query || '').trim();
+    if (!rawQuery) return [];
+    const knownResults = getCoReadZhenhunKnownResults(rawQuery);
+    if (knownResults.length) return knownResults;
+    const candidates = [
+        { url: `https://www.zhenhunxiaoshuo.com/${encodeURIComponent(rawQuery)}/`, authorPage: true },
+        { url: `https://www.zhenhunxiaoshuo.com/?s=${encodeURIComponent(rawQuery)}`, authorPage: false }
+    ];
+    for (const item of candidates) {
+        const requestUrls = item.authorPage
+            ? [
+                item.url,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(item.url)}`,
+                `https://corsproxy.io/?${encodeURIComponent(item.url)}`
+            ]
+            : [item.url];
+        for (const requestUrl of requestUrls) {
+            try {
+                const raw = await coReadFetchText(requestUrl, { timeoutMs: 9000, quiet: true });
+                const rows = parseCoReadZhenhunSearch(raw, rawQuery).map(book => ({
+                    ...book,
+                    author: book.author || (item.authorPage ? rawQuery : '')
+                }));
+                if (rows.length) return rows;
+            } catch (_) {
+                // Continue to the next search shape; the site treats author pages and keyword search differently.
+            }
+        }
+    }
+    return [];
 }
 
 async function searchCoReadBooks() {
@@ -10264,35 +11361,32 @@ async function searchCoReadBooks() {
     const query = String(input && input.value || '').trim();
     if (!query || !box) return;
     const runId = ++coreadSearchRunId;
-    const exactResult = {
-        title: query,
-        author: '',
-        url: '',
-        source: '手动加入',
-        description: '按当前输入的书名加入书架'
-    };
-    coreadSearchCache = [exactResult];
-    box.innerHTML = renderCoReadSearchResults(query, '正在搜索书源，已可先按书名加入书架。');
+    coreadSearchCache = [];
+    box.innerHTML = renderCoReadSearchResults(query, '正在搜索书源和公开书目。');
     try {
         await loadCoReadBuiltinSources(false);
-        const sourceResults = await coReadWithTimeout(searchCoReadBookSources(query), 3200, []);
+        const [sourceResults, readableWeb, zhenhun] = await Promise.all([
+            coReadWithTimeout(searchCoReadBookSources(query), 7600, []),
+            coReadWithTimeout(searchCoReadReadableWeb(query), 5600, []),
+            coReadWithTimeout(searchCoReadZhenhun(query), 9200, [])
+        ]);
         if (runId !== coreadSearchRunId) return;
-        const google = sourceResults.length ? [] : await coReadWithTimeout(searchCoReadGoogleBooks(query), 3200, []);
+        const google = sourceResults.length || readableWeb.length || zhenhun.length ? [] : await coReadWithTimeout(searchCoReadGoogleBooks(query), 3200, []);
         if (runId !== coreadSearchRunId) return;
-        const openLibrary = sourceResults.length || google.length >= 4 ? [] : await coReadWithTimeout(searchCoReadOpenLibrary(query), 2600, []);
+        const openLibrary = sourceResults.length || readableWeb.length || zhenhun.length || google.length >= 4 ? [] : await coReadWithTimeout(searchCoReadOpenLibrary(query), 2600, []);
         if (runId !== coreadSearchRunId) return;
         const seen = new Set();
-        coreadSearchCache = [...sourceResults, exactResult, ...google, ...openLibrary].filter(item => {
+        coreadSearchCache = [...zhenhun, ...readableWeb, ...sourceResults, ...google, ...openLibrary].filter(item => {
             const key = `${String(item.title || '').toLowerCase()}|${String(item.author || '').toLowerCase()}`;
             if (!item.title || seen.has(key)) return false;
             seen.add(key);
             return true;
         }).slice(0, 12);
-        box.innerHTML = renderCoReadSearchResults(query, sourceResults.length ? '已从书城解析到结果，可直接加入书架。' : '暂未搜到匹配结果，已显示可加入书架的兜底条目。');
+        box.innerHTML = renderCoReadSearchResults(query, coreadSearchCache.length ? '已从书城解析到结果，可直接加入书架。' : '暂未搜到匹配结果，可以在书架页粘贴书籍链接或导入本地文件。');
     } catch (e) {
         if (runId !== coreadSearchRunId) return;
-        coreadSearchCache = [exactResult];
-        box.innerHTML = renderCoReadSearchResults(query, '在线搜索失败，已保留手动加入入口');
+        coreadSearchCache = [];
+        box.innerHTML = renderCoReadSearchResults(query, '在线搜索失败，可以在书架页粘贴书籍链接或导入本地文件。');
     }
 }
 window.searchCoReadBooks = searchCoReadBooks;
@@ -10353,7 +11447,7 @@ function renderCoReadSearchResults(query, note = '') {
     }).join('');
     const external = `
         <div class="coread-external-search">
-            <span>${musicEscapeHtml(note || `正在从内置书城搜索「${query}」。没有结果时，可以先按书名加入书架。`)}</span>
+            <span>${musicEscapeHtml(note || `正在从内置书城搜索「${query}」。`)}</span>
         </div>
     `;
     return rows + external;
@@ -10371,6 +11465,7 @@ function addCoReadSearchResult(index) {
         coverUrl: item.coverUrl || '',
         rating: 0,
         sourceData: item.sourceType === 'bookSource' ? {
+            bookSourceName: item.source || '',
             bookSourceUrl: item.bookSourceUrl || '',
             bookUrl: item.url || '',
             lastChapter: item.lastChapter || '',
@@ -10395,10 +11490,21 @@ function openCoReadExternalSearch(source) {
 window.openCoReadExternalSearch = openCoReadExternalSearch;
 
 function turnCoReadPage(delta) {
+    const settings = getCoReadReaderSettings();
+    if (settings.pageMode === 'scroll' && coreadActiveTab === 'reader') {
+        const body = document.getElementById('coread-reader-body');
+        if (body) {
+            body.scrollBy({
+                top: Number(delta || 0) * Math.max(240, body.clientHeight * 0.86),
+                behavior: 'smooth'
+            });
+            return;
+        }
+    }
     const library = getCoReadLibrary();
     const book = library.find(item => item.id === coreadActiveBookId);
     if (!book) return;
-    const maxPage = Math.max(0, Math.ceil(String(book.content || '').length / 1400) - 1);
+    const maxPage = Math.max(0, Math.ceil(String(book.content || '').length / COREAD_PAGE_SIZE) - 1);
     book.page = Math.max(0, Math.min(maxPage, Number(book.page || 0) + Number(delta || 0)));
     saveCoReadLibrary(library);
     renderCoReadApp();

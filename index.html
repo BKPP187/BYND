@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260614-desktop-folder-drag2">
+    <link rel="stylesheet" href="style.css?v=20260617-coread-ios-discover3">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -619,7 +619,7 @@
                     <button type="button" onclick="askCoReadComment()" aria-label="让 char 评论"><i class="ri-chat-quote-line"></i></button>
                 </div>
                 <div class="coread-content">
-                    <section class="coread-search-hero" data-coread-panel="discover">
+                    <section class="coread-search-hero" data-coread-panel="shelf">
                         <div class="coread-searchbar">
                             <i class="ri-search-line"></i>
                             <input id="coread-search-input" type="search" placeholder="搜索书名 / 作者 / ISBN" onkeydown="if(event.key==='Enter') searchCoReadBooks()">
@@ -642,7 +642,7 @@
                             <button type="button" class="coread-daily-refresh" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一本"><i class="ri-refresh-line"></i></button>
                         </div>
                     </section>
-                    <section id="coread-search-results" class="coread-search-results" data-coread-panel="discover"></section>
+                    <section id="coread-search-results" class="coread-search-results" data-coread-panel="shelf"></section>
                     <section class="coread-import-strip" data-coread-panel="shelf">
                         <label class="coread-file">
                             <i class="ri-file-upload-line"></i>
@@ -683,6 +683,13 @@
                                 <div><i class="ri-chat-heart-line"></i><strong>char 的旁注</strong></div>
                                 <p id="coread-comment">选择角色后，可以让 char 按人设和世界书评论当前页。</p>
                             </section>
+                            <div class="coread-reader-tools">
+                                <button type="button" onclick="toggleCoReadToc(true)" aria-label="目录"><i class="ri-menu-2-line"></i><span>目录</span></button>
+                                <button type="button" onclick="setCoReadTab('shelf')" aria-label="去书架"><i class="ri-book-shelf-line"></i><span>书架</span></button>
+                                <button type="button" onclick="toggleCoReadSettings(true)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                                <button type="button" onclick="turnCoReadPage(-1)" aria-label="上一页"><i class="ri-arrow-left-s-line"></i><span>上页</span></button>
+                                <button type="button" onclick="turnCoReadPage(1)" aria-label="下一页"><i class="ri-arrow-right-s-line"></i><span>下页</span></button>
+                            </div>
                         </main>
                     </section>
                     <section class="coread-thoughts" data-coread-panel="thoughts">
@@ -710,6 +717,47 @@
                         </div>
                     </section>
                 </div>
+                <aside id="coread-toc-drawer" class="coread-toc-drawer" aria-hidden="true">
+                    <button type="button" class="coread-toc-scrim" onclick="toggleCoReadToc(false)" aria-label="关闭目录"></button>
+                    <section class="coread-toc-panel">
+                        <div class="coread-toc-book" id="coread-toc-book"></div>
+                        <div class="coread-toc-current" id="coread-toc-current"></div>
+                        <div class="coread-toc-list" id="coread-toc-list"></div>
+                    </section>
+                </aside>
+                <aside id="coread-settings-drawer" class="coread-settings-drawer" aria-hidden="true">
+                    <button type="button" class="coread-settings-scrim" onclick="toggleCoReadSettings(false)" aria-label="关闭设置"></button>
+                    <section class="coread-settings-panel">
+                        <div class="coread-settings-head">
+                            <strong>阅读设置</strong>
+                            <button type="button" onclick="toggleCoReadSettings(false)" aria-label="关闭"><i class="ri-close-line"></i></button>
+                        </div>
+                        <div class="coread-setting-row">
+                            <span>字号</span>
+                            <div class="coread-font-stepper">
+                                <button type="button" onclick="changeCoReadFontSize(-1)" aria-label="减小字号"><i class="ri-subtract-line"></i></button>
+                                <strong id="coread-font-size-label">18</strong>
+                                <button type="button" onclick="changeCoReadFontSize(1)" aria-label="增大字号"><i class="ri-add-line"></i></button>
+                            </div>
+                        </div>
+                        <div class="coread-setting-row">
+                            <span>翻页</span>
+                            <div class="coread-segmented" id="coread-page-mode-options"></div>
+                        </div>
+                        <div class="coread-setting-row">
+                            <span>页面</span>
+                            <div class="coread-color-options" id="coread-color-options"></div>
+                        </div>
+                        <div class="coread-setting-row">
+                            <span>背景</span>
+                            <div class="coread-wallpaper-actions">
+                                <button type="button" onclick="document.getElementById('coread-wallpaper-input').click()"><i class="ri-image-add-line"></i><span>上传</span></button>
+                                <button type="button" onclick="clearCoReadWallpaper()"><i class="ri-delete-bin-line"></i><span>清除</span></button>
+                            </div>
+                            <input id="coread-wallpaper-input" type="file" accept="image/*" onchange="uploadCoReadWallpaper(this)" hidden>
+                        </div>
+                    </section>
+                </aside>
                 <nav class="coread-bottom-nav">
                     <button type="button" class="active" data-coread-tab="discover" onclick="setCoReadTab('discover')"><i class="ri-compass-3-fill"></i><span>发现</span></button>
                     <button type="button" data-coread-tab="shelf" onclick="setCoReadTab('shelf')"><i class="ri-book-2-line"></i><span>书架</span></button>
@@ -2157,7 +2205,7 @@
     <script src="wechat.js?v=20260615-ai-phone-proxy-thread1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
     <script src="settings.js?v=20260609-monitor-worldbook424"></script>
-    <script src="script.js?v=20260615-music-source-search1"></script>
+    <script src="script.js?v=20260617-coread-ios-discover3"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
