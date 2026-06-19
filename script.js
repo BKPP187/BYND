@@ -9362,7 +9362,8 @@ const COREAD_READER_DEFAULT_SETTINGS = {
     fontSize: 18,
     pageMode: 'paged',
     color: 'ivory',
-    wallpaper: ''
+    wallpaper: '',
+    wallpaperTone: ''
 };
 
 const COREAD_READER_COLORS = {
@@ -9381,6 +9382,7 @@ function getCoReadReaderSettings() {
         settings.pageMode = settings.pageMode === 'scroll' ? 'scroll' : 'paged';
         settings.color = COREAD_READER_COLORS[settings.color] ? settings.color : COREAD_READER_DEFAULT_SETTINGS.color;
         settings.wallpaper = String(settings.wallpaper || '');
+        settings.wallpaperTone = settings.wallpaperTone === 'light' || settings.wallpaperTone === 'dark' ? settings.wallpaperTone : '';
         return settings;
     } catch (_) {
         return { ...COREAD_READER_DEFAULT_SETTINGS };
@@ -9403,11 +9405,49 @@ function applyCoReadReaderSettings() {
     const color = COREAD_READER_COLORS[settings.color] || COREAD_READER_COLORS.ivory;
     shell.dataset.coreadPageMode = settings.pageMode;
     shell.dataset.coreadColor = settings.color;
+    shell.dataset.coreadWallpaperTone = settings.wallpaper ? (settings.wallpaperTone || 'dark') : '';
     shell.classList.toggle('coread-has-wallpaper', Boolean(settings.wallpaper));
+    shell.classList.toggle('coread-wallpaper-light', Boolean(settings.wallpaper) && settings.wallpaperTone === 'light');
+    shell.classList.toggle('coread-wallpaper-dark', Boolean(settings.wallpaper) && settings.wallpaperTone !== 'light');
+    const wallpaperIsLight = Boolean(settings.wallpaper) && settings.wallpaperTone === 'light';
+    const wallpaperIsDark = Boolean(settings.wallpaper) && settings.wallpaperTone !== 'light';
+    const readerColor = wallpaperIsLight ? '#241f1a' : (wallpaperIsDark ? '#f3eadc' : color.color);
     shell.style.setProperty('--coread-font-size', `${settings.fontSize}px`);
     shell.style.setProperty('--coread-reader-bg', color.bg);
-    shell.style.setProperty('--coread-reader-color', color.color);
+    shell.style.setProperty('--coread-reader-color', readerColor);
+    shell.style.setProperty('--coread-reader-chrome-bg', wallpaperIsLight ? 'rgba(255,255,255,0.62)' : (wallpaperIsDark ? 'rgba(15,18,16,0.50)' : 'color-mix(in srgb, var(--coread-reader-bg) 88%, #fff 12%)'));
+    shell.style.setProperty('--coread-reader-panel-bg', wallpaperIsLight ? 'rgba(255,255,255,0.56)' : (wallpaperIsDark ? 'rgba(12,15,13,0.58)' : 'color-mix(in srgb, var(--coread-reader-bg) 90%, #d6c8b4 10%)'));
+    shell.style.setProperty('--coread-reader-border', wallpaperIsLight ? 'rgba(38,31,24,0.10)' : (wallpaperIsDark ? 'rgba(255,255,255,0.10)' : 'rgba(48,42,36,0.07)'));
+    shell.style.setProperty('--coread-wallpaper-scrim', wallpaperIsLight ? 'rgba(255,255,255,0.28), rgba(255,255,255,0.36)' : 'rgba(9,12,10,0.38), rgba(9,12,10,0.46)');
     shell.style.setProperty('--coread-wallpaper', settings.wallpaper ? `url("${settings.wallpaper}")` : 'none');
+}
+
+function estimateCoReadWallpaperTone(canvas) {
+    try {
+        const ctx = canvas.getContext('2d');
+        const width = Math.max(1, canvas.width || 1);
+        const height = Math.max(1, canvas.height || 1);
+        const sample = 24;
+        const data = ctx.getImageData(0, 0, width, height).data;
+        let total = 0;
+        let count = 0;
+        for (let y = 0; y < sample; y += 1) {
+            const py = Math.min(height - 1, Math.floor((y + 0.5) * height / sample));
+            for (let x = 0; x < sample; x += 1) {
+                const px = Math.min(width - 1, Math.floor((x + 0.5) * width / sample));
+                const index = (py * width + px) * 4;
+                const alpha = (data[index + 3] || 255) / 255;
+                const r = data[index] || 0;
+                const g = data[index + 1] || 0;
+                const b = data[index + 2] || 0;
+                total += (0.2126 * r + 0.7152 * g + 0.0722 * b) * alpha;
+                count += 1;
+            }
+        }
+        return (total / Math.max(1, count)) > 150 ? 'light' : 'dark';
+    } catch (_) {
+        return 'dark';
+    }
 }
 
 function renderCoReadSettings() {
@@ -9480,14 +9520,14 @@ function uploadCoReadWallpaper(input) {
                 canvas.height = Math.max(1, Math.round((img.height || maxSide) * scale));
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                saveCoReadReaderSettings({ wallpaper: canvas.toDataURL('image/jpeg', 0.82) });
+                saveCoReadReaderSettings({ wallpaper: canvas.toDataURL('image/jpeg', 0.82), wallpaperTone: estimateCoReadWallpaperTone(canvas) });
             } catch (_) {
-                saveCoReadReaderSettings({ wallpaper: dataUrl });
+                saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' });
             }
             input.value = '';
         };
         img.onerror = () => {
-            saveCoReadReaderSettings({ wallpaper: dataUrl });
+            saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' });
             input.value = '';
         };
         img.src = dataUrl;
@@ -9497,7 +9537,7 @@ function uploadCoReadWallpaper(input) {
 window.uploadCoReadWallpaper = uploadCoReadWallpaper;
 
 function clearCoReadWallpaper() {
-    saveCoReadReaderSettings({ wallpaper: '' });
+    saveCoReadReaderSettings({ wallpaper: '', wallpaperTone: '' });
 }
 window.clearCoReadWallpaper = clearCoReadWallpaper;
 
@@ -10342,7 +10382,7 @@ function renderCoReadDaily() {
     if (line) line.textContent = senseLine;
     if (card) {
         card.innerHTML = `
-            <button type="button" class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}" onclick="addCoReadRecommendedBook()">
+            <button type="button" class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一张今日惊喜书页">
                 <span>${musicEscapeHtml(rec.volume || 'VOL.17')}</span>
                 <b>SENSE</b>
                 <i aria-hidden="true"></i>
@@ -10350,7 +10390,6 @@ function renderCoReadDaily() {
                 <strong>${musicEscapeHtml(senseTitle)}</strong>
                 <small>${musicEscapeHtml(holiday ? holiday.theme : `${participants}人 · 参与话题`)}</small>
             </button>
-            <button type="button" class="coread-daily-refresh" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一本"><i class="ri-refresh-line"></i></button>
         `;
     }
 }
@@ -10370,6 +10409,19 @@ function updateCoReadTopbar() {
     };
     const config = tabs[coreadActiveTab];
     topbar.classList.toggle('coread-ios-topbar', !!config);
+    topbar.classList.toggle('coread-reader-topbar', coreadActiveTab === 'reader');
+    if (coreadActiveTab === 'reader') {
+        if (eyebrow) eyebrow.textContent = '';
+        if (title) title.textContent = '';
+        if (rightBtn) {
+            rightBtn.classList.remove('coread-topbar-text-btn');
+            rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
+            rightBtn.setAttribute('onclick', 'askCoReadComment()');
+            rightBtn.setAttribute('aria-label', '让 char 评论');
+        }
+        if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
+        return;
+    }
     if (!config) {
         if (eyebrow) eyebrow.textContent = 'SHARED READING';
         if (title) title.textContent = '和 char 共读小说';

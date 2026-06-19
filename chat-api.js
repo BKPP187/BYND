@@ -305,6 +305,87 @@ function getChatApiFinishReason(json) {
     return '';
 }
 
+function parseChatApiResponseText(rawText) {
+    const text = String(rawText || '').replace(/^\uFEFF/, '').trim();
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch (_) {
+        const sseJson = parseChatApiSseResponseText(text);
+        if (sseJson) return sseJson;
+        throw new Error('API 返回格式无法解析');
+    }
+}
+
+function parseChatApiSseResponseText(text) {
+    if (!/^\s*data\s*:/m.test(text)) return null;
+    const events = [];
+    let current = [];
+    String(text || '').split(/\r?\n/).forEach(line => {
+        if (/^\s*$/.test(line)) {
+            if (current.length) {
+                events.push(current.join('\n'));
+                current = [];
+            }
+            return;
+        }
+        const match = line.match(/^\s*data\s*:\s?(.*)$/);
+        if (match) current.push(match[1]);
+    });
+    if (current.length) events.push(current.join('\n'));
+
+    const chunks = [];
+    for (const eventText of events) {
+        const payload = String(eventText || '').trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+            chunks.push(JSON.parse(payload));
+        } catch (_) {}
+    }
+    if (!chunks.length) return null;
+
+    const firstContent = getChatApiRawResponseContent(chunks[0]);
+    if (chunks.length === 1 && firstContent) return chunks[0];
+
+    const contentParts = [];
+    let finishReason = '';
+    for (const chunk of chunks) {
+        const choice = chunk?.choices?.[0] || {};
+        const delta = choice.delta || {};
+        const message = choice.message || {};
+        const candidates = [
+            delta.content,
+            delta.text,
+            message.content,
+            choice.text,
+            chunk.output_text,
+            chunk.text
+        ];
+        candidates.forEach(item => {
+            if (Array.isArray(item)) {
+                const joined = item.map(getChatApiTextFromContentPart).filter(Boolean).join('\n');
+                if (joined) contentParts.push(joined);
+            } else if (typeof item === 'string' && item) {
+                contentParts.push(item);
+            } else {
+                const partText = getChatApiTextFromContentPart(item);
+                if (partText) contentParts.push(partText);
+            }
+        });
+        finishReason = finishReason || choice.finish_reason || choice.finishReason || choice.stop_reason || '';
+    }
+
+    if (!contentParts.length) return chunks[chunks.length - 1] || chunks[0];
+    return {
+        ...chunks[chunks.length - 1],
+        choices: [{
+            ...(chunks[chunks.length - 1]?.choices?.[0] || {}),
+            message: { content: contentParts.join('') },
+            finish_reason: finishReason || chunks[chunks.length - 1]?.choices?.[0]?.finish_reason || null
+        }]
+    };
+}
+
 function isChatApiLengthFinishReason(reason) {
     const text = String(reason || '').trim().toLowerCase();
     if (!text) return false;
@@ -1088,7 +1169,7 @@ function buildSystemPrompt(char) {
         prompt += `  [群名:成员名|新群名|原因] 用于群主或管理员修改整个群聊名称；成员名必须是上方群成员列表里的自己，普通成员不能使用\n`;
         prompt += `  [群邀请:邀请人|成员名|人设/备注|头像URL] 用于群成员按剧情自然邀请已有联系人或新 NPC 入群；邀请人必须是上方群成员列表里的自己，头像 URL 可留空\n`;
     }
-    prompt += `  [微信监控:角色本人|原因]、[微信监控:第三视角吐槽|原因] 或 [微信监控:关闭|原因]，用于你按人设主动开启/切换/关闭 BYND 内部剧情监控。角色本人=你自己看；第三视角吐槽=上帝视角/磕糖观众/弹幕吐槽\n`;
+    prompt += `  [微信监控:角色本人|原因]、[微信监控:第三视角吐槽|原因] 或 [微信监控:关闭|原因]，用于你按人设主动开启/切换/关闭 BYND 内部剧情监控。角色本人=你自己看；第三视角吐槽=吃瓜群众/路人弹幕/磕糖观众，只围观气氛，不代替 user 或 char 说话\n`;
     prompt += `  [微信删除联系人:联系人备注或名字|原因]，用于你在监控剧情里非常想删除用户列表里的某个 BYND 角色时发起请求；系统会弹窗征求用户允许，不能直接静默删除；只能删除 BYND 内部联系人，不能声称删除真实手机联系人\n`;
     prompt += `  [微信朋友圈:文字|图片URL]，用于你根据自己的心情主动发朋友圈。只在角色确实想发、且最近聊天/记忆/人设自然触发时使用，必须按人设，不要固定每天发，不要替用户发布朋友圈\n`;
     prompt += `  [微信拉黑:原因] 例如 [微信拉黑:我现在不想继续这段对话]，只在角色按人设真的要拉黑用户时使用\n`;
@@ -1340,7 +1421,7 @@ async function callChatApi(messages, options = {}) {
             const errText = await resp.text().catch(() => '');
             let detail = errText;
             try {
-                const errJson = JSON.parse(errText);
+                const errJson = parseChatApiResponseText(errText);
                 detail = errJson.error?.message || errJson.message || errText;
             } catch (_) {}
             const detailText = String(detail || '');
@@ -1362,7 +1443,8 @@ async function callChatApi(messages, options = {}) {
             };
         }
 
-        const json = await resp.json();
+        const rawText = await resp.text();
+        const json = parseChatApiResponseText(rawText);
         const rawContent = getChatApiRawResponseContent(json);
         let content = cleanChatApiVisibleContent(rawContent);
 

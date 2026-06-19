@@ -941,6 +941,55 @@ function getImageModelCandidates(models) {
     return [...imageLike, ...list.filter(m => !imageLike.includes(m))];
 }
 
+function parseSettingsApiJsonResponseText(rawText) {
+    const text = String(rawText || '').replace(/^\uFEFF/, '').trim();
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch (_) {
+        const parsed = parseSettingsApiSseJsonText(text);
+        if (parsed) return parsed;
+        throw new Error('API 返回格式无法解析');
+    }
+}
+
+function parseSettingsApiSseJsonText(text) {
+    if (!/^\s*data\s*:/m.test(text)) return null;
+    const events = [];
+    let current = [];
+    String(text || '').split(/\r?\n/).forEach(line => {
+        if (/^\s*$/.test(line)) {
+            if (current.length) {
+                events.push(current.join('\n'));
+                current = [];
+            }
+            return;
+        }
+        const match = line.match(/^\s*data\s*:\s?(.*)$/);
+        if (match) current.push(match[1]);
+    });
+    if (current.length) events.push(current.join('\n'));
+
+    const chunks = events.map(item => String(item || '').trim())
+        .filter(item => item && item !== '[DONE]')
+        .map(item => {
+            try { return JSON.parse(item); } catch (_) { return null; }
+        })
+        .filter(Boolean);
+    if (!chunks.length) return null;
+    const content = chunks.map(chunk => {
+        const choice = chunk?.choices?.[0] || {};
+        return choice.delta?.content || choice.message?.content || choice.text || chunk.text || chunk.output_text || '';
+    }).filter(Boolean).join('');
+    if (content) {
+        return {
+            ...chunks[chunks.length - 1],
+            choices: [{ message: { content } }]
+        };
+    }
+    return chunks[chunks.length - 1] || chunks[0];
+}
+
 function fillImageModelSelect(models) {
     const imageSelectEl = document.getElementById('api-edit-image-model');
     if (!imageSelectEl) return;
@@ -1683,7 +1732,8 @@ async function doTestApi(baseUrl, apiKey) {
         if (resp.ok) {
             let models = [];
             try {
-                const json = await resp.json();
+                const rawText = await resp.text();
+                const json = parseSettingsApiJsonResponseText(rawText);
                 if (json.data && Array.isArray(json.data)) {
                     models = json.data.map(m => m.id || m.name || '').filter(Boolean).sort();
                 }
@@ -1717,7 +1767,7 @@ async function probeChatModels(baseUrl, apiKey, models) {
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
     const candidates = models
-        .filter(m => !/(embed|embedding|tts|audio|whisper|image|moderation|rerank|vision)/i.test(m))
+        .filter(m => !/(embed|embedding|tts|audio|whisper|image|video|moderation|rerank|vision)/i.test(m))
         .slice(0, 8);
 
     if (candidates.length === 0) {
@@ -1740,7 +1790,8 @@ async function probeChatModels(baseUrl, apiKey, models) {
             });
 
             if (resp.ok) {
-                const json = await resp.json().catch(() => ({}));
+                const rawText = await resp.text().catch(() => '');
+                const json = rawText ? parseSettingsApiJsonResponseText(rawText) : {};
                 const content = json.choices?.[0]?.message?.content || '';
                 if (content.trim()) return { ok: true, model };
                 lastError = `${model}: 空响应`;
@@ -1748,7 +1799,7 @@ async function probeChatModels(baseUrl, apiKey, models) {
                 const errText = await resp.text().catch(() => '');
                 let detail = errText;
                 try {
-                    const errJson = JSON.parse(errText);
+                    const errJson = parseSettingsApiJsonResponseText(errText);
                     detail = errJson.error?.message || errJson.message || errText;
                 } catch (_) {}
                 lastError = `${model}: HTTP ${resp.status} ${String(detail).slice(0, 80)}`;

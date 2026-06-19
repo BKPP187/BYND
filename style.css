@@ -19896,7 +19896,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     border-top: 1px solid rgba(48, 42, 36, 0.08);
     background: rgba(242, 237, 228, 0.96);
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -20121,6 +20121,10 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     --coread-reader-bg: #fff9ed;
     --coread-reader-color: #26211c;
     --coread-wallpaper: none;
+    --coread-reader-chrome-bg: color-mix(in srgb, var(--coread-reader-bg) 88%, #fff 12%);
+    --coread-reader-panel-bg: color-mix(in srgb, var(--coread-reader-bg) 90%, #d6c8b4 10%);
+    --coread-reader-border: rgba(48,42,36,0.07);
+    --coread-wallpaper-scrim: rgba(9,12,10,0.38), rgba(9,12,10,0.46);
 }
 .coread-shell.coread-reader-mode .coread-topbar {
     height: 74px;
@@ -20365,6 +20369,93 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     }
 }
 
+/* --- Co-reading reader page controls 20260617 --- */
+.coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar {
+    height: 78px;
+    padding: 18px 20px 10px;
+    grid-template-columns: 50px minmax(0, 1fr) 50px;
+    background: var(--coread-reader-chrome-bg);
+    border-bottom: 1px solid var(--coread-reader-border);
+}
+.coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar div {
+    visibility: hidden;
+}
+.coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--coread-reader-chrome-bg) 62%, #fff 38%);
+    color: var(--coread-reader-color);
+    font-size: 24px;
+    box-shadow: 0 10px 24px rgba(56,48,39,0.08);
+}
+.coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar button:last-child {
+    justify-self: end;
+}
+.coread-shell.coread-reader-mode .coread-reader-head {
+    display: none;
+}
+.coread-shell.coread-reader-mode .coread-reader-head strong {
+    color: var(--coread-reader-color);
+}
+.coread-shell.coread-reader-mode .coread-reader-head span {
+    color: color-mix(in srgb, var(--coread-reader-color) 72%, transparent);
+}
+.coread-shell.coread-reader-mode .coread-reader-head button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--coread-reader-color);
+    background: color-mix(in srgb, var(--coread-reader-chrome-bg) 76%, #fff 24%);
+}
+.coread-shell.coread-reader-mode .coread-reader-tools {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.coread-shell.coread-reader-mode .coread-reader-body {
+    padding-top: 22px;
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper {
+    background:
+        linear-gradient(var(--coread-wallpaper-scrim)),
+        var(--coread-wallpaper) center / cover no-repeat,
+        var(--coread-reader-bg);
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-topbar,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-content,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader {
+    background: transparent;
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader {
+    color: var(--coread-reader-color);
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-head,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-card,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-tools {
+    background: var(--coread-reader-panel-bg);
+    border-color: var(--coread-reader-border);
+    color: var(--coread-reader-color);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-body {
+    color: var(--coread-reader-color);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.24);
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper.coread-wallpaper-light .coread-reader-body {
+    text-shadow: 0 1px 2px rgba(255,255,255,0.36);
+}
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-tools button,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-card p,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-head span {
+    color: color-mix(in srgb, var(--coread-reader-color) 82%, transparent);
+}
+@media (max-width: 430px) {
+    .coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar {
+        height: 76px;
+        padding: 16px 20px 10px;
+    }
+}
+
 /* --- Co-reading iOS discover polish 20260617 --- */
 .coread-content[data-tab="discover"] {
     padding: 14px 16px 92px;
@@ -20596,7 +20687,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .coread-content[data-tab="discover"] .coread-daily[data-coread-panel="discover"] {
     width: min(100%, 370px);
-    height: min(638px, calc(100vh - 218px));
+    height: calc(100vh - 202px);
     min-height: 570px;
     margin: 0 auto;
     border-radius: 8px;
@@ -20631,6 +20722,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     justify-items: center;
     overflow: hidden;
     color: #20242a;
+    cursor: pointer;
 }
 .coread-content[data-tab="discover"] .coread-sense-card span {
     grid-column: 1;
@@ -20707,15 +20799,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     color: #8c731f;
     letter-spacing: 0.04em;
 }
-.coread-content[data-tab="discover"] .coread-daily-refresh {
-    right: -14px;
-    bottom: 78px;
-    width: 58px;
-    height: 58px;
-    background: rgba(255,255,255,0.94);
-    color: #555c64;
-    box-shadow: 0 12px 28px rgba(31,36,42,0.12);
-}
+.coread-content[data-tab="discover"] .coread-daily-refresh { display: none; }
 .coread-content[data-tab="discover"] .coread-bottom-nav {
     background: rgba(255,255,255,0.94);
 }
