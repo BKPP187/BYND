@@ -16724,47 +16724,118 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 }
+button.wc-ai-phone-sync {
+    border: none;
+    font-family: inherit;
+    cursor: default;
+}
 .wc-ai-phone-sync.is-error {
     background: rgba(255,80,80,0.24);
     color: #fff5f5;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(120, 38, 58, 0.16);
 }
-.wc-ai-phone-sync-error {
-    width: 100%;
-    min-height: 54px;
-    border: 1px solid rgba(255,255,255,0.26);
-    border-radius: 20px;
-    background: rgba(66,24,34,0.35);
-    color: #fff;
-    padding: 10px 12px;
-    display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) auto;
+.wc-ai-phone-error-modal {
+    position: absolute;
+    inset: 0;
+    z-index: 3920;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    text-align: left;
-    box-shadow: 0 14px 30px rgba(15,23,42,0.16);
-    backdrop-filter: blur(22px);
-    -webkit-backdrop-filter: blur(22px);
+    justify-content: center;
+    padding: 22px;
+    background: rgba(15, 23, 42, 0.30);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
-.wc-ai-phone-sync-error i {
+.wc-ai-phone-error-card {
+    width: min(306px, 100%);
+    border-radius: 26px;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+    display: grid;
+    gap: 12px;
+    animation: popIn 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.wc-ai-phone-error-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #ffe4ed, #eef4ff);
+    color: #d14b73;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(209, 75, 115, 0.08);
+}
+.wc-ai-phone-error-icon i {
+    font-size: 24px;
+}
+.wc-ai-phone-error-copy strong {
+    display: block;
     font-size: 18px;
-    color: #ffd4d4;
+    line-height: 1.2;
+    font-weight: 900;
+    letter-spacing: 0;
 }
-.wc-ai-phone-sync-error span {
-    min-width: 0;
-    font-size: 11px;
-    line-height: 1.35;
-    font-weight: 760;
-    color: rgba(255,255,255,0.88);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+.wc-ai-phone-error-copy span {
+    display: block;
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.42;
+    font-weight: 680;
 }
-.wc-ai-phone-sync-error b {
+.wc-ai-phone-error-reason {
+    padding: 11px 12px;
+    border-radius: 18px;
+    background: #f6f7fb;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+.wc-ai-phone-error-reason b {
+    display: block;
+    color: #8a5a72;
     font-size: 11px;
     font-weight: 900;
+}
+.wc-ai-phone-error-reason p {
+    margin: 5px 0 0;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.48;
+    font-weight: 690;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-error-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 9px;
+}
+.wc-ai-phone-error-actions button {
+    min-width: 0;
+    height: 42px;
+    border: none;
+    border-radius: 15px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 860;
+    font-family: inherit;
+    cursor: pointer;
+}
+.wc-ai-phone-error-actions button.primary {
+    background: #111827;
     color: #fff;
-    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.20);
+}
+.wc-ai-phone-error-actions button:active {
+    transform: scale(0.985);
 }
 .wc-ai-phone-clock-widget,
 .wc-ai-phone-widget-stack {
