@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260619-sse-json2">
+    <link rel="stylesheet" href="style.css?v=20260629-push-time2">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -1107,30 +1107,46 @@
                     <div class="notify-card">
                         <div class="notify-card-head">
                             <div>
-                                <strong>角色主动找你</strong>
-                                <span>网页开着时可本地提醒；退出网页后的真手机推送需要 Cloudflare Worker / Web Push 后端。</span>
+                                <strong>后台消息</strong>
+                                <span>开启后，角色会在你太久没回来时发提醒。</span>
                             </div>
                             <label class="notify-switch">
                                 <input type="checkbox" id="notify-enabled">
                                 <span></span>
                             </label>
                         </div>
-                        <div class="notify-guide">
-                            <strong>新手教程</strong>
-                            <span>1. 先选角色和多久没联系。2. 点“授权通知”。3. 只想网页开着提醒，可以直接测试；想退出网页后也收到，就填 Worker 接口和 VAPID 公钥。4. 点“保存设置”和“测试通知”。</span>
-                            <button type="button" onclick="openProactiveNotifyGuide()">查看详细说明</button>
-                        </div>
-                        <div class="notify-grid">
-                            <label><span>监督角色</span><select id="notify-char"></select></label>
-                            <label><span>多久没联系</span><input type="number" id="notify-interval" min="0.1" max="720" step="0.5" value="24"></label>
-                        </div>
-                        <label class="notify-field"><span>Worker 推送接口</span><input type="url" id="notify-worker-endpoint" placeholder="https://bynd-push.xxx.workers.dev"></label>
-                        <label class="notify-field"><span>VAPID Public Key</span><input type="text" id="notify-vapid-key" placeholder="Web Push 公钥"></label>
-                        <div class="notify-actions">
-                            <button type="button" onclick="requestByndNotificationPermission()">授权通知</button>
-                            <button type="button" onclick="sendTestByndNotification()">测试通知</button>
-                            <button type="button" onclick="saveProactiveNotifySettingsFromUI()">保存设置</button>
-                            <button type="button" onclick="explainByndPushLimit()">全屏/推送说明</button>
+                        <div class="notify-time-row" id="notify-time-row">
+                            <div class="notify-time-field">
+                                <span>提醒时间</span>
+                                <div class="notify-preset-select" id="notify-interval-preset-ui">
+                                    <button type="button" class="notify-preset-trigger" id="notify-interval-preset-button" aria-haspopup="listbox" aria-expanded="false">
+                                        <b id="notify-interval-preset-label">24 小时</b>
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </button>
+                                    <div class="notify-preset-menu" id="notify-interval-preset-menu" role="listbox" hidden>
+                                        <button type="button" role="option" data-value="0.5">30 分钟</button>
+                                        <button type="button" role="option" data-value="1">1 小时</button>
+                                        <button type="button" role="option" data-value="3">3 小时</button>
+                                        <button type="button" role="option" data-value="6">6 小时</button>
+                                        <button type="button" role="option" data-value="12">12 小时</button>
+                                        <button type="button" role="option" data-value="24">24 小时</button>
+                                        <button type="button" role="option" data-value="custom">自定义</button>
+                                    </div>
+                                </div>
+                                <select id="notify-interval-preset" class="notify-native-select" tabindex="-1" aria-hidden="true">
+                                    <option value="0.5">30 分钟</option>
+                                    <option value="1">1 小时</option>
+                                    <option value="3">3 小时</option>
+                                    <option value="6">6 小时</option>
+                                    <option value="12">12 小时</option>
+                                    <option value="24">24 小时</option>
+                                    <option value="custom">自定义</option>
+                                </select>
+                            </div>
+                            <label class="notify-time-custom" id="notify-custom-wrap" hidden>
+                                <span>自定义小时</span>
+                                <input type="number" id="notify-interval" min="0.1" max="720" step="0.5" value="24">
+                            </label>
                         </div>
                         <p id="notify-status"></p>
                     </div>
@@ -2195,14 +2211,14 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260619-sse-json2"></script>
+    <script src="chat-api.js?v=20260629-push-time1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
-    <script src="wechat.js?v=20260619-sse-json2"></script>
+    <script src="wechat.js?v=20260629-push-time1"></script>
     <script src="theme.js?v=20260608-theme-icons415"></script>
     <script src="settings.js?v=20260619-sse-json2"></script>
-    <script src="script.js?v=20260617-coread-ios-discover8"></script>
+    <script src="script.js?v=20260629-push-time2"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

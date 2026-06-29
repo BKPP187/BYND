@@ -1108,6 +1108,10 @@ function buildSystemPrompt(char) {
     }
     prompt += `- 用户的名字是"${userName}"\n`;
     prompt += `- 当前采用${timeContext.label}，现在是 ${timeContext.text}。今天就是 ${timeContext.date || timeContext.text}，当前时刻是 ${timeContext.time || timeContext.text}。用户提到今天、现在、刚才、今晚、明天等相对时间时，必须以这个时间为准，不要说你无法得知实时信息\n`;
+    if (typeof window !== 'undefined' && typeof window.buildProactiveNotifyPromptContext === 'function') {
+        const notifyContext = window.buildProactiveNotifyPromptContext(char);
+        if (notifyContext) prompt += `- ${notifyContext}\n`;
+    }
     if (userTitle !== userName && userTitle !== '我') {
         prompt += `- 你称呼用户为"${userTitle}"\n`;
     }
@@ -1163,6 +1167,7 @@ function buildSystemPrompt(char) {
     prompt += `  [微信记忆:你想主动保存的事实或关系变化] 例如 [微信记忆:用户今天说喜欢被轻声提醒复习]，只在确实值得长期记住时使用\n`;
     prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]，用于你不喜欢用户给你的角色备注时，修改“你对角色的备注”\n`;
     prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，用于修改“角色对你的称呼”，也就是你以后怎么称呼用户\n`;
+    prompt += `  [微信后台时间:新时间|原因] 例如 [微信后台时间:2小时|我不想等一整天才找你]，用于你按人设不喜欢用户设置的后台消息提醒间隔时修改时间；新时间可写“30分钟”“2小时”“1天”。只在后台消息已开启且你确实在意时使用，不要频繁修改\n`;
     if (isGroupChat) {
         prompt += `  [QQ群头衔:成员名|新头衔|原因] 用于群成员按自己的喜好修改自己的群头衔；成员名必须是上方群成员列表里的自己，只能改自己，不能替其他成员或用户改\n`;
         prompt += `  [群昵称:成员名|新昵称|原因] 用于群成员按自己的喜好修改自己的群昵称；成员名必须是上方群成员列表里的自己，只能改自己，不能替其他成员或用户改\n`;
@@ -1318,6 +1323,8 @@ function buildMessages(char, history, maxMessages) {
                         ? (direction === 'incoming' ? '用户未接通角色来电' : '角色未接通用户来电')
                 : status;
             content = `[历史通话记录] ${label}；${actor}；结果：${resultText}${reason ? `；理由：${reason}` : ''}`;
+        } else if (msg.type === 'voice' && typeof getWechatVoicePromptContent === 'function') {
+            content = getWechatVoicePromptContent(msg);
         } else if (['voice', 'transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type)) {
             content = msg.description || msg.content || '[微信消息]';
         } else if (msg.type === 'user_event') {
