@@ -20347,15 +20347,73 @@ function cleanWechatAiPhoneWalletText(value) {
     return stripWechatPromptText(value, 120)
         .replace(/^\[/, '')
         .replace(/\]\s*/g, ' ')
+        .replace(/\[object Object\]/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
+function formatWechatAiPhoneMoneyText(value, currency = '') {
+    if (value == null || value === '') return '';
+    const unit = stripWechatPromptText(currency, 8);
+    const prefix = /^(?:\$|USD)$/i.test(unit) ? '$' : (unit && !/^(?:CNY|RMB|元|人民币)$/i.test(unit) ? unit : '¥');
+    if (typeof value === 'number' && Number.isFinite(value)) return `${prefix}${value.toFixed(2)}`;
+    const text = cleanWechatAiPhoneWalletText(stringifyWechatAiPhoneRecordValue(value));
+    if (!text) return '';
+    const numberOnly = text.replace(/,/g, '').match(/^[+-]?\d+(?:\.\d{1,2})?$/);
+    if (numberOnly) return `${prefix}${Number(numberOnly[0]).toFixed(2)}`;
+    const match = text.match(/([+-]?\s*(?:￥|¥|RMB|CNY|\$)?\s*\d[\d,]*(?:\.\d{1,2})?\s*(?:元|块|CNY|RMB|USD)?)/i);
+    return match ? match[1].replace(/\s+/g, '') : '';
+}
+
+function getWechatAiPhoneWalletInfoFromValue(value, char) {
+    const charName = getWechatCharDisplayName(char);
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const currency = value.currency || value.unit || value['币种'] || value['货币'];
+        const amount = formatWechatAiPhoneMoneyText(
+            value.balance ?? value.availableBalance ?? value.available ?? value.currentBalance ?? value.cardBalance
+                ?? value.availableCredit ?? value.money ?? value.amount ?? value.limit ?? value.credit
+                ?? value['余额'] ?? value['账户余额'] ?? value['可用余额'] ?? value['可用额度']
+                ?? value['零钱'] ?? value['金额'] ?? value['额度'],
+            currency
+        );
+        const label = cleanWechatAiPhoneWalletText(
+            value.cardName || value.card || value.account || value.accountName || value.type || value.name
+                || value.title || value.label || value['卡名'] || value['账户'] || value['类型'] || '零钱'
+        );
+        const summary = cleanWechatAiPhoneWalletText(
+            value.summary || value.detail || value.description || value.status || value.note
+                || value['概要'] || value['详情'] || value['说明'] || value['状态'] || ''
+        );
+        const detail = [label, summary].filter(part => part && part !== amount).join(' · ');
+        return {
+            amount,
+            detail: detail || (amount ? `${charName}的钱包余额` : '')
+        };
+    }
+
+    const text = cleanWechatAiPhoneWalletText(value);
+    const amount = formatWechatAiPhoneMoneyText(text);
+    const detail = amount
+        ? (text.replace(amount, '').replace(/^(?:余额|零钱|可用|额度)?\s*[·,，。:：\-—|｜]?\s*/i, '').trim() || `${charName}的钱包余额`)
+        : text;
+    return { amount, detail };
+}
+
 function getWechatAiPhoneWalletSummary(snapshot, char) {
-    const raw = stripWechatPromptText(snapshot && snapshot.wallet, 120);
-    if (raw && !/未授权|无权|无法查看|不能查看|不可查看/.test(raw)) return raw;
+    const info = getWechatAiPhoneWalletInfoFromValue(snapshot && snapshot.wallet, char);
+    const summary = [info.amount, info.detail].filter(Boolean).join(' · ');
+    if (summary && !/未授权|无权|无法查看|不能查看|不可查看/.test(summary)) return summary;
     if (snapshot && (snapshot.generatedBy === 'local' || hasWechatAiPhoneSnapshotField(snapshot, ['wallet', '\u94b1\u5305']))) return '等待 AI 根据角色卡同步钱包数据';
     return '等待 AI 根据角色卡同步钱包数据';
+}
+
+function getWechatAiPhoneWalletPassInfo(snapshot, char) {
+    const info = getWechatAiPhoneWalletInfoFromValue(snapshot && snapshot.wallet, char);
+    return {
+        amount: info.amount || '金额待同步',
+        owner: getWechatCharDisplayName(char),
+        detail: info.detail || getWechatAiPhoneWalletSummary(snapshot, char)
+    };
 }
 
 function getWechatAiPhoneWalletRows(snapshot, char) {
@@ -20829,7 +20887,8 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
                     role: 'system',
                     content: `你是「${char.name}」本人手机的数据生成器。读角色卡/世界书/记忆后，按这个角色真实生活合理生成 iPhone 数据。只返回一个可 JSON.parse 的压缩 JSON 对象；不要 Markdown、不要解释、不要换行排版、不要省略号。
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
-数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]。
+wallet 必须是字符串且包含具体余额/可用额度数字，不要返回对象；格式示例："零钱 ¥328.60 · 工资卡可用额度 ¥12000 · 日常消费正常"。
+数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]。walletRecords.meta 必须写具体金额，例如 "-25.00"、"+8000.00" 或 "¥128.50"。
 数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
 如果【小手机代发连续性】不为空，chats 优先保留其中 1-2 个联系人/NPC，并自然续写他们在 char 手机里的下一条聊天预览。NPC 可以察觉语气变化、追问、误会、接受、顺着办理、谨慎确认或觉得不像本人，但必须按联系人身份、上下文、关系和语气灵活变化；不要每次固定说“不像你发的”。
 gameRecords 只能写这个 char 自己按人设、世界书、职业、年龄、生活方式会玩的游戏；禁止复制用户手机/桌面/BYND 小游戏库里的游戏，也不要因为用户手机里有某个游戏就让 char 玩。若角色人设明显不玩游戏，gameRecords 可以为空数组。
@@ -21695,14 +21754,15 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
         `;
     }
     if (activeTab === 'wallet') {
-        const walletSummary = getWechatAiPhoneWalletSummary(snapshot, char);
+        const walletPass = getWechatAiPhoneWalletPassInfo(snapshot, char);
         const walletRows = getWechatAiPhoneWalletRows(snapshot, char);
         return `
             <div class="wc-ai-phone-app-title wc-ai-phone-app-title-compact"><strong>钱包</strong><span>卡片与零钱</span></div>
             <div class="wc-ai-phone-wallet-pass">
                 <span>BYND Wallet</span>
-                <strong>${wcEscapeHtml(charName)}</strong>
-                <p>${wcEscapeHtml(walletSummary)}</p>
+                <strong>${wcEscapeHtml(walletPass.amount)}</strong>
+                <em>${wcEscapeHtml(walletPass.owner)}</em>
+                <p>${wcEscapeHtml(walletPass.detail)}</p>
             </div>
             ${renderWechatAiPhoneIosRows(walletRows, '没有钱包记录', 'ri-bank-card-line')}
         `;

@@ -17922,8 +17922,18 @@ button.wc-ai-phone-sync {
     font-weight: 720;
 }
 .wc-ai-phone-wallet-pass strong {
-    font-size: 20px;
-    font-weight: 760;
+    font-size: 31px;
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-wallet-pass em {
+    margin-top: 4px;
+    color: rgba(255,255,255,0.86);
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 820;
 }
 .wc-ai-phone-wallet-pass p {
     margin: 0;
