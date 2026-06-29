@@ -16684,6 +16684,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     min-height: 34px;
 }
 .wc-ai-phone-close,
+.wc-ai-phone-generate,
 .wc-ai-phone-app-nav button {
     border: none;
     background: rgba(255,255,255,0.18);
@@ -16696,8 +16697,13 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 }
-.wc-ai-phone-close { width: 34px; height: 34px; }
-.wc-ai-phone-close i { font-size: 18px; }
+.wc-ai-phone-close,
+.wc-ai-phone-generate { width: 34px; height: 34px; }
+.wc-ai-phone-generate { justify-self: end; }
+.wc-ai-phone-close i,
+.wc-ai-phone-generate i { font-size: 18px; }
+.wc-ai-phone-generate.is-loading i { animation: wcAiPhoneSpin 0.8s linear infinite; }
+@keyframes wcAiPhoneSpin { to { transform: rotate(360deg); } }
 .wc-ai-phone-sync {
     grid-column: 2;
     justify-self: center;
@@ -17231,10 +17237,16 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-ai-phone-home-top {
     grid-template-columns: 34px minmax(0, 1fr) 34px;
 }
-.wc-ai-phone-close {
+.wc-ai-phone-close,
+.wc-ai-phone-generate {
     background: rgba(17,24,39,0.07);
     color: #111827;
     border: 1px solid rgba(17,24,39,0.06);
+}
+.wc-ai-phone-generate {
+    background: rgba(255,255,255,0.68);
+    color: #8a5a72;
+    box-shadow: 0 10px 22px rgba(160,112,137,0.10);
 }
 .wc-ai-phone-sync {
     background: #f2f2f7;

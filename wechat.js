@@ -20938,6 +20938,14 @@ function openWechatAiPhone(charId) {
     }
 }
 
+function regenerateWechatAiPhoneSnapshot(charId) {
+    const char = (window.myCharacters || []).find(c => c.id === charId);
+    if (!char) return;
+    requestWechatAiPhoneSnapshot(char, { force: true }).catch(e => console.warn('ai phone manual generate failed:', e));
+    renderWechatAiPhone(char);
+}
+window.regenerateWechatAiPhoneSnapshot = regenerateWechatAiPhoneSnapshot;
+
 function getWechatAiPhoneClockParts() {
     const now = new Date();
     return {
@@ -21672,6 +21680,9 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
             <div class="wc-ai-phone-home-top">
                 <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
                 <div class="wc-ai-phone-sync ${syncError ? 'is-error' : ''}">${wcEscapeHtml(syncLabel)}</div>
+                <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="按角色人设和世界书生成小手机内容" title="按角色人设和世界书生成">
+                    <i class="${isLoading ? 'ri-loader-4-line' : 'ri-sparkling-2-fill'}"></i>
+                </button>
             </div>
             ${syncError ? `
                 <button type="button" class="wc-ai-phone-sync-error" onclick="event.stopPropagation(); requestWechatAiPhoneSnapshot(${retryId}).catch(e => console.warn('ai phone retry failed:', e))">
