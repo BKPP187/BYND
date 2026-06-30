@@ -432,10 +432,11 @@ function escapeJsString(str) {
 }
 
 function toggleApiRouteMenu(type) {
+    const targetPicker = Array.from(document.querySelectorAll('.api-route-picker'))
+        .find(picker => picker.dataset.routeType === type);
+    const shouldOpen = !!targetPicker && !targetPicker.classList.contains('open');
     closeApiFloatingPickers();
-    document.querySelectorAll('.api-route-picker').forEach(picker => {
-        picker.classList.toggle('open', picker.dataset.routeType === type && !picker.classList.contains('open'));
-    });
+    if (shouldOpen) targetPicker.classList.add('open');
 }
 
 function chooseApiRoute(type, apiId) {
@@ -2199,7 +2200,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.439';
+const APP_VERSION = 'v1.1.440';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
