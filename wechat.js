@@ -19769,12 +19769,22 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
         ],
         gameRecords: []
     };
+    const fallbackContact = {
+        government: { name: '秘书处', text: '下午调研材料已经补到共享文档。', time: '刚刚' },
+        idol: { name: '经纪人', text: '车快到地库了，通告流程我再发你一遍。', time: '刚刚' },
+        student: { name: '同学', text: '老师说作业提交时间提前到今晚。', time: '刚刚' },
+        medical: { name: '交班同事', text: '下一班的重点我写在交班记录里了。', time: '刚刚' },
+        business: { name: '项目助理', text: '合同版本已经发你邮箱，等你确认。', time: '刚刚' },
+        creator: { name: '编辑', text: '新稿我看完了，有两处想和你确认。', time: '刚刚' },
+        fantasy: { name: '旧识', text: '那边有新动静，见面再细说。', time: '刚刚' }
+    }[kind] || null;
+    const chats = [
+        { name: userName, text: stripWechatPromptText(fields.lastMessage || `还停在和${userName}的聊天里。`, 70), time: now },
+        fallbackContact
+    ].filter(Boolean);
     return {
         ...pack,
-        chats: [
-            { name: userName, text: stripWechatPromptText(fields.lastMessage || `还停在和${userName}的聊天里。`, 70), time: now },
-            { name: kind === 'government' ? '秘书处' : kind === 'idol' ? '经纪人' : kind === 'student' ? '同学' : kind === 'business' ? '工作联系人' : kind === 'fantasy' ? '旧识' : '联系人', text: '最近一条未读消息', time: '刚刚' }
-        ],
+        chats,
         memos: buildWechatAiPhonePersonaMemoFallbacks(kind, charName, userName),
         diary: baseDiary,
         diaryLetters: buildWechatAiPhoneDiaryLetterFallbacks(char, baseDiary, { userName })
@@ -19859,11 +19869,25 @@ function buildWechatAiPhoneRealUserChatRow(char, displayName = '') {
     };
 }
 
+function isWechatAiPhonePlaceholderChatRow(row) {
+    if (!row || typeof row !== 'object') return true;
+    const name = stripWechatPromptText(row.name || '', 32);
+    const text = stripWechatPromptText(row.text || row.lastMessage || row.message || '', 90);
+    if (!name && !text) return true;
+    if (/^(联系人|工作联系人|某联系人|未知联系人|好友|朋友|NPC)$/i.test(name)
+        && /^(最近一条未读消息|未读消息|有一条新消息|聊天|消息|暂无|无)$/i.test(text || '')) {
+        return true;
+    }
+    if (/^(联系人|工作联系人|某联系人|未知联系人|好友|朋友|NPC)$/i.test(name) && !text) return true;
+    return false;
+}
+
 function withWechatAiPhoneRealUserChat(snapshot, char, displayName = '') {
     const source = snapshot && typeof snapshot === 'object' ? { ...snapshot } : buildWechatAiPhoneFallback(char);
     const userRow = buildWechatAiPhoneRealUserChatRow(char, displayName || source.userRemark || '');
     const contacts = (Array.isArray(source.chats) ? source.chats.slice(1) : [])
         .filter(item => item && String(item.name || '').trim() && String(item.name || '').trim() !== userRow.name)
+        .filter(item => !isWechatAiPhonePlaceholderChatRow(item))
         .slice(0, 4);
     source.chats = [userRow, ...contacts];
     return source;
@@ -19902,6 +19926,7 @@ function mergeWechatAiPhoneContinuityChats(chats, char) {
     const output = [userRow];
     const seen = new Set();
     const pushContact = (item) => {
+        if (isWechatAiPhonePlaceholderChatRow(item)) return;
         const key = getWechatAiPhoneContactNameKey(item && item.name);
         if (!key || seen.has(key)) return;
         output.push(item);
@@ -20748,6 +20773,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
             && item.name !== userDisplayName
             && !/^(我|用户|user)$/i.test(item.name)
             && !reservedByndNames.has(item.name)
+            && !isWechatAiPhonePlaceholderChatRow(item)
             && !shouldDropWechatAiPhoneRowForPersona(item, char)
         ));
         const list = [realUserChat, ...contacts, ...fallbackContacts].slice(0, 5);
@@ -20889,7 +20915,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
 字段固定：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary,diaryLetters。
 wallet 必须是字符串且包含具体余额/可用额度数字，不要返回对象；格式示例："零钱 ¥328.60 · 工资卡可用额度 ¥12000 · 日常消费正常"。
 数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]。walletRecords.meta 必须写具体金额，例如 "-25.00"、"+8000.00" 或 "¥128.50"。
-数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
+数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。chats.name 必须是明确联系人身份或姓名，禁止写“联系人/好友/朋友/NPC/工作联系人”；chats.text 禁止写“最近一条未读消息/有一条新消息/聊天/消息”等占位文案。diaryLetters 2 条。memos.content 30-90 字；diary 30-90 字；diaryLetters.body 70-160 字；其他字符串 8-38 字。
 如果【小手机代发连续性】不为空，chats 优先保留其中 1-2 个联系人/NPC，并自然续写他们在 char 手机里的下一条聊天预览。NPC 可以察觉语气变化、追问、误会、接受、顺着办理、谨慎确认或觉得不像本人，但必须按联系人身份、上下文、关系和语气灵活变化；不要每次固定说“不像你发的”。
 gameRecords 只能写这个 char 自己按人设、世界书、职业、年龄、生活方式会玩的游戏；禁止复制用户手机/桌面/BYND 小游戏库里的游戏，也不要因为用户手机里有某个游戏就让 char 玩。若角色人设明显不玩游戏，gameRecords 可以为空数组。
 【状态】只可作为时间/地点/最近上下文的参考；memos、scheduleRecords、diaryLetters 禁止直接复制状态栏字段、innerMonologue、thoughts、action、miniDiary 原文，也不要写成情绪独白。
@@ -21260,7 +21286,9 @@ function renderWechatAiPhoneMessageContent(item, char) {
 }
 
 function renderWechatAiPhoneChatRows(snapshot, char) {
-    const chats = Array.isArray(snapshot.chats) ? snapshot.chats : [];
+    const chats = Array.isArray(snapshot.chats)
+        ? snapshot.chats.filter((item, index) => index === 0 || !isWechatAiPhonePlaceholderChatRow(item))
+        : [];
     if (!chats.length) return '<div class="wc-ai-phone-empty">还没有聊天记录</div>';
     return chats.map((item, index) => `
         <button type="button" class="wc-ai-phone-chat-row" onclick="switchWechatAiPhoneChat(${index})">
