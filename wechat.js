@@ -3050,11 +3050,13 @@ function getWechatMessageSummary(msg) {
     }
     if (msg.type === 'transfer') {
         const note = msg.note ? ` ${msg.note}` : '';
+        if (msg.returned || msg.status === '已退回') return `[已退回转账 ¥${normalizeWechatAmount(msg.amount)}]${note}`;
         return msg.receipt ? `[已收取转账 ¥${normalizeWechatAmount(msg.amount)}]${note}` : `[转账 ¥${normalizeWechatAmount(msg.amount)}]${note}`;
     }
     if (msg.type === 'redpacket') {
         const title = msg.title || msg.note || '恭喜发财，大吉大利';
         const status = msg.status ? ` ${msg.status}` : '';
+        if (msg.returned || msg.status === '已退回') return `[已退回红包] ${title}`;
         return msg.receipt ? `[已收取红包] ${title}` : `[红包${status}] ${title}`;
     }
     if (msg.type === 'gift') {
@@ -8037,16 +8039,19 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
     if (msg.type === 'transfer') {
         const amount = normalizeWechatAmount(msg.amount);
         const isReceipt = !!msg.receipt;
-        const title = isReceipt ? '已收取转账' : (msg.status === '已被领取' ? '转账已被领取' : '转账');
-        const note = isReceipt
+        const isReturned = !!msg.returned || msg.status === '已退回';
+        const title = isReturned ? '已退回转账' : (isReceipt ? '已收取转账' : (msg.status === '已被领取' ? '转账已被领取' : '转账'));
+        const note = isReturned
+            ? buildWechatPaymentReturnedAtText(msg)
+            : isReceipt
             ? (msg.note || buildWechatCollectedAtText(msg))
             : (msg.note || (msg.status === '已被领取' ? '对方已收款' : (msg.isMe ? '待对方收款' : '转账给你')));
-        const footer = isReceipt ? '微信转账已收取' : '微信转账';
+        const footer = isReturned ? '微信转账已退回' : (isReceipt ? '微信转账已收取' : '微信转账');
         return `
-            <div class="msg-bubble msg-pay-bubble msg-transfer-bubble${isReceipt ? ' msg-pay-receipt' : ''}${sideClass}">
+            <div class="msg-bubble msg-pay-bubble msg-transfer-bubble${isReceipt ? ' msg-pay-receipt' : ''}${isReturned ? ' msg-pay-returned' : ''}${sideClass}">
                 ${quoteHtml}
                 <div class="msg-pay-main">
-                    <div class="msg-pay-icon"><i class="ri-money-cny-circle-fill"></i></div>
+                    <div class="msg-pay-icon"><i class="${isReturned ? 'ri-refund-2-line' : 'ri-money-cny-circle-fill'}"></i></div>
                     <div class="msg-pay-info">
                         <div class="msg-pay-title">${title}</div>
                         <div class="msg-pay-amount">¥${wcEscapeHtml(amount)}</div>
@@ -8062,19 +8067,20 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
         const title = msg.title || msg.note || '恭喜发财，大吉大利';
         const amount = msg.amount ? `<div class="msg-rp-amount">¥${wcEscapeHtml(normalizeWechatAmount(msg.amount))}</div>` : '';
         const isReceipt = !!msg.receipt;
-        const displayStatus = isReceipt ? buildWechatCollectedAtText(msg) : (msg.status === '已被领取' ? '对方已领取' : (msg.status || '待收取'));
+        const isReturned = !!msg.returned || msg.status === '已退回';
+        const displayStatus = isReturned ? buildWechatPaymentReturnedAtText(msg) : (isReceipt ? buildWechatCollectedAtText(msg) : (msg.status === '已被领取' ? '对方已领取' : (msg.status || '待收取')));
         return `
-            <div class="msg-bubble msg-pay-bubble msg-redpacket-bubble${isReceipt ? ' msg-pay-receipt' : ''}${sideClass}">
+            <div class="msg-bubble msg-pay-bubble msg-redpacket-bubble${isReceipt ? ' msg-pay-receipt' : ''}${isReturned ? ' msg-pay-returned' : ''}${sideClass}">
                 ${quoteHtml}
                 <div class="msg-pay-main">
-                    <div class="msg-pay-icon"><i class="ri-red-packet-fill"></i></div>
+                    <div class="msg-pay-icon"><i class="${isReturned ? 'ri-refund-2-line' : 'ri-red-packet-fill'}"></i></div>
                     <div class="msg-pay-info">
-                        <div class="msg-pay-title">${wcEscapeHtml(isReceipt ? '已收取红包' : title)}</div>
+                        <div class="msg-pay-title">${wcEscapeHtml(isReturned ? '已退回红包' : (isReceipt ? '已收取红包' : title))}</div>
                         ${amount}
                         <div class="msg-pay-note">${wcEscapeHtml(displayStatus)}</div>
                     </div>
                 </div>
-                <div class="msg-card-footer"><span>${isReceipt ? '微信红包已收取' : '微信红包'}</span>${metaHtml}</div>
+                <div class="msg-card-footer"><span>${isReturned ? '微信红包已退回' : (isReceipt ? '微信红包已收取' : '微信红包')}</span>${metaHtml}</div>
             </div>
         `;
     }
@@ -8284,7 +8290,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
             });
         }
     }
-    if (typeof msgIndex === 'number' && !msg.isMe && !msg.receipt && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type) && msg.status !== '已被领取' && msg.status !== '已收取' && msg.status !== '已开通') {
+    if (typeof msgIndex === 'number' && !msg.isMe && !msg.receipt && ['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type) && msg.status !== '已被领取' && msg.status !== '已收取' && msg.status !== '已开通' && msg.status !== '已退回') {
         row.classList.add('msg-row-pay-collectable');
         const payBubble = row.querySelector('.msg-pay-bubble, .msg-gift-bubble, .msg-intimate-pay-bubble');
         if (payBubble) {
@@ -8293,7 +8299,15 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
             payBubble.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
-                collectWechatIncomingPayment(msgIndex);
+                if (msg.type === 'transfer' || msg.type === 'redpacket') openWechatPaymentActionModal(msgIndex);
+                else collectWechatIncomingPayment(msgIndex);
+            });
+            payBubble.addEventListener('keydown', event => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (msg.type === 'transfer' || msg.type === 'redpacket') openWechatPaymentActionModal(msgIndex);
+                else collectWechatIncomingPayment(msgIndex);
             });
         }
     }
@@ -8623,6 +8637,12 @@ function getWechatPaymentReceiptId(msg, index) {
     return msg.receiptFor || msg.paymentId || msg.timestamp || `${msg.type}_${index}`;
 }
 
+function buildWechatPaymentReturnedAtText(msg) {
+    const time = msg?.returnedAt || msg?.timestamp || '';
+    if (!time) return '已退回';
+    return `已退回 · ${formatMessageTime({ timestamp: time })}`;
+}
+
 function buildWechatPaymentReceiptMessage(msg, receiptFor, isMe = false) {
     const collectedAt = msg.collectedAt || createMessageTimestamp();
     const receipt = {
@@ -8648,6 +8668,98 @@ function buildWechatPaymentReceiptMessage(msg, receiptFor, isMe = false) {
         receipt.status = '已开通';
     }
     return syncWechatMessageDescription(receipt);
+}
+
+function buildWechatPaymentReturnMessage(msg, receiptFor, isMe = true) {
+    const returnedAt = msg.returnedAt || createMessageTimestamp();
+    const receipt = {
+        type: msg.type,
+        isMe,
+        receipt: true,
+        returned: true,
+        receiptFor,
+        amount: msg.amount,
+        title: msg.title,
+        originalNote: msg.note,
+        note: buildWechatPaymentReturnedAtText({ ...msg, returnedAt }),
+        status: '已退回',
+        timestamp: returnedAt,
+        returnedAt
+    };
+    if (msg.type === 'redpacket' && !receipt.title) receipt.title = '恭喜发财，大吉大利';
+    return syncWechatMessageDescription(receipt);
+}
+
+function getWechatPaymentActionLabel(msg) {
+    if (!msg) return '付款';
+    if (msg.type === 'redpacket') return '红包';
+    if (msg.type === 'transfer') return '转账';
+    if (msg.type === 'gift') return '礼物';
+    if (msg.type === 'intimatePay') return '亲密付';
+    return '付款';
+}
+
+function buildWechatPaymentEventText(msg, action) {
+    const label = getWechatPaymentActionLabel(msg);
+    const amount = msg?.amount ? `（¥${normalizeWechatAmount(msg.amount)}）` : '';
+    const titleOrNote = stripWechatPromptText(msg?.note || msg?.title || msg?.description || '', 80);
+    const extra = titleOrNote ? `，原备注/标题：「${titleOrNote}」` : '';
+    const actionText = action === 'return' ? '退回了你发来的' : '收取了你发来的';
+    const moodHint = action === 'return'
+        ? '可以失落、尴尬、嘴硬、追问原因、理解用户，或按你们的关系自然反应。'
+        : '可以开心、放心、调侃、撒娇、嘴硬，或按你们的关系自然反应。';
+    return `用户刚刚${actionText}${label}${amount}${extra}。请按你的人设、当前关系和最近聊天自然回应，${moodHint}不要解释系统。`;
+}
+
+function ensureWechatPaymentActionModal() {
+    let modal = document.getElementById('wc-payment-action-modal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'wc-payment-action-modal';
+    modal.className = 'wc-modal-overlay hidden wc-compose-overlay wc-payment-action-overlay';
+    modal.addEventListener('click', event => {
+        if (event.target === modal) closeWechatPaymentActionModal();
+    });
+    getWechatModalRoot().appendChild(modal);
+    return modal;
+}
+
+function closeWechatPaymentActionModal() {
+    const modal = document.getElementById('wc-payment-action-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function openWechatPaymentActionModal(msgIdx) {
+    const char = getCurrentChatChar();
+    if (!char || !Array.isArray(char.history)) return;
+    const msg = char.history[msgIdx];
+    if (!msg || msg.isMe || msg.receipt || !['transfer', 'redpacket'].includes(msg.type)) return;
+    if (msg.status === '已被领取' || msg.status === '已收取' || msg.status === '已退回' || msg.returned) return;
+
+    const modal = ensureWechatPaymentActionModal();
+    const label = getWechatPaymentActionLabel(msg);
+    const amount = msg.amount ? normalizeWechatAmount(msg.amount) : '';
+    const isRedpacket = msg.type === 'redpacket';
+    const title = isRedpacket ? (msg.title || msg.note || '恭喜发财，大吉大利') : (msg.note || '转账给你');
+    const icon = isRedpacket ? 'ri-red-packet-fill' : 'ri-money-cny-circle-fill';
+    const acceptText = isRedpacket ? '打开红包' : '收取转账';
+    modal.dataset.msgIdx = String(msgIdx);
+    modal.innerHTML = `
+        <div class="wc-payment-action-card" role="dialog" aria-modal="true" aria-label="${wcEscapeAttr(acceptText)}">
+            <button type="button" class="wc-payment-action-close" onclick="closeWechatPaymentActionModal()" aria-label="关闭"><i class="ri-close-line"></i></button>
+            <div class="wc-payment-action-hero ${isRedpacket ? 'redpacket' : 'transfer'}">
+                <div class="wc-payment-action-icon"><i class="${icon}"></i></div>
+                <span>${wcEscapeHtml(label)}</span>
+                ${amount ? `<strong>¥${wcEscapeHtml(amount)}</strong>` : ''}
+                <p>${wcEscapeHtml(title)}</p>
+            </div>
+            <div class="wc-payment-action-footer">
+                <button type="button" class="wc-payment-return" onclick="returnWechatIncomingPayment(${msgIdx})"><i class="ri-refund-2-line"></i><span>退回</span></button>
+                <button type="button" class="wc-payment-accept" onclick="collectWechatIncomingPayment(${msgIdx}, { notifyChar: true })"><i class="ri-checkbox-circle-fill"></i><span>${acceptText}</span></button>
+            </div>
+        </div>
+    `;
+    modal.classList.remove('hidden');
 }
 
 function isWechatMsgSelectable(msgIdx) {
@@ -8693,12 +8805,12 @@ function markPendingUserPaymentsCollected(char) {
     return changed;
 }
 
-function collectWechatIncomingPayment(msgIdx) {
+async function collectWechatIncomingPayment(msgIdx, options = {}) {
     const char = getCurrentChatChar();
     if (!char || !Array.isArray(char.history)) return;
     const msg = char.history[msgIdx];
     if (!msg || msg.isMe || msg.receipt || !['transfer', 'redpacket', 'gift', 'intimatePay'].includes(msg.type)) return;
-    if (msg.status === '已被领取' || msg.status === '已收取' || msg.status === '已开通') return;
+    if (msg.status === '已被领取' || msg.status === '已收取' || msg.status === '已开通' || msg.status === '已退回' || msg.returned) return;
     const receiptFor = getWechatPaymentReceiptId(msg, msgIdx);
     const hasReceipt = char.history.some(item => item && item.receipt && item.receiptFor === receiptFor);
     ensureMessageTimestamp(msg);
@@ -8720,7 +8832,43 @@ function collectWechatIncomingPayment(msgIdx) {
         char.history.push(buildWechatPaymentReceiptMessage(msg, receiptFor, true));
     }
     saveCharactersToStorage();
+    closeWechatPaymentActionModal();
     refreshChatView(char);
+    renderChatList();
+    if ((msg.type === 'transfer' || msg.type === 'redpacket') && options.notifyChar !== false) {
+        await appendWechatRelationshipEventReply(char, buildWechatPaymentEventText(msg, 'collect'));
+        saveCharactersToStorage();
+        if (window.currentChatCharId === char.id) refreshChatView(char);
+        renderChatList();
+    }
+}
+
+async function returnWechatIncomingPayment(msgIdx) {
+    const char = getCurrentChatChar();
+    if (!char || !Array.isArray(char.history)) return;
+    const msg = char.history[msgIdx];
+    if (!msg || msg.isMe || msg.receipt || !['transfer', 'redpacket'].includes(msg.type)) return;
+    if (msg.status === '已被领取' || msg.status === '已收取' || msg.status === '已退回' || msg.returned) return;
+
+    const receiptFor = getWechatPaymentReceiptId(msg, msgIdx);
+    const hasReturnReceipt = char.history.some(item => item && item.receipt && item.returned && item.receiptFor === receiptFor);
+    ensureMessageTimestamp(msg);
+    msg.status = '已退回';
+    msg.returned = true;
+    msg.returnedAt = createMessageTimestamp();
+    msg.receiptCreated = true;
+    syncWechatMessageDescription(msg);
+    if (!hasReturnReceipt) {
+        char.history.push(buildWechatPaymentReturnMessage(msg, receiptFor, true));
+    }
+    saveCharactersToStorage();
+    closeWechatPaymentActionModal();
+    refreshChatView(char);
+    renderChatList();
+    if (typeof showWechatToast === 'function') showWechatToast(`已退回${getWechatPaymentActionLabel(msg)}`);
+    await appendWechatRelationshipEventReply(char, buildWechatPaymentEventText(msg, 'return'));
+    saveCharactersToStorage();
+    if (window.currentChatCharId === char.id) refreshChatView(char);
     renderChatList();
 }
 
