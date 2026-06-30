@@ -1,8 +1,8 @@
 ﻿@import url("./styles/wechat-themes/base-overrides.css?v=20260529-outing-desktop41");
 @import url("./styles/wechat-themes/reference-themes.css?v=20260529-outing-desktop41");
 
-/* style.css - 缁堟瀬淇鐗?*/
-/* --- 馃敡 鏍稿績宸ュ叿绫?--- */
+/* style.css - main stylesheet */
+/* --- Core Utilities --- */
 .hidden { display: none !important; }
 
 :root {
@@ -43,13 +43,13 @@ html.mobile-runtime.bynd-display-standalone body { padding-top: 0; padding-botto
 html.mobile-runtime.bynd-display-standalone .phone-container { height: 100dvh; }
 html.lockscreen-disabled .lock-screen { display: none !important; }
 
-/* --- 鐘舵€佹爮 --- */
+/* --- Status Bar --- */
 .status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
 .status-bar.white-text { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .status-bar.white-text i { color: #ffffff; }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
 
-/* --- 閿佸睆 --- */
+/* --- Lock Screen --- */
 .lock-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #fcfcfc; z-index: 900; display: flex; flex-direction: column; padding-top: 80px; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
 .lock-screen.unlocked { transform: translateY(-100%); }
 .ls-header { text-align: center; margin-bottom: 20px; }
@@ -80,7 +80,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .round-btn.ls-flash-on { background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,200,0.8); color: #333; }
 .swipe-hint { width: 120px; height: 5px; background: var(--lock-swipe-bg); border-radius: 3px; transition: background 0.35s ease; }
 
-/* --- 妗岄潰 (淇閲嶇偣鍖哄煙) --- */
+/* --- Desktop --- */
 .screen-content { 
     height: 100%; 
     background: #f8f8f8; 
@@ -127,7 +127,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     user-select: text;
 }
 
-/* 馃憞 杩欓噷鐨勫唴杈硅窛涔嬪墠琚偅琛屼贡鐮佹悶涓簡锛岀幇鍦ㄥ姞鍥炴潵浜嗭紒 */
+/* Desktop page container. */
 .pages-container { flex: 1; display: flex; overflow: hidden; position: relative; touch-action: pan-y; }
 .desktop-page { min-width: 100%; width: 100%; flex: 0 0 100%; transition: transform 0.3s ease; display: flex; flex-direction: column; }
 .page-dots { display: flex; justify-content: center; gap: 6px; padding: 8px 0; }
@@ -157,7 +157,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .cal-dot.active::before { content: ''; position: absolute; width: 22px; height: 20px; background: var(--cal-accent, #ff69b4); -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; filter: blur(2px); opacity: 0.8; z-index: -1; }
 .cal-dot.active::after { content: ''; position: absolute; width: 20px; height: 18px; background: var(--cal-accent, #ff69b4); -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E"); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 1; z-index: -1; }
 
-/* --- 鏃ュ巻閰嶈壊璁剧疆 --- */
+/* --- Calendar Color Settings --- */
 .cal-color-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
 .cal-color-item { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
 .cal-color-item label { font-size: 11px; color: #aaa; font-weight: 600; }
@@ -2324,13 +2324,13 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .pw-mini-bow::before { left: 0; border-radius: 70% 18% 65% 20%; transform: rotate(14deg); }
 .pw-mini-bow::after { right: 0; border-radius: 18% 70% 20% 65%; transform: rotate(-14deg); }
 .dock-bar { width: fit-content; min-width: 96px; max-width: calc(100% - 30px); margin: 15px auto; height: 84px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 12px; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: width 0.18s ease, min-width 0.18s ease, padding 0.18s ease; }
-.dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 60px; min-width: 54px; cursor: pointer; touch-action: none; border-radius: 16px; transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
+.dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 60px; min-width: 54px; cursor: pointer; touch-action: pan-x; border-radius: 16px; transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
 .dock-icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #333; transition: transform 0.1s; overflow: hidden; border-radius: 12px; flex-shrink: 0; }
 .dock-icon-box img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 .dock-item:active .dock-icon-box { transform: scale(0.9); }
 .dock-label { font-family: var(--app-font-family); font-size: 11px; line-height: 1.15; color: #333; font-weight: 500; letter-spacing: 0; text-shadow: none; opacity: 0.9; }
 .screen-content.desktop-editing .dock-bar { justify-content: center; background: rgba(255,255,255,0.62); box-shadow: 0 12px 30px rgba(128,97,112,0.18); outline: 1px solid rgba(255,255,255,0.82); }
-.screen-content.desktop-editing .dock-item { cursor: grab; }
+.screen-content.desktop-editing .dock-item { cursor: grab; touch-action: none; }
 .screen-content.desktop-editing .dock-item:active { cursor: grabbing; }
 .dock-item.selected { background: rgba(255,255,255,0.42); box-shadow: 0 10px 22px rgba(226,122,154,0.18); }
 .dock-drag-ghost { position: fixed; z-index: 9999; pointer-events: none; width: 60px; min-width: 60px; opacity: 0.84; transform: scale(1.06); filter: drop-shadow(0 14px 26px rgba(0,0,0,0.18)); }
@@ -3613,7 +3613,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .icon-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .icon-name { font-size: 11px; color: #666; line-height: 1.22; text-align: center; width: 100%; min-height: 28px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; text-overflow: ellipsis; word-break: keep-all; }
 
-/* --- 寰俊 App 鏍峰紡 --- */
+/* --- WeChat App Styles --- */
 .wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
 .wc-header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; z-index: 1; }
 .wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }
@@ -3637,7 +3637,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .wc-name { font-size: 16px; font-weight: 500; color: #111; }
 .wc-time { font-size: 10px; color: #b2b2b2; }
 .wc-bottom { display: flex; }
-.wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; min-height: 18px; /* 闃叉鍐呭涓虹┖鏃跺闄?*/ }
+.wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; min-height: 18px; /* Keep empty previews from collapsing. */ }
 .wc-tab-view { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px; background: white; }
 .wc-tab-view.active { display: flex; flex-direction: column; flex: 1; }
 .wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 12px; z-index: 10; }
@@ -4423,7 +4423,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 .msg-meta i { font-size: 13px; line-height: 1; color: var(--msg-meta-icon-color, #58b7ff); }
 .msg-row.left .msg-bubble::before { content: none; }
 .msg-row.right .msg-bubble::before { content: none; }
-/* 琛ㄦ儏璐寸焊涓嶇敤缂?*/
+/* Sticker bubbles do not use chat bubble chrome. */
 .msg-bubble.sticker { width: max-content; max-width: min(184px, calc(100vw - 136px)); background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; min-width: 0 !important; border-radius: 0 !important; overflow: visible; display: flex; flex-direction: column; align-items: flex-start; }
 .msg-row.right .msg-bubble.sticker { align-items: flex-end; }
 .msg-bubble.sticker .msg-sticker-main { display: inline-flex; align-items: flex-end; gap: 5px; max-width: 184px; }
@@ -4612,7 +4612,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-reply-preview button { width: 26px; height: 26px; border: none; border-radius: 50%; background: rgba(15,23,42,0.06); color: #526173; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .wc-reply-preview button i { font-size: 15px; color: inherit; }
 
-/* --- 馃挰 鑱婂ぉ璁剧疆闈㈡澘 --- */
+/* --- Chat Settings Panel --- */
 .wc-chat-settings { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% -10%, rgba(255,255,255,0.92), rgba(244,246,248,0.86) 42%, #f2f3f5 100%); background-color: #f2f3f5; z-index: 120; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .wc-chat-settings.active { transform: translateX(0); }
 .wc-chat-room.settings-open .wc-chat-settings { z-index: 120 !important; }
@@ -4901,7 +4901,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wcs-avatar-gallery-item.active { border-color: #111; }
 .wcs-avatar-gallery-item:hover { border-color: #999; }
 
-/* 馃敶 鍏抽敭淇锛氭彁鍗囧脊绐楀眰绾э紝纭繚瑕嗙洊鎵€鏈夌獥鍙?*/
+/* Raise modal layers above all app windows. */
 .wc-action-sheet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 3000 !important; display: flex; flex-direction: column; justify-content: flex-end; }
 .wc-sheet-content { background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; animation: slideUp 0.3s ease; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -4937,7 +4937,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
 
-/* --- style.css 杩藉姞鍐呭锛氳嚜鍔ㄦ繁鑹叉ā寮?--- */
+/* --- Auto Dark Mode --- */
 .dark-mode .app-item span,
 .dark-mode .dock-label {
     color: #ffffff !important;
@@ -4950,7 +4950,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     text-shadow: var(--lock-text-shadow);
 }
 
-/* === 馃摉 WorldBook 鏍峰紡 === */
+/* === WorldBook Styles === */
 .wb-shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 30px 20px; }
 .wb-book { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; animation: popIn 0.3s ease; }
 .wb-cover { width: 85px; height: 115px; background: #5d4037; border-radius: 4px 8px 8px 4px; box-shadow: 4px 4px 12px rgba(0,0,0,0.3), inset 3px 0 10px rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
@@ -4959,7 +4959,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wb-title { font-size: 12px; font-weight: bold; color: #5d4037; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 5px; }
 .wb-empty { text-align: center; color: #a1887f; margin-top: 60px; }
 
-/* 涔︽湰璇︽儏 */
+/* Book details */
 .wb-nav-bar { height: 60px; padding: 0 15px; display: flex; align-items: center; justify-content: space-between; background: #ece6d8; border-bottom: 1px solid #d7ccc8; color: #5d4037; font-weight: bold; font-size: 16px; }
 .wb-nav-bar i { font-size: 24px; cursor: pointer; padding: 5px; }
 .wb-detail-scroll { flex: 1; overflow-y: auto; padding: 20px; background: #f5f1e8; }
@@ -4971,7 +4971,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wb-keys { font-size: 11px; background: #fff3e0; color: #e65100; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; border: 1px solid #ffe0b2; }
 .wb-text { font-size: 13px; color: #4e342e; line-height: 1.6; white-space: pre-wrap; text-align: justify; }
 
-/* === Regex 鏍峰紡 === */
+/* === Regex Styles === */
 .regex-window { background: #f6f7f9 !important; color: #111827; }
 .regex-window-header { background: rgba(255,255,255,0.88) !important; border-bottom: 1px solid rgba(15,23,42,0.06) !important; color: #111827 !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .regex-window-header .close-btn { color: #64748b !important; }
@@ -5024,7 +5024,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .re-modal-card input:focus, .re-modal-card select:focus { border-color: rgba(7,193,96,0.42); background: #fff; box-shadow: 0 0 0 3px rgba(7,193,96,0.10); }
 .re-modal-card .btn-confirm { background: #111827 !important; color: #fff; border-radius: 14px !important; }
 
-/* --- 馃摉 WorldBook 鍒楄〃鍖栨敼閫?--- */
+/* --- WorldBook List Layout --- */
 .wb-list-container { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
 .wb-list-item { background: white; padding: 12px 15px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .wb-list-item:active { background: #f5f5f5; transform: scale(0.99); }
@@ -5034,9 +5034,9 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wb-item-right { color: #ccc; font-size: 18px; }
 .wb-read-field { background: #f0f0f0 !important; color: #555 !important; border: 1px solid #ddd !important; }
 
-/* --- 鑱婂ぉ瑙嗗浘鏍峰紡 --- */
+/* --- Chat View Styles --- */
 
-/* 1. 椤堕儴鏍?鈥?濂惰尪绮夋笎鍙?*/
+/* 1. Header bar */
 .st-header {
     height: 60px;
     padding: 0 15px;
@@ -5054,7 +5054,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .st-header i { font-size: 22px; cursor: pointer; padding: 5px; color: #c9a0b5; transition: all 0.2s; }
 .st-header i:active { color: #f8a4b8; transform: scale(0.9); }
 
-/* 2. 瀹瑰櫒涓庤儗鏅?鈥?鏆栧ザ鑼惰壊 */
+/* 2. Container and background */
 .st-container {
     flex: 1;
     overflow: hidden;
@@ -5066,7 +5066,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
                       radial-gradient(circle at 80% 20%, rgba(183,148,198,0.08) 0%, transparent 50%) !important;
 }
 
-/* 3. 瑙掕壊缃戞牸鍒楄〃 鈥?灏忓崱鐗囧渾褰㈠ご鍍?*/
+/* 3. Character grid */
 .st-char-grid { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; overflow-y: auto; }
 .st-char-card {
     background: rgba(255,255,255,0.7);
@@ -5103,7 +5103,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     letter-spacing: 0.3px;
 }
 
-/* 4. 鑱婂ぉ瑙嗗浘 */
+/* 4. Chat view */
 .st-chat-view {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; flex-direction: column;
@@ -5183,7 +5183,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     display: block;
 }
 
-/* 6. 搴曢儴杈撳叆鏍?鈥?鏌斿拰姣涚幓鐠?*/
+/* 6. Footer input bar */
 .st-toolbar { display: flex; gap: 0; background: rgba(255,250,248,0.98); border-top: 1px solid rgba(248,164,184,0.15); padding: 10px 15px; flex-shrink: 0; }
 .st-toolbar.hidden { display: none; }
 .st-toolbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; cursor: pointer; border-radius: 10px; transition: background 0.15s; }
@@ -5218,7 +5218,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     box-shadow: 0 0 0 3px rgba(248,164,184,0.1);
 }
 
-/* --- 鈿欙笍 璁剧疆 App 鏍峰紡 (娓呮柊鍙埍椋? --- */
+/* --- Settings App Styles --- */
 .set-section-title {
     font-size: 13px; font-weight: 700; color: #c9a0b5;
     display: flex; align-items: center; gap: 6px;
@@ -5257,7 +5257,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .api-status-dot.testing { background: #fbbf24; animation: pulse-dot 1s infinite; }
 @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-/* 鍗＄墖淇℃伅 */
+/* Card information */
 .api-card-info { flex: 1; min-width: 0; }
 .api-card-name {
     font-size: 14px; font-weight: 700; color: #5a4a52;
@@ -5393,7 +5393,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     color: #738195;
 }
 
-/* 棰勮鍗＄墖锛堝彲灞曞紑锛?*/
+/* Expandable preset cards */
 .preset-card {
     background: rgba(255,255,255,0.85);
     border: 1.5px solid rgba(248,164,184,0.15);
@@ -5426,7 +5426,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .preset-card-actions i:active { transform: scale(0.9); background: rgba(248,164,184,0.1); }
 
-/* 灞曞紑鐨?prompts 鍒楄〃 */
+/* Expanded prompt list */
 .preset-prompts-list {
     border-top: 1px solid rgba(248,164,184,0.12);
     padding: 10px 14px 14px;
@@ -5494,7 +5494,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .set-empty i { font-size: 36px; display: block; margin-bottom: 10px; color: #e8d0dc; }
 
-/* --- 瀛椾綋璁剧疆 --- */
+/* --- Font Settings --- */
 .font-preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
 .font-preset-item { background: rgba(255,255,255,0.85); border: 1.5px solid rgba(248,164,184,0.15); border-radius: 14px; padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .font-preset-item:active { transform: scale(0.96); }
@@ -5502,7 +5502,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .font-preset-name { font-size: 11px; color: #c9a0b5; font-weight: 600; }
 .font-preset-sample { font-size: 18px; color: #5a4a52; line-height: 1.3; }
 
-/* 瀛椾綋涓嬫媺閫夋嫨鍣?*/
+/* Font select control */
 .font-select-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .font-select { flex: 1; background: rgba(255,255,255,0.85); border: 1.5px solid rgba(248,164,184,0.2); border-radius: 14px; padding: 12px 14px; font-size: 14px; color: #5a4a52; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23c9a0b5' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
 .font-select:focus { border-color: #f8a4b8; }
@@ -5538,10 +5538,10 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .set-data-btn-warn i { color: #f87171; }
 .set-data-btn-warn:active { background: rgba(248,113,113,0.05); }
 
-/* 鐗堟湰鍙?*/
+/* Version label */
 .set-version { text-align: center; padding: 30px 0 40px; font-size: 11px; color: #d4c0ca; letter-spacing: 0.5px; }
 
-/* 涓诲姩娑堟伅鎻愰啋 */
+/* Proactive notification reminder */
 .notify-card {
     padding: 14px;
     border-radius: 20px;
@@ -5907,7 +5907,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     line-height: 1.5;
 }
 
-/* --- 瀛︿範 App --- */
+/* --- Study App --- */
 .study-window {
     background: #f5f6f8;
     color: #111318;
@@ -7452,7 +7452,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     opacity: 0.42;
 }
 
-/* --- 鑱婂ぉ宸ュ叿鏍?+ AI鎸夐挳 --- */
+/* --- Chat Toolbar + AI Button --- */
 .wc-ai-btn { color: #a855f7 !important; font-size: 24px; cursor: pointer; transition: transform 0.15s; }
 .wc-ai-btn:active { transform: scale(0.8); }
 .wc-send-btn.is-disabled,
@@ -7696,7 +7696,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .msg-media-meta { position: absolute; right: 9px; bottom: 8px; display: inline-flex; align-items: center; gap: 2px; padding: 3px 6px; border-radius: 999px; background: rgba(0,0,0,0.42); color: rgba(255,255,255,0.92); font-size: 10px; line-height: 1; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .msg-media-meta i { font-size: 13px; color: #68c2ff; }
 
-/* 寰俊鐗规畩娑堟伅 */
+/* WeChat special messages */
 .msg-voice-bubble { width: var(--voice-width, 150px); min-width: 112px; padding: 8px 10px 5px 12px; cursor: pointer; }
 .msg-voice-line { display: flex; align-items: center; gap: 9px; min-height: 24px; }
 .msg-row.right .msg-voice-line { flex-direction: row-reverse; }
@@ -8245,7 +8245,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     animation: wcScreenShake 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* 寰俊閫氳瘽椤?*/
+/* WeChat call page */
 .wc-message-island {
     position: absolute;
     top: 13px;
@@ -8584,7 +8584,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wb-transition-book.is-open .wb-transition-cover { transform: rotateY(-72deg); opacity: 0.78; }
 .wb-transition-book.is-open .wb-transition-pages { opacity: 1; transform: translateX(42%) scaleX(1.32); }
 
-/* 寰俊妯℃嫙娑堟伅寮圭獥 */
+/* WeChat simulated message modal */
 .wc-compose-overlay { z-index: 3300 !important; }
 .wc-compose-card { width: 86%; max-height: 82%; overflow: hidden; border-radius: 24px; background: rgba(255,255,255,0.96); box-shadow: 0 18px 54px rgba(15,23,42,0.24); border: 1px solid rgba(255,255,255,0.85); animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .wc-compose-header { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid rgba(15,23,42,0.06); }
@@ -8676,7 +8676,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-transfer-method { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 15px; color: #8a8a8a; font-size: 13px; }
 .wc-transfer-method strong { color: #111; font-size: 14px; font-weight: 600; }
 
-/* === 涓€у寲璁剧疆绮句慨 === */
+/* === Personalization Settings Polish === */
 #app-theme-window { background: #fff8fb; }
 #app-theme-window .window-header { background: rgba(255,250,252,0.90); border-bottom: 1px solid rgba(222,154,178,0.14); }
 #app-theme-window .window-header h3 { color: #3a3040; font-weight: 860; }
@@ -8904,7 +8904,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-sticker-manager-overlay { z-index: 3600 !important; }
 .wc-sticker-submodal { z-index: 3800 !important; }
 
-/* === BYND 鑷€傚簲绯荤粺鑹诧細姝ｅ垯 / 涓栫晫涔?/ 璁剧疆 / 缇庡寲 / 棰勮 === */
+/* === BYND Adaptive System Theme === */
 .bynd-adaptive #app-regex-window,
 .bynd-adaptive #app-worldbook-window,
 .bynd-adaptive #app-settings-window,
@@ -16600,7 +16600,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 
 
-/* === AI 瑙掕壊灏忔墜鏈猴細iPhone 椋庢牸妗岄潰涓庡簲鐢ㄩ〉 === */
+/* === AI Character Phone: iPhone Desktop and Apps === */
 .wc-ai-phone-overlay {
     background:
         radial-gradient(circle at 18% 12%, rgba(255,255,255,0.38), transparent 30%),
@@ -17273,7 +17273,7 @@ button.wc-ai-phone-sync {
 }
 
 
-/* === AI 瑙掕壊灏忔墜鏈猴細iOS 鍐呴〉绮句慨 v2 === */
+/* === AI Character Phone: iOS Page Polish v2 === */
 .wc-ai-phone-overlay {
     background: rgba(246, 247, 249, 0.78);
     backdrop-filter: blur(18px);
@@ -17617,7 +17617,7 @@ button.wc-ai-phone-sync {
 }
 
 
-/* === 寰俊闊充箰涓庡皬鎵嬫満 iOS app 鍐呴〉澧炲己 === */
+/* === WeChat Music and Mini Phone iOS Page Enhancements === */
 .msg-music-card.resolving .msg-music-play {
     animation: wcMusicSpin 1s linear infinite;
 }

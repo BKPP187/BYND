@@ -493,8 +493,21 @@ function previewCalTransparency(value) {
 window.previewCalTransparency = previewCalTransparency;
 
 function getLockWeatherText(data) {
-    const raw = data && data.lockWeather != null ? data.lockWeather : '24°C';
-    return String(raw || '').trim();
+    const raw = data && data.lockWeather != null ? data.lockWeather : '';
+    const text = String(raw || '').trim();
+    return /^24\s*(?:°C|掳C)$/i.test(text) ? '' : text;
+}
+
+function getLockDisplayWeatherText(data) {
+    return getLockWeatherText(data) || String(window._byndLockAutoWeatherText || '').trim();
+}
+
+function setLockMusicText(value) {
+    const text = String(value || '').trim();
+    const marquee = document.querySelector('.music-pill marquee');
+    const pill = marquee ? marquee.closest('.music-pill') : null;
+    if (marquee) marquee.textContent = text;
+    if (pill) pill.classList.toggle('hidden', !text);
 }
 
 function updateLockDateDisplay(data) {
@@ -505,7 +518,7 @@ function updateLockDateDisplay(data) {
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dateText = `${weekdays[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}`;
-    const weather = getLockWeatherText(data);
+    const weather = getLockDisplayWeatherText(data);
     dateEl.innerHTML = `<span>${dateText}</span>${weather ? `<span class="ls-weather-chip">${themeEscapeHtml(weather)}</span>` : ''}`;
     const weatherPill = document.getElementById('ls-weather-pill-text');
     const weatherWrap = weatherPill ? weatherPill.closest('.widget-pill') : null;
@@ -526,7 +539,7 @@ function applyLockscreenOptions(data) {
 
     if (leftPhoto) leftPhoto.classList.toggle('hidden', data.lockShowLeft === false);
     if (rightPhoto) rightPhoto.classList.toggle('hidden', data.lockShowRight === false);
-    if (vibeText) vibeText.classList.toggle('hidden', data.lockShowText === false);
+    if (vibeText) vibeText.classList.toggle('hidden', data.lockShowText === false || !String(vibeText.textContent || '').trim());
     if (topDeco) topDeco.classList.toggle('hidden', data.lockShowTopDeco === false);
     if (bottomDeco) bottomDeco.classList.toggle('hidden', data.lockShowBottomDeco === false);
 
@@ -996,8 +1009,9 @@ function saveTheme() {
     applyLockscreenAdaptiveTheme(wpLock);
     applyByndAdaptiveTheme(wpHome);
 
-    if(musicText) document.querySelector('.music-pill marquee').textContent = musicText;
-    if(vibeText) document.getElementById('ls-vibe-text').textContent = vibeText;
+    setLockMusicText(musicText);
+    const lockVibeText = document.getElementById('ls-vibe-text');
+    if (lockVibeText) lockVibeText.textContent = vibeText;
     if(lockImg1) document.querySelector('.user-img-1').src = lockImg1;
     if(lockImg2) document.querySelector('.user-img-2').src = lockImg2;
     applyLockscreenOptions({
@@ -1116,8 +1130,9 @@ function initTheme() {
             checkImageBrightness(data.wpHome, 'home');
         }
 
-        if(data.music) document.querySelector('.music-pill marquee').textContent = data.music;
-        if(data.vibe) document.getElementById('ls-vibe-text').textContent = data.vibe;
+        setLockMusicText(data.music || '');
+        const lockVibeText = document.getElementById('ls-vibe-text');
+        if (lockVibeText) lockVibeText.textContent = data.vibe || '';
         if(data.l1) document.querySelector('.user-img-1').src = data.l1;
         if(data.l2) document.querySelector('.user-img-2').src = data.l2;
         applyLockscreenOptions(data);

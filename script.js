@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (typeof initIconGrid === 'function') initIconGrid();
     if (typeof initTheme === 'function') initTheme();
+    initLockscreenWeatherRuntime();
     if (typeof loadCharactersFromStorage === 'function') loadCharactersFromStorage(); 
     if (typeof initOutingAppRuntime === 'function') initOutingAppRuntime();
     if (typeof initDesktopStatusWidgetRuntime === 'function') initDesktopStatusWidgetRuntime();
@@ -62,7 +63,7 @@ function initDate() {
     const now = new Date();
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    dateEl.innerHTML = `<span>${weekdays[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}</span><span class="ls-weather-chip">24°C</span>`;
+    dateEl.innerHTML = `<span>${weekdays[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}</span>`;
 }
 
 function unlockPhone() {
@@ -12208,6 +12209,7 @@ window.moveAppOutOfFolder = moveAppOutOfFolder;
 // --- 📄 页面滑动系统 ---
 function initPageSwipe(options = {}) {
     const container = document.getElementById('pages-container');
+    const homeScreen = document.getElementById('home-screen');
     if (!container) return;
     const force = !!(options && options.force);
     if (container.dataset.pageSwipeInit === '1') {
@@ -12234,9 +12236,10 @@ function initPageSwipe(options = {}) {
     let wheelSwipeLockedUntil = 0;
     const getPages = () => Array.from(container.querySelectorAll('.desktop-page'));
     const cleanupSwipeListeners = [];
-    const bindSwipe = (type, handler, eventOptions) => {
-        container.addEventListener(type, handler, eventOptions);
-        cleanupSwipeListeners.push(() => container.removeEventListener(type, handler, eventOptions));
+    const bindSwipe = (target, type, handler, eventOptions) => {
+        if (!target) return;
+        target.addEventListener(type, handler, eventOptions);
+        cleanupSwipeListeners.push(() => target.removeEventListener(type, handler, eventOptions));
     };
     const markSwipeClickSuppressed = () => {
         suppressNextSwipeClick = true;
@@ -12272,13 +12275,16 @@ function initPageSwipe(options = {}) {
 
     function isDesktopSwipeInteractiveTarget(target) {
         return !!(target && target.closest && target.closest(
-            'button, a, input, textarea, select, [contenteditable="true"], .app-item, .dock-item, .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal, .desktop-widget-library, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .lcw-control, .lcw-input, .pw-note'
+            'button, a, input, textarea, select, [contenteditable="true"], .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal, .desktop-widget-library, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .lcw-control, .lcw-input, .pw-note'
         ));
     }
 
     function canSwipeDesktopPage(e) {
         const target = e.target;
-        if (!window._editMode) return !isDesktopSwipeInteractiveTarget(target);
+        if (!window._editMode) {
+            if (target && target.closest && !target.closest('#pages-container, .page-dots, .dock-bar, #home-screen')) return false;
+            return !isDesktopSwipeInteractiveTarget(target);
+        }
         if (target && target.closest && target.closest('.dock-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return false;
         const layoutItem = target && target.closest ? target.closest('.desktop-layout-item') : null;
         if (layoutItem) {
@@ -12354,6 +12360,7 @@ function initPageSwipe(options = {}) {
     };
 
     const handleWheelSwipe = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (!canSwipeDesktopPage(e)) return;
         const pages = getPages();
         if (pages.length < 2) return;
@@ -12382,64 +12389,105 @@ function initPageSwipe(options = {}) {
         wheelSwipeLockedUntil = now + 360;
     };
 
-    bindSwipe('touchstart', (e) => {
+    const shouldSkipOuterSwipeEvent = (e) => (
+        homeScreen
+        && e.currentTarget === homeScreen
+        && e.target
+        && e.target.closest
+        && e.target.closest('#pages-container')
+    );
+
+    const onTouchStart = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.touches && e.touches[0]) beginSwipe(e, e.touches[0]);
-    }, { passive: true });
+    };
 
-    bindSwipe('touchmove', (e) => {
+    const onTouchMove = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.touches && e.touches[0]) moveSwipe(e, e.touches[0]);
-    }, { passive: false });
+    };
 
-    bindSwipe('touchend', endSwipe);
-
-    bindSwipe('pointerdown', (e) => {
+    const onPointerDown = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (e.pointerType === 'mouse') activeMousePointerId = e.pointerId;
         beginSwipe(e, e);
-    });
+    };
 
-    bindSwipe('pointermove', (e) => {
+    const onPointerMove = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.pointerType === 'mouse' && activeMousePointerId !== e.pointerId) return;
         moveSwipe(e, e);
-    });
+    };
 
-    bindSwipe('pointerup', (e) => {
+    const onPointerUp = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.pointerType === 'mouse' && activeMousePointerId !== e.pointerId) return;
         activeMousePointerId = null;
         endSwipe();
-    });
-    bindSwipe('pointercancel', (e) => {
+    };
+
+    const onPointerCancel = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (e.pointerType === 'mouse' && activeMousePointerId !== e.pointerId) return;
         activeMousePointerId = null;
         endSwipe();
-    });
-    bindSwipe('mousedown', (e) => {
+    };
+
+    const onMouseDown = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (activeMousePointerId !== null || e.button !== 0) return;
         activeLegacyMouseSwipe = true;
         beginSwipe(e, e);
-    });
-    bindSwipe('mousemove', (e) => {
+    };
+
+    const onMouseMove = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (!activeLegacyMouseSwipe) return;
         moveSwipe(e, e);
-    });
-    bindSwipe('mouseup', (e) => {
+    };
+
+    const onMouseUp = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (!activeLegacyMouseSwipe) return;
         activeLegacyMouseSwipe = false;
         endSwipe();
-    });
-    bindSwipe('mouseleave', (e) => {
+    };
+
+    const onMouseLeave = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (!activeLegacyMouseSwipe) return;
         activeLegacyMouseSwipe = false;
         endSwipe();
-    });
-    bindSwipe('click', (e) => {
+    };
+
+    const onClick = (e) => {
+        if (shouldSkipOuterSwipeEvent(e)) return;
         if (!suppressNextSwipeClick) return;
         suppressNextSwipeClick = false;
         clearTimeout(suppressNextSwipeClickTimer);
         e.preventDefault();
         e.stopPropagation();
-    }, true);
-    bindSwipe('wheel', handleWheelSwipe, { passive: false });
+    };
+
+    const swipeTargets = [container];
+    if (homeScreen && homeScreen !== container) swipeTargets.push(homeScreen);
+    swipeTargets.forEach(target => {
+        bindSwipe(target, 'touchstart', onTouchStart, { passive: true });
+        bindSwipe(target, 'touchmove', onTouchMove, { passive: false });
+        bindSwipe(target, 'touchend', endSwipe);
+        bindSwipe(target, 'touchcancel', endSwipe);
+        bindSwipe(target, 'pointerdown', onPointerDown);
+        bindSwipe(target, 'pointermove', onPointerMove);
+        bindSwipe(target, 'pointerup', onPointerUp);
+        bindSwipe(target, 'pointercancel', onPointerCancel);
+        bindSwipe(target, 'mousedown', onMouseDown);
+        bindSwipe(target, 'mousemove', onMouseMove);
+        bindSwipe(target, 'mouseup', onMouseUp);
+        bindSwipe(target, 'mouseleave', onMouseLeave);
+        bindSwipe(target, 'click', onClick, true);
+        bindSwipe(target, 'wheel', handleWheelSwipe, { passive: false });
+    });
     container._pageSwipeCleanup = () => {
         clearTimeout(suppressNextSwipeClickTimer);
         clearTimeout(wheelSwipeResetTimer);
@@ -14256,6 +14304,144 @@ function setDesktopStatusWeatherText(text, state = '') {
     });
 }
 
+const LOCKSCREEN_WEATHER_REFRESH_MS = 30 * 60 * 1000;
+let _lockscreenWeatherTimer = null;
+let _lockscreenWeatherRequesting = false;
+
+function getLockManualWeatherText() {
+    try {
+        const data = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+        const text = String(data.lockWeather || '').trim();
+        return /^24\s*(?:°C|掳C)$/i.test(text) ? '' : text;
+    } catch (e) {
+        return '';
+    }
+}
+
+function getByndWeatherLocationLabel(data) {
+    if (!data || typeof data !== 'object') return '';
+    return String(
+        data.city
+        || data.locality
+        || data.principalSubdivision
+        || data.countryName
+        || ''
+    ).trim();
+}
+
+function getLockscreenWeatherTextFromCache(data = getDesktopStatusWeatherCache()) {
+    if (!data || typeof data.temp !== 'number') return '';
+    const weather = getDesktopWeatherCodeText(data.code);
+    const temp = `${Math.round(data.temp)}°`;
+    const city = getByndWeatherLocationLabel(data);
+    return city ? `${city} · ${weather} ${temp}` : `${weather} ${temp}`;
+}
+
+function syncLockscreenWeatherFromCache() {
+    const manualWeather = getLockManualWeatherText();
+    window._byndLockAutoWeatherText = manualWeather ? '' : getLockscreenWeatherTextFromCache();
+    if (typeof updateLockDateDisplay === 'function') updateLockDateDisplay();
+}
+
+function normalizeByndCoordinate(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+async function fetchByndReverseGeocode(lat, lon) {
+    const params = new URLSearchParams({ localityLanguage: 'zh' });
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        params.set('latitude', String(lat));
+        params.set('longitude', String(lon));
+    }
+    const resp = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?${params.toString()}`, {
+        signal: AbortSignal.timeout(14000)
+    });
+    if (!resp.ok) throw new Error(`城市定位 HTTP ${resp.status}`);
+    return resp.json();
+}
+
+async function getLockscreenWeatherLocation() {
+    try {
+        const position = await getDesktopCurrentPosition();
+        const lat = normalizeByndCoordinate(position?.coords?.latitude);
+        const lon = normalizeByndCoordinate(position?.coords?.longitude);
+        if (lat != null && lon != null) {
+            let place = {};
+            try {
+                place = await fetchByndReverseGeocode(lat, lon);
+            } catch (e) {}
+            return { lat, lon, place };
+        }
+    } catch (e) {}
+
+    const place = await fetchByndReverseGeocode();
+    const lat = normalizeByndCoordinate(place.latitude || place.location?.latitude);
+    const lon = normalizeByndCoordinate(place.longitude || place.location?.longitude);
+    if (lat == null || lon == null) throw new Error('定位没有返回经纬度');
+    return { lat, lon, place };
+}
+
+async function fetchByndOpenMeteoWeather(lat, lon) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat.toFixed(4))}&longitude=${encodeURIComponent(lon.toFixed(4))}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(18000) });
+    if (!resp.ok) throw new Error(`天气接口 HTTP ${resp.status}`);
+    const json = await resp.json();
+    const weather = {
+        temp: Number(json?.current?.temperature_2m),
+        code: Number(json?.current?.weather_code),
+        max: Number(json?.daily?.temperature_2m_max?.[0]),
+        min: Number(json?.daily?.temperature_2m_min?.[0])
+    };
+    if (!Number.isFinite(weather.temp)) throw new Error('天气接口没有返回温度');
+    return weather;
+}
+
+async function requestLockscreenWeather(options = {}) {
+    if (_lockscreenWeatherRequesting) return;
+    if (getLockManualWeatherText() && !options.force) {
+        syncLockscreenWeatherFromCache();
+        return;
+    }
+    _lockscreenWeatherRequesting = true;
+    try {
+        const location = await getLockscreenWeatherLocation();
+        const weather = await fetchByndOpenMeteoWeather(location.lat, location.lon);
+        const place = location.place || {};
+        const record = {
+            ...weather,
+            lat: location.lat,
+            lon: location.lon,
+            city: place.city || place.locality || '',
+            locality: place.locality || '',
+            principalSubdivision: place.principalSubdivision || '',
+            countryName: place.countryName || '',
+            updatedAt: Date.now(),
+            source: 'auto-lockscreen'
+        };
+        saveDesktopStatusWeatherCache(record);
+        syncLockscreenWeatherFromCache();
+        updateDesktopStatusWidgets();
+    } catch (e) {
+        syncLockscreenWeatherFromCache();
+        if (options.force && typeof showWechatToast === 'function') showWechatToast(e.message || '天气获取失败');
+    } finally {
+        _lockscreenWeatherRequesting = false;
+    }
+}
+window.requestLockscreenWeather = requestLockscreenWeather;
+
+function initLockscreenWeatherRuntime() {
+    syncLockscreenWeatherFromCache();
+    const cache = getDesktopStatusWeatherCache();
+    const age = Date.now() - Number(cache.updatedAt || 0);
+    if (!getLockManualWeatherText() && (!Number.isFinite(Number(cache.temp)) || age > LOCKSCREEN_WEATHER_REFRESH_MS || !getByndWeatherLocationLabel(cache))) {
+        requestLockscreenWeather();
+    }
+    clearInterval(_lockscreenWeatherTimer);
+    _lockscreenWeatherTimer = setInterval(() => requestLockscreenWeather(), LOCKSCREEN_WEATHER_REFRESH_MS);
+}
+
 function getDesktopStatusStepsCache() {
     try {
         const data = JSON.parse(localStorage.getItem(DESKTOP_STATUS_STEPS_KEY) || '{}');
@@ -14336,21 +14522,23 @@ async function requestDesktopStatusWeather(options = {}) {
         const lat = Number(position.coords.latitude).toFixed(4);
         const lon = Number(position.coords.longitude).toFixed(4);
         setDesktopStatusWeatherText('正在获取天气...', 'loading');
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(18000) });
-        if (!resp.ok) throw new Error(`天气接口 HTTP ${resp.status}`);
-        const json = await resp.json();
+        let place = {};
+        try {
+            place = await fetchByndReverseGeocode(Number(lat), Number(lon));
+        } catch (e) {}
+        const openMeteoWeather = await fetchByndOpenMeteoWeather(Number(lat), Number(lon));
         const weather = {
             lat: Number(lat),
             lon: Number(lon),
-            temp: Number(json?.current?.temperature_2m),
-            code: Number(json?.current?.weather_code),
-            max: Number(json?.daily?.temperature_2m_max?.[0]),
-            min: Number(json?.daily?.temperature_2m_min?.[0]),
+            ...openMeteoWeather,
+            city: place.city || place.locality || '',
+            locality: place.locality || '',
+            principalSubdivision: place.principalSubdivision || '',
+            countryName: place.countryName || '',
             updatedAt: Date.now()
         };
-        if (!Number.isFinite(weather.temp)) throw new Error('天气接口没有返回温度');
         saveDesktopStatusWeatherCache(weather);
+        syncLockscreenWeatherFromCache();
         updateDesktopStatusWidgets();
     } catch (e) {
         const fallback = options.force ? '定位或天气获取失败' : getDesktopStatusWeatherText();

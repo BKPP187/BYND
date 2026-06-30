@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260630-ai-phone-chat-placeholder1">
+    <link rel="stylesheet" href="style.css?v=20260630-mobile-swipe-weather1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -55,7 +55,7 @@
                 <div class="photo-card photo-left" id="lock-photo-left">
                     <div class="tape"></div> 
                     <img src="https://pic1.imgdb.cn/item/6a1d8583b3f09b19e9d1ecae.jpg" class="user-img-1">
-                    <div class="hand-write" id="ls-vibe-text">My Vibe</div>
+                    <div class="hand-write hidden" id="ls-vibe-text"></div>
                 </div>
                 <div class="photo-card photo-right" id="lock-photo-right">
                     <div class="clip-paper" id="ls-top-deco"><i id="ls-top-deco-icon" class="ri-attachment-line"></i></div>
@@ -64,10 +64,10 @@
                 </div>
             </div>
             <div class="ls-widgets">
-                <div class="widget-pill"><i class="ri-sun-cloudy-line"></i><span id="ls-weather-pill-text">24°C</span></div>
-                <div class="widget-pill music-pill">
+                <div class="widget-pill hidden"><i class="ri-sun-cloudy-line"></i><span id="ls-weather-pill-text"></span></div>
+                <div class="widget-pill music-pill hidden">
                     <i class="ri-disc-line spin"></i>
-                    <marquee scrollamount="3">Lover Boy - 8-Bit Remix</marquee>
+                    <marquee scrollamount="3"></marquee>
                 </div>
             </div>
             <div class="ls-footer">
@@ -844,7 +844,7 @@
                 <div class="setting-card">
                     <div class="card-header"><span class="card-icon css-lock-icon" aria-hidden="true"></span><span>锁屏拍立得</span></div>
                     <div class="theme-section-note">图片、装饰和文字都可以独立开关，不需要的元素可以隐藏。</div>
-                    <div class="input-bubble"><span class="bubble-label">文字</span><input type="text" id="input-vibe-text" placeholder="My Vibe"></div>
+                    <div class="input-bubble"><span class="bubble-label">文字</span><input type="text" id="input-vibe-text" placeholder="锁屏文字"></div>
                     <div class="lock-visibility-grid">
                         <label class="theme-check-card"><input type="checkbox" id="lock-show-left" checked><i class="ri-image-line"></i><span>左图</span></label>
                         <label class="theme-check-card"><input type="checkbox" id="lock-show-right" checked><i class="ri-image-2-line"></i><span>右图</span></label>
@@ -874,7 +874,7 @@
                             </select>
                         </label>
                     </div>
-                    <div class="input-bubble lock-weather-input"><span class="bubble-label">日期旁</span><input type="text" id="input-lock-weather" placeholder="24°C"></div>
+                    <div class="input-bubble lock-weather-input"><span class="bubble-label">日期旁</span><input type="text" id="input-lock-weather" placeholder="留空自动定位天气"></div>
                     <div class="upload-row">
                         <div class="upload-item">
                             <span class="sub-label">左图</span>
@@ -2216,9 +2216,9 @@
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260606-couple-transparent-shell1"></script>
     <script src="wechat.js?v=20260630-ai-phone-chat-placeholder1"></script>
-    <script src="theme.js?v=20260608-theme-icons415"></script>
+    <script src="theme.js?v=20260630-mobile-swipe-weather1"></script>
     <script src="settings.js?v=20260619-sse-json2"></script>
-    <script src="script.js?v=20260629-push-time2"></script>
+    <script src="script.js?v=20260630-mobile-swipe-weather1"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
