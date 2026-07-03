@@ -219,8 +219,7 @@ function getWechatThemeTabIconHtml(key, meta, theme) {
     const icons = {
         chat: `
             <svg class="wc-wechat-tab-svg" viewBox="0 0 64 48" fill="none" aria-hidden="true">
-                <path d="M29 6.5C16.3 6.5 6 14.4 6 24.1c0 5.6 3.5 10.6 8.9 13.8l-1.2 6.8 7.5-4.1c2.4.7 5 1.1 7.8 1.1 12.7 0 23-7.9 23-17.6S41.7 6.5 29 6.5Z" fill="currentColor"/>
-                <path d="M44.4 20.8c8.1 1.5 13.6 6.7 13.6 13 0 3.9-2.3 7.5-6.1 10l.9 5.2-6-3.3c-2 .6-4.2.9-6.5.9-7.4 0-13.8-3.6-16.6-8.8 1.7.3 3.5.5 5.3.5 14.2 0 25.7-8.8 25.7-19.6 0-.4 0-.8-.1-1.2" fill="currentColor" opacity=".82"/>
+                <path d="M31.5 4C17.2 4 5.8 12.7 5.8 23.5c0 6.4 4 12.1 10.2 15.6l-1.1 8.4 9.1-4.7c2.4.6 4.9.9 7.5.9 14.3 0 25.9-8.9 25.9-19.8C57.4 12.9 45.8 4 31.5 4Z" fill="currentColor"/>
             </svg>
         `,
         contacts: `

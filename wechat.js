@@ -2563,6 +2563,30 @@ function renderWechatMessageQuote(replyTo, char) {
     return `<div class="msg-quote"><strong>${sender}</strong><span>${text}</span></div>`;
 }
 
+function shouldRenderWechatExternalQuote() {
+    return typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'wechat';
+}
+
+function getWechatExternalQuoteText(replyTo, char) {
+    const media = getWechatReplyMedia(replyTo, char);
+    const sourceMsg = getWechatReplySourceMessage(replyTo, char);
+    const sourceType = String((sourceMsg && sourceMsg.type) || replyTo?.type || '').toLowerCase();
+    if (sourceType === 'music_card') {
+        const music = sourceMsg && sourceMsg.music && typeof sourceMsg.music === 'object' ? sourceMsg.music : {};
+        return music.title || sourceMsg?.title || replyTo?.title || getWechatReplyDisplayText(replyTo, media).replace(/^\[音乐卡片\]\s*/, '') || '音乐';
+    }
+    if (media && media.type === 'sticker') return media.label || '表情';
+    if (media && media.type === 'image') return getWechatReplyDisplayText(replyTo, media) || '图片';
+    return getWechatReplyDisplayText(replyTo, media) || '消息';
+}
+
+function renderWechatExternalMessageQuote(replyTo, char) {
+    if (!replyTo) return '';
+    const senderText = String(replyTo.sender || (replyTo.isMe ? '我' : '对方')).trim() || '对方';
+    const text = getWechatExternalQuoteText(replyTo, char);
+    return `<div class="msg-wechat-quote"><strong>${wcEscapeHtml(senderText)}:</strong><span>${wcEscapeHtml(text)}</span></div>`;
+}
+
 function findWechatMessageForAiQuote(char, query) {
     if (!char || !Array.isArray(char.history) || !char.history.length) return null;
     const history = char.history;
@@ -8220,7 +8244,9 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
 
     const config = charObj.chatConfig || {};
     const fontSize = config.fontSize || 15;
-    const quoteHtml = renderWechatMessageQuote(displayMsg.replyTo, charObj);
+    const useWechatExternalQuote = shouldRenderWechatExternalQuote() && !!displayMsg.replyTo;
+    const quoteHtml = useWechatExternalQuote ? '' : renderWechatMessageQuote(displayMsg.replyTo, charObj);
+    const externalQuoteHtml = useWechatExternalQuote ? renderWechatExternalMessageQuote(displayMsg.replyTo, charObj) : '';
 
     let bubbleHtml = '';
     const avatarClass = msg.isMe ? 'msg-avatar' : 'msg-avatar msg-avatar-ai';
@@ -8234,7 +8260,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         const isWechatEmoji = displayMsg.emoji || displayMsg.stickerKind === 'wechatEmoji' || isWechatBuiltinEmojiUrl(displayMsg.content);
         const emojiClass = isWechatEmoji ? ' wechat-emoji' : '';
         const inner = `<div class="msg-bubble sticker${emojiClass}">${quoteHtml}<div class="msg-sticker-main"><img src="${wcEscapeHtml(displayMsg.content)}" alt="${wcEscapeHtml(displayMsg.stickerName || '')}"><span class="msg-sticker-meta">${formatMessageTime(displayMsg)}<i class="ri-check-double-line"></i></span></div></div>`;
-        bubbleHtml = msg.isMe ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell media">${groupNameHtml}${inner}</div>`;
+        bubbleHtml = msg.isMe && !externalQuoteHtml ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell media">${groupNameHtml}${inner}${externalQuoteHtml}</div>`;
     } else if (displayMsg.type === 'image') {
         let imageBody = '';
         if (displayMsg.content) {
@@ -8245,24 +8271,28 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
             imageBody = `<div class="msg-image-placeholder error"><i class="ri-error-warning-line"></i><span>${wcEscapeHtml(displayMsg.imageError || '图片生成失败')}</span></div>`;
         }
         const inner = `<div class="msg-bubble image-bubble${displayMsg.imagePending ? ' pending' : ''}${displayMsg.imageError ? ' error' : ''}">${quoteHtml}${imageBody}<span class="msg-media-meta">${formatMessageTime(displayMsg)}<i class="ri-check-double-line"></i></span></div>`;
-        bubbleHtml = msg.isMe ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell media">${groupNameHtml}${inner}</div>`;
+        bubbleHtml = msg.isMe && !externalQuoteHtml ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell media">${groupNameHtml}${inner}${externalQuoteHtml}</div>`;
     } else if (isWechatSpecialMessage(displayMsg.type)) {
         syncWechatMessageDescription(displayMsg);
         const inner = buildWechatSpecialBubble(displayMsg, quoteHtml, msgIndex, charObj);
-        bubbleHtml = msg.isMe ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}${inner}</div>`;
+        bubbleHtml = msg.isMe && !externalQuoteHtml ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}${inner}${externalQuoteHtml}</div>`;
     } else {
-        if (!getWechatTextMessageVisibleText(displayMsg, charObj) && !quoteHtml) return;
-        let rawContent = processMsgContent(displayMsg.content, charObj);
+        const hasVisibleText = !!getWechatTextMessageVisibleText(displayMsg, charObj);
+        if (!hasVisibleText && !quoteHtml && !externalQuoteHtml) return;
+        let rawContent = hasVisibleText ? processMsgContent(displayMsg.content, charObj) : '';
         const metaHtml = buildMessageMeta(displayMsg);
         const isRich = isRichMessageContent(rawContent);
         if (!isRich) rawContent = renderWechatBuiltinEmojiMarkersHtml(rawContent);
         const emojiTextClass = !isRich && (displayMsg.wechatEmojiText || hasWechatBuiltinEmojiMarker(displayMsg.content)) ? ' wechat-emoji-text' : '';
         const richClass = isRich ? ' rich' : '';
+        const textBubbleHtml = hasVisibleText ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>` : '';
 
         if (msg.isMe) {
-            bubbleHtml = avatarHtml + `<div class="msg-bubble green${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>`;
+            bubbleHtml = externalQuoteHtml
+                ? avatarHtml + `<div class="msg-bubble-shell">${textBubbleHtml}${externalQuoteHtml}</div>`
+                : avatarHtml + textBubbleHtml;
         } else {
-            bubbleHtml = avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}<div class="msg-bubble${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div></div>`;
+            bubbleHtml = avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}${textBubbleHtml}${externalQuoteHtml}</div>`;
         }
     }
 
