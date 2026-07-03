@@ -297,7 +297,7 @@ function ensureGlobalTapEffectLayer() {
 }
 
 function isGlobalTapEffectBlockedTarget(target) {
-    return !!(target && target.closest && target.closest('.tapfx-layer, input, textarea, select, option, [contenteditable="true"], .wc-modal-overlay'));
+    return !!(target && target.closest && target.closest('.tapfx-layer, input, textarea, select, option, [contenteditable="true"], .wc-modal-overlay, .coread-reader-tools, .coread-settings-drawer, .coread-toc-drawer'));
 }
 
 function handleGlobalTapPointerDown(event) {

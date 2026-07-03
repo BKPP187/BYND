@@ -9593,6 +9593,8 @@ let coreadDailyLoading = false;
 let coreadSearchRunId = 0;
 let coreadTocOpen = false;
 let coreadSettingsOpen = false;
+let coreadCommentPanelOpen = false;
+let coreadCommentStatusText = '';
 let coreadLibraryCache = null;
 let coreadLibraryCacheRaw = '';
 let coreadProgressCache = null;
@@ -9605,6 +9607,10 @@ let coreadReaderTapState = null;
 let coreadReaderTapHandledAt = 0;
 let coreadReaderPendingScrollPage = null;
 let coreadSettingsPointerAt = 0;
+let coreadPageModePointerAt = 0;
+let coreadPageModeCommitToken = 0;
+let coreadFastSettingsBound = false;
+let coreadDiscoveryLoadStarted = false;
 const coreadResolvingBookIds = new Set();
 
 const COREAD_DAILY_SEEDS = [
@@ -9902,8 +9908,9 @@ function renderCoReadSettings() {
             { id: 'scroll', label: '滚动' }
         ];
         modeBox.innerHTML = modes.map(mode => `
-            <button type="button" class="${settings.pageMode === mode.id ? 'active' : ''}" onclick="setCoReadPageMode('${mode.id}')">${mode.label}</button>
+            <button type="button" data-coread-page-mode="${mode.id}" class="${settings.pageMode === mode.id ? 'active' : ''}" aria-pressed="${settings.pageMode === mode.id ? 'true' : 'false'}" onpointerdown="return handleCoReadPageModePointer('${mode.id}', event)" ontouchstart="return handleCoReadPageModePointer('${mode.id}', event)" onclick="return handleCoReadPageModeClick('${mode.id}', event)">${mode.label}</button>
         `).join('');
+        syncCoReadPageModeControls(settings.pageMode);
     }
     if (colorBox) {
         colorBox.innerHTML = Object.entries(COREAD_READER_COLORS).map(([id, item]) => `
@@ -9925,7 +9932,11 @@ function syncCoReadSettingsDrawerState() {
 function toggleCoReadSettings(open) {
     const wasTocOpen = coreadTocOpen;
     coreadSettingsOpen = typeof open === 'boolean' ? open : !coreadSettingsOpen;
-    if (coreadSettingsOpen) coreadTocOpen = false;
+    if (coreadSettingsOpen) {
+        coreadTocOpen = false;
+        coreadCommentPanelOpen = false;
+        renderCoReadCommentPanel();
+    }
     if (wasTocOpen && !coreadTocOpen) syncCoReadTocDrawerState();
     syncCoReadSettingsDrawerState();
 }
@@ -9936,6 +9947,7 @@ function handleCoReadSettingsPointer(open, event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
     }
     toggleCoReadSettings(open);
     return false;
@@ -9947,6 +9959,7 @@ function handleCoReadSettingsClick(open, event) {
         if (event) {
             event.preventDefault();
             event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
         }
         return false;
     }
@@ -9955,15 +9968,44 @@ function handleCoReadSettingsClick(open, event) {
 }
 window.handleCoReadSettingsClick = handleCoReadSettingsClick;
 
+function handleCoReadSettingsFastEvent(event) {
+    const target = event.target && event.target.closest && event.target.closest('[data-coread-settings-open]');
+    if (!target || !document.getElementById('app-coread-window')?.contains(target)) return;
+    const open = target.dataset.coreadSettingsOpen === 'true';
+    handleCoReadSettingsPointer(open, event);
+}
+
+function bindCoReadFastSettingsControls() {
+    if (coreadFastSettingsBound) return;
+    coreadFastSettingsBound = true;
+    document.addEventListener('pointerdown', handleCoReadSettingsFastEvent, { capture: true });
+    document.addEventListener('touchstart', handleCoReadSettingsFastEvent, { capture: true, passive: false });
+    document.addEventListener('mousedown', handleCoReadSettingsFastEvent, { capture: true });
+}
+
 function changeCoReadFontSize(delta) {
     const settings = getCoReadReaderSettings();
     saveCoReadReaderSettings({ fontSize: Math.max(15, Math.min(26, settings.fontSize + Number(delta || 0))) }, { renderReader: false });
 }
 window.changeCoReadFontSize = changeCoReadFontSize;
 
-function setCoReadPageMode(mode) {
+function syncCoReadPageModeControls(mode) {
     const targetMode = mode === 'scroll' ? 'scroll' : 'paged';
+    const modeBox = document.getElementById('coread-page-mode-options');
+    if (!modeBox) return;
+    modeBox.dataset.coreadCurrentMode = targetMode;
+    modeBox.querySelectorAll('[data-coread-page-mode]').forEach(btn => {
+        const active = btn.dataset.coreadPageMode === targetMode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
+function commitCoReadPageMode(mode) {
+    const targetMode = mode === 'scroll' ? 'scroll' : 'paged';
+    syncCoReadPageModeControls(targetMode);
     const current = getCoReadReaderSettings();
+    if (current.pageMode === targetMode) return false;
     const book = getCoReadBook(coreadActiveBookId);
     const body = document.getElementById('coread-reader-body');
     if (current.pageMode === 'scroll' && targetMode === 'paged' && book && body) {
@@ -9974,9 +10016,55 @@ function setCoReadPageMode(mode) {
     if (current.pageMode === 'paged' && targetMode === 'scroll' && book) {
         coreadReaderPendingScrollPage = Number(book.page || 0);
     }
-    saveCoReadReaderSettings({ pageMode: targetMode });
+    saveCoReadReaderSettings({ pageMode: targetMode }, { renderSettings: false });
+    syncCoReadPageModeControls(targetMode);
+    return false;
+}
+
+function setCoReadPageMode(mode) {
+    coreadPageModeCommitToken += 1;
+    return commitCoReadPageMode(mode);
 }
 window.setCoReadPageMode = setCoReadPageMode;
+
+function scheduleCoReadPageMode(mode) {
+    const targetMode = mode === 'scroll' ? 'scroll' : 'paged';
+    const token = coreadPageModeCommitToken + 1;
+    coreadPageModeCommitToken = token;
+    syncCoReadPageModeControls(targetMode);
+    const commit = () => {
+        if (token !== coreadPageModeCommitToken) return;
+        commitCoReadPageMode(targetMode);
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => setTimeout(commit, 0));
+    } else {
+        setTimeout(commit, 0);
+    }
+    return false;
+}
+
+function handleCoReadPageModePointer(mode, event) {
+    coreadPageModePointerAt = Date.now();
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    return scheduleCoReadPageMode(mode);
+}
+window.handleCoReadPageModePointer = handleCoReadPageModePointer;
+
+function handleCoReadPageModeClick(mode, event) {
+    if (Date.now() - coreadPageModePointerAt < 600) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        return false;
+    }
+    return scheduleCoReadPageMode(mode);
+}
+window.handleCoReadPageModeClick = handleCoReadPageModeClick;
 
 function setCoReadReaderColor(color) {
     saveCoReadReaderSettings({ color: COREAD_READER_COLORS[color] ? color : 'ivory' }, { renderReader: false });
@@ -10331,12 +10419,32 @@ function getCoReadRecentContext(char) {
 }
 
 function getCoReadWorldBookText(char) {
-    const entries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    const entries = Array.isArray(char && char.worldBook)
+        ? char.worldBook.filter(entry => entry && entry.enabled !== false)
+        : [];
     return entries.slice(0, 12).map(entry => {
-        const key = entry.key || entry.keys || entry.keyword || '';
-        const content = String(entry.content || entry.entry || entry.value || '').replace(/\s+/g, ' ').slice(0, 420);
+        const keySource = [entry.key, entry.keys, entry.keyword, entry.name, entry.comment].find(value => {
+            if (Array.isArray(value)) return value.filter(Boolean).length > 0;
+            return String(value || '').trim();
+        }) || '';
+        const key = Array.isArray(keySource) ? keySource.filter(Boolean).join('、') : String(keySource || '');
+        const content = String(entry.content || entry.entry || entry.value || entry.text || '').replace(/\s+/g, ' ').slice(0, 420);
         return content ? `${key ? `【${key}】` : ''}${content}` : '';
     }).filter(Boolean).join('\n');
+}
+
+function sanitizeCoReadPromptText(text) {
+    return String(text || '')
+        .replace(/\b(?:alpha|omega|beta)\b/gi, '角色')
+        .replace(/信息素/g, '气息')
+        .replace(/腺体/g, '身体反应')
+        .replace(/发情|易感期|标记/g, '情绪牵引')
+        .replace(/包养/g, '供养')
+        .replace(/乳糖|奶糖/g, '甜味')
+        .replace(/恶心/g, '不适')
+        .replace(/雪藏/g, '冷处理')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
 }
 
 function getCoReadPageText(book) {
@@ -10397,27 +10505,260 @@ function renderCoReadCharOptions() {
     `).join('') || '<div class="coread-empty">先导入角色卡</div>';
 }
 
-function getCoReadThoughts() {
+function getCoReadCharacterById(charId) {
+    return getCoReadCharacters().find(char => char && char.id === charId) || null;
+}
+
+function getCoReadThoughts(limit = 120) {
     return getCoReadLibrary()
         .flatMap(book => Array.isArray(book.thoughts)
-            ? book.thoughts.map(item => ({ ...item, bookTitle: book.title || '未命名书籍' }))
+            ? book.thoughts.map(item => {
+                const char = getCoReadCharacterById(item.charId);
+                return {
+                    ...item,
+                    bookId: book.id,
+                    bookTitle: book.title || '未命名书籍',
+                    bookAuthor: book.author || '',
+                    charName: item.charName || getCoReadCharName(char) || 'char',
+                    charAvatar: item.charAvatar || (char && char.avatar) || DEFAULT_AVATAR,
+                    replies: Array.isArray(item.replies) ? item.replies : []
+                };
+            })
             : [])
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-        .slice(0, 40);
+        .slice(0, Math.max(1, Number(limit || 120)));
+}
+
+function getCoReadThoughtStatsForChar(charId) {
+    const thoughts = getCoReadThoughts(600).filter(item => item.charId === charId);
+    const books = new Set(thoughts.map(item => item.bookId || item.bookTitle).filter(Boolean));
+    return { thoughtCount: thoughts.length, bookCount: books.size };
+}
+
+function getCurrentCoReadThought() {
+    const book = getCoReadBook(coreadActiveBookId);
+    if (!book || !Array.isArray(book.thoughts)) return null;
+    const charId = coreadActiveCharId || '';
+    const page = Math.max(0, Number(book.page || 0));
+    const item = book.thoughts.find(thought => thought
+        && (!charId || thought.charId === charId)
+        && Math.max(0, Number(thought.page || 0)) === page);
+    if (!item) return null;
+    const char = getCoReadCharacterById(item.charId);
+    return {
+        ...item,
+        bookId: book.id,
+        bookTitle: book.title || '未命名书籍',
+        charName: item.charName || getCoReadCharName(char) || 'char',
+        charAvatar: item.charAvatar || (char && char.avatar) || DEFAULT_AVATAR,
+        replies: Array.isArray(item.replies) ? item.replies : []
+    };
+}
+
+function saveCoReadThoughtMutation(bookId, thoughtId, mutator) {
+    const library = getCoReadLibrary();
+    const record = library.find(book => book && book.id === bookId);
+    if (!record) return null;
+    record.thoughts = Array.isArray(record.thoughts) ? record.thoughts : [];
+    const thought = record.thoughts.find(item => item && item.id === thoughtId);
+    if (!thought) return null;
+    mutator(thought, record);
+    saveCoReadLibrary(library);
+    return thought;
+}
+
+function createCoReadThoughtRecord(book, char, text) {
+    const library = getCoReadLibrary();
+    const record = library.find(item => item.id === book.id);
+    if (!record) return null;
+    record.thoughts = Array.isArray(record.thoughts) ? record.thoughts : [];
+    const thought = {
+        id: `thought_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        charId: char.id,
+        charName: getCoReadCharName(char),
+        charAvatar: char.avatar || DEFAULT_AVATAR,
+        text,
+        page: Number(record.page || 0),
+        pageText: getCoReadPageText(record).slice(0, 900),
+        replies: [],
+        createdAt: Date.now()
+    };
+    record.thoughts.unshift(thought);
+    record.thoughts = record.thoughts.slice(0, 120);
+    saveCoReadLibrary(library);
+    return { ...thought, bookId: record.id, bookTitle: record.title || '未命名书籍' };
+}
+
+function getCoReadRecentDiscussionContext(charId, currentBookId = '') {
+    const rows = getCoReadThoughts(80)
+        .filter(item => item.charId === charId)
+        .slice(0, 6)
+        .map(item => {
+            const replies = (Array.isArray(item.replies) ? item.replies : [])
+                .slice(-4)
+                .map(reply => `${reply.role === 'user' ? '用户' : item.charName || 'char'}：${String(reply.text || '').slice(0, 160)}`)
+                .join('\n');
+            return [
+                `《${item.bookTitle || '共读'}》${item.bookId === currentBookId ? '（当前书）' : ''}`,
+                `${item.charName || 'char'}：${String(item.text || '').slice(0, 260)}`,
+                replies
+            ].filter(Boolean).join('\n');
+        });
+    return rows.join('\n\n') || '暂无共读对话。';
+}
+
+function buildCoReadCommentMessages(char, book, extra = {}) {
+    const userProfile = typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {});
+    const identity = typeof buildWechatIdentityContextPrompt === 'function' ? buildWechatIdentityContextPrompt(char, userProfile) : '';
+    const safeRetry = !!extra.safeRetry;
+    const rawWorldBook = getCoReadWorldBookText(char);
+    const worldBook = safeRetry ? sanitizeCoReadPromptText(rawWorldBook).slice(0, 1600) : rawWorldBook;
+    const memory = safeRetry ? '' : (typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '');
+    const persona = String(char.description || '').slice(0, safeRetry ? 2200 : 4200);
+    const rawPageText = extra.pageText || getCoReadPageText(book).slice(0, 1800);
+    const pageText = safeRetry ? sanitizeCoReadPromptText(rawPageText).slice(0, 1100) : rawPageText;
+    const instruction = extra.replyText
+        ? '用户刚回复了你的共读言论。请仍然按角色身份接话，像聊天一样回复用户，短一点，有态度，有对当前段落的具体反应。'
+        : '请用角色会对用户说出口的语气，写 1-3 段短评论。可以感悟、吐槽、代入剧情，但必须贴着当前页文本说。不要复述整段原文。';
+    return [
+        {
+            role: 'system',
+            content: '你是 BYND 共读小说功能里的角色即时共读伙伴。必须让角色按自己的人设、世界书、当前关系、最近聊天和共读记录发言。输出必须是可直接显示在气泡里的中文自然语言，禁止空内容，禁止 JSON，禁止系统口吻，禁止通用书评，禁止替用户总结。'
+        },
+        {
+            role: 'user',
+            content: [
+                identity,
+                persona ? `【角色卡/人设】\n${persona}` : '',
+                worldBook ? `【世界书】\n${worldBook}` : '',
+                memory ? `【角色记忆】\n${memory}` : '',
+                `【最近聊天】\n${getCoReadRecentContext(char)}`,
+                `【最近共读对话】\n${getCoReadRecentDiscussionContext(char.id, book.id)}`,
+                `【正在共读的书】\n标题：${book.title}\n作者：${book.author || '未知'}\n来源：${book.url || book.source || '本地'}`,
+                safeRetry
+                    ? `【当前页文本（已安全转述，仍来自用户正在读的这一页）】\n${pageText}`
+                    : `【当前页文本】\n${pageText}`,
+                extra.threadText ? `【本条共读对话】\n${extra.threadText}` : '',
+                extra.replyText ? `【用户刚刚回复】\n${extra.replyText}` : '',
+                extra.retryForEmpty ? '【重要】上一次返回为空。现在必须补写一条能直接显示的角色发言，至少 18 个中文字符，贴着当前页文本和用户关系说。' : '',
+                safeRetry ? '【安全生成要求】只评论人物关系、情绪张力和角色心态，不扩写露骨内容，不输出敏感词，不输出空白。' : '',
+                instruction
+            ].filter(Boolean).join('\n\n')
+        }
+    ];
+}
+
+function normalizeCoReadAiCommentText(value) {
+    let source = value;
+    if (source && typeof source === 'object') {
+        source = source.content || source.text || source.message || source.response || source.answer || '';
+    }
+    let text = String(source || '')
+        .replace(/^```(?:json|text|markdown)?/i, '')
+        .replace(/```$/i, '')
+        .replace(/^\s*(?:角色发言|评论|旁注|回复)\s*[：:]\s*/i, '')
+        .trim();
+    if (/^[{[]/.test(text)) {
+        try {
+            const parsed = JSON.parse(text);
+            const candidate = parsed && (parsed.content || parsed.text || parsed.message || parsed.response || parsed.answer || parsed.reply || parsed.comment);
+            if (candidate) text = String(candidate).trim();
+        } catch (_) {}
+    }
+    if (!text || text.length < 2) return '';
+    if (/^(?:null|undefined|none|无|空|没有|AI 返回了空内容)$/i.test(text)) return '';
+    return text;
+}
+
+async function requestCoReadAiComment(char, book, extra = {}, options = {}) {
+    const apiOptions = {
+        max_tokens: options.max_tokens || 620,
+        temperature: options.temperature || 0.84
+    };
+    const first = await callChatApi(buildCoReadCommentMessages(char, book, extra), apiOptions);
+    const firstText = normalizeCoReadAiCommentText(first && first.ok ? first.content : '');
+    if (firstText) return { ok: true, text: firstText };
+    if (first && (first.ok || /空内容|empty/i.test(String(first.error || '')))) {
+        const retry = await callChatApi(
+            buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true }),
+            { ...apiOptions, temperature: Math.max(0.72, Number(apiOptions.temperature || 0.84) - 0.08), max_tokens: Math.max(520, Number(apiOptions.max_tokens || 620)) }
+        );
+        const retryText = normalizeCoReadAiCommentText(retry && retry.ok ? retry.content : '');
+        if (retryText) return { ok: true, text: retryText };
+        const safeRetry = await callChatApi(
+            buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true, safeRetry: true }),
+            { ...apiOptions, temperature: 0.72, max_tokens: Math.max(520, Number(apiOptions.max_tokens || 620)) }
+        );
+        const safeText = normalizeCoReadAiCommentText(safeRetry && safeRetry.ok ? safeRetry.content : '');
+        if (safeText) return { ok: true, text: safeText };
+        return { ok: false, error: (safeRetry && safeRetry.error) || (retry && retry.error) || 'AI 返回了空内容' };
+    }
+    return { ok: false, error: (first && first.error) || 'AI 没有回应' };
+}
+
+function groupCoReadThoughtsByCharAndBook(thoughts) {
+    const groups = [];
+    const byChar = new Map();
+    thoughts.forEach(item => {
+        const charKey = item.charId || item.charName || 'char';
+        if (!byChar.has(charKey)) {
+            const group = {
+                charId: item.charId || '',
+                charName: item.charName || 'char',
+                charAvatar: item.charAvatar || DEFAULT_AVATAR,
+                count: 0,
+                books: new Map()
+            };
+            byChar.set(charKey, group);
+            groups.push(group);
+        }
+        const group = byChar.get(charKey);
+        group.count += 1;
+        const bookKey = item.bookId || item.bookTitle || 'book';
+        if (!group.books.has(bookKey)) {
+            group.books.set(bookKey, {
+                bookId: item.bookId || '',
+                bookTitle: item.bookTitle || '未命名书籍',
+                bookAuthor: item.bookAuthor || '',
+                items: []
+            });
+        }
+        group.books.get(bookKey).items.push(item);
+    });
+    return groups;
 }
 
 function renderCoReadThoughts() {
     const list = document.getElementById('coread-thought-list');
     if (!list) return;
-    const thoughts = getCoReadThoughts();
-    list.innerHTML = thoughts.map(item => `
-        <article class="coread-thought-card">
-            <div>
-                <strong>${musicEscapeHtml(item.charName || 'char')}</strong>
-                <span>${musicEscapeHtml(item.bookTitle || '共读')}</span>
-            </div>
-            <p>${musicEscapeHtml(item.text || '')}</p>
-            <em>第 ${Math.max(1, Number(item.page || 0) + 1)} 页</em>
+    const groups = groupCoReadThoughtsByCharAndBook(getCoReadThoughts(240));
+    list.innerHTML = groups.map(group => `
+        <article class="coread-thought-group">
+            <header>
+                <img src="${musicEscapeAttr(group.charAvatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                <div>
+                    <strong>${musicEscapeHtml(group.charName || 'char')}</strong>
+                    <span>一起读过 ${group.books.size} 本书 · ${group.count} 条言论</span>
+                </div>
+            </header>
+            ${Array.from(group.books.values()).map(bookGroup => `
+                <section class="coread-thought-book">
+                    <h4>
+                        <span>${musicEscapeHtml(bookGroup.bookTitle || '未命名书籍')}</span>
+                        <em>${bookGroup.items.length} 条</em>
+                    </h4>
+                    ${bookGroup.items.map(item => {
+                        const replies = Array.isArray(item.replies) ? item.replies : [];
+                        const userReplyCount = replies.filter(reply => reply.role === 'user').length;
+                        return `
+                            <div class="coread-thought-card">
+                                <p>${musicEscapeHtml(item.text || '')}</p>
+                                <em>第 ${Math.max(1, Number(item.page || 0) + 1)} 页${userReplyCount ? ` · 你回复 ${userReplyCount} 条` : ''}</em>
+                            </div>
+                        `;
+                    }).join('')}
+                </section>
+            `).join('')}
         </article>
     `).join('') || `
         <div class="coread-empty coread-thought-empty">
@@ -10432,16 +10773,166 @@ function renderCoReadMePanel() {
     const chars = getCoReadCharacters();
     list.innerHTML = chars.map(char => {
         const active = char.id === coreadActiveCharId ? 'active' : '';
-        const count = getCoReadThoughts().filter(item => item.charId === char.id).length;
+        const stats = getCoReadThoughtStatsForChar(char.id);
         return `
             <button type="button" class="${active}" onclick="selectCoReadChar('${musicEscapeAttr(char.id)}')">
                 <img src="${musicEscapeAttr(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
-                <span><strong>${musicEscapeHtml(getCoReadCharName(char))}</strong><em>${count} 条旁注</em></span>
+                <span><strong>${musicEscapeHtml(getCoReadCharName(char))}</strong><em>一起读过 ${stats.bookCount} 本书 · ${stats.thoughtCount} 条言论</em></span>
                 <i class="ri-check-line"></i>
             </button>
         `;
     }).join('') || '<div class="coread-empty">先导入角色卡</div>';
 }
+
+function toggleCoReadCommentPanel(open) {
+    coreadCommentPanelOpen = typeof open === 'boolean' ? open : !coreadCommentPanelOpen;
+    if (coreadCommentPanelOpen) {
+        syncCoReadPageFromScrollPosition();
+        coreadTocOpen = false;
+        coreadSettingsOpen = false;
+        syncCoReadTocDrawerState();
+        syncCoReadSettingsDrawerState();
+    }
+    renderCoReadCommentPanel();
+}
+window.toggleCoReadCommentPanel = toggleCoReadCommentPanel;
+
+function syncCoReadPageFromScrollPosition() {
+    const settings = getCoReadReaderSettings();
+    if (settings.pageMode !== 'scroll' || coreadActiveTab !== 'reader') return;
+    const book = getCoReadBook(coreadActiveBookId);
+    const body = document.getElementById('coread-reader-body');
+    if (!book || !body) return;
+    const page = getCoReadPageFromScrollPosition(body, book);
+    if (page !== Number(book.page || 0)) {
+        book.page = page;
+        saveCoReadBookPage(book.id, page);
+    }
+}
+
+function openCoReadCommentPanel() {
+    toggleCoReadCommentPanel(true);
+    const thought = getCurrentCoReadThought();
+    if (thought && coreadCommentStatusText) {
+        coreadCommentStatusText = '';
+        renderCoReadCommentPanel();
+    }
+    if (!thought && !coreadBusy) askCoReadComment();
+}
+window.openCoReadCommentPanel = openCoReadCommentPanel;
+
+function buildCoReadThreadText(thought) {
+    if (!thought) return '';
+    const rows = [`${thought.charName || 'char'}：${thought.text || ''}`];
+    (Array.isArray(thought.replies) ? thought.replies : []).forEach(reply => {
+        rows.push(`${reply.role === 'user' ? '用户' : thought.charName || 'char'}：${reply.text || ''}`);
+    });
+    return rows.join('\n').slice(0, 1800);
+}
+
+function renderCoReadCommentPanel() {
+    const panel = document.getElementById('coread-comment-popover');
+    if (!panel) return;
+    const book = getCoReadBook(coreadActiveBookId);
+    const char = getCoReadCharacters().find(item => item.id === coreadActiveCharId);
+    const thought = getCurrentCoReadThought();
+    panel.classList.toggle('open', !!coreadCommentPanelOpen);
+    panel.setAttribute('aria-hidden', coreadCommentPanelOpen ? 'false' : 'true');
+    if (!coreadCommentPanelOpen) {
+        panel.innerHTML = '';
+        return;
+    }
+    const charName = char ? getCoReadCharName(char) : (thought && thought.charName) || 'char';
+    const avatar = (char && char.avatar) || (thought && thought.charAvatar) || DEFAULT_AVATAR;
+    const replies = thought && Array.isArray(thought.replies) ? thought.replies : [];
+    const missing = !book || !char;
+    const body = missing
+        ? '先选择一本书和一个 char，再让 char 读这一段。'
+        : coreadCommentStatusText
+            ? coreadCommentStatusText
+            : coreadBusy && !thought
+                ? '正在读这一段...'
+            : thought && thought.text
+                ? thought.text
+                : '还没有当前页言论，点“让 char 读”生成。';
+    panel.innerHTML = `
+        <section class="coread-comment-bubble">
+            <header>
+                <img src="${musicEscapeAttr(avatar)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                <div>
+                    <span>${musicEscapeHtml(book ? (book.title || '共读') : '共读')}</span>
+                    <strong>${musicEscapeHtml(charName)}</strong>
+                </div>
+                <button type="button" onclick="toggleCoReadCommentPanel(false)" aria-label="关闭"><i class="ri-close-line"></i></button>
+            </header>
+            <div class="coread-comment-body ${coreadBusy ? 'thinking' : ''}">
+                <p>${musicEscapeHtml(body)}</p>
+            </div>
+            ${replies.length ? `
+                <div class="coread-comment-thread">
+                    ${replies.slice(-8).map(reply => `
+                        <div class="${reply.role === 'user' ? 'user' : 'char'}">
+                            <span>${reply.role === 'user' ? '你' : musicEscapeHtml(charName)}</span>
+                            <p>${musicEscapeHtml(reply.text || '')}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            <div class="coread-comment-actions">
+                <button type="button" onclick="askCoReadComment()" ${missing || coreadBusy ? 'disabled' : ''}><i class="ri-sparkling-2-line"></i><span>${thought ? '重读这段' : '让 char 读'}</span></button>
+            </div>
+            <label class="coread-comment-reply">
+                <textarea id="coread-comment-reply-input" rows="2" placeholder="回复 ${musicEscapeAttr(charName)}..." ${!thought || coreadBusy ? 'disabled' : ''}></textarea>
+                <button type="button" onclick="sendCoReadCommentReply()" ${!thought || coreadBusy ? 'disabled' : ''} aria-label="发送回复"><i class="ri-send-plane-2-fill"></i></button>
+            </label>
+        </section>
+    `;
+}
+
+async function sendCoReadCommentReply() {
+    const book = getCoReadBook(coreadActiveBookId);
+    const char = getCoReadCharacters().find(item => item.id === coreadActiveCharId);
+    const thought = getCurrentCoReadThought();
+    const input = document.getElementById('coread-comment-reply-input');
+    const replyText = String(input && input.value || '').trim();
+    if (!book || !char || !thought || !replyText || coreadBusy) return;
+    coreadCommentStatusText = '';
+    if (input) input.value = '';
+    saveCoReadThoughtMutation(book.id, thought.id, item => {
+        item.replies = Array.isArray(item.replies) ? item.replies : [];
+        item.replies.push({ role: 'user', text: replyText, createdAt: Date.now() });
+        item.updatedAt = Date.now();
+    });
+    coreadBusy = true;
+    renderCoReadCommentPanel();
+    try {
+        const latest = getCurrentCoReadThought();
+        const result = await requestCoReadAiComment(char, book, {
+            pageText: (latest && latest.pageText) || getCoReadPageText(book).slice(0, 900),
+            threadText: buildCoReadThreadText(latest),
+            replyText
+        }, { max_tokens: 520, temperature: 0.82 });
+        const text = result && result.ok ? result.text : '';
+        if (text) {
+            saveCoReadThoughtMutation(book.id, thought.id, item => {
+                item.replies = Array.isArray(item.replies) ? item.replies : [];
+                item.replies.push({ role: 'char', text, createdAt: Date.now() });
+                item.updatedAt = Date.now();
+            });
+            coreadCommentStatusText = '';
+        } else {
+            coreadCommentStatusText = (result && result.error) || 'AI 返回了空内容';
+        }
+    } catch (_) {
+        coreadCommentStatusText = '生成失败，稍后再试。';
+    } finally {
+        coreadBusy = false;
+        renderCoReadCommentPanel();
+        if (coreadActiveTab === 'thoughts') renderCoReadThoughts();
+        if (coreadActiveTab === 'me') renderCoReadMePanel();
+    }
+}
+window.sendCoReadCommentReply = sendCoReadCommentReply;
 
 function getCoReadBookProgress(book) {
     const contentLength = String(book && book.content || '').length;
@@ -10561,7 +11052,11 @@ function syncCoReadTocDrawerState() {
 function toggleCoReadToc(open) {
     const wasSettingsOpen = coreadSettingsOpen;
     coreadTocOpen = typeof open === 'boolean' ? open : !coreadTocOpen;
-    if (coreadTocOpen) coreadSettingsOpen = false;
+    if (coreadTocOpen) {
+        coreadSettingsOpen = false;
+        coreadCommentPanelOpen = false;
+        renderCoReadCommentPanel();
+    }
     if (wasSettingsOpen && !coreadSettingsOpen) syncCoReadSettingsDrawerState();
     if (coreadTocOpen) renderCoReadToc();
     else syncCoReadTocDrawerState();
@@ -10790,11 +11285,20 @@ function getCoReadScrollTopForPage(body, book, page) {
 
 function scrollCoReadBodyToPage(body, book, page) {
     if (!body || !book) return;
+    const previousBehavior = body.style.scrollBehavior;
+    body.style.scrollBehavior = 'auto';
     const apply = () => {
         body.scrollTop = getCoReadScrollTopForPage(body, book, page);
     };
     apply();
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(apply);
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+            apply();
+            body.style.scrollBehavior = previousBehavior;
+        });
+    } else {
+        body.style.scrollBehavior = previousBehavior;
+    }
 }
 
 function renderCoReadReader() {
@@ -10819,7 +11323,7 @@ function renderCoReadReader() {
                 ? String(book.content || book.description || '这本书目前只有书名和来源链接，还没有正文。')
                 : getCoReadPageText(book))
             : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
-        body.textContent = text;
+        if (body.textContent !== text) body.textContent = text;
         body.dataset.coreadPageMode = settings.pageMode;
         if (settings.pageMode === 'scroll') {
             if (book && coreadReaderPendingScrollPage != null) {
@@ -11013,8 +11517,8 @@ function updateCoReadTopbar() {
         if (rightBtn) {
             rightBtn.classList.remove('coread-topbar-text-btn');
             rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
-            rightBtn.setAttribute('onclick', 'askCoReadComment()');
-            rightBtn.setAttribute('aria-label', '让 char 评论');
+            rightBtn.setAttribute('onclick', 'openCoReadCommentPanel()');
+            rightBtn.setAttribute('aria-label', '打开 char 共读气泡');
         }
         if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
         return;
@@ -11025,8 +11529,8 @@ function updateCoReadTopbar() {
         if (rightBtn) {
             rightBtn.classList.remove('coread-topbar-text-btn');
             rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
-            rightBtn.setAttribute('onclick', 'askCoReadComment()');
-            rightBtn.setAttribute('aria-label', '让 char 评论');
+            rightBtn.setAttribute('onclick', 'openCoReadCommentPanel()');
+            rightBtn.setAttribute('aria-label', '打开 char 共读气泡');
         }
         if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
         return;
@@ -11047,38 +11551,51 @@ function renderCoReadApp() {
     const chars = document.getElementById('coread-char-list');
     const status = document.getElementById('coread-status');
     const library = getCoReadLibrary();
-    if (coreadActiveTab !== 'reader') {
+    const isReader = coreadActiveTab === 'reader';
+    if (!isReader) {
         coreadTocOpen = false;
         coreadSettingsOpen = false;
+        coreadCommentPanelOpen = false;
     }
     if (!coreadActiveBookId && library[0]) coreadActiveBookId = library[0].id;
     if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
-    if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
-    if (chars) chars.innerHTML = renderCoReadCharOptions();
-    if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : '内置书城优先，公开书目备用。';
+    if (!isReader) {
+        if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
+        if (chars) chars.innerHTML = renderCoReadCharOptions();
+        if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : '内置书城优先，公开书目备用。';
+    }
     const content = document.querySelector('.coread-content');
     if (content) content.dataset.tab = coreadActiveTab;
     const shell = document.querySelector('.coread-shell');
-    if (shell) shell.classList.toggle('coread-reader-mode', coreadActiveTab === 'reader');
+    if (shell) shell.classList.toggle('coread-reader-mode', isReader);
     applyCoReadReaderSettings();
     updateCoReadTopbar();
     const backBtn = document.querySelector('.coread-topbar button:first-child');
     if (backBtn) {
-        backBtn.setAttribute('onclick', coreadActiveTab === 'reader' ? "setCoReadTab('shelf')" : "closeApp('coread')");
-        backBtn.setAttribute('aria-label', coreadActiveTab === 'reader' ? '返回书架' : '返回');
+        backBtn.setAttribute('onclick', isReader ? "setCoReadTab('shelf')" : "closeApp('coread')");
+        backBtn.setAttribute('aria-label', isReader ? '返回书架' : '返回');
     }
     document.querySelectorAll('.coread-bottom-nav button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.coreadTab === coreadActiveTab);
     });
-    renderCoReadDaily();
-    renderCoReadReader();
-    renderCoReadToc();
-    renderCoReadSettings();
-    renderCoReadDashboard();
-    renderCoReadThoughts();
-    renderCoReadMePanel();
-    renderCoReadCalendarStats();
-    renderCoReadSourceManager();
+    if (isReader) {
+        renderCoReadReader();
+        renderCoReadToc();
+        renderCoReadSettings();
+        renderCoReadCommentPanel();
+    } else {
+        syncCoReadTocDrawerState();
+        syncCoReadSettingsDrawerState();
+        renderCoReadCommentPanel();
+        if (coreadActiveTab === 'discover') renderCoReadDaily();
+        if (coreadActiveTab === 'shelf') renderCoReadDashboard();
+        if (coreadActiveTab === 'thoughts') renderCoReadThoughts();
+        if (coreadActiveTab === 'me') {
+            renderCoReadMePanel();
+            renderCoReadCalendarStats();
+        }
+        if (coreadActiveTab === 'discover' || coreadActiveTab === 'shelf') renderCoReadSourceManager();
+    }
     let currentLibrary = library;
     const stuck = currentLibrary.find(book => book && book.url && book.resolving && Number(book.resolveVersion || 0) < COREAD_RESOLVE_VERSION && !coreadResolvingBookIds.has(book.id));
     if (stuck) {
@@ -11095,13 +11612,22 @@ function renderCoReadApp() {
 }
 
 function initCoReadApp() {
+    bindCoReadFastSettingsControls();
     renderCoReadApp();
-    refreshCoReadDailyRecommendation(false);
-    loadCoReadBuiltinSources(false).then(() => {
-        renderCoReadSourceManager();
-    });
+    maybeLoadCoReadDiscoveryData();
 }
 window.initCoReadApp = initCoReadApp;
+
+function maybeLoadCoReadDiscoveryData() {
+    if (coreadDiscoveryLoadStarted || (coreadActiveTab !== 'discover' && coreadActiveTab !== 'shelf')) return;
+    coreadDiscoveryLoadStarted = true;
+    setTimeout(() => {
+        refreshCoReadDailyRecommendation(false);
+        loadCoReadBuiltinSources(false).then(() => {
+            if (coreadActiveTab === 'discover' || coreadActiveTab === 'shelf') renderCoReadSourceManager();
+        });
+    }, 0);
+}
 
 function selectCoReadBook(bookId) {
     coreadActiveBookId = bookId || '';
@@ -11121,6 +11647,7 @@ function setCoReadTab(tab) {
     const content = document.querySelector('.coread-content');
     if (content) content.dataset.tab = coreadActiveTab;
     renderCoReadApp();
+    maybeLoadCoReadDiscoveryData();
 }
 window.setCoReadTab = setCoReadTab;
 
@@ -12145,7 +12672,7 @@ function turnCoReadPage(delta) {
         if (body) {
             body.scrollBy({
                 top: Number(delta || 0) * Math.max(240, body.clientHeight * 0.86),
-                behavior: 'smooth'
+                behavior: 'auto'
             });
             return;
         }
@@ -12158,65 +12685,31 @@ function turnCoReadPage(delta) {
     book.page = nextPage;
     saveCoReadBookPage(book.id, nextPage);
     renderCoReadReader();
-    renderCoReadToc();
+    if (coreadTocOpen) renderCoReadToc();
 }
 window.turnCoReadPage = turnCoReadPage;
 
 async function askCoReadComment() {
+    syncCoReadPageFromScrollPosition();
     const book = getCoReadBook(coreadActiveBookId);
     const char = getCoReadCharacters().find(item => item.id === coreadActiveCharId);
-    const output = document.getElementById('coread-comment');
     if (!book || !char || coreadBusy) return;
+    coreadCommentPanelOpen = true;
+    coreadCommentStatusText = '正在读这一段...';
     coreadBusy = true;
-    if (output) output.textContent = '...';
     renderCoReadApp();
     try {
-        const userProfile = typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {});
-        const identity = typeof buildWechatIdentityContextPrompt === 'function' ? buildWechatIdentityContextPrompt(char, userProfile) : '';
-        const worldBook = getCoReadWorldBookText(char);
-        const memory = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
-        const persona = String(char.description || '').slice(0, 4200);
-        const result = await callChatApi([
-            {
-                role: 'system',
-                content: '你是 BYND 共读小说功能里的角色即时旁白生成器。必须让角色按自己的人设、世界书、当前关系和最近聊天语境发表读后反应。不要写通用书评，不要脱离角色，不要用系统口吻，不要替用户总结。'
-            },
-            {
-                role: 'user',
-                content: [
-                    identity,
-                    persona ? `【角色卡/人设】\n${persona}` : '',
-                    worldBook ? `【世界书】\n${worldBook}` : '',
-                    memory ? `【角色记忆】\n${memory}` : '',
-                    `【最近聊天】\n${getCoReadRecentContext(char)}`,
-                    `【正在共读的书】\n标题：${book.title}\n作者：${book.author || '未知'}\n来源：${book.url || book.source || '本地'}`,
-                    `【当前页文本】\n${getCoReadPageText(book).slice(0, 1800)}`,
-                    '请用角色会对用户说出口的语气，写 1-3 段短评论。'
-                ].filter(Boolean).join('\n\n')
-            }
-        ]);
-        const text = result && result.ok ? result.content : '';
-        if (output) output.textContent = text || (result && result.error) || 'char 没有回应。';
+        const result = await requestCoReadAiComment(char, book, {}, { max_tokens: 620, temperature: 0.84 });
+        const text = result && result.ok ? result.text : '';
         if (text) {
-            const library = getCoReadLibrary();
-            const record = library.find(item => item.id === book.id);
-            if (record) {
-                record.thoughts = Array.isArray(record.thoughts) ? record.thoughts : [];
-                record.thoughts.unshift({
-                    id: `thought_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-                    charId: char.id,
-                    charName: getCoReadCharName(char),
-                    text,
-                    page: Number(record.page || 0),
-                    createdAt: Date.now()
-                });
-                record.thoughts = record.thoughts.slice(0, 80);
-                saveCoReadLibrary(library);
-            }
+            createCoReadThoughtRecord(book, char, text);
+            coreadCommentStatusText = '';
             renderCoReadThoughts();
+        } else {
+            coreadCommentStatusText = (result && result.error) || 'char 没有回应。';
         }
     } catch (e) {
-        if (output) output.textContent = '生成失败，稍后再试。';
+        coreadCommentStatusText = '生成失败，稍后再试。';
     } finally {
         coreadBusy = false;
         renderCoReadApp();

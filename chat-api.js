@@ -225,11 +225,47 @@ function getChatApiTextFromContentPart(part) {
     if (part == null) return '';
     if (typeof part === 'string') return part;
     if (typeof part !== 'object') return '';
+    if (Array.isArray(part)) return part.map(getChatApiTextFromContentPart).filter(Boolean).join('\n');
     if (typeof part.text === 'string') return part.text;
     if (typeof part.content === 'string') return part.content;
     if (typeof part.output_text === 'string') return part.output_text;
+    if (typeof part.value === 'string') return part.value;
+    if (typeof part.message === 'string') return part.message;
+    if (typeof part.response === 'string') return part.response;
+    if (typeof part.answer === 'string') return part.answer;
+    if (typeof part.outputText === 'string') return part.outputText;
+    if (typeof part.result === 'string') return part.result;
+    if (typeof part.reply === 'string') return part.reply;
+    if (typeof part.comment === 'string') return part.comment;
     if (part.type === 'text' && part.text && typeof part.text.value === 'string') return part.text.value;
+    if (Array.isArray(part.parts)) {
+        const partsText = part.parts.map(getChatApiTextFromContentPart).filter(Boolean).join('\n');
+        if (partsText) return partsText;
+    }
+    if (part.text && typeof part.text === 'object') {
+        const nestedText = getChatApiTextFromContentPart(part.text);
+        if (nestedText) return nestedText;
+    }
+    if (part.content && typeof part.content === 'object') {
+        const nestedContent = getChatApiTextFromContentPart(part.content);
+        if (nestedContent) return nestedContent;
+    }
     return '';
+}
+
+function getChatApiTextFromGeminiCandidate(candidate) {
+    if (!candidate || typeof candidate !== 'object') return '';
+    const content = candidate.content || candidate.message || candidate.output || candidate.response;
+    const candidates = [
+        getChatApiTextFromContentPart(content),
+        getChatApiTextFromContentPart(candidate.parts),
+        candidate.text,
+        candidate.output_text,
+        candidate.outputText,
+        candidate.reply,
+        candidate.comment
+    ];
+    return candidates.filter(item => typeof item === 'string' && item.trim()).join('\n').trim();
 }
 
 function getChatApiRawResponseContent(json) {
@@ -250,12 +286,34 @@ function getChatApiRawResponseContent(json) {
     const directCandidates = [
         message.text,
         message.output_text,
+        message.response,
+        message.answer,
         choice.text,
+        choice.message_text,
         json.output_text,
-        json.text
+        json.text,
+        json.content,
+        json.message,
+        json.response,
+        json.answer
     ];
     for (const item of directCandidates) {
         if (typeof item === 'string' && item.trim()) return item;
+        if (item && typeof item === 'object') {
+            const nested = getChatApiTextFromContentPart(item);
+            if (nested) return nested;
+        }
+    }
+
+    const geminiCandidates = Array.isArray(json?.candidates)
+        ? json.candidates
+        : (Array.isArray(json?.response?.candidates) ? json.response.candidates : []);
+    if (geminiCandidates.length) {
+        const joined = geminiCandidates
+            .map(getChatApiTextFromGeminiCandidate)
+            .filter(Boolean)
+            .join('\n');
+        if (joined) return joined;
     }
 
     if (Array.isArray(json.output)) {
@@ -291,8 +349,14 @@ function getChatApiFinishReason(json) {
         json?.finish_reason,
         json?.finishReason,
         json?.stop_reason,
+        json?.promptFeedback?.blockReason,
+        json?.prompt_feedback?.block_reason,
         json?.incomplete_details?.reason,
         json?.incompleteDetails?.reason,
+        json?.candidates?.[0]?.finishReason,
+        json?.candidates?.[0]?.finish_reason,
+        json?.response?.candidates?.[0]?.finishReason,
+        json?.response?.candidates?.[0]?.finish_reason,
         lastOutput?.finish_reason,
         lastOutput?.finishReason,
         lastOutput?.incomplete_details?.reason,
@@ -372,6 +436,10 @@ function parseChatApiSseResponseText(text) {
                 if (partText) contentParts.push(partText);
             }
         });
+        if (!choice.delta && !choice.message && !choice.text) {
+            const nativeText = getChatApiRawResponseContent(chunk);
+            if (nativeText) contentParts.push(nativeText);
+        }
         finishReason = finishReason || choice.finish_reason || choice.finishReason || choice.stop_reason || '';
     }
 
@@ -1454,12 +1522,17 @@ async function callChatApi(messages, options = {}) {
         const json = parseChatApiResponseText(rawText);
         const rawContent = getChatApiRawResponseContent(json);
         let content = cleanChatApiVisibleContent(rawContent);
+        const finishReason = getChatApiFinishReason(json);
 
         if (!content) {
-            return { ok: false, error: 'AI 返回了空内容' };
+            const blocked = /safety|content[_ -]?filter|block|blocked|prohibited|policy/i.test(finishReason);
+            return {
+                ok: false,
+                error: blocked ? 'AI 返回了空内容，可能被模型安全策略拦截' : 'AI 返回了空内容',
+                finishReason
+            };
         }
 
-        const finishReason = getChatApiFinishReason(json);
         if (isChatApiLengthFinishReason(finishReason) && !options.skipLengthContinuation) {
             const continuationMessages = buildChatApiLengthContinuationMessages(messages, content);
             const continuationResult = await callChatApi(continuationMessages, {

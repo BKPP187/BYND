@@ -7877,6 +7877,75 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 /* 鍥剧墖娑堟伅 */
 .msg-bubble.image-bubble { padding: 3px; max-width: 210px; background: transparent !important; border: none !important; box-shadow: none !important; overflow: hidden; }
 .msg-bubble.image-bubble img { width: 100%; border-radius: 17px; display: block; box-shadow: 0 2px 12px rgba(15,23,42,0.1); cursor: zoom-in; }
+.msg-bubble.image-stack-bubble {
+    position: relative;
+    width: 226px;
+    height: 188px;
+    padding: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible;
+}
+.msg-bubble-shell.media.image-stack-shell {
+    max-width: min(84%, 260px);
+    overflow: visible;
+}
+.wc-image-stack {
+    position: relative;
+    width: 218px;
+    height: 172px;
+    touch-action: pan-y;
+    perspective: 900px;
+    outline: none;
+}
+.wc-image-stack-card {
+    position: absolute;
+    inset: 0;
+    border: none;
+    border-radius: 18px;
+    padding: 0;
+    background: #eef1f4;
+    box-shadow: 0 12px 28px rgba(15,23,42,0.18);
+    overflow: hidden;
+    cursor: grab;
+    transition: transform 0.24s cubic-bezier(0.2,0.86,0.2,1), opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.wc-image-stack-card.active {
+    cursor: zoom-in;
+    box-shadow: 0 16px 34px rgba(15,23,42,0.24);
+}
+.wc-image-stack-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wc-image-stack-count {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 80;
+    min-width: 38px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.48);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 850;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.msg-bubble.image-stack-bubble .msg-media-meta {
+    right: auto;
+    left: 8px;
+    bottom: 8px;
+    z-index: 81;
+}
 .msg-image-placeholder { width: 190px; min-height: 142px; border-radius: 17px; background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.92)); color: #64748b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 760; box-shadow: 0 2px 12px rgba(15,23,42,0.1); }
 .msg-image-placeholder i { font-size: 24px; color: #93a4b8; animation: spin 1s linear infinite; }
 .msg-image-placeholder.error { color: #ef4444; background: #fff1f2; }
@@ -19707,9 +19776,6 @@ button.wc-ai-phone-sync {
 .coread-reader-head strong { color: #211d19; font-size: 14px; font-weight: 920; }
 .coread-reader-head span { margin-top: 2px; color: #9a8975; font-size: 10px; }
 .coread-reader-body { min-height: 330px; max-height: 48vh; margin: 0; padding: 20px 18px; overflow-y: auto; color: #24211d; font-size: 16px; line-height: 1.82; white-space: pre-wrap; overflow-wrap: anywhere; font-family: Georgia, "Times New Roman", "Noto Serif SC", serif; }
-.coread-comment-card { margin: 0 10px 12px; padding: 12px; border-radius: 17px; background: #f1ece3; }
-.coread-comment-card div { display: flex; align-items: center; gap: 6px; color: #6f5338; font-size: 12px; font-weight: 900; }
-.coread-comment-card p { margin: 7px 0 0; color: #453c33; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .coread-empty, .album-empty { min-height: 48px; border-radius: 16px; background: rgba(255,255,255,0.55); color: #958674; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; font-size: 12px; }
 
 /* --- Chat Album / 相册 --- */
@@ -20118,7 +20184,6 @@ button.wc-ai-phone-sync {
 .coread-book.active, .coread-char-list button.active { background: #2e2924; }
 .coread-reader { border-radius: 26px; background: #fffdf8; box-shadow: 0 22px 50px rgba(61,53,45,0.12); }
 .coread-reader-body { min-height: 390px; max-height: 52vh; color: #34302a; }
-.coread-comment-card { border-radius: 20px; background: #eee8df; }
 .coread-bottom-nav {
     position: absolute;
     left: 0;
@@ -20175,6 +20240,7 @@ button.wc-ai-phone-sync {
 }
 .coread-shell.coread-reader-mode .coread-layout {
     height: 100%;
+    position: relative;
 }
 .coread-shell.coread-reader-mode .coread-reader {
     height: 100%;
@@ -20212,13 +20278,6 @@ button.wc-ai-phone-sync {
     letter-spacing: 0;
     font-family: Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
     background: transparent;
-}
-.coread-shell.coread-reader-mode .coread-comment-card {
-    margin: 0;
-    border-radius: 0;
-    background: rgba(244,236,224,0.95);
-    border-top: 1px solid rgba(45,42,37,0.07);
-    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
 }
 .coread-content[data-tab="thoughts"] [data-coread-panel="thoughts"] { display: flex; }
 .coread-content[data-tab="me"] [data-coread-panel="me"] { display: flex; }
@@ -20272,12 +20331,83 @@ button.wc-ai-phone-sync {
     flex-direction: column;
     gap: 10px;
 }
+.coread-thought-group {
+    border-radius: 26px;
+    background: rgba(255,255,255,0.92);
+    padding: 14px;
+    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.coread-thought-group > header {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+}
+.coread-thought-group > header img {
+    width: 46px;
+    height: 46px;
+    border-radius: 18px;
+    object-fit: cover;
+    background: #eee8df;
+}
+.coread-thought-group > header strong,
+.coread-thought-group > header span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.coread-thought-group > header strong {
+    color: #211f1c;
+    font-size: 16px;
+    font-weight: 930;
+}
+.coread-thought-group > header span {
+    margin-top: 3px;
+    color: #958575;
+    font-size: 12px;
+    font-weight: 760;
+}
+.coread-thought-book {
+    border-radius: 20px;
+    background: rgba(246, 241, 232, 0.78);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.coread-thought-book h4 {
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    color: #332d26;
+}
+.coread-thought-book h4 span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 910;
+}
+.coread-thought-book h4 em {
+    color: #7fa37c;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 900;
+}
 .coread-thought-card {
     margin: 0;
-    border-radius: 24px;
+    border-radius: 16px;
     background: rgba(255,255,255,0.92);
-    padding: 15px 16px;
-    box-shadow: 0 16px 34px rgba(61,53,45,0.07);
+    padding: 12px;
+    box-shadow: 0 8px 18px rgba(61,53,45,0.05);
 }
 .coread-thought-card div {
     display: flex;
@@ -20693,10 +20823,7 @@ button.wc-ai-phone-sync {
     display: none;
 }
 .coread-shell.coread-reader-mode .coread-reader {
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-}
-.coread-shell.coread-reader-mode .coread-comment-card {
-    padding-bottom: 10px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
 }
 .coread-shell.coread-reader-mode .coread-reader-tools {
     min-height: 70px;
@@ -20706,8 +20833,8 @@ button.wc-ai-phone-sync {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 .coread-reader-tools button {
     min-width: 0;
@@ -20736,6 +20863,209 @@ button.wc-ai-phone-sync {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.coread-comment-popover {
+    position: absolute;
+    top: 72px;
+    right: 14px;
+    z-index: 68;
+    width: min(326px, calc(100% - 28px));
+    max-height: calc(100% - 92px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(12px, -8px, 0) scale(0.96);
+    transform-origin: calc(100% - 30px) 0;
+    transition: opacity 0.14s ease, transform 0.16s cubic-bezier(0.2, 0.86, 0.2, 1), visibility 0.14s ease;
+}
+.coread-comment-popover.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0) scale(1);
+}
+.coread-comment-bubble {
+    position: relative;
+    max-height: inherit;
+    padding: 12px;
+    border-radius: 22px 8px 22px 22px;
+    background: rgba(255, 252, 246, 0.97);
+    border: 1px solid rgba(255,255,255,0.84);
+    box-shadow: 0 18px 48px rgba(30, 25, 19, 0.22);
+    color: #2c261f;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.coread-comment-bubble::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    right: 23px;
+    width: 14px;
+    height: 14px;
+    background: rgba(255, 252, 246, 0.97);
+    border-left: 1px solid rgba(255,255,255,0.84);
+    border-top: 1px solid rgba(255,255,255,0.84);
+    transform: rotate(45deg);
+}
+.coread-comment-bubble header {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 30px;
+    align-items: center;
+    gap: 9px;
+}
+.coread-comment-bubble header img {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    object-fit: cover;
+    background: #eee8dc;
+}
+.coread-comment-bubble header span,
+.coread-comment-bubble header strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.coread-comment-bubble header span {
+    color: #a08f7e;
+    font-size: 10px;
+    font-weight: 840;
+}
+.coread-comment-bubble header strong {
+    margin-top: 1px;
+    color: #29231d;
+    font-size: 14px;
+    font-weight: 930;
+}
+.coread-comment-bubble header button {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(44, 38, 31, 0.08);
+    color: #6a5d50;
+    font-size: 18px;
+}
+.coread-comment-body {
+    max-height: 168px;
+    overflow-y: auto;
+    padding: 11px 12px;
+    border-radius: 16px;
+    background: rgba(244, 237, 226, 0.78);
+    border: 1px solid rgba(88, 73, 54, 0.07);
+}
+.coread-comment-body.thinking {
+    background: rgba(238, 245, 235, 0.88);
+}
+.coread-comment-body p {
+    margin: 0;
+    color: #3d352c;
+    font-size: 13px;
+    line-height: 1.58;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.coread-comment-thread {
+    max-height: 138px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-right: 2px;
+}
+.coread-comment-thread > div {
+    max-width: 88%;
+}
+.coread-comment-thread > div.user {
+    align-self: flex-end;
+    text-align: right;
+}
+.coread-comment-thread > div.char {
+    align-self: flex-start;
+}
+.coread-comment-thread span {
+    display: block;
+    margin: 0 4px 3px;
+    color: #a08f7e;
+    font-size: 10px;
+    font-weight: 820;
+}
+.coread-comment-thread p {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(245, 240, 232, 0.96);
+    color: #3c342d;
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.coread-comment-thread .user p {
+    background: #dff1d9;
+}
+.coread-comment-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.coread-comment-actions button {
+    min-height: 32px;
+    border: none;
+    border-radius: 16px;
+    background: #2e2924;
+    color: #fff;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 850;
+}
+.coread-comment-actions button:disabled {
+    opacity: 0.48;
+}
+.coread-comment-reply {
+    min-height: 44px;
+    padding: 6px 6px 6px 10px;
+    border-radius: 17px;
+    background: rgba(255,255,255,0.86);
+    border: 1px solid rgba(88, 73, 54, 0.09);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    align-items: end;
+    gap: 7px;
+}
+.coread-comment-reply textarea {
+    min-width: 0;
+    height: 32px;
+    max-height: 72px;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: #2f2923;
+    font-size: 13px;
+    line-height: 1.35;
+}
+.coread-comment-reply button {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: #7fa37c;
+    color: #fff;
+    font-size: 17px;
+}
+.coread-comment-reply textarea:disabled,
+.coread-comment-reply button:disabled {
+    opacity: 0.48;
 }
 .coread-toc-drawer {
     position: absolute;
@@ -20909,13 +21239,15 @@ button.wc-ai-phone-sync {
     opacity: 1;
 }
 @media (max-width: 430px) {
-    .coread-shell.coread-reader-mode .coread-comment-card {
-        padding: 10px 14px;
-    }
     .coread-shell.coread-reader-mode .coread-reader-tools {
         min-height: 66px;
         padding-left: 8px;
         padding-right: 8px;
+    }
+    .coread-comment-popover {
+        top: 68px;
+        right: 10px;
+        width: min(312px, calc(100% - 20px));
     }
     .coread-toc-panel {
         width: 82%;
@@ -20981,7 +21313,7 @@ button.wc-ai-phone-sync {
     overscroll-behavior: contain;
 }
 .coread-shell[data-coread-page-mode="scroll"] .coread-reader-body {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
 }
 .coread-shell[data-coread-color="dark"].coread-reader-mode.coread-has-wallpaper .coread-reader {
     background:
@@ -20990,7 +21322,7 @@ button.wc-ai-phone-sync {
         var(--coread-reader-bg);
 }
 .coread-shell[data-coread-color="dark"].coread-reader-mode .coread-reader-head,
-.coread-shell[data-coread-color="dark"].coread-reader-mode .coread-comment-card,
+.coread-shell[data-coread-color="dark"].coread-reader-mode .coread-comment-bubble,
 .coread-shell[data-coread-color="dark"].coread-reader-mode .coread-reader-tools {
     background: rgba(31, 33, 31, 0.90);
     border-color: rgba(255,255,255,0.08);
@@ -20999,11 +21331,13 @@ button.wc-ai-phone-sync {
     background: rgba(255,255,255,0.10);
     color: #e6dccb;
 }
-.coread-shell.coread-reader-mode .coread-comment-card {
-    background: color-mix(in srgb, var(--coread-reader-bg) 90%, #d6c8b4 10%);
+.coread-shell.coread-reader-mode .coread-comment-bubble,
+.coread-shell.coread-reader-mode .coread-comment-bubble::before {
+    background: color-mix(in srgb, var(--coread-reader-bg) 92%, #fff 8%);
     color: var(--coread-reader-color);
 }
-.coread-shell.coread-reader-mode .coread-comment-card p {
+.coread-shell.coread-reader-mode .coread-comment-body p,
+.coread-shell.coread-reader-mode .coread-comment-thread p {
     color: color-mix(in srgb, var(--coread-reader-color) 78%, transparent);
 }
 .coread-shell.coread-reader-mode .coread-reader-tools {
@@ -21033,7 +21367,7 @@ button.wc-ai-phone-sync {
     inset: 0;
     border: none;
     background: rgba(32, 29, 25, 0);
-    transition: background 0.2s ease;
+    transition: none;
 }
 .coread-settings-drawer.open .coread-settings-scrim {
     background: rgba(32, 29, 25, 0.22);
@@ -21048,7 +21382,8 @@ button.wc-ai-phone-sync {
     background: rgba(248, 244, 235, 0.98);
     box-shadow: 0 -18px 38px rgba(45, 39, 32, 0.16);
     transform: translateY(102%);
-    transition: transform 0.22s ease;
+    transition: transform 0.1s ease-out;
+    will-change: transform;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -21121,10 +21456,30 @@ button.wc-ai-phone-sync {
 }
 .coread-segmented {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 3px;
+    gap: 3px;
+    background: rgba(255,255,255,0.72);
 }
 .coread-segmented button.active {
-    background: rgba(127, 163, 124, 0.22);
-    color: #345f40;
+    background: rgba(127, 163, 124, 0.30);
+    color: #235b36;
+    box-shadow: inset 0 0 0 1px rgba(86, 135, 92, 0.24), 0 6px 14px rgba(86, 135, 92, 0.12);
+}
+.coread-segmented[data-coread-current-mode="paged"] button[data-coread-page-mode="scroll"],
+.coread-segmented[data-coread-current-mode="scroll"] button[data-coread-page-mode="paged"] {
+    background: transparent;
+    color: #5f554b;
+    box-shadow: none;
+}
+.coread-segmented[data-coread-current-mode="paged"] button[data-coread-page-mode="paged"],
+.coread-segmented[data-coread-current-mode="scroll"] button[data-coread-page-mode="scroll"] {
+    background: rgba(127, 163, 124, 0.30);
+    color: #235b36;
+    box-shadow: inset 0 0 0 1px rgba(86, 135, 92, 0.24), 0 6px 14px rgba(86, 135, 92, 0.12);
+}
+.coread-segmented button:active {
+    background: rgba(127, 163, 124, 0.20);
+    color: #2f6940;
 }
 .coread-color-options {
     min-width: 0;
@@ -21191,7 +21546,8 @@ button.wc-ai-phone-sync {
     padding: 18px 20px 10px;
     grid-template-columns: 50px minmax(0, 1fr) 50px;
     background: var(--coread-reader-chrome-bg);
-    border-bottom: 1px solid var(--coread-reader-border);
+    border-bottom: none;
+    box-shadow: none;
 }
 .coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar div {
     visibility: hidden;
@@ -21207,6 +21563,11 @@ button.wc-ai-phone-sync {
 }
 .coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar button:last-child {
     justify-self: end;
+}
+.coread-shell.coread-reader-mode .coread-topbar,
+.coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 .coread-shell.coread-reader-mode .coread-reader-head {
     display: none;
@@ -21245,13 +21606,14 @@ button.wc-ai-phone-sync {
     color: var(--coread-reader-color);
 }
 .coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-head,
-.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-card,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-bubble,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-bubble::before,
 .coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-tools {
     background: var(--coread-reader-panel-bg);
     border-color: var(--coread-reader-border);
     color: var(--coread-reader-color);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 .coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-body {
     color: var(--coread-reader-color);
@@ -21261,7 +21623,8 @@ button.wc-ai-phone-sync {
     text-shadow: 0 1px 2px rgba(255,255,255,0.36);
 }
 .coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-tools button,
-.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-card p,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-body p,
+.coread-shell.coread-reader-mode.coread-has-wallpaper .coread-comment-thread p,
 .coread-shell.coread-reader-mode.coread-has-wallpaper .coread-reader-head span {
     color: color-mix(in srgb, var(--coread-reader-color) 82%, transparent);
 }
@@ -21270,6 +21633,44 @@ button.wc-ai-phone-sync {
         height: 76px;
         padding: 16px 20px 10px;
     }
+}
+
+/* Keep the co-read page chrome stable after moving char comments into the top popover. */
+.coread-shell.coread-reader-mode .coread-content[data-tab="reader"] {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+}
+.coread-shell.coread-reader-mode .coread-content[data-tab="reader"] .coread-layout[data-coread-panel="shelf"] {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+    height: 100%;
+}
+.coread-shell.coread-reader-mode .coread-content[data-tab="reader"] .coread-reader {
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) 66px;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+.coread-shell.coread-reader-mode .coread-content[data-tab="reader"] .coread-reader-body {
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    margin: 0 14px 8px;
+    padding: 18px 10px 22px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.coread-shell.coread-reader-mode .coread-content[data-tab="reader"] .coread-reader-tools {
+    position: relative;
+    z-index: 2;
+    display: grid !important;
+    min-height: 66px;
+    height: 66px;
+    flex: 0 0 66px;
 }
 
 /* --- Co-reading iOS discover polish 20260617 --- */

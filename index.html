@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260704-coread-settings-lite1">
+    <link rel="stylesheet" href="style.css?v=20260704-coread-ai-empty1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -616,7 +616,7 @@
                         <span>SHARED READING</span>
                         <strong>和 char 共读小说</strong>
                     </div>
-                    <button type="button" onclick="askCoReadComment()" aria-label="让 char 评论"><i class="ri-chat-quote-line"></i></button>
+                    <button type="button" onclick="openCoReadCommentPanel()" aria-label="打开 char 共读气泡"><i class="ri-chat-quote-line"></i></button>
                 </div>
                 <div class="coread-content">
                     <section class="coread-search-hero" data-coread-panel="shelf">
@@ -678,16 +678,13 @@
                                 <button type="button" onclick="turnCoReadPage(1)"><i class="ri-arrow-right-s-line"></i></button>
                             </div>
                             <article id="coread-reader-body" class="coread-reader-body"></article>
-                            <section class="coread-comment-card">
-                                <div><i class="ri-chat-heart-line"></i><strong>char 的旁注</strong></div>
-                                <p id="coread-comment">选择角色后，可以让 char 按人设和世界书评论当前页。</p>
-                            </section>
                             <div class="coread-reader-tools">
                                 <button type="button" onclick="toggleCoReadToc(true)" aria-label="目录"><i class="ri-menu-2-line"></i><span>目录</span></button>
                                 <button type="button" onclick="setCoReadTab('shelf')" aria-label="去书架"><i class="ri-book-shelf-line"></i><span>书架</span></button>
-                                <button type="button" onpointerdown="return handleCoReadSettingsPointer(true, event)" onclick="return handleCoReadSettingsClick(true, event)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                                <button type="button" class="coread-settings-trigger" data-coread-settings-open="true" onpointerdown="return handleCoReadSettingsPointer(true, event)" ontouchstart="return handleCoReadSettingsPointer(true, event)" onclick="return handleCoReadSettingsClick(true, event)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
                             </div>
                         </main>
+                        <aside id="coread-comment-popover" class="coread-comment-popover" aria-hidden="true"></aside>
                     </section>
                     <section class="coread-thoughts" data-coread-panel="thoughts">
                         <div class="coread-section-title">
@@ -723,11 +720,11 @@
                     </section>
                 </aside>
                 <aside id="coread-settings-drawer" class="coread-settings-drawer" aria-hidden="true">
-                    <button type="button" class="coread-settings-scrim" onpointerdown="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭设置"></button>
+                    <button type="button" class="coread-settings-scrim coread-settings-close" data-coread-settings-open="false" onpointerdown="return handleCoReadSettingsPointer(false, event)" ontouchstart="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭设置"></button>
                     <section class="coread-settings-panel">
                         <div class="coread-settings-head">
                             <strong>阅读设置</strong>
-                            <button type="button" onpointerdown="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭"><i class="ri-close-line"></i></button>
+                            <button type="button" class="coread-settings-close" data-coread-settings-open="false" onpointerdown="return handleCoReadSettingsPointer(false, event)" ontouchstart="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭"><i class="ri-close-line"></i></button>
                         </div>
                         <div class="coread-setting-row">
                             <span>字号</span>
@@ -1237,7 +1234,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.461
+                    Beyond Screen v1.1.468
                 </div>
             </div>
         </div>
@@ -1732,7 +1729,7 @@
                     <div id="wc-voice-status" class="wc-voice-status">按住底栏按钮说话，松开发送</div>
                 </div>
                 <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
-                <input type="file" id="wc-image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
+                <input type="file" id="wc-image-input" accept="image/*" multiple style="display:none" onchange="handleImagePick(this)">
                 <input type="file" id="bynd-system-camera-input" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleSystemCameraCapture(this)">
 
                 <!-- 表情选择器 -->
@@ -2223,14 +2220,14 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260629-push-time1"></script>
+    <script src="chat-api.js?v=20260704-coread-ai-empty1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260703-qq-tabbar1"></script>
-    <script src="wechat.js?v=20260703-qq-quote-link2"></script>
-    <script src="theme.js?v=20260704-global-tapfx1"></script>
-    <script src="settings.js?v=20260704-coread-settings-lite1"></script>
-    <script src="script.js?v=20260704-coread-settings-lite1"></script>
+    <script src="wechat.js?v=20260704-coread-ai-empty1"></script>
+    <script src="theme.js?v=20260704-coread-ai-empty1"></script>
+    <script src="settings.js?v=20260704-coread-ai-empty1"></script>
+    <script src="script.js?v=20260704-coread-ai-empty1"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
