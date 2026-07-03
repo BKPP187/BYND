@@ -4458,6 +4458,26 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-room-footer {
     align-items: flex-end !important;
+    column-gap: 16px !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-input,
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-rich-input,
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-voice-press-btn {
+    flex: 0 1 clamp(220px, 52%, 300px) !important;
+    width: clamp(220px, 52%, 300px) !important;
+    max-width: clamp(220px, 52%, 300px) !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .wc-sticker-btn {
+    margin-left: 8px !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-bubble-shell {
+    max-width: min(calc(100% - 52px), 276px) !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-bubble {
+    max-width: min(calc(100% - 52px), 276px) !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-bubble-shell .msg-bubble {
+    max-width: 100% !important;
 }
 #app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-room-footer {
     grid-template-rows: minmax(44px, auto) 34px !important;
