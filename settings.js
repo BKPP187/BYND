@@ -2200,7 +2200,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.447';
+const APP_VERSION = 'v1.1.461';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
@@ -2221,6 +2221,14 @@ const ALL_DATA_KEYS = [
     'desktop_lovely_widget_prefs_v1',
     'desktop_status_weather_v1',
     'desktop_status_steps_v1',
+    'bynd_coread_library_v1',
+    'bynd_coread_reader_settings_v1',
+    'bynd_coread_reader_wallpaper_v1',
+    'bynd_coread_progress_v1',
+    'bynd_coread_daily_v1',
+    'bynd_coread_daily_participants_v1',
+    'bynd_coread_sources_v1',
+    'bynd_coread_sources_version_v1',
     'desktop_default_princess_deleted_v1',
     'desktop_default_lovely_deleted_v1'
 ];

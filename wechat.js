@@ -2520,6 +2520,9 @@ function buildWechatReplySnapshot(msg, char, msgIdx) {
 
 function renderWechatMessageQuote(replyTo, char) {
     if (!replyTo) return '';
+    if (typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'qq') {
+        return renderWechatQqMessageQuote(replyTo, char);
+    }
     const media = getWechatReplyMedia(replyTo, char);
     const senderText = replyTo.sender || (replyTo.isMe ? '我' : '对方');
     const sender = wcEscapeHtml(senderText);
@@ -2565,6 +2568,29 @@ function renderWechatMessageQuote(replyTo, char) {
 
 function shouldRenderWechatExternalQuote() {
     return typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'wechat';
+}
+
+function renderWechatQqMessageQuote(replyTo, char) {
+    if (!replyTo) return '';
+    const sourceMsg = getWechatReplySourceMessage(replyTo, char);
+    const senderText = String(replyTo.sender || (replyTo.isMe ? '我' : '对方')).trim() || '对方';
+    const quoteText = getWechatExternalQuoteText(replyTo, char);
+    const timeText = formatMessageTime(sourceMsg || replyTo);
+    return `
+        <div class="msg-quote msg-quote-qq">
+            <div class="msg-quote-qq-head">
+                <strong>${wcEscapeHtml(senderText)}</strong>
+                <time>${wcEscapeHtml(timeText)}</time>
+                <i class="ri-arrow-up-line" aria-hidden="true"></i>
+            </div>
+            <span>${wcEscapeHtml(quoteText)}</span>
+        </div>
+    `;
+}
+
+function isWechatQqNumericLinkText(text) {
+    const clean = String(text || '').replace(/\s+/g, '');
+    return /^\p{N}+$/u.test(clean);
 }
 
 function getWechatExternalQuoteText(replyTo, char) {
@@ -8247,6 +8273,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     const useWechatExternalQuote = shouldRenderWechatExternalQuote() && !!displayMsg.replyTo;
     const quoteHtml = useWechatExternalQuote ? '' : renderWechatMessageQuote(displayMsg.replyTo, charObj);
     const externalQuoteHtml = useWechatExternalQuote ? renderWechatExternalMessageQuote(displayMsg.replyTo, charObj) : '';
+    if (externalQuoteHtml) row.classList.add('has-wechat-quote');
 
     let bubbleHtml = '';
     const avatarClass = msg.isMe ? 'msg-avatar' : 'msg-avatar msg-avatar-ai';
@@ -8277,7 +8304,8 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         const inner = buildWechatSpecialBubble(displayMsg, quoteHtml, msgIndex, charObj);
         bubbleHtml = msg.isMe && !externalQuoteHtml ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell">${groupNameHtml}${inner}${externalQuoteHtml}</div>`;
     } else {
-        const hasVisibleText = !!getWechatTextMessageVisibleText(displayMsg, charObj);
+        const visibleText = getWechatTextMessageVisibleText(displayMsg, charObj);
+        const hasVisibleText = !!visibleText;
         if (!hasVisibleText && !quoteHtml && !externalQuoteHtml) return;
         let rawContent = hasVisibleText ? processMsgContent(displayMsg.content, charObj) : '';
         const metaHtml = buildMessageMeta(displayMsg);
@@ -8285,7 +8313,11 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         if (!isRich) rawContent = renderWechatBuiltinEmojiMarkersHtml(rawContent);
         const emojiTextClass = !isRich && (displayMsg.wechatEmojiText || hasWechatBuiltinEmojiMarker(displayMsg.content)) ? ' wechat-emoji-text' : '';
         const richClass = isRich ? ' rich' : '';
-        const textBubbleHtml = hasVisibleText ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>` : '';
+        const quoteBubbleClass = externalQuoteHtml ? ' has-wechat-quote' : '';
+        const isQqTheme = typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'qq';
+        const qqQuoteBubbleClass = quoteHtml && isQqTheme ? ' has-qq-quote' : '';
+        if (isQqTheme && !msg.isMe && !isRich && isWechatQqNumericLinkText(visibleText)) rawContent = `<span class="msg-qq-numeric-link">${rawContent}</span>`;
+        const textBubbleHtml = hasVisibleText ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>` : '';
 
         if (msg.isMe) {
             bubbleHtml = externalQuoteHtml

@@ -1,4 +1,4 @@
-﻿@import url("./styles/wechat-themes/base-overrides.css?v=20260529-outing-desktop41");
+@import url("./styles/wechat-themes/base-overrides.css?v=20260703-qq-quote-link2");
 @import url("./styles/wechat-themes/reference-themes.css?v=20260529-outing-desktop41");
 
 /* style.css - main stylesheet */
@@ -28,6 +28,26 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 .phone-container { width: 375px; height: 812px; background: var(--bg-color); border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
 .phone-container *::-webkit-scrollbar { display: none; }
 .phone-container * { scrollbar-width: none; -ms-overflow-style: none; }
+.tapfx-layer { position: absolute; inset: 0; z-index: 5000; pointer-events: none; overflow: hidden; contain: layout paint; }
+.tapfx-burst { position: absolute; left: 0; top: 0; width: var(--tapfx-size, 112px); height: var(--tapfx-size, 112px); transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--tapfx-a, #f7d9ff) 55%, transparent)); animation: tapfx-burst-fade 1.05s ease forwards; }
+.tapfx-ring, .tapfx-orbit, .tapfx-wave, .tapfx-symbol, .tapfx-particle { position: absolute; left: 50%; top: 50%; pointer-events: none; }
+.tapfx-ring { width: 74%; height: 74%; border-radius: 50%; transform: translate(-50%, -50%) scale(0.38); border: 2px solid color-mix(in srgb, var(--tapfx-a, #f7d9ff) 78%, white); box-shadow: 0 0 20px var(--tapfx-a, #f7d9ff), inset 0 0 22px color-mix(in srgb, var(--tapfx-b, #8fd9ff) 42%, transparent); animation: tapfx-ring-open 0.82s cubic-bezier(0.18,0.82,0.24,1) forwards; }
+.tapfx-ring::before, .tapfx-ring::after { content: ''; position: absolute; inset: -13px; border-radius: 45%; border: 1px solid color-mix(in srgb, var(--tapfx-b, #8fd9ff) 52%, transparent); transform: rotate(22deg); }
+.tapfx-ring::after { inset: -23px; border-radius: 38%; opacity: 0.58; transform: rotate(-28deg); }
+.tapfx-orbit { width: 92%; height: 92%; border-radius: 50%; transform: translate(-50%, -50%) scale(0.55); background: radial-gradient(circle at 50% 0, #fff 0 2px, transparent 3px), radial-gradient(circle at 100% 50%, #fff 0 2px, transparent 3px), radial-gradient(circle at 50% 100%, #fff 0 2px, transparent 3px), radial-gradient(circle at 0 50%, #fff 0 2px, transparent 3px); border: 1px dashed color-mix(in srgb, var(--tapfx-a, #f7d9ff) 48%, transparent); animation: tapfx-orbit-spin 0.96s ease-out forwards; }
+.tapfx-symbol { min-width: 38%; height: 38%; padding: 0 7px; border-radius: 999px; transform: translate(-50%, -50%) scale(0.48); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: calc(var(--tapfx-size, 112px) * 0.25); font-weight: 900; line-height: 1; text-shadow: 0 0 12px #fff, 0 0 28px var(--tapfx-a, #f7d9ff); background: radial-gradient(circle, color-mix(in srgb, var(--tapfx-a, #f7d9ff) 92%, white) 0 18%, color-mix(in srgb, var(--tapfx-b, #8fd9ff) 42%, transparent) 52%, transparent 72%); box-shadow: 0 0 28px var(--tapfx-a, #f7d9ff); animation: tapfx-symbol-pop 0.86s cubic-bezier(0.16,0.9,0.2,1) forwards; }
+.tapfx-wave { width: 86%; height: 22%; border-radius: 50%; transform: translate(-50%, -50%) rotate(18deg) scaleX(0.36); border: 2px solid color-mix(in srgb, var(--tapfx-b, #8fd9ff) 54%, transparent); filter: blur(1.2px); opacity: 0; animation: tapfx-wave-sweep 0.92s ease-out forwards; }
+.tapfx-wave.wave-2 { transform: translate(-50%, -50%) rotate(-34deg) scaleX(0.32); border-color: color-mix(in srgb, var(--tapfx-a, #f7d9ff) 58%, transparent); animation-delay: 60ms; }
+.tapfx-particle { transform: translate(-50%, -50%) scale(0.25); color: #fff; font-size: 13px; text-shadow: 0 0 9px #fff, 0 0 18px var(--tapfx-a, #f7d9ff); opacity: 0; animation: tapfx-particle-fly 0.9s cubic-bezier(0.15,0.78,0.28,1) var(--delay, 0ms) forwards; }
+.tapfx-fruit .tapfx-ring { border-radius: 44% 56% 48% 52%; }
+.tapfx-feather .tapfx-wave { width: 94%; height: 16%; }
+.tapfx-moon .tapfx-symbol { border-radius: 50%; }
+@keyframes tapfx-burst-fade { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tapfx-ring-open { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.22) rotate(-18deg); } 42% { opacity: 0.95; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.18) rotate(52deg); } }
+@keyframes tapfx-orbit-spin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.38) rotate(-90deg); } 35% { opacity: 0.82; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.1) rotate(210deg); } }
+@keyframes tapfx-symbol-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); } 22% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); } }
+@keyframes tapfx-wave-sweep { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(18deg) scaleX(0.2); } 35% { opacity: 0.72; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(18deg) scaleX(1.4); } }
+@keyframes tapfx-particle-fly { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.25) rotate(0); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(var(--scale, 1)) rotate(var(--spin, 90deg)); } }
 @media (max-width: 600px) and (hover: none) and (pointer: coarse) {
     body { background-color: var(--bg-color); }
     .phone-container { width: 100vw; height: 100dvh; border: none; border-radius: 0; box-shadow: none; }
@@ -1869,7 +1889,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     gap: 8px;
 }
 .lcw-task::after {
-    content: "⌁";
+    content: "?";
     color: rgba(151,198,237,0.76);
     font-size: clamp(12px, 4cqw, 15px);
     line-height: 1;
@@ -4529,7 +4549,7 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-wechat-quote {
     box-sizing: border-box;
     width: max-content;
-    max-width: min(142px, 92%);
+    max-width: min(172px, 92%);
     min-height: 23px;
     margin-top: 5px;
     padding: 4px 8px;
@@ -4557,13 +4577,22 @@ html.lockscreen-disabled .lock-screen { display: none !important; }
     white-space: nowrap;
 }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-wechat-quote strong {
-    flex: 0 1 auto;
-    max-width: 54px;
+    flex: 0 0 auto;
+    max-width: 82px;
 }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-wechat-quote span {
     flex: 1 1 auto;
-    max-width: 78px;
+    max-width: 86px;
+    color: #6a6a6a;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-bubble.has-wechat-quote .msg-text {
     color: #576b95;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-row.has-wechat-quote {
+    align-items: flex-start;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-row.has-wechat-quote .msg-avatar {
+    margin-top: 8px;
 }
 .msg-text { display: inline; white-space: pre-wrap; min-width: 0; }
 .msg-text.rich { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; overflow-wrap: anywhere; white-space: normal; }
@@ -4674,7 +4703,13 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-row.left .msg-bubble:not(.rich)::before,
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-row.right .msg-bubble:not(.rich)::before {
+    top: auto !important;
+    bottom: 14px !important;
+    transform: rotate(45deg) !important;
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-row.has-wechat-quote .msg-bubble:not(.rich)::before {
     top: 50% !important;
+    bottom: auto !important;
     transform: translateY(-50%) rotate(45deg) !important;
 }
 #app-wechat-window.wc-ui-theme-wechat .wc-chat-room .msg-bubble-shell .msg-bubble {
@@ -9211,6 +9246,163 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     align-items: center;
     justify-content: center;
     font-size: 15px;
+}
+.tapfx-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+.tapfx-preset-grid button {
+    min-width: 0;
+    min-height: 78px;
+    border: 1px solid rgba(180, 148, 170, 0.16);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.72);
+    color: #615066;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 780;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.82);
+}
+.tapfx-preset-grid button.active {
+    color: #302237;
+    border-color: rgba(198, 133, 184, 0.36);
+    background: linear-gradient(145deg, rgba(255,245,251,0.96), rgba(239,248,255,0.84));
+    box-shadow: 0 10px 24px rgba(168, 119, 160, 0.14);
+}
+.tapfx-preset-grid b,
+.tapfx-preset-grid i {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-style: normal;
+    color: #fff;
+    background: radial-gradient(circle, #fff 0 12%, var(--a, #f7d9ff) 32%, var(--b, #8fd9ff) 76%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--a, #f7d9ff) 72%, transparent);
+}
+.tapfx-preset-feather {
+    position: relative;
+}
+.tapfx-feather-mark,
+.tapfx-feather-core,
+.tapfx-particle-feather {
+    position: relative;
+    display: block;
+    width: 13px;
+    height: 23px;
+    border-radius: 86% 14% 78% 22% / 68% 20% 80% 32%;
+    background:
+        radial-gradient(circle at 48% 20%, rgba(255,255,255,0.96) 0 8%, transparent 20%),
+        linear-gradient(145deg, rgba(255,255,255,0.92), var(--tapfx-a, #ffd6ec) 34%, var(--tapfx-b, #b9d7ff) 78%);
+    box-shadow: 0 0 12px var(--tapfx-a, #ffd6ec), 0 0 20px color-mix(in srgb, var(--tapfx-b, #b9d7ff) 62%, transparent);
+}
+.tapfx-feather-mark {
+    --tapfx-a: var(--a, #ffd6ec);
+    --tapfx-b: var(--b, #b9d7ff);
+    transform: rotate(-34deg);
+}
+.tapfx-feather-core {
+    width: calc(var(--tapfx-size, 112px) * 0.16);
+    height: calc(var(--tapfx-size, 112px) * 0.31);
+    transform: rotate(-34deg);
+}
+.tapfx-particle.tapfx-particle-feather {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 9px;
+    height: 19px;
+    font-size: 0;
+}
+.tapfx-feather-mark::before,
+.tapfx-feather-core::before,
+.tapfx-particle-feather::before {
+    content: '';
+    position: absolute;
+    left: 52%;
+    top: 9%;
+    width: 1px;
+    height: 86%;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.88);
+    box-shadow: 0 0 7px rgba(255,255,255,0.86);
+}
+.tapfx-feather-mark::after,
+.tapfx-feather-core::after,
+.tapfx-particle-feather::after {
+    content: '';
+    position: absolute;
+    left: 23%;
+    top: 20%;
+    width: 48%;
+    height: 58%;
+    border-radius: 70%;
+    background: repeating-linear-gradient(150deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 4px);
+    opacity: 0.72;
+}
+.tapfx-preset-grid i {
+    color: #a595a5;
+    background: rgba(240, 235, 242, 0.82);
+    box-shadow: none;
+}
+.tapfx-custom-panel {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.tapfx-custom-panel label {
+    min-width: 0;
+    min-height: 48px;
+    padding: 7px 9px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(180, 148, 170, 0.14);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+.tapfx-custom-panel label:first-child,
+.tapfx-custom-panel label:nth-child(2),
+.tapfx-custom-panel label:last-child {
+    grid-column: 1 / -1;
+}
+.tapfx-custom-panel span {
+    color: #8d7f91;
+    font-size: 11px;
+    font-weight: 760;
+}
+.tapfx-custom-panel input[type="text"] {
+    min-width: 0;
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #332737;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 820;
+}
+.tapfx-custom-panel input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+.tapfx-custom-panel input[type="range"] {
+    width: 100%;
+    accent-color: #c984bd;
 }
 #app-theme-window .input-bubble,
 #app-theme-window .upload-box,
@@ -20784,6 +20976,9 @@ button.wc-ai-phone-sync {
     color: var(--coread-reader-color);
     font-size: var(--coread-font-size);
     background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
 .coread-shell[data-coread-page-mode="scroll"] .coread-reader-body {
     scroll-behavior: smooth;
@@ -20884,6 +21079,11 @@ button.wc-ai-phone-sync {
     background: rgba(46, 41, 36, 0.08);
     color: #62574b;
     font-size: 19px;
+    touch-action: manipulation;
+}
+.coread-settings-scrim,
+.coread-reader-tools button {
+    touch-action: manipulation;
 }
 .coread-setting-row > span {
     color: #7b6f62;

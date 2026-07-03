@@ -210,6 +210,38 @@ function getWechatThemeUnreadBadgeHtml(count) {
 }
 
 function getWechatThemeTabIconHtml(key, meta, theme) {
+    if (theme.id === 'qq') {
+        const icons = {
+            chat: `
+                <svg class="wc-qq-tab-svg wc-qq-tab-chat-svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                    <path d="M32 8C18.2 8 7 17.1 7 28.2c0 7.8 5.7 14.6 14 17.9l-1.1 8.1c-.2 1.4 1.5 2.3 2.6 1.4l8.4-6.9H32c13.8 0 25-9.1 25-20.5S45.8 8 32 8Z" fill="currentColor"/>
+                    <circle cx="25.2" cy="28.8" r="3.2" fill="var(--wc-qq-tab-dot, #fff)"/>
+                    <circle cx="38.8" cy="28.8" r="3.2" fill="var(--wc-qq-tab-dot, #fff)"/>
+                </svg>
+            `,
+            contacts: `
+                <svg class="wc-qq-tab-svg wc-qq-tab-contacts-svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                    <path d="M32 32.5c7 0 12.2-5.5 12.2-12.5S39 8.5 32 8.5 19.8 13 19.8 20 25 32.5 32 32.5Z" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M14.8 55.5c2.4-10.4 9.2-16.2 17.2-16.2s14.8 5.8 17.2 16.2" stroke="currentColor" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            `,
+            discover: `
+                <svg class="wc-qq-tab-svg wc-qq-tab-channel-svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                    <path d="M25 10.5 19.5 54" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+                    <path d="M44.5 10.5 39 54" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+                    <path d="M12.5 24.5h39.8" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+                    <path d="M10.8 40.5h39.8" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+                </svg>
+            `,
+            me: `
+                <svg class="wc-qq-tab-svg wc-qq-tab-qzone-svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                    <path d="M47.2 21.4A20 20 0 1 0 52 34.2" stroke="currentColor" stroke-width="5.2" stroke-linecap="round"/>
+                    <path d="M49.2 7.5 51.9 14l7 1.1-5.1 4.7 1.3 6.9-5.9-3.4-6.1 3.4 1.4-6.9-5.1-4.7 7-1.1 2.8-6.5Z" fill="currentColor"/>
+                </svg>
+            `
+        };
+        return `<span class="wc-theme-tab-icon wc-qq-tab-icon wc-qq-tab-${key}">${icons[key] || icons.chat}</span>`;
+    }
     if (theme.id !== 'wechat') {
         const iconClass = meta.icon || 'ri-circle-line';
         return `<i class="${iconClass} wc-theme-tab-icon"></i>`;

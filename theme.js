@@ -14,6 +14,56 @@ const THEME_ICON_TARGETS = [
 const THEME_DESKTOP_ICON_COUNT = 13;
 const THEME_DOCK_ICON_START = THEME_DESKTOP_ICON_COUNT;
 const THEME_LIBRARY_KEY = 'bynd_theme_library_v1';
+const TAP_EFFECT_PRESETS = {
+    none: {
+        label: '关闭',
+        symbol: '',
+        particles: '',
+        colorA: '#f7d9ff',
+        colorB: '#8fd9ff',
+        size: 112
+    },
+    moon: {
+        label: '月辉',
+        symbol: '☾',
+        particles: '✦·',
+        colorA: '#f8eaff',
+        colorB: '#94d9ff',
+        size: 112
+    },
+    star: {
+        label: '星盘',
+        symbol: '✦',
+        particles: '✦✧·',
+        colorA: '#fff2d2',
+        colorB: '#d7b6ff',
+        size: 118
+    },
+    feather: {
+        label: '羽梦',
+        symbol: '🪶',
+        particles: '🪶✧·',
+        colorA: '#ffd6ec',
+        colorB: '#b9d7ff',
+        size: 116
+    },
+    fruit: {
+        label: '甜果',
+        symbol: '♡',
+        particles: '✦·',
+        colorA: '#ffd09a',
+        colorB: '#ff7f8f',
+        size: 108
+    },
+    custom: {
+        label: '自定义',
+        symbol: '✦',
+        particles: '✦·',
+        colorA: '#f7d9ff',
+        colorB: '#8fd9ff',
+        size: 112
+    }
+};
 
 // 1. 初始化图标网格
 function initIconGrid() {
@@ -111,6 +161,220 @@ function normalizeThemeWidgetType(value) {
 function normalizeThemeAccent(value, fallback) {
     const text = String(value || '').trim();
     return /^#[0-9a-f]{6}$/i.test(text) ? text : fallback;
+}
+
+function normalizeTapEffectData(value) {
+    const input = value && typeof value === 'object' ? value : {};
+    const preset = TAP_EFFECT_PRESETS[input.preset] ? input.preset : 'moon';
+    const base = TAP_EFFECT_PRESETS[preset] || TAP_EFFECT_PRESETS.moon;
+    let rawSymbol = input.symbol;
+    let rawParticles = input.particles;
+    if (String(rawSymbol || '').trim() === '羽') rawSymbol = TAP_EFFECT_PRESETS.feather.symbol;
+    if (preset === 'feather') {
+        if (!rawSymbol) rawSymbol = base.symbol;
+        if (!rawParticles || String(rawParticles).trim() === '✧·') rawParticles = base.particles;
+    }
+    const symbol = Array.from(String(rawSymbol || base.symbol || '').trim()).slice(0, 2).join('');
+    const particles = Array.from(String(rawParticles || base.particles || '').trim()).slice(0, 10).join('');
+    const size = Math.max(72, Math.min(150, Number(input.size || base.size || 112)));
+    return {
+        preset,
+        symbol,
+        particles,
+        colorA: normalizeThemeAccent(input.colorA || base.colorA, base.colorA || '#f7d9ff'),
+        colorB: normalizeThemeAccent(input.colorB || base.colorB, base.colorB || '#8fd9ff'),
+        size
+    };
+}
+
+function getSavedTapEffectData() {
+    return normalizeTapEffectData(getSavedThemeData().tapEffect);
+}
+
+function renderTapEffectSettings(data) {
+    data = normalizeTapEffectData(data || getSavedTapEffectData());
+    const grid = document.getElementById('tapfx-preset-grid');
+    if (grid) {
+        grid.innerHTML = Object.entries(TAP_EFFECT_PRESETS).map(([id, item]) => {
+            let preview = '<i class="ri-close-line"></i>';
+            if (id !== 'none') {
+                const iconClass = id === 'feather' ? ' tapfx-preset-feather' : '';
+                const iconBody = id === 'feather' ? '<span class="tapfx-feather-mark"></span>' : themeEscapeHtml(item.symbol || '✦');
+                preview = `<b class="tapfx-preset-icon${iconClass}" style="--a:${themeEscapeHtml(item.colorA)};--b:${themeEscapeHtml(item.colorB)}">${iconBody}</b>`;
+            }
+            return `
+                <button type="button" data-preset="${themeEscapeHtml(id)}" class="${data.preset === id ? 'active' : ''}" onclick="selectTapEffectPreset('${themeEscapeHtml(id)}')">
+                    ${preview}
+                    <span>${themeEscapeHtml(item.label)}</span>
+                </button>
+            `;
+        }).join('');
+    }
+    const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+    };
+    setValue('tapfx-symbol', data.symbol);
+    setValue('tapfx-particles', data.particles);
+    setValue('tapfx-color-a', data.colorA);
+    setValue('tapfx-color-b', data.colorB);
+    setValue('tapfx-size', data.size);
+}
+
+function setTapEffectPresetActive(preset) {
+    const grid = document.getElementById('tapfx-preset-grid');
+    if (!grid) return;
+    grid.querySelectorAll('button[data-preset]').forEach(button => {
+        button.classList.toggle('active', button.dataset.preset === preset);
+    });
+}
+
+function collectTapEffectDataFromInputs(preset) {
+    const saved = getSavedTapEffectData();
+    const read = (id, fallback) => {
+        const el = document.getElementById(id);
+        return el ? el.value : fallback;
+    };
+    return normalizeTapEffectData({
+        preset: preset || saved.preset || 'moon',
+        symbol: read('tapfx-symbol', saved.symbol),
+        particles: read('tapfx-particles', saved.particles),
+        colorA: read('tapfx-color-a', saved.colorA),
+        colorB: read('tapfx-color-b', saved.colorB),
+        size: read('tapfx-size', saved.size)
+    });
+}
+
+function saveTapEffectToThemeData(data, options = {}) {
+    const saved = getSavedThemeData();
+    const next = { ...saved, tapEffect: normalizeTapEffectData(data) };
+    localStorage.setItem('my_theme_data', JSON.stringify(next));
+    applyGlobalTapEffectSettings(next.tapEffect);
+    if (!options.silent && typeof showWechatToast === 'function') showWechatToast('触碰特效已更新');
+    return next.tapEffect;
+}
+
+function selectTapEffectPreset(preset) {
+    const base = normalizeTapEffectData({ preset });
+    renderTapEffectSettings(base);
+    saveTapEffectToThemeData(base, { silent: true });
+    if (preset !== 'none') previewTapEffectBurst();
+}
+window.selectTapEffectPreset = selectTapEffectPreset;
+
+function previewTapEffectSettings() {
+    const data = collectTapEffectDataFromInputs('custom');
+    setTapEffectPresetActive(data.preset);
+    saveTapEffectToThemeData(data, { silent: true });
+}
+window.previewTapEffectSettings = previewTapEffectSettings;
+
+function previewTapEffectBurst() {
+    const phone = document.querySelector('.phone-container') || document.body;
+    const rect = phone.getBoundingClientRect();
+    playGlobalTapEffect(rect.left + rect.width / 2, rect.top + Math.min(rect.height * 0.36, 280), { force: true });
+}
+
+let globalTapEffectState = null;
+let globalTapEffectBound = false;
+let globalTapEffectSettings = normalizeTapEffectData({});
+
+function applyGlobalTapEffectSettings(data) {
+    globalTapEffectSettings = normalizeTapEffectData(data);
+    document.documentElement.dataset.tapEffect = globalTapEffectSettings.preset;
+}
+window.applyGlobalTapEffectSettings = applyGlobalTapEffectSettings;
+
+function ensureGlobalTapEffectLayer() {
+    const phone = document.querySelector('.phone-container') || document.body;
+    let layer = Array.from(phone.children).find(el => el.classList && el.classList.contains('tapfx-layer'));
+    if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'tapfx-layer';
+        phone.appendChild(layer);
+    }
+    return layer;
+}
+
+function isGlobalTapEffectBlockedTarget(target) {
+    return !!(target && target.closest && target.closest('.tapfx-layer, input, textarea, select, option, [contenteditable="true"], .wc-modal-overlay'));
+}
+
+function handleGlobalTapPointerDown(event) {
+    if (event.button != null && event.button !== 0) return;
+    globalTapEffectState = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        target: event.target,
+        time: Date.now()
+    };
+}
+
+function handleGlobalTapPointerUp(event) {
+    const state = globalTapEffectState;
+    globalTapEffectState = null;
+    if (!state || state.pointerId !== event.pointerId) return;
+    if (globalTapEffectSettings.preset === 'none') return;
+    if (isGlobalTapEffectBlockedTarget(state.target)) return;
+    const moved = Math.abs(event.clientX - state.x) > 12 || Math.abs(event.clientY - state.y) > 12;
+    if (moved || Date.now() - state.time > 1100) return;
+    playGlobalTapEffect(event.clientX, event.clientY);
+}
+
+function makeTapEffectParticleText(index, settings) {
+    const chars = Array.from(String(settings.particles || '✦·').trim() || '✦·');
+    return chars[index % chars.length] || '·';
+}
+
+function playGlobalTapEffect(clientX, clientY, options = {}) {
+    const settings = normalizeTapEffectData(globalTapEffectSettings);
+    if (!options.force && settings.preset === 'none') return;
+    const layer = ensureGlobalTapEffectLayer();
+    const rect = layer.getBoundingClientRect();
+    const burst = document.createElement('div');
+    burst.className = `tapfx-burst tapfx-${settings.preset}`;
+    burst.style.left = `${clientX - rect.left}px`;
+    burst.style.top = `${clientY - rect.top}px`;
+    burst.style.setProperty('--tapfx-size', `${settings.size}px`);
+    burst.style.setProperty('--tapfx-a', settings.colorA);
+    burst.style.setProperty('--tapfx-b', settings.colorB);
+    const symbolHtml = settings.preset === 'feather'
+        ? '<span class="tapfx-feather-core"></span>'
+        : themeEscapeHtml(settings.symbol || '✦');
+    burst.innerHTML = `
+        <span class="tapfx-ring"></span>
+        <span class="tapfx-orbit"></span>
+        <span class="tapfx-symbol">${symbolHtml}</span>
+        <span class="tapfx-wave wave-1"></span>
+        <span class="tapfx-wave wave-2"></span>
+    `;
+    const particleCount = settings.preset === 'star' ? 18 : (settings.preset === 'feather' ? 16 : 14);
+    for (let i = 0; i < particleCount; i += 1) {
+        const p = document.createElement('span');
+        p.className = settings.preset === 'feather' ? 'tapfx-particle tapfx-particle-feather' : 'tapfx-particle';
+        const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.42;
+        const distance = settings.size * (0.34 + Math.random() * 0.52);
+        if (settings.preset !== 'feather') p.textContent = makeTapEffectParticleText(i, settings);
+        p.style.setProperty('--tx', `${Math.cos(angle) * distance}px`);
+        p.style.setProperty('--ty', `${Math.sin(angle) * distance}px`);
+        p.style.setProperty('--delay', `${Math.random() * 120}ms`);
+        p.style.setProperty('--scale', `${0.72 + Math.random() * 0.72}`);
+        p.style.setProperty('--spin', `${-140 + Math.random() * 280}deg`);
+        burst.appendChild(p);
+    }
+    layer.appendChild(burst);
+    setTimeout(() => burst.remove(), 1150);
+}
+window.playGlobalTapEffect = playGlobalTapEffect;
+
+function initGlobalTapEffect() {
+    applyGlobalTapEffectSettings(getSavedTapEffectData());
+    if (globalTapEffectBound) return;
+    globalTapEffectBound = true;
+    document.addEventListener('pointerdown', handleGlobalTapPointerDown, { capture: true, passive: true });
+    document.addEventListener('pointerup', handleGlobalTapPointerUp, { capture: true, passive: true });
+    document.addEventListener('pointercancel', () => { globalTapEffectState = null; }, { capture: true, passive: true });
 }
 
 const LOCK_DECO_ICONS = [
@@ -675,6 +939,8 @@ function loadSavedSettings() {
         if (data.calAccent) document.getElementById('cal-color-accent').value = data.calAccent;
         updateCalTransparencyLabel(data.calTransparency);
         if (data.calMode) switchCalMode(data.calMode);
+        renderTapEffectSettings(data.tapEffect);
+        applyGlobalTapEffectSettings(data.tapEffect);
 
         // 加载锁屏快捷按钮
         const leftSel = document.getElementById('ls-shortcut-left');
@@ -744,6 +1010,7 @@ function collectThemeDataFromInputs() {
         calDim: readValue('cal-color-dim', fallback.calDim || '#888888'),
         calAccent: readValue('cal-color-accent', fallback.calAccent || '#ff69b4'),
         calTransparency: getCalTransparencyValue(),
+        tapEffect: collectTapEffectDataFromInputs(fallback.tapEffect?.preset || 'moon'),
         lsLeft: normalizeLsShortcutAction(readValue('ls-shortcut-left', fallback.lsLeft || 'flashlight'), 'flashlight'),
         lsRight: normalizeLsShortcutAction(readValue('ls-shortcut-right', fallback.lsRight || 'camera'), 'camera'),
         widget1: widgetData(1, fallback.widget1, '#0a84ff'),
@@ -1075,6 +1342,7 @@ function saveTheme() {
 
     const lsLeft = normalizeLsShortcutAction(document.getElementById('ls-shortcut-left')?.value || 'flashlight', 'flashlight');
     const lsRight = normalizeLsShortcutAction(document.getElementById('ls-shortcut-right')?.value || 'camera', 'camera');
+    const tapEffect = collectTapEffectDataFromInputs();
 
     const themeData = {
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
@@ -1083,11 +1351,13 @@ function saveTheme() {
         lockShowLeft, lockShowRight, lockShowText, lockShowTopDeco, lockShowBottomDeco,
         lockTopIcon, lockBottomIcon, lockWeather, lockClockColorMode, lockClockColor,
         calMode: calMode, calBg: calBg, calText: calText, calDim: calDim, calAccent: calAccent, calTransparency: calTransparency,
+        tapEffect,
         lsLeft: lsLeft, lsRight: lsRight,
         widget1: { type: widgetType1, cdTitle: widgetCdTitle1, cdDate: widgetCdDate1, quote: widgetQuote1, style: widgetStyle1, accent: widgetAccent1 },
         widget2: { type: widgetType2, cdTitle: widgetCdTitle2, cdDate: widgetCdDate2, quote: widgetQuote2, style: widgetStyle2, accent: widgetAccent2 }
     };
     if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons(themeData);
+    applyGlobalTapEffectSettings(tapEffect);
     
     try {
         localStorage.removeItem('my_theme_data');
@@ -1112,6 +1382,8 @@ function initTheme() {
         const saveBtn = getThemeLibrarySaveButton();
         if (saveBtn) saveBtn.onclick = saveCurrentThemeLibraryItem;
         renderThemeLibrary();
+        initGlobalTapEffect();
+        renderTapEffectSettings(data.tapEffect);
         applyByndAdaptiveTheme(data.wpHome || '');
         applyLockscreenAdaptiveTheme(data.wpLock || '');
         applyLockscreenEnabled(data.lockEnabled !== false);

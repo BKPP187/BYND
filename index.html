@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260703-wechat-quote-style3">
+    <link rel="stylesheet" href="style.css?v=20260704-coread-settings-lite1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -685,7 +685,7 @@
                             <div class="coread-reader-tools">
                                 <button type="button" onclick="toggleCoReadToc(true)" aria-label="目录"><i class="ri-menu-2-line"></i><span>目录</span></button>
                                 <button type="button" onclick="setCoReadTab('shelf')" aria-label="去书架"><i class="ri-book-shelf-line"></i><span>书架</span></button>
-                                <button type="button" onclick="toggleCoReadSettings(true)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
+                                <button type="button" onpointerdown="return handleCoReadSettingsPointer(true, event)" onclick="return handleCoReadSettingsClick(true, event)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
                             </div>
                         </main>
                     </section>
@@ -723,11 +723,11 @@
                     </section>
                 </aside>
                 <aside id="coread-settings-drawer" class="coread-settings-drawer" aria-hidden="true">
-                    <button type="button" class="coread-settings-scrim" onclick="toggleCoReadSettings(false)" aria-label="关闭设置"></button>
+                    <button type="button" class="coread-settings-scrim" onpointerdown="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭设置"></button>
                     <section class="coread-settings-panel">
                         <div class="coread-settings-head">
                             <strong>阅读设置</strong>
-                            <button type="button" onclick="toggleCoReadSettings(false)" aria-label="关闭"><i class="ri-close-line"></i></button>
+                            <button type="button" onpointerdown="return handleCoReadSettingsPointer(false, event)" onclick="return handleCoReadSettingsClick(false, event)" aria-label="关闭"><i class="ri-close-line"></i></button>
                         </div>
                         <div class="coread-setting-row">
                             <span>字号</span>
@@ -835,6 +835,18 @@
                     </div>
                     <div class="theme-library-status" id="theme-library-status" aria-live="polite"></div>
                     <div class="theme-library-list" id="theme-library-list"></div>
+                </div>
+                <div class="setting-card">
+                    <div class="card-header"><i class="ri-sparkling-2-line card-icon"></i><span>全局触碰特效</span></div>
+                    <div class="theme-section-note">点击或轻触屏幕时从触点展开发光魔法阵；滑动、拖拽时不会触发。</div>
+                    <div class="tapfx-preset-grid" id="tapfx-preset-grid"></div>
+                    <div class="tapfx-custom-panel">
+                        <label><span>中心符号</span><input type="text" id="tapfx-symbol" maxlength="2" placeholder="✦" oninput="previewTapEffectSettings()"></label>
+                        <label><span>粒子符号</span><input type="text" id="tapfx-particles" maxlength="10" placeholder="✦·" oninput="previewTapEffectSettings()"></label>
+                        <label><span>主色</span><input type="color" id="tapfx-color-a" value="#f7d9ff" oninput="previewTapEffectSettings()"></label>
+                        <label><span>副色</span><input type="color" id="tapfx-color-b" value="#8fd9ff" oninput="previewTapEffectSettings()"></label>
+                        <label><span>大小</span><input type="range" id="tapfx-size" min="72" max="150" value="112" oninput="previewTapEffectSettings()"></label>
+                    </div>
                 </div>
                 <div class="setting-card">
                     <div class="card-header"><i class="ri-music-2-line card-icon"></i><span>底部滚动文字</span></div>
@@ -1225,7 +1237,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.447
+                    Beyond Screen v1.1.461
                 </div>
             </div>
         </div>
@@ -2214,11 +2226,11 @@
     <script src="chat-api.js?v=20260629-push-time1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=20260703-wechat-tabbar1"></script>
-    <script src="wechat.js?v=20260703-wechat-quote-style2"></script>
-    <script src="theme.js?v=20260630-mobile-swipe-weather1"></script>
-    <script src="settings.js?v=20260703-wechat-quote-style3"></script>
-    <script src="script.js?v=20260630-mobile-swipe-weather1"></script>
+    <script src="modules/wechat/ui-theme.js?v=20260703-qq-tabbar1"></script>
+    <script src="wechat.js?v=20260703-qq-quote-link2"></script>
+    <script src="theme.js?v=20260704-global-tapfx1"></script>
+    <script src="settings.js?v=20260704-coread-settings-lite1"></script>
+    <script src="script.js?v=20260704-coread-settings-lite1"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

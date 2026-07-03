@@ -9576,6 +9576,8 @@ const COREAD_DAILY_PARTICIPANTS_KEY = 'bynd_coread_daily_participants_v1';
 const COREAD_SOURCE_KEY = 'bynd_coread_sources_v1';
 const COREAD_SOURCE_VERSION_KEY = 'bynd_coread_sources_version_v1';
 const COREAD_READER_SETTINGS_KEY = 'bynd_coread_reader_settings_v1';
+const COREAD_READER_WALLPAPER_KEY = 'bynd_coread_reader_wallpaper_v1';
+const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
 const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=20260608-moxing71';
 const COREAD_DEFAULT_SOURCE_URLS = [
@@ -9591,6 +9593,18 @@ let coreadDailyLoading = false;
 let coreadSearchRunId = 0;
 let coreadTocOpen = false;
 let coreadSettingsOpen = false;
+let coreadLibraryCache = null;
+let coreadLibraryCacheRaw = '';
+let coreadProgressCache = null;
+let coreadProgressCacheRaw = '';
+let coreadReaderSettingsCache = null;
+let coreadReaderSettingsCacheRaw = '';
+let coreadReaderWallpaperCache = '';
+let coreadReaderWallpaperCacheRaw = null;
+let coreadReaderTapState = null;
+let coreadReaderTapHandledAt = 0;
+let coreadReaderPendingScrollPage = null;
+let coreadSettingsPointerAt = 0;
 const coreadResolvingBookIds = new Set();
 
 const COREAD_DAILY_SEEDS = [
@@ -9629,22 +9643,72 @@ function getCoReadCharacters() {
 
 function getCoReadLibrary() {
     try {
-        const list = JSON.parse(localStorage.getItem(COREAD_LIBRARY_KEY) || '[]');
-        return Array.isArray(list) ? list.filter(item => item && item.id) : [];
+        const raw = localStorage.getItem(COREAD_LIBRARY_KEY) || '[]';
+        if (raw !== coreadLibraryCacheRaw || !Array.isArray(coreadLibraryCache)) {
+            const list = JSON.parse(raw);
+            coreadLibraryCache = Array.isArray(list) ? list.filter(item => item && item.id) : [];
+            coreadLibraryCacheRaw = raw;
+        }
+        applyCoReadStoredProgress(coreadLibraryCache);
+        return coreadLibraryCache;
     } catch (_) {
         return [];
     }
 }
 
 function saveCoReadLibrary(list) {
-    localStorage.setItem(COREAD_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 80)));
+    const normalized = (Array.isArray(list) ? list : []).slice(0, 80);
+    const raw = JSON.stringify(normalized);
+    localStorage.setItem(COREAD_LIBRARY_KEY, raw);
+    coreadLibraryCache = normalized;
+    coreadLibraryCacheRaw = raw;
+}
+
+function getCoReadProgressMap() {
+    try {
+        const raw = localStorage.getItem(COREAD_PROGRESS_KEY) || '{}';
+        if (raw !== coreadProgressCacheRaw || !coreadProgressCache) {
+            const parsed = JSON.parse(raw);
+            coreadProgressCache = parsed && typeof parsed === 'object' ? parsed : {};
+            coreadProgressCacheRaw = raw;
+        }
+        return coreadProgressCache;
+    } catch (_) {
+        coreadProgressCache = {};
+        coreadProgressCacheRaw = '{}';
+        return coreadProgressCache;
+    }
+}
+
+function applyCoReadStoredProgress(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    const progress = getCoReadProgressMap();
+    list.forEach(book => {
+        if (!book || !book.id) return;
+        const savedPage = Number(progress[book.id]);
+        if (Number.isFinite(savedPage) && savedPage >= 0) book.page = savedPage;
+    });
+}
+
+function saveCoReadBookPage(bookId, page) {
+    const id = String(bookId || '');
+    if (!id) return;
+    const nextPage = Math.max(0, Math.floor(Number(page || 0)));
+    const progress = { ...getCoReadProgressMap(), [id]: nextPage };
+    const raw = JSON.stringify(progress);
+    localStorage.setItem(COREAD_PROGRESS_KEY, raw);
+    coreadProgressCache = progress;
+    coreadProgressCacheRaw = raw;
+    if (Array.isArray(coreadLibraryCache)) {
+        const cached = coreadLibraryCache.find(book => book && book.id === id);
+        if (cached) cached.page = nextPage;
+    }
 }
 
 const COREAD_READER_DEFAULT_SETTINGS = {
     fontSize: 18,
     pageMode: 'paged',
     color: 'ivory',
-    wallpaper: '',
     wallpaperTone: ''
 };
 
@@ -9656,28 +9720,118 @@ const COREAD_READER_COLORS = {
     dark: { label: '夜间', bg: '#1f211f', color: '#d9d2c3' }
 };
 
+function getCoReadReaderWallpaper(fallback = '') {
+    try {
+        const raw = localStorage.getItem(COREAD_READER_WALLPAPER_KEY);
+        if (raw !== null) {
+            if (raw !== coreadReaderWallpaperCacheRaw) {
+                coreadReaderWallpaperCache = raw || '';
+                coreadReaderWallpaperCacheRaw = raw;
+            }
+            return coreadReaderWallpaperCache;
+        }
+    } catch (_) {}
+    return String(fallback || '');
+}
+
+function saveCoReadReaderWallpaper(value) {
+    const text = String(value || '');
+    try {
+        if (text) localStorage.setItem(COREAD_READER_WALLPAPER_KEY, text);
+        else localStorage.removeItem(COREAD_READER_WALLPAPER_KEY);
+        coreadReaderWallpaperCache = text;
+        coreadReaderWallpaperCacheRaw = text || null;
+    } catch (_) {}
+}
+
+function normalizeCoReadReaderSettings(saved) {
+    const source = saved && typeof saved === 'object' ? saved : {};
+    const settings = { ...COREAD_READER_DEFAULT_SETTINGS, ...source };
+    settings.fontSize = Math.max(15, Math.min(26, Number(settings.fontSize || COREAD_READER_DEFAULT_SETTINGS.fontSize)));
+    settings.pageMode = settings.pageMode === 'scroll' ? 'scroll' : 'paged';
+    settings.color = COREAD_READER_COLORS[settings.color] ? settings.color : COREAD_READER_DEFAULT_SETTINGS.color;
+    settings.wallpaperTone = settings.wallpaperTone === 'light' || settings.wallpaperTone === 'dark' ? settings.wallpaperTone : '';
+    settings.wallpaper = getCoReadReaderWallpaper(source.wallpaper);
+    delete settings.theme;
+    delete settings.customCss;
+    return settings;
+}
+
 function getCoReadReaderSettings() {
     try {
-        const saved = JSON.parse(localStorage.getItem(COREAD_READER_SETTINGS_KEY) || '{}');
-        const settings = { ...COREAD_READER_DEFAULT_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
-        settings.fontSize = Math.max(15, Math.min(26, Number(settings.fontSize || COREAD_READER_DEFAULT_SETTINGS.fontSize)));
-        settings.pageMode = settings.pageMode === 'scroll' ? 'scroll' : 'paged';
-        settings.color = COREAD_READER_COLORS[settings.color] ? settings.color : COREAD_READER_DEFAULT_SETTINGS.color;
-        settings.wallpaper = String(settings.wallpaper || '');
-        settings.wallpaperTone = settings.wallpaperTone === 'light' || settings.wallpaperTone === 'dark' ? settings.wallpaperTone : '';
-        return settings;
+        let raw = localStorage.getItem(COREAD_READER_SETTINGS_KEY) || '{}';
+        if (raw !== coreadReaderSettingsCacheRaw || !coreadReaderSettingsCache) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                let shouldRewrite = false;
+                let legacyWallpaper = '';
+                if (parsed.wallpaper) {
+                    legacyWallpaper = String(parsed.wallpaper || '');
+                    delete parsed.wallpaper;
+                    shouldRewrite = true;
+                }
+                if (Object.prototype.hasOwnProperty.call(parsed, 'theme')) {
+                    delete parsed.theme;
+                    shouldRewrite = true;
+                }
+                if (Object.prototype.hasOwnProperty.call(parsed, 'customCss')) {
+                    delete parsed.customCss;
+                    shouldRewrite = true;
+                }
+                if (shouldRewrite) {
+                    raw = JSON.stringify(parsed);
+                    localStorage.setItem(COREAD_READER_SETTINGS_KEY, raw);
+                }
+                if (legacyWallpaper) saveCoReadReaderWallpaper(legacyWallpaper);
+            }
+            coreadReaderSettingsCache = parsed && typeof parsed === 'object' ? parsed : {};
+            coreadReaderSettingsCacheRaw = raw;
+        }
+        return normalizeCoReadReaderSettings(coreadReaderSettingsCache);
     } catch (_) {
-        return { ...COREAD_READER_DEFAULT_SETTINGS };
+        return normalizeCoReadReaderSettings({});
     }
 }
 
-function saveCoReadReaderSettings(next) {
+function saveCoReadReaderSettings(next, options = {}) {
+    const incoming = next && typeof next === 'object' ? { ...next } : {};
+    if (Object.prototype.hasOwnProperty.call(incoming, 'wallpaper')) {
+        saveCoReadReaderWallpaper(incoming.wallpaper);
+        delete incoming.wallpaper;
+    }
+    delete incoming.theme;
+    delete incoming.customCss;
     const current = getCoReadReaderSettings();
-    const settings = { ...current, ...(next && typeof next === 'object' ? next : {}) };
-    localStorage.setItem(COREAD_READER_SETTINGS_KEY, JSON.stringify(settings));
+    const settings = normalizeCoReadReaderSettings({ ...current, ...incoming });
+    const stored = { ...settings };
+    delete stored.wallpaper;
+    const raw = JSON.stringify(stored);
+    localStorage.setItem(COREAD_READER_SETTINGS_KEY, raw);
+    coreadReaderSettingsCache = stored;
+    coreadReaderSettingsCacheRaw = raw;
     applyCoReadReaderSettings();
-    renderCoReadSettings();
-    renderCoReadReader();
+    if (options.renderSettings !== false) renderCoReadSettings();
+    if (options.renderReader !== false) renderCoReadReader();
+}
+
+function getCoReadHexRgb(value, fallback = '#ffffff') {
+    let text = String(value || fallback || '#ffffff').trim();
+    if (/^#[0-9a-f]{3}$/i.test(text)) {
+        text = `#${text[1]}${text[1]}${text[2]}${text[2]}${text[3]}${text[3]}`;
+    }
+    const match = text.match(/^#([0-9a-f]{6})$/i);
+    if (!match) return getCoReadHexRgb(fallback, '#ffffff');
+    const hex = match[1];
+    return [
+        parseInt(hex.slice(0, 2), 16),
+        parseInt(hex.slice(2, 4), 16),
+        parseInt(hex.slice(4, 6), 16)
+    ];
+}
+
+function getCoReadRgba(value, fallback, alpha) {
+    const [r, g, b] = getCoReadHexRgb(value, fallback);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function applyCoReadReaderSettings() {
@@ -9693,14 +9847,17 @@ function applyCoReadReaderSettings() {
     shell.classList.toggle('coread-wallpaper-dark', Boolean(settings.wallpaper) && settings.wallpaperTone !== 'light');
     const wallpaperIsLight = Boolean(settings.wallpaper) && settings.wallpaperTone === 'light';
     const wallpaperIsDark = Boolean(settings.wallpaper) && settings.wallpaperTone !== 'light';
-    const readerColor = wallpaperIsLight ? '#241f1a' : (wallpaperIsDark ? '#f3eadc' : color.color);
+    const readerColor = wallpaperIsLight ? color.color : (wallpaperIsDark ? '#f3eadc' : color.color);
     shell.style.setProperty('--coread-font-size', `${settings.fontSize}px`);
     shell.style.setProperty('--coread-reader-bg', color.bg);
     shell.style.setProperty('--coread-reader-color', readerColor);
     shell.style.setProperty('--coread-reader-chrome-bg', wallpaperIsLight ? 'rgba(255,255,255,0.62)' : (wallpaperIsDark ? 'rgba(15,18,16,0.50)' : 'color-mix(in srgb, var(--coread-reader-bg) 88%, #fff 12%)'));
     shell.style.setProperty('--coread-reader-panel-bg', wallpaperIsLight ? 'rgba(255,255,255,0.56)' : (wallpaperIsDark ? 'rgba(12,15,13,0.58)' : 'color-mix(in srgb, var(--coread-reader-bg) 90%, #d6c8b4 10%)'));
     shell.style.setProperty('--coread-reader-border', wallpaperIsLight ? 'rgba(38,31,24,0.10)' : (wallpaperIsDark ? 'rgba(255,255,255,0.10)' : 'rgba(48,42,36,0.07)'));
-    shell.style.setProperty('--coread-wallpaper-scrim', wallpaperIsLight ? 'rgba(255,255,255,0.28), rgba(255,255,255,0.36)' : 'rgba(9,12,10,0.38), rgba(9,12,10,0.46)');
+    shell.style.setProperty('--coread-reader-paper-layer', 'linear-gradient(90deg, rgba(47,40,32,0.025) 0 1px, transparent 1px 100%)');
+    shell.style.setProperty('--coread-wallpaper-scrim', wallpaperIsLight
+        ? `145deg, rgba(255,255,255,0.28) 0%, ${getCoReadRgba(color.bg, '#ffffff', 0.22)} 50%, rgba(255,255,255,0.36) 100%`
+        : `145deg, rgba(9,12,10,0.38) 0%, ${getCoReadRgba(color.bg, '#1f211f', 0.18)} 52%, rgba(9,12,10,0.46) 100%`);
     shell.style.setProperty('--coread-wallpaper', settings.wallpaper ? `url("${settings.wallpaper}")` : 'none');
 }
 
@@ -9733,15 +9890,11 @@ function estimateCoReadWallpaperTone(canvas) {
 }
 
 function renderCoReadSettings() {
-    const drawer = document.getElementById('coread-settings-drawer');
     const fontLabel = document.getElementById('coread-font-size-label');
     const modeBox = document.getElementById('coread-page-mode-options');
     const colorBox = document.getElementById('coread-color-options');
     const settings = getCoReadReaderSettings();
-    if (drawer) {
-        drawer.classList.toggle('open', coreadSettingsOpen);
-        drawer.setAttribute('aria-hidden', coreadSettingsOpen ? 'false' : 'true');
-    }
+    syncCoReadSettingsDrawerState();
     if (fontLabel) fontLabel.textContent = String(settings.fontSize);
     if (modeBox) {
         const modes = [
@@ -9762,27 +9915,71 @@ function renderCoReadSettings() {
     }
 }
 
+function syncCoReadSettingsDrawerState() {
+    const drawer = document.getElementById('coread-settings-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('open', coreadSettingsOpen);
+    drawer.setAttribute('aria-hidden', coreadSettingsOpen ? 'false' : 'true');
+}
+
 function toggleCoReadSettings(open) {
+    const wasTocOpen = coreadTocOpen;
     coreadSettingsOpen = typeof open === 'boolean' ? open : !coreadSettingsOpen;
     if (coreadSettingsOpen) coreadTocOpen = false;
-    renderCoReadToc();
-    renderCoReadSettings();
+    if (wasTocOpen && !coreadTocOpen) syncCoReadTocDrawerState();
+    syncCoReadSettingsDrawerState();
 }
 window.toggleCoReadSettings = toggleCoReadSettings;
 
+function handleCoReadSettingsPointer(open, event) {
+    coreadSettingsPointerAt = Date.now();
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    toggleCoReadSettings(open);
+    return false;
+}
+window.handleCoReadSettingsPointer = handleCoReadSettingsPointer;
+
+function handleCoReadSettingsClick(open, event) {
+    if (Date.now() - coreadSettingsPointerAt < 600) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        return false;
+    }
+    toggleCoReadSettings(open);
+    return false;
+}
+window.handleCoReadSettingsClick = handleCoReadSettingsClick;
+
 function changeCoReadFontSize(delta) {
     const settings = getCoReadReaderSettings();
-    saveCoReadReaderSettings({ fontSize: Math.max(15, Math.min(26, settings.fontSize + Number(delta || 0))) });
+    saveCoReadReaderSettings({ fontSize: Math.max(15, Math.min(26, settings.fontSize + Number(delta || 0))) }, { renderReader: false });
 }
 window.changeCoReadFontSize = changeCoReadFontSize;
 
 function setCoReadPageMode(mode) {
-    saveCoReadReaderSettings({ pageMode: mode === 'scroll' ? 'scroll' : 'paged' });
+    const targetMode = mode === 'scroll' ? 'scroll' : 'paged';
+    const current = getCoReadReaderSettings();
+    const book = getCoReadBook(coreadActiveBookId);
+    const body = document.getElementById('coread-reader-body');
+    if (current.pageMode === 'scroll' && targetMode === 'paged' && book && body) {
+        const page = getCoReadPageFromScrollPosition(body, book);
+        book.page = page;
+        saveCoReadBookPage(book.id, page);
+    }
+    if (current.pageMode === 'paged' && targetMode === 'scroll' && book) {
+        coreadReaderPendingScrollPage = Number(book.page || 0);
+    }
+    saveCoReadReaderSettings({ pageMode: targetMode });
 }
 window.setCoReadPageMode = setCoReadPageMode;
 
 function setCoReadReaderColor(color) {
-    saveCoReadReaderSettings({ color: COREAD_READER_COLORS[color] ? color : 'ivory' });
+    saveCoReadReaderSettings({ color: COREAD_READER_COLORS[color] ? color : 'ivory' }, { renderReader: false });
 }
 window.setCoReadReaderColor = setCoReadReaderColor;
 
@@ -9802,14 +9999,14 @@ function uploadCoReadWallpaper(input) {
                 canvas.height = Math.max(1, Math.round((img.height || maxSide) * scale));
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                saveCoReadReaderSettings({ wallpaper: canvas.toDataURL('image/jpeg', 0.82), wallpaperTone: estimateCoReadWallpaperTone(canvas) });
+                saveCoReadReaderSettings({ wallpaper: canvas.toDataURL('image/jpeg', 0.82), wallpaperTone: estimateCoReadWallpaperTone(canvas) }, { renderReader: false });
             } catch (_) {
-                saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' });
+                saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' }, { renderReader: false });
             }
             input.value = '';
         };
         img.onerror = () => {
-            saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' });
+            saveCoReadReaderSettings({ wallpaper: dataUrl, wallpaperTone: 'dark' }, { renderReader: false });
             input.value = '';
         };
         img.src = dataUrl;
@@ -9819,7 +10016,7 @@ function uploadCoReadWallpaper(input) {
 window.uploadCoReadWallpaper = uploadCoReadWallpaper;
 
 function clearCoReadWallpaper() {
-    saveCoReadReaderSettings({ wallpaper: '', wallpaperTone: '' });
+    saveCoReadReaderSettings({ wallpaper: '', wallpaperTone: '' }, { renderReader: false });
 }
 window.clearCoReadWallpaper = clearCoReadWallpaper;
 
@@ -10313,10 +10510,7 @@ function renderCoReadToc() {
     const currentBox = document.getElementById('coread-toc-current');
     const listBox = document.getElementById('coread-toc-list');
     const book = getCoReadBook(coreadActiveBookId);
-    if (drawer) {
-        drawer.classList.toggle('open', coreadTocOpen);
-        drawer.setAttribute('aria-hidden', coreadTocOpen ? 'false' : 'true');
-    }
+    syncCoReadTocDrawerState();
     if (!book) {
         if (bookBox) bookBox.innerHTML = '';
         if (currentBox) currentBox.innerHTML = '';
@@ -10357,11 +10551,20 @@ function renderCoReadToc() {
     }
 }
 
+function syncCoReadTocDrawerState() {
+    const drawer = document.getElementById('coread-toc-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('open', coreadTocOpen);
+    drawer.setAttribute('aria-hidden', coreadTocOpen ? 'false' : 'true');
+}
+
 function toggleCoReadToc(open) {
+    const wasSettingsOpen = coreadSettingsOpen;
     coreadTocOpen = typeof open === 'boolean' ? open : !coreadTocOpen;
     if (coreadTocOpen) coreadSettingsOpen = false;
-    renderCoReadSettings();
-    renderCoReadToc();
+    if (wasSettingsOpen && !coreadSettingsOpen) syncCoReadSettingsDrawerState();
+    if (coreadTocOpen) renderCoReadToc();
+    else syncCoReadTocDrawerState();
 }
 window.toggleCoReadToc = toggleCoReadToc;
 
@@ -10499,6 +10702,101 @@ function renderCoReadCalendarStats() {
     }
 }
 
+function bindCoReadReaderTapZones(body) {
+    if (!body || body.dataset.coreadTapBound === '1') return;
+    body.dataset.coreadTapBound = '1';
+    body.setAttribute('tabindex', '0');
+    body.addEventListener('pointerdown', handleCoReadReaderPointerDown);
+    body.addEventListener('pointerup', handleCoReadReaderPointerUp);
+    body.addEventListener('pointercancel', () => { coreadReaderTapState = null; });
+    body.addEventListener('click', handleCoReadReaderClick);
+    body.addEventListener('keydown', handleCoReadReaderKeydown);
+}
+
+function handleCoReadReaderPointerDown(event) {
+    if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) {
+        coreadReaderTapState = null;
+        return;
+    }
+    if (event.button != null && event.button !== 0) return;
+    const body = event.currentTarget;
+    coreadReaderTapState = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        scrollTop: body ? body.scrollTop : 0
+    };
+}
+
+function handleCoReadReaderPointerUp(event) {
+    const state = coreadReaderTapState;
+    coreadReaderTapState = null;
+    if (!state || state.pointerId !== event.pointerId) return;
+    if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
+    if (event.button != null && event.button !== 0) return;
+    const body = event.currentTarget;
+    if (!body) return;
+    const rect = body.getBoundingClientRect();
+    const moved = Math.abs(event.clientX - state.x) > 12
+        || Math.abs(event.clientY - state.y) > 12
+        || Math.abs(body.scrollTop - state.scrollTop) > 6;
+    const inside = event.clientX >= rect.left && event.clientX <= rect.right
+        && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (moved || !inside) return;
+    coreadReaderTapHandledAt = Date.now();
+    turnCoReadPage(event.clientX >= rect.left + rect.width / 2 ? 1 : -1);
+}
+
+function handleCoReadReaderClick(event) {
+    if (Date.now() - coreadReaderTapHandledAt < 350) return;
+    if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
+    const body = event.currentTarget;
+    if (!body) return;
+    const rect = body.getBoundingClientRect();
+    const inside = event.clientX >= rect.left && event.clientX <= rect.right
+        && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (!inside) return;
+    coreadReaderTapHandledAt = Date.now();
+    turnCoReadPage(event.clientX >= rect.left + rect.width / 2 ? 1 : -1);
+}
+
+function handleCoReadReaderKeydown(event) {
+    if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
+    if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
+        event.preventDefault();
+        turnCoReadPage(1);
+    } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+        event.preventDefault();
+        turnCoReadPage(-1);
+    }
+}
+
+function getCoReadPageFromScrollPosition(body, book) {
+    if (!body || !book) return 0;
+    const maxPage = Math.max(0, getCoReadPageCount(book) - 1);
+    const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+    if (!maxPage || !maxScroll) return 0;
+    return Math.max(0, Math.min(maxPage, Math.round((body.scrollTop / maxScroll) * maxPage)));
+}
+
+function getCoReadScrollTopForPage(body, book, page) {
+    if (!body || !book) return 0;
+    const maxPage = Math.max(0, getCoReadPageCount(book) - 1);
+    const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+    if (!maxPage || !maxScroll) return 0;
+    const safePage = Math.max(0, Math.min(maxPage, Number(page || 0)));
+    return Math.round((safePage / maxPage) * maxScroll);
+}
+
+function scrollCoReadBodyToPage(body, book, page) {
+    if (!body || !book) return;
+    const apply = () => {
+        body.scrollTop = getCoReadScrollTopForPage(body, book, page);
+    };
+    apply();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(apply);
+}
+
 function renderCoReadReader() {
     const book = getCoReadBook(coreadActiveBookId);
     const title = document.getElementById('coread-reader-title');
@@ -10513,12 +10811,29 @@ function renderCoReadReader() {
             : '导入 txt/md，或用在线书城搜索加入书架';
     }
     if (body) {
+        bindCoReadReaderTapZones(body);
+        const previousScrollTop = body.scrollTop;
+        const wasScrollMode = body.dataset.coreadPageMode === 'scroll';
         const text = book
             ? (settings.pageMode === 'scroll' && !book.resolving
                 ? String(book.content || book.description || '这本书目前只有书名和来源链接，还没有正文。')
                 : getCoReadPageText(book))
             : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
         body.textContent = text;
+        body.dataset.coreadPageMode = settings.pageMode;
+        if (settings.pageMode === 'scroll') {
+            if (book && coreadReaderPendingScrollPage != null) {
+                const page = coreadReaderPendingScrollPage;
+                coreadReaderPendingScrollPage = null;
+                scrollCoReadBodyToPage(body, book, page);
+            } else if (wasScrollMode) {
+                body.scrollTop = previousScrollTop;
+            } else if (book) {
+                scrollCoReadBodyToPage(body, book, Number(book.page || 0));
+            }
+        } else {
+            body.scrollTop = 0;
+        }
     }
 }
 
@@ -11835,13 +12150,15 @@ function turnCoReadPage(delta) {
             return;
         }
     }
-    const library = getCoReadLibrary();
-    const book = library.find(item => item.id === coreadActiveBookId);
+    const book = getCoReadBook(coreadActiveBookId);
     if (!book) return;
     const maxPage = Math.max(0, Math.ceil(String(book.content || '').length / COREAD_PAGE_SIZE) - 1);
-    book.page = Math.max(0, Math.min(maxPage, Number(book.page || 0) + Number(delta || 0)));
-    saveCoReadLibrary(library);
-    renderCoReadApp();
+    const nextPage = Math.max(0, Math.min(maxPage, Number(book.page || 0) + Number(delta || 0)));
+    if (nextPage === Number(book.page || 0)) return;
+    book.page = nextPage;
+    saveCoReadBookPage(book.id, nextPage);
+    renderCoReadReader();
+    renderCoReadToc();
 }
 window.turnCoReadPage = turnCoReadPage;
 
