@@ -10462,7 +10462,7 @@ function getWechatMonitorMode(char) {
 }
 
 function getWechatMonitorModePrompt(mode) {
-    if (mode === 'observer') return '采用第三方路人弹幕视角。你不是角色本人，也不是 user/char 的代言人，而是屏幕外一群吃瓜群众、看剧路人、磕糖党、梗党和前排观众在围观当前互动。弹幕只写围观反应，不写剧情正文，不做长篇分析，不替任何人说话。严禁引用、复述或改写 user/char 的原话；不要使用“用户：”“char：”“他说/她说/你说”这类发言转述；不要把弹幕写成角色发给用户的聊天消息。语气要像真实弹幕：短、口语、碎片化、有不同路人立场，可以缺德但不恶毒，可以磕、可以疑惑、可以起哄、可以提醒“这波不对劲”。重点看气氛、反差、暧昧、误会、动作和关系张力。不得攻击用户人格，不得威胁、控制、网暴或声称访问真实设备。除非完全没有可吐槽内容，否则 level 优先返回 barrage，并给 3-8 条 4-16 字短弹幕。';
+    if (mode === 'observer') return '采用第三方路人弹幕视角。你不是角色本人，也不是 user/char 的代言人，而是屏幕外一群吃瓜群众、看剧路人、磕糖党、梗党、亲妈粉、显眼包和前排观众在围观当前互动。barrage 每条都必须是“昵称：吐槽言论”的字符串，昵称必须由你按当次剧情原创，搞笑、中二、抽象、有网感，不要从固定列表选，不要使用真实用户姓名或角色名。吐槽言论要像真实弹幕/抖音热评/小红书评论区：短句、疯言疯语、语气词乱飞、可有错别字、emoji、@别人、盖楼、互相点赞/质疑/接梗，可以出现“这幕我收藏了/备孕了”这类网络语感。弹幕只写围观反应，不写剧情正文，不做长篇分析，不替任何人说话。严禁引用、复述或改写 user/char 的原话；不要使用“用户：”“char：”“他说/她说/你说”这类发言转述；不要把弹幕写成角色发给用户的聊天消息。可以缺德但不恶毒，可以磕、可以疑惑、可以起哄、可以提醒“这波不对劲”。重点看气氛、反差、暧昧、误会、动作和关系张力。不得攻击用户人格，不得威胁、控制、网暴或声称访问真实设备。除非完全没有可吐槽内容，否则 level 优先返回 barrage，并给 4-9 条 12-42 字弹幕。';
     return '采用角色本人视角，必须贴合角色卡、人设、关系和记忆，可吃味、嘴硬或吐槽，但默认是娱乐化反应，不要偏激。';
 }
 
@@ -10539,11 +10539,11 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
         },
         {
             role: 'system',
-            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃瓜、起哄或旁观反应。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；只有角色本人视角才允许按人设返回 deleteContact；第三方视角必须让 deleteContact 为空。普通消息可 silent/island；有戏剧张力时优先用 barrage，像路人刷弹幕；如果当前模式是「第三方视角吐槽」，除非完全无内容，否则必须返回 level:"barrage" 并让 barrage 至少 3 条。第三方视角的 barrage 禁止照抄、引用、复述 user/char 原话，禁止写成“某某：……”的发言格式。每次必须根据当前这条消息重新生成，不要复用上次弹幕，不要套用“前排吃瓜、镜头别切、这波有戏、气氛微妙”这类通用固定句。只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。本次生成随机因子：${randomSeed}。`
+            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃瓜、起哄或旁观反应。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；只有角色本人视角才允许按人设返回 deleteContact；第三方视角必须让 deleteContact 为空。普通消息可 silent/island；有戏剧张力时优先用 barrage，像路人刷弹幕；如果当前模式是「第三方视角吐槽」，除非完全无内容，否则必须返回 level:"barrage" 并让 barrage 至少 4 条。第三方视角的 barrage 每条必须写成“AI原创抽象昵称：吐槽言论”，昵称不要用 user/char/用户/角色/真实姓名，不要从固定列表选择，言论要有网络语感、短句、疯言疯语、错别字、表情符、@互动、盖楼感或热梗。禁止照抄、引用、复述 user/char 原话，不要写成角色发言或系统解说。每次必须根据当前这条消息重新生成，不要复用上次弹幕，不要套用“前排吃瓜、镜头别切、这波有戏、气氛微妙”这类通用固定句。只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。本次生成随机因子：${randomSeed}。`
         },
         {
             role: 'user',
-            content: `用户：${userProfile.name || '用户'}\nBYND 内部联系人数量：${byndContacts.length}\nBYND 联系人：${byndContacts.slice(0, 24).join('、') || '暂无'}\n监控角色：${watcherName}\n被观察聊天对象：${targetName}\n监控吐槽视角：${monitorModeLabel}\n上次第三方弹幕（本次不要重复这些语气和句式）：${previousBarrage.join(' / ') || '无'}\n${watcherWorldBook ? `${watcherWorldBook}\n` : ''}${memoryAnchor ? `${memoryAnchor}\n` : ''}用户刚刚发给 ${targetName} 的消息：${observed || '[非文字消息]'}\n\n以下聊天记录只用于判断气氛和关系走向；第三方弹幕不得引用原句，不得复述为 user/char 发言。\n\n${watcherName} 与用户最近聊天：\n${watcherHistory}\n\n用户与 ${targetName} 最近聊天：\n${targetHistory}`
+            content: `用户：${userProfile.name || '用户'}\nBYND 内部联系人数量：${byndContacts.length}\nBYND 联系人：${byndContacts.slice(0, 24).join('、') || '暂无'}\n监控角色：${watcherName}\n被观察聊天对象：${targetName}\n监控吐槽视角：${monitorModeLabel}\n上次第三方弹幕（本次不要重复这些语气和句式）：${previousBarrage.join(' / ') || '无'}\n${watcherWorldBook ? `${watcherWorldBook}\n` : ''}${memoryAnchor ? `${memoryAnchor}\n` : ''}用户刚刚发给 ${targetName} 的消息：${observed || '[非文字消息]'}\n\n以下聊天记录只用于判断气氛和关系走向；第三方弹幕不得引用原句，不得复述为 user/char 发言。第三方弹幕请全部使用“你当场原创的抽象昵称：网络语感吐槽”格式，昵称和吐槽都必须根据当前气氛生成，不能像固定模板。\n\n${watcherName} 与用户最近聊天：\n${watcherHistory}\n\n用户与 ${targetName} 最近聊天：\n${targetHistory}`
         }
     ];
 }
@@ -10573,21 +10573,97 @@ function fallbackWechatObserverMonitor(watcher, targetChar, userMsg, eventId, st
     saveCharactersToStorage();
 }
 
+function normalizeWechatBarrageItemText(item) {
+    if (item && typeof item === 'object') {
+        const name = stripWechatPromptText(item.nickname || item.name || item.author || item.user || '', 14);
+        const text = stripWechatPromptText(item.text || item.comment || item.content || item.message || item.value || '', 52);
+        return name && text ? `${name}：${text}` : (text || name);
+    }
+    return stripWechatPromptText(item || '', 72);
+}
+
+function parseWechatObserverBarrageSpeaker(text) {
+    let clean = String(text || '').trim();
+    clean = clean.replace(/^([^：:\s]{1,14})\s*[：:]\s*/, '$1：');
+    const match = clean.match(/^([^：:]{1,14})[：:](.+)$/);
+    if (!match) return null;
+    const name = stripWechatPromptText(match[1], 14).trim();
+    const body = stripWechatPromptText(match[2], 58).trim();
+    if (!name || !body || /^(?:user|char|用户|角色)$/i.test(name)) return null;
+    return { name, body };
+}
+
+function hasWechatObserverBarrageSpeaker(text) {
+    return !!parseWechatObserverBarrageSpeaker(normalizeWechatBarrageItemText(text));
+}
+
 function sanitizeWechatObserverBarrageText(text) {
-    let clean = stripWechatPromptText(text || '', 32)
+    let clean = normalizeWechatBarrageItemText(text)
         .replace(/[「“"'‘][^「」“”"'‘’]{1,40}[」”"'’]/g, '这波')
-        .replace(/^\s*(?:user|char|用户|角色|我|你|他|她|TA|ta|[^：:]{1,10})\s*[：:]\s*/i, '')
+        .replace(/^\s*(?:user|char|用户|角色)\s*[：:]\s*/i, '')
         .replace(/\b(?:user|char)\b/gi, '')
         .replace(/用户刚刚说|角色刚刚说|他说|她说|你说|我说/g, '')
         .replace(/\s+/g, ' ')
         .trim();
     if (!clean || /^[：:，,。.！!？?、\s]+$/.test(clean)) return '';
-    return clean.slice(0, 24);
+    const speaker = parseWechatObserverBarrageSpeaker(clean);
+    if (!speaker) return '';
+    return `${speaker.name}：${speaker.body}`.slice(0, 72);
 }
 
-function ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction) {
+function extractWechatBarrageRepairLines(parsed) {
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.barrage)) return parsed.barrage;
+    if (parsed && Array.isArray(parsed.items)) return parsed.items;
+    return [];
+}
+
+async function repairWechatObserverBarrageSpeakers(reaction) {
+    if (!reaction) return reaction;
+    const sourceItems = Array.isArray(reaction.barrage) && reaction.barrage.length
+        ? reaction.barrage
+        : [reaction.island, reaction.warning];
+    const normalized = sourceItems.map(normalizeWechatBarrageItemText).filter(Boolean).slice(0, 10);
+    if (!normalized.length || normalized.every(hasWechatObserverBarrageSpeaker)) {
+        reaction.barrage = normalized;
+        return reaction;
+    }
+    if (typeof callChatApi !== 'function') {
+        reaction.barrage = normalized.filter(hasWechatObserverBarrageSpeaker);
+        return reaction;
+    }
+    try {
+        const result = await callChatApi([
+            {
+                role: 'system',
+                content: '你是弹幕评论区昵称与吐槽改写器。只输出 JSON，不要解释。把输入弹幕改写为 JSON 数组，每条必须是“AI原创抽象昵称：吐槽言论”。昵称必须由你现场原创，搞笑、中二、抽象、有网感，不得使用真实姓名、用户、角色、user、char；不要照抄输入里的昵称。吐槽言论保持短句、网络语感、错别字/语气词/emoji/@互动/盖楼感可以有，但禁止引用或复述原聊天内容。'
+            },
+            {
+                role: 'user',
+                content: `把这些弹幕补齐或重写成“原创抽象昵称：吐槽言论”，保留 ${Math.min(10, normalized.length)} 条左右：\n${normalized.map((item, index) => `${index + 1}. ${item}`).join('\n')}`
+            }
+        ], { background: true, temperature: 0.98 });
+        if (!result || !result.ok) {
+            reaction.barrage = normalized.filter(hasWechatObserverBarrageSpeaker);
+            return reaction;
+        }
+        const repaired = extractWechatBarrageRepairLines(parseWechatJsonObject(result.content))
+            .map(normalizeWechatBarrageItemText)
+            .filter(Boolean)
+            .slice(0, 10);
+        reaction.barrage = repaired.length ? repaired : normalized.filter(hasWechatObserverBarrageSpeaker);
+        return reaction;
+    } catch (e) {
+        console.warn('observer barrage repair failed:', e);
+        reaction.barrage = normalized.filter(hasWechatObserverBarrageSpeaker);
+        return reaction;
+    }
+}
+
+async function ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction) {
     if (getWechatMonitorMode(watcher) !== 'observer' || !reaction) return reaction;
     if (normalizeWechatMonitorLevel(reaction.level) === 'silent') reaction.level = 'barrage';
+    reaction = await repairWechatObserverBarrageSpeakers(reaction);
     const cleaned = Array.isArray(reaction.barrage)
         ? reaction.barrage.map(sanitizeWechatObserverBarrageText).filter(Boolean)
         : [];
@@ -10596,10 +10672,10 @@ function ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, react
         if (!cleaned.length && text) cleaned.push(text);
     });
     reaction.barrage = cleaned.filter((item, index, arr) => arr.indexOf(item) === index).slice(0, 10);
-    if (!reaction.island && reaction.barrage.length) reaction.island = reaction.barrage[0];
-    reaction.warning = reaction.warning || '';
+    reaction.island = reaction.barrage[0] || '';
+    reaction.warning = '';
     reaction.deleteContact = null;
-    if (!reaction.island && !reaction.warning && !reaction.barrage.length) return null;
+    if (!reaction.island && !reaction.barrage.length) return null;
     return reaction;
 }
 
@@ -10609,7 +10685,7 @@ function normalizeWechatMonitorReaction(raw) {
     const island = stripWechatPromptText(raw.island || raw.message || raw.text || '', 42);
     const warning = stripWechatPromptText(raw.warning || raw.warn || island || '', 90);
     const barrage = Array.isArray(raw.barrage)
-        ? raw.barrage.map(item => stripWechatPromptText(item, 32)).filter(Boolean).slice(0, 10)
+        ? raw.barrage.map(normalizeWechatBarrageItemText).filter(Boolean).slice(0, 10)
         : [];
     const deleteRaw = raw.deleteContact && typeof raw.deleteContact === 'object' ? raw.deleteContact : null;
     const deleteContact = deleteRaw ? {
@@ -10675,7 +10751,7 @@ async function requestWechatMonitorReaction(watcher, targetChar, userMsg, eventI
         saveCharactersToStorage();
         return;
     }
-    reaction = ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction);
+    reaction = await ensureWechatObserverReactionVisible(watcher, targetChar, userMsg, reaction);
     if (!reaction) {
         state.lastError = '监控剧情 API 没有生成可展示弹幕';
         markWechatMonitorEventProcessed(state, eventId);
@@ -13808,7 +13884,7 @@ async function requestWechatFriendVerification(charId, mode = 'initial') {
 function buildWechatMonitorBarrageBurst(phrases, level) {
     const targetCount = level === 'warning' ? 14 : 9;
     const seen = new Set();
-    const result = (phrases || []).map(item => stripWechatPromptText(item, 32)).filter(Boolean).filter(item => {
+    const result = (phrases || []).map(item => stripWechatPromptText(item, 72)).filter(Boolean).filter(item => {
         if (seen.has(item)) return false;
         seen.add(item);
         return true;
