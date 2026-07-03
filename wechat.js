@@ -13764,6 +13764,8 @@ function openWechatCharMomentPage(charId) {
     if (!char) return;
     const config = char.chatConfig || {};
     const displayName = config.nickname || char.name || '未命名';
+    const contactProfile = getWechatAiContactProfile(char);
+    const signature = stripWechatPromptText(config.signature || (contactProfile && contactProfile.signature) || '', 80);
     const cover = getWechatCharMomentCover(char);
     const momentsHtml = renderWechatCharMoments(char);
     openWechatFeatureScreen('朋友圈', `
@@ -13771,6 +13773,7 @@ function openWechatCharMomentPage(charId) {
             <div class="wc-moment-cover" style="${getWechatMomentCoverStyle(cover, displayName)}">
                 <div class="wc-moment-cover-name">${wcEscapeHtml(displayName)}</div>
                 <img class="wc-moment-cover-avatar" src="${char.avatar || DEFAULT_AVATAR}" onerror="this.src='${DEFAULT_AVATAR}'">
+                ${signature ? `<div class="wc-moment-cover-signature">${wcEscapeHtml(signature)}</div>` : ''}
             </div>
             <div class="wc-profile-moment-list wc-char-moment-list">${momentsHtml || '<div class="wc-profile-moment-empty">暂无朋友圈动态</div>'}</div>
         </div>
