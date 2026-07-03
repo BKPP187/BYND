@@ -3,6 +3,8 @@
 const CHAT_API_MIN_COMPLETION_TOKENS = 1800;
 const CHAT_API_STATUS_MIN_COMPLETION_TOKENS = 2200;
 const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
+const CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS = 1800;
+const CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS = 2400;
 const CHAT_API_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
 
 function isChatApiRateLimitErrorText(error) {
@@ -462,6 +464,15 @@ function isChatApiLengthFinishReason(reason) {
         || text === 'max_output_tokens'
         || text === 'token_limit'
         || /max[_ -]?(?:output[_ -]?)?tokens?|token[_ -]?limit|output[_ -]?limit|truncat|length/.test(text);
+}
+
+function getChatApiEmptyLengthRetryTokens(currentTokens) {
+    const current = Number(currentTokens) || 0;
+    const doubled = current > 0 ? current * 2 : 0;
+    return Math.min(
+        CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS,
+        Math.max(CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS, doubled)
+    );
 }
 
 function getChatApiOverlapLength(left, right, maxLength = 180) {
@@ -1524,11 +1535,25 @@ async function callChatApi(messages, options = {}) {
         let content = cleanChatApiVisibleContent(rawContent);
         const finishReason = getChatApiFinishReason(json);
 
+        if (!content && isChatApiLengthFinishReason(finishReason) && !options.skipEmptyLengthRetry) {
+            const retryResult = await callChatApi(messages, {
+                ...options,
+                skipEmptyLengthRetry: true,
+                max_tokens: getChatApiEmptyLengthRetryTokens(params.max_tokens)
+            });
+            if (retryResult && retryResult.ok) return retryResult;
+            if (retryResult && retryResult.rateLimited) return retryResult;
+            if (retryResult && retryResult.error) console.warn('chat api empty length retry failed:', retryResult.error);
+        }
+
         if (!content) {
             const blocked = /safety|content[_ -]?filter|block|blocked|prohibited|policy/i.test(finishReason);
+            const lengthLimited = isChatApiLengthFinishReason(finishReason);
             return {
                 ok: false,
-                error: blocked ? 'AI 返回了空内容，可能被模型安全策略拦截' : 'AI 返回了空内容',
+                error: blocked
+                    ? 'AI 返回了空内容，可能被模型安全策略拦截'
+                    : (lengthLimited ? 'AI 返回了空内容，模型输出被截断，已自动加大输出额度但仍失败' : 'AI 返回了空内容'),
                 finishReason
             };
         }

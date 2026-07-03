@@ -9637,6 +9637,9 @@ const COREAD_OBFUSCATED_TEXT_MAP = {
     '': '开', '': '们', '': '起', '': '出'
 };
 const COREAD_PAGE_SIZE = 480;
+const COREAD_AI_CONTEXT_PREVIOUS_PAGES = 1;
+const COREAD_AI_COMMENT_MAX_TOKENS = 1800;
+const COREAD_AI_REPLY_MAX_TOKENS = 1800;
 const COREAD_RESOLVE_VERSION = 3;
 const COREAD_META_VERSION = 1;
 const COREAD_CHAPTER_VERSION = 1;
@@ -10456,6 +10459,26 @@ function getCoReadPageText(book) {
     return content.slice(page * size, (page + 1) * size) || content.slice(-size);
 }
 
+function getCoReadRecentPageContextText(book) {
+    if (book && book.resolving) return book.resolveStatus || '正在解析正文和章节，稍等一下。';
+    const content = String(book && book.content || book && book.description || '');
+    if (!content) return '这本书目前只有书名和来源链接，还没有正文。';
+    const pageCount = Math.max(1, Math.ceil(content.length / COREAD_PAGE_SIZE));
+    const rawPage = Number(book && book.page);
+    const requestedPage = Number.isFinite(rawPage) ? Math.floor(rawPage) : 0;
+    const currentPage = Math.max(0, Math.min(pageCount - 1, requestedPage));
+    const startPage = Math.max(0, currentPage - COREAD_AI_CONTEXT_PREVIOUS_PAGES);
+    const pieces = [];
+    for (let page = startPage; page <= currentPage; page += 1) {
+        const text = content.slice(page * COREAD_PAGE_SIZE, (page + 1) * COREAD_PAGE_SIZE).trim();
+        if (!text) continue;
+        const distance = currentPage - page;
+        const label = page === currentPage ? '当前页' : (distance === 1 ? '上一页' : `前 ${distance} 页`);
+        pieces.push(`【${label}】\n${text}`);
+    }
+    return pieces.join('\n\n') || getCoReadPageText(book);
+}
+
 function isCoReadUsefulContent(text) {
     const clean = String(text || '').replace(/\s+/g, '');
     if (clean.length < 300) return false;
@@ -10579,7 +10602,7 @@ function createCoReadThoughtRecord(book, char, text) {
         charAvatar: char.avatar || DEFAULT_AVATAR,
         text,
         page: Number(record.page || 0),
-        pageText: getCoReadPageText(record).slice(0, 900),
+        pageText: getCoReadRecentPageContextText(record),
         replies: [],
         createdAt: Date.now()
     };
@@ -10615,11 +10638,11 @@ function buildCoReadCommentMessages(char, book, extra = {}) {
     const worldBook = safeRetry ? sanitizeCoReadPromptText(rawWorldBook).slice(0, 1600) : rawWorldBook;
     const memory = safeRetry ? '' : (typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '');
     const persona = String(char.description || '').slice(0, safeRetry ? 2200 : 4200);
-    const rawPageText = extra.pageText || getCoReadPageText(book).slice(0, 1800);
+    const rawPageText = extra.pageText || getCoReadRecentPageContextText(book);
     const pageText = safeRetry ? sanitizeCoReadPromptText(rawPageText).slice(0, 1100) : rawPageText;
     const instruction = extra.replyText
-        ? '用户刚回复了你的共读言论。请仍然按角色身份接话，像聊天一样回复用户，短一点，有态度，有对当前段落的具体反应。'
-        : '请用角色会对用户说出口的语气，写 1-3 段短评论。可以感悟、吐槽、代入剧情，但必须贴着当前页文本说。不要复述整段原文。';
+        ? '用户刚回复了你的共读言论。请仍然按角色身份接话，像聊天一样回复用户，短一点，有态度，优先回应当前页，必要时参考上一页的承接。'
+        : '请用角色会对用户说出口的语气，写 1-3 段短评论。可以感悟、吐槽、代入剧情，但必须优先贴着当前页说，必要时参考上一页的承接。不要复述整段原文。';
     return [
         {
             role: 'system',
@@ -10636,8 +10659,8 @@ function buildCoReadCommentMessages(char, book, extra = {}) {
                 `【最近共读对话】\n${getCoReadRecentDiscussionContext(char.id, book.id)}`,
                 `【正在共读的书】\n标题：${book.title}\n作者：${book.author || '未知'}\n来源：${book.url || book.source || '本地'}`,
                 safeRetry
-                    ? `【当前页文本（已安全转述，仍来自用户正在读的这一页）】\n${pageText}`
-                    : `【当前页文本】\n${pageText}`,
+                    ? `【最近页文本（上一页 + 当前页，已安全转述，仍来自用户正在读的附近页）】\n${pageText}`
+                    : `【最近页文本（上一页 + 当前页）】\n${pageText}`,
                 extra.threadText ? `【本条共读对话】\n${extra.threadText}` : '',
                 extra.replyText ? `【用户刚刚回复】\n${extra.replyText}` : '',
                 extra.retryForEmpty ? '【重要】上一次返回为空。现在必须补写一条能直接显示的角色发言，至少 18 个中文字符，贴着当前页文本和用户关系说。' : '',
@@ -10671,9 +10694,11 @@ function normalizeCoReadAiCommentText(value) {
 }
 
 async function requestCoReadAiComment(char, book, extra = {}, options = {}) {
+    const minTokens = extra && extra.replyText ? COREAD_AI_REPLY_MAX_TOKENS : COREAD_AI_COMMENT_MAX_TOKENS;
+    const requestedTokens = Number(options.max_tokens);
     const apiOptions = {
-        max_tokens: options.max_tokens || 620,
-        temperature: options.temperature || 0.84
+        max_tokens: Math.max(minTokens, Number.isFinite(requestedTokens) ? requestedTokens : 0),
+        temperature: options.temperature ?? 0.84
     };
     const first = await callChatApi(buildCoReadCommentMessages(char, book, extra), apiOptions);
     const firstText = normalizeCoReadAiCommentText(first && first.ok ? first.content : '');
@@ -10681,13 +10706,13 @@ async function requestCoReadAiComment(char, book, extra = {}, options = {}) {
     if (first && (first.ok || /空内容|empty/i.test(String(first.error || '')))) {
         const retry = await callChatApi(
             buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true }),
-            { ...apiOptions, temperature: Math.max(0.72, Number(apiOptions.temperature || 0.84) - 0.08), max_tokens: Math.max(520, Number(apiOptions.max_tokens || 620)) }
+            { ...apiOptions, temperature: Math.max(0.72, Number(apiOptions.temperature || 0.84) - 0.08), max_tokens: Math.max(minTokens, Number(apiOptions.max_tokens || minTokens)) }
         );
         const retryText = normalizeCoReadAiCommentText(retry && retry.ok ? retry.content : '');
         if (retryText) return { ok: true, text: retryText };
         const safeRetry = await callChatApi(
             buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true, safeRetry: true }),
-            { ...apiOptions, temperature: 0.72, max_tokens: Math.max(520, Number(apiOptions.max_tokens || 620)) }
+            { ...apiOptions, temperature: 0.72, max_tokens: Math.max(minTokens, Number(apiOptions.max_tokens || minTokens)) }
         );
         const safeText = normalizeCoReadAiCommentText(safeRetry && safeRetry.ok ? safeRetry.content : '');
         if (safeText) return { ok: true, text: safeText };
@@ -10908,10 +10933,10 @@ async function sendCoReadCommentReply() {
     try {
         const latest = getCurrentCoReadThought();
         const result = await requestCoReadAiComment(char, book, {
-            pageText: (latest && latest.pageText) || getCoReadPageText(book).slice(0, 900),
+            pageText: (latest && latest.pageText) || getCoReadRecentPageContextText(book),
             threadText: buildCoReadThreadText(latest),
             replyText
-        }, { max_tokens: 520, temperature: 0.82 });
+        }, { max_tokens: COREAD_AI_REPLY_MAX_TOKENS, temperature: 0.82 });
         const text = result && result.ok ? result.text : '';
         if (text) {
             saveCoReadThoughtMutation(book.id, thought.id, item => {
@@ -12699,7 +12724,7 @@ async function askCoReadComment() {
     coreadBusy = true;
     renderCoReadApp();
     try {
-        const result = await requestCoReadAiComment(char, book, {}, { max_tokens: 620, temperature: 0.84 });
+        const result = await requestCoReadAiComment(char, book, {}, { max_tokens: COREAD_AI_COMMENT_MAX_TOKENS, temperature: 0.84 });
         const text = result && result.ok ? result.text : '';
         if (text) {
             createCoReadThoughtRecord(book, char, text);
