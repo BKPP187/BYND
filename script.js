@@ -341,7 +341,7 @@ function restoreDesktopPageAfterApp(appName) {
 const BYND_NOTIFY_SETTINGS_KEY = 'bynd_proactive_notify_settings_v1';
 const BYND_NOTIFY_STATE_KEY = 'bynd_proactive_notify_state_v1';
 const BYND_NOTIFY_CLIENT_ID_KEY = 'bynd_proactive_notify_client_id_v1';
-const BYND_DEFAULT_PUSH_WORKER_ENDPOINT = '/push';
+const BYND_DEFAULT_PUSH_WORKER_ENDPOINT = '';
 const BYND_DEFAULT_VAPID_PUBLIC_KEY = 'BIbjVk-agaHTFm60-tWEQVguyL40QGfEPf1PQrgonF_zN--LvkVpLED90WOl-WP3D5u9ptu3L4RxuGLn_2mu31U';
 const BYND_NOTIFY_MIN_INTERVAL_HOURS = 0.1;
 const BYND_NOTIFY_MAX_INTERVAL_HOURS = 720;
