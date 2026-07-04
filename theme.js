@@ -7,7 +7,7 @@ const THEME_ICON_TARGETS = [
     {i:'ri-money-cny-box-line', n:'记账'}, {i:'ri-gamepad-line', n:'Game'},
     {i:'ri-moon-cloudy-line', n:'盗梦空间'}, {i:'ri-eye-line', n:'监控'},
     {i:'ri-map-pin-user-line', n:'一起出门'},
-    {i:'ri-book-open-line', n:'共读'}, {i:'ri-image-2-line', n:'相册'},
+    {i:'ri-book-open-line', n:'PageMate'}, {i:'ri-image-2-line', n:'相册'},
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
     {i:'ri-equalizer-line', n:'预设'}
 ];
@@ -1076,7 +1076,7 @@ function readThemeLibraryFromDb() {
         const req = tx.objectStore(THEME_LIBRARY_STORE_NAME).getAll();
         req.onsuccess = () => {
             db.close();
-            resolve((req.result || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+            resolve((req.result || []).sort((a, b) => ((b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))));
         };
         req.onerror = () => {
             db.close();
@@ -1118,7 +1118,8 @@ async function getThemeLibraryStore() {
             localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(safeList.map(item => ({
                 id: item.id,
                 name: item.name,
-                createdAt: item.createdAt
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
             }))));
         }
         return safeList;
@@ -1139,7 +1140,8 @@ async function saveThemeLibraryStore(list) {
     const localStorePayload = wroteToDb ? safeList.map(item => ({
         id: item.id,
         name: item.name,
-        createdAt: item.createdAt
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
     })) : safeList;
     try {
         localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(localStorePayload));
@@ -1163,6 +1165,7 @@ async function saveCurrentThemeLibraryItem() {
             id: 'theme_' + Date.now(),
             name: name.slice(0, 28),
             createdAt: Date.now(),
+            updatedAt: Date.now(),
             themeData,
             desktopLayout: getSavedDesktopLayoutSnapshot()
         };
@@ -1193,6 +1196,41 @@ async function applyThemeLibraryItem(id) {
 }
 window.applyThemeLibraryItem = applyThemeLibraryItem;
 
+async function overwriteThemeLibraryItem(id) {
+    if (themeLibrarySaving) return;
+    setThemeLibraryStatus('正在覆盖主题...', '');
+    setThemeLibrarySaving(true);
+    try {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const list = await getThemeLibraryStore();
+        const index = list.findIndex(entry => entry.id === id);
+        if (index < 0) {
+            setThemeLibraryStatus('没有找到要覆盖的主题。', 'error');
+            return;
+        }
+        const now = Date.now();
+        const current = list[index] || {};
+        list[index] = {
+            ...current,
+            name: current.name || '未命名主题',
+            createdAt: current.createdAt || now,
+            updatedAt: now,
+            themeData: collectThemeDataFromInputs(),
+            desktopLayout: getSavedDesktopLayoutSnapshot()
+        };
+        list.sort((a, b) => ((b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)));
+        await saveThemeLibraryStore(list.slice(0, THEME_LIBRARY_LIMIT));
+        await renderThemeLibrary();
+        setThemeLibraryStatus(`已覆盖「${list.find(item => item.id === id)?.name || '主题'}」。`, 'ok');
+    } catch (e) {
+        console.error('overwrite theme library failed:', e);
+        setThemeLibraryStatus('覆盖失败：' + (e && e.message ? e.message : '存储空间不足或浏览器拒绝写入'), 'error');
+    } finally {
+        setThemeLibrarySaving(false);
+    }
+}
+window.overwriteThemeLibraryItem = overwriteThemeLibraryItem;
+
 async function deleteThemeLibraryItem(id) {
     const next = (await getThemeLibraryStore()).filter(item => item.id !== id);
     await saveThemeLibraryStore(next);
@@ -1219,7 +1257,7 @@ async function renderThemeLibrary() {
         const preview = data.wpHome || data.wpLock || data.d1 || data.l1 || '';
         const iconCount = Array.isArray(data.icons) ? data.icons.filter(Boolean).length : 0;
         const layoutCount = Array.isArray(item.desktopLayout?.items) ? item.desktopLayout.items.length : 0;
-        const time = new Date(item.createdAt || Date.now()).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+        const time = new Date(item.updatedAt || item.createdAt || Date.now()).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
         return `
             <div class="theme-library-item">
                 <div class="theme-library-preview">${preview ? `<img src="${themeEscapeHtml(preview)}" alt="">` : '<i class="ri-palette-line"></i>'}</div>
@@ -1228,6 +1266,7 @@ async function renderThemeLibrary() {
                     <span>${time} · 图标 ${iconCount} · 布局 ${layoutCount}</span>
                 </div>
                 <button type="button" class="apply" onclick="applyThemeLibraryItem('${themeEscapeHtml(item.id)}')">套用</button>
+                <button type="button" class="overwrite" onclick="overwriteThemeLibraryItem('${themeEscapeHtml(item.id)}')">覆盖</button>
                 <button type="button" class="delete" onclick="deleteThemeLibraryItem('${themeEscapeHtml(item.id)}')" aria-label="删除主题"><i class="ri-delete-bin-line"></i></button>
             </div>
         `;

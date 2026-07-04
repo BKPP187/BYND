@@ -2607,6 +2607,13 @@ function renderWechatQqMessageQuote(replyTo, char) {
     `;
 }
 
+function highlightWechatRednoteMentions(html) {
+    return String(html || '').replace(/(^|[\s>])(@[^\s<：:，,。！？!?、]{0,24})/gu, (match, lead, mention) => {
+        if (!mention || mention === '@') return `${lead}<span class="msg-rednote-mention">@</span>`;
+        return `${lead}<span class="msg-rednote-mention">${mention}</span>`;
+    });
+}
+
 function isWechatQqNumericLinkText(text) {
     const clean = String(text || '').replace(/\s+/g, '');
     return /^\p{N}+$/u.test(clean);
@@ -8473,10 +8480,14 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         const emojiTextClass = !isRich && (displayMsg.wechatEmojiText || hasWechatBuiltinEmojiMarker(displayMsg.content)) ? ' wechat-emoji-text' : '';
         const richClass = isRich ? ' rich' : '';
         const quoteBubbleClass = externalQuoteHtml ? ' has-wechat-quote' : '';
-        const isQqTheme = typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'qq';
+        const themeId = typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : '';
+        const isQqTheme = themeId === 'qq';
+        const isRednoteTheme = themeId === 'rednote';
         const qqQuoteBubbleClass = quoteHtml && isQqTheme ? ' has-qq-quote' : '';
+        const rednoteQuoteBubbleClass = quoteHtml && isRednoteTheme ? ' has-rednote-quote' : '';
         if (isQqTheme && !msg.isMe && !isRich && isWechatQqNumericLinkText(visibleText)) rawContent = `<span class="msg-qq-numeric-link">${rawContent}</span>`;
-        const textBubbleHtml = hasVisibleText ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>` : '';
+        if (isRednoteTheme && !isRich) rawContent = highlightWechatRednoteMentions(rawContent);
+        const textBubbleHtml = hasVisibleText ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${richClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}<div class="msg-text${richClass}">${rawContent}</div>${metaHtml}</div>` : '';
 
         if (msg.isMe) {
             bubbleHtml = externalQuoteHtml
@@ -22653,12 +22664,62 @@ function normalizeWechatMemoryStore(store) {
         };
     };
 
+    const normalizeGraph = (graph, charId) => {
+        const source = (graph && typeof graph === 'object') ? graph : {};
+        const clean = (value, limit = 120) => String(value || '').trim().slice(0, limit);
+        const normalizeFacts = list => Array.isArray(list) ? list
+            .filter(item => item && typeof item === 'object')
+            .map(item => ({
+                id: item.id || ('fact_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+                charId: item.charId || charId || '',
+                sourceMemoryId: clean(item.sourceMemoryId || item.memoryId || '', 80),
+                subject: clean(item.subject || item.who || '', 80),
+                predicate: clean(item.predicate || item.action || item.relation || '', 80),
+                object: clean(item.object || item.target || item.what || '', 140),
+                topic: clean(item.topic || item.family || '', 80),
+                emotion: clean(item.emotion || item.mood || '', 80),
+                confidence: Math.min(1, Math.max(0.1, Number(item.confidence || 0.72))),
+                enabled: item.enabled !== false,
+                sourceStart: Number.isFinite(Number(item.sourceStart)) ? Number(item.sourceStart) : null,
+                sourceEnd: Number.isFinite(Number(item.sourceEnd)) ? Number(item.sourceEnd) : null,
+                createdAt: item.createdAt || Date.now(),
+                updatedAt: item.updatedAt || item.createdAt || Date.now()
+            }))
+            .filter(item => item.subject && item.predicate && item.object)
+            : [];
+        const normalizeRelations = list => Array.isArray(list) ? list
+            .filter(item => item && typeof item === 'object')
+            .map(item => ({
+                id: item.id || ('edge_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+                charId: item.charId || charId || '',
+                sourceMemoryId: clean(item.sourceMemoryId || item.memoryId || '', 80),
+                from: clean(item.from || item.source || item.a || '', 140),
+                type: clean(item.type || item.relation || item.predicate || '', 80),
+                to: clean(item.to || item.target || item.b || '', 140),
+                topic: clean(item.topic || item.family || '', 80),
+                confidence: Math.min(1, Math.max(0.1, Number(item.confidence || 0.72))),
+                enabled: item.enabled !== false,
+                sourceStart: Number.isFinite(Number(item.sourceStart)) ? Number(item.sourceStart) : null,
+                sourceEnd: Number.isFinite(Number(item.sourceEnd)) ? Number(item.sourceEnd) : null,
+                createdAt: item.createdAt || Date.now(),
+                updatedAt: item.updatedAt || item.createdAt || Date.now()
+            }))
+            .filter(item => item.from && item.type && item.to)
+            : [];
+        return {
+            facts: normalizeFacts(source.facts),
+            relations: normalizeRelations(source.relations || source.edges),
+            updatedAt: Math.max(0, Number(source.updatedAt || 0))
+        };
+    };
+
     const normalizeBucket = (bucket, charId) => {
         if (Array.isArray(bucket)) {
             return {
                 segments: normalizeList(bucket, 'segment', charId),
                 longTerm: [],
                 compressed: [],
+                graph: normalizeGraph(null, charId),
                 meta: normalizeMeta(null)
             };
         }
@@ -22666,6 +22727,7 @@ function normalizeWechatMemoryStore(store) {
             segments: normalizeList(bucket && (bucket.segments || bucket.segment), 'segment', charId),
             longTerm: normalizeList(bucket && (bucket.longTerm || bucket.long || bucket.longterm), 'long', charId),
             compressed: normalizeList(bucket && (bucket.compressed || bucket.compress), 'compressed', charId),
+            graph: normalizeGraph(bucket && bucket.graph, charId),
             meta: normalizeMeta(bucket && bucket.meta)
         };
     };
@@ -22707,9 +22769,13 @@ function getWechatMemoryBucket(store, charId) {
             segments: [],
             longTerm: [],
             compressed: [],
+            graph: { facts: [], relations: [], updatedAt: 0 },
             meta: { lastExtractedIndex: 0, lastExtractedAt: 0, extractionBusy: false, extractionError: '' }
         };
     }
+    store.chars[charId].graph = store.chars[charId].graph || { facts: [], relations: [], updatedAt: 0 };
+    store.chars[charId].graph.facts = Array.isArray(store.chars[charId].graph.facts) ? store.chars[charId].graph.facts : [];
+    store.chars[charId].graph.relations = Array.isArray(store.chars[charId].graph.relations) ? store.chars[charId].graph.relations : [];
     store.chars[charId].meta = store.chars[charId].meta || { lastExtractedIndex: 0, lastExtractedAt: 0, extractionBusy: false, extractionError: '' };
     return store.chars[charId];
 }
@@ -22877,6 +22943,8 @@ function buildWechatMemoryPrompt(char) {
         return `- ${meta ? `【${meta}】` : ''}${title}${item.content}`;
     }).join('\n');
     if (memories.compressed.length) sections.push(`【压缩记忆】\n${renderLines(memories.compressed)}`);
+    const graphPrompt = buildWechatMemoryGraphPrompt(char, memories);
+    if (graphPrompt) sections.push(graphPrompt);
     if (memories.longTerm.length) sections.push(`【长期记忆】\n${renderLines(memories.longTerm)}`);
     if (memories.segments.length) sections.push(`【近期分段记忆】\n${renderLines(memories.segments)}`);
     if (!sections.length) return '';
@@ -22941,6 +23009,85 @@ function scoreWechatMemoryRelevance(item, query) {
     return score;
 }
 
+function getWechatMemoryGraphFactText(fact) {
+    if (!fact) return '';
+    return [fact.subject, fact.predicate, fact.object].filter(Boolean).join(' ');
+}
+
+function scoreWechatMemoryGraphItem(item, query) {
+    if (!item || !query) return 0;
+    const haystack = Object.keys(item)
+        .map(key => typeof item[key] === 'string' ? item[key] : '')
+        .join(' ')
+        .toLowerCase();
+    const tokens = getWechatMemoryRecallTokens(query);
+    let score = 0;
+    tokens.forEach(token => {
+        if (token && haystack.includes(token)) score += token.length > 2 ? 3 : 1;
+    });
+    const ageHours = Math.max(0, (Date.now() - Number(item.updatedAt || item.createdAt || 0)) / 3600000);
+    if (ageHours < 72) score += 2;
+    score += Math.round(Number(item.confidence || 0.72) * 2);
+    return score;
+}
+
+function getWechatMemoryFamilyKeyFromItem(item) {
+    const raw = String((item && (item.topic || item.category || item.title)) || '').trim();
+    return raw || '未分类星座';
+}
+
+function buildWechatMemoryGraphPrompt(char, activeMemories) {
+    const charId = char && char.id;
+    if (!charId) return '';
+    const store = getWechatMemoryStore();
+    const bucket = getWechatMemoryBucket(store, charId);
+    const graph = bucket.graph || { facts: [], relations: [] };
+    const query = buildWechatMemoryRecallQuery(char);
+    const rankByQuery = list => list
+        .filter(item => item && item.enabled !== false)
+        .map(item => ({ item, score: scoreWechatMemoryGraphItem(item, query) }))
+        .filter(pair => pair.score > 0)
+        .sort((a, b) => b.score - a.score || (b.item.updatedAt || 0) - (a.item.updatedAt || 0))
+        .map(pair => pair.item);
+    const relevantFacts = rankByQuery(graph.facts || []).slice(0, 5);
+    const relevantRelations = rankByQuery(graph.relations || []).slice(0, 4);
+    const familyMap = new Map();
+    const rememberFamily = (key, text, updatedAt) => {
+        const name = String(key || '').trim() || '未分类星座';
+        const entry = familyMap.get(name) || { name, count: 0, samples: [], updatedAt: 0 };
+        entry.count += 1;
+        if (text && entry.samples.length < 3) entry.samples.push(text);
+        entry.updatedAt = Math.max(entry.updatedAt, Number(updatedAt || 0));
+        familyMap.set(name, entry);
+    };
+    [
+        ...((activeMemories && activeMemories.compressed) || []),
+        ...((activeMemories && activeMemories.longTerm) || []),
+        ...((activeMemories && activeMemories.segments) || [])
+    ].forEach(item => {
+        if (!item || item.enabled === false) return;
+        rememberFamily(getWechatMemoryFamilyKeyFromItem(item), item.title || item.content, item.updatedAt || item.createdAt);
+    });
+    relevantFacts.forEach(fact => {
+        rememberFamily(fact.topic || fact.predicate, getWechatMemoryGraphFactText(fact), fact.updatedAt || fact.createdAt);
+    });
+    const families = Array.from(familyMap.values())
+        .filter(item => item.count > 1 || item.samples.length > 1)
+        .sort((a, b) => b.count - a.count || b.updatedAt - a.updatedAt)
+        .slice(0, 3);
+    const sections = [];
+    if (families.length) {
+        sections.push(`【记忆星河/联想层】\n${families.map(item => `- ${item.name}：${item.samples.join('；').slice(0, 180)}`).join('\n')}`);
+    }
+    if (relevantFacts.length) {
+        sections.push(`【高相关原子事实】\n${relevantFacts.map(fact => `- ${getWechatMemoryGraphFactText(fact)}${fact.emotion ? `（情绪：${fact.emotion}）` : ''}`).join('\n')}`);
+    }
+    if (relevantRelations.length) {
+        sections.push(`【记忆联想关系】\n${relevantRelations.map(edge => `- ${edge.from} --${edge.type}--> ${edge.to}`).join('\n')}`);
+    }
+    return sections.join('\n');
+}
+
 function buildWechatMemoryExtractionTranscript(char, startIndex, maxCount = 18) {
     const history = Array.isArray(char && char.history) ? char.history : [];
     const userProfile = (typeof getWechatChatUserProfile === 'function') ? getWechatChatUserProfile(char) : {};
@@ -22976,11 +23123,11 @@ function buildWechatMemoryExistingManifest(bucket) {
     }).join('\n');
 }
 
-function parseWechatMemoryExtractionJson(text) {
+function parseWechatMemoryExtractionPayload(text) {
     const raw = parseWechatJsonObject(text);
     const list = Array.isArray(raw) ? raw : (Array.isArray(raw && raw.memories) ? raw.memories : []);
     const validCategories = new Set(['relationship', 'preference', 'fact', 'boundary', 'plot', 'task', 'correction']);
-    return list.map(item => {
+    const memories = list.map(item => {
         if (!item || typeof item !== 'object') return null;
         const content = stripWechatPromptText(item.content || item.memory || item.note || '', 900);
         if (content.length < 4) return null;
@@ -22994,6 +23141,46 @@ function parseWechatMemoryExtractionJson(text) {
             confidence: Math.min(1, Math.max(0.35, Number(item.confidence || 0.72)))
         };
     }).filter(Boolean).slice(0, 6);
+    const factList = Array.isArray(raw && raw.facts)
+        ? raw.facts
+        : (Array.isArray(raw && raw.graphFacts) ? raw.graphFacts : []);
+    const relationList = Array.isArray(raw && raw.relations)
+        ? raw.relations
+        : (Array.isArray(raw && raw.graphRelations) ? raw.graphRelations : (Array.isArray(raw && raw.edges) ? raw.edges : []));
+    const facts = factList.map(item => {
+        if (!item || typeof item !== 'object') return null;
+        const subject = stripWechatPromptText(item.subject || item.who || item.entity || '', 80);
+        const predicate = stripWechatPromptText(item.predicate || item.action || item.relation || '', 80);
+        const object = stripWechatPromptText(item.object || item.target || item.what || '', 140);
+        if (!subject || !predicate || !object) return null;
+        return {
+            subject,
+            predicate,
+            object,
+            topic: stripWechatPromptText(item.topic || item.family || '', 80),
+            emotion: stripWechatPromptText(item.emotion || item.mood || '', 80),
+            confidence: Math.min(1, Math.max(0.35, Number(item.confidence || 0.72)))
+        };
+    }).filter(Boolean).slice(0, 10);
+    const relations = relationList.map(item => {
+        if (!item || typeof item !== 'object') return null;
+        const from = stripWechatPromptText(item.from || item.source || item.a || '', 140);
+        const type = stripWechatPromptText(item.type || item.relation || item.predicate || '', 80);
+        const to = stripWechatPromptText(item.to || item.target || item.b || '', 140);
+        if (!from || !type || !to) return null;
+        return {
+            from,
+            type,
+            to,
+            topic: stripWechatPromptText(item.topic || item.family || '', 80),
+            confidence: Math.min(1, Math.max(0.35, Number(item.confidence || 0.72)))
+        };
+    }).filter(Boolean).slice(0, 12);
+    return { memories, facts, relations };
+}
+
+function parseWechatMemoryExtractionJson(text) {
+    return parseWechatMemoryExtractionPayload(text).memories;
 }
 
 function getWechatMemoryDuplicateScore(existing, candidate) {
@@ -23015,6 +23202,141 @@ function mergeWechatMemoryContent(oldContent, newContent) {
     if (!newText || oldText.includes(newText)) return oldText;
     if (newText.includes(oldText)) return newText.slice(0, 900);
     return `${oldText}；${newText}`.slice(0, 900);
+}
+
+function getWechatMemoryGraphFactKey(fact) {
+    return [fact && fact.subject, fact && fact.predicate, fact && fact.object]
+        .map(value => String(value || '').trim().toLowerCase())
+        .join('|');
+}
+
+function getWechatMemoryGraphRelationKey(relation) {
+    return [relation && relation.from, relation && relation.type, relation && relation.to]
+        .map(value => String(value || '').trim().toLowerCase())
+        .join('|');
+}
+
+function upsertWechatMemoryGraphFact(bucket, fact, char, sourceStart, sourceEnd, sourceMemoryId = '') {
+    if (!bucket || !fact || !fact.subject || !fact.predicate || !fact.object) return null;
+    bucket.graph = bucket.graph || { facts: [], relations: [], updatedAt: 0 };
+    bucket.graph.facts = Array.isArray(bucket.graph.facts) ? bucket.graph.facts : [];
+    const now = Date.now();
+    const key = getWechatMemoryGraphFactKey(fact);
+    let existing = bucket.graph.facts.find(item => getWechatMemoryGraphFactKey(item) === key);
+    if (existing) {
+        existing.topic = fact.topic || existing.topic;
+        existing.emotion = fact.emotion || existing.emotion;
+        existing.confidence = Math.max(Number(existing.confidence || 0), Number(fact.confidence || 0.72));
+        existing.sourceMemoryId = existing.sourceMemoryId || sourceMemoryId || '';
+        existing.sourceStart = existing.sourceStart == null ? sourceStart : Math.min(existing.sourceStart, sourceStart);
+        existing.sourceEnd = existing.sourceEnd == null ? sourceEnd : Math.max(existing.sourceEnd, sourceEnd);
+        existing.enabled = true;
+        existing.updatedAt = now;
+        bucket.graph.updatedAt = now;
+        return existing;
+    }
+    existing = {
+        id: 'fact_' + now + '_' + Math.random().toString(36).slice(2, 7),
+        charId: char && char.id ? char.id : '',
+        sourceMemoryId: sourceMemoryId || '',
+        subject: fact.subject,
+        predicate: fact.predicate,
+        object: fact.object,
+        topic: fact.topic || '',
+        emotion: fact.emotion || '',
+        confidence: Number(fact.confidence || 0.72),
+        enabled: true,
+        sourceStart,
+        sourceEnd,
+        createdAt: now,
+        updatedAt: now
+    };
+    bucket.graph.facts.push(existing);
+    if (bucket.graph.facts.length > 180) bucket.graph.facts.splice(0, bucket.graph.facts.length - 180);
+    bucket.graph.updatedAt = now;
+    return existing;
+}
+
+function upsertWechatMemoryGraphRelation(bucket, relation, char, sourceStart, sourceEnd, sourceMemoryId = '') {
+    if (!bucket || !relation || !relation.from || !relation.type || !relation.to) return null;
+    bucket.graph = bucket.graph || { facts: [], relations: [], updatedAt: 0 };
+    bucket.graph.relations = Array.isArray(bucket.graph.relations) ? bucket.graph.relations : [];
+    const now = Date.now();
+    const key = getWechatMemoryGraphRelationKey(relation);
+    let existing = bucket.graph.relations.find(item => getWechatMemoryGraphRelationKey(item) === key);
+    if (existing) {
+        existing.topic = relation.topic || existing.topic;
+        existing.confidence = Math.max(Number(existing.confidence || 0), Number(relation.confidence || 0.72));
+        existing.sourceMemoryId = existing.sourceMemoryId || sourceMemoryId || '';
+        existing.sourceStart = existing.sourceStart == null ? sourceStart : Math.min(existing.sourceStart, sourceStart);
+        existing.sourceEnd = existing.sourceEnd == null ? sourceEnd : Math.max(existing.sourceEnd, sourceEnd);
+        existing.enabled = true;
+        existing.updatedAt = now;
+        bucket.graph.updatedAt = now;
+        return existing;
+    }
+    existing = {
+        id: 'edge_' + now + '_' + Math.random().toString(36).slice(2, 7),
+        charId: char && char.id ? char.id : '',
+        sourceMemoryId: sourceMemoryId || '',
+        from: relation.from,
+        type: relation.type,
+        to: relation.to,
+        topic: relation.topic || '',
+        confidence: Number(relation.confidence || 0.72),
+        enabled: true,
+        sourceStart,
+        sourceEnd,
+        createdAt: now,
+        updatedAt: now
+    };
+    bucket.graph.relations.push(existing);
+    if (bucket.graph.relations.length > 220) bucket.graph.relations.splice(0, bucket.graph.relations.length - 220);
+    bucket.graph.updatedAt = now;
+    return existing;
+}
+
+function upsertWechatMemoryGraphPayload(bucket, payload, char, sourceStart, sourceEnd, sourceMemoryIds = []) {
+    if (!bucket || !payload) return;
+    const memoryIds = Array.isArray(sourceMemoryIds) ? sourceMemoryIds.filter(Boolean) : [];
+    (payload.facts || []).forEach((fact, index) => {
+        const fallbackMemoryId = memoryIds[index] || memoryIds[0] || '';
+        upsertWechatMemoryGraphFact(bucket, fact, char, sourceStart, sourceEnd, fallbackMemoryId);
+    });
+    (payload.relations || []).forEach(relation => {
+        upsertWechatMemoryGraphRelation(bucket, relation, char, sourceStart, sourceEnd, memoryIds[0] || '');
+    });
+}
+
+function syncWechatMemoryGraphSourceState(store, sourceMemoryId, enabled) {
+    const id = String(sourceMemoryId || '').trim();
+    if (!id || !store || !store.chars) return;
+    Object.keys(store.chars).forEach(charId => {
+        const bucket = getWechatMemoryBucket(store, charId);
+        const graph = bucket.graph || {};
+        ['facts', 'relations'].forEach(key => {
+            const list = Array.isArray(graph[key]) ? graph[key] : [];
+            list.forEach(item => {
+                if (item && item.sourceMemoryId === id) {
+                    item.enabled = enabled !== false;
+                    item.updatedAt = Date.now();
+                }
+            });
+        });
+    });
+}
+
+function removeWechatMemoryGraphSource(store, sourceMemoryId) {
+    const id = String(sourceMemoryId || '').trim();
+    if (!id || !store || !store.chars) return;
+    Object.keys(store.chars).forEach(charId => {
+        const bucket = getWechatMemoryBucket(store, charId);
+        const graph = bucket.graph || {};
+        if (Array.isArray(graph.facts)) graph.facts = graph.facts.filter(item => !item || item.sourceMemoryId !== id);
+        if (Array.isArray(graph.relations)) graph.relations = graph.relations.filter(item => !item || item.sourceMemoryId !== id);
+        graph.updatedAt = Date.now();
+        bucket.graph = graph;
+    });
 }
 
 function upsertWechatExtractedMemory(bucket, candidate, char, sourceStart, sourceEnd) {
@@ -23115,7 +23437,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
         const result = await callChatApi([
             {
                 role: 'system',
-                content: `你是 BYND 微信记忆整理子代理，参照 Claude Code 的记忆方式：只分析提供的新增聊天片段，抽取值得长期影响后续互动的记忆；按主题组织，先检查已有记忆，避免重复。只返回 JSON，不要 Markdown。格式：{"memories":[{"category":"relationship|preference|fact|boundary|plot|task|correction","topic":"主题","title":"短标题","content":"一条可直接给角色使用的记忆","confidence":0.35到1}]}。保存标准：用户明确要求记住的事、稳定偏好、关系变化、边界/雷点、正在推进的剧情、承诺和待办、对旧记忆的修正。不要保存：普通寒暄、一次性情绪、无意义细节、未确认猜测、隐私敏感内容、模型自己的思考过程。content 必须来自新增聊天片段，不要编造。没有值得记的内容就返回 {"memories":[]}。`
+                content: `你是 BYND 微信记忆整理子代理，参照 Claude Code 的记忆方式：只分析提供的新增聊天片段，抽取值得长期影响后续互动的记忆；按主题组织，先检查已有记忆，避免重复。只返回 JSON，不要 Markdown。格式：{"memories":[{"category":"relationship|preference|fact|boundary|plot|task|correction","topic":"主题","title":"短标题","content":"一条可直接给角色使用的记忆","confidence":0.35到1}],"facts":[{"subject":"User/角色名/具体实体","predicate":"喜欢/害怕/正在/会为了等关系动作","object":"对象或事实结果","topic":"记忆家族主题","emotion":"可空","confidence":0.35到1}],"relations":[{"from":"事实或实体A","type":"关联类型","to":"事实或实体B","topic":"记忆家族主题","confidence":0.35到1}]}。memories 是给角色直接阅读的自然语言记忆；facts 是可组成记忆星河的原子事实，必须从 memories 或新增聊天片段中拆出；relations 只描述 facts/entities 之间真实存在的联想关系，不要编造。保存标准：用户明确要求记住的事、稳定偏好、关系变化、边界/雷点、正在推进的剧情、承诺和待办、对旧记忆的修正。不要保存：普通寒暄、一次性情绪、无意义细节、未确认猜测、隐私敏感内容、模型自己的思考过程。content/facts/relations 必须来自新增聊天片段，不要编造。没有值得记的内容就返回 {"memories":[],"facts":[],"relations":[]}。`
             },
             {
                 role: 'user',
@@ -23138,8 +23460,13 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
         }
         const freshBucket = getWechatMemoryBucket(freshStore, char.id);
         if (result && result.ok) {
-            const memories = parseWechatMemoryExtractionJson(result.content);
-            memories.forEach(memory => upsertWechatExtractedMemory(freshBucket, memory, char, sourceStart, sourceEnd));
+            const payload = parseWechatMemoryExtractionPayload(result.content);
+            const memories = payload.memories;
+            const touchedMemoryIds = memories
+                .map(memory => upsertWechatExtractedMemory(freshBucket, memory, char, sourceStart, sourceEnd))
+                .filter(Boolean)
+                .map(item => item.id);
+            upsertWechatMemoryGraphPayload(freshBucket, payload, char, sourceStart, sourceEnd, touchedMemoryIds);
             promoteWechatMemoryBucket(freshBucket, char);
             freshBucket.meta.lastExtractedIndex = history.length;
             freshBucket.meta.lastExtractedAt = Date.now();
@@ -23194,11 +23521,12 @@ function ensureWechatMemoryManager() {
     modal.innerHTML = `
         <div class="wc-compose-card wc-memory-card">
             <div class="wc-compose-header">
-                <div class="wc-compose-title"><i class="ri-brain-line"></i><span>记忆</span></div>
+                <div class="wc-compose-title"><i class="ri-star-smile-line"></i><span>记忆星河</span></div>
                 <i class="ri-close-line" onclick="closeWechatMemoryManager()"></i>
             </div>
             <div class="wc-compose-body wc-memory-body">
                 <div class="wc-compose-segment wc-memory-tabs">
+                    <button id="wc-memory-tab-galaxy" onclick="switchWechatMemoryTier('galaxy')">星河</button>
                     <button id="wc-memory-tab-segment" onclick="switchWechatMemoryTier('segment')">分段</button>
                     <button id="wc-memory-tab-long" onclick="switchWechatMemoryTier('long')">长期</button>
                     <button id="wc-memory-tab-compressed" onclick="switchWechatMemoryTier('compressed')">压缩</button>
@@ -23211,8 +23539,8 @@ function ensureWechatMemoryManager() {
                 <div id="wc-memory-list" class="wc-memory-list"></div>
             </div>
             <div class="wc-compose-footer">
-                <button class="wc-compose-secondary" onclick="clearWechatMemoryEditor()">清空</button>
-                <button class="wc-compose-secondary" onclick="runWechatMemoryExtractionNow(event)">整理最近</button>
+                <button class="wc-compose-secondary" id="wc-memory-clear-btn" onclick="clearWechatMemoryEditor()">清空</button>
+                <button class="wc-compose-secondary" id="wc-memory-extract-btn" onclick="runWechatMemoryExtractionNow(event)">整理最近</button>
                 <button class="wc-compose-primary" id="wc-memory-save-btn" onclick="saveWechatMemoryFromEditor()">保存记忆</button>
             </div>
         </div>
@@ -23226,7 +23554,7 @@ function openWechatMemoryManager() {
     if (!char) return;
     closeChatToolbar();
     closeStickerPicker();
-    window._wechatMemoryTier = window._wechatMemoryTier || 'segment';
+    window._wechatMemoryTier = window._wechatMemoryTier || 'galaxy';
     const modal = ensureWechatMemoryManager();
     modal.dataset.editId = '';
     modal.classList.remove('hidden');
@@ -23240,7 +23568,7 @@ function closeWechatMemoryManager() {
 }
 
 function switchWechatMemoryTier(tier) {
-    window._wechatMemoryTier = tier === 'compressed' ? 'compressed' : (tier === 'long' ? 'long' : 'segment');
+    window._wechatMemoryTier = tier === 'galaxy' ? 'galaxy' : (tier === 'compressed' ? 'compressed' : (tier === 'long' ? 'long' : 'segment'));
     clearWechatMemoryEditor(false);
     renderWechatMemoryManager();
 }
@@ -23261,29 +23589,176 @@ function clearWechatMemoryEditor(render = true) {
     if (render) renderWechatMemoryManager();
 }
 
+function getWechatMemoryGalaxyItems(bucket) {
+    if (!bucket) return [];
+    return [
+        ...(bucket.compressed || []),
+        ...(bucket.longTerm || []),
+        ...(bucket.segments || [])
+    ].filter(item => item && item.content);
+}
+
+function getWechatMemoryGalaxyFamilyKey(item) {
+    const raw = String((item && (item.topic || item.category || item.title)) || '').trim();
+    return raw || '未分类星座';
+}
+
+function buildWechatMemoryGalaxyFamilies(bucket) {
+    const map = new Map();
+    const remember = (name, sample, updatedAt) => {
+        const key = String(name || '').trim() || '未分类星座';
+        const entry = map.get(key) || { name: key, count: 0, samples: [], updatedAt: 0 };
+        entry.count += 1;
+        if (sample && entry.samples.length < 3) entry.samples.push(sample);
+        entry.updatedAt = Math.max(entry.updatedAt, Number(updatedAt || 0));
+        map.set(key, entry);
+    };
+    getWechatMemoryGalaxyItems(bucket)
+        .filter(item => item.enabled !== false)
+        .forEach(item => remember(getWechatMemoryGalaxyFamilyKey(item), item.title || item.content, item.updatedAt || item.createdAt));
+    const facts = ((bucket && bucket.graph && bucket.graph.facts) || []).filter(item => item && item.enabled !== false);
+    facts.forEach(fact => remember(fact.topic || fact.predicate, getWechatMemoryGraphFactText(fact), fact.updatedAt || fact.createdAt));
+    return Array.from(map.values())
+        .sort((a, b) => b.count - a.count || b.updatedAt - a.updatedAt)
+        .slice(0, 8);
+}
+
+function renderWechatMemoryGalaxy(char, bucket) {
+    const memoryItems = getWechatMemoryGalaxyItems(bucket).filter(item => item.enabled !== false);
+    const graph = (bucket && bucket.graph) || { facts: [], relations: [] };
+    const facts = (graph.facts || []).filter(item => item && item.enabled !== false);
+    const relations = (graph.relations || []).filter(item => item && item.enabled !== false);
+    const families = buildWechatMemoryGalaxyFamilies(bucket);
+    if (!memoryItems.length && !facts.length && !relations.length) {
+        return `<div class="wc-memory-empty">暂无星光记忆</div>`;
+    }
+    const displayItems = memoryItems.slice(-18);
+    const centerX = 50;
+    const centerY = 48;
+    const nodes = displayItems.map((item, index) => {
+        const count = Math.max(1, displayItems.length);
+        const angle = -Math.PI / 2 + (Math.PI * 2 * index / count);
+        const radiusX = 30 + (index % 3) * 4;
+        const radiusY = 23 + (index % 2) * 7;
+        return {
+            item,
+            x: Math.max(8, Math.min(92, centerX + Math.cos(angle) * radiusX)),
+            y: Math.max(10, Math.min(88, centerY + Math.sin(angle) * radiusY))
+        };
+    });
+    const familyGroups = new Map();
+    nodes.forEach(node => {
+        const key = getWechatMemoryGalaxyFamilyKey(node.item);
+        if (!familyGroups.has(key)) familyGroups.set(key, []);
+        familyGroups.get(key).push(node);
+    });
+    const centerLines = nodes.map(node => `<line x1="${centerX}" y1="${centerY}" x2="${node.x.toFixed(2)}" y2="${node.y.toFixed(2)}" class="wc-memory-galaxy-line-soft"/>`).join('');
+    const familyLines = Array.from(familyGroups.values()).map(group => group.length > 1
+        ? group.slice(1).map((node, index) => {
+            const prev = group[index];
+            return `<line x1="${prev.x.toFixed(2)}" y1="${prev.y.toFixed(2)}" x2="${node.x.toFixed(2)}" y2="${node.y.toFixed(2)}" class="wc-memory-galaxy-line-strong"/>`;
+        }).join('')
+        : ''
+    ).join('');
+    const avatar = wcEscapeHtml(getWechatCharAvatarSource(char));
+    const charName = wcEscapeHtml(getWechatCharDisplayName(char));
+    const nodeHtml = nodes.map(node => {
+        const item = node.item;
+        const title = wcEscapeHtml(item.title || item.topic || item.content.slice(0, 18));
+        const tier = item.tier === 'compressed' ? 'compressed' : (item.tier === 'long' ? 'long' : 'segment');
+        return `<button class="wc-memory-star is-${tier}" style="left:${node.x.toFixed(2)}%;top:${node.y.toFixed(2)}%;" onclick="editWechatMemoryEntry('${item.id}')" title="${title}"><span></span></button>`;
+    }).join('');
+    const familyHtml = families.length ? families.map(item => `
+        <div class="wc-memory-constellation">
+            <div class="wc-memory-constellation-head">
+                <strong>${wcEscapeHtml(item.name)}</strong>
+                <span>${item.count} 点</span>
+            </div>
+            <p>${wcEscapeHtml(item.samples.join(' / '))}</p>
+        </div>
+    `).join('') : `<div class="wc-memory-empty">暂无星座</div>`;
+    const factHtml = facts.slice(-6).reverse().map(fact => `
+        <div class="wc-memory-fact">
+            <span>${wcEscapeHtml(fact.topic || fact.predicate || '星点')}</span>
+            <p>${wcEscapeHtml(getWechatMemoryGraphFactText(fact))}${fact.emotion ? ` <em>${wcEscapeHtml(fact.emotion)}</em>` : ''}</p>
+        </div>
+    `).join('');
+    const relationHtml = relations.slice(-6).reverse().map(edge => `
+        <div class="wc-memory-relation">
+            <span>${wcEscapeHtml(edge.from)}</span>
+            <b>${wcEscapeHtml(edge.type)}</b>
+            <span>${wcEscapeHtml(edge.to)}</span>
+        </div>
+    `).join('');
+    return `
+        <div class="wc-memory-galaxy">
+            <div class="wc-memory-sky">
+                <svg class="wc-memory-galaxy-lines" viewBox="0 0 100 100" preserveAspectRatio="none">${centerLines}${familyLines}</svg>
+                <div class="wc-memory-galaxy-center">
+                    <img src="${avatar}" alt="">
+                    <span>${charName}</span>
+                </div>
+                ${nodeHtml}
+            </div>
+            <div class="wc-memory-galaxy-sections">
+                <section>
+                    <h4>星座</h4>
+                    ${familyHtml}
+                </section>
+                <section>
+                    <h4>星点</h4>
+                    ${factHtml || `<div class="wc-memory-empty">暂无原子事实</div>`}
+                </section>
+                <section>
+                    <h4>星线</h4>
+                    ${relationHtml || `<div class="wc-memory-empty">暂无联想关系</div>`}
+                </section>
+            </div>
+        </div>
+    `;
+}
+
 function renderWechatMemoryManager() {
     const char = getCurrentChatChar();
     if (!char) return;
-    const tier = window._wechatMemoryTier === 'compressed' ? 'compressed' : (window._wechatMemoryTier === 'long' ? 'long' : 'segment');
+    const tier = window._wechatMemoryTier === 'galaxy' ? 'galaxy' : (window._wechatMemoryTier === 'compressed' ? 'compressed' : (window._wechatMemoryTier === 'long' ? 'long' : 'segment'));
+    document.getElementById('wc-memory-tab-galaxy')?.classList.toggle('active', tier === 'galaxy');
     document.getElementById('wc-memory-tab-segment')?.classList.toggle('active', tier === 'segment');
     document.getElementById('wc-memory-tab-long')?.classList.toggle('active', tier === 'long');
     document.getElementById('wc-memory-tab-compressed')?.classList.toggle('active', tier === 'compressed');
+    document.querySelector('#wc-memory-manager .wc-memory-editor')?.classList.toggle('hidden', tier === 'galaxy');
+    document.getElementById('wc-memory-clear-btn')?.classList.toggle('hidden', tier === 'galaxy');
+    document.getElementById('wc-memory-save-btn')?.classList.toggle('hidden', tier === 'galaxy');
 
     const store = getWechatMemoryStore();
     const bucket = getWechatMemoryBucket(store, char.id);
-    const list = getWechatMemoryListForTier(store, tier, char.id);
     const memoryConfig = getWechatMemoryConfig(char);
     const listEl = document.getElementById('wc-memory-list');
     if (!listEl) return;
     const statsEl = document.getElementById('wc-memory-stats');
     if (statsEl) {
-        statsEl.innerHTML = `
-            <span>分段 ${bucket.segments.length}/${memoryConfig.segmentLimit}</span>
-            <span>长期 ${bucket.longTerm.length}/${memoryConfig.longTermLimit}</span>
-            <span>压缩 ${bucket.compressed.length}</span>
-        `;
+        if (tier === 'galaxy') {
+            const graph = bucket.graph || { facts: [], relations: [] };
+            statsEl.innerHTML = `
+                <span>星笺 ${getWechatMemoryGalaxyItems(bucket).filter(item => item.enabled !== false).length}</span>
+                <span>星点 ${(graph.facts || []).filter(item => item && item.enabled !== false).length}</span>
+                <span>星线 ${(graph.relations || []).filter(item => item && item.enabled !== false).length}</span>
+            `;
+        } else {
+            statsEl.innerHTML = `
+                <span>分段 ${bucket.segments.length}/${memoryConfig.segmentLimit}</span>
+                <span>长期 ${bucket.longTerm.length}/${memoryConfig.longTermLimit}</span>
+                <span>压缩 ${bucket.compressed.length}</span>
+            `;
+        }
     }
 
+    if (tier === 'galaxy') {
+        listEl.innerHTML = renderWechatMemoryGalaxy(char, bucket);
+        return;
+    }
+
+    const list = getWechatMemoryListForTier(store, tier, char.id);
     if (!list.length) {
         listEl.innerHTML = `<div class="wc-memory-empty">暂无${getWechatMemoryTierLabel(tier)}</div>`;
         return;
@@ -23325,6 +23800,7 @@ function saveWechatMemoryFromEditor() {
             found.item.title = (titleEl?.value || '').trim() || content.slice(0, 18);
             found.item.content = content;
             found.item.updatedAt = now;
+            removeWechatMemoryGraphSource(store, found.item.id);
         }
     } else {
         const tier = window._wechatMemoryTier === 'compressed' ? 'compressed' : (window._wechatMemoryTier === 'long' ? 'long' : 'segment');
@@ -23355,6 +23831,10 @@ function editWechatMemoryEntry(id) {
     if (!found) return;
     const modal = ensureWechatMemoryManager();
     modal.dataset.editId = id;
+    if (window._wechatMemoryTier === 'galaxy') {
+        window._wechatMemoryTier = found.item.tier === 'compressed' ? 'compressed' : (found.item.tier === 'long' ? 'long' : 'segment');
+        renderWechatMemoryManager();
+    }
     const title = document.getElementById('wc-memory-title');
     const content = document.getElementById('wc-memory-content');
     const saveBtn = document.getElementById('wc-memory-save-btn');
@@ -23370,6 +23850,7 @@ function toggleWechatMemoryEntry(id) {
     if (!found) return;
     found.item.enabled = !found.item.enabled;
     found.item.updatedAt = Date.now();
+    syncWechatMemoryGraphSourceState(store, found.item.id, found.item.enabled);
     saveWechatMemoryStore(store);
     renderWechatMemoryManager();
 }
@@ -23379,6 +23860,7 @@ function deleteWechatMemoryEntry(id) {
     const found = findWechatMemoryEntry(store, id);
     if (!found) return;
     if (!confirm(`确定删除「${found.item.title || '这条记忆'}」吗？`)) return;
+    removeWechatMemoryGraphSource(store, found.item.id);
     found.list.splice(found.index, 1);
     saveWechatMemoryStore(store);
     clearWechatMemoryEditor(false);

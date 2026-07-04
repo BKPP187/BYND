@@ -9578,6 +9578,8 @@ const COREAD_SOURCE_VERSION_KEY = 'bynd_coread_sources_version_v1';
 const COREAD_READER_SETTINGS_KEY = 'bynd_coread_reader_settings_v1';
 const COREAD_READER_WALLPAPER_KEY = 'bynd_coread_reader_wallpaper_v1';
 const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
+const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
+const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
 const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=20260608-moxing71';
 const COREAD_DEFAULT_SOURCE_URLS = [
@@ -9589,11 +9591,26 @@ let coreadActiveCharId = '';
 let coreadBusy = false;
 let coreadSearchCache = [];
 let coreadActiveTab = 'discover';
+let coreadShelfCategory = 'all';
+let coreadShelfMenuOpen = false;
+let coreadShelfToolPanel = '';
+let coreadShelfStatusText = '';
+let coreadShelfSelectionMode = false;
+let coreadShelfSelectedIds = new Set();
+let coreadStatsRange = 'day';
+let coreadStatsOffset = 0;
+let coreadBookReviewBusyId = '';
+let coreadMateDropdownOpen = false;
 let coreadDailyLoading = false;
 let coreadSearchRunId = 0;
 let coreadTocOpen = false;
 let coreadSettingsOpen = false;
 let coreadCommentPanelOpen = false;
+let coreadReaderPanelTab = 'chapters';
+let coreadReaderPanelOpen = false;
+let coreadReaderChapterGroupIndex = -1;
+let coreadReaderChapterGroupPickerOpen = false;
+let coreadReaderToolPointerAt = 0;
 let coreadCommentStatusText = '';
 let coreadLibraryCache = null;
 let coreadLibraryCacheRaw = '';
@@ -9626,6 +9643,45 @@ const COREAD_DAILY_LINES = [
     '每日一书，每日一言，像有人把新的门轻轻推开。',
     '读同一本书时，沉默也会变成聊天记录。'
 ];
+
+const COREAD_SHELF_CATEGORIES = [
+    { id: 'all', label: '全部' },
+    { id: 'unsorted', label: '未整理' },
+    { id: 'pending', label: '待看' }
+];
+
+const COREAD_SHELF_TOOL_GROUPS = [
+    [
+        { id: 'select', label: '选择书籍', icon: 'ri-checkbox-line' }
+    ],
+    [
+        { id: 'importLocal', label: '从本机导入', icon: 'ri-add-line' },
+        { id: 'scanFolder', label: '扫描文件夹', icon: 'ri-folder-line' },
+        { id: 'smartImport', label: '智能导入', icon: 'ri-scan-2-line' },
+        { id: 'createBook', label: '创建书籍', icon: 'ri-booklet-line' }
+    ],
+    [
+        { id: 'settings', label: '书架设置', icon: 'ri-settings-3-line' },
+        { id: 'tags', label: '标签管理', icon: 'ri-hashtag' },
+        { id: 'categories', label: '分类管理', icon: 'ri-folder-settings-line' },
+        { id: 'sort', label: '书籍排序', icon: 'ri-sort-desc', arrow: true },
+        { id: 'more', label: '更多', icon: 'ri-more-fill', arrow: true }
+    ]
+];
+
+const COREAD_SHELF_DEFAULT_SETTINGS = {
+    viewMode: 'grid',
+    compact: false,
+    cardMode: true,
+    divider: false,
+    sidePadding: 16,
+    topSteps: 0
+};
+
+const COREAD_SHELF_DEFAULT_META = {
+    categories: {},
+    sortMode: 'recent'
+};
 
 const COREAD_OBFUSCATED_TEXT_MAP = {
     '': '这', '': '天', '': '里', '': '之', '': '地', '': '大',
@@ -9710,8 +9766,93 @@ function saveCoReadBookPage(bookId, page) {
     coreadProgressCacheRaw = raw;
     if (Array.isArray(coreadLibraryCache)) {
         const cached = coreadLibraryCache.find(book => book && book.id === id);
-        if (cached) cached.page = nextPage;
+        if (cached) {
+            cached.page = nextPage;
+            cached.updatedAt = Date.now();
+            if (getCoReadBookProgress(cached) >= 100) cached.finishedAt = cached.finishedAt || Date.now();
+            const libraryRaw = JSON.stringify(coreadLibraryCache.slice(0, 80));
+            localStorage.setItem(COREAD_LIBRARY_KEY, libraryRaw);
+            coreadLibraryCacheRaw = libraryRaw;
+        }
     }
+}
+
+function normalizeCoReadShelfSettings(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+        viewMode: ['grid', 'waterfall', 'list'].includes(source.viewMode) ? source.viewMode : COREAD_SHELF_DEFAULT_SETTINGS.viewMode,
+        compact: !!source.compact,
+        cardMode: source.cardMode !== false,
+        divider: !!source.divider,
+        sidePadding: Math.max(8, Math.min(28, Number(source.sidePadding || COREAD_SHELF_DEFAULT_SETTINGS.sidePadding))),
+        topSteps: Math.max(0, Math.min(72, Number(source.topSteps || COREAD_SHELF_DEFAULT_SETTINGS.topSteps)))
+    };
+}
+
+function getCoReadShelfSettings() {
+    try {
+        return normalizeCoReadShelfSettings(JSON.parse(localStorage.getItem(COREAD_SHELF_SETTINGS_KEY) || '{}'));
+    } catch (_) {
+        return normalizeCoReadShelfSettings({});
+    }
+}
+
+function saveCoReadShelfSettings(next) {
+    const settings = normalizeCoReadShelfSettings({ ...getCoReadShelfSettings(), ...(next || {}) });
+    localStorage.setItem(COREAD_SHELF_SETTINGS_KEY, JSON.stringify(settings));
+    return settings;
+}
+
+function normalizeCoReadShelfMeta(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    const rawCategories = source.categories && typeof source.categories === 'object' ? source.categories : {};
+    const categories = {};
+    Object.keys(rawCategories).forEach(name => {
+        const safeName = String(name || '').trim().slice(0, 28);
+        if (!safeName) return;
+        const item = rawCategories[name] && typeof rawCategories[name] === 'object' ? rawCategories[name] : {};
+        categories[safeName] = {
+            coverUrl: normalizeCoReadCoverUrl(item.coverUrl || ''),
+            createdAt: Number(item.createdAt || Date.now())
+        };
+    });
+    return {
+        categories,
+        sortMode: ['recent', 'title', 'author', 'progress'].includes(source.sortMode) ? source.sortMode : COREAD_SHELF_DEFAULT_META.sortMode
+    };
+}
+
+function getCoReadShelfMeta() {
+    try {
+        return normalizeCoReadShelfMeta(JSON.parse(localStorage.getItem(COREAD_SHELF_META_KEY) || '{}'));
+    } catch (_) {
+        return normalizeCoReadShelfMeta({});
+    }
+}
+
+function saveCoReadShelfMeta(next) {
+    const meta = normalizeCoReadShelfMeta({ ...getCoReadShelfMeta(), ...(next || {}) });
+    localStorage.setItem(COREAD_SHELF_META_KEY, JSON.stringify(meta));
+    return meta;
+}
+
+function showCoReadShelfToast(text) {
+    const msg = String(text || '').trim();
+    if (!msg) return;
+    setCoReadShelfStatus(msg);
+    if (typeof showWechatToast === 'function') showWechatToast(msg);
+}
+
+function applyCoReadShelfSettings() {
+    const content = document.querySelector('.coread-content');
+    if (!content) return;
+    const settings = getCoReadShelfSettings();
+    content.dataset.shelfView = settings.viewMode;
+    content.classList.toggle('coread-shelf-compact', !!settings.compact);
+    content.classList.toggle('coread-shelf-card-mode', !!settings.cardMode);
+    content.classList.toggle('coread-shelf-divider', !!settings.divider);
+    content.style.setProperty('--coread-shelf-side-padding', `${settings.sidePadding}px`);
+    content.style.setProperty('--coread-shelf-top-steps', `${settings.topSteps}px`);
 }
 
 const COREAD_READER_DEFAULT_SETTINGS = {
@@ -10503,10 +10644,12 @@ function shouldResolveCoReadBookContent(book) {
 
 function renderCoReadBookCard(book) {
     const active = book.id === coreadActiveBookId ? 'active' : '';
+    const selected = coreadShelfSelectedIds.has(book.id) ? 'selected' : '';
     const source = book.source === 'search' ? '在线搜索' : (book.source || '本地');
     const status = book.resolving ? '解析中' : (isCoReadUsefulContent(book.content) ? '可阅读' : (book.resolveStatus || source));
     return `
-        <div class="coread-book ${active}">
+        <div class="coread-book ${active} ${selected}">
+            ${coreadShelfSelectionMode ? `<button type="button" class="coread-book-check" onclick="event.stopPropagation(); toggleCoReadShelfBookSelected('${musicEscapeAttr(book.id)}')" aria-label="选择书籍"><i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'}"></i></button>` : ''}
             <button type="button" class="coread-book-main" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
                 <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
                 <em>${musicEscapeHtml([book.author, status].filter(Boolean).join(' · '))}</em>
@@ -10526,6 +10669,586 @@ function renderCoReadCharOptions() {
             <span>${musicEscapeHtml(getCoReadCharName(char))}</span>
         </button>
     `).join('') || '<div class="coread-empty">先导入角色卡</div>';
+}
+
+function isCoReadBookUnsorted(book) {
+    if (!book) return false;
+    const tags = Array.isArray(book.tags) ? book.tags.filter(Boolean) : [];
+    return !String(book.categoryId || book.category || '').trim() && !tags.length;
+}
+
+function isCoReadBookPending(book) {
+    if (!book) return false;
+    return getCoReadBookProgress(book) <= 1 && !book.finishedAt;
+}
+
+function getCoReadShelfCategoryName(book) {
+    return String(book && (book.category || book.categoryId) || '').trim();
+}
+
+function getCoReadShelfCategoryTabs(library = getCoReadLibrary()) {
+    const meta = getCoReadShelfMeta();
+    const names = new Set(Object.keys(meta.categories || {}));
+    (Array.isArray(library) ? library : []).forEach(book => {
+        const name = getCoReadShelfCategoryName(book);
+        if (name) names.add(name);
+    });
+    return [
+        ...COREAD_SHELF_CATEGORIES,
+        ...Array.from(names).sort((a, b) => a.localeCompare(b, 'zh-CN')).map(name => ({ id: `cat:${name}`, label: name }))
+    ];
+}
+
+function sortCoReadShelfBooks(list) {
+    const mode = getCoReadShelfMeta().sortMode;
+    const books = Array.isArray(list) ? [...list] : [];
+    if (mode === 'title') return books.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN'));
+    if (mode === 'author') return books.sort((a, b) => String(a.author || '').localeCompare(String(b.author || ''), 'zh-CN'));
+    if (mode === 'progress') return books.sort((a, b) => getCoReadBookProgress(b) - getCoReadBookProgress(a));
+    return books.sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
+}
+
+function getCoReadShelfBooks(library = getCoReadLibrary()) {
+    const list = Array.isArray(library) ? library : [];
+    if (coreadShelfCategory === 'unsorted') return sortCoReadShelfBooks(list.filter(isCoReadBookUnsorted));
+    if (coreadShelfCategory === 'pending') return sortCoReadShelfBooks(list.filter(isCoReadBookPending));
+    if (coreadShelfCategory.startsWith('cat:')) {
+        const category = coreadShelfCategory.slice(4);
+        return sortCoReadShelfBooks(list.filter(book => getCoReadShelfCategoryName(book) === category));
+    }
+    return sortCoReadShelfBooks(list);
+}
+
+function getCoReadShelfCategoryCounts(library = getCoReadLibrary()) {
+    const counts = {
+        all: library.length,
+        unsorted: library.filter(isCoReadBookUnsorted).length,
+        pending: library.filter(isCoReadBookPending).length
+    };
+    getCoReadShelfCategoryTabs(library).forEach(item => {
+        if (item.id.startsWith('cat:')) {
+            const category = item.id.slice(4);
+            counts[item.id] = library.filter(book => getCoReadShelfCategoryName(book) === category).length;
+        }
+    });
+    return counts;
+}
+
+function renderCoReadShelfTabs(library = getCoReadLibrary()) {
+    const box = document.getElementById('coread-shelf-tabs');
+    if (!box) return;
+    const tabs = getCoReadShelfCategoryTabs(library);
+    const counts = getCoReadShelfCategoryCounts(library);
+    if (!tabs.some(item => item.id === coreadShelfCategory)) coreadShelfCategory = 'all';
+    box.innerHTML = tabs.map(item => `
+        <button type="button" class="${coreadShelfCategory === item.id ? 'active' : ''}" onclick="setCoReadShelfCategory(${musicEscapeAttr(JSON.stringify(item.id))})">
+            <span>${musicEscapeHtml(item.label)}</span>
+            <em>${Number(counts[item.id] || 0)}</em>
+        </button>
+    `).join('');
+}
+
+function setCoReadShelfCategory(category) {
+    const next = String(category || 'all');
+    coreadShelfCategory = getCoReadShelfCategoryTabs().some(item => item.id === next) ? next : 'all';
+    renderCoReadApp();
+}
+window.setCoReadShelfCategory = setCoReadShelfCategory;
+
+function setCoReadShelfStatus(text) {
+    coreadShelfStatusText = String(text || '');
+    const status = document.getElementById('coread-status');
+    if (status && coreadActiveTab === 'shelf') status.textContent = coreadShelfStatusText || '内置书城优先，公开书目备用。';
+}
+
+function syncCoReadShelfMenuState() {
+    const menu = document.getElementById('coread-shelf-menu');
+    if (!menu) return;
+    const open = coreadShelfMenuOpen && coreadActiveTab === 'shelf';
+    menu.classList.toggle('open', open);
+    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+function toggleCoReadShelfMenu(open) {
+    coreadShelfMenuOpen = open == null ? !coreadShelfMenuOpen : !!open;
+    if (!coreadShelfMenuOpen) coreadShelfToolPanel = '';
+    renderCoReadShelfMenu();
+    syncCoReadShelfMenuState();
+}
+window.toggleCoReadShelfMenu = toggleCoReadShelfMenu;
+
+function setCoReadShelfToolPanel(panel) {
+    coreadShelfToolPanel = coreadShelfToolPanel === panel ? '' : String(panel || '');
+    renderCoReadShelfMenu();
+}
+
+function getCoReadShelfSelectedBooks() {
+    const selected = coreadShelfSelectedIds instanceof Set ? coreadShelfSelectedIds : new Set();
+    return getCoReadLibrary().filter(book => selected.has(book.id));
+}
+
+function toggleCoReadShelfSelectionMode(force) {
+    coreadShelfSelectionMode = force == null ? !coreadShelfSelectionMode : !!force;
+    if (!coreadShelfSelectionMode) coreadShelfSelectedIds = new Set();
+    coreadShelfToolPanel = coreadShelfSelectionMode ? 'select' : '';
+    renderCoReadApp();
+}
+window.toggleCoReadShelfSelectionMode = toggleCoReadShelfSelectionMode;
+
+function toggleCoReadShelfBookSelected(bookId) {
+    const id = String(bookId || '');
+    if (!id) return;
+    if (coreadShelfSelectedIds.has(id)) coreadShelfSelectedIds.delete(id);
+    else coreadShelfSelectedIds.add(id);
+    renderCoReadApp();
+}
+window.toggleCoReadShelfBookSelected = toggleCoReadShelfBookSelected;
+
+function selectAllCurrentCoReadShelfBooks() {
+    coreadShelfSelectedIds = new Set(getCoReadShelfBooks().map(book => book.id));
+    renderCoReadApp();
+}
+window.selectAllCurrentCoReadShelfBooks = selectAllCurrentCoReadShelfBooks;
+
+function setCoReadBookCategory(bookIds, category) {
+    const ids = new Set((Array.isArray(bookIds) ? bookIds : [bookIds]).map(String).filter(Boolean));
+    const name = String(category || '').trim().slice(0, 28);
+    if (!ids.size) return 0;
+    if (name) {
+        const meta = getCoReadShelfMeta();
+        meta.categories[name] = meta.categories[name] || { coverUrl: '', createdAt: Date.now() };
+        saveCoReadShelfMeta(meta);
+    }
+    const library = getCoReadLibrary();
+    let changed = 0;
+    library.forEach(book => {
+        if (!book || !ids.has(book.id)) return;
+        book.category = name;
+        book.categoryId = name;
+        book.updatedAt = Date.now();
+        changed++;
+    });
+    saveCoReadLibrary(library);
+    return changed;
+}
+
+function getCoReadActiveShelfCategoryName() {
+    return coreadShelfCategory.startsWith('cat:') ? coreadShelfCategory.slice(4) : '';
+}
+
+function createCoReadShelfCategory() {
+    const input = document.getElementById('coread-category-name-input');
+    const name = String(input?.value || '').trim().slice(0, 28);
+    if (!name) {
+        showCoReadShelfToast('先写分类名');
+        return;
+    }
+    const meta = getCoReadShelfMeta();
+    meta.categories[name] = meta.categories[name] || { coverUrl: '', createdAt: Date.now() };
+    saveCoReadShelfMeta(meta);
+    const checkedIds = Array.from(document.querySelectorAll('input[name="coread-new-category-book"]:checked'))
+        .map(input => String(input.value || '').trim())
+        .filter(Boolean);
+    const selectedIds = checkedIds.length ? checkedIds : getCoReadShelfSelectedBooks().map(book => book.id);
+    if (selectedIds.length) setCoReadBookCategory(selectedIds, name);
+    coreadShelfCategory = `cat:${name}`;
+    showCoReadShelfToast(selectedIds.length ? `已把 ${selectedIds.length} 本书移到「${name}」` : `已创建「${name}」`);
+    renderCoReadApp();
+}
+window.createCoReadShelfCategory = createCoReadShelfCategory;
+
+function dissolveCoReadShelfCategory() {
+    const category = getCoReadActiveShelfCategoryName();
+    const selected = getCoReadShelfSelectedBooks();
+    if (!category && !selected.length) {
+        showCoReadShelfToast('先进入一个分类，或先选择书籍');
+        return;
+    }
+    const text = category ? `解散分类「${category}」？书不会删除，只会移到未整理。` : `把选中的 ${selected.length} 本书移到未整理？`;
+    if (!confirm(text)) return;
+    const library = getCoReadLibrary();
+    let changed = 0;
+    library.forEach(book => {
+        const hit = category ? getCoReadShelfCategoryName(book) === category : coreadShelfSelectedIds.has(book.id);
+        if (!hit) return;
+        book.category = '';
+        book.categoryId = '';
+        book.updatedAt = Date.now();
+        changed++;
+    });
+    const meta = getCoReadShelfMeta();
+    if (category && meta.categories) delete meta.categories[category];
+    saveCoReadShelfMeta(meta);
+    saveCoReadLibrary(library);
+    coreadShelfCategory = 'unsorted';
+    coreadShelfSelectedIds = new Set();
+    showCoReadShelfToast(`已整理 ${changed} 本书`);
+    renderCoReadApp();
+}
+window.dissolveCoReadShelfCategory = dissolveCoReadShelfCategory;
+
+function setCoReadShelfSortMode(mode) {
+    saveCoReadShelfMeta({ sortMode: mode });
+    renderCoReadApp();
+}
+window.setCoReadShelfSortMode = setCoReadShelfSortMode;
+
+function createManualCoReadBook() {
+    const title = String(document.getElementById('coread-create-title')?.value || '').trim();
+    const author = String(document.getElementById('coread-create-author')?.value || '').trim();
+    const content = String(document.getElementById('coread-create-content')?.value || '').trim();
+    if (!title) {
+        showCoReadShelfToast('先写书名');
+        return;
+    }
+    addCoReadBook({
+        title,
+        author,
+        content: content || `书名：${title}\n作者：${author || '未知'}\n\n这是手动创建的书籍，可以之后继续补正文。`,
+        source: 'manual',
+        category: getCoReadActiveShelfCategoryName()
+    });
+    showCoReadShelfToast(`已创建《${title}》`);
+}
+window.createManualCoReadBook = createManualCoReadBook;
+
+function applyCoReadTagsToSelected() {
+    const value = String(document.getElementById('coread-tags-input')?.value || '').trim();
+    const tags = value.split(/[，,\s]+/).map(tag => tag.trim()).filter(Boolean).slice(0, 12);
+    if (!tags.length) {
+        showCoReadShelfToast('先写标签');
+        return;
+    }
+    const ids = getCoReadShelfSelectedBooks().map(book => book.id);
+    if (!ids.length && coreadActiveBookId) ids.push(coreadActiveBookId);
+    const set = new Set(ids);
+    const library = getCoReadLibrary();
+    let changed = 0;
+    library.forEach(book => {
+        if (!set.has(book.id)) return;
+        book.tags = tags;
+        book.updatedAt = Date.now();
+        changed++;
+    });
+    saveCoReadLibrary(library);
+    showCoReadShelfToast(`已更新 ${changed} 本书的标签`);
+    renderCoReadApp();
+}
+window.applyCoReadTagsToSelected = applyCoReadTagsToSelected;
+
+function applyCoReadBookCoverUrl(bookId) {
+    const input = document.getElementById(`coread-cover-url-${bookId}`);
+    const url = normalizeCoReadCoverUrl(input?.value || '');
+    if (!url) {
+        showCoReadShelfToast('先粘贴封面 URL');
+        return;
+    }
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === bookId);
+    if (!book) return;
+    book.coverUrl = url;
+    book.updatedAt = Date.now();
+    saveCoReadLibrary(library);
+    showCoReadShelfToast('封面已更新');
+    renderCoReadApp();
+}
+window.applyCoReadBookCoverUrl = applyCoReadBookCoverUrl;
+
+function applyCoReadCloudImportUrl() {
+    const value = String(document.getElementById('coread-cloud-url-input')?.value || '').trim();
+    if (!value) {
+        showCoReadShelfToast('先粘贴链接');
+        return;
+    }
+    const input = document.getElementById('coread-url-input');
+    if (input) input.value = value;
+    toggleCoReadShelfMenu(false);
+    addCoReadUrl();
+}
+window.applyCoReadCloudImportUrl = applyCoReadCloudImportUrl;
+
+function chooseCoReadShelfFiles(options = {}) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.txt,.md,.markdown,.json,.csv,.doc,.docx,.pdf,text/*';
+    if (options.directory) {
+        input.setAttribute('webkitdirectory', '');
+        input.setAttribute('directory', '');
+    }
+    input.onchange = () => importCoReadFiles(input.files, options);
+    input.click();
+}
+window.chooseCoReadShelfFiles = chooseCoReadShelfFiles;
+
+function handleCoReadShelfTool(action) {
+    const id = String(action || '');
+    const panels = ['select', 'newCategory', 'cover', 'settings', 'cloudImport', 'createBook', 'covers', 'tags', 'categories', 'sort', 'more'];
+    if (id === 'select') {
+        toggleCoReadShelfSelectionMode();
+        return;
+    }
+    if (id === 'importLocal') {
+        toggleCoReadShelfMenu(false);
+        document.getElementById('coread-file-input')?.click();
+        return;
+    }
+    if (id === 'scanFolder') {
+        chooseCoReadShelfFiles({ directory: true });
+        return;
+    }
+    if (id === 'smartImport') {
+        chooseCoReadShelfFiles({ smart: true });
+        return;
+    }
+    if (id === 'dissolve') {
+        dissolveCoReadShelfCategory();
+        return;
+    }
+    if (panels.includes(id)) {
+        setCoReadShelfToolPanel(id);
+        return;
+    }
+    showCoReadShelfToast('这个工具暂时没有可执行动作');
+}
+window.handleCoReadShelfTool = handleCoReadShelfTool;
+
+function setCoReadShelfViewMode(mode) {
+    saveCoReadShelfSettings({ viewMode: mode });
+    applyCoReadShelfSettings();
+    renderCoReadDashboard();
+    renderCoReadShelfMenu();
+}
+window.setCoReadShelfViewMode = setCoReadShelfViewMode;
+
+function setCoReadShelfOption(option, value) {
+    const key = String(option || '');
+    if (!['compact', 'cardMode', 'divider', 'sidePadding', 'topSteps'].includes(key)) return;
+    saveCoReadShelfSettings({ [key]: value });
+    applyCoReadShelfSettings();
+    renderCoReadDashboard();
+    if (key !== 'sidePadding' && key !== 'topSteps') renderCoReadShelfMenu();
+}
+window.setCoReadShelfOption = setCoReadShelfOption;
+
+function applyCoReadCategoryCoverFromUrl() {
+    const category = getCoReadActiveShelfCategoryName();
+    const value = String(document.getElementById('coread-category-cover-url')?.value || '').trim();
+    const coverUrl = normalizeCoReadCoverUrl(value);
+    if (!category) {
+        showCoReadShelfToast('先进入一个自定义分类');
+        return;
+    }
+    if (!coverUrl) {
+        showCoReadShelfToast('请先粘贴有效的图床 URL');
+        return;
+    }
+    const meta = getCoReadShelfMeta();
+    meta.categories[category] = { ...(meta.categories[category] || {}), coverUrl, createdAt: meta.categories[category]?.createdAt || Date.now() };
+    saveCoReadShelfMeta(meta);
+    showCoReadShelfToast(`已更新「${category}」封面`);
+    renderCoReadShelfMenu();
+}
+window.applyCoReadCategoryCoverFromUrl = applyCoReadCategoryCoverFromUrl;
+
+function uploadCoReadCategoryCover(input) {
+    const file = input && input.files && input.files[0];
+    const category = getCoReadActiveShelfCategoryName();
+    if (!file) {
+        showCoReadShelfToast('没有选择图片');
+        return;
+    }
+    if (!category) {
+        showCoReadShelfToast('先进入一个自定义分类');
+        if (input) input.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        const meta = getCoReadShelfMeta();
+        meta.categories[category] = { ...(meta.categories[category] || {}), coverUrl: String(reader.result || ''), createdAt: meta.categories[category]?.createdAt || Date.now() };
+        saveCoReadShelfMeta(meta);
+        showCoReadShelfToast(`已更新「${category}」封面`);
+        renderCoReadShelfMenu();
+    };
+    reader.readAsDataURL(file);
+    if (input) input.value = '';
+}
+window.uploadCoReadCategoryCover = uploadCoReadCategoryCover;
+
+function renderCoReadShelfMenu() {
+    const panel = document.getElementById('coread-shelf-menu-panel');
+    if (!panel) return;
+    const settings = getCoReadShelfSettings();
+    const meta = getCoReadShelfMeta();
+    const library = getCoReadLibrary();
+    const selectedBooks = getCoReadShelfSelectedBooks();
+    const activeCategory = getCoReadActiveShelfCategoryName();
+    const shelfBooks = getCoReadShelfBooks(library);
+    const groups = COREAD_SHELF_TOOL_GROUPS.map(group => `
+        <div class="coread-shelf-tool-group">
+            ${group.map(item => `
+                <button type="button" class="${coreadShelfToolPanel === item.id || (item.id === 'select' && coreadShelfSelectionMode) ? 'active' : ''}" onclick="handleCoReadShelfTool('${item.id}')">
+                    <i class="${item.icon}"></i><span>${musicEscapeHtml(item.label)}</span>${item.arrow ? '<b><i class="ri-arrow-right-s-line"></i></b>' : ''}
+                </button>
+            `).join('')}
+        </div>
+    `).join('');
+    const selectPanel = coreadShelfToolPanel === 'select' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>已选择 ${selectedBooks.length} 本</strong>
+            <div class="coread-shelf-cover-actions">
+                <button type="button" onclick="toggleCoReadShelfSelectionMode(false)"><i class="ri-check-line"></i><span>完成选择</span></button>
+                <button type="button" onclick="selectAllCurrentCoReadShelfBooks()"><i class="ri-checkbox-multiple-fill"></i><span>全选当前</span></button>
+            </div>
+            <label class="coread-shelf-url-field">
+                <span>移到</span>
+                <input id="coread-move-category-input" type="text" placeholder="分类名" value="${musicEscapeAttr(activeCategory)}">
+                <button type="button" onclick="setCoReadBookCategory(getCoReadShelfSelectedBooks().map(book => book.id), document.getElementById('coread-move-category-input')?.value); showCoReadShelfToast('已移动选中书籍'); renderCoReadApp();">保存</button>
+            </label>
+        </div>
+    ` : '';
+    const newCategoryPanel = coreadShelfToolPanel === 'newCategory' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>新建子分类</strong>
+            <label class="coread-shelf-url-field">
+                <span>名称</span>
+                <input id="coread-category-name-input" type="text" maxlength="28" placeholder="例如：待追 / 古风 / 同人">
+                <button type="button" onclick="createCoReadShelfCategory()">创建</button>
+            </label>
+            <div class="coread-new-category-picker">
+                <em>选择要放进分类的书</em>
+                ${(library.length ? library.slice(0, 24).map(book => {
+                    const checked = coreadShelfSelectedIds.has(book.id) ? 'checked' : '';
+                    return `
+                        <label>
+                            <input type="checkbox" name="coread-new-category-book" value="${musicEscapeAttr(book.id)}" ${checked}>
+                            <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
+                        </label>
+                    `;
+                }).join('') : '<small>书架还没有书，可以先创建空分类。</small>')}
+            </div>
+        </div>
+    ` : '';
+    const coverPanel = coreadShelfToolPanel === 'cover' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>分类封面${activeCategory ? ` · ${musicEscapeHtml(activeCategory)}` : ''}</strong>
+            ${activeCategory && meta.categories?.[activeCategory]?.coverUrl ? `<div class="coread-shelf-cover-preview"><img src="${musicEscapeAttr(meta.categories[activeCategory].coverUrl)}" onerror="this.remove()"></div>` : '<small>先进入自定义分类，再设置这个分类的封面。</small>'}
+            <div class="coread-shelf-cover-actions">
+                <button type="button" onclick="document.getElementById('coread-category-cover-input')?.click()"><i class="ri-upload-cloud-2-line"></i><span>上传图片</span></button>
+                <input id="coread-category-cover-input" type="file" accept="image/*" onchange="uploadCoReadCategoryCover(this)" hidden>
+            </div>
+            <label class="coread-shelf-url-field">
+                <span>图床 URL</span>
+                <input id="coread-category-cover-url" type="url" placeholder="https://..." onkeydown="if(event.key==='Enter') applyCoReadCategoryCoverFromUrl()">
+                <button type="button" onclick="applyCoReadCategoryCoverFromUrl()">应用</button>
+            </label>
+        </div>
+    ` : '';
+    const cloudPanel = coreadShelfToolPanel === 'cloudImport' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>百度网盘导入</strong>
+            <label class="coread-shelf-url-field">
+                <span>链接</span>
+                <input id="coread-cloud-url-input" type="url" placeholder="粘贴百度网盘分享链接" onkeydown="if(event.key==='Enter') applyCoReadCloudImportUrl()">
+                <button type="button" onclick="applyCoReadCloudImportUrl()">导入</button>
+            </label>
+        </div>
+    ` : '';
+    const createBookPanel = coreadShelfToolPanel === 'createBook' ? `
+        <div class="coread-shelf-subpanel coread-shelf-form-panel">
+            <strong>创建书籍</strong>
+            <input id="coread-create-title" type="text" placeholder="书名">
+            <input id="coread-create-author" type="text" placeholder="作者，可不填">
+            <textarea id="coread-create-content" placeholder="正文或简介，可之后再补"></textarea>
+            <button type="button" onclick="createManualCoReadBook()">创建</button>
+        </div>
+    ` : '';
+    const coversPanel = coreadShelfToolPanel === 'covers' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>封面图集</strong>
+            ${shelfBooks.slice(0, 6).map(book => `
+                <label class="coread-shelf-url-field">
+                    <span>${musicEscapeHtml(String(book.title || '书').slice(0, 4))}</span>
+                    <input id="coread-cover-url-${musicEscapeAttr(book.id)}" type="url" placeholder="封面 URL" value="${musicEscapeAttr(book.coverUrl || '')}">
+                    <button type="button" onclick="applyCoReadBookCoverUrl('${musicEscapeAttr(book.id)}')">保存</button>
+                </label>
+            `).join('') || '<small>当前分类没有书。</small>'}
+        </div>
+    ` : '';
+    const tagsPanel = coreadShelfToolPanel === 'tags' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>标签管理</strong>
+            <small>${selectedBooks.length ? `会更新已选 ${selectedBooks.length} 本书。` : '未选择书籍时，会更新当前正在阅读的书。'}</small>
+            <label class="coread-shelf-url-field">
+                <span>标签</span>
+                <input id="coread-tags-input" type="text" placeholder="甜文, 古风, 待补">
+                <button type="button" onclick="applyCoReadTagsToSelected()">保存</button>
+            </label>
+        </div>
+    ` : '';
+    const categoriesPanel = coreadShelfToolPanel === 'categories' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>分类管理</strong>
+            ${getCoReadShelfCategoryTabs(library).filter(item => item.id.startsWith('cat:')).map(item => `
+                <button type="button" class="${coreadShelfCategory === item.id ? 'active' : ''}" onclick="setCoReadShelfCategory(${musicEscapeAttr(JSON.stringify(item.id))})">${musicEscapeHtml(item.label)} · ${Number(getCoReadShelfCategoryCounts(library)[item.id] || 0)}</button>
+            `).join('') || '<small>还没有自定义分类。</small>'}
+        </div>
+    ` : '';
+    const settingsPanel = coreadShelfToolPanel === 'settings' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>书架设置</strong>
+            <div class="coread-shelf-view-row">
+                ${[
+                    ['grid', '网格'],
+                    ['waterfall', '流式'],
+                    ['list', '列表']
+                ].map(([id, label]) => `<button type="button" class="${settings.viewMode === id ? 'active' : ''}" onclick="setCoReadShelfViewMode('${id}')">${label}</button>`).join('')}
+            </div>
+            <label><input type="checkbox" ${settings.cardMode ? 'checked' : ''} onchange="setCoReadShelfOption('cardMode', this.checked)"><span>卡片模式</span></label>
+            <label><input type="checkbox" ${settings.compact ? 'checked' : ''} onchange="setCoReadShelfOption('compact', this.checked)"><span>紧凑模式</span></label>
+            <label><input type="checkbox" ${settings.divider ? 'checked' : ''} onchange="setCoReadShelfOption('divider', this.checked)"><span>显示分割线</span></label>
+            <label class="range"><span>左右间距</span><input type="range" min="8" max="28" value="${settings.sidePadding}" oninput="setCoReadShelfOption('sidePadding', this.value)"></label>
+            <label class="range"><span>顶部书架台阶</span><input type="range" min="0" max="72" value="${settings.topSteps}" oninput="setCoReadShelfOption('topSteps', this.value)"></label>
+        </div>
+    ` : '';
+    const sortPanel = coreadShelfToolPanel === 'sort' ? `
+        <div class="coread-shelf-subpanel">
+            <strong>书籍排序</strong>
+            <div class="coread-shelf-view-row">
+                ${[
+                    ['recent', '最近'],
+                    ['title', '书名'],
+                    ['author', '作者'],
+                    ['progress', '进度']
+                ].map(([id, label]) => `<button type="button" class="${meta.sortMode === id ? 'active' : ''}" onclick="setCoReadShelfSortMode('${id}')">${label}</button>`).join('')}
+            </div>
+        </div>
+    ` : '';
+    const morePanel = coreadShelfToolPanel === 'more' ? `
+        <div class="coread-shelf-subpanel coread-shelf-more-panel">
+            <strong>更多</strong>
+            <button type="button" onclick="setCoReadShelfToolPanel('newCategory')"><i class="ri-folder-add-line"></i><span>新建子分类</span></button>
+            <button type="button" onclick="setCoReadShelfToolPanel('cover')"><i class="ri-image-add-line"></i><span>分类封面</span></button>
+            <button type="button" onclick="dissolveCoReadShelfCategory()"><i class="ri-folder-reduce-line"></i><span>解散分类</span></button>
+            <button type="button" onclick="setCoReadShelfToolPanel('cloudImport')"><i class="ri-cloud-line"></i><span>百度网盘导入</span></button>
+            <button type="button" onclick="setCoReadShelfToolPanel('covers')"><i class="ri-gallery-line"></i><span>封面图集</span></button>
+        </div>
+    ` : '';
+    panel.innerHTML = `
+        ${groups}
+        ${selectPanel}
+        ${newCategoryPanel}
+        ${coverPanel}
+        ${cloudPanel}
+        ${createBookPanel}
+        ${coversPanel}
+        ${tagsPanel}
+        ${categoriesPanel}
+        ${settingsPanel}
+        ${sortPanel}
+        ${morePanel}
+    `;
 }
 
 function getCoReadCharacterById(charId) {
@@ -10556,6 +11279,97 @@ function getCoReadThoughtStatsForChar(charId) {
     const thoughts = getCoReadThoughts(600).filter(item => item.charId === charId);
     const books = new Set(thoughts.map(item => item.bookId || item.bookTitle).filter(Boolean));
     return { thoughtCount: thoughts.length, bookCount: books.size };
+}
+
+function getCoReadCategoryShelfGroups(library = getCoReadLibrary()) {
+    const meta = getCoReadShelfMeta();
+    const groups = new Map();
+    Object.keys(meta.categories || {}).forEach(name => {
+        groups.set(name, {
+            name,
+            coverUrl: meta.categories[name]?.coverUrl || '',
+            books: []
+        });
+    });
+    (Array.isArray(library) ? library : []).forEach(book => {
+        const name = getCoReadShelfCategoryName(book);
+        if (!name) return;
+        if (!groups.has(name)) groups.set(name, { name, coverUrl: '', books: [] });
+        groups.get(name).books.push(book);
+    });
+    return Array.from(groups.values())
+        .filter(group => group.name)
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-CN'));
+}
+
+function renderCoReadCategoryShelves(library = getCoReadLibrary()) {
+    const groups = getCoReadCategoryShelfGroups(library);
+    if (!groups.length || coreadShelfCategory !== 'all') return '';
+    return `
+        <section class="coread-category-shelves" aria-label="分类书架">
+            <div class="coread-category-shelves-head">
+                <strong>分类书架</strong>
+                <span>点击展开</span>
+            </div>
+            <div class="coread-category-shelf-rail">
+                ${groups.map(group => {
+                    const books = group.books.slice(0, 7);
+                    return `
+                        <button type="button" class="coread-category-stack" onclick="setCoReadShelfCategory(${musicEscapeAttr(JSON.stringify(`cat:${group.name}`))})">
+                            <div class="coread-category-stack-books">
+                                ${books.slice(0, 5).map((book, index) => `
+                                    <span class="coread-category-mini-book b${index + 1}">
+                                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<em>${musicEscapeHtml(String(book.title || group.name).slice(0, 1))}</em>`}
+                                    </span>
+                                `).join('') || '<span class="coread-category-mini-book b1"><em>空</em></span>'}
+                            </div>
+                            <i></i>
+                            <strong>${musicEscapeHtml(group.name)}</strong>
+                            <small>${group.books.length} 本</small>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        </section>
+    `;
+}
+
+function getCoReadBookTags(book) {
+    const tags = [];
+    const push = value => {
+        const text = String(value || '').trim();
+        if (text && !tags.includes(text)) tags.push(text.slice(0, 12));
+    };
+    (Array.isArray(book && book.tags) ? book.tags : []).forEach(push);
+    push(book && (book.category || book.categoryId));
+    push(book && book.sourceData && book.sourceData.kind);
+    if (book && book.source) push(book.source === 'search' ? '在线' : book.source);
+    return tags.slice(0, 5);
+}
+
+function getCoReadBookIntro(book, limit = 92) {
+    const source = String(book && (book.description || book.content || '') || '')
+        .replace(/\s+/g, ' ')
+        .replace(/^书名[:：][^。！？\n]{0,120}/, '')
+        .trim();
+    if (!source) return '这本书还没有简介。';
+    return source.slice(0, limit);
+}
+
+function renderCoReadShelfRail(library = getCoReadLibrary()) {
+    const books = (Array.isArray(library) ? library : []).slice(0, 18);
+    if (!books.length) return '';
+    return `
+        <section class="coread-total-shelf" aria-label="总书架">
+            <div class="coread-total-shelf-rail">
+                ${books.map((book, index) => `
+                    <button type="button" class="coread-total-book b${index % 5}" onclick="openCoReadBookDetail('${musicEscapeAttr(book.id)}')" aria-label="${musicEscapeAttr(book.title || '未命名书籍')}">
+                        ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 1))}</span>`}
+                    </button>
+                `).join('')}
+            </div>
+        </section>
+    `;
 }
 
 function getCurrentCoReadThought() {
@@ -10796,18 +11610,45 @@ function renderCoReadMePanel() {
     const list = document.getElementById('coread-me-char-list');
     if (!list) return;
     const chars = getCoReadCharacters();
-    list.innerHTML = chars.map(char => {
-        const active = char.id === coreadActiveCharId ? 'active' : '';
+    const selectedChar = chars.find(char => char.id === coreadActiveCharId) || chars[0] || null;
+    const selectedStats = selectedChar ? getCoReadThoughtStatsForChar(selectedChar.id) : { bookCount: 0, thoughtCount: 0 };
+    list.innerHTML = chars.length ? `
+        <div class="coread-mate-dropdown ${coreadMateDropdownOpen ? 'open' : ''}">
+            <button type="button" class="coread-mate-trigger" onclick="toggleCoReadMateDropdown()">
+                <img src="${musicEscapeAttr((selectedChar && selectedChar.avatar) || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                <span>
+                    <b>选择共读对象</b>
+                    <strong>${musicEscapeHtml(selectedChar ? getCoReadCharName(selectedChar) : '未选择')}</strong>
+                    <em>一起读过 ${selectedStats.bookCount} 本 · ${selectedStats.thoughtCount} 条旁注</em>
+                </span>
+                <small>${chars.length} 个角色</small>
+                <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+            </button>
+            <div class="coread-mate-list">
+            ${chars.map(char => {
+        const active = selectedChar && char.id === selectedChar.id ? 'active' : '';
         const stats = getCoReadThoughtStatsForChar(char.id);
         return `
             <button type="button" class="${active}" onclick="selectCoReadChar('${musicEscapeAttr(char.id)}')">
                 <img src="${musicEscapeAttr(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
-                <span><strong>${musicEscapeHtml(getCoReadCharName(char))}</strong><em>一起读过 ${stats.bookCount} 本书 · ${stats.thoughtCount} 条言论</em></span>
-                <i class="ri-check-line"></i>
+                <span>
+                    <strong>${musicEscapeHtml(getCoReadCharName(char))}</strong>
+                    <em>一起读过 ${stats.bookCount} 本 · ${stats.thoughtCount} 条旁注</em>
+                </span>
+                <small>${active ? '已选择' : '选择'}</small>
             </button>
         `;
-    }).join('') || '<div class="coread-empty">先导入角色卡</div>';
+    }).join('')}
+            </div>
+        </div>
+    ` : '<div class="coread-empty">先导入角色卡</div>';
 }
+
+function toggleCoReadMateDropdown(open) {
+    coreadMateDropdownOpen = typeof open === 'boolean' ? open : !coreadMateDropdownOpen;
+    renderCoReadMePanel();
+}
+window.toggleCoReadMateDropdown = toggleCoReadMateDropdown;
 
 function toggleCoReadCommentPanel(open) {
     coreadCommentPanelOpen = typeof open === 'boolean' ? open : !coreadCommentPanelOpen;
@@ -11123,6 +11964,7 @@ async function jumpCoReadChapter(index) {
             target.page = targetPage == null ? Number(target.page || 0) : Math.max(0, Math.min(getCoReadPageCount(target) - 1, targetPage));
             saveCoReadLibrary(latest);
             coreadTocOpen = false;
+            coreadReaderPanelOpen = false;
             renderCoReadApp();
             return;
         } catch (_) {
@@ -11140,53 +11982,454 @@ async function jumpCoReadChapter(index) {
     book.page = Math.max(0, Math.min(getCoReadPageCount(book) - 1, Number(targetPage || 0)));
     saveCoReadLibrary(library);
     coreadTocOpen = false;
+    coreadReaderPanelOpen = false;
     renderCoReadApp();
 }
 window.jumpCoReadChapter = jumpCoReadChapter;
 
+function getCoReadBookReadChars(book) {
+    const contentLength = String(book && book.content || '').length;
+    if (!contentLength) return 0;
+    const page = Math.max(0, Number(book && book.page || 0));
+    return Math.max(0, Math.min(contentLength, (page + 1) * COREAD_PAGE_SIZE));
+}
+
+function formatCoReadStatNumber(value, unit = '') {
+    const num = Math.max(0, Number(value || 0));
+    if (unit === '字') {
+        if (num >= 10000) return `${(num / 10000).toFixed(num >= 100000 ? 1 : 2).replace(/\.0$/, '')} 万字`;
+        return `${Math.round(num)} 字`;
+    }
+    if (unit === '分钟') return `${Math.round(num)} 分钟`;
+    if (unit === '天') return `${Math.round(num)} 天`;
+    if (unit === '本') return `${Math.round(num)} 本`;
+    if (unit === '条') return `${Math.round(num)} 条`;
+    return String(Math.round(num));
+}
+
+function formatCoReadStatMinutes(minutes) {
+    const total = Math.max(0, Math.round(Number(minutes || 0)));
+    if (total >= 60) {
+        const hours = Math.floor(total / 60);
+        const rest = total % 60;
+        return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`;
+    }
+    return `${total} 分钟`;
+}
+
+function getCoReadPeriodRange(range = coreadStatsRange, offset = coreadStatsOffset) {
+    const now = new Date();
+    const safeRange = ['day', 'week', 'month', 'year', 'total'].includes(range) ? range : 'day';
+    if (safeRange === 'total') {
+        return { id: safeRange, start: 0, end: Infinity, label: '全部' };
+    }
+    if (safeRange === 'day') {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+        const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+        return { id: safeRange, start: start.getTime(), end: end.getTime(), label: `${start.getMonth() + 1}月${start.getDate()}日` };
+    }
+    if (safeRange === 'week') {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7);
+        const day = date.getDay() || 7;
+        const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - day + 1);
+        const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+        return { id: safeRange, start: start.getTime(), end: end.getTime(), label: `${start.getMonth() + 1}.${start.getDate()} - ${new Date(end.getTime() - 1).getMonth() + 1}.${new Date(end.getTime() - 1).getDate()}` };
+    }
+    if (safeRange === 'month') {
+        const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return { id: safeRange, start: start.getTime(), end: end.getTime(), label: `${start.getFullYear()}年${start.getMonth() + 1}月` };
+    }
+    const start = new Date(now.getFullYear() + offset, 0, 1);
+    const end = new Date(start.getFullYear() + 1, 0, 1);
+    return { id: safeRange, start: start.getTime(), end: end.getTime(), label: `${start.getFullYear()}年` };
+}
+
+function getCoReadBookActivityTime(book) {
+    return Number(book && (book.updatedAt || book.lastReadAt || book.createdAt) || 0);
+}
+
+function getCoReadStatsBooks(library, rangeInfo) {
+    if (!rangeInfo || rangeInfo.id === 'total') return Array.isArray(library) ? library : [];
+    return (Array.isArray(library) ? library : []).filter(book => {
+        const ts = getCoReadBookActivityTime(book);
+        return ts >= rangeInfo.start && ts < rangeInfo.end;
+    });
+}
+
+function buildCoReadStatsModel(library = getCoReadLibrary()) {
+    const range = getCoReadPeriodRange();
+    const scopedBooks = getCoReadStatsBooks(library, range);
+    const sourceBooks = range.id === 'total' ? library : scopedBooks;
+    const readChars = sourceBooks.reduce((sum, book) => sum + getCoReadBookReadChars(book), 0);
+    const estimatedMinutes = Math.ceil(readChars / 423);
+    const readDays = new Set(sourceBooks.map(book => {
+        const ts = getCoReadBookActivityTime(book);
+        return ts ? new Date(ts).toDateString() : '';
+    }).filter(Boolean)).size;
+    const finished = sourceBooks.filter(book => getCoReadBookProgress(book) >= 100 || book.finishedAt).length;
+    const reading = sourceBooks.filter(book => getCoReadBookProgress(book) > 0 && getCoReadBookProgress(book) < 100).length;
+    const noteCount = getCoReadThoughts(1000).filter(item => {
+        if (range.id === 'total') return true;
+        const ts = Number(item.createdAt || 0);
+        return ts >= range.start && ts < range.end;
+    }).length;
+    const ranking = [...sourceBooks]
+        .map(book => {
+            const chars = getCoReadBookReadChars(book);
+            return {
+                book,
+                chars,
+                minutes: Math.max(1, Math.ceil(chars / 423))
+            };
+        })
+        .filter(item => item.chars > 0)
+        .sort((a, b) => b.minutes - a.minutes || b.chars - a.chars)
+        .slice(0, 5);
+    return {
+        range,
+        totalBooks: sourceBooks.length,
+        finished,
+        reading,
+        noteCount,
+        readChars,
+        estimatedMinutes,
+        readDays,
+        speed: estimatedMinutes ? Math.round(readChars / estimatedMinutes) : 0,
+        ranking
+    };
+}
+
+function setCoReadStatsRange(range) {
+    const next = ['day', 'week', 'month', 'year', 'total'].includes(range) ? range : 'day';
+    if (coreadStatsRange !== next) {
+        coreadStatsRange = next;
+        coreadStatsOffset = 0;
+    }
+    renderCoReadStatsMount();
+}
+window.setCoReadStatsRange = setCoReadStatsRange;
+
+function shiftCoReadStatsPeriod(delta) {
+    if (coreadStatsRange !== 'total') coreadStatsOffset += Number(delta || 0);
+    renderCoReadStatsMount();
+}
+window.shiftCoReadStatsPeriod = shiftCoReadStatsPeriod;
+
+function renderCoReadStatsMount(library = getCoReadLibrary()) {
+    const target = document.getElementById('coread-me-reading-stats');
+    if (target) target.innerHTML = renderCoReadStatsPanel(library);
+}
+
+function renderCoReadStatsPanel(library = getCoReadLibrary()) {
+    const model = buildCoReadStatsModel(library);
+    const tabs = [
+        { id: 'day', label: '日' },
+        { id: 'week', label: '周' },
+        { id: 'month', label: '月' },
+        { id: 'year', label: '年' },
+        { id: 'total', label: '总' }
+    ];
+    const stats = [
+        { icon: 'ri-alarm-line', value: formatCoReadStatMinutes(model.estimatedMinutes), label: '阅读时间' },
+        { icon: 'ri-calendar-line', value: formatCoReadStatNumber(model.readDays, '天'), label: '阅读天数' },
+        { icon: 'ri-book-2-line', value: formatCoReadStatNumber(model.totalBooks, '本'), label: '累计读过' },
+        { icon: 'ri-checkbox-circle-line', value: formatCoReadStatNumber(model.finished, '本'), label: '读完书籍' },
+        { icon: 'ri-book-open-line', value: formatCoReadStatNumber(model.reading, '本'), label: '在读书籍' },
+        { icon: 'ri-quill-pen-line', value: formatCoReadStatNumber(model.noteCount, '条'), label: '记录笔记' },
+        { icon: 'ri-menu-2-line', value: formatCoReadStatNumber(model.readChars, '字'), label: '阅读字数' },
+        { icon: 'ri-speed-up-line', value: model.speed ? `${model.speed} 字/分钟` : '暂无', label: '阅读速度' }
+    ];
+    return `
+        <section class="coread-stats-board">
+            <div class="coread-stats-title">
+                <strong>阅读统计</strong>
+                <span>Reading Stats</span>
+            </div>
+            <div class="coread-stats-tabs">
+                ${tabs.map(tab => `
+                    <button type="button" class="${coreadStatsRange === tab.id ? 'active' : ''}" onclick="setCoReadStatsRange('${tab.id}')">${tab.label}</button>
+                `).join('')}
+            </div>
+            <div class="coread-stats-date">
+                <button type="button" onclick="shiftCoReadStatsPeriod(-1)" aria-label="上一段"><i class="ri-arrow-left-s-line"></i></button>
+                <strong>${musicEscapeHtml(model.range.label)}</strong>
+                <button type="button" onclick="shiftCoReadStatsPeriod(1)" aria-label="下一段"><i class="ri-arrow-right-s-line"></i></button>
+            </div>
+            <div class="coread-stats-metrics">
+                ${stats.map(item => `
+                    <div>
+                        <strong>${musicEscapeHtml(item.value)}</strong>
+                        <span><i class="${item.icon}"></i>${musicEscapeHtml(item.label)}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <section class="coread-stats-rank">
+                <h3>阅读时长排行榜 <i class="ri-arrow-right-s-line"></i></h3>
+                ${model.ranking.map((item, index) => `
+                    <button type="button" onclick="selectCoReadBook('${musicEscapeAttr(item.book.id)}')">
+                        <b>${index + 1}</b>
+                        <span class="coread-stats-rank-cover">${item.book.coverUrl ? `<img src="${musicEscapeAttr(item.book.coverUrl)}" onerror="this.remove()">` : `<em>${musicEscapeHtml(String(item.book.title || '书').slice(0, 1))}</em>`}</span>
+                        <span class="coread-stats-rank-copy">
+                            <strong>${formatCoReadStatMinutes(item.minutes)}</strong>
+                            <em>${musicEscapeHtml(item.book.title || '未命名书籍')}</em>
+                            <small>累计阅读：${musicEscapeHtml(formatCoReadStatNumber(item.chars, '字'))}</small>
+                        </span>
+                    </button>
+                `).join('') || '<div class="coread-stats-empty">当前周期还没有阅读记录。</div>'}
+            </section>
+        </section>
+    `;
+}
+
+function getCoReadBookReviews(book) {
+    return Array.isArray(book && book.reviews) ? book.reviews.filter(item => item && item.text) : [];
+}
+
+function normalizeCoReadBookReviewItems(value) {
+    let source = value;
+    if (source && typeof source === 'object') source = source.content || source.text || source.message || source.answer || source.response || '';
+    let text = String(source || '').trim()
+        .replace(/^```(?:json)?/i, '')
+        .replace(/```$/i, '')
+        .trim();
+    if (!text) return [];
+    let parsed = null;
+    try {
+        parsed = JSON.parse(text);
+    } catch (_) {
+        const match = text.match(/\[[\s\S]*\]/);
+        if (match) {
+            try { parsed = JSON.parse(match[0]); } catch (__) {}
+        }
+    }
+    const rows = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.comments) ? parsed.comments : []);
+    return rows.map(item => ({
+        id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        nickname: String(item && (item.nickname || item.name) || '').trim().slice(0, 18),
+        text: String(item && (item.text || item.comment || item.content) || '').trim().slice(0, 220),
+        replyTo: String(item && (item.replyTo || item.to || '') || '').trim().slice(0, 18),
+        likes: Math.max(0, Math.floor(Number(item && item.likes || 0))),
+        createdAt: Date.now(),
+        source: 'api'
+    })).filter(item => item.nickname && item.text).slice(0, 18);
+}
+
+function buildCoReadBookReviewMessages(book) {
+    const tags = getCoReadBookTags(book).join('、') || '未标注';
+    const intro = getCoReadBookIntro(book, 420);
+    const sample = String(book && book.content || '').slice(0, 1200);
+    return [
+        {
+            role: 'system',
+            content: '你是中文网文读者评论生成器。只输出 JSON，不要 Markdown，不要解释。评论必须像真实读者区，带昵称、吐槽、网络热梗、互相引用和轻微楼中楼互动。禁止空内容，禁止营销书评，禁止系统口吻。'
+        },
+        {
+            role: 'user',
+            content: [
+                `书名：${book.title || '未命名书籍'}`,
+                `作者：${book.author || '未知作者'}`,
+                `属性/标签：${tags}`,
+                `简介：${intro}`,
+                sample ? `正文片段：${sample}` : '',
+                '请生成 10-15 条中文读者评论。每条包含 nickname、text、likes，可选 replyTo。',
+                'nickname 要搞笑、中二、抽象或像网络平台真实昵称。text 要有吐槽、网络热梗、小红书/抖音语感、短句、疯言疯语、错字、表情符号、@互动、楼中楼引用。必须贴合这本书，不要泛泛而谈。',
+                '输出格式示例：[{"nickname":"...","text":"...","likes":7,"replyTo":"..."}]'
+            ].filter(Boolean).join('\n\n')
+        }
+    ];
+}
+
+async function generateCoReadBookReviews(bookId) {
+    const id = String(bookId || coreadActiveBookId || '');
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === id);
+    if (!book || coreadBookReviewBusyId || typeof callChatApi !== 'function') return;
+    coreadBookReviewBusyId = id;
+    renderCoReadBookDetail();
+    try {
+        const result = await callChatApi(buildCoReadBookReviewMessages(book), { max_tokens: 1800, temperature: 0.9 });
+        const items = normalizeCoReadBookReviewItems(result && result.ok ? result.content : '');
+        if (items.length) {
+            book.reviews = [...items, ...getCoReadBookReviews(book)].slice(0, 80);
+        } else {
+            book.reviewError = (result && result.error) || 'AI 没有返回可用书评。';
+        }
+        book.updatedAt = Date.now();
+        saveCoReadLibrary(library);
+    } catch (_) {
+        book.reviewError = '书评生成失败，稍后再试。';
+        saveCoReadLibrary(library);
+    } finally {
+        coreadBookReviewBusyId = '';
+        renderCoReadBookDetail();
+    }
+}
+window.generateCoReadBookReviews = generateCoReadBookReviews;
+
+function likeCoReadBookReview(bookId, reviewId) {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === bookId);
+    const review = book && getCoReadBookReviews(book).find(item => item.id === reviewId);
+    if (!book || !review) return;
+    review.likes = Math.max(0, Number(review.likes || 0)) + 1;
+    saveCoReadLibrary(library);
+    renderCoReadBookDetail();
+}
+window.likeCoReadBookReview = likeCoReadBookReview;
+
+function addCoReadUserBookReview(bookId) {
+    const input = document.getElementById('coread-book-review-input');
+    const text = String(input && input.value || '').trim();
+    if (!text) return;
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === bookId);
+    if (!book) return;
+    book.reviews = [{
+        id: `review_user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        nickname: '我',
+        text: text.slice(0, 220),
+        likes: 0,
+        createdAt: Date.now(),
+        source: 'user'
+    }, ...getCoReadBookReviews(book)].slice(0, 80);
+    book.updatedAt = Date.now();
+    saveCoReadLibrary(library);
+    if (input) input.value = '';
+    renderCoReadBookDetail();
+}
+window.addCoReadUserBookReview = addCoReadUserBookReview;
+
+function openCoReadBookDetail(bookId) {
+    coreadActiveBookId = String(bookId || '');
+    coreadActiveTab = 'detail';
+    renderCoReadApp();
+}
+window.openCoReadBookDetail = openCoReadBookDetail;
+
+function startCoReadBook(bookId) {
+    coreadActiveBookId = String(bookId || coreadActiveBookId || '');
+    coreadActiveTab = 'reader';
+    coreadReaderPanelOpen = false;
+    renderCoReadApp();
+}
+window.startCoReadBook = startCoReadBook;
+
+function renderCoReadBookReviews(book) {
+    const reviews = getCoReadBookReviews(book);
+    const userProfile = typeof getUserProfile === 'function' ? (getUserProfile() || {}) : {};
+    if (!reviews.length) {
+        return `
+            <div class="coread-book-review-empty">
+                <span>${book.reviewError ? musicEscapeHtml(book.reviewError) : '还没有书评。调用 API 生成一组真实读者风格评论。'}</span>
+                <button type="button" onclick="generateCoReadBookReviews('${musicEscapeAttr(book.id)}')">${coreadBookReviewBusyId === book.id ? '生成中...' : '生成书评'}</button>
+            </div>
+        `;
+    }
+    return reviews.map(item => `
+        <article class="coread-book-review">
+            <img src="${musicEscapeAttr(item.source === 'user' ? (userProfile.avatar || DEFAULT_AVATAR) : DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+            <div>
+                <header>
+                    <strong>${musicEscapeHtml(item.nickname || '读者')}</strong>
+                    ${item.replyTo ? `<em>@${musicEscapeHtml(item.replyTo)}</em>` : ''}
+                </header>
+                <p>${musicEscapeHtml(item.text || '')}</p>
+                <footer>
+                    <button type="button" onclick="likeCoReadBookReview('${musicEscapeAttr(book.id)}','${musicEscapeAttr(item.id)}')"><i class="ri-heart-3-line"></i>${Number(item.likes || 0) || '赞'}</button>
+                    <button type="button" onclick="document.getElementById('coread-book-review-input')?.focus()">回复</button>
+                </footer>
+            </div>
+        </article>
+    `).join('');
+}
+
+function renderCoReadBookDetail() {
+    const box = document.getElementById('coread-book-detail');
+    if (!box) return;
+    const book = getCoReadBook(coreadActiveBookId);
+    if (!book) {
+        box.innerHTML = '<div class="coread-empty">先选择一本书。</div>';
+        return;
+    }
+    const tags = getCoReadBookTags(book);
+    const pct = getCoReadBookProgress(book);
+    box.innerHTML = `
+        <article class="coread-book-hero-card">
+            <div class="coread-book-hero-cover">${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 1))}</span>`}</div>
+            <div class="coread-book-hero-copy">
+                <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                <em>${musicEscapeHtml(book.author || '未知作者')}</em>
+                <div class="coread-book-tags">${tags.map(tag => `<span>${musicEscapeHtml(tag)}</span>`).join('') || '<span>未标注</span>'}</div>
+                <p>${musicEscapeHtml(getCoReadBookIntro(book, 180))}</p>
+                <small>${musicEscapeHtml([book.source || '本地', formatCoReadByteSize(getCoReadBookByteSize(book)), `${pct}%`].filter(Boolean).join(' · '))}</small>
+            </div>
+        </article>
+        <div class="coread-book-actions">
+            <button type="button" onclick="startCoReadBook('${musicEscapeAttr(book.id)}')"><i class="ri-book-open-line"></i>开始阅读</button>
+            <button type="button" onclick="generateCoReadBookReviews('${musicEscapeAttr(book.id)}')" ${coreadBookReviewBusyId === book.id ? 'disabled' : ''}><i class="ri-chat-smile-3-line"></i>${coreadBookReviewBusyId === book.id ? '生成中' : 'AI 书评'}</button>
+        </div>
+        <section class="coread-book-review-panel">
+            <header>
+                <strong>全部评论 <em>${getCoReadBookReviews(book).length}</em></strong>
+                <button type="button" onclick="generateCoReadBookReviews('${musicEscapeAttr(book.id)}')" ${coreadBookReviewBusyId === book.id ? 'disabled' : ''}>最热</button>
+            </header>
+            <div class="coread-book-review-list">${renderCoReadBookReviews(book)}</div>
+            <div class="coread-book-review-input">
+                <input id="coread-book-review-input" type="text" maxlength="220" placeholder="说点好听的">
+                <button type="button" onclick="addCoReadUserBookReview('${musicEscapeAttr(book.id)}')">发送</button>
+            </div>
+        </section>
+    `;
+}
+
 function renderCoReadDashboard() {
     const current = document.getElementById('coread-current-reads');
-    const progress = document.getElementById('coread-progress-card');
     const library = getCoReadLibrary();
+    const shelfBooks = getCoReadShelfBooks(library);
+    const shelfSettings = getCoReadShelfSettings();
     if (current) {
-        current.innerHTML = library.slice(0, 6).map(book => {
+        current.dataset.view = shelfSettings.viewMode;
+        current.classList.toggle('compact', !!shelfSettings.compact);
+        current.classList.toggle('divider', !!shelfSettings.divider);
+        current.classList.toggle('flat', !shelfSettings.cardMode);
+        current.style.setProperty('--coread-shelf-top-steps', `${shelfSettings.topSteps}px`);
+        const categoryShelvesHtml = renderCoReadCategoryShelves(library);
+        const totalShelfHtml = renderCoReadShelfRail(library);
+        const bookCardsHtml = shelfBooks.slice(0, 24).map(book => {
             const pct = getCoReadBookProgress(book);
             const stars = Math.max(0, Math.min(5, Number(book.rating || 0)));
+            const selected = coreadShelfSelectedIds.has(book.id);
+            const tags = getCoReadBookTags(book);
             return `
-                <article class="coread-read-card ${book.id === coreadActiveBookId ? 'active' : ''}">
-                    <button type="button" class="coread-read-main" onclick="selectCoReadBook('${musicEscapeAttr(book.id)}')">
+                <article class="coread-read-card coread-read-detail-card ${book.id === coreadActiveBookId ? 'active' : ''} ${selected ? 'selected' : ''}">
+                    ${coreadShelfSelectionMode ? `<button type="button" class="coread-read-check" onclick="event.stopPropagation(); toggleCoReadShelfBookSelected('${musicEscapeAttr(book.id)}')" aria-label="选择书籍"><i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'}"></i></button>` : ''}
+                    <button type="button" class="coread-read-main" onclick="openCoReadBookDetail('${musicEscapeAttr(book.id)}')">
                         <div class="coread-read-cover">
                             ${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${book.coverResolving ? '...' : musicEscapeHtml(String(book.title || '书').slice(0, 2))}</span>`}
                         </div>
-                        <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
-                        <em>${musicEscapeHtml(book.author || book.source || '未知作者')}</em>
-                        <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
-                        <small>${book.resolving ? '解析中' : `${pct}%`}</small>
+                        <div class="coread-read-copy">
+                            <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                            <div class="coread-card-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
+                            <div class="coread-read-tags">${tags.map(tag => `<span>${musicEscapeHtml(tag)}</span>`).join('') || '<span>未标注</span>'}</div>
+                            <em>${musicEscapeHtml(book.author || '未知作者')}</em>
+                            <p>${musicEscapeHtml(getCoReadBookIntro(book, 118))}</p>
+                            <small>${musicEscapeHtml([book.source || '本地', formatCoReadByteSize(getCoReadBookByteSize(book)), `${pct}%`].join(' · '))}</small>
+                        </div>
                     </button>
                     <button type="button" class="coread-read-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
                         <i class="ri-close-line"></i>
                     </button>
                 </article>
             `;
-        }).join('') || '<div class="coread-empty">书架还空着。先从书源搜索或导入一本书。</div>';
+        }).join('');
+        current.innerHTML = totalShelfHtml + categoryShelvesHtml + (bookCardsHtml || `<div class="coread-empty">${library.length ? '这个分类下暂时没有书。' : '书架还空着。先从书源搜索或导入一本书。'}</div>`);
         library.filter(book => book && !book.coverUrl && !book.coverResolving && book.title && !isCoReadUrlTitle(book.title)).slice(0, 4).forEach(book => {
             ensureCoReadBookCover(book.id);
         });
     }
-    if (progress) {
-        const total = library.length;
-        const completed = library.filter(book => getCoReadBookProgress(book) >= 100).length;
-        const pages = library.reduce((sum, book) => sum + Math.max(1, Number(book.page || 0) + 1), 0);
-        const avg = total ? Math.round(library.reduce((sum, book) => sum + getCoReadBookProgress(book), 0) / total) : 0;
-        progress.innerHTML = `
-            <div class="coread-ring" style="--coread-progress:${avg * 3.6}deg"><strong>${avg}%</strong><span>Completed</span></div>
-            <div class="coread-progress-stats">
-                <span><strong>${total}</strong><em>书架藏书</em></span>
-                <span><strong>${completed}</strong><em>已读完</em></span>
-                <span><strong>${pages}</strong><em>累计页数</em></span>
-            </div>
-        `;
-    }
+    renderCoReadStatsMount(library);
 }
 
 function renderCoReadCalendarStats() {
@@ -11211,7 +12454,7 @@ function renderCoReadCalendarStats() {
     if (calendar) {
         const activeDays = new Set(monthBooks.map(book => new Date(book.createdAt || Date.now()).getDate()));
         calendar.innerHTML = `
-            <div class="coread-calendar-head"><strong>${now.getFullYear()} / ${now.getMonth() + 1}</strong><span>Monthly Reading Log</span></div>
+            <div class="coread-calendar-head"><strong>${now.getFullYear()} / ${now.getMonth() + 1}</strong><span>本月阅读记录</span></div>
             <div class="coread-calendar-grid">
                 ${Array.from({ length: daysInMonth }, (_, i) => {
                     const day = i + 1;
@@ -11326,6 +12569,353 @@ function scrollCoReadBodyToPage(body, book, page) {
     }
 }
 
+function formatCoReadByteSize(bytes) {
+    const value = Math.max(0, Number(bytes || 0));
+    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    if (value >= 1024) return `${(value / 1024).toFixed(value >= 100 * 1024 ? 0 : 1)} KB`;
+    return `${value || 0} B`;
+}
+
+function getCoReadBookByteSize(book) {
+    const explicit = Number(book && (book.fileSize || book.size || book.bytes));
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const text = String(book && (book.content || book.description) || '');
+    if (typeof Blob === 'function') return new Blob([text]).size;
+    return text.length * 2;
+}
+
+function formatCoReadDurationFromChars(count) {
+    const minutes = Math.max(1, Math.ceil(Math.max(0, Number(count || 0)) / 520));
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    if (hours && rest) return `${hours} 小时 ${rest} 分钟`;
+    if (hours) return `${hours} 小时`;
+    return `${rest} 分钟`;
+}
+
+function getCoReadReaderNotes(book) {
+    if (!book || !Array.isArray(book.thoughts)) return [];
+    return book.thoughts.map(item => {
+        const char = getCoReadCharacterById(item.charId);
+        return {
+            ...item,
+            charName: item.charName || getCoReadCharName(char) || 'char',
+            charAvatar: item.charAvatar || (char && char.avatar) || DEFAULT_AVATAR,
+            replies: Array.isArray(item.replies) ? item.replies : []
+        };
+    }).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+}
+
+function getCoReadBookmarks(book) {
+    return (Array.isArray(book && book.bookmarks) ? book.bookmarks : [])
+        .map(item => ({
+            ...item,
+            page: Math.max(0, Number(item && item.page || 0)),
+            createdAt: Number(item && item.createdAt || 0)
+        }))
+        .sort((a, b) => a.page - b.page || b.createdAt - a.createdAt);
+}
+
+function isCurrentCoReadPageBookmarked(book) {
+    const page = Math.max(0, Number(book && book.page || 0));
+    return getCoReadBookmarks(book).some(item => item.page === page);
+}
+
+function toggleCurrentCoReadBookmark() {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === coreadActiveBookId);
+    if (!book) return false;
+    const page = Math.max(0, Number(book.page || 0));
+    const bookmarks = getCoReadBookmarks(book);
+    const exists = bookmarks.some(item => item.page === page);
+    book.bookmarks = exists
+        ? bookmarks.filter(item => item.page !== page)
+        : [{
+            id: `bookmark_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            page,
+            title: getCoReadCurrentChapter(book)?.title || `第 ${page + 1} 页`,
+            excerpt: getCoReadPageText(book).replace(/\s+/g, ' ').slice(0, 80),
+            createdAt: Date.now()
+        }, ...bookmarks].slice(0, 120);
+    saveCoReadLibrary(library);
+    renderCoReadReader();
+    return false;
+}
+window.toggleCurrentCoReadBookmark = toggleCurrentCoReadBookmark;
+
+function jumpCoReadBookmark(page) {
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === coreadActiveBookId);
+    if (!book) return;
+    book.page = Math.max(0, Math.min(getCoReadPageCount(book) - 1, Number(page || 0)));
+    saveCoReadLibrary(library);
+    coreadReaderPendingScrollPage = book.page;
+    coreadReaderPanelOpen = false;
+    renderCoReadReader();
+}
+window.jumpCoReadBookmark = jumpCoReadBookmark;
+
+function setCoReadReaderPanelTab(tab) {
+    const next = ['chapters', 'notes', 'bookmarks'].includes(tab) ? tab : 'chapters';
+    if (coreadReaderPanelOpen && coreadReaderPanelTab === next) {
+        coreadReaderPanelOpen = false;
+        renderCoReadReaderOverview();
+        updateCoReadTopbar();
+        return;
+    }
+    coreadReaderPanelTab = next;
+    coreadReaderPanelOpen = true;
+    if (next !== 'chapters') {
+        coreadReaderChapterGroupIndex = -1;
+        coreadReaderChapterGroupPickerOpen = false;
+    }
+    renderCoReadReaderOverview();
+    updateCoReadTopbar();
+}
+window.setCoReadReaderPanelTab = setCoReadReaderPanelTab;
+
+function closeCoReadReaderPanel() {
+    coreadReaderPanelOpen = false;
+    coreadReaderChapterGroupIndex = -1;
+    coreadReaderChapterGroupPickerOpen = false;
+    renderCoReadReaderOverview();
+    updateCoReadTopbar();
+}
+window.closeCoReadReaderPanel = closeCoReadReaderPanel;
+
+function toggleCoReadReaderChapterGroup() {
+    coreadReaderChapterGroupPickerOpen = !coreadReaderChapterGroupPickerOpen;
+    renderCoReadReaderOverview();
+}
+window.toggleCoReadReaderChapterGroup = toggleCoReadReaderChapterGroup;
+
+function selectCoReadReaderChapterGroup(index) {
+    const next = Math.max(0, Number(index) || 0);
+    coreadReaderChapterGroupIndex = next;
+    coreadReaderChapterGroupPickerOpen = false;
+    renderCoReadReaderOverview();
+}
+window.selectCoReadReaderChapterGroup = selectCoReadReaderChapterGroup;
+
+function runCoReadReaderToolAction(action) {
+    const tool = String(action || '');
+    if (tool === 'chapters' || tool === 'notes' || tool === 'bookmarks') {
+        setCoReadReaderPanelTab(tool);
+        return;
+    }
+    if (tool === 'mode') {
+        setCoReadPageMode(getCoReadReaderSettings().pageMode === 'scroll' ? 'paged' : 'scroll');
+    }
+}
+
+function handleCoReadReaderToolPointer(action, event) {
+    coreadReaderToolPointerAt = Date.now();
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    }
+    runCoReadReaderToolAction(action);
+    return false;
+}
+window.handleCoReadReaderToolPointer = handleCoReadReaderToolPointer;
+
+function handleCoReadReaderToolClick(action, event) {
+    if (Date.now() - coreadReaderToolPointerAt < 600) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+        }
+        return false;
+    }
+    runCoReadReaderToolAction(action);
+    return false;
+}
+window.handleCoReadReaderToolClick = handleCoReadReaderToolClick;
+
+function renderCoReadReaderChapterRows(book, limit = 48, startIndex = 0) {
+    const chapters = getCoReadChapters(book);
+    const page = Math.max(0, Number(book && book.page || 0));
+    const current = getCoReadCurrentChapter(book);
+    const from = Math.max(0, Math.min(Number(startIndex) || 0, Math.max(0, chapters.length - 1)));
+    return chapters.slice(from, from + limit).map((chapter, offset) => {
+        const index = from + offset;
+        const chapterPage = getCoReadChapterPage(chapter);
+        const active = current && chapter.title === current.title ? ' active' : '';
+        const done = chapterPage != null && chapterPage < page ? ' done' : '';
+        const chapterTitle = chapter.title || `第 ${index + 1} 页`;
+        return `
+            <button type="button" class="coread-reader-row${active}${done}" onclick="jumpCoReadChapter(${index})">
+                <span><b>${index + 1}</b>${musicEscapeHtml(chapterTitle)}</span>
+                <em>${chapterPage == null ? '加载' : Math.max(1, chapterPage + 1)}</em>
+                <i class="ri-checkbox-circle-fill" aria-hidden="true"></i>
+            </button>
+        `;
+    }).join('') || '<div class="coread-reader-panel-empty">还没有目录</div>';
+}
+
+function renderCoReadReaderNoteRows(book) {
+    const notes = getCoReadReaderNotes(book);
+    return notes.slice(0, 30).map(note => {
+        const replies = (Array.isArray(note.replies) ? note.replies : []).slice(-2);
+        return `
+            <article class="coread-reader-note">
+                <header>
+                    <img src="${musicEscapeAttr(note.charAvatar || DEFAULT_AVATAR)}" onerror="this.src='${musicEscapeAttr(DEFAULT_AVATAR)}'">
+                    <div>
+                        <strong>${musicEscapeHtml(note.charName || 'char')}</strong>
+                        <span>第 ${Math.max(1, Number(note.page || 0) + 1)} 页 · ${replies.length ? `${replies.length} 条最近回复` : 'char 旁注'}</span>
+                    </div>
+                </header>
+                <p>${musicEscapeHtml(note.text || '')}</p>
+                ${replies.map(reply => `
+                    <div class="coread-reader-reply ${reply.role === 'user' ? 'is-user' : 'is-char'}">
+                        <b>${reply.role === 'user' ? 'user' : musicEscapeHtml(note.charName || 'char')}</b>
+                        <span>${musicEscapeHtml(reply.text || '')}</span>
+                    </div>
+                `).join('')}
+            </article>
+        `;
+    }).join('') || `
+        <div class="coread-reader-panel-empty">
+            <span>这本书还没有笔记。</span>
+            <button type="button" onclick="openCoReadCommentPanel()">让 char 读当前页</button>
+        </div>
+    `;
+}
+
+function renderCoReadReaderBookmarkRows(book) {
+    const bookmarks = getCoReadBookmarks(book);
+    const marked = isCurrentCoReadPageBookmarked(book);
+    const action = `
+        <button type="button" class="coread-reader-bookmark-action ${marked ? 'active' : ''}" onclick="toggleCurrentCoReadBookmark()">
+            <i class="${marked ? 'ri-bookmark-3-fill' : 'ri-bookmark-3-line'}"></i>
+            <span>${marked ? '移除当前页书签' : '收藏当前页'}</span>
+        </button>
+    `;
+    const rows = bookmarks.map(item => `
+        <button type="button" class="coread-reader-row" onclick="jumpCoReadBookmark(${Number(item.page || 0)})">
+            <span>${musicEscapeHtml(item.title || `第 ${Number(item.page || 0) + 1} 页`)}</span>
+            <em>${Number(item.page || 0) + 1}</em>
+            ${item.excerpt ? `<small>${musicEscapeHtml(item.excerpt)}</small>` : ''}
+        </button>
+    `).join('');
+    return `${action}${rows || '<div class="coread-reader-panel-empty">还没有书签，先收藏当前页。</div>'}`;
+}
+
+function renderCoReadReaderOverview() {
+    const box = document.getElementById('coread-reader-overview');
+    if (!box) return;
+    const shell = document.querySelector('.coread-shell');
+    if (shell) shell.classList.toggle('coread-reader-panel-open', !!coreadReaderPanelOpen);
+    const book = getCoReadBook(coreadActiveBookId);
+    box.classList.toggle('open', !!coreadReaderPanelOpen);
+    if (!coreadReaderPanelOpen) {
+        delete box.dataset.readerPanelTab;
+        box.innerHTML = '';
+        return;
+    }
+    if (!book) {
+        box.innerHTML = `
+            <div class="coread-reader-empty-card">
+                <strong>Pick a book</strong>
+                <span>导入一本书，再选择 Reading Soulmate 开始共读。</span>
+            </div>
+        `;
+        return;
+    }
+    box.dataset.readerPanelTab = coreadReaderPanelTab;
+    const contentLength = String(book.content || book.description || '').length;
+    const pageCount = getCoReadPageCount(book);
+    const currentPage = Math.max(0, Number(book.page || 0));
+    const notes = getCoReadReaderNotes(book);
+    const bookmarks = getCoReadBookmarks(book);
+    const chapters = getCoReadChapters(book);
+    const currentChapter = getCoReadCurrentChapter(book);
+    const currentChapterIndex = Math.max(0, chapters.findIndex(chapter => currentChapter && chapter.title === currentChapter.title));
+    const chapterGroupSize = 30;
+    const chapterGroupCount = Math.max(1, Math.ceil(Math.max(1, chapters.length) / chapterGroupSize));
+    const currentGroupIndex = Math.max(0, Math.min(chapterGroupCount - 1, Math.floor(currentChapterIndex / chapterGroupSize)));
+    const activeGroupIndex = Math.max(0, Math.min(chapterGroupCount - 1, coreadReaderChapterGroupIndex >= 0 ? coreadReaderChapterGroupIndex : currentGroupIndex));
+    if (coreadReaderChapterGroupIndex < 0) coreadReaderChapterGroupIndex = activeGroupIndex;
+    const chapterGroupStart = activeGroupIndex * chapterGroupSize + 1;
+    const chapterGroupEnd = Math.min(chapters.length || chapterGroupStart, chapterGroupStart + chapterGroupSize - 1);
+    const tabs = [
+        { id: 'chapters', label: '章节', count: chapters.length },
+        { id: 'notes', label: '笔记', count: notes.length },
+        { id: 'bookmarks', label: '书签', count: bookmarks.length }
+    ];
+    const panel = coreadReaderPanelTab === 'notes'
+        ? renderCoReadReaderNoteRows(book)
+        : coreadReaderPanelTab === 'bookmarks'
+            ? renderCoReadReaderBookmarkRows(book)
+            : renderCoReadReaderChapterRows(book, chapterGroupSize, chapterGroupStart - 1);
+    const chapterGroups = Array.from({ length: chapterGroupCount }, (_, index) => {
+        const start = index * chapterGroupSize + 1;
+        const end = Math.min(chapters.length || start, start + chapterGroupSize - 1);
+        return { index, start, end };
+    });
+    const chapterGroupPicker = coreadReaderPanelTab === 'chapters' && coreadReaderChapterGroupPickerOpen && chapterGroups.length > 1 ? `
+        <div class="coread-reader-drawer-groups">
+            ${chapterGroups.map(group => `
+                <button type="button" class="${group.index === activeGroupIndex ? 'active' : ''}" onclick="selectCoReadReaderChapterGroup(${group.index})">
+                    第${group.start}-${group.end}章
+                </button>
+            `).join('')}
+        </div>
+    ` : '';
+    const chapterDrawerHeader = coreadReaderPanelTab === 'chapters' ? `
+        <div class="coread-reader-drawer-head">
+            <div class="coread-reader-drawer-cover">${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 1))}</span>`}</div>
+            <div class="coread-reader-drawer-meta">
+                <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                <span>${musicEscapeHtml(book.author || book.source || '未知作者')}</span>
+            </div>
+        </div>
+        <div class="coread-reader-drawer-status">
+            <span>正在阅读·${currentChapterIndex + 1}${musicEscapeHtml(currentChapter ? currentChapter.title : `第 ${currentPage + 1} 页`)}（第${Math.min(pageCount, currentPage + 1)}页）</span>
+            <button type="button" onclick="closeCoReadReaderPanel()" aria-label="关闭章节目录"><i class="ri-list-check-2"></i></button>
+        </div>
+        <button type="button" class="coread-reader-drawer-group" onclick="toggleCoReadReaderChapterGroup()" aria-label="${coreadReaderChapterGroupPickerOpen ? '收起章节范围' : '选择章节范围'}">
+            <i class="${coreadReaderChapterGroupPickerOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}"></i>
+            <span>第${chapterGroupStart}-${chapterGroupEnd}章</span>
+        </button>
+        ${chapterGroupPicker}
+    ` : '';
+    const classicHeader = coreadReaderPanelTab === 'chapters' ? '' : `
+        <div class="coread-reader-book-card">
+            <div class="coread-reader-cover">${book.coverUrl ? `<img src="${musicEscapeAttr(book.coverUrl)}" onerror="this.remove()">` : `<span>${musicEscapeHtml(String(book.title || '书').slice(0, 1))}</span>`}</div>
+            <div class="coread-reader-book-info">
+                <strong>${musicEscapeHtml(book.title || '未命名书籍')}</strong>
+                <span>${musicEscapeHtml(book.author || book.source || '未知作者')}</span>
+                <em>${pageCount} 页 · ${contentLength ? `${(contentLength / 10000).toFixed(contentLength >= 100000 ? 1 : 2)} 万字` : '暂无正文'} · ${formatCoReadByteSize(getCoReadBookByteSize(book))}</em>
+            </div>
+            <div class="coread-reader-time">
+                <span>阅读时长</span>
+                <strong>${formatCoReadDurationFromChars(contentLength)}</strong>
+                <em>${Math.min(pageCount, currentPage + 1)} / ${pageCount}</em>
+            </div>
+            <button type="button" class="coread-reader-panel-close" onclick="closeCoReadReaderPanel()" aria-label="关闭"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="coread-reader-tabs">
+            ${tabs.map(tab => `
+                <button type="button" class="${coreadReaderPanelTab === tab.id ? 'active' : ''}" onclick="setCoReadReaderPanelTab('${tab.id}')">
+                    <span>${tab.label}</span>
+                    <em>${tab.count}</em>
+                </button>
+            `).join('')}
+        </div>
+    `;
+    box.innerHTML = `
+        ${chapterDrawerHeader}
+        ${classicHeader}
+        <div class="coread-reader-panel" data-reader-panel="${musicEscapeAttr(coreadReaderPanelTab)}">
+            ${panel}
+        </div>
+    `;
+}
+
 function renderCoReadReader() {
     const book = getCoReadBook(coreadActiveBookId);
     const title = document.getElementById('coread-reader-title');
@@ -11364,6 +12954,7 @@ function renderCoReadReader() {
             body.scrollTop = 0;
         }
     }
+    renderCoReadReaderOverview();
 }
 
 function getCoReadTodayKey() {
@@ -11520,18 +13111,40 @@ function renderCoReadDaily() {
     }
 }
 
+function handleCoReadBack() {
+    if (coreadActiveTab === 'reader' && coreadReaderPanelOpen) {
+        closeCoReadReaderPanel();
+        return false;
+    }
+    if (coreadActiveTab === 'reader' || coreadActiveTab === 'detail') {
+        setCoReadTab('shelf');
+        return false;
+    }
+    closeApp('coread');
+    return false;
+}
+window.handleCoReadBack = handleCoReadBack;
+
 function updateCoReadTopbar() {
     const topbar = document.querySelector('.coread-topbar');
     if (!topbar) return;
     const eyebrow = topbar.querySelector('span');
     const title = topbar.querySelector('strong');
     const rightBtn = topbar.querySelector('button:last-child');
+    const backBtn = topbar.querySelector('button:first-child');
     const backIcon = topbar.querySelector('button:first-child i');
+    if (backBtn) {
+        const returnsToReading = coreadActiveTab === 'reader' && coreadReaderPanelOpen;
+        const returnsToShelf = coreadActiveTab === 'reader' || coreadActiveTab === 'detail';
+        backBtn.setAttribute('onclick', 'return handleCoReadBack()');
+        backBtn.setAttribute('aria-label', returnsToReading ? '返回阅读' : (returnsToShelf ? '返回书架' : '返回'));
+    }
     const tabs = {
-        discover: { title: '发现', action: '书城', onclick: "setCoReadTab('shelf')" },
-        shelf: { title: '书架', action: '发现', onclick: "setCoReadTab('discover')" },
-        thoughts: { title: '想法', action: '书城', onclick: "setCoReadTab('shelf')" },
-        me: { title: '我', action: '书城', onclick: "setCoReadTab('shelf')" }
+        discover: { title: '发现', icon: 'ri-more-fill', onclick: "setCoReadTab('shelf')", aria: '去书架' },
+        shelf: { title: '书架', icon: 'ri-more-fill', onclick: "toggleCoReadShelfMenu()", aria: '书架工具' },
+        detail: { title: '书页', icon: 'ri-book-open-line', onclick: "startCoReadBook()", aria: '开始阅读' },
+        thoughts: { title: '想法', icon: 'ri-more-fill', onclick: "setCoReadTab('shelf')", aria: '去书架' },
+        me: { title: '我', icon: 'ri-more-fill', onclick: "setCoReadTab('shelf')", aria: '去书架' }
     };
     const config = tabs[coreadActiveTab];
     topbar.classList.toggle('coread-ios-topbar', !!config);
@@ -11563,10 +13176,10 @@ function updateCoReadTopbar() {
     if (eyebrow) eyebrow.textContent = '';
     if (title) title.textContent = config.title;
     if (rightBtn) {
-        rightBtn.classList.add('coread-topbar-text-btn');
-        rightBtn.textContent = config.action;
+        rightBtn.classList.remove('coread-topbar-text-btn');
+        rightBtn.innerHTML = `<i class="${config.icon || 'ri-more-fill'}"></i>`;
         rightBtn.setAttribute('onclick', config.onclick);
-        rightBtn.setAttribute('aria-label', config.action);
+        rightBtn.setAttribute('aria-label', config.aria || config.title);
     }
     if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
 }
@@ -11577,6 +13190,10 @@ function renderCoReadApp() {
     const status = document.getElementById('coread-status');
     const library = getCoReadLibrary();
     const isReader = coreadActiveTab === 'reader';
+    if (coreadActiveTab !== 'shelf') {
+        coreadShelfMenuOpen = false;
+        coreadShelfToolPanel = '';
+    }
     if (!isReader) {
         coreadTocOpen = false;
         coreadSettingsOpen = false;
@@ -11585,20 +13202,30 @@ function renderCoReadApp() {
     if (!coreadActiveBookId && library[0]) coreadActiveBookId = library[0].id;
     if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
     if (!isReader) {
-        if (list) list.innerHTML = library.map(renderCoReadBookCard).join('') || '<div class="coread-empty">还没有书</div>';
+        const shelfBooks = getCoReadShelfBooks(library);
+        if (list) list.innerHTML = shelfBooks.map(renderCoReadBookCard).join('') || `<div class="coread-empty">${library.length ? '这个分类下暂时没有书。' : '还没有书'}</div>`;
         if (chars) chars.innerHTML = renderCoReadCharOptions();
-        if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : '内置书城优先，公开书目备用。';
+        if (status) status.textContent = coreadBusy ? '正在听 char 读这一页' : (coreadShelfStatusText || '内置书城优先，公开书目备用。');
     }
     const content = document.querySelector('.coread-content');
     if (content) content.dataset.tab = coreadActiveTab;
     const shell = document.querySelector('.coread-shell');
-    if (shell) shell.classList.toggle('coread-reader-mode', isReader);
+    if (shell) {
+        shell.classList.toggle('coread-reader-mode', isReader);
+        shell.classList.toggle('coread-reader-panel-open', isReader && coreadReaderPanelOpen);
+    }
+    applyCoReadShelfSettings();
+    renderCoReadShelfTabs(library);
+    renderCoReadShelfMenu();
+    syncCoReadShelfMenuState();
     applyCoReadReaderSettings();
     updateCoReadTopbar();
     const backBtn = document.querySelector('.coread-topbar button:first-child');
     if (backBtn) {
-        backBtn.setAttribute('onclick', isReader ? "setCoReadTab('shelf')" : "closeApp('coread')");
-        backBtn.setAttribute('aria-label', isReader ? '返回书架' : '返回');
+        const returnsToReading = isReader && coreadReaderPanelOpen;
+        const returnsToShelf = isReader || coreadActiveTab === 'detail';
+        backBtn.setAttribute('onclick', 'return handleCoReadBack()');
+        backBtn.setAttribute('aria-label', returnsToReading ? '返回阅读' : (returnsToShelf ? '返回书架' : '返回'));
     }
     document.querySelectorAll('.coread-bottom-nav button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.coreadTab === coreadActiveTab);
@@ -11614,6 +13241,7 @@ function renderCoReadApp() {
         renderCoReadCommentPanel();
         if (coreadActiveTab === 'discover') renderCoReadDaily();
         if (coreadActiveTab === 'shelf') renderCoReadDashboard();
+        if (coreadActiveTab === 'detail') renderCoReadBookDetail();
         if (coreadActiveTab === 'thoughts') renderCoReadThoughts();
         if (coreadActiveTab === 'me') {
             renderCoReadMePanel();
@@ -11655,20 +13283,29 @@ function maybeLoadCoReadDiscoveryData() {
 }
 
 function selectCoReadBook(bookId) {
+    if (coreadShelfSelectionMode) {
+        toggleCoReadShelfBookSelected(bookId);
+        return;
+    }
     coreadActiveBookId = bookId || '';
-    coreadActiveTab = 'reader';
+    coreadActiveTab = 'detail';
     renderCoReadApp();
 }
 window.selectCoReadBook = selectCoReadBook;
 
 function selectCoReadChar(charId) {
     coreadActiveCharId = charId || '';
+    coreadMateDropdownOpen = false;
     renderCoReadApp();
 }
 window.selectCoReadChar = selectCoReadChar;
 
 function setCoReadTab(tab) {
     coreadActiveTab = tab || 'discover';
+    if (coreadActiveTab !== 'shelf') {
+        coreadShelfMenuOpen = false;
+        coreadShelfToolPanel = '';
+    }
     const content = document.querySelector('.coread-content');
     if (content) content.dataset.tab = coreadActiveTab;
     renderCoReadApp();
@@ -11708,6 +13345,8 @@ function addCoReadBook(book) {
         chapters: Array.isArray(book.chapters) ? book.chapters.slice(0, 360) : [],
         content: String(book.content || ''),
         description: String(book.description || ''),
+        category: String(book.category || book.categoryId || '').trim().slice(0, 28),
+        tags: Array.isArray(book.tags) ? book.tags.map(tag => String(tag || '').trim()).filter(Boolean).slice(0, 12) : [],
         resolving: false,
         resolveStatus: book.url && !isCoReadUsefulContent(book.content || '') ? '等待解析正文' : '',
         resolveVersion: book.url && isCoReadUsefulContent(book.content || '') ? COREAD_RESOLVE_VERSION : 0,
@@ -12086,20 +13725,76 @@ async function resolveCoReadBookContent(bookId) {
 }
 window.resolveCoReadBookContent = resolveCoReadBookContent;
 
-async function importCoReadFile(input) {
-    const file = input && input.files && input.files[0];
+async function readCoReadFileAsBook(file) {
     if (!file) return;
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const asText = ['txt', 'md', 'markdown', 'json', 'csv'].includes(ext) || /^text\//i.test(file.type || '');
     const content = asText
         ? await file.text()
         : `已加入书架：${file.name}\n\n当前浏览器静态版只直接抽取 txt/md 正文。doc/docx/pdf 可以先加入书架记录来源；如需逐页共读，请转成 txt 后导入，或粘贴可访问的正文链接。`;
-    addCoReadBook({
+    const textFromJson = ext === 'json' ? extractCoReadTextFromJson(content) : '';
+    return {
         title: file.name.replace(/\.[^.]+$/, ''),
         author: '',
         source: asText ? 'file' : ext || 'file',
-        content
-    });
+        content: textFromJson || content,
+        category: getCoReadActiveShelfCategoryName()
+    };
+}
+
+async function importCoReadFiles(files, options = {}) {
+    const picked = Array.from(files || []).filter(file => file && file.name && !/^\./.test(file.name));
+    if (!picked.length) return;
+    const library = getCoReadLibrary();
+    const books = [];
+    for (const file of picked.slice(0, 80)) {
+        try {
+            const book = await readCoReadFileAsBook(file);
+            if (book) {
+                books.push({
+                    id: `book_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                    title: String(book.title || '未命名书籍').slice(0, 120),
+                    author: String(book.author || '').slice(0, 120),
+                    source: String(book.source || 'file'),
+                    url: '',
+                    coverUrl: '',
+                    rating: 0,
+                    sourceData: null,
+                    chapters: [],
+                    content: String(book.content || ''),
+                    description: '',
+                    category: String(book.category || '').trim().slice(0, 28),
+                    tags: options.smart ? ['智能导入'] : [],
+                    resolving: false,
+                    resolveStatus: '',
+                    resolveVersion: COREAD_RESOLVE_VERSION,
+                    resolveMetaVersion: COREAD_META_VERSION,
+                    resolveChapterVersion: 0,
+                    page: 0,
+                    createdAt: Date.now()
+                });
+            }
+        } catch (e) {
+            console.warn('import coread file failed:', file.name, e);
+        }
+    }
+    if (!books.length) {
+        showCoReadShelfToast('没有读到可导入的文件');
+        return;
+    }
+    saveCoReadLibrary([...books, ...library].slice(0, 80));
+    coreadActiveBookId = books[0].id;
+    coreadActiveTab = 'shelf';
+    showCoReadShelfToast(`已导入 ${books.length} 本书`);
+    renderCoReadApp();
+}
+window.importCoReadFiles = importCoReadFiles;
+
+async function importCoReadFile(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const book = await readCoReadFileAsBook(file);
+    addCoReadBook(book);
     input.value = '';
 }
 window.importCoReadFile = importCoReadFile;
@@ -12839,7 +14534,7 @@ const DESKTOP_APPS = [
     { id: 'dream', name: '盗梦空间', icon: 'ri-moon-cloudy-line' },
     { id: 'monitor', name: '监控', icon: 'ri-eye-line' },
     { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' },
-    { id: 'coread', name: '共读', icon: 'ri-book-open-line' },
+    { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' }
 ];
 normalizeDesktopFolders();
@@ -13110,7 +14805,7 @@ function initPageSwipe(options = {}) {
 
     function isDesktopSwipeInteractiveTarget(target) {
         return !!(target && target.closest && target.closest(
-            'button, a, input, textarea, select, [contenteditable="true"], .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal, .desktop-widget-library, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .lcw-control, .lcw-input, .pw-note'
+            'button, a, input, textarea, select, [contenteditable="true"], .folder-overlay, .desktop-edit-toolbar, .desktop-save-modal, .desktop-widget-library, .desktop-resize-handle, .desktop-item-center, .desktop-item-move-page, .desktop-item-delete, .lcw-control, .lcw-input, .pw-note'
         ));
     }
 
@@ -13120,7 +14815,7 @@ function initPageSwipe(options = {}) {
             if (target && target.closest && !target.closest('#pages-container, .page-dots, .dock-bar, #home-screen')) return false;
             return !isDesktopSwipeInteractiveTarget(target);
         }
-        if (target && target.closest && target.closest('.dock-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return false;
+        if (target && target.closest && target.closest('.dock-item, .desktop-edit-toolbar, .desktop-save-modal, .folder-overlay, .desktop-resize-handle, .desktop-item-center, .desktop-item-move-page, .desktop-item-delete')) return false;
         const layoutItem = target && target.closest ? target.closest('.desktop-layout-item') : null;
         if (layoutItem) {
             const point = getDesktopPointerPoint(e);
@@ -13660,9 +15355,13 @@ function setupDesktopLayoutItem(item) {
     if (item._layoutReady) return;
     item._layoutReady = true;
     item.dataset.layoutReady = '1';
+    if (item.classList.contains('layout-app') && !item.classList.contains('is-folder')) {
+        item.onclick = null;
+        item.removeAttribute('onclick');
+    }
     item.addEventListener('pointerdown', startDesktopItemDrag);
     item.addEventListener('click', (e) => {
-        if (e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete, .pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
+        if (e.target.closest('.desktop-resize-handle, .desktop-item-center, .desktop-item-move-page, .desktop-item-delete, .pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-control, .lcw-input')) return;
         if (item.classList.contains('is-folder') && item.dataset.folderId && !item.dataset.desktopDragMoved) {
             e.preventDefault();
             e.stopPropagation();
@@ -13674,13 +15373,26 @@ function setupDesktopLayoutItem(item) {
         e.stopPropagation();
         selectDesktopLayoutItem(item);
     }, true);
+    item.addEventListener('click', (e) => {
+        if (window._editMode) return;
+        if (e.defaultPrevented) return;
+        if (item.classList.contains('is-folder')) return;
+        const appId = getDesktopAppIdFromElement(item);
+        if (!appId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openApp(appId);
+    });
 }
 
 function addDesktopItemControls(item) {
-    item.querySelectorAll(':scope > .desktop-resize-handle, :scope > .desktop-item-move-page, :scope > .desktop-item-delete').forEach(el => el.remove());
+    item.querySelectorAll(':scope > .desktop-resize-handle, :scope > .desktop-item-center, :scope > .desktop-item-move-page, :scope > .desktop-item-delete').forEach(el => el.remove());
     if (!item.classList.contains('layout-app') || item.classList.contains('is-folder')) {
         const resize = document.createElement('div');
         resize.className = 'desktop-resize-handle';
+        resize.setAttribute('role', 'button');
+        resize.setAttribute('aria-label', '拖动缩放组件');
+        resize.innerHTML = '<i class="ri-expand-diagonal-line" aria-hidden="true"></i><span>缩放</span>';
         resize.addEventListener('pointerdown', startDesktopItemResize);
         item.appendChild(resize);
     }
@@ -13694,6 +15406,18 @@ function addDesktopItemControls(item) {
         moveSelectedDesktopItemToOtherPage();
     });
     item.appendChild(move);
+    if (!item.classList.contains('layout-app')) {
+        const center = document.createElement('button');
+        center.type = 'button';
+        center.className = 'desktop-item-center';
+        center.textContent = '居中';
+        center.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            centerSelectedDesktopItem();
+        });
+        item.appendChild(center);
+    }
     if (item.dataset.layoutType === 'custom' || DESKTOP_DELETABLE_BUILTIN_IDS.has(item.dataset.layoutId || '')) {
         const del = document.createElement('button');
         del.type = 'button';
@@ -13841,34 +15565,65 @@ function getDesktopFlowSlotRects(pageArea) {
     const areaHeight = Math.max(520, pageArea.clientHeight || 590);
     const maxTop = Math.max(metrics.startY, areaHeight - metrics.iconHeight - 8);
     const maxRows = Math.max(1, Math.floor((maxTop - metrics.startY) / (metrics.iconHeight + metrics.gapY)) + 1);
-    const obstacles = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
+    const widgetRects = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
         .map(item => getDesktopStyleRect(item, pageArea))
         .filter(Boolean);
+    const obstacles = widgetRects.map(rect => ({
+        left: rect.left - 8,
+        top: rect.top - 12,
+        width: rect.width + 16,
+        height: rect.height + 20
+    }));
     const slots = [];
+    const seen = new Set();
+    const pushSlot = rect => {
+        const safe = clampDesktopLayoutRect(rect, pageArea);
+        const key = `${Math.round(safe.left)}:${Math.round(safe.top)}`;
+        if (seen.has(key)) return;
+        const iconCoreRect = {
+            left: safe.left + 8,
+            top: safe.top + 4,
+            width: Math.max(36, safe.width - 16),
+            height: Math.max(48, safe.height - 18)
+        };
+        const blocked = obstacles.some(obstacle => (
+            getDesktopRectIntersectionRatio(safe, obstacle) > 0.52
+            || getDesktopRectIntersectionRatio(iconCoreRect, obstacle) > 0.18
+        ));
+        if (blocked) return;
+        seen.add(key);
+        slots.push(safe);
+    };
     for (let row = 0; row < maxRows; row += 1) {
         for (let col = 0; col < metrics.columns; col += 1) {
             const top = metrics.startY + row * (metrics.iconHeight + metrics.gapY);
             if (top > maxTop + 1) continue;
-            const rect = {
+            pushSlot({
                 left: metrics.startX + col * (metrics.iconWidth + metrics.gapX),
                 top,
                 width: metrics.iconWidth,
                 height: metrics.iconHeight
-            };
-            const iconCoreRect = {
-                left: rect.left + 8,
-                top: rect.top + 4,
-                width: Math.max(36, rect.width - 16),
-                height: Math.max(48, rect.height - 18)
-            };
-            const blocked = obstacles.some(obstacle => (
-                getDesktopRectIntersectionRatio(rect, obstacle) > 0.52
-                || getDesktopRectIntersectionRatio(iconCoreRect, obstacle) > 0.18
-            ));
-            if (!blocked) slots.push(rect);
+            });
         }
     }
-    return slots;
+    widgetRects.forEach(widget => {
+        const edgeTops = [
+            widget.top + widget.height + 8,
+            widget.top - metrics.iconHeight - 8
+        ];
+        edgeTops.forEach(top => {
+            if (top < metrics.startY - 1 || top > maxTop + 1) return;
+            for (let col = 0; col < metrics.columns; col += 1) {
+                pushSlot({
+                    left: metrics.startX + col * (metrics.iconWidth + metrics.gapX),
+                    top,
+                    width: metrics.iconWidth,
+                    height: metrics.iconHeight
+                });
+            }
+        });
+    });
+    return slots.sort((a, b) => (a.top - b.top) || (a.left - b.left));
 }
 
 function getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots = new Set(), preferredIndex = null) {
@@ -14245,6 +16000,7 @@ function settleDesktopAppsAroundWidget(widgetItem, pageArea) {
     delete pageArea._desktopSlotRects;
     captureDesktopPageSlotRects(pageArea);
     compactDesktopSlotOrder(pageArea);
+    repairDesktopAppOverlaps(pageArea);
 }
 
 function isPointInsideDesktopDock(point) {
@@ -14752,8 +16508,47 @@ function playDesktopFolderMergeAnimation(folderItem) {
     setTimeout(() => folderItem.classList.remove('desktop-folder-created'), 420);
 }
 
+function centerSelectedDesktopItem() {
+    const item = window._desktopSelectedLayoutItem;
+    const pageArea = item?.closest?.('.desktop-scroll-area');
+    if (!window._editMode || !item || !pageArea) return;
+    const width = item.offsetWidth || parseFloat(item.style.width) || 118;
+    const height = item.offsetHeight || parseFloat(item.style.height) || 96;
+    const top = parseFloat(item.style.top) || item.offsetTop || 8;
+    const areaRect = pageArea.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const style = getComputedStyle(pageArea);
+    const paddingLeft = parseFloat(style.paddingLeft) || 0;
+    const scaleX = itemRect.width > 0 && width > 0
+        ? itemRect.width / width
+        : (areaRect.width > 0 && pageArea.clientWidth > 0 ? areaRect.width / pageArea.clientWidth : 1);
+    const visualCenteredLeft = scaleX > 0
+        ? ((areaRect.width - itemRect.width) / 2) / scaleX - paddingLeft
+        : (pageArea.clientWidth - width) / 2;
+    const centeredLeft = Math.round(Number.isFinite(visualCenteredLeft) ? visualCenteredLeft : (pageArea.clientWidth - width) / 2);
+    const safe = clampDesktopLayoutRect({
+        left: Math.max(8, centeredLeft),
+        top,
+        width,
+        height
+    }, pageArea);
+    setDesktopLayoutItemRect(item, safe);
+    delete pageArea._desktopSlotRects;
+    showDesktopSnapGuides(pageArea, {
+        ...safe,
+        guideX: Math.round(safe.left + safe.width / 2),
+        guideY: Math.round(safe.top + safe.height / 2),
+        centerX: true,
+        centerY: false,
+        mode: 'move'
+    });
+    setTimeout(() => hideDesktopSnapGuides(pageArea), 520);
+    if (typeof showWechatToast === 'function') showWechatToast('已居中');
+}
+window.centerSelectedDesktopItem = centerSelectedDesktopItem;
+
 function startDesktopItemDrag(e) {
-    if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete')) return;
+    if (!window._editMode || e.target.closest('.desktop-resize-handle, .desktop-item-center, .desktop-item-move-page, .desktop-item-delete')) return;
     const item = e.currentTarget;
     const isPolaroidWidget = item.classList.contains('desktop-widget-polaroid');
     if (e.target.closest('.pw-note, .dsw-avatar, .dsw-avatar-input, .dsw-weather, .dsw-steps, .lcw-input, .dnw-tone-picker, .lcw-bubble-palette, .lcw-bubble-custom, .lcw-title-palette')) return;
@@ -14873,10 +16668,8 @@ function startDesktopItemDrag(e) {
             clearPendingFolderMergeTarget();
             const slotIndex = area === activeArea && pointerSlotIndex >= 0 ? pointerSlotIndex : getDesktopSlotIndexFromPoint(area, point, item);
             applyDesktopSlotOrder(area, item, slotIndex);
-            nudgeDesktopLayoutObstacles(item, area);
         } else {
             clearPendingFolderMergeTarget();
-            settleDesktopAppsAroundWidget(item, area);
         }
     };
     const up = (ev) => {
@@ -14926,7 +16719,7 @@ function startDesktopItemDrag(e) {
                 window.goToDesktopPage(movedToPageIndex);
             }
         } else {
-            settleDesktopAppsAroundWidget(item, area);
+            if (hasMoved) settleDesktopAppsAroundWidget(item, area);
         }
         item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
         if (item.dataset.desktopDragMoved) {
@@ -14942,27 +16735,48 @@ function startDesktopItemDrag(e) {
 
 function startDesktopItemResize(e) {
     if (!window._editMode) return;
+    if (typeof e.button === 'number' && e.button !== 0) return;
     const item = e.currentTarget.closest('.desktop-layout-item');
     const pageArea = item?.closest('.desktop-scroll-area');
     if (!item || !pageArea) return;
+    const handle = e.currentTarget;
+    const pointerId = typeof e.pointerId !== 'undefined' ? e.pointerId : null;
     e.preventDefault();
     e.stopPropagation();
+    if (typeof handle.setPointerCapture === 'function' && pointerId !== null) {
+        try { handle.setPointerCapture(pointerId); } catch (err) {}
+    }
+    selectDesktopLayoutItem(item);
+    item.classList.add('desktop-layout-resizing');
     const startX = e.clientX;
     const startY = e.clientY;
     const startWidth = item.offsetWidth;
     const startHeight = item.offsetHeight;
     const isFolder = item.classList.contains('is-folder');
-    const minWidth = item.classList.contains('calendar-widget') ? 220 : isFolder ? 72 : 118;
-    const minHeight = item.classList.contains('calendar-widget') ? 118 : isFolder ? 76 : 96;
+    const isLovelyWidget = item.classList.contains('desktop-widget-lovely');
+    const minWidth = item.classList.contains('calendar-widget') ? 220 : isLovelyWidget ? 150 : isFolder ? 72 : 118;
+    const minHeight = item.classList.contains('calendar-widget') ? 118 : isLovelyWidget ? 128 : isFolder ? 76 : 96;
     const scale = getDesktopEditScale();
+    let hasResized = false;
+    let active = true;
 
     const move = (ev) => {
+        if (!active) return;
+        if (pointerId !== null && typeof ev.pointerId !== 'undefined' && ev.pointerId !== pointerId) return;
+        if (ev.pointerType === 'mouse' && ev.buttons === 0) {
+            finishResize(ev);
+            return;
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
         const left = parseFloat(item.style.left) || 0;
         const top = parseFloat(item.style.top) || 0;
         const maxWidth = pageArea.clientWidth - left;
         const maxHeight = pageArea.clientHeight - top;
         const dx = (ev.clientX - startX) / scale;
         const dy = (ev.clientY - startY) / scale;
+        if (!hasResized && Math.hypot(dx, dy) < 4) return;
+        hasResized = true;
         applyDesktopLayoutRect(item, pageArea, {
             left,
             top,
@@ -14970,14 +16784,31 @@ function startDesktopItemResize(e) {
             height: Math.max(minHeight, Math.min(maxHeight, startHeight + dy))
         }, { mode: 'resize' });
     };
-    const up = () => {
-        if (!item.classList.contains('layout-app')) settleDesktopAppsAroundWidget(item, pageArea);
+    function finishResize(ev) {
+        if (!active) return;
+        if (ev && pointerId !== null && typeof ev.pointerId !== 'undefined' && ev.pointerId !== pointerId) return;
+        active = false;
+        if (typeof handle.releasePointerCapture === 'function' && pointerId !== null) {
+            try { handle.releasePointerCapture(pointerId); } catch (err) {}
+        }
+        item.classList.remove('desktop-layout-resizing');
         hideDesktopSnapGuides(pageArea);
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', finishResize, true);
+        window.removeEventListener('pointercancel', finishResize, true);
+        window.removeEventListener('mouseup', finishResize, true);
+        window.removeEventListener('blur', finishResize, true);
+        handle.removeEventListener('lostpointercapture', finishResize, true);
+        if (hasResized && !item.classList.contains('layout-app')) {
+            settleDesktopAppsAroundWidget(item, pageArea);
+        }
+    }
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', finishResize, true);
+    window.addEventListener('pointercancel', finishResize, true);
+    window.addEventListener('mouseup', finishResize, true);
+    window.addEventListener('blur', finishResize, true);
+    handle.addEventListener('lostpointercapture', finishResize, true);
 }
 
 function getDesktopStatusCharacters() {
@@ -16282,7 +18113,7 @@ function findDesktopSnapMatch(targets, points) {
             const distance = Math.abs(point.value - target.value);
             if (distance > DESKTOP_SNAP_TOLERANCE) return;
             if (!best || distance < best.distance || (distance === best.distance && target.type === 'center')) {
-                best = { ...target, offset: point.offset, distance };
+                best = { ...target, offset: point.offset, pointRole: point.role || '', distance };
             }
         });
     });
@@ -16305,17 +18136,23 @@ function snapDesktopLayoutRect(rect, pageArea, options = {}) {
     const targets = getDesktopSnapTargets(pageArea, options.item || null);
 
     if (mode === 'resize') {
-        const rightMatch = findDesktopSnapMatch(targets.vertical, [{ value: left + width, offset: 0 }]);
-        const bottomMatch = findDesktopSnapMatch(targets.horizontal, [{ value: top + height, offset: 0 }]);
+        const rightMatch = findDesktopSnapMatch(targets.vertical, [
+            { value: left + width, offset: 0, role: 'edge' },
+            { value: left + width / 2, offset: width / 2, role: 'center' }
+        ]);
+        const bottomMatch = findDesktopSnapMatch(targets.horizontal, [
+            { value: top + height, offset: 0, role: 'edge' },
+            { value: top + height / 2, offset: height / 2, role: 'center' }
+        ]);
         if (rightMatch) {
-            width = Math.max(54, rightMatch.value - left);
+            width = Math.max(54, rightMatch.pointRole === 'center' ? (rightMatch.value - left) * 2 : rightMatch.value - left);
             guideX = rightMatch.value;
             snapXType = rightMatch.type;
         } else {
             guideX = left + width;
         }
         if (bottomMatch) {
-            height = Math.max(58, bottomMatch.value - top);
+            height = Math.max(58, bottomMatch.pointRole === 'center' ? (bottomMatch.value - top) * 2 : bottomMatch.value - top);
             guideY = bottomMatch.value;
             snapYType = bottomMatch.type;
         } else {
@@ -16398,6 +18235,7 @@ function applyDesktopLayoutRect(item, pageArea, rect, options = {}) {
     item.style.top = `${Math.round(safe.top)}px`;
     item.style.width = `${Math.round(safe.width)}px`;
     item.style.height = `${Math.round(safe.height)}px`;
+    if (item && !item.classList.contains('layout-app')) delete pageArea._desktopSlotRects;
     showDesktopSnapGuides(pageArea, safe);
     return safe;
 }
@@ -16453,6 +18291,7 @@ function addDesktopCustomWidget(kind) {
     const size = getDesktopCustomWidgetSize(kind);
     pageArea.appendChild(item);
     prepareDesktopLayoutItem(item, pageArea, findDesktopOpenWidgetRect(pageArea, size));
+    settleDesktopAppsAroundWidget(item, pageArea);
     if (kind === 'status') {
         updateDesktopStatusWidgets();
         requestDesktopStatusWeather({ force: true });
@@ -17014,12 +18853,27 @@ function clearDesktopEditChrome() {
     document.getElementById('desktop-widget-library')?.remove();
     document.getElementById('desktop-edit-swipe-zone')?.remove();
     document.getElementById('desktop-save-modal')?.remove();
-    document.querySelectorAll('.desktop-resize-handle, .desktop-item-move-page, .desktop-item-delete').forEach(el => el.remove());
+    document.querySelectorAll('.desktop-resize-handle, .desktop-item-center, .desktop-item-move-page, .desktop-item-delete').forEach(el => el.remove());
     document.querySelectorAll('.desktop-snap-guides').forEach(el => el.remove());
     document.querySelectorAll('.desktop-layout-item.selected').forEach(el => el.classList.remove('selected'));
     document.querySelectorAll('.dock-item.selected').forEach(el => el.classList.remove('selected'));
     document.querySelectorAll('.desktop-layout-dragging, .desktop-slot-dragging, .desktop-dock-drop-ready').forEach(el => el.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready'));
     document.querySelectorAll('.dock-drag-ghost').forEach(el => el.remove());
+}
+
+function resetDesktopInteractionStateAfterEdit() {
+    clearTimeout(_editLongPressTimer);
+    _desktopLongPressActive = false;
+    _desktopLongPressTriggered = false;
+    _desktopLongPressStart = null;
+    window._desktopDraggingItem = null;
+    window._desktopDockDraggingItem = null;
+    document.querySelectorAll('[data-desktop-drag-moved]').forEach(item => {
+        delete item.dataset.desktopDragMoved;
+    });
+    document.querySelectorAll('#pages-container .desktop-layout-item').forEach(item => {
+        item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready', 'desktop-layout-resizing');
+    });
 }
 
 function restoreDesktopRuntimeAfterEdit() {
@@ -17035,6 +18889,7 @@ function restoreDesktopRuntimeAfterEdit() {
     }
     document.querySelectorAll('#pages-container .desktop-layout-item').forEach(item => setupDesktopLayoutItem(item));
     setupDesktopDockEditing();
+    resetDesktopInteractionStateAfterEdit();
 }
 
 function normalizeDesktopSavedLayoutItems(items, dockItems = []) {
@@ -17143,6 +18998,7 @@ function exitEditMode(saveChanges) {
     window._editMode = false;
     document.getElementById('home-screen')?.classList.remove('desktop-editing');
     clearDesktopEditChrome();
+    resetDesktopInteractionStateAfterEdit();
     window._desktopSelectedLayoutItem = null;
     if (!saveChanges && _desktopLayoutBackupHtml) {
         if (_desktopDefaultPrincessDeletedBackup == null) {
@@ -17291,8 +19147,14 @@ function migrateDesktopDefaultLovelyWidget() {
         }
         const height = Number(item.height);
         const defaultHeight = getDesktopCustomWidgetSize('lovely').height;
-        if (!Number.isFinite(height) || height < defaultHeight || height === 264 || height === 304) {
+        if (!Number.isFinite(height) || height < defaultHeight || height > defaultHeight * 1.35 || height === 264 || height === 304) {
             item.height = defaultHeight;
+            changed = true;
+        }
+        const width = Number(item.width);
+        const defaultWidth = getDesktopCustomWidgetSize('lovely').width;
+        if (!Number.isFinite(width) || width < 260 || width > defaultWidth * 1.25) {
+            item.width = defaultWidth;
             changed = true;
         }
     });

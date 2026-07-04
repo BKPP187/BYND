@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260704-coread-ai-empty1">
+    <link rel="stylesheet" href="style.css?v=20260704-coread-drawer-back-layer1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -158,7 +158,7 @@
                             </div>
                             <div class="app-item" data-app-id="coread" data-layout-id="app-coread" onclick="openApp('coread')">
                                 <div class="app-icon icon-black"><i class="ri-book-open-line"></i></div>
-                                <span>共读</span>
+                                <span>PageMate</span>
                             </div>
                             <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')">
                                 <div class="app-icon icon-black"><i class="ri-image-2-line"></i></div>
@@ -613,8 +613,8 @@
                 <div class="coread-topbar">
                     <button type="button" onclick="closeApp('coread')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
                     <div>
-                        <span>SHARED READING</span>
-                        <strong>和 char 共读小说</strong>
+                        <span>PAGEMATE</span>
+                        <strong>和 char 读这一页</strong>
                     </div>
                     <button type="button" onclick="openCoReadCommentPanel()" aria-label="打开 char 共读气泡"><i class="ri-chat-quote-line"></i></button>
                 </div>
@@ -642,11 +642,14 @@
                         </div>
                     </section>
                     <section id="coread-search-results" class="coread-search-results" data-coread-panel="shelf"></section>
+                    <section class="coread-shelf-control" data-coread-panel="shelf">
+                        <div class="coread-shelf-tabs" id="coread-shelf-tabs"></div>
+                    </section>
                     <section class="coread-import-strip" data-coread-panel="shelf">
                         <label class="coread-file">
                             <i class="ri-file-upload-line"></i>
                             <span>导入 txt / md / doc</span>
-                            <input type="file" accept=".txt,.md,.markdown,.doc,.docx,.pdf,text/*" onchange="importCoReadFile(this)">
+                            <input id="coread-file-input" type="file" accept=".txt,.md,.markdown,.doc,.docx,.pdf,text/*" onchange="importCoReadFile(this)">
                         </label>
                         <div class="coread-url">
                             <input id="coread-url-input" type="url" placeholder="粘贴书籍链接">
@@ -659,7 +662,9 @@
                             <strong>阅读宇宙</strong>
                         </div>
                         <div class="coread-current-reads" id="coread-current-reads"></div>
-                        <div class="coread-progress-card" id="coread-progress-card"></div>
+                    </section>
+                    <section class="coread-book-detail" data-coread-panel="detail">
+                        <div id="coread-book-detail" class="coread-book-detail-box"></div>
                     </section>
                     <section class="coread-layout" data-coread-panel="shelf">
                         <aside class="coread-sidebar">
@@ -677,10 +682,13 @@
                                 </div>
                                 <button type="button" onclick="turnCoReadPage(1)"><i class="ri-arrow-right-s-line"></i></button>
                             </div>
+                            <section id="coread-reader-overview" class="coread-reader-overview"></section>
                             <article id="coread-reader-body" class="coread-reader-body"></article>
                             <div class="coread-reader-tools">
-                                <button type="button" onclick="toggleCoReadToc(true)" aria-label="目录"><i class="ri-menu-2-line"></i><span>目录</span></button>
-                                <button type="button" onclick="setCoReadTab('shelf')" aria-label="去书架"><i class="ri-book-shelf-line"></i><span>书架</span></button>
+                                <button type="button" onpointerdown="return handleCoReadReaderToolPointer('chapters', event)" ontouchstart="return handleCoReadReaderToolPointer('chapters', event)" onclick="return handleCoReadReaderToolClick('chapters', event)" aria-label="章节"><i class="ri-list-check-2"></i><span>章节</span></button>
+                                <button type="button" onpointerdown="return handleCoReadReaderToolPointer('notes', event)" ontouchstart="return handleCoReadReaderToolPointer('notes', event)" onclick="return handleCoReadReaderToolClick('notes', event)" aria-label="笔记"><i class="ri-lightbulb-line"></i><span>笔记</span></button>
+                                <button type="button" class="coread-settings-trigger" data-coread-settings-open="true" onpointerdown="return handleCoReadSettingsPointer(true, event)" ontouchstart="return handleCoReadSettingsPointer(true, event)" onclick="return handleCoReadSettingsClick(true, event)" aria-label="字体"><i class="ri-font-size-2"></i><span>字体</span></button>
+                                <button type="button" onpointerdown="return handleCoReadReaderToolPointer('bookmarks', event)" ontouchstart="return handleCoReadReaderToolPointer('bookmarks', event)" onclick="return handleCoReadReaderToolClick('bookmarks', event)" aria-label="书签"><i class="ri-bookmark-3-line"></i><span>书签</span></button>
                                 <button type="button" class="coread-settings-trigger" data-coread-settings-open="true" onpointerdown="return handleCoReadSettingsPointer(true, event)" ontouchstart="return handleCoReadSettingsPointer(true, event)" onclick="return handleCoReadSettingsClick(true, event)" aria-label="设置"><i class="ri-settings-3-line"></i><span>设置</span></button>
                             </div>
                         </main>
@@ -696,21 +704,25 @@
                     </section>
                     <section class="coread-me" data-coread-panel="me">
                         <div class="coread-section-title">
-                            <span>PROFILE</span>
-                            <strong>共读对象</strong>
+                            <span>共读伙伴</span>
+                            <strong>一起读书的人</strong>
                         </div>
                         <div id="coread-me-char-list" class="coread-me-char-list"></div>
+                        <div class="coread-progress-card coread-me-reading-stats" id="coread-me-reading-stats"></div>
                         <div class="coread-me-stats" id="coread-me-stats"></div>
                         <div class="coread-reading-calendar" id="coread-reading-calendar"></div>
                         <div class="coread-me-guide">
                             <i class="ri-book-open-line"></i>
                             <div>
-                                <strong>共读规则</strong>
-                                <p>选择一本书和一个 char 后，旁注会按角色卡、世界书、记忆和最近聊天推演，不写通用书评。</p>
+                                <strong>共读说明</strong>
+                                <p>选好书和共读对象后，TA 会陪你读当前章节，留下吐槽、心动点和想追问的话。</p>
                             </div>
                         </div>
                     </section>
                 </div>
+                <aside id="coread-shelf-menu" class="coread-shelf-menu" aria-hidden="true">
+                    <div class="coread-shelf-menu-panel" id="coread-shelf-menu-panel"></div>
+                </aside>
                 <aside id="coread-toc-drawer" class="coread-toc-drawer" aria-hidden="true">
                     <button type="button" class="coread-toc-scrim" onclick="toggleCoReadToc(false)" aria-label="关闭目录"></button>
                     <section class="coread-toc-panel">
@@ -1234,7 +1246,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.469
+                    Beyond Screen v1.1.523
                 </div>
             </div>
         </div>
@@ -2224,10 +2236,10 @@
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260703-qq-tabbar1"></script>
-    <script src="wechat.js?v=20260704-coread-empty-length2"></script>
-    <script src="theme.js?v=20260704-coread-empty-length2"></script>
-    <script src="settings.js?v=20260704-coread-empty-length2"></script>
-    <script src="script.js?v=20260704-coread-empty-length2"></script>
+    <script src="wechat.js?v=20260704-coread-drawer-back-layer1"></script>
+    <script src="theme.js?v=20260704-coread-drawer-back-layer1"></script>
+    <script src="settings.js?v=20260704-coread-drawer-back-layer1"></script>
+    <script src="script.js?v=20260704-coread-drawer-back-layer1"></script>
     <script src="netease.js?v=20260611-netease-music1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
