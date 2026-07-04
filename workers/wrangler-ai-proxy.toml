@@ -1,0 +1,8 @@
+name = "bynd-ai-proxy"
+main = "bynd-ai-proxy-worker.js"
+compatibility_date = "2026-07-04"
+workers_dev = true
+preview_urls = false
+
+[vars]
+UPSTREAM_API_BASE_URL = "https://integrate.api.nvidia.com/v1"

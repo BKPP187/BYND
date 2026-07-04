@@ -3831,15 +3831,79 @@ function initDreamApp() {
     const chars = getDreamCharacters();
     if (select) {
         const previous = select.value;
+        select.classList.add('dream-native-select');
         select.innerHTML = chars.length
             ? chars.map(char => `<option value="${musicEscapeAttr(char.id)}">${musicEscapeHtml(getDreamCharName(char))}</option>`).join('')
             : '<option value="">先导入角色卡</option>';
         if (previous && chars.some(char => char.id === previous)) select.value = previous;
     }
+    renderDreamCharPicker(chars);
     setDreamStatus(chars.length ? '选择角色，打开梦境盒子。' : '还没有可生成梦境的角色。', chars.length ? '' : 'warn');
     renderDreamList();
 }
 window.initDreamApp = initDreamApp;
+
+function renderDreamCharPicker(chars = getDreamCharacters()) {
+    const select = document.getElementById('dream-char-select');
+    const label = select?.closest('label');
+    if (!select || !label) return;
+    let picker = label.querySelector('.dream-char-picker');
+    if (!picker) {
+        picker = document.createElement('div');
+        picker.className = 'dream-char-picker';
+        select.insertAdjacentElement('afterend', picker);
+    }
+    const selected = chars.find(char => char.id === select.value) || chars[0] || null;
+    if (selected && select.value !== selected.id) select.value = selected.id;
+    const buttonLabel = selected ? getDreamCharName(selected) : '先导入角色卡';
+    picker.innerHTML = `
+        <button type="button" class="dream-char-trigger" onclick="toggleDreamCharPicker(event)" ${chars.length ? '' : 'disabled'}>
+            <span>${musicEscapeHtml(buttonLabel)}</span>
+            <i class="ri-arrow-down-s-line"></i>
+        </button>
+        <div class="dream-char-menu">
+            ${chars.length ? chars.map(char => {
+                const active = char.id === select.value;
+                return `<button type="button" class="${active ? 'active' : ''}" onclick="selectDreamChar('${musicEscapeAttr(char.id)}')">${musicEscapeHtml(getDreamCharName(char))}</button>`;
+            }).join('') : '<em>还没有角色</em>'}
+        </div>
+    `;
+    if (!document.documentElement.dataset.dreamPickerBound) {
+        document.documentElement.dataset.dreamPickerBound = '1';
+        document.addEventListener('pointerdown', event => {
+            if (event.target.closest('.dream-char-picker')) return;
+            closeDreamCharPicker();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeDreamCharPicker();
+        });
+    }
+}
+
+function toggleDreamCharPicker(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const picker = document.querySelector('.dream-char-picker');
+    if (!picker) return false;
+    picker.classList.toggle('open');
+    return false;
+}
+window.toggleDreamCharPicker = toggleDreamCharPicker;
+
+function closeDreamCharPicker() {
+    document.querySelectorAll('.dream-char-picker.open').forEach(item => item.classList.remove('open'));
+}
+window.closeDreamCharPicker = closeDreamCharPicker;
+
+function selectDreamChar(charId) {
+    const select = document.getElementById('dream-char-select');
+    if (!select) return false;
+    select.value = charId;
+    closeDreamCharPicker();
+    renderDreamCharPicker();
+    return false;
+}
+window.selectDreamChar = selectDreamChar;
 
 async function generateDreamRecord() {
     if (dreamGenerating) return;

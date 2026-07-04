@@ -55,6 +55,20 @@ function formatChatApiRateLimitPause(ms) {
     return `${Math.max(1, seconds)} 秒`;
 }
 
+function isChatApiNvidiaBaseUrl(baseUrl) {
+    return /(^|\/\/|\.)(nvidia\.com|integrate\.api\.nvidia\.com)(\/|$)/i.test(String(baseUrl || ''));
+}
+
+function getChatApiNetworkHint(baseUrl, errorMessage) {
+    const text = String(errorMessage || '');
+    const networkLike = /failed to fetch|network|load failed|fetch|缃戠粶|无法连接/i.test(text);
+    if (!networkLike) return '';
+    if (isChatApiNvidiaBaseUrl(baseUrl)) {
+        return '。NVIDIA 接口通常不给浏览器静态网页直连，请在设置里改用 BYND AI Proxy Worker：Worker 不保存 key，网页 Base URL 填 Worker 地址，API Key 继续填用户自己的 NVIDIA key';
+    }
+    return '';
+}
+
 function padChatDatePart(value) {
     return String(value).padStart(2, '0');
 }
@@ -1596,7 +1610,7 @@ async function callChatApi(messages, options = {}) {
     } catch (e) {
         const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
         const msg = isTimeout ? '请求超时（90秒），已继续压缩本次微信上下文；如果仍超时，请换更快模型或减少角色卡/世界书。' : (e.message || '网络错误');
-        return { ok: false, error: msg };
+        return { ok: false, error: msg + getChatApiNetworkHint(baseUrl, msg) };
     }
 }
 

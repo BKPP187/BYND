@@ -1716,6 +1716,17 @@ function convertImageModelToInput() {
     parent.replaceChild(input, selectEl);
 }
 
+function isNvidiaApiBaseUrl(baseUrl) {
+    return /(^|\/\/|\.)(nvidia\.com|integrate\.api\.nvidia\.com)(\/|$)/i.test(String(baseUrl || ''));
+}
+
+function getApiProxyHint(baseUrl) {
+    if (isNvidiaApiBaseUrl(baseUrl)) {
+        return 'NVIDIA 接口通常不允许浏览器静态网页直连。请走 BYND AI Proxy Worker：Worker 不保存 key；网页 Base URL 填 Worker 地址，API Key 继续填用户自己的 NVIDIA key。';
+    }
+    return '这个接口可能不允许浏览器直连。请换成支持 CORS 的 OpenAI 兼容中转站，或走 BYND AI Proxy Worker。';
+}
+
 // 10. 核心测试逻辑 — 一次请求返回连接状态+模型列表
 async function doTestApi(baseUrl, apiKey) {
     baseUrl = baseUrl.replace(/\/+$/, '');
@@ -1759,7 +1770,8 @@ async function doTestApi(baseUrl, apiKey) {
         return { ok: false, error: `HTTP ${resp.status}`, models: [] };
     } catch (e) {
         const msg = (e.name === 'AbortError' || e.message === 'The operation was aborted') ? '连接超时' : (e.message || '无法连接');
-        return { ok: false, error: msg, models: [] };
+        const corsLike = /failed to fetch|network|load failed|无法连接|fetch/i.test(msg);
+        return { ok: false, error: corsLike ? `${msg}。${getApiProxyHint(baseUrl)}` : msg, models: [] };
     }
 }
 
@@ -2200,7 +2212,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.530';
+const APP_VERSION = 'v1.1.534';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
