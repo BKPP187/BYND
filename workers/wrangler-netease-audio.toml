@@ -1,0 +1,9 @@
+name = "bynd-netease-audio"
+main = "bynd-netease-audio-worker.js"
+compatibility_date = "2026-07-05"
+workers_dev = true
+preview_urls = false
+
+routes = [
+  { pattern = "bynd.ccwu.cc/netease/*", zone_name = "bynd.ccwu.cc" }
+]

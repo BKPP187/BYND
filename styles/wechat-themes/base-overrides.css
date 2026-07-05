@@ -1,23 +1,24 @@
 /* === 微信页面主题库 === */
 .wc-ui-theme-page { min-height: 100%; display: flex; flex-direction: column; gap: 12px; }
 .wc-ui-theme-hero { min-height: 104px; padding: 17px; border-radius: 24px; background: radial-gradient(circle at 86% 18%, rgba(255,255,255,0.9), transparent 36%), linear-gradient(135deg, #111827, #3f4754); color: #fff; display: grid; grid-template-columns: minmax(0,1fr) 56px; align-items: center; gap: 12px; box-shadow: 0 16px 36px rgba(15,23,42,0.16); }
-.wc-ui-theme-hero span { display: block; color: rgba(255,255,255,0.66); font-size: 11px; font-weight: 850; }
-.wc-ui-theme-hero strong { display: block; margin-top: 5px; color: #fff; font-size: 25px; line-height: 1.04; font-weight: 930; letter-spacing: 0; }
+.wc-ui-theme-hero span { display: block; color: rgba(255,255,255,0.66); font-size: 10px; font-weight: 760; }
+.wc-ui-theme-hero strong { display: block; margin-top: 5px; color: #fff; font-size: 21px; line-height: 1.08; font-weight: 820; letter-spacing: 0; }
 .wc-ui-theme-hero > i { width: 56px; height: 56px; border-radius: 20px; background: rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-size: 28px; }
 .wc-ui-theme-list { display: grid; grid-template-columns: 1fr; gap: 9px; }
-.wc-ui-theme-card { width: 100%; min-height: 78px; border: 1px solid rgba(15,23,42,0.055); border-radius: 22px; background: rgba(255,255,255,0.92); color: #111827; padding: 12px; display: grid; grid-template-columns: 64px minmax(0,1fr) 28px; align-items: center; gap: 11px; text-align: left; box-shadow: 0 10px 26px rgba(15,23,42,0.055); cursor: pointer; }
+.wc-ui-theme-card { width: 100%; min-height: 72px; border: 1px solid rgba(15,23,42,0.055); border-radius: 22px; background: rgba(255,255,255,0.92); color: #111827; padding: 11px 12px; display: grid; grid-template-columns: 64px minmax(0,1fr) 28px; align-items: center; gap: 11px; text-align: left; box-shadow: 0 10px 26px rgba(15,23,42,0.055); cursor: pointer; }
 .wc-ui-theme-card:active { transform: scale(0.985); }
 .wc-ui-theme-preview { width: 64px; height: 50px; border-radius: 18px; padding: 7px; background: #f5f6f8; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; overflow: hidden; }
 .wc-ui-theme-preview i { display: block; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.42); }
 .wc-ui-theme-preview i:first-child { grid-column: 1 / -1; border-radius: 13px; }
-.wc-ui-theme-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.wc-ui-theme-copy strong { color: #111827; font-size: 15px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-ui-theme-copy { min-width: 0; display: flex; align-items: center; }
+.wc-ui-theme-copy strong { color: #111827; font-size: 15px; line-height: 1.2; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-ui-theme-copy em { color: #8a94a3; font-style: normal; font-size: 11px; font-weight: 820; }
 .wc-ui-theme-copy small { color: #687385; font-size: 11px; line-height: 1.34; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .wc-ui-theme-card b { width: 26px; height: 26px; border-radius: 50%; background: #eef1f5; color: transparent; display: flex; align-items: center; justify-content: center; }
 .wc-ui-theme-card b i { font-size: 18px; }
 .wc-ui-theme-card.active { border-color: rgba(17,24,39,0.18); box-shadow: 0 14px 32px rgba(15,23,42,0.10); }
 .wc-ui-theme-card.active b { background: #111827; color: #fff; }
+.wc-x-news-body p strong { color: #0f1419; font-weight: 900; }
 
 #app-wechat-window.wc-ui-theme-wechat {
     --wc-theme-bg: #ededed;
@@ -613,9 +614,36 @@
     padding: 27px 20px 9px;
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-main {
+    position: relative;
     grid-template-columns: 47px minmax(0, 1fr) 38px 32px;
     align-items: center;
     gap: 9px;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back {
+    position: absolute;
+    left: -19px;
+    top: 50%;
+    width: 30px;
+    height: 30px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.62);
+    color: #5f7094;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transform: translateY(-50%);
+    box-shadow: 0 8px 20px rgba(47, 123, 246, 0.08);
+    -webkit-tap-highlight-color: transparent;
+}
+#app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back:active {
+    background: rgba(47, 123, 246, 0.08);
+    transform: translateY(-50%) scale(0.96);
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-avatar {
     width: 47px;
@@ -782,30 +810,31 @@
     padding: 34px 20px 10px;
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back {
-    position: absolute;
-    left: 18px;
-    top: 14px;
-    width: 42px;
-    height: 30px;
+    position: static;
+    width: 24px;
+    height: 44px;
     border: 0;
-    border-radius: 15px;
+    border-radius: 12px;
     background: transparent;
     color: #667796;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     padding: 0;
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1;
     cursor: pointer;
-    z-index: 3;
+    transform: none;
+    box-shadow: none;
+    z-index: 1;
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-back:active {
     opacity: 0.58;
+    transform: scale(0.96);
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-main {
-    grid-template-columns: 44px minmax(0, 1fr) 36px 30px;
-    gap: 8px;
+    grid-template-columns: 24px 44px minmax(0, 1fr) 36px 30px;
+    gap: 7px;
     transform: translateY(4px);
 }
 #app-wechat-window.wc-ui-theme-qq .wc-theme-hero-avatar {
@@ -2895,11 +2924,16 @@
 }
 #app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-chat-toolbar {
     bottom: 82px;
+    left: auto;
+    right: 18px;
+    transform-origin: calc(100% - 38px) calc(100% + 8px);
     background: rgba(255,255,255,0.96);
     border-color: rgba(17,19,24,0.07);
     box-shadow: 0 18px 44px rgba(17,19,24,0.12);
 }
 #app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-chat-toolbar::after {
+    left: auto;
+    right: 34px;
     background: rgba(255,255,255,0.96);
     border-color: rgba(17,19,24,0.07);
 }
@@ -3045,6 +3079,49 @@
     height: 25px;
 }
 /* === End Douyin chat compact scale 20260525 === */
+
+/* === Douyin official IconPark input icons 20260705 === */
+#app-wechat-window .wc-chat-room .wc-douyin-official-icon {
+    display: none;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-douyin-official-icon {
+    width: 31px;
+    height: 31px;
+    color: #111318;
+    display: block;
+    flex: 0 0 auto;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-voice-btn #wc-voice-toggle-icon,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-sticker-btn .wc-smile-svg,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-add-btn .wc-plus-svg,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-qq-camera-btn > i {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-voice-btn,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-sticker-btn,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-add-btn,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-qq-camera-btn {
+    color: #111318 !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-voice-btn .wc-douyin-official-icon,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-sticker-btn .wc-douyin-official-icon,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-add-btn .wc-douyin-official-icon {
+    width: 28px;
+    height: 28px;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-qq-camera-btn::before {
+    content: "";
+    width: 27px;
+    height: 27px;
+    display: block;
+    background: center / 27px 27px no-repeat url("data:image/svg+xml,%3Csvg viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18 6H8C6.89543 6 6 6.89543 6 8V18C6 19.1046 6.89543 20 8 20H18C19.1046 20 20 19.1046 20 18V8C20 6.89543 19.1046 6 18 6Z' fill='none' stroke='%23111318' stroke-width='3.5' stroke-linejoin='round'/%3E%3Cpath d='M18 28H8C6.89543 28 6 28.8954 6 30V40C6 41.1046 6.89543 42 8 42H18C19.1046 42 20 41.1046 20 40V30C20 28.8954 19.1046 28 18 28Z' fill='none' stroke='%23111318' stroke-width='3.5' stroke-linejoin='round'/%3E%3Cpath d='M40 6H30C28.8954 6 28 6.89543 28 8V18C28 19.1046 28.8954 20 30 20H40C41.1046 20 42 19.1046 42 18V8C42 6.89543 41.1046 6 40 6Z' fill='none' stroke='%23111318' stroke-width='3.5' stroke-linejoin='round'/%3E%3Cpath d='M40 28H30C28.8954 28 28 28.8954 28 30V40C28 41.1046 28.8954 42 30 42H40C41.1046 42 42 41.1046 42 40V30C42 28.8954 41.1046 28 40 28Z' fill='none' stroke='%23111318' stroke-width='3.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+/* === End Douyin official IconPark input icons 20260705 === */
 
 /* === Douyin reply preview positioning 20260527 === */
 #app-wechat-window.wc-ui-theme-douyin .wc-chat-room .wc-room-footer > .wc-reply-preview {
@@ -3432,6 +3509,28 @@
     cursor: pointer;
 }
 
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-compose-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 1em;
+    height: 1em;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-plus-svg {
+    position: absolute;
+    right: -0.18em;
+    top: -0.18em;
+    width: 0.42em;
+    height: 0.42em;
+}
+
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-camera {
     width: 56px;
     height: 56px;
@@ -3442,6 +3541,10 @@
 }
 
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-camera i {
+    font-size: 29px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-camera-svg {
     font-size: 29px;
 }
 
@@ -3456,6 +3559,25 @@
 
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-compose i {
     font-size: 33px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-compose-icon {
+    font-size: 33px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-message-add-svg {
+    font-size: 34px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-message-add-bubble {
+    fill: #ffffff;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-message-add-plus {
+    fill: none;
+    stroke: #ea3d8c;
+    stroke-width: 6;
+    stroke-linecap: round;
 }
 
 
@@ -3593,6 +3715,44 @@
     font-size: 23px;
 }
 
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-icon {
+    display: grid;
+    place-items: center;
+    color: currentColor;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-svg {
+    display: block;
+    width: 21px;
+    height: 21px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-chat-svg {
+    width: 22px;
+    height: 22px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-gear-svg {
+    width: 22px;
+    height: 22px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-avatar {
+    display: block;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.08);
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 #app-wechat-window.wc-ui-theme-telegram .wc-tab span {
     max-width: 62px;
     font-size: 11.5px;
@@ -3620,6 +3780,10 @@
     font-size: 23px;
 }
 
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-camera-svg {
+    font-size: 23px;
+}
+
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-compose {
     width: 54px;
     height: 54px;
@@ -3627,6 +3791,14 @@
 
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-compose i {
     font-size: 27px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-compose-icon {
+    font-size: 27px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-message-add-svg {
+    font-size: 28px;
 }
 
 /* === Telegram theme smaller scale 20260525 === */
@@ -3791,6 +3963,10 @@
     font-size: 20px;
 }
 
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-camera-svg {
+    font-size: 20px;
+}
+
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-compose {
     width: 46px;
     height: 46px;
@@ -3798,6 +3974,14 @@
 
 #app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-compose i {
     font-size: 23px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-compose-icon {
+    font-size: 23px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-float-message-add-svg {
+    font-size: 24px;
 }
 
 /* === Telegram theme list line cleanup 20260525 === */
@@ -5148,7 +5332,7 @@
 #app-wechat-window.wc-ui-theme-telegram .wc-chat-room .wc-room-header > i:last-child {
     width: 30px !important;
     height: 40px !important;
-    font-size: 28px !important;
+    font-size: 24px !important;
     color: #121823 !important;
 }
 
@@ -5341,6 +5525,39 @@
 }
 /* === End Telegram chat header and settings polish 20260528 === */
 
+/* === Telegram title-only topbar 20260705 === */
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-hero {
+    padding: 26px 32px 10px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-brand {
+    height: 50px;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    column-gap: 12px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-brand strong {
+    color: #df2e82;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more {
+    width: 28px;
+    height: 42px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more i {
+    font-size: 28px;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-search-box {
+    padding-left: 32px;
+    padding-right: 32px;
+}
+/* === End Telegram title-only topbar 20260705 === */
+
 /* === LINE room title left alignment 20260528 === */
 #app-wechat-window.wc-ui-theme-line .wc-chat-room .wc-room-header {
     grid-template-columns: 34px minmax(0, 1fr) auto !important;
@@ -5383,9 +5600,13 @@
 /* === End custom chat background priority and clarity 20260528 === */
 
 /* === QQ tabbar and room chrome final polish 20260703 === */
+#app-wechat-window.wc-ui-theme-qq .wc-tab-view.active {
+    padding-bottom: 64px !important;
+}
+
 #app-wechat-window.wc-ui-theme-qq .wc-tab-bar {
-    height: 72px !important;
-    padding: 2px 0 calc(5px + env(safe-area-inset-bottom)) !important;
+    height: 62px !important;
+    padding: 0 0 calc(3px + env(safe-area-inset-bottom)) !important;
     align-items: stretch !important;
     background: rgba(249, 249, 252, 0.96) !important;
     border-top: 1px solid rgba(17, 19, 24, 0.035) !important;
@@ -5410,8 +5631,8 @@
 }
 
 #app-wechat-window.wc-ui-theme-qq .wc-tab .wc-theme-tab-icon {
-    width: 31px !important;
-    height: 29px !important;
+    width: 27px !important;
+    height: 25px !important;
     margin: 0 !important;
     color: inherit !important;
     font-size: 0 !important;
@@ -5419,22 +5640,22 @@
 }
 
 #app-wechat-window.wc-ui-theme-qq .wc-tab .wc-qq-tab-svg {
-    width: 28px !important;
-    height: 28px !important;
+    width: 24px !important;
+    height: 24px !important;
     display: block !important;
     margin: 0 !important;
     overflow: visible !important;
 }
 
 #app-wechat-window.wc-ui-theme-qq .wc-tab .wc-qq-tab-channel-svg {
-    width: 30px !important;
-    height: 30px !important;
+    width: 26px !important;
+    height: 26px !important;
 }
 
 #app-wechat-window.wc-ui-theme-qq .wc-tab > span:not(.wc-theme-tab-icon) {
     max-width: 64px !important;
     color: inherit !important;
-    font-size: 12px !important;
+    font-size: 10.5px !important;
     line-height: 1.05 !important;
     font-weight: 700 !important;
     letter-spacing: 0 !important;
@@ -5573,3 +5794,249 @@
     padding-bottom: 1px !important;
 }
 /* === End QQ tabbar and room chrome final polish 20260703 === */
+
+/* === Douyin quoted message bubble polish 20260705 === */
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote:not(.image-bubble):not(.sticker):not(.rich) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+    width: fit-content !important;
+    max-width: min(250px, 72vw) !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-row.right .msg-bubble.has-douyin-quote:not(.image-bubble):not(.sticker):not(.rich) {
+    align-items: flex-end !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-row.right.has-douyin-quote-row {
+    align-items: flex-start !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-douyin-self-shell {
+    align-items: flex-end !important;
+    max-width: min(calc(100% - 46px), 306px) !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-douyin-self-name {
+    max-width: 170px !important;
+    margin: 0 10px 5px 0 !important;
+    color: #6d737d !important;
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-row.left .msg-bubble.has-douyin-quote:not(.image-bubble):not(.sticker):not(.rich) {
+    align-items: flex-start !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-text {
+    order: 1 !important;
+    max-width: 100% !important;
+    padding: 10px 14px !important;
+    border-radius: 16px !important;
+    color: #111318 !important;
+    background: #ffffff !important;
+    line-height: 1.34 !important;
+    font-weight: 850 !important;
+    box-shadow: 0 1px 0 rgba(17, 19, 24, 0.03) !important;
+    overflow-wrap: anywhere !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.green.has-douyin-quote .msg-text {
+    color: #ffffff !important;
+    background: #2587f5 !important;
+    border-radius: 16px 16px 6px 16px !important;
+    font-weight: 900 !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-douyin-quote-mention {
+    color: inherit !important;
+    font: inherit !important;
+    font-weight: 950 !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-quote {
+    order: 2 !important;
+    display: block !important;
+    width: auto !important;
+    max-width: 220px !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+    border: 0 !important;
+    border-radius: 13px !important;
+    background: #e7e7e9 !important;
+    color: #696d75 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-quote::before {
+    display: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-quote strong,
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-quote span {
+    display: inline !important;
+    color: #696d75 !important;
+    font-size: 13px !important;
+    line-height: 1.24 !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    -webkit-line-clamp: unset !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-quote strong::after {
+    content: "：";
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.has-douyin-quote .msg-meta {
+    display: none !important;
+}
+/* === End Douyin quoted message bubble polish 20260705 === */
+
+/* === Douyin rich card direct render 20260705 === */
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.rich {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: auto !important;
+    max-width: min(78%, 306px) !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+    overflow: visible !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-row.right .msg-bubble.rich {
+    align-items: flex-end !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.rich .msg-text.rich {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+}
+
+#app-wechat-window.wc-ui-theme-douyin .wc-chat-room .msg-bubble.rich .msg-meta {
+    align-self: flex-end !important;
+    margin: 4px 4px 0 0 !important;
+    padding: 2px 6px !important;
+    border-radius: 999px !important;
+    background: rgba(17, 19, 24, 0.18) !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+/* === End Douyin rich card direct render 20260705 === */
+
+/* === Telegram topbar alignment fix 20260705 === */
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-hero {
+    padding: 26px 32px 10px !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-brand {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    height: 50px !important;
+    grid-template-columns: none !important;
+    column-gap: 0 !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-brand strong {
+    display: block !important;
+    min-width: 0 !important;
+    padding-right: 42px !important;
+    color: #df2e82 !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more {
+    position: absolute !important;
+    top: 50% !important;
+    right: 0 !important;
+    transform: translateY(-50%) !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 28px !important;
+    height: 42px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #171717 !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more i {
+    display: block !important;
+    font-size: 28px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+}
+/* === End Telegram topbar alignment fix 20260705 === */
+
+/* === Telegram compact title controls 20260705 === */
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-title-row {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+    padding-right: 38px !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-brand .wc-telegram-title-row strong {
+    padding-right: 0 !important;
+    font-size: 21px !important;
+    font-weight: 680 !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-desktop-back {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 auto !important;
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    color: #171717 !important;
+    box-shadow: none !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-desktop-back i {
+    font-size: 18px !important;
+    line-height: 1 !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more {
+    width: 24px !important;
+    height: 34px !important;
+}
+
+#app-wechat-window.wc-ui-theme-telegram .wc-telegram-more i {
+    font-size: 22px !important;
+}
+/* === End Telegram compact title controls 20260705 === */

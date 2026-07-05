@@ -6,6 +6,7 @@
 
 const NETEASE_AUTH_KEY = 'bynd_music_netease_auth_v1';
 const NETEASE_API_BASE_KEY = 'bynd_music_netease_api_v1';
+const NETEASE_AUDIO_PROXY_BASE_KEY = 'bynd_music_netease_audio_proxy_base_v1';
 const NETEASE_DEFAULT_API_BASE = 'http://127.0.0.1:18867';
 
 let neteaseQrTimer = null;
@@ -17,6 +18,8 @@ let neteasePlayerTimer = null;
 let neteasePlayerLyrics = { key: '', lines: [] };
 let neteasePlayerBackTo = 'mine';
 let neteaseMineLoading = false;
+let neteaseAudioProxyOfflineUntil = 0;
+let neteaseAudioProxyOfflineBase = '';
 
 // ---------- 基础设施 ----------
 
@@ -29,6 +32,21 @@ function setNeteaseApiBase(value) {
     const clean = String(value || '').trim().replace(/\/+$/, '');
     if (clean) localStorage.setItem(NETEASE_API_BASE_KEY, clean);
     else localStorage.removeItem(NETEASE_API_BASE_KEY);
+}
+
+function getNeteaseAudioProxyBase() {
+    const saved = String(localStorage.getItem(NETEASE_AUDIO_PROXY_BASE_KEY) || '').trim().replace(/\/+$/, '');
+    if (saved) return saved;
+    try {
+        if (location.protocol === 'http:' || location.protocol === 'https:') return location.origin;
+    } catch (e) {}
+    return '';
+}
+
+function setNeteaseAudioProxyBase(value) {
+    const clean = String(value || '').trim().replace(/\/+$/, '');
+    if (clean) localStorage.setItem(NETEASE_AUDIO_PROXY_BASE_KEY, clean);
+    else localStorage.removeItem(NETEASE_AUDIO_PROXY_BASE_KEY);
 }
 
 function getNeteaseAuth() {
@@ -243,12 +261,48 @@ async function fetchNeteaseLyricLines(songId) {
 }
 window.fetchNeteaseLyricLines = fetchNeteaseLyricLines;
 
+async function createNeteaseAudioProxyUrl(songId, sourceUrl) {
+    const proxyBase = getNeteaseAudioProxyBase();
+    const auth = getNeteaseAuth();
+    if (!proxyBase || !auth?.cookie || !sourceUrl) return '';
+    if (neteaseAudioProxyOfflineBase === proxyBase && Date.now() < neteaseAudioProxyOfflineUntil) return '';
+    try {
+        const res = await fetchJsonWithTimeout(`${proxyBase}/netease/ticket`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: String(songId || ''),
+                url: String(sourceUrl || ''),
+                cookie: auth.cookie
+            })
+        }, 3500);
+        const audioUrl = res?.audioUrl || res?.data?.audioUrl || '';
+        return audioUrl ? String(audioUrl) : '';
+    } catch (e) {
+        neteaseAudioProxyOfflineBase = proxyBase;
+        neteaseAudioProxyOfflineUntil = Date.now() + 5 * 60 * 1000;
+        return '';
+    }
+}
+
+async function prepareNeteaseAudioUrl(songId, sourceUrl) {
+    const cleanUrl = String(sourceUrl || '').replace(/^http:\/\//i, 'https://');
+    if (!cleanUrl) return '';
+    const proxyUrl = await createNeteaseAudioProxyUrl(songId, cleanUrl);
+    return proxyUrl || cleanUrl;
+}
+
 async function resolveNeteaseAudioUrl(songId) {
     // 1) 自家 API：song/url/v1（带 cookie，会员歌也能拿）
     try {
         const res = await neteaseApiFetch('/song/url/v1', { id: songId, level: 'exhigh' });
         const url = res?.data?.[0]?.url || '';
-        if (url) return String(url).replace(/^http:\/\//i, 'https://');
+        if (url) return prepareNeteaseAudioUrl(songId, url);
+    } catch (e) {}
+    try {
+        const res = await neteaseApiFetch('/song/url', { id: songId, br: '320000' });
+        const url = res?.data?.[0]?.url || '';
+        if (url) return prepareNeteaseAudioUrl(songId, url);
     } catch (e) {}
     // 2) Meting 公共源兜底
     try {
@@ -665,12 +719,16 @@ window.toggleNeteasePlayerFavorite = toggleNeteasePlayerFavorite;
         if (typeof origSync === 'function') origSync();
         const input = document.getElementById('music-netease-api-base');
         if (input) input.value = localStorage.getItem(NETEASE_API_BASE_KEY) || '';
+        const proxyInput = document.getElementById('music-netease-audio-proxy-base');
+        if (proxyInput) proxyInput.value = localStorage.getItem(NETEASE_AUDIO_PROXY_BASE_KEY) || '';
         renderNeteaseEntry();
     };
     const origSave = window.saveMusicSourceSettingsFromUI;
     window.saveMusicSourceSettingsFromUI = function () {
         const input = document.getElementById('music-netease-api-base');
         if (input) setNeteaseApiBase(input.value);
+        const proxyInput = document.getElementById('music-netease-audio-proxy-base');
+        if (proxyInput) setNeteaseAudioProxyBase(proxyInput.value);
         if (typeof origSave === 'function') origSave();
     };
 })();

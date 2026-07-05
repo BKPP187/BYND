@@ -203,6 +203,21 @@ function getWechatThemeChatUnreadTotal() {
     return Math.max(0, Math.min(999, total));
 }
 
+function getWechatTelegramUserAvatarSrc() {
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
+    const raw = String((profile && profile.avatar) || '').trim();
+    const fallback = typeof DEFAULT_AVATAR !== 'undefined' ? DEFAULT_AVATAR : '';
+    if (!raw || raw === 'undefined' || raw === 'null') return fallback;
+    return raw;
+}
+
+function syncWechatTelegramTabAvatar() {
+    const img = document.querySelector('#app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-avatar img');
+    if (!img) return;
+    img.src = getWechatTelegramUserAvatarSrc();
+}
+window.syncWechatTelegramTabAvatar = syncWechatTelegramTabAvatar;
+
 function getWechatThemeUnreadBadgeHtml(count) {
     if (!count) return '';
     const label = count > 99 ? '99+' : String(count);
@@ -241,6 +256,35 @@ function getWechatThemeTabIconHtml(key, meta, theme) {
             `
         };
         return `<span class="wc-theme-tab-icon wc-qq-tab-icon wc-qq-tab-${key}">${icons[key] || icons.chat}</span>`;
+    }
+    if (theme.id === 'telegram') {
+        const avatar = typeof wcEscapeAttr === 'function'
+            ? wcEscapeAttr(getWechatTelegramUserAvatarSrc())
+            : wcEscapeHtml(getWechatTelegramUserAvatarSrc());
+        const fallback = typeof wcEscapeAttr === 'function'
+            ? wcEscapeAttr(typeof DEFAULT_AVATAR !== 'undefined' ? DEFAULT_AVATAR : '')
+            : wcEscapeHtml(typeof DEFAULT_AVATAR !== 'undefined' ? DEFAULT_AVATAR : '');
+        const icons = {
+            chat: `
+                <svg class="wc-telegram-tab-svg wc-telegram-tab-chat-svg" viewBox="0 0 256 256" aria-hidden="true">
+                    <path fill="currentColor" d="M120 128a16 16 0 1 1-16-16a16 16 0 0 1 16 16m32-16a16 16 0 1 0 16 16a16 16 0 0 0-16-16m84 16a108 108 0 0 1-157.23 96.15L46.34 235A20 20 0 0 1 21 209.66l10.81-32.43A108 108 0 1 1 236 128m-24 0a84 84 0 1 0-156.73 42.06a12 12 0 0 1 1 9.81l-9.93 29.79l29.79-9.93a12.1 12.1 0 0 1 3.8-.62a12 12 0 0 1 6 1.62A84 84 0 0 0 212 128"/>
+                </svg>
+            `,
+            contacts: `
+                <svg class="wc-telegram-tab-svg wc-telegram-tab-user-svg" viewBox="0 0 256 256" aria-hidden="true">
+                    <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24M74.08 197.5a64 64 0 0 1 107.84 0a87.83 87.83 0 0 1-107.84 0M96 120a32 32 0 1 1 32 32a32 32 0 0 1-32-32m97.76 66.41a79.66 79.66 0 0 0-36.06-28.75a48 48 0 1 0-59.4 0a79.66 79.66 0 0 0-36.06 28.75a88 88 0 1 1 131.52 0"/>
+                </svg>
+            `,
+            discover: `
+                <svg class="wc-telegram-tab-svg wc-telegram-tab-gear-svg" viewBox="0 0 256 256" aria-hidden="true">
+                    <path fill="currentColor" d="M128 80a48 48 0 1 0 48 48a48.05 48.05 0 0 0-48-48m0 80a32 32 0 1 1 32-32a32 32 0 0 1-32 32m109.94-52.79a8 8 0 0 0-3.89-5.4l-29.83-17l-.12-33.62a8 8 0 0 0-2.83-6.08a111.9 111.9 0 0 0-36.72-20.67a8 8 0 0 0-6.46.59L128 41.85L97.88 25a8 8 0 0 0-6.47-.6a112.1 112.1 0 0 0-36.68 20.75a8 8 0 0 0-2.83 6.07l-.15 33.65l-29.83 17a8 8 0 0 0-3.89 5.4a106.5 106.5 0 0 0 0 41.56a8 8 0 0 0 3.89 5.4l29.83 17l.12 33.62a8 8 0 0 0 2.83 6.08a111.9 111.9 0 0 0 36.72 20.67a8 8 0 0 0 6.46-.59L128 214.15L158.12 231a7.9 7.9 0 0 0 3.9 1a8.1 8.1 0 0 0 2.57-.42a112.1 112.1 0 0 0 36.68-20.73a8 8 0 0 0 2.83-6.07l.15-33.65l29.83-17a8 8 0 0 0 3.89-5.4a106.5 106.5 0 0 0-.03-41.52m-15 34.91l-28.57 16.25a8 8 0 0 0-3 3c-.58 1-1.19 2.06-1.81 3.06a7.94 7.94 0 0 0-1.22 4.21l-.15 32.25a95.9 95.9 0 0 1-25.37 14.3L134 199.13a8 8 0 0 0-3.91-1h-3.83a8.1 8.1 0 0 0-4.1 1l-28.84 16.1A96 96 0 0 1 67.88 201l-.11-32.2a8 8 0 0 0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.1 8.1 0 0 0-3-3.06l-28.6-16.29a90.5 90.5 0 0 1 0-28.26l28.52-16.28a8 8 0 0 0 3-3c.58-1 1.19-2.06 1.81-3.06a7.94 7.94 0 0 0 1.22-4.21l.15-32.25a95.9 95.9 0 0 1 25.37-14.3L122 56.87a8 8 0 0 0 4.1 1h3.64a8.1 8.1 0 0 0 4.1-1l28.84-16.1A96 96 0 0 1 188.12 55l.11 32.2a8 8 0 0 0 1.22 4.22c.62 1 1.23 2 1.8 3.06a8.1 8.1 0 0 0 3 3.06l28.6 16.29a90.5 90.5 0 0 1 .05 28.29Z"/>
+                </svg>
+            `,
+            me: `
+                <span class="wc-telegram-tab-avatar"><img src="${avatar}" onerror="this.onerror=null;this.src='${fallback}'" alt=""></span>
+            `
+        };
+        return `<span class="wc-theme-tab-icon wc-telegram-tab-icon wc-telegram-tab-${key}">${icons[key] || icons.chat}</span>`;
     }
     if (theme.id !== 'wechat') {
         const iconClass = meta.icon || 'ri-circle-line';
@@ -317,8 +361,17 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
         const iconHtml = getWechatThemeTabIconHtml(key, meta, theme);
         if (oldIcon) oldIcon.outerHTML = iconHtml;
         else tab.insertAdjacentHTML('afterbegin', iconHtml);
-        const span = Array.from(tab.querySelectorAll('span')).find(item => !item.classList.contains('wc-theme-tab-icon'));
+        const span = Array.from(tab.children).find(item => item.tagName === 'SPAN' && !item.classList.contains('wc-theme-tab-icon'));
         if (span) span.textContent = meta.label || key;
+        const oldDouyinBadge = tab.querySelector('.wc-douyin-tab-unread');
+        if (oldDouyinBadge) oldDouyinBadge.remove();
+        if (theme.id === 'douyin' && key === 'discover') {
+            const unread = getWechatThemeChatUnreadTotal();
+            if (unread > 0) {
+                const label = unread > 99 ? '99+' : String(unread);
+                tab.insertAdjacentHTML('beforeend', `<b class="wc-douyin-tab-unread" aria-label="${label} unread messages">${label}</b>`);
+            }
+        }
     });
     syncWechatXTabBar(theme);
     const searchInput = document.getElementById('wc-search-input');
@@ -558,8 +611,8 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
     if (['rednote'].includes(theme.id)) return '';
     if (theme.id === 'qq') {
         return `
-            <button type="button" class="wc-theme-hero-back" onclick="closeApp('wechat')" aria-label="Back to desktop"><i class="ri-arrow-left-s-line"></i></button>
             <div class="wc-theme-hero-main">
+                <button type="button" class="wc-theme-hero-back" onclick="closeApp('wechat')" aria-label="Back to desktop"><i class="ri-arrow-left-s-line"></i></button>
                 <img class="wc-theme-hero-avatar" src="${avatar}" onerror="this.src='${DEFAULT_AVATAR}'">
                 <button type="button" class="wc-theme-hero-user wc-theme-hero-edit" onclick="promptWechatMeField('signature')">
                     <strong>${name}</strong>
@@ -615,13 +668,26 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
         return `
             <div class="wc-telegram-hero">
                 <div class="wc-telegram-brand">
-                    <div class="wc-telegram-logo"><i class="ri-telegram-line"></i></div>
-                    <strong>Telegram</strong>
+                    <div class="wc-telegram-title-row">
+                        <button type="button" class="wc-telegram-desktop-back" onclick="closeApp('wechat')" aria-label="返回桌面"><i class="ri-arrow-left-s-line"></i></button>
+                        <strong>Telegram</strong>
+                    </div>
                     <button type="button" class="wc-telegram-more" onclick="openWechatPlusMenu(event)" aria-label="更多"><i class="ri-more-2-fill"></i></button>
                 </div>
                 <div class="wc-telegram-floating-actions">
-                    <button type="button" class="wc-telegram-float-camera" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
-                    <button type="button" class="wc-telegram-float-compose" onclick="openWechatPlusMenu(event)" aria-label="新聊天"><i class="ri-chat-new-line"></i></button>
+                    <button type="button" class="wc-telegram-float-camera" onclick="triggerCamera()" aria-label="相机">
+                        <svg class="wc-telegram-float-svg wc-telegram-float-camera-svg" viewBox="0 0 256 256" aria-hidden="true">
+                            <path fill="currentColor" d="M208 56h-27.72l-13.63-20.44A8 8 0 0 0 160 32H96a8 8 0 0 0-6.65 3.56L75.71 56H48a24 24 0 0 0-24 24v112a24 24 0 0 0 24 24h160a24 24 0 0 0 24-24V80a24 24 0 0 0-24-24m8 136a8 8 0 0 1-8 8H48a8 8 0 0 1-8-8V80a8 8 0 0 1 8-8h32a8 8 0 0 0 6.66-3.56L100.28 48h55.43l13.63 20.44A8 8 0 0 0 176 72h32a8 8 0 0 1 8 8ZM128 88a44 44 0 1 0 44 44a44.05 44.05 0 0 0-44-44m0 72a28 28 0 1 1 28-28a28 28 0 0 1-28 28"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="wc-telegram-float-compose" onclick="openWechatPlusMenu(event)" aria-label="新聊天">
+                        <svg class="wc-telegram-float-svg wc-telegram-float-message-add-svg" viewBox="0 0 64 64" aria-hidden="true">
+                            <g transform="translate(32 32) scale(1.22) translate(-32 -32)">
+                                <path class="wc-telegram-message-add-bubble" d="M32 10.5a21.5 21.5 0 0 0-12.1 39.3l-3.2 7.3c-.4.9.5 1.8 1.4 1.4l7.4-3.3A21.5 21.5 0 1 0 32 10.5Z"/>
+                                <path class="wc-telegram-message-add-plus" d="M32 20.8v18.4M22.8 30h18.4"/>
+                            </g>
+                        </svg>
+                    </button>
                 </div>
             </div>
         `;
@@ -738,8 +804,6 @@ function openWechatUiThemeSettings() {
             </span>
             <span class="wc-ui-theme-copy">
                 <strong>${wcEscapeHtml(theme.name)}</strong>
-                <em>${wcEscapeHtml(theme.tone)}</em>
-                <small>${wcEscapeHtml(theme.desc)}</small>
             </span>
             <b><i class="ri-check-line"></i></b>
         </button>

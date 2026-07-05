@@ -2212,7 +2212,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.534';
+const APP_VERSION = 'v1.1.557';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',

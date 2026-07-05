@@ -1078,6 +1078,8 @@ let musicLyricsCache = {};
 let musicDetailTab = 'lyrics';
 let musicMainTab = 'home';
 let musicAlbumFilter = '';
+let musicShuffleEnabled = false;
+let musicRepeatMode = 'all';
 let musicCoListening = false;
 let musicCoListenBusy = false;
 let musicAiMessages = [];
@@ -1365,8 +1367,9 @@ function initMusicApp() {
     win.dataset.ready = '1';
     musicTracks = MUSIC_FALLBACK_TRACKS.map(normalizeMusicTrack);
     syncMusicSourceUI();
+    const input = document.getElementById('music-search-input');
+    if (input) input.value = '';
     renderMusicApp();
-    searchMusic('周杰伦');
 }
 
 function renderMusicApp() {
@@ -1401,20 +1404,74 @@ function renderMusicNowPlaying() {
     if (detailPlayIcon) detailPlayIcon.className = musicIsPlaying ? 'ri-pause-fill' : 'ri-play-fill';
     if (source) {
         source.textContent = track.sourceName || 'Source';
-        source.classList.toggle('hidden', !track.trackViewUrl);
-        source.href = track.trackViewUrl || '#';
+        source.classList.remove('hidden');
+        source.removeAttribute('href');
+        source.removeAttribute('target');
+        source.onclick = event => event.preventDefault();
+    }
+    updateMusicFavoriteButton();
+    syncMusicPlaybackModeButtons();
+}
+
+function syncMusicPlaybackModeButtons() {
+    const shuffleBtn = document.getElementById('music-shuffle-btn');
+    const repeatBtn = document.getElementById('music-repeat-btn');
+    if (shuffleBtn) {
+        shuffleBtn.classList.toggle('active', musicShuffleEnabled);
+        shuffleBtn.setAttribute('aria-pressed', musicShuffleEnabled ? 'true' : 'false');
+    }
+    if (repeatBtn) {
+        const icon = repeatBtn.querySelector('i');
+        const isActive = musicRepeatMode !== 'off';
+        repeatBtn.dataset.mode = musicRepeatMode;
+        repeatBtn.classList.toggle('active', isActive);
+        repeatBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        repeatBtn.setAttribute('aria-label', musicRepeatMode === 'one'
+            ? '单曲循环'
+            : (musicRepeatMode === 'off' ? '顺序播放' : '列表循环'));
+        if (icon) icon.className = musicRepeatMode === 'one' ? 'ri-repeat-one-line' : 'ri-repeat-line';
     }
 }
 
+function toggleMusicShuffle() {
+    musicShuffleEnabled = !musicShuffleEnabled;
+    syncMusicPlaybackModeButtons();
+}
+window.toggleMusicShuffle = toggleMusicShuffle;
+
+function toggleMusicRepeatMode() {
+    musicRepeatMode = musicRepeatMode === 'all' ? 'one' : (musicRepeatMode === 'one' ? 'off' : 'all');
+    syncMusicPlaybackModeButtons();
+}
+window.toggleMusicRepeatMode = toggleMusicRepeatMode;
+
 function switchMusicMainTab(tab) {
-    musicMainTab = ['home', 'albums', 'favorites'].includes(tab) ? tab : 'home';
+    musicMainTab = ['home', 'search', 'albums', 'favorites'].includes(tab) ? tab : 'home';
     if (musicMainTab !== 'albums') musicAlbumFilter = '';
     syncMusicMainTabs();
     renderMusicMainTab();
+    if (musicMainTab === 'search') {
+        setTimeout(() => document.getElementById('music-search-input')?.focus(), 60);
+    }
 }
 window.switchMusicMainTab = switchMusicMainTab;
 
+function ensureMusicConceptNav() {
+    const bar = document.querySelector('#app-music-window .music-bottom-nav');
+    if (!bar || bar.dataset.conceptNav === '1') return;
+    bar.dataset.conceptNav = '1';
+    bar.innerHTML = `
+        <button type="button" data-music-tab="home" onclick="switchMusicMainTab('home')"><i class="ri-home-5-fill"></i><span>首页</span></button>
+        <button type="button" data-music-tab="search" onclick="switchMusicMainTab('search')"><i class="ri-search-line"></i><span>搜索</span></button>
+        <button type="button" data-music-tab="albums" onclick="switchMusicMainTab('albums')"><i class="ri-album-line"></i><span>曲库</span></button>
+        <button type="button" data-music-tab="favorites" onclick="switchMusicMainTab('favorites')"><i class="ri-fire-line"></i><span>热榜</span></button>
+    `;
+}
+
 function syncMusicMainTabs() {
+    ensureMusicConceptNav();
+    const win = document.getElementById('app-music-window');
+    if (win) win.dataset.musicTab = musicMainTab;
     document.querySelectorAll('.music-bottom-nav button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.musicTab === musicMainTab);
     });
@@ -1426,7 +1483,7 @@ function renderMusicMainTab() {
     if (title) {
         title.textContent = musicMainTab === 'albums'
             ? (musicAlbumFilter || '专辑')
-            : (musicMainTab === 'favorites' ? '收藏' : '完整音频');
+            : (musicMainTab === 'favorites' ? 'Hotlist' : (musicMainTab === 'search' ? 'Search' : 'Now Playing'));
     }
     if (musicMainTab === 'albums') {
         renderMusicAlbums();
@@ -1593,6 +1650,12 @@ function toggleMusicFavorite() {
 }
 window.toggleMusicFavorite = toggleMusicFavorite;
 
+function openCurrentMusicDetail() {
+    if (!musicTracks.length) return;
+    openMusicDetail(musicCurrentIndex);
+}
+window.openCurrentMusicDetail = openCurrentMusicDetail;
+
 function renderMusicFavorites() {
     const list = document.getElementById('music-track-list');
     if (!list) return;
@@ -1680,7 +1743,7 @@ function setupMusicAudio() {
         renderMusicMainTab();
     });
     musicAudio.addEventListener('loadedmetadata', updateMusicProgress);
-    musicAudio.addEventListener('ended', () => playNextMusicTrack());
+    musicAudio.addEventListener('ended', handleMusicEnded);
     musicAudio.addEventListener('timeupdate', updateMusicProgress);
 }
 
@@ -1746,9 +1809,40 @@ function startMusicCoListenFromWechat(trackData, charId, options = {}) {
 }
 window.startMusicCoListenFromWechat = startMusicCoListenFromWechat;
 
+function getNextMusicIndex() {
+    if (!musicTracks.length) return 0;
+    if (musicShuffleEnabled && musicTracks.length > 1) {
+        let nextIndex = musicCurrentIndex;
+        while (nextIndex === musicCurrentIndex) {
+            nextIndex = Math.floor(Math.random() * musicTracks.length);
+        }
+        return nextIndex;
+    }
+    return (musicCurrentIndex + 1) % musicTracks.length;
+}
+
+function handleMusicEnded() {
+    if (!musicTracks.length) return;
+    if (musicRepeatMode === 'one' && musicAudio) {
+        musicAudio.currentTime = 0;
+        musicAudio.play().catch(() => {
+            musicIsPlaying = false;
+            renderMusicNowPlaying();
+        });
+        return;
+    }
+    if (musicRepeatMode === 'off' && !musicShuffleEnabled && musicCurrentIndex >= musicTracks.length - 1) {
+        musicIsPlaying = false;
+        renderMusicNowPlaying();
+        renderMusicMainTab();
+        return;
+    }
+    playNextMusicTrack();
+}
+
 function playNextMusicTrack() {
     if (!musicTracks.length) return;
-    musicCurrentIndex = (musicCurrentIndex + 1) % musicTracks.length;
+    musicCurrentIndex = getNextMusicIndex();
     selectMusicTrack(musicCurrentIndex, true);
 }
 window.playNextMusicTrack = playNextMusicTrack;
@@ -2222,11 +2316,19 @@ function renderMusicDetail() {
 
 function updateMusicFavoriteButton() {
     const btn = document.getElementById('music-favorite-btn');
+    const nowBtn = document.getElementById('music-now-favorite-btn');
     const track = musicTracks[musicCurrentIndex];
-    if (!btn || !track) return;
+    if (!track) return;
     const liked = isMusicFavorite(track);
-    btn.classList.toggle('active', liked);
-    btn.innerHTML = `<i class="${liked ? 'ri-heart-3-fill' : 'ri-heart-3-line'}"></i><span>${liked ? '已收藏' : '收藏'}</span>`;
+    if (btn) {
+        btn.classList.toggle('active', liked);
+        btn.innerHTML = `<i class="${liked ? 'ri-heart-3-fill' : 'ri-heart-3-line'}"></i><span>${liked ? '已收藏' : '收藏'}</span>`;
+    }
+    if (nowBtn) {
+        nowBtn.classList.toggle('active', liked);
+        nowBtn.setAttribute('aria-label', liked ? '取消收藏' : '收藏');
+        nowBtn.innerHTML = `<i class="${liked ? 'ri-heart-fill' : 'ri-heart-line'}"></i>`;
+    }
 }
 
 function getMusicCurrentChar() {

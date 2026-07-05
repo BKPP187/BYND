@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260704-dream-copy1">
+    <link rel="stylesheet" href="style.css?v=20260705-music-mini-play13">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -198,15 +198,14 @@
             <div class="music-header">
                 <button type="button" onclick="closeApp('music')" aria-label="关闭音乐"><i class="ri-arrow-left-s-line"></i></button>
                 <div>
-                    <span>BYND Music</span>
-                    <strong>Beyond the Screen</strong>
+                    <strong>BEYOND SCREEN</strong>
                 </div>
-                <a id="music-source-link" class="music-source-link hidden" href="#" target="_blank" rel="noopener">Archive</a>
+                <a id="music-source-link" class="music-source-link hidden" rel="noopener">Archive</a>
             </div>
             <div class="music-content">
                 <div class="music-search">
                     <i class="ri-search-line"></i>
-                    <input type="search" id="music-search-input" value="周杰伦" placeholder="搜索中文 / 英文 / 歌手 / 专辑" oninput="handleMusicSearchInput(this.value)">
+                    <input type="search" id="music-search-input" value="" placeholder="搜索中文 / 英文 / 歌手 / 专辑" oninput="handleMusicSearchInput(this.value)">
                 </div>
                 <button type="button" class="music-netease-entry" id="music-netease-entry" onclick="openNeteaseView()">
                     <span class="mn-entry-logo"><i class="ri-netease-cloud-music-fill"></i></span>
@@ -237,6 +236,10 @@
                         <span>网易云 API 服务（空着用默认本机 18867）</span>
                         <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:18867">
                     </label>
+                    <label>
+                        <span>网易云音频代理（可选）</span>
+                        <input type="url" id="music-netease-audio-proxy-base" placeholder="https://api.bynd.ccwu.cc">
+                    </label>
                     <p>音乐源只用于应用内搜索，不作为外部跳转入口。</p>
                     <div class="music-playlist-import">
                         <div>
@@ -257,6 +260,10 @@
                         <span id="music-now-album">Quiet Playlist</span>
                         <strong id="music-now-title">Beyond the Screen</strong>
                         <em id="music-now-artist">BYND Radio</em>
+                        <div class="music-now-actions">
+                            <button type="button" id="music-now-favorite-btn" onclick="toggleMusicFavorite()" aria-label="收藏"><i class="ri-heart-line"></i></button>
+                            <button type="button" onclick="openCurrentMusicDetail()" aria-label="更多"><i class="ri-more-fill"></i></button>
+                        </div>
                     </div>
                     <div class="music-wave" aria-hidden="true">
                         <span style="--h:18%"></span><span style="--h:62%"></span><span style="--h:38%"></span><span style="--h:82%"></span>
@@ -269,9 +276,11 @@
                     </button>
                     <div class="music-time-row"><span id="music-time-elapsed">0:00</span><span id="music-time-duration">0:30</span></div>
                     <div class="music-controls">
-                        <button type="button" onclick="playPrevMusicTrack()" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
+                        <button type="button" id="music-shuffle-btn" class="music-mode-btn music-shuffle-btn" onclick="toggleMusicShuffle()" aria-label="随机播放"><i class="ri-shuffle-line"></i></button>
+                        <button type="button" class="music-prev-btn" onclick="playPrevMusicTrack()" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
                         <button type="button" class="music-play-btn" onclick="toggleMusicPlayback()" aria-label="播放或暂停"><i id="music-play-icon" class="ri-play-fill"></i></button>
-                        <button type="button" onclick="playNextMusicTrack()" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
+                        <button type="button" class="music-next-btn" onclick="playNextMusicTrack()" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
+                        <button type="button" id="music-repeat-btn" class="music-mode-btn music-repeat-btn" onclick="toggleMusicRepeatMode()" aria-label="循环播放"><i class="ri-repeat-line"></i></button>
                     </div>
                 </section>
                 <section class="music-list-section">
@@ -1247,7 +1256,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.534
+                    Beyond Screen v1.1.557
                 </div>
             </div>
         </div>
@@ -1639,6 +1648,7 @@
                 <div class="wc-room-footer">
                     <div id="wc-reply-preview" class="wc-reply-preview hidden"></div>
                     <button type="button" class="wc-voice-btn" onclick="toggleWechatVoiceInputMode()" aria-label="语音">
+                        <svg class="wc-douyin-official-icon wc-douyin-voice-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M17 25.8994C18.1046 25.8994 19 25.004 19 23.8994C19 22.7948 18.1046 21.8994 17 21.8994C15.8954 21.8994 15 22.7948 15 23.8994C15 25.004 15.8954 25.8994 17 25.8994Z" fill="currentColor"/><path d="M21.9497 28.8492C23.2165 27.5825 24 25.8325 24 23.8995C24 21.9665 23.2165 20.2165 21.9497 18.9497" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M26.8994 33.799C29.4329 31.2655 30.9999 27.7655 30.9999 23.8995C30.9999 20.0335 29.4329 16.5335 26.8994 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
                     </button>
                     <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn hidden" aria-label="按住说话" oncontextmenu="event.preventDefault()" onpointerdown="startWechatHoldVoice(event)" onpointerup="finishWechatHoldVoice(event)" onpointercancel="cancelWechatHoldVoice(event)" onpointerleave="maybeCancelWechatHoldVoice(event)">按住 说话</button>
@@ -1647,9 +1657,11 @@
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
                     <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
+                        <svg class="wc-douyin-official-icon wc-douyin-emotion-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M31 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-smile-svg" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </button>
                     <div class="wc-add-btn" onclick="toggleChatToolbar()" aria-label="更多">
+                        <svg class="wc-douyin-official-icon wc-douyin-add-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 16V32" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 24L32 24" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-plus-svg wc-plus-svg-base" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg class="wc-plus-svg wc-plus-svg-wechat" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><path d="M16 9.7v12.6M9.7 16h12.6" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
                     <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()" aria-label="发送"></i>
@@ -2233,15 +2245,15 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260704-dream-copy1"></script>
+    <script src="chat-api.js?v=20260705-douyin-icon-align1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=20260703-qq-tabbar1"></script>
-    <script src="wechat.js?v=20260704-dream-copy1"></script>
-    <script src="theme.js?v=20260704-dream-copy1"></script>
-    <script src="settings.js?v=20260704-dream-copy1"></script>
-    <script src="script.js?v=20260704-dream-copy1"></script>
-    <script src="netease.js?v=20260611-netease-music1"></script>
+    <script src="modules/wechat/ui-theme.js?v=20260705-telegram-avatar-tab7"></script>
+    <script src="wechat.js?v=20260705-telegram-tab-avatar1"></script>
+    <script src="theme.js?v=20260705-douyin-icon-align1"></script>
+    <script src="settings.js?v=20260705-douyin-icon-align1"></script>
+    <script src="script.js?v=20260705-music-mini-heart12"></script>
+    <script src="netease.js?v=20260705-netease-audio-proxy1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>

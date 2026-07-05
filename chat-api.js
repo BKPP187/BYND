@@ -6,6 +6,53 @@ const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS = 2400;
 const CHAT_API_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
+const CHAT_API_BACKGROUND_QUEUE_DELAY_MS = 120;
+
+const chatApiBackgroundQueue = {
+    active: false,
+    nextId: 1,
+    items: []
+};
+
+function enqueueChatApiBackgroundTask(run, options = {}) {
+    return new Promise(resolve => {
+        const task = {
+            id: chatApiBackgroundQueue.nextId++,
+            priority: Number(options.priority || 0),
+            run,
+            resolve
+        };
+        chatApiBackgroundQueue.items.push(task);
+        drainChatApiBackgroundQueue();
+    });
+}
+
+async function drainChatApiBackgroundQueue() {
+    if (chatApiBackgroundQueue.active) return;
+    const queue = chatApiBackgroundQueue.items;
+    if (!queue.length) return;
+    queue.sort((a, b) => (b.priority - a.priority) || (a.id - b.id));
+    const task = queue.shift();
+    chatApiBackgroundQueue.active = true;
+    if (typeof window !== 'undefined') {
+        window._chatApiBackgroundQueueActive = true;
+        window._chatApiBackgroundQueueLength = queue.length;
+    }
+    try {
+        task.resolve(await task.run());
+    } catch (e) {
+        task.resolve({ ok: false, error: e && e.message ? e.message : '后台 API 队列执行失败' });
+    } finally {
+        chatApiBackgroundQueue.active = false;
+        if (typeof window !== 'undefined') {
+            window._chatApiBackgroundQueueActive = false;
+            window._chatApiBackgroundQueueLength = queue.length;
+        }
+        if (queue.length) {
+            setTimeout(drainChatApiBackgroundQueue, CHAT_API_BACKGROUND_QUEUE_DELAY_MS);
+        }
+    }
+}
 
 function isChatApiRateLimitErrorText(error) {
     const text = String(error || '');
@@ -1461,6 +1508,13 @@ function buildMessages(char, history, maxMessages) {
 
 // 3. 调用 AI API
 async function callChatApi(messages, options = {}) {
+    if (options.background && !options._backgroundQueueBypass) {
+        return enqueueChatApiBackgroundTask(
+            () => callChatApi(messages, { ...options, _backgroundQueueBypass: true }),
+            { priority: options.backgroundPriority }
+        );
+    }
+
     const api = typeof getDefaultApi === 'function' ? getDefaultApi() : null;
 
     if (!api) {
