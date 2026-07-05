@@ -2213,7 +2213,9 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.557';
+const APP_VERSION = 'v1.1.558';
+const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
+const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
@@ -2242,21 +2244,114 @@ const ALL_DATA_KEYS = [
     'bynd_coread_daily_participants_v1',
     'bynd_coread_sources_v1',
     'bynd_coread_sources_version_v1',
+    'bynd_monitor_active_tool_v1',
+    'bynd_monitor_pet_library_v1',
+    'bynd_monitor_active_pet_v1',
+    'bynd_monitor_pet_float_pos_v1',
+    'bynd_monitor_pet_bound_char_v1',
     'desktop_default_princess_deleted_v1',
     'desktop_default_lovely_deleted_v1'
 ];
 
+function parseBackupLocalStorageValue(raw) {
+    try {
+        return { value: JSON.parse(raw), raw: false };
+    } catch (_) {
+        return { value: raw, raw: true };
+    }
+}
+
+function stringifyBackupLocalStorageValue(value, raw = false) {
+    if (raw && typeof value === 'string') return value;
+    return JSON.stringify(value);
+}
+
+function openBackupObjectStore(dbName, storeName, mode = 'readonly') {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = () => {
+            if (!req.result.objectStoreNames.contains(storeName)) {
+                req.result.createObjectStore(storeName);
+            }
+        };
+        req.onsuccess = () => {
+            try {
+                const db = req.result;
+                const tx = db.transaction(storeName, mode);
+                resolve({ db, tx, store: tx.objectStore(storeName) });
+            } catch (e) {
+                try { req.result.close(); } catch (_) {}
+                reject(e);
+            }
+        };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function exportMonitorPetAssetsForBackup() {
+    const { db, tx, store } = await openBackupObjectStore(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE, 'readonly');
+    try {
+        const keysReq = store.getAllKeys();
+        const valuesReq = store.getAll();
+        const keys = await new Promise((resolve, reject) => {
+            keysReq.onsuccess = () => resolve(keysReq.result || []);
+            keysReq.onerror = () => reject(keysReq.error);
+        });
+        const values = await new Promise((resolve, reject) => {
+            valuesReq.onsuccess = () => resolve(valuesReq.result || []);
+            valuesReq.onerror = () => reject(valuesReq.error);
+        });
+        const entries = {};
+        keys.forEach((key, index) => {
+            const value = values[index];
+            if (value) entries[String(key)] = value;
+        });
+        await new Promise(resolve => {
+            tx.oncomplete = resolve;
+            tx.onerror = resolve;
+            tx.onabort = resolve;
+        });
+        return entries;
+    } finally {
+        db.close();
+    }
+}
+
+async function importMonitorPetAssetsFromBackup(entries) {
+    if (!entries || typeof entries !== 'object') return;
+    const { db, tx, store } = await openBackupObjectStore(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE, 'readwrite');
+    try {
+        store.clear();
+        for (const [key, value] of Object.entries(entries)) {
+            if (value) store.put(value, key);
+        }
+        await new Promise((resolve, reject) => {
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+        });
+    } finally {
+        db.close();
+    }
+}
+
 // 导出所有数据
 async function exportAllData() {
     const exportData = { _version: APP_VERSION, _exportTime: new Date().toISOString() };
+    const rawLocalStorageKeys = [];
 
     // localStorage 数据
     ALL_DATA_KEYS.forEach(key => {
         try {
             const raw = localStorage.getItem(key);
-            if (raw) exportData[key] = JSON.parse(raw);
+            if (raw !== null) {
+                const parsed = parseBackupLocalStorageValue(raw);
+                exportData[key] = parsed.value;
+                if (parsed.raw) rawLocalStorageKeys.push(key);
+            }
         } catch (e) { console.warn('导出跳过 ' + key, e); }
     });
+    if (rawLocalStorageKeys.length) exportData._rawLocalStorageKeys = rawLocalStorageKeys;
 
     // 角色完整数据可能已迁到 IndexedDB，导出时用完整数据覆盖轻量索引。
     try {
@@ -2281,6 +2376,14 @@ async function exportAllData() {
             }
         }
     } catch (e) { console.warn('导出字体文件跳过', e); }
+
+    // IndexedDB 桌宠素材包
+    try {
+        const monitorPetAssets = await exportMonitorPetAssetsForBackup();
+        if (monitorPetAssets && Object.keys(monitorPetAssets).length) {
+            exportData._monitorPetAssets = monitorPetAssets;
+        }
+    } catch (e) { console.warn('导出桌宠素材跳过', e); }
 
     // 下载
     const json = JSON.stringify(exportData, null, 2);
@@ -2313,10 +2416,11 @@ async function importAllData(input) {
         if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
 
         // 恢复 localStorage。角色数据单独处理，避免大备份再次撑爆 localStorage。
+        const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
         ALL_DATA_KEYS.forEach(key => {
             if (key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (data[key]) {
-                localStorage.setItem(key, JSON.stringify(data[key]));
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });
 
@@ -2336,6 +2440,11 @@ async function importAllData(input) {
             for (const [fontId, blob] of Object.entries(data._fontBlobs)) {
                 await saveFontBlob(fontId, blob).catch(() => {});
             }
+        }
+
+        // 恢复 IndexedDB 桌宠素材包
+        if (data._monitorPetAssets) {
+            await importMonitorPetAssetsFromBackup(data._monitorPetAssets).catch(() => {});
         }
 
         alert('导入成功！页面即将刷新...');

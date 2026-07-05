@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initOutingAppRuntime === 'function') initOutingAppRuntime();
     if (typeof initDesktopStatusWidgetRuntime === 'function') initDesktopStatusWidgetRuntime();
     initProactiveNotify();
+    if (typeof syncMonitorPetFloating === 'function') syncMonitorPetFloating();
 });
 
 // --- 基础功能 ---
@@ -71,6 +72,7 @@ function unlockPhone() {
     document.getElementById('home-screen')?.classList.remove('hidden');
     resetDesktopToFirstPage();
     if (typeof scheduleDesktopVisibleLayoutRepair === 'function') scheduleDesktopVisibleLayoutRepair();
+    if (typeof syncMonitorPetFloating === 'function') syncMonitorPetFloating();
     
     // 触发变色检查
     const statusBar = document.querySelector('.status-bar');
@@ -262,6 +264,7 @@ function openApp(appName) {
     else {
         alert("正在打开: " + appName + " (功能开发中...)");
     }
+    if (typeof syncMonitorPetFloating === 'function') setTimeout(syncMonitorPetFloating, 40);
 }
 
 function openSystemCamera() {
@@ -323,6 +326,7 @@ function closeApp(appName) {
             if (typeof collapseWechatMusicOverlaysToIsland === 'function') collapseWechatMusicOverlaysToIsland();
             setTimeout(closeChat, 300);
         }
+        if (typeof syncMonitorPetFloating === 'function') setTimeout(syncMonitorPetFloating, 320);
     }
 }
 
@@ -4208,6 +4212,8 @@ window.deleteDreamRecord = deleteDreamRecord;
 const MONITOR_ACTIVE_TOOL_KEY = 'bynd_monitor_active_tool_v1';
 const MONITOR_PET_LIBRARY_KEY = 'bynd_monitor_pet_library_v1';
 const MONITOR_ACTIVE_PET_KEY = 'bynd_monitor_active_pet_v1';
+const MONITOR_PET_FLOAT_POS_KEY = 'bynd_monitor_pet_float_pos_v1';
+const MONITOR_PET_BOUND_CHAR_KEY = 'bynd_monitor_pet_bound_char_v1';
 const MONITOR_PET_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_DB_STORE = 'assets';
 const MONITOR_PET_ORIGIN = 'https://codex-pets.net';
@@ -4222,6 +4228,20 @@ let monitorPetResults = [];
 let monitorPetLoading = false;
 let monitorPetStatus = '';
 let monitorPetResolvedBase = '';
+let monitorPetPage = 1;
+let monitorPetPageSize = 12;
+let monitorPetTotal = 0;
+let monitorPetTotalPages = 1;
+let monitorPetView = 'gallery';
+let monitorPetFloatMessage = '';
+let monitorPetAiBusy = false;
+let monitorPetLastReactionAt = 0;
+let monitorPetDragState = null;
+let monitorScreenStream = null;
+let monitorScreenVideo = null;
+let monitorScreenFrameDataUrl = '';
+let monitorScreenStatus = '未授权屏幕共享';
+let monitorScreenLastCaptureAt = 0;
 
 function getMonitorCharacters() {
     return Array.isArray(window.myCharacters)
@@ -4233,6 +4253,120 @@ function getMonitorCharName(char) {
     if (typeof getWechatCharDisplayName === 'function') return getWechatCharDisplayName(char);
     return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
 }
+
+function getMonitorPetBoundChar() {
+    const chars = getMonitorCharacters();
+    const enabled = chars.filter(char => !!(char.chatConfig && char.chatConfig.monitorEnabled));
+    if (!enabled.length) return null;
+    const boundId = localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) || '';
+    return enabled.find(char => char.id === boundId) || enabled[0] || null;
+}
+
+function setMonitorPetBoundChar(charId) {
+    const id = String(charId || '').trim();
+    if (id) localStorage.setItem(MONITOR_PET_BOUND_CHAR_KEY, id);
+    else localStorage.removeItem(MONITOR_PET_BOUND_CHAR_KEY);
+}
+
+function ensureMonitorPetState(char) {
+    if (!char) return {};
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.monitorPetState = char.chatConfig.monitorPetState || {};
+    return char.chatConfig.monitorPetState;
+}
+
+function isMonitorScreenSharingActive() {
+    return !!(monitorScreenStream && monitorScreenStream.getVideoTracks().some(track => track.readyState === 'live'));
+}
+
+function updateMonitorScreenStatus(text) {
+    monitorScreenStatus = String(text || '');
+    const el = document.getElementById('monitor-screen-status');
+    if (el) el.textContent = monitorScreenStatus;
+}
+
+function ensureMonitorScreenVideo() {
+    if (monitorScreenVideo) return monitorScreenVideo;
+    monitorScreenVideo = document.createElement('video');
+    monitorScreenVideo.muted = true;
+    monitorScreenVideo.playsInline = true;
+    monitorScreenVideo.autoplay = true;
+    monitorScreenVideo.style.position = 'fixed';
+    monitorScreenVideo.style.left = '-9999px';
+    monitorScreenVideo.style.top = '-9999px';
+    monitorScreenVideo.style.width = '1px';
+    monitorScreenVideo.style.height = '1px';
+    monitorScreenVideo.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(monitorScreenVideo);
+    return monitorScreenVideo;
+}
+
+async function startMonitorScreenShare() {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+        updateMonitorScreenStatus('当前浏览器不支持屏幕共享；APK 版需要接 Android MediaProjection。');
+        if (typeof showWechatToast === 'function') showWechatToast('当前浏览器不支持屏幕共享');
+        return false;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 2 },
+            audio: false
+        });
+        stopMonitorScreenShare(false);
+        monitorScreenStream = stream;
+        const video = ensureMonitorScreenVideo();
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+        stream.getVideoTracks().forEach(track => {
+            track.addEventListener('ended', () => stopMonitorScreenShare(true), { once: true });
+        });
+        monitorScreenFrameDataUrl = '';
+        updateMonitorScreenStatus('已授权屏幕共享，桌宠下一次说话会读取一帧画面。');
+        renderMonitorCharacters();
+        return false;
+    } catch (e) {
+        updateMonitorScreenStatus(`屏幕共享未开启：${e && e.message ? e.message : '用户取消或浏览器拒绝'}`);
+        return false;
+    }
+}
+window.startMonitorScreenShare = startMonitorScreenShare;
+
+function stopMonitorScreenShare(render = true) {
+    if (monitorScreenStream) {
+        monitorScreenStream.getTracks().forEach(track => track.stop());
+    }
+    monitorScreenStream = null;
+    monitorScreenFrameDataUrl = '';
+    if (monitorScreenVideo) monitorScreenVideo.srcObject = null;
+    updateMonitorScreenStatus('屏幕共享已停止');
+    if (render) renderMonitorCharacters();
+    return false;
+}
+window.stopMonitorScreenShare = stopMonitorScreenShare;
+
+async function captureMonitorScreenFrame() {
+    if (!isMonitorScreenSharingActive()) return '';
+    const video = ensureMonitorScreenVideo();
+    if (!video.videoWidth || !video.videoHeight) {
+        await new Promise(resolve => setTimeout(resolve, 180));
+    }
+    if (!video.videoWidth || !video.videoHeight) return '';
+    const maxSide = 768;
+    const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+    const width = Math.max(1, Math.round(video.videoWidth * scale));
+    const height = Math.max(1, Math.round(video.videoHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    ctx.drawImage(video, 0, 0, width, height);
+    monitorScreenFrameDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+    monitorScreenLastCaptureAt = Date.now();
+    updateMonitorScreenStatus(`已读取屏幕画面 ${new Date(monitorScreenLastCaptureAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    return monitorScreenFrameDataUrl;
+}
+window.captureMonitorScreenFrame = captureMonitorScreenFrame;
 
 function getMonitorRecentSummary(char) {
     const history = Array.isArray(char && char.history) ? char.history : [];
@@ -4313,8 +4447,8 @@ function renderMonitorOverview(chars) {
         const tools = [
             { id: 'internal', icon: 'ri-radar-line', title: '内部剧情', text: stats.enabled ? '已启用' : '未接入' },
             { id: 'island', icon: 'ri-notification-4-line', title: '后台提示', text: stats.enabled ? '跟随角色' : '待角色接入' },
-            { id: 'pet', icon: 'ri-bubble-chart-line', title: '桌宠气泡', text: '待安卓悬浮窗' },
-            { id: 'phone', icon: 'ri-smartphone-line', title: '真实手机', text: '待原生服务' }
+            { id: 'pet', icon: 'ri-bubble-chart-line', title: '桌宠气泡', text: stats.enabled ? '跟随角色' : '待角色接入' },
+            { id: 'phone', icon: 'ri-smartphone-line', title: '真实手机', text: isMonitorScreenSharingActive() ? '已授权' : '需授权' }
         ];
         toolbar.innerHTML = tools.map(item => `
             <button type="button" class="${monitorActiveTool === item.id ? 'active' : ''}" onclick="handleMonitorTool('${item.id}')">
@@ -4353,22 +4487,25 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
         pet: {
             icon: 'ri-bubble-chart-line',
             title: '桌宠气泡',
-            desc: '这个通道预留给安卓悬浮窗服务。接入后，char 可以在其它 App 上方用气泡吐槽。',
-            status: '待原生接入',
+            desc: stats.enabled ? '桌宠会绑定已接入的角色；授权屏幕共享后，点击桌宠会把当前真实屏幕的一帧交给视觉模型。' : '先接入至少一位角色，桌宠才会按人设和世界书说话。',
+            status: stats.enabled ? '跟随角色' : '等待角色',
             action: '查看角色',
             onclick: "document.getElementById('monitor-char-list')?.scrollIntoView({behavior:'smooth',block:'start'})"
         },
         phone: {
             icon: 'ri-smartphone-line',
             title: '真实手机陪看',
-            desc: '这个通道需要安卓录屏、使用统计和无障碍服务。网页端只展示入口，不伪造真实手机权限。',
-            status: '待原生接入',
-            action: '刷新状态',
-            onclick: 'refreshMonitorApp()'
+            desc: isMonitorScreenSharingActive()
+                ? '浏览器屏幕共享已开启。桌宠每次生成气泡前会读取一帧画面，发送给支持视觉的聊天模型。'
+                : '网页端只能通过系统弹窗授权屏幕共享；稳定 APK 版需要 Android MediaProjection。',
+            status: isMonitorScreenSharingActive() ? '屏幕共享中' : '需要授权',
+            action: isMonitorScreenSharingActive() ? '停止共享' : '授权屏幕',
+            onclick: isMonitorScreenSharingActive() ? 'stopMonitorScreenShare()' : 'startMonitorScreenShare()'
         }
     };
     const item = configs[monitorActiveTool] || configs.internal;
     const petLibrary = monitorActiveTool === 'pet' ? renderMonitorPetLibrary() : '';
+    const screenPanel = (monitorActiveTool === 'pet' || monitorActiveTool === 'phone') ? renderMonitorScreenSharePanel() : '';
     panel.dataset.tool = monitorActiveTool;
     panel.innerHTML = `
         <div class="monitor-tool-card">
@@ -4380,7 +4517,30 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
             </div>
             <button type="button" onclick="${item.onclick}">${musicEscapeHtml(item.action)}</button>
         </div>
+        ${screenPanel}
         ${petLibrary}
+    `;
+    syncMonitorPetFloating();
+}
+
+function renderMonitorScreenSharePanel() {
+    const active = isMonitorScreenSharingActive();
+    const supported = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+    return `
+        <div class="monitor-screen-panel ${active ? 'active' : ''}">
+            <div class="monitor-screen-copy">
+                <span>${active ? 'SCREEN LIVE' : (supported ? 'SCREEN PERMISSION' : 'WEB LIMITED')}</span>
+                <strong>${active ? '真实屏幕已接入桌宠' : '授权后桌宠才能看见真实屏幕'}</strong>
+                <p id="monitor-screen-status">${musicEscapeHtml(monitorScreenStatus)}</p>
+            </div>
+            <div class="monitor-screen-actions">
+                <button type="button" onclick="${active ? 'captureMonitorScreenFrame()' : 'startMonitorScreenShare()'}">
+                    <i class="${active ? 'ri-camera-lens-line' : 'ri-screen-share-line'}"></i>
+                    <span>${active ? '读一帧' : '授权屏幕'}</span>
+                </button>
+                ${active ? '<button type="button" class="ghost" onclick="stopMonitorScreenShare()"><i class="ri-stop-circle-line"></i><span>停止</span></button>' : ''}
+            </div>
+        </div>
     `;
 }
 
@@ -4408,6 +4568,7 @@ function normalizeMonitorPet(item) {
         tags: Array.isArray(item.tags) ? item.tags.map(tag => String(tag || '')).filter(Boolean).slice(0, 5) : [],
         posterUrl: toMonitorPetDisplayUrl(item.posterUrl || item.previewUrl || item.shareImageUrl || ''),
         previewUrl: toMonitorPetDisplayUrl(item.previewUrl || item.posterUrl || item.shareImageUrl || ''),
+        shareImageUrl: toMonitorPetDisplayUrl(item.shareImageUrl || ''),
         spritesheetUrl: toMonitorPetDisplayUrl(item.spritesheetUrl || ''),
         downloadUrl: item.downloadUrl ? toMonitorPetDisplayUrl(item.downloadUrl) : '',
         source: 'codex-pets.net',
@@ -4464,37 +4625,116 @@ function getActiveMonitorPetId() {
 function renderMonitorPetLibrary() {
     const saved = getMonitorPetLibrary();
     const activeId = getActiveMonitorPetId();
-    const resultCards = monitorPetResults.map(pet => renderMonitorPetCard(pet, saved.some(item => item.id === pet.id), activeId)).join('');
     const savedCards = saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('');
     const activePet = saved.find(pet => pet.id === activeId);
+    const boundChar = getMonitorPetBoundChar();
+    const boundText = boundChar ? ` · 绑定 ${getMonitorCharName(boundChar)}` : ' · 未接入角色';
+    const onlineContent = monitorPetLoading
+        ? '<div class="monitor-pet-empty">正在加载素材...</div>'
+        : renderMonitorPetOnlineContent(saved, activeId);
     return `
         <div class="monitor-pet-library">
             <div class="monitor-pet-active">
-                <div class="monitor-pet-preview">${activePet ? `<img src="${musicEscapeAttr(activePet.posterDataUrl || activePet.previewUrl || activePet.posterUrl)}" alt="${musicEscapeAttr(activePet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
+                <div class="monitor-pet-preview">${activePet ? `<img src="${musicEscapeAttr(getMonitorPetDisplayImage(activePet))}" alt="${musicEscapeAttr(activePet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
                 <div>
                     <span>当前桌宠素材</span>
                     <strong>${musicEscapeHtml(activePet ? activePet.displayName : '还没有应用素材')}</strong>
-                    <p>${musicEscapeHtml(activePet ? `来自 ${activePet.source}` : '先搜索、下载，再应用到项目中。')}</p>
+                    <p>${musicEscapeHtml(activePet ? `来自 ${activePet.source}${boundText}` : '先搜索、下载，再应用到项目中。')}</p>
                 </div>
             </div>
             <div class="monitor-pet-search">
-                <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value)">
-                <button type="button" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value)">${monitorPetLoading ? '<i class="ri-loader-4-line"></i>' : '<i class="ri-search-line"></i>'}</button>
+                <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value, 1)">
+                <button type="button" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value, 1)">${monitorPetLoading ? '<i class="ri-loader-4-line"></i>' : '<i class="ri-search-line"></i>'}</button>
             </div>
             <div class="monitor-pet-status">${musicEscapeHtml(monitorPetStatus || '可在项目内查看、下载并应用素材。')}</div>
             <div class="monitor-pet-gallery-head">
-                <div><i class="ri-terminal-box-line"></i><strong>codex-pets</strong></div>
-                <span>Gallery</span><span>Collections</span><span>Creators</span>
+                <div class="monitor-pet-gallery-brand"><i class="ri-terminal-box-line"></i><strong>codex-pets</strong></div>
+                ${renderMonitorPetTabButton('gallery', 'Gallery')}
+                ${renderMonitorPetTabButton('collections', 'Collections')}
+                ${renderMonitorPetTabButton('creators', 'Creators')}
             </div>
-            <div class="monitor-pet-grid">${monitorPetLoading ? '<div class="monitor-pet-empty">正在加载素材...</div>' : (resultCards || '<div class="monitor-pet-empty">还没有搜索结果。</div>')}</div>
+            <div class="monitor-pet-grid">${onlineContent}</div>
+            ${renderMonitorPetPager()}
             <div class="monitor-pet-section-head"><strong>已下载</strong><span>${saved.length} 个</span></div>
             <div class="monitor-pet-grid">${savedCards || '<div class="monitor-pet-empty">下载后的素材会出现在这里。</div>'}</div>
         </div>
     `;
 }
 
+function renderMonitorPetTabButton(view, label) {
+    return `<button type="button" class="${monitorPetView === view ? 'active' : ''}" onclick="setMonitorPetView('${view}')">${label}</button>`;
+}
+
+function renderMonitorPetOnlineContent(saved, activeId) {
+    if (monitorPetView === 'collections') return renderMonitorPetCollections();
+    if (monitorPetView === 'creators') return renderMonitorPetCreators();
+    return monitorPetResults.map(pet => renderMonitorPetCard(pet, saved.some(item => item.id === pet.id), activeId)).join('')
+        || '<div class="monitor-pet-empty">还没有搜索结果。</div>';
+}
+
+function renderMonitorPetCollections() {
+    const map = new Map();
+    monitorPetResults.forEach(pet => {
+        const keys = [pet.kind, ...(Array.isArray(pet.tags) ? pet.tags : [])]
+            .map(item => String(item || '').trim())
+            .filter(Boolean);
+        keys.forEach(key => {
+            const id = key.toLowerCase();
+            if (!map.has(id)) map.set(id, { label: key, count: 0, cover: getMonitorPetDisplayImage(pet), views: 0 });
+            const item = map.get(id);
+            item.count += 1;
+            item.views += Number(pet.viewCount || 0) || 0;
+            if (!item.cover) item.cover = getMonitorPetDisplayImage(pet);
+        });
+    });
+    const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
+    if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有可聚合的合集。</div>';
+    return rows.map(item => `
+        <button type="button" class="monitor-pet-filter-card" onclick="openMonitorPetFilter(decodeURIComponent('${musicEscapeAttr(encodeURIComponent(item.label))}'))">
+            <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-price-tag-3-line"></i>'}</span>
+            <strong>${musicEscapeHtml(item.label)}</strong>
+            <em>${item.count} 个素材 · ${item.views} 浏览</em>
+        </button>
+    `).join('');
+}
+
+function renderMonitorPetCreators() {
+    const map = new Map();
+    monitorPetResults.forEach(pet => {
+        const name = String(pet.ownerName || pet.ownerHandle || 'unknown').trim() || 'unknown';
+        const id = name.toLowerCase();
+        if (!map.has(id)) map.set(id, { label: name, count: 0, cover: getMonitorPetDisplayImage(pet), likes: 0, comments: 0 });
+        const item = map.get(id);
+        item.count += 1;
+        item.likes += Number(pet.likeCount || 0) || 0;
+        item.comments += Number(pet.commentCount || 0) || 0;
+        if (!item.cover) item.cover = getMonitorPetDisplayImage(pet);
+    });
+    const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
+    if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有创作者信息。</div>';
+    return rows.map(item => `
+        <button type="button" class="monitor-pet-filter-card creator" onclick="openMonitorPetFilter(decodeURIComponent('${musicEscapeAttr(encodeURIComponent(item.label))}'))">
+            <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-user-smile-line"></i>'}</span>
+            <strong>${musicEscapeHtml(item.label)}</strong>
+            <em>${item.count} 个素材 · ${item.likes} 喜欢 · ${item.comments} 评论</em>
+        </button>
+    `).join('');
+}
+
+function renderMonitorPetPager() {
+    if (monitorPetLoading || monitorPetTotalPages <= 1) return '';
+    const page = Math.max(1, Math.min(monitorPetPage, monitorPetTotalPages));
+    return `
+        <div class="monitor-pet-pager">
+            <button type="button" ${page <= 1 ? 'disabled' : ''} onclick="goMonitorPetPage(-1)"><i class="ri-arrow-left-s-line"></i><span>上一页</span></button>
+            <strong>第 ${page} / ${monitorPetTotalPages} 页</strong>
+            <button type="button" ${page >= monitorPetTotalPages ? 'disabled' : ''} onclick="goMonitorPetPage(1)"><span>下一页</span><i class="ri-arrow-right-s-line"></i></button>
+        </div>
+    `;
+}
+
 function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
-    const image = pet.posterDataUrl || pet.previewUrl || pet.posterUrl;
+    const image = getMonitorPetDisplayImage(pet);
     return `
         <article class="monitor-pet-card ${activeId === pet.id ? 'active' : ''}">
             <div class="monitor-pet-card-image">${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" loading="lazy" onerror="this.remove()">` : '<i class="ri-image-line"></i>'}</div>
@@ -4510,26 +4750,441 @@ function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
                 ${pet.tags.length ? `<div>${pet.tags.map(tag => `<em>${musicEscapeHtml(tag)}</em>`).join('')}</div>` : ''}
             </div>
             <div class="monitor-pet-card-actions">
-                ${localOnly ? '' : `<button type="button" onclick="previewMonitorPet('${musicEscapeAttr(pet.id)}')">预览</button>`}
-                <button type="button" onclick="${saved ? `applyMonitorPet('${musicEscapeAttr(pet.id)}')` : `downloadMonitorPet('${musicEscapeAttr(pet.id)}')`}">${activeId === pet.id ? '已应用' : (saved ? '应用' : '下载')}</button>
+                ${localOnly ? '' : `<button type="button" class="monitor-pet-action-btn" onclick="previewMonitorPet('${musicEscapeAttr(pet.id)}', this)">预览</button>`}
+                <button type="button" class="monitor-pet-action-btn" onclick="${saved ? `applyMonitorPet('${musicEscapeAttr(pet.id)}', this)` : `downloadMonitorPet('${musicEscapeAttr(pet.id)}', this)`}">${activeId === pet.id ? '已应用' : (saved ? '应用' : '下载')}</button>
             </div>
         </article>
     `;
 }
 
-async function searchMonitorPets(query = '') {
+function updateMonitorPetStatus(text) {
+    monitorPetStatus = String(text || '');
+    const el = document.querySelector('.monitor-pet-status');
+    if (el) el.textContent = monitorPetStatus;
+}
+
+function setMonitorPetActionButton(button, state, text) {
+    if (!button) return;
+    if (!button.dataset.originalText) button.dataset.originalText = button.textContent || '';
+    button.classList.toggle('loading', state === 'loading');
+    button.classList.toggle('done', state === 'done');
+    button.disabled = state === 'loading';
+    button.innerHTML = state === 'loading'
+        ? `<i class="ri-loader-4-line"></i><span>${musicEscapeHtml(text || '处理中')}</span>`
+        : `<span>${musicEscapeHtml(text || button.dataset.originalText || '')}</span>`;
+    if (state === 'done') {
+        setTimeout(() => {
+            if (!button.isConnected) return;
+            button.classList.remove('done');
+            button.disabled = false;
+            button.textContent = button.dataset.originalText || text || '';
+        }, 900);
+    }
+}
+
+function syncMonitorPetFloating() {
+    const host = document.querySelector('.phone-container');
+    const home = document.getElementById('home-screen');
+    const lock = document.getElementById('lock-screen');
+    const unlocked = !home || !home.classList.contains('hidden') || lock?.classList.contains('unlocked');
+    if (!unlocked) {
+        host?.querySelector(':scope > .monitor-pet-floating')?.remove();
+        return;
+    }
+    const activePet = getMonitorPetLibrary().find(pet => pet.id === getActiveMonitorPetId());
+    renderMonitorPetFloat(activePet || null);
+}
+window.syncMonitorPetFloating = syncMonitorPetFloating;
+
+function readMonitorPetFloatPosition() {
+    try {
+        const value = JSON.parse(localStorage.getItem(MONITOR_PET_FLOAT_POS_KEY) || 'null');
+        if (value && Number.isFinite(value.x) && Number.isFinite(value.y)) return value;
+    } catch (e) {}
+    return null;
+}
+
+function clampMonitorPetFloatPosition(host, node, x, y) {
+    const width = Math.max(76, node.offsetWidth || 96);
+    const height = Math.max(76, node.offsetHeight || 96);
+    const maxX = Math.max(8, host.clientWidth - width - 8);
+    const maxY = Math.max(8, host.clientHeight - height - 8);
+    return {
+        x: Math.min(maxX, Math.max(8, Number(x) || 8)),
+        y: Math.min(maxY, Math.max(8, Number(y) || 8))
+    };
+}
+
+function applyMonitorPetFloatPosition(host, node, pos) {
+    const width = Math.max(76, node.offsetWidth || 96);
+    const height = Math.max(76, node.offsetHeight || 96);
+    const target = pos || {
+        x: host.clientWidth - width - 18,
+        y: host.clientHeight - height - 30
+    };
+    const clamped = clampMonitorPetFloatPosition(host, node, target.x, target.y);
+    node.style.left = `${clamped.x}px`;
+    node.style.top = `${clamped.y}px`;
+    node.style.right = 'auto';
+    node.style.bottom = 'auto';
+    return clamped;
+}
+
+function saveMonitorPetFloatPosition(host, node) {
+    const pos = clampMonitorPetFloatPosition(
+        host,
+        node,
+        parseFloat(node.style.left),
+        parseFloat(node.style.top)
+    );
+    localStorage.setItem(MONITOR_PET_FLOAT_POS_KEY, JSON.stringify(pos));
+}
+
+function finishMonitorPetFloatDrag(event, allowTap) {
+    const state = monitorPetDragState;
+    if (!state) return;
+    const { node, host, moved, pointerId, body } = state;
+    monitorPetDragState = null;
+    node.classList.remove('dragging');
+    try {
+        body?.releasePointerCapture?.(pointerId);
+    } catch (e) {}
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if (moved) {
+        saveMonitorPetFloatPosition(host, node);
+        return;
+    }
+    if (allowTap) requestMonitorPetReaction('tap');
+}
+
+function bindMonitorPetFloatEvents(node) {
+    if (!node || node.dataset.dragBound === '1') return;
+    node.dataset.dragBound = '1';
+    node.addEventListener('pointerdown', event => {
+        const body = event.target && event.target.closest && event.target.closest('.monitor-pet-floating-body');
+        if (!body || !node.contains(body)) return;
+        const host = node.parentElement;
+        if (!host) return;
+        const rect = node.getBoundingClientRect();
+        event.preventDefault();
+        event.stopPropagation();
+        monitorPetDragState = {
+            node,
+            host,
+            body,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            offsetX: event.clientX - rect.left,
+            offsetY: event.clientY - rect.top,
+            moved: false
+        };
+        node.classList.add('dragging');
+        try {
+            body.setPointerCapture?.(event.pointerId);
+        } catch (e) {}
+    });
+    node.addEventListener('pointermove', event => {
+        const state = monitorPetDragState;
+        if (!state || state.node !== node || state.pointerId !== event.pointerId) return;
+        const dx = event.clientX - state.startX;
+        const dy = event.clientY - state.startY;
+        if (Math.hypot(dx, dy) > 3) state.moved = true;
+        const hostRect = state.host.getBoundingClientRect();
+        const pos = clampMonitorPetFloatPosition(
+            state.host,
+            node,
+            event.clientX - hostRect.left - state.offsetX,
+            event.clientY - hostRect.top - state.offsetY
+        );
+        node.style.left = `${pos.x}px`;
+        node.style.top = `${pos.y}px`;
+        node.style.right = 'auto';
+        node.style.bottom = 'auto';
+        event.preventDefault();
+        event.stopPropagation();
+    });
+    node.addEventListener('pointerup', event => finishMonitorPetFloatDrag(event, true));
+    node.addEventListener('pointercancel', event => finishMonitorPetFloatDrag(event, false));
+}
+
+function renderMonitorPetFloat(pet, mode = '') {
+    const host = document.querySelector('.phone-container');
+    if (!host) return;
+    let node = host.querySelector(':scope > .monitor-pet-floating');
+    if (!pet) {
+        if (node) node.remove();
+        return;
+    }
+    if (!node) {
+        node = document.createElement('div');
+        node.className = 'monitor-pet-floating';
+        host.appendChild(node);
+    }
+    const image = getMonitorPetDisplayImage(pet);
+    const boundChar = getMonitorPetBoundChar();
+    const petState = boundChar && boundChar.chatConfig ? (boundChar.chatConfig.monitorPetState || {}) : {};
+    const pending = !!(petState && petState.pending);
+    const characterMessage = String((petState && petState.bubbleText) || '').trim();
+    const transientMessage = String(monitorPetFloatMessage || '').trim();
+    const message = transientMessage || (pending ? '...' : characterMessage);
+    const hasBubble = !!message;
+    const boundName = boundChar ? getMonitorCharName(boundChar) : '';
+    node.className = `monitor-pet-floating ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} pop`;
+    node.dataset.boundChar = boundChar ? boundChar.id : '';
+    node.innerHTML = `
+        ${hasBubble ? `<div class="monitor-pet-floating-bubble">${pending ? '<span class="monitor-pet-thinking-text">...</span>' : musicEscapeHtml(message)}</div>` : ''}
+        <button type="button" class="monitor-pet-floating-body" aria-label="${musicEscapeAttr(boundName ? `点击让 ${boundName} 说话` : '先接入角色再让桌宠说话')}" title="${musicEscapeAttr(boundName ? `绑定：${boundName}` : '未绑定角色')}">
+            ${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}
+        </button>
+    `;
+    bindMonitorPetFloatEvents(node);
+    applyMonitorPetFloatPosition(host, node, readMonitorPetFloatPosition());
+    clearTimeout(renderMonitorPetFloat._timer);
+    renderMonitorPetFloat._timer = setTimeout(() => {
+        if (node && node.isConnected) node.classList.remove('pop');
+        if (transientMessage && monitorPetFloatMessage === transientMessage) {
+            monitorPetFloatMessage = '';
+            syncMonitorPetFloating();
+        }
+    }, transientMessage ? 1100 : 760);
+}
+
+function getMonitorPetWorldBookText(char) {
+    const entries = Array.isArray(char && char.worldBook)
+        ? char.worldBook.filter(entry => entry && entry.enabled !== false)
+        : [];
+    return entries.slice(0, 12).map(entry => {
+        const keySource = [entry.key, entry.keys, entry.keyword, entry.name, entry.comment].find(value => {
+            if (Array.isArray(value)) return value.filter(Boolean).length > 0;
+            return String(value || '').trim();
+        }) || '';
+        const key = Array.isArray(keySource) ? keySource.filter(Boolean).join('、') : String(keySource || '');
+        const content = String(entry.content || entry.entry || entry.value || entry.text || '').replace(/\s+/g, ' ').slice(0, 420);
+        return content ? `${key ? `【${key}】` : ''}${content}` : '';
+    }).filter(Boolean).join('\n');
+}
+
+function getMonitorPetRecentContext(char) {
+    const history = Array.isArray(char && char.history) ? char.history : [];
+    return history.slice(-10).map(msg => {
+        const who = msg.isMe ? '用户' : getMonitorCharName(char);
+        const text = String(msg.description || msg.content || msg.dialogue || '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return text ? `${who}: ${text.slice(0, 180)}` : '';
+    }).filter(Boolean).join('\n') || '暂无最近聊天。';
+}
+
+function getMonitorPetCurrentSceneText() {
+    const active = document.querySelector('.app-window.active:not(.hidden)');
+    if (!active) return '系统只能知道：用户当前停留在 BYND 手机桌面。';
+    const raw = String(active.id || '').replace(/^app-/, '').replace(/-window$/, '');
+    const labels = {
+        wechat: '微信聊天页',
+        music: '音乐页',
+        monitor: '监控页',
+        coread: 'PageMate 阅读页',
+        dream: '盗梦空间',
+        theme: '美化页',
+        settings: '设置页',
+        worldbook: '世界书页',
+        album: '相册页',
+        money: '转账红包页',
+        game: '小游戏页',
+        outing: '一起出门页',
+        preset: 'API 预设页'
+    };
+    return `系统只能知道：用户当前打开了项目内的「${labels[raw] || raw || '某个页面'}」。`;
+}
+
+function buildMonitorPetReactionMessages(char, reason = 'tap', screenImage = '') {
+    const userProfile = typeof getWechatChatUserProfile === 'function'
+        ? getWechatChatUserProfile(char)
+        : (typeof getUserProfile === 'function' ? getUserProfile() : {});
+    const identity = typeof buildWechatIdentityContextPrompt === 'function' ? buildWechatIdentityContextPrompt(char, userProfile) : '';
+    const memory = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
+    const worldBook = getMonitorPetWorldBookText(char);
+    const persona = [
+        char && char.description,
+        char && char.personality,
+        char && char.prompt,
+        char && char.setting
+    ].filter(Boolean).map(item => String(item)).join('\n').slice(0, 3600);
+    const pet = getMonitorPetLibrary().find(item => item.id === getActiveMonitorPetId());
+    const hasScreenImage = /^data:image\//i.test(String(screenImage || ''));
+    const userPrompt = [
+        identity,
+        `【角色名】${getMonitorCharName(char)}`,
+        `【触发】${reason === 'tap' ? '用户点击了桌宠' : '桌宠状态更新'}`,
+        pet ? `【桌宠素材】${pet.displayName}` : '',
+        `【可感知状态】${getMonitorPetCurrentSceneText()}`,
+        hasScreenImage ? '【真实屏幕截图】本轮附带了一帧用户主动授权共享的真实屏幕画面。你可以观察这张图，但不要说得像长期监控。' : '【真实屏幕截图】本轮没有屏幕画面。你不能假装看见真实屏幕。',
+        persona ? `【角色卡/人设】\n${persona}` : '',
+        worldBook ? `【世界书】\n${worldBook}` : '',
+        memory ? `【角色记忆】\n${memory}` : '',
+        `【最近聊天】\n${getMonitorPetRecentContext(char)}`,
+        hasScreenImage
+            ? '请让角色本人基于截图里能看见的内容，用很短的一句话对用户说话。不要输出图片分析报告。'
+            : '请让角色本人用很短的一句话回应用户点击桌宠或当前项目内状态。不要假装拥有屏幕视觉。'
+    ].filter(Boolean).join('\n\n');
+    return [
+        {
+            role: 'system',
+            content: [
+                '你是 BYND 桌宠气泡里的角色本人。',
+                '必须严格按角色人设、世界书、记忆和最近聊天关系发言。',
+                hasScreenImage
+                    ? '本轮用户主动授权并附带了一帧真实屏幕截图；你可以观察截图里实际出现的内容。'
+                    : '本轮没有屏幕截图；你不能看见真实手机屏幕、摄像头画面、用户身边的人或其它 App 内容。',
+                '没有截图时禁止声称“我看到你的屏幕/旁边有人/你正在看某个外部 App”。有截图时只描述截图中确实可见的内容。',
+                '只输出一句中文自然语言，10-36 个字，像桌宠贴在屏幕上对用户说话。',
+                '不要 JSON，不要 Markdown，不要旁白动作，不要系统口吻，不要解释。'
+            ].join('\n')
+        },
+        {
+            role: 'user',
+            content: hasScreenImage
+                ? [
+                    { type: 'text', text: userPrompt },
+                    { type: 'image_url', image_url: { url: screenImage } }
+                ]
+                : userPrompt
+        }
+    ];
+}
+
+function normalizeMonitorPetReactionText(value) {
+    let source = value;
+    if (source && typeof source === 'object') {
+        source = source.content || source.text || source.message || source.response || source.answer || source.reply || '';
+    }
+    let text = String(source || '')
+        .replace(/^```(?:json|text|markdown)?/i, '')
+        .replace(/```$/i, '')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+    if (/^[{[]/.test(text)) {
+        try {
+            const parsed = JSON.parse(text);
+            const candidate = parsed && (parsed.bubble || parsed.text || parsed.content || parsed.message || parsed.reply || parsed.answer);
+            if (candidate) text = String(candidate).trim();
+        } catch (e) {}
+    }
+    text = text
+        .replace(/^\s*(?:桌宠气泡|角色发言|回复|气泡)\s*[：:]\s*/i, '')
+        .replace(/^["“”'「『]+|["“”'」』]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!text || /^(?:null|undefined|none|无|空|没有)$/i.test(text)) return '';
+    return text.slice(0, 80);
+}
+
+async function requestMonitorPetReaction(reason = 'tap') {
+    const char = getMonitorPetBoundChar();
+    if (!char) {
+        updateMonitorPetStatus('先接入一个角色，桌宠才会按角色人设说话。');
+        if (typeof showWechatToast === 'function') showWechatToast('先接入一个角色');
+        return false;
+    }
+    if (typeof callChatApi !== 'function') {
+        updateMonitorPetStatus('当前没有可用 API，桌宠无法生成角色气泡。');
+        return false;
+    }
+    const now = Date.now();
+    if (monitorPetAiBusy || now - monitorPetLastReactionAt < 2200) return false;
+    monitorPetAiBusy = true;
+    monitorPetLastReactionAt = now;
+    const state = ensureMonitorPetState(char);
+    state.pending = true;
+    state.lastError = '';
+    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    syncMonitorPetFloating();
+    try {
+        const screenImage = isMonitorScreenSharingActive()
+            ? await captureMonitorScreenFrame().catch(() => '')
+            : '';
+        const result = await callChatApi(buildMonitorPetReactionMessages(char, reason, screenImage), {
+            max_tokens: screenImage ? 220 : 160,
+            temperature: 0.82,
+            background: true,
+            backgroundPriority: 1
+        });
+        const text = normalizeMonitorPetReactionText(result && result.ok ? result.content : '');
+        if (!text) {
+            state.lastError = (result && result.error) || 'AI 返回了空内容';
+            updateMonitorPetStatus(`${getMonitorCharName(char)} 暂时没有生成桌宠气泡：${state.lastError}`);
+            return false;
+        }
+        state.bubbleText = text;
+        state.bubbleAt = Date.now();
+        state.lastError = '';
+        monitorPetFloatMessage = '';
+        updateMonitorPetStatus(`${getMonitorCharName(char)} 已更新桌宠气泡。`);
+    } catch (e) {
+        state.lastError = e && e.message ? e.message : String(e || '生成失败');
+        updateMonitorPetStatus(`${getMonitorCharName(char)} 的桌宠气泡生成失败：${state.lastError}`);
+    } finally {
+        state.pending = false;
+        monitorPetAiBusy = false;
+        if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+        syncMonitorPetFloating();
+    }
+    return false;
+}
+window.requestMonitorPetReaction = requestMonitorPetReaction;
+
+function getMonitorPetDisplayImage(pet) {
+    if (!pet) return '';
+    return pet.posterDataUrl || pet.posterUrl || pet.shareImageUrl || pet.previewUrl || '';
+}
+
+function setMonitorPetView(view) {
+    monitorPetView = ['gallery', 'collections', 'creators'].includes(view) ? view : 'gallery';
+    renderMonitorCharacters();
+}
+window.setMonitorPetView = setMonitorPetView;
+
+function openMonitorPetFilter(query) {
+    monitorPetView = 'gallery';
+    searchMonitorPets(query, 1);
+    return false;
+}
+window.openMonitorPetFilter = openMonitorPetFilter;
+
+function goMonitorPetPage(delta) {
+    const next = Math.max(1, Math.min(monitorPetTotalPages || 1, monitorPetPage + Number(delta || 0)));
+    if (next === monitorPetPage || monitorPetLoading) return false;
+    searchMonitorPets(monitorPetQuery, next);
+    return false;
+}
+window.goMonitorPetPage = goMonitorPetPage;
+
+async function searchMonitorPets(query = '', page = 1) {
     monitorPetQuery = String(query || '').trim();
+    monitorPetPage = Math.max(1, Number(page) || 1);
     monitorPetLoading = true;
     monitorPetStatus = '正在读取在线素材...';
     renderMonitorCharacters();
     try {
-        const params = new URLSearchParams({ page: '1', pageSize: '12' });
+        const params = new URLSearchParams({ page: String(monitorPetPage), pageSize: String(monitorPetPageSize) });
         if (monitorPetQuery) params.set('q', monitorPetQuery);
         const data = await fetchMonitorPetJson(`/api/pets?${params.toString()}`);
         monitorPetResults = (Array.isArray(data.pets) ? data.pets : []).map(normalizeMonitorPet).filter(Boolean);
-        monitorPetStatus = monitorPetResults.length ? `找到 ${monitorPetResults.length} 个素材，可直接预览或下载。` : '没有找到匹配素材，换个关键词试试。';
+        monitorPetTotal = Math.max(0, Number(data.total || 0) || monitorPetResults.length);
+        monitorPetTotalPages = Math.max(1, Number(data.totalPages || 0) || Math.ceil(monitorPetTotal / monitorPetPageSize) || 1);
+        monitorPetPage = Math.max(1, Math.min(Number(data.page || monitorPetPage) || 1, monitorPetTotalPages));
+        monitorPetStatus = monitorPetResults.length
+            ? `找到 ${monitorPetTotal} 个素材，当前第 ${monitorPetPage} / ${monitorPetTotalPages} 页。`
+            : '没有找到匹配素材，换个关键词试试。';
     } catch (e) {
         monitorPetResults = [];
+        monitorPetTotal = 0;
+        monitorPetTotalPages = 1;
         monitorPetStatus = `读取失败：${e.message || e}`;
     } finally {
         monitorPetLoading = false;
@@ -4555,14 +5210,20 @@ async function fetchMonitorPetJson(path) {
     throw new Error(lastError?.message || 'Failed to fetch');
 }
 
-function previewMonitorPet(petId) {
+function previewMonitorPet(petId, button) {
     const pet = monitorPetResults.find(item => item.id === petId) || getMonitorPetLibrary().find(item => item.id === petId);
     if (!pet) return false;
-    monitorPetStatus = `正在预览：${pet.displayName}`;
+    updateMonitorPetStatus(`正在预览：${pet.displayName}`);
+    setMonitorPetActionButton(button, 'done', '已预览');
+    monitorPetFloatMessage = `预览 ${pet.displayName}`;
+    renderMonitorPetFloat(pet, 'preview');
     const preview = document.querySelector('.monitor-pet-active');
     if (preview) {
+        preview.classList.remove('is-previewing');
+        void preview.offsetWidth;
+        preview.classList.add('is-previewing');
         preview.innerHTML = `
-            <div class="monitor-pet-preview">${pet.previewUrl || pet.posterUrl ? `<img src="${musicEscapeAttr(pet.previewUrl || pet.posterUrl)}" alt="${musicEscapeAttr(pet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
+            <div class="monitor-pet-preview">${getMonitorPetDisplayImage(pet) ? `<img src="${musicEscapeAttr(getMonitorPetDisplayImage(pet))}" alt="${musicEscapeAttr(pet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
             <div>
                 <span>预览素材</span>
                 <strong>${musicEscapeHtml(pet.displayName)}</strong>
@@ -4610,34 +5271,54 @@ async function fetchMonitorPetDataUrl(url) {
     return monitorBlobToDataUrl(await resp.blob());
 }
 
-async function downloadMonitorPet(petId) {
+async function downloadMonitorPet(petId, button) {
     const pet = monitorPetResults.find(item => item.id === petId);
     if (!pet) return false;
-    monitorPetStatus = `正在下载 ${pet.displayName}...`;
-    renderMonitorCharacters();
+    updateMonitorPetStatus(`正在下载 ${pet.displayName}...`);
+    setMonitorPetActionButton(button, 'loading', '下载中');
     try {
-        const posterDataUrl = pet.posterUrl ? await fetchMonitorPetDataUrl(pet.posterUrl) : '';
+        const posterSource = pet.posterUrl || pet.shareImageUrl || pet.previewUrl;
+        const posterDataUrl = posterSource ? await fetchMonitorPetDataUrl(posterSource) : '';
         const zipDataUrl = pet.downloadUrl ? await fetchMonitorPetDataUrl(pet.downloadUrl) : '';
         await saveMonitorPetAsset(`${pet.id}:zip`, zipDataUrl);
         const library = getMonitorPetLibrary().filter(item => item.id !== pet.id);
         library.unshift({ ...pet, posterDataUrl, savedAt: Date.now() });
         saveMonitorPetLibrary(library);
-        monitorPetStatus = `已下载 ${pet.displayName}，可以应用到项目中。`;
+        monitorPetFloatMessage = `下载完成`;
+        renderMonitorPetFloat({ ...pet, posterDataUrl }, 'preview');
+        updateMonitorPetStatus(`已下载 ${pet.displayName}，可以应用到项目中。`);
+        setMonitorPetActionButton(button, 'done', '已下载');
     } catch (e) {
-        monitorPetStatus = `下载失败：${e.message || e}`;
+        updateMonitorPetStatus(`下载失败：${e.message || e}`);
+        if (button) {
+            button.disabled = false;
+            button.classList.remove('loading');
+            button.textContent = button.dataset.originalText || '下载';
+        }
     } finally {
-        renderMonitorCharacters();
+        setTimeout(() => {
+            monitorPetFloatMessage = '';
+            renderMonitorCharacters();
+        }, 420);
     }
     return false;
 }
 window.downloadMonitorPet = downloadMonitorPet;
 
-function applyMonitorPet(petId) {
+function applyMonitorPet(petId, button) {
     const pet = getMonitorPetLibrary().find(item => item.id === petId);
     if (!pet) return false;
+    setMonitorPetActionButton(button, 'loading', '应用中');
     localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
-    monitorPetStatus = `已应用 ${pet.displayName}。`;
-    renderMonitorCharacters();
+    monitorPetFloatMessage = '';
+    updateMonitorPetStatus(`已应用 ${pet.displayName}，桌宠已浮到页面上。`);
+    renderMonitorPetFloat(pet, 'apply');
+    setMonitorPetActionButton(button, 'done', '已应用');
+    setTimeout(() => {
+        monitorPetFloatMessage = '';
+        renderMonitorCharacters();
+    }, 520);
+    setTimeout(() => requestMonitorPetReaction('apply'), 80);
     if (typeof showWechatToast === 'function') showWechatToast(`已应用桌宠素材：${pet.displayName}`);
     return false;
 }
@@ -4782,8 +5463,15 @@ function toggleMonitorWatcher(charId) {
     char.chatConfig.monitorEnabled = !char.chatConfig.monitorEnabled;
     char.chatConfig.monitorState = char.chatConfig.monitorState || {};
     char.chatConfig.monitorState.lastError = '';
+    if (char.chatConfig.monitorEnabled) {
+        setMonitorPetBoundChar(char.id);
+    } else if (localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) === char.id) {
+        const next = getMonitorCharacters().find(item => item.id !== char.id && item.chatConfig && item.chatConfig.monitorEnabled);
+        setMonitorPetBoundChar(next ? next.id : '');
+    }
     if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
     renderMonitorCharacters();
+    syncMonitorPetFloating();
     const name = getMonitorCharName(char);
     const text = char.chatConfig.monitorEnabled
         ? `${name} 已接入 BYND 内部监控剧情`

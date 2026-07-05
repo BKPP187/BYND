@@ -8328,21 +8328,29 @@ function renderWechatImageStackBubble(msg, quoteHtml = '') {
     `;
 }
 
-function updateWechatImageStack(stack, activeIndex) {
+function getWechatImageStackFanDirection(stack) {
+    return stack && stack.closest && stack.closest('.msg-row.right') ? -1 : 1;
+}
+
+function updateWechatImageStack(stack, activeIndex, dragOffset = 0) {
     if (!stack) return;
     const cards = Array.from(stack.querySelectorAll('.wc-image-stack-card'));
     if (!cards.length) return;
     const max = cards.length - 1;
     const active = Math.max(0, Math.min(max, Number(activeIndex || 0)));
+    const fanDirection = getWechatImageStackFanDirection(stack);
+    const dragX = Math.max(-64, Math.min(64, Number(dragOffset || 0)));
     stack.dataset.active = String(active);
     cards.forEach((card, index) => {
         const offset = index - active;
         const abs = Math.abs(offset);
-        const visible = abs <= 3;
+        const visible = abs <= 2;
+        const sideX = offset * fanDirection;
+        const activeDrag = index === active ? dragX : dragX * Math.max(0, 0.24 - abs * 0.07);
         card.style.zIndex = String(50 - abs);
-        card.style.opacity = visible ? String(Math.max(0.18, 1 - abs * 0.18)) : '0';
-        card.style.pointerEvents = abs === 0 ? 'auto' : 'auto';
-        card.style.transform = `translateX(${offset * 18}px) translateY(${abs * 7}px) rotate(${offset * 4}deg) scale(${Math.max(0.82, 1 - abs * 0.055)})`;
+        card.style.opacity = visible ? String(Math.max(0.28, 1 - abs * 0.22)) : '0';
+        card.style.pointerEvents = visible ? 'auto' : 'none';
+        card.style.transform = `translate3d(${sideX * 15 + activeDrag}px, ${abs * 8}px, ${-abs * 18}px) rotate(${sideX * 3.2}deg) scale(${Math.max(0.86, 1 - abs * 0.052)})`;
         card.classList.toggle('active', index === active);
     });
     const count = stack.querySelector('.wc-image-stack-count');
@@ -8357,20 +8365,58 @@ function bindWechatImageStacks(root) {
         updateWechatImageStack(stack, Number(stack.dataset.active || 0));
         let startX = 0;
         let startY = 0;
+        let pointerId = null;
+        let horizontalDrag = false;
         let moved = false;
         stack.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
             startX = event.clientX;
             startY = event.clientY;
+            pointerId = event.pointerId;
+            horizontalDrag = false;
             moved = false;
+            stack.classList.add('dragging');
+            try {
+                stack.setPointerCapture?.(event.pointerId);
+            } catch (_) {}
+        });
+        stack.addEventListener('pointermove', event => {
+            if (pointerId !== event.pointerId) return;
+            const dx = event.clientX - startX;
+            const dy = event.clientY - startY;
+            if (!horizontalDrag && Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy) * 0.72) {
+                horizontalDrag = true;
+                moved = true;
+            }
+            if (!horizontalDrag) return;
+            event.preventDefault();
+            event.stopPropagation();
+            updateWechatImageStack(stack, Number(stack.dataset.active || 0), dx * 0.46);
         });
         stack.addEventListener('pointerup', event => {
+            if (pointerId !== event.pointerId) return;
             const dx = event.clientX - startX;
             const dy = event.clientY - startY;
             const active = Number(stack.dataset.active || 0);
-            if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) {
+            stack.classList.remove('dragging');
+            try {
+                stack.releasePointerCapture?.(event.pointerId);
+            } catch (_) {}
+            pointerId = null;
+            if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.72) {
                 moved = true;
                 updateWechatImageStack(stack, active + (dx < 0 ? 1 : -1));
+            } else {
+                updateWechatImageStack(stack, active);
             }
+            setTimeout(() => { moved = false; }, 0);
+        });
+        stack.addEventListener('pointercancel', event => {
+            if (pointerId !== event.pointerId) return;
+            pointerId = null;
+            horizontalDrag = false;
+            stack.classList.remove('dragging');
+            updateWechatImageStack(stack, Number(stack.dataset.active || 0));
             setTimeout(() => { moved = false; }, 0);
         });
         stack.addEventListener('keydown', event => {
@@ -8391,7 +8437,10 @@ function bindWechatImageStacks(root) {
                     updateWechatImageStack(stack, index);
                     return;
                 }
-                openWechatImagePreview(card.dataset.src || '', `第 ${index + 1} 张`);
+                const sources = Array.from(stack.querySelectorAll('.wc-image-stack-card'))
+                    .map(item => item.dataset.src || '')
+                    .filter(Boolean);
+                openWechatImagePreview(card.dataset.src || '', `第 ${index + 1} 张`, sources, index);
             });
         });
     });
@@ -8464,6 +8513,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     const quoteHtml = useWechatExternalQuote ? '' : renderWechatMessageQuote(displayMsg.replyTo, charObj);
     const externalQuoteHtml = useWechatExternalQuote ? renderWechatExternalMessageQuote(displayMsg.replyTo, charObj) : '';
     if (externalQuoteHtml) row.classList.add('has-wechat-quote');
+    if (isWechatImageStackMessage(displayMsg)) row.classList.add('has-image-stack');
 
     let bubbleHtml = '';
     const avatarClass = msg.isMe ? 'msg-avatar' : 'msg-avatar msg-avatar-ai';
@@ -18982,6 +19032,12 @@ function getWechatModalRoot() {
     return document.querySelector('.phone-container') || document.body;
 }
 
+let wechatImagePreviewState = {
+    images: [],
+    index: 0,
+    captions: []
+};
+
 function ensureWechatImagePreviewOverlay() {
     let overlay = document.getElementById('wc-image-preview-overlay');
     if (overlay) return overlay;
@@ -18990,6 +19046,8 @@ function ensureWechatImagePreviewOverlay() {
     overlay.className = 'wc-image-preview-overlay hidden';
     overlay.innerHTML = `
         <button type="button" class="wc-image-preview-close" aria-label="关闭图片预览"><i class="ri-close-line"></i></button>
+        <button type="button" class="wc-image-preview-nav prev" aria-label="上一张"><i class="ri-arrow-left-s-line"></i></button>
+        <button type="button" class="wc-image-preview-nav next" aria-label="下一张"><i class="ri-arrow-right-s-line"></i></button>
         <div class="wc-image-preview-stage">
             <img src="" alt="图片预览">
             <div class="wc-image-preview-caption"></div>
@@ -19003,21 +19061,87 @@ function ensureWechatImagePreviewOverlay() {
         event.stopPropagation();
         closeWechatImagePreview();
     });
+    overlay.querySelector('.wc-image-preview-nav.prev')?.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        navigateWechatImagePreview(-1);
+    });
+    overlay.querySelector('.wc-image-preview-nav.next')?.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        navigateWechatImagePreview(1);
+    });
+    const stage = overlay.querySelector('.wc-image-preview-stage');
+    let previewStartX = 0;
+    let previewStartY = 0;
+    let previewPointerId = null;
+    stage?.addEventListener('pointerdown', event => {
+        previewStartX = event.clientX;
+        previewStartY = event.clientY;
+        previewPointerId = event.pointerId;
+        try {
+            stage.setPointerCapture?.(event.pointerId);
+        } catch (_) {}
+    });
+    stage?.addEventListener('pointerup', event => {
+        if (previewPointerId !== event.pointerId) return;
+        const dx = event.clientX - previewStartX;
+        const dy = event.clientY - previewStartY;
+        previewPointerId = null;
+        if (Math.abs(dx) > 34 && Math.abs(dx) > Math.abs(dy) * 0.72) {
+            event.preventDefault();
+            event.stopPropagation();
+            navigateWechatImagePreview(dx < 0 ? 1 : -1);
+        }
+    });
+    stage?.addEventListener('pointercancel', event => {
+        if (previewPointerId === event.pointerId) previewPointerId = null;
+    });
     getWechatModalRoot().appendChild(overlay);
     return overlay;
 }
 
-function openWechatImagePreview(src, caption = '') {
-    const imageUrl = String(src || '').trim();
-    if (!imageUrl) return;
+function renderWechatImagePreview() {
     const overlay = ensureWechatImagePreviewOverlay();
+    const images = Array.isArray(wechatImagePreviewState.images) ? wechatImagePreviewState.images : [];
+    const index = Math.max(0, Math.min(images.length - 1, Number(wechatImagePreviewState.index || 0)));
+    const imageUrl = images[index] || '';
     const img = overlay.querySelector('img');
     const captionEl = overlay.querySelector('.wc-image-preview-caption');
+    const prev = overlay.querySelector('.wc-image-preview-nav.prev');
+    const next = overlay.querySelector('.wc-image-preview-nav.next');
     if (img) img.src = imageUrl;
     if (captionEl) {
+        const caption = images.length > 1 ? `第 ${index + 1} / ${images.length} 张` : (wechatImagePreviewState.captions[index] || '');
         captionEl.textContent = stripWechatPromptText(caption, 72);
         captionEl.style.display = captionEl.textContent ? 'block' : 'none';
     }
+    if (prev) prev.style.display = images.length > 1 ? 'inline-flex' : 'none';
+    if (next) next.style.display = images.length > 1 ? 'inline-flex' : 'none';
+}
+
+function navigateWechatImagePreview(delta) {
+    const images = Array.isArray(wechatImagePreviewState.images) ? wechatImagePreviewState.images : [];
+    if (images.length <= 1) return;
+    const next = (Number(wechatImagePreviewState.index || 0) + Number(delta || 0) + images.length) % images.length;
+    wechatImagePreviewState.index = next;
+    renderWechatImagePreview();
+}
+
+function openWechatImagePreview(src, caption = '', gallery = null, activeIndex = 0) {
+    const imageUrl = String(src || '').trim();
+    if (!imageUrl) return;
+    const overlay = ensureWechatImagePreviewOverlay();
+    const images = (Array.isArray(gallery) ? gallery : [imageUrl])
+        .map(item => String(item || '').trim())
+        .filter(Boolean);
+    const index = Math.max(0, Math.min(images.length - 1, Number(activeIndex || 0)));
+    wechatImagePreviewState = {
+        images: images.length ? images : [imageUrl],
+        index,
+        captions: [caption]
+    };
+    renderWechatImagePreview();
     overlay.classList.remove('hidden');
 }
 
@@ -19025,12 +19149,32 @@ function closeWechatImagePreview() {
     const overlay = document.getElementById('wc-image-preview-overlay');
     if (!overlay) return;
     overlay.classList.add('hidden');
+    wechatImagePreviewState = { images: [], index: 0, captions: [] };
     const img = overlay.querySelector('img');
     if (img) img.removeAttribute('src');
 }
 
 window.openWechatImagePreview = openWechatImagePreview;
 window.closeWechatImagePreview = closeWechatImagePreview;
+window.navigateWechatImagePreview = navigateWechatImagePreview;
+
+if (!window._wechatImagePreviewKeyBound) {
+    window._wechatImagePreviewKeyBound = true;
+    document.addEventListener('keydown', event => {
+        const overlay = document.getElementById('wc-image-preview-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeWechatImagePreview();
+        } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            navigateWechatImagePreview(-1);
+        } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            navigateWechatImagePreview(1);
+        }
+    });
+}
 
 function getWechatCharDisplayName(char) {
     if (char && char.isGroupChat) return getWechatQQGroupDisplayName(char);
