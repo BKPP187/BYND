@@ -1067,6 +1067,17 @@ const MUSIC_FALLBACK_TRACKS = [
         sourceName: 'Internet Archive'
     }
 ];
+const MUSIC_PLACEHOLDER_TRACK = {
+    id: 'placeholder:bynd-music',
+    trackName: '暂无播放',
+    artistName: '搜索或导入音乐',
+    collectionName: 'BYND Music',
+    artworkUrl100: '',
+    audioUrl: '',
+    trackViewUrl: '',
+    primaryGenreName: 'Music',
+    sourceName: '音乐'
+};
 
 let musicAudio = null;
 let musicTracks = [];
@@ -1137,6 +1148,26 @@ function normalizeMusicTrack(track) {
         sourceName: track.sourceName || 'Internet Archive',
         duration: track.duration || null
     };
+}
+
+function getMusicPlaceholderTrack() {
+    return normalizeMusicTrack(MUSIC_PLACEHOLDER_TRACK);
+}
+
+function isMusicFallbackTrack(track) {
+    const id = String(track?.id || '');
+    if (id === MUSIC_PLACEHOLDER_TRACK.id) return true;
+    return MUSIC_FALLBACK_TRACKS.some(item => String(item.id || '') === id);
+}
+
+function getUserMusicTracks() {
+    return (Array.isArray(musicTracks) ? musicTracks : []).filter(track => track && !isMusicFallbackTrack(track));
+}
+
+function getUserMusicTrackEntries() {
+    return (Array.isArray(musicTracks) ? musicTracks : [])
+        .map((track, index) => ({ track, index }))
+        .filter(item => item.track && !isMusicFallbackTrack(item.track));
 }
 
 function loadMusicSourceSettings() {
@@ -1365,7 +1396,7 @@ function initMusicApp() {
     const win = document.getElementById('app-music-window');
     if (!win || win.dataset.ready === '1') return;
     win.dataset.ready = '1';
-    musicTracks = MUSIC_FALLBACK_TRACKS.map(normalizeMusicTrack);
+    musicTracks = [];
     syncMusicSourceUI();
     const input = document.getElementById('music-search-input');
     if (input) input.value = '';
@@ -1380,7 +1411,7 @@ function renderMusicApp() {
 }
 
 function renderMusicNowPlaying() {
-    const track = musicTracks[musicCurrentIndex] || normalizeMusicTrack(MUSIC_FALLBACK_TRACKS[0]);
+    const track = musicTracks[musicCurrentIndex] || getMusicPlaceholderTrack();
     const cover = document.getElementById('music-now-cover');
     const title = document.getElementById('music-now-title');
     const artist = document.getElementById('music-now-artist');
@@ -1411,6 +1442,7 @@ function renderMusicNowPlaying() {
     }
     updateMusicFavoriteButton();
     syncMusicPlaybackModeButtons();
+    updateMusicProgress();
 }
 
 function syncMusicPlaybackModeButtons() {
@@ -1447,6 +1479,7 @@ window.toggleMusicRepeatMode = toggleMusicRepeatMode;
 
 function switchMusicMainTab(tab) {
     musicMainTab = ['home', 'search', 'albums', 'favorites'].includes(tab) ? tab : 'home';
+    closeMusicOverlayForMainTab();
     if (musicMainTab !== 'albums') musicAlbumFilter = '';
     syncMusicMainTabs();
     renderMusicMainTab();
@@ -1455,6 +1488,14 @@ function switchMusicMainTab(tab) {
     }
 }
 window.switchMusicMainTab = switchMusicMainTab;
+
+function closeMusicOverlayForMainTab() {
+    const neteaseView = document.getElementById('music-netease-view');
+    if (neteaseView && !neteaseView.classList.contains('hidden')) {
+        if (typeof window.closeNeteaseView === 'function') window.closeNeteaseView();
+        else neteaseView.classList.add('hidden');
+    }
+}
 
 function ensureMusicConceptNav() {
     const bar = document.querySelector('#app-music-window .music-bottom-nav');
@@ -1514,11 +1555,12 @@ function renderMusicHomePlaylists() {
 function renderMusicList() {
     const list = document.getElementById('music-track-list');
     if (!list) return;
-    if (!musicTracks.length) {
+    const entries = getUserMusicTrackEntries();
+    if (!entries.length) {
         list.innerHTML = `${renderMusicHomePlaylists()}<div class="music-empty-state"><strong>没有搜索结果</strong><span>换个歌名、歌手或切换音乐源试试。</span></div>`;
         return;
     }
-    list.innerHTML = renderMusicHomePlaylists() + musicTracks.map((track, index) => {
+    list.innerHTML = renderMusicHomePlaylists() + entries.map(({ track, index }) => {
         const artwork = getMusicArtwork(track);
         const liked = isMusicFavorite(track);
         return `
@@ -1539,21 +1581,21 @@ function renderMusicList() {
 function renderMusicAlbums() {
     const list = document.getElementById('music-track-list');
     if (!list) return;
+    const libraryEntries = getUserMusicTrackEntries();
     if (musicAlbumFilter) {
-        const rows = musicTracks
-            .map((track, index) => ({ track, index }))
+        const rows = libraryEntries
             .filter(item => (item.track.collectionName || '未命名专辑') === musicAlbumFilter);
         list.innerHTML = `
             <button type="button" class="music-album-back" onclick="closeMusicAlbum()">
                 <i class="ri-arrow-left-s-line"></i><span>返回专辑列表</span>
             </button>
-            ${rows.map(({ track, index }) => renderMusicTrackRow(track, index)).join('') || '<div class="music-empty-state"><strong>这张专辑还没有歌曲</strong></div>'}
+            ${rows.map(({ track, index }) => renderMusicTrackRow(track, index, true)).join('') || '<div class="music-empty-state"><strong>这张专辑还没有歌曲</strong></div>'}
         `;
         return;
     }
 
     const groups = new Map();
-    musicTracks.forEach((track, index) => {
+    libraryEntries.forEach(({ track, index }) => {
         const name = track.collectionName || '未命名专辑';
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push({ track, index });
@@ -1566,14 +1608,17 @@ function renderMusicAlbums() {
         const first = items[0]?.track || {};
         const artwork = getMusicArtwork(first);
         const artists = Array.from(new Set(items.map(item => item.track.artistName).filter(Boolean))).slice(0, 2).join(' / ');
+        const action = items.length === 1
+            ? `playMusicTrackFromAlbum(${items[0].index})`
+            : `openMusicAlbum(this.dataset.album)`;
         return `
-            <button type="button" class="music-album-item" data-album="${musicEscapeAttr(name)}" onclick="openMusicAlbum(this.dataset.album)">
+            <button type="button" class="music-album-item" data-album="${musicEscapeAttr(name)}" onclick="${action}">
                 <div class="music-album-art">${artwork ? `<img src="${musicEscapeAttr(artwork)}" alt="${musicEscapeAttr(name)}" onerror="this.remove()">` : '<i class="ri-album-line"></i>'}</div>
                 <div class="music-track-meta">
                     <strong>${musicEscapeHtml(name)}</strong>
                     <span>${musicEscapeHtml(artists || first.sourceName || 'Album')} · ${items.length} 首</span>
                 </div>
-                <i class="ri-arrow-right-s-line"></i>
+                <i class="${items.length === 1 ? 'ri-play-circle-line' : 'ri-arrow-right-s-line'}"></i>
             </button>
         `;
     }).join('');
@@ -1591,11 +1636,12 @@ function closeMusicAlbum() {
 }
 window.closeMusicAlbum = closeMusicAlbum;
 
-function renderMusicTrackRow(track, index) {
+function renderMusicTrackRow(track, index, playDirect = false) {
     const artwork = getMusicArtwork(track);
     const liked = isMusicFavorite(track);
+    const action = playDirect ? `playMusicTrackFromAlbum(${index})` : `openMusicDetail(${index})`;
     return `
-        <button type="button" class="music-track-item ${index === musicCurrentIndex ? 'active' : ''}" onclick="openMusicDetail(${index})">
+        <button type="button" class="music-track-item ${index === musicCurrentIndex ? 'active' : ''}" onclick="${action}">
             <div class="music-track-art">
                 ${artwork ? `<img src="${musicEscapeAttr(artwork)}" alt="${musicEscapeAttr(track.trackName)}" onerror="this.remove()">` : '<i class="ri-music-2-line"></i>'}
             </div>
@@ -1603,10 +1649,16 @@ function renderMusicTrackRow(track, index) {
                 <strong>${musicEscapeHtml(track.trackName)}</strong>
                 <span>${musicEscapeHtml(track.artistName)} · ${musicEscapeHtml(track.sourceName || 'Full audio')}</span>
             </div>
-            <i class="${liked ? 'ri-heart-3-fill' : 'ri-arrow-right-s-line'}"></i>
+            <i class="${liked ? 'ri-heart-3-fill' : (playDirect ? 'ri-play-circle-line' : 'ri-arrow-right-s-line')}"></i>
         </button>
     `;
 }
+
+function playMusicTrackFromAlbum(index) {
+    if (!musicTracks[index]) return;
+    selectMusicTrack(index, true);
+}
+window.playMusicTrackFromAlbum = playMusicTrackFromAlbum;
 
 function getMusicFavoritesStore() {
     try {
@@ -1651,7 +1703,10 @@ function toggleMusicFavorite() {
 window.toggleMusicFavorite = toggleMusicFavorite;
 
 function openCurrentMusicDetail() {
-    if (!musicTracks.length) return;
+    if (!getUserMusicTracks().length) {
+        showMusicStatus('还没有歌曲，先搜索或导入音乐。');
+        return;
+    }
     openMusicDetail(musicCurrentIndex);
 }
 window.openCurrentMusicDetail = openCurrentMusicDetail;
@@ -1699,7 +1754,7 @@ function getCurrentMusicTrack() {
 window.getCurrentMusicTrack = getCurrentMusicTrack;
 
 function getMusicLibraryTracks() {
-    return (Array.isArray(musicTracks) ? musicTracks : []).map(track => ({ ...track }));
+    return getUserMusicTracks().map(track => ({ ...track }));
 }
 window.getMusicLibraryTracks = getMusicLibraryTracks;
 
@@ -1736,11 +1791,13 @@ function setupMusicAudio() {
         startMusicProgressTimer();
         renderMusicNowPlaying();
         renderMusicMainTab();
+        if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
     });
     musicAudio.addEventListener('pause', () => {
         musicIsPlaying = false;
         renderMusicNowPlaying();
         renderMusicMainTab();
+        if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
     });
     musicAudio.addEventListener('loadedmetadata', updateMusicProgress);
     musicAudio.addEventListener('ended', handleMusicEnded);
@@ -1858,14 +1915,26 @@ function updateMusicProgress() {
     const bar = document.getElementById('music-progress-fill');
     const elapsed = document.getElementById('music-time-elapsed');
     const duration = document.getElementById('music-time-duration');
+    const wave = document.querySelector('#app-music-window .music-wave');
     const current = musicAudio && Number.isFinite(musicAudio.currentTime) ? musicAudio.currentTime : 0;
     const trackDuration = musicTracks[musicCurrentIndex]?.duration;
     const total = musicAudio && Number.isFinite(musicAudio.duration) ? musicAudio.duration : (trackDuration || 0);
     const percent = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
     if (bar) bar.style.width = `${percent}%`;
+    if (wave) {
+        const bars = wave.querySelectorAll('span');
+        const activeCount = Math.max(1, Math.round((percent / 100) * bars.length));
+        wave.classList.toggle('is-playing', !!musicIsPlaying);
+        wave.style.setProperty('--music-wave-progress', `${percent}%`);
+        bars.forEach((item, index) => {
+            item.style.setProperty('--wave-i', index);
+            item.classList.toggle('active', index < activeCount);
+        });
+    }
     if (elapsed) elapsed.textContent = formatMusicTime(current);
     if (duration) duration.textContent = total > 0 ? formatMusicTime(total) : '--:--';
     updateActiveMusicLyric(current);
+    if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
 }
 
 function startMusicProgressTimer() {
@@ -1919,13 +1988,13 @@ async function searchMusic(term) {
         renderMusicApp();
         showMusicStatus(buildMusicSourceSummary(tracks));
     } catch (e) {
-        musicTracks = MUSIC_FALLBACK_TRACKS.map(normalizeMusicTrack);
+        musicTracks = [];
         musicCurrentIndex = 0;
         if (musicAudio) musicAudio.pause();
         musicIsPlaying = false;
         closeMusicDetail();
         renderMusicApp();
-        showMusicStatus('在线音乐源暂时不可用，已切到公开备用曲目。');
+        showMusicStatus('在线音乐源暂时不可用，换个关键词或稍后再试。');
     }
 }
 window.searchMusic = searchMusic;
@@ -2292,10 +2361,36 @@ function closeMusicDetail() {
 }
 window.closeMusicDetail = closeMusicDetail;
 
+function goBackMusicView() {
+    closeMusicDetail();
+    renderMusicMainTab();
+}
+window.goBackMusicView = goBackMusicView;
+
+function handleMusicHeaderBack() {
+    const detail = document.getElementById('music-detail-view');
+    if (detail && !detail.classList.contains('hidden')) {
+        goBackMusicView();
+        return;
+    }
+    const neteaseView = document.getElementById('music-netease-view');
+    if (neteaseView && !neteaseView.classList.contains('hidden')) {
+        if (typeof window.closeNeteaseView === 'function') window.closeNeteaseView();
+        else neteaseView.classList.add('hidden');
+        return;
+    }
+    if (musicMainTab === 'albums' && musicAlbumFilter) {
+        closeMusicAlbum();
+        return;
+    }
+    closeApp('music');
+}
+window.handleMusicHeaderBack = handleMusicHeaderBack;
+
 function renderMusicDetail() {
     const detail = document.getElementById('music-detail-view');
     if (!detail || detail.classList.contains('hidden')) return;
-    const track = musicTracks[musicCurrentIndex] || normalizeMusicTrack(MUSIC_FALLBACK_TRACKS[0]);
+    const track = musicTracks[musicCurrentIndex] || getMusicPlaceholderTrack();
     const cover = document.getElementById('music-detail-cover');
     const source = document.getElementById('music-detail-source');
     const title = document.getElementById('music-detail-title');
@@ -2383,9 +2478,10 @@ function getMusicCoListenThread(track, char) {
 
 function saveMusicAiMessage(track, char, text, kind) {
     const thread = getMusicCoListenThread(track, char);
+    const cleanText = cleanMusicAiCommentText(text);
     const item = {
         name: getMusicCharName(char),
-        text: String(text || '').trim(),
+        text: cleanText,
         kind: kind || 'comment',
         time: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     };
@@ -2421,8 +2517,11 @@ function renderMusicAiPanel() {
             `).join('')}
         </div>
     ` : '';
-    const messagesHtml = thread.items.length
-        ? thread.items.map(item => `
+    const visibleMessages = thread.items
+        .map(item => ({ ...item, text: cleanMusicAiCommentText(item.text) }))
+        .filter(item => item.text);
+    const messagesHtml = visibleMessages.length
+        ? visibleMessages.map(item => `
             <div class="music-ai-message ${musicEscapeAttr(item.kind || 'comment')}">
                 <strong>${musicEscapeHtml(item.name || charName)}</strong>
                 <p>${musicEscapeHtml(item.text)}</p>
@@ -2437,7 +2536,7 @@ function renderMusicAiPanel() {
                 <strong>${musicEscapeHtml(charName)}</strong>
                 <span>${musicCoListening ? '正在和你一起听' : '共听记录'}</span>
             </div>
-            ${musicCoListenBusy ? '<em>思考中...</em>' : '<button type="button" onclick="queueMusicAiReaction(\'manual\')">问一句</button>'}
+            ${musicCoListenBusy ? '<em class="music-ai-thinking"><i class="ri-loader-4-line"></i><span>思考中...</span></em>' : '<button type="button" onclick="queueMusicAiReaction(\'manual\')"><span>问一句</span></button>'}
         </div>
         ${chooserHtml}
         <div class="music-ai-messages">${messagesHtml}</div>
@@ -2494,7 +2593,7 @@ async function requestMusicAiReaction(reason) {
         : [{ role: 'system', content: `你是${charName}。` }];
     messages.push({
         role: 'system',
-        content: '你正在 BYND Music 里和用户一起听歌。请按角色卡和最近聊天，用自然口吻给出一句短评论；如果你想点歌或不喜欢当前歌，可以在回复末尾单独加一行 JSON：{"action":"request","query":"歌名 歌手","comment":"理由"} 或 {"action":"skip","comment":"理由"}。不要写思考过程。'
+        content: '你正在 BYND Music 里和用户一起听歌。请按角色卡和最近聊天，用自然口吻给出一句短评论；只允许输出角色自己说的话。不要写旁白、动作描写、舞台说明、心理描写、括号说明、分隔符或思考过程。如果你想点歌或不喜欢当前歌，可以在回复末尾单独加一行 JSON：{"action":"request","query":"歌名 歌手","comment":"理由"} 或 {"action":"skip","comment":"理由"}。'
     });
     messages.push({ role: 'user', content: context });
     const result = await callChatApi(messages);
@@ -2505,7 +2604,7 @@ async function requestMusicAiReaction(reason) {
         return;
     }
     const parsed = parseMusicAiCommand(result.content);
-    const text = parsed.comment || parsed.text || result.content;
+    const text = cleanMusicAiCommentText(parsed.comment || parsed.text || result.content);
     saveMusicAiMessage(track, char, text, parsed.action || 'comment');
     renderMusicAiPanel();
     addMusicCommentFromAi(char, text);
@@ -2523,30 +2622,47 @@ async function requestMusicAiReaction(reason) {
 function parseMusicAiCommand(content) {
     const raw = String(content || '').trim();
     const match = raw.match(/\{[\s\S]*\}\s*$/);
-    if (!match) return { action: 'comment', text: raw };
+    if (!match) return { action: 'comment', text: cleanMusicAiCommentText(raw) };
     try {
         const json = JSON.parse(match[0]);
-        const text = raw.slice(0, match.index).trim();
+        const text = cleanMusicAiCommentText(raw.slice(0, match.index).trim());
         const action = ['request', 'skip', 'comment'].includes(json.action) ? json.action : 'comment';
         return {
             action,
             query: String(json.query || '').trim(),
-            comment: String(json.comment || text || '').trim(),
+            comment: cleanMusicAiCommentText(json.comment || text || ''),
             text
         };
     } catch (e) {
-        return { action: 'comment', text: raw };
+        return { action: 'comment', text: cleanMusicAiCommentText(raw) };
     }
+}
+
+function cleanMusicAiCommentText(value) {
+    let text = String(value || '').trim();
+    if (!text) return '';
+    text = text.replace(/```[\s\S]*?```/g, '').trim();
+    text = text.replace(/\|\|\|/g, '\n');
+    text = text.replace(/^[\s\-–—*]*(旁白|系统|舞台|动作|心理|内心|narration|narrator|aside|stage|action)\s*[：:]\s*.*$/gim, '');
+    text = text.replace(/[\[【(（]\s*(旁白|系统|舞台|动作|心理|内心|narration|narrator|aside|stage|action)\s*[：:][\s\S]*?[\]】)）]/gim, '');
+    text = text.replace(/[\[【(（][^()[\]（）【】]*(低声|轻声|笑|叹气|看着|望向|屏幕|手机|镜头|回视线|摩挲|沉默|停顿|靠近|转头)[^()[\]（）【】]*[\]】)）]/g, '');
+    text = text.split(/\n+/)
+        .map(line => line.trim())
+        .filter(line => line && !/^(旁白|系统|舞台|动作|心理|内心|narration|narrator|aside|stage|action)\s*[：:]/i.test(line))
+        .join('\n')
+        .trim();
+    return text.replace(/\n{2,}/g, '\n').trim();
 }
 
 function addMusicCommentFromAi(char, text) {
     const track = musicTracks[musicCurrentIndex];
-    if (!track || !text) return;
+    const cleanText = cleanMusicAiCommentText(text);
+    if (!track || !cleanText) return;
     const store = getMusicCommentsStore();
     if (!Array.isArray(store[track.id])) store[track.id] = [];
     store[track.id].unshift({
         name: getMusicCharName(char),
-        text,
+        text: cleanText,
         time: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     });
     saveMusicCommentsStore(store);
@@ -2555,6 +2671,7 @@ function addMusicCommentFromAi(char, text) {
 
 function switchMusicDetailTab(tab) {
     musicDetailTab = tab === 'comments' ? 'comments' : 'lyrics';
+    document.getElementById('music-detail-view')?.classList.toggle('music-detail-comments-mode', musicDetailTab === 'comments');
     document.querySelectorAll('.music-detail-tabs button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === musicDetailTab);
     });
@@ -2723,7 +2840,9 @@ function renderMusicComments() {
     const track = musicTracks[musicCurrentIndex];
     if (!list || !track) return;
     const store = getMusicCommentsStore();
-    const comments = store[track.id] || [];
+    const comments = (store[track.id] || [])
+        .map(comment => ({ ...comment, text: cleanMusicAiCommentText(comment.text) }))
+        .filter(comment => comment.text);
     if (!comments.length) {
         list.innerHTML = `
             <div class="music-comments-empty">
@@ -4091,12 +4210,18 @@ const MONITOR_PET_LIBRARY_KEY = 'bynd_monitor_pet_library_v1';
 const MONITOR_ACTIVE_PET_KEY = 'bynd_monitor_active_pet_v1';
 const MONITOR_PET_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_DB_STORE = 'assets';
-const MONITOR_PET_PROXY_BASE = '/codex-pets';
+const MONITOR_PET_ORIGIN = 'https://codex-pets.net';
+const MONITOR_PET_API_BASES = [
+    '/codex-pets',
+    'https://bynd-push.myluckylxy.workers.dev/codex-pets',
+    MONITOR_PET_ORIGIN
+];
 let monitorActiveTool = localStorage.getItem(MONITOR_ACTIVE_TOOL_KEY) || 'internal';
 let monitorPetQuery = '';
 let monitorPetResults = [];
 let monitorPetLoading = false;
 let monitorPetStatus = '';
+let monitorPetResolvedBase = '';
 
 function getMonitorCharacters() {
     return Array.isArray(window.myCharacters)
@@ -4281,23 +4406,39 @@ function normalizeMonitorPet(item) {
         kind: String(item.kind || 'pet'),
         ownerName: String(item.ownerName || item.ownerHandle || ''),
         tags: Array.isArray(item.tags) ? item.tags.map(tag => String(tag || '')).filter(Boolean).slice(0, 5) : [],
-        posterUrl: toMonitorPetProxyUrl(item.posterUrl || item.previewUrl || item.shareImageUrl || ''),
-        previewUrl: toMonitorPetProxyUrl(item.previewUrl || item.posterUrl || item.shareImageUrl || ''),
-        spritesheetUrl: toMonitorPetProxyUrl(item.spritesheetUrl || ''),
-        downloadUrl: item.downloadUrl ? toMonitorPetProxyUrl(item.downloadUrl) : '',
+        posterUrl: toMonitorPetDisplayUrl(item.posterUrl || item.previewUrl || item.shareImageUrl || ''),
+        previewUrl: toMonitorPetDisplayUrl(item.previewUrl || item.posterUrl || item.shareImageUrl || ''),
+        spritesheetUrl: toMonitorPetDisplayUrl(item.spritesheetUrl || ''),
+        downloadUrl: item.downloadUrl ? toMonitorPetDisplayUrl(item.downloadUrl) : '',
         source: 'codex-pets.net',
+        viewCount: Number(item.viewCount || 0) || 0,
+        downloadCount: Number(item.downloadCount || 0) || 0,
+        likeCount: Number(item.likeCount || 0) || 0,
+        commentCount: Number(item.commentCount || 0) || 0,
         savedAt: item.savedAt || 0,
         posterDataUrl: item.posterDataUrl || ''
     };
 }
 
-function toMonitorPetProxyUrl(value) {
+function toMonitorPetDisplayUrl(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
     try {
-        const url = new URL(raw, 'https://codex-pets.net');
+        return new URL(raw, MONITOR_PET_ORIGIN).toString();
+    } catch (e) {
+        return raw;
+    }
+}
+
+function toMonitorPetFetchUrl(value) {
+    const raw = toMonitorPetDisplayUrl(value);
+    if (!raw) return '';
+    try {
+        const url = new URL(raw);
         if (url.hostname !== 'codex-pets.net') return raw;
-        return `${MONITOR_PET_PROXY_BASE}${url.pathname}${url.search}`;
+        const base = monitorPetResolvedBase || MONITOR_PET_API_BASES[0];
+        if (!base || base === MONITOR_PET_ORIGIN) return raw;
+        return `${base.replace(/\/+$/, '')}${url.pathname}${url.search}`;
     } catch (e) {
         return raw;
     }
@@ -4337,11 +4478,14 @@ function renderMonitorPetLibrary() {
                 </div>
             </div>
             <div class="monitor-pet-search">
-                <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索 Codex Pets 桌宠素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value)">
+                <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value)">
                 <button type="button" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value)">${monitorPetLoading ? '<i class="ri-loader-4-line"></i>' : '<i class="ri-search-line"></i>'}</button>
             </div>
-            <div class="monitor-pet-status">${musicEscapeHtml(monitorPetStatus || '可在项目内查看、下载并应用 Codex Pets 素材。')}</div>
-            <div class="monitor-pet-section-head"><strong>在线素材</strong><span>Codex Pets</span></div>
+            <div class="monitor-pet-status">${musicEscapeHtml(monitorPetStatus || '可在项目内查看、下载并应用素材。')}</div>
+            <div class="monitor-pet-gallery-head">
+                <div><i class="ri-terminal-box-line"></i><strong>codex-pets</strong></div>
+                <span>Gallery</span><span>Collections</span><span>Creators</span>
+            </div>
             <div class="monitor-pet-grid">${monitorPetLoading ? '<div class="monitor-pet-empty">正在加载素材...</div>' : (resultCards || '<div class="monitor-pet-empty">还没有搜索结果。</div>')}</div>
             <div class="monitor-pet-section-head"><strong>已下载</strong><span>${saved.length} 个</span></div>
             <div class="monitor-pet-grid">${savedCards || '<div class="monitor-pet-empty">下载后的素材会出现在这里。</div>'}</div>
@@ -4354,9 +4498,16 @@ function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
     return `
         <article class="monitor-pet-card ${activeId === pet.id ? 'active' : ''}">
             <div class="monitor-pet-card-image">${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" loading="lazy" onerror="this.remove()">` : '<i class="ri-image-line"></i>'}</div>
+            <div class="monitor-pet-card-stats">
+                <span><i class="ri-eye-line"></i>${Number(pet.viewCount || 0) || 0}</span>
+                <span><i class="ri-heart-line"></i>${Number(pet.likeCount || 0) || 0}</span>
+                <span><i class="ri-chat-3-line"></i>${Number(pet.commentCount || 0) || 0}</span>
+            </div>
             <div class="monitor-pet-card-copy">
                 <strong>${musicEscapeHtml(pet.displayName)}</strong>
-                <span>${musicEscapeHtml([pet.kind, pet.ownerName].filter(Boolean).join(' · ') || pet.source)}</span>
+                <span>by ${musicEscapeHtml(pet.ownerName || pet.ownerHandle || 'unknown')}</span>
+                ${pet.description ? `<p>${musicEscapeHtml(pet.description)}</p>` : ''}
+                ${pet.tags.length ? `<div>${pet.tags.map(tag => `<em>${musicEscapeHtml(tag)}</em>`).join('')}</div>` : ''}
             </div>
             <div class="monitor-pet-card-actions">
                 ${localOnly ? '' : `<button type="button" onclick="previewMonitorPet('${musicEscapeAttr(pet.id)}')">预览</button>`}
@@ -4369,14 +4520,12 @@ function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
 async function searchMonitorPets(query = '') {
     monitorPetQuery = String(query || '').trim();
     monitorPetLoading = true;
-    monitorPetStatus = '正在从 Codex Pets 读取素材...';
+    monitorPetStatus = '正在读取在线素材...';
     renderMonitorCharacters();
     try {
         const params = new URLSearchParams({ page: '1', pageSize: '12' });
         if (monitorPetQuery) params.set('q', monitorPetQuery);
-        const resp = await fetch(`${MONITOR_PET_PROXY_BASE}/api/pets?${params.toString()}`, { cache: 'no-store' });
-        if (!resp.ok) throw new Error(`Codex Pets ${resp.status}`);
-        const data = await resp.json();
+        const data = await fetchMonitorPetJson(`/api/pets?${params.toString()}`);
         monitorPetResults = (Array.isArray(data.pets) ? data.pets : []).map(normalizeMonitorPet).filter(Boolean);
         monitorPetStatus = monitorPetResults.length ? `找到 ${monitorPetResults.length} 个素材，可直接预览或下载。` : '没有找到匹配素材，换个关键词试试。';
     } catch (e) {
@@ -4388,6 +4537,23 @@ async function searchMonitorPets(query = '') {
     }
 }
 window.searchMonitorPets = searchMonitorPets;
+
+async function fetchMonitorPetJson(path) {
+    let lastError = null;
+    for (const base of MONITOR_PET_API_BASES) {
+        const url = `${base.replace(/\/+$/, '')}${path}`;
+        try {
+            const resp = await fetch(url, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`${resp.status}`);
+            const data = await resp.json();
+            monitorPetResolvedBase = base;
+            return data;
+        } catch (e) {
+            lastError = e;
+        }
+    }
+    throw new Error(lastError?.message || 'Failed to fetch');
+}
 
 function previewMonitorPet(petId) {
     const pet = monitorPetResults.find(item => item.id === petId) || getMonitorPetLibrary().find(item => item.id === petId);
@@ -4439,7 +4605,7 @@ function monitorBlobToDataUrl(blob) {
 }
 
 async function fetchMonitorPetDataUrl(url) {
-    const resp = await fetch(url, { cache: 'no-store' });
+    const resp = await fetch(toMonitorPetFetchUrl(url), { cache: 'no-store' });
     if (!resp.ok) throw new Error(`下载失败 ${resp.status}`);
     return monitorBlobToDataUrl(await resp.blob());
 }
@@ -4548,6 +4714,9 @@ function renderMonitorCharacters() {
 
 function initMonitorApp() {
     renderMonitorCharacters();
+    if (monitorActiveTool === 'pet' && !monitorPetResults.length && !monitorPetLoading) {
+        searchMonitorPets();
+    }
 }
 window.initMonitorApp = initMonitorApp;
 

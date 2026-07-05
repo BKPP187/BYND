@@ -1,6 +1,14 @@
 const DEFAULT_INTERVAL_HOURS = 24;
 const MIN_INTERVAL_HOURS = 0.1;
 const MAX_INTERVAL_HOURS = 720;
+const FONT_PROXY_MAX_BYTES = 50 * 1024 * 1024;
+const FONT_PROXY_ALLOWED_HOSTS = new Set([
+  'files.catbox.moe',
+  'litter.catbox.moe',
+  'cdn.jsdelivr.net',
+  'raw.githubusercontent.com'
+]);
+const FONT_PROXY_EXTENSIONS = ['.ttf', '.otf', '.woff', '.woff2', '.ttc'];
 
 export default {
   async fetch(request, env) {
@@ -21,6 +29,12 @@ export default {
       if (request.method === 'GET' && url.pathname === '/health') {
         return corsResponse({ ok: true, service: 'bynd-push-worker' });
       }
+      if (request.method === 'GET' && url.pathname.startsWith('/codex-pets/')) {
+        return proxyCodexPets(request, url);
+      }
+      if (request.method === 'GET' && url.pathname === '/font-proxy') {
+        return proxyRemoteFont(request, url);
+      }
       return corsResponse({ ok: false, error: 'not found' }, 404);
     } catch (error) {
       return corsResponse({ ok: false, error: error.message || String(error) }, 500);
@@ -38,6 +52,98 @@ async function handleSubscribe(request, env) {
   const record = normalizeRecord(payload);
   await putRecord(env, clientId, record);
   return { ok: true, clientId };
+}
+
+async function proxyCodexPets(request, url) {
+  const upstreamPath = url.pathname.replace(/^\/codex-pets/, '') || '/';
+  if (!isAllowedCodexPetsPath(upstreamPath)) {
+    return corsResponse({ ok: false, error: 'codex pets path not allowed' }, 403);
+  }
+
+  const upstreamUrl = new URL(`https://codex-pets.net${upstreamPath}${url.search}`);
+  const headers = new Headers({
+    Accept: request.headers.get('Accept') || '*/*',
+    'User-Agent': request.headers.get('User-Agent') || 'BYND/1.0'
+  });
+  const range = request.headers.get('Range');
+  if (range) headers.set('Range', range);
+
+  const response = await fetch(upstreamUrl.toString(), {
+    method: 'GET',
+    headers,
+    redirect: 'follow',
+    cf: { cacheEverything: true, cacheTtl: upstreamPath.startsWith('/api/') ? 60 : 86400 }
+  });
+
+  const responseHeaders = new Headers(response.headers);
+  Object.entries(corsHeaders()).forEach(([key, value]) => responseHeaders.set(key, value));
+  responseHeaders.set('Cache-Control', upstreamPath.startsWith('/api/') ? 'public, max-age=60' : 'public, max-age=86400');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders
+  });
+}
+
+function isAllowedCodexPetsPath(path) {
+  return /^\/api\/pets(?:\/|$|\?)/.test(path)
+    || /^\/assets\/pets\//.test(path)
+    || /^\/assets\/petshare-/.test(path);
+}
+
+async function proxyRemoteFont(request, url) {
+  const target = normalizeFontProxyUrl(url.searchParams.get('url'));
+  if (!target) return corsResponse({ ok: false, error: 'font url not allowed' }, 403);
+
+  const response = await fetch(target, {
+    method: 'GET',
+    headers: {
+      Accept: 'font/ttf,font/otf,font/woff,font/woff2,application/octet-stream,*/*;q=0.8',
+      'User-Agent': request.headers.get('User-Agent') || 'BYND/1.0'
+    },
+    redirect: 'follow',
+    cf: { cacheEverything: true, cacheTtl: 86400 }
+  });
+
+  if (!response.ok) {
+    return corsResponse({ ok: false, error: `font fetch ${response.status}` }, response.status === 404 ? 404 : 502);
+  }
+
+  const length = Number(response.headers.get('content-length') || 0);
+  if (length > FONT_PROXY_MAX_BYTES) {
+    return corsResponse({ ok: false, error: 'font too large' }, 413);
+  }
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (/text\/html|application\/json/.test(contentType)) {
+    return corsResponse({ ok: false, error: 'not a font file' }, 415);
+  }
+
+  const headers = new Headers(corsHeaders());
+  headers.set('Content-Type', getFontContentType(target.pathname));
+  if (length) headers.set('Content-Length', String(length));
+  headers.set('Cache-Control', 'public, max-age=86400');
+  return new Response(response.body, { status: 200, headers });
+}
+
+function normalizeFontProxyUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'https:') return null;
+    if (!FONT_PROXY_ALLOWED_HOSTS.has(url.hostname.toLowerCase())) return null;
+    const path = url.pathname.toLowerCase();
+    if (!FONT_PROXY_EXTENSIONS.some(ext => path.endsWith(ext))) return null;
+    return url;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getFontContentType(pathname) {
+  const path = String(pathname || '').toLowerCase();
+  if (path.endsWith('.woff2')) return 'font/woff2';
+  if (path.endsWith('.woff')) return 'font/woff';
+  if (path.endsWith('.otf')) return 'font/otf';
+  return 'font/ttf';
 }
 
 async function handleContact(request, env) {
@@ -259,14 +365,18 @@ function clampNumber(value, fallback, min, max) {
 }
 
 function corsResponse(payload, status = 200) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
+  const headers = { ...corsHeaders(), 'Content-Type': 'application/json' };
   if (payload === null) return new Response(null, { status, headers });
   return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,Range',
+    'Access-Control-Expose-Headers': 'Content-Length,Content-Range,Accept-Ranges'
+  };
 }
 
 function base64UrlJson(value) {

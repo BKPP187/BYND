@@ -4,6 +4,10 @@ compatibility_date = "2026-05-21"
 workers_dev = true
 preview_urls = false
 
+routes = [
+  { pattern = "bynd.ccwu.cc/font-proxy*", zone_name = "bynd.ccwu.cc" }
+]
+
 kv_namespaces = [
   { binding = "BYND_PUSH", id = "3dd76d432b0a429eb8514dd59622b5bc" }
 ]

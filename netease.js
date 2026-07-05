@@ -7,10 +7,12 @@
 const NETEASE_AUTH_KEY = 'bynd_music_netease_auth_v1';
 const NETEASE_API_BASE_KEY = 'bynd_music_netease_api_v1';
 const NETEASE_AUDIO_PROXY_BASE_KEY = 'bynd_music_netease_audio_proxy_base_v1';
-const NETEASE_DEFAULT_API_BASE = 'http://127.0.0.1:18867';
+const NETEASE_LOCAL_API_BASE = 'http://127.0.0.1:18867';
+const NETEASE_PUBLIC_API_BASE = 'https://bynd.ccwu.cc/netease/api';
 
 let neteaseQrTimer = null;
 let neteaseQrKey = '';
+let neteaseQrCookie = '';
 let neteaseSection = 'login';
 let neteasePlaylistCache = { created: [], subscribed: [], likedCount: 0 };
 let neteaseCurrentPlaylist = null; // { id, name, tracks, type }
@@ -25,7 +27,9 @@ let neteaseAudioProxyOfflineBase = '';
 
 function getNeteaseApiBase() {
     const saved = String(localStorage.getItem(NETEASE_API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-    return saved || NETEASE_DEFAULT_API_BASE;
+    if (saved && !shouldIgnoreLoopbackNeteaseBase(saved)) return saved;
+    if (saved && shouldIgnoreLoopbackNeteaseBase(saved)) localStorage.removeItem(NETEASE_API_BASE_KEY);
+    return getDefaultNeteaseApiBase();
 }
 
 function setNeteaseApiBase(value) {
@@ -47,6 +51,36 @@ function setNeteaseAudioProxyBase(value) {
     const clean = String(value || '').trim().replace(/\/+$/, '');
     if (clean) localStorage.setItem(NETEASE_AUDIO_PROXY_BASE_KEY, clean);
     else localStorage.removeItem(NETEASE_AUDIO_PROXY_BASE_KEY);
+}
+
+function getDefaultNeteaseApiBase() {
+    try {
+        const host = location.hostname || '';
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+        if ((location.protocol === 'http:' || location.protocol === 'https:') && !isLocal) {
+            return `${location.origin}/netease/api`;
+        }
+    } catch (e) {}
+    return NETEASE_PUBLIC_API_BASE;
+}
+
+function shouldIgnoreLoopbackNeteaseBase(base) {
+    if (!isLoopbackNeteaseBase(base)) return false;
+    try {
+        const host = location.hostname || '';
+        return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1';
+    } catch (e) {
+        return false;
+    }
+}
+
+function isLoopbackNeteaseBase(base) {
+    try {
+        const host = new URL(base).hostname;
+        return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    } catch (e) {
+        return false;
+    }
 }
 
 function getNeteaseAuth() {
@@ -77,7 +111,34 @@ async function neteaseApiFetch(path, params = {}, timeout = 15000) {
     qs.set('timestamp', String(Date.now()));
     const auth = getNeteaseAuth();
     if (auth?.cookie && !('cookie' in params)) qs.set('cookie', auth.cookie);
-    return fetchJsonWithTimeout(`${getNeteaseApiBase()}${path}?${qs.toString()}`, {}, timeout);
+    let lastError = null;
+    for (const base of getNeteaseApiBaseCandidates()) {
+        try {
+            return await fetchJsonWithTimeout(`${base}${path}?${qs.toString()}`, {}, timeout);
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    throw lastError || new Error('netease api unavailable');
+}
+
+function getNeteaseApiBaseCandidates() {
+    const bases = [getNeteaseApiBase(), NETEASE_PUBLIC_API_BASE]
+        .map(base => String(base || '').trim().replace(/\/+$/, ''))
+        .filter(Boolean);
+    return bases.filter((base, index) => bases.indexOf(base) === index);
+}
+
+function getNeteaseApiFailureText(error) {
+    const base = getNeteaseApiBase();
+    if (isLoopbackNeteaseBase(base)) {
+        return '本机 18867 不可用，内置网易云 API 也暂时连不上，请检查网络后点「刷新二维码」。';
+    }
+    if (/\/netease\/api$/.test(base)) {
+        return '连不上 bynd.ccwu.cc 的网易云 API 代理，请检查网络后点「刷新二维码」。';
+    }
+    const reason = error?.message ? `（${error.message}）` : '';
+    return `连不上网易云 API：${base}${reason}`;
 }
 
 // ---------- 扫码登录 ----------
@@ -99,17 +160,23 @@ async function startNeteaseQrLogin() {
     setNeteaseQrStatus('正在获取二维码...');
     try {
         const keyRes = await neteaseApiFetch('/login/qr/key', { cookie: '' });
-        neteaseQrKey = keyRes?.data?.unikey || '';
+        neteaseQrKey = keyRes?.data?.unikey || keyRes?.unikey || '';
+        neteaseQrCookie = String(keyRes?.data?.cookie || keyRes?.cookie || '');
         if (!neteaseQrKey) throw new Error('no unikey');
-        const qrRes = await neteaseApiFetch('/login/qr/create', { key: neteaseQrKey, qrimg: 'true', cookie: '' });
+        const qrRes = await neteaseApiFetch('/login/qr/create', {
+            key: neteaseQrKey,
+            qrimg: 'true',
+            platform: 'web',
+            cookie: neteaseQrCookie
+        });
         const qrimg = qrRes?.data?.qrimg || '';
         if (!qrimg) throw new Error('no qrimg');
         if (img) img.innerHTML = `<img src="${musicEscapeAttr(qrimg)}" alt="网易云登录二维码">`;
         setNeteaseQrStatus('打开网易云音乐 App，扫一扫登录');
-        neteaseQrTimer = setInterval(checkNeteaseQrStatus, 2000);
+        neteaseQrTimer = setInterval(checkNeteaseQrStatus, 1500);
     } catch (e) {
         if (img) img.innerHTML = '<div class="mn-qr-loading"><i class="ri-wifi-off-line"></i></div>';
-        setNeteaseQrStatus('连不上网易云 API 服务，确认本地服务已启动后点「刷新」');
+        setNeteaseQrStatus(getNeteaseApiFailureText(e));
     }
 }
 window.startNeteaseQrLogin = startNeteaseQrLogin;
@@ -123,7 +190,7 @@ async function checkNeteaseQrStatus() {
     if (!neteaseQrKey) return;
     let res = null;
     try {
-        res = await neteaseApiFetch('/login/qr/check', { key: neteaseQrKey, cookie: '' });
+        res = await neteaseApiFetch('/login/qr/check', { key: neteaseQrKey, cookie: neteaseQrCookie });
     } catch (e) {
         return; // 网络抖动，下一轮再试
     }
@@ -136,7 +203,7 @@ async function checkNeteaseQrStatus() {
     } else if (code === 803) {
         stopNeteaseQrPolling();
         setNeteaseQrStatus('登录成功，正在拉取资料...');
-        await neteaseHandleLoginSuccess(String(res?.cookie || ''));
+        await neteaseHandleLoginSuccess(String(res?.cookie || neteaseQrCookie || ''));
     }
 }
 
@@ -326,11 +393,24 @@ async function resolveAndPlayNeteaseMusic(track, autoplay = true) {
             showMusicStatus('这首歌没拿到播放地址（可能是数字专辑），换一首试试。');
             return;
         }
-        const stored = musicTracks.find(item => getMusicTrackKey(item) === getMusicTrackKey(track));
-        if (stored) stored.audioUrl = url;
+        let storedIndex = musicTracks.findIndex(item => item === track);
+        if (storedIndex < 0) {
+            storedIndex = musicTracks.findIndex(item => item.sourceKey === 'netease' && String(item.remoteId) === String(track.remoteId));
+        }
+        if (storedIndex < 0) {
+            storedIndex = musicTracks.findIndex(item => getMusicTrackKey(item) === getMusicTrackKey(track));
+        }
+        const stored = storedIndex >= 0 ? musicTracks[storedIndex] : null;
+        if (stored) {
+            stored.audioUrl = url;
+            musicCurrentIndex = storedIndex;
+        }
         track.audioUrl = url;
+        if (typeof renderMusicApp === 'function') renderMusicApp();
         if (autoplay) toggleMusicPlayback(true);
         renderNeteasePlayer();
+        if (typeof renderMusicNowPlaying === 'function') renderMusicNowPlaying();
+        if (typeof updateMusicProgress === 'function') updateMusicProgress();
     } finally {
         track._resolving = false;
     }
@@ -648,8 +728,8 @@ function renderNeteasePlayer() {
             </div>
         </div>
         <div class="mn-player-lyric" id="mn-player-lyric">&nbsp;</div>
-        <div class="mn-player-progress" onclick="seekNeteasePlayer(event)">
-            <span class="mn-player-progress-fill" id="mn-player-progress-fill"></span>
+        <div class="mn-player-progress mn-wave-progress" id="mn-player-progress" onclick="seekNeteasePlayer(event)" aria-label="播放进度">
+            ${renderNeteaseWaveBars(track)}
         </div>
         <div class="mn-player-times"><span id="mn-player-elapsed">0:00</span><span id="mn-player-duration">--:--</span></div>
         <div class="mn-player-controls">
@@ -665,16 +745,52 @@ function renderNeteasePlayer() {
 }
 window.renderNeteasePlayer = renderNeteasePlayer;
 
+function renderNeteaseWaveBars(track) {
+    const count = 76;
+    const seed = getNeteaseWaveSeed(track);
+    return Array.from({ length: count }, (_, index) => {
+        const height = getNeteaseWaveHeight(seed, index, count);
+        return `<span class="mn-wave-bar" style="--bar-h:${height}px;--bar-i:${index}"></span>`;
+    }).join('');
+}
+
+function getNeteaseWaveSeed(track) {
+    const text = `${track?.trackName || ''}|${track?.artistName || ''}|${track?.remoteId || track?.id || ''}`;
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i += 1) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function getNeteaseWaveHeight(seed, index, count) {
+    const position = (index + 0.5) / count;
+    const envelope = Math.sin(position * Math.PI);
+    const pulseA = Math.abs(Math.sin((seed % 97 + index * 11.73) * 0.19));
+    const pulseB = Math.abs(Math.cos((seed % 53 + index * 5.91) * 0.37));
+    const pulseC = Math.abs(Math.sin((seed % 31 + index * 2.17) * 0.53));
+    const mix = (pulseA * 0.48) + (pulseB * 0.32) + (pulseC * 0.2);
+    return Math.round(4 + (mix * 18 * envelope) + (envelope * 12));
+}
+
 function renderNeteasePlayerProgress() {
-    const fill = document.getElementById('mn-player-progress-fill');
-    if (!fill) return;
+    const progress = document.getElementById('mn-player-progress');
+    if (!progress) return;
     const track = musicTracks[musicCurrentIndex];
     const current = musicAudio && Number.isFinite(musicAudio.currentTime) ? musicAudio.currentTime : 0;
     const total = musicAudio && Number.isFinite(musicAudio.duration) && musicAudio.duration > 0
         ? musicAudio.duration
         : (track?.duration || 0);
     const percent = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
-    fill.style.width = `${percent}%`;
+    progress.style.setProperty('--wave-progress', `${percent}%`);
+    progress.classList.toggle('is-playing', !!musicIsPlaying);
+    const bars = progress.querySelectorAll('.mn-wave-bar');
+    const activeCount = Math.round((percent / 100) * bars.length);
+    bars.forEach((bar, index) => {
+        bar.classList.toggle('active', index < activeCount);
+        bar.classList.toggle('near', Math.abs(index - activeCount) <= 3);
+    });
     const elapsed = document.getElementById('mn-player-elapsed');
     const duration = document.getElementById('mn-player-duration');
     if (elapsed) elapsed.textContent = formatMusicTime(current);
@@ -687,13 +803,27 @@ function renderNeteasePlayerProgress() {
     if (playIcon) playIcon.className = musicIsPlaying ? 'ri-pause-fill' : 'ri-play-fill';
     const lyricEl = document.getElementById('mn-player-lyric');
     if (lyricEl && neteasePlayerLyrics.lines.length) {
-        let text = '';
-        for (const line of neteasePlayerLyrics.lines) {
-            if (line.time <= current) text = line.text;
-            else break;
-        }
-        lyricEl.textContent = text || ' ';
+        lyricEl.innerHTML = renderNeteaseLyricWindow(neteasePlayerLyrics.lines, current);
     }
+}
+window.renderNeteasePlayerProgress = renderNeteasePlayerProgress;
+
+function renderNeteaseLyricWindow(lines, current) {
+    const cleanLines = (Array.isArray(lines) ? lines : [])
+        .filter(line => line && Number.isFinite(line.time) && String(line.text || '').trim());
+    if (!cleanLines.length) return '<div class="mn-lyric-stack"><span class="mn-lyric-line active">&nbsp;</span></div>';
+    let activeIndex = cleanLines.findIndex(line => line.time > current) - 1;
+    if (activeIndex < 0) activeIndex = 0;
+    const maxLines = 4;
+    let start = Math.max(0, activeIndex - 1);
+    let end = Math.min(cleanLines.length, start + maxLines);
+    start = Math.max(0, end - maxLines);
+    const rows = cleanLines.slice(start, end).map((line, offset) => {
+        const index = start + offset;
+        const state = index === activeIndex ? ' active' : (index < activeIndex ? ' passed' : ' next');
+        return `<span class="mn-lyric-line${state}">${musicEscapeHtml(line.text)}</span>`;
+    }).join('');
+    return `<div class="mn-lyric-stack">${rows}</div>`;
 }
 
 function seekNeteasePlayer(event) {
@@ -718,7 +848,10 @@ window.toggleNeteasePlayerFavorite = toggleNeteasePlayerFavorite;
     window.syncMusicSourceUI = function () {
         if (typeof origSync === 'function') origSync();
         const input = document.getElementById('music-netease-api-base');
-        if (input) input.value = localStorage.getItem(NETEASE_API_BASE_KEY) || '';
+        if (input) {
+            const saved = localStorage.getItem(NETEASE_API_BASE_KEY) || '';
+            input.value = shouldIgnoreLoopbackNeteaseBase(saved) ? '' : saved;
+        }
         const proxyInput = document.getElementById('music-netease-audio-proxy-base');
         if (proxyInput) proxyInput.value = localStorage.getItem(NETEASE_AUDIO_PROXY_BASE_KEY) || '';
         renderNeteaseEntry();

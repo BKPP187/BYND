@@ -15936,6 +15936,64 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     -webkit-backdrop-filter: blur(14px) !important;
 }
 /* === End Dream Vault iOS graphite liquid glass UI 20260705 === */
+
+/* === Dream Vault dropdown layer fix 20260705 === */
+.dream-control {
+    position: relative !important;
+    z-index: 40 !important;
+    overflow: visible !important;
+}
+
+.dream-control label,
+.dream-char-picker {
+    position: relative !important;
+    z-index: 41 !important;
+}
+
+.dream-char-picker.open {
+    z-index: 120 !important;
+}
+
+.dream-char-menu,
+.dream-control .dream-char-menu {
+    z-index: 130 !important;
+}
+
+.dream-list,
+.dream-empty,
+.dream-record {
+    position: relative !important;
+    z-index: 1 !important;
+}
+/* === End Dream Vault dropdown layer fix 20260705 === */
+
+/* === Dream Vault picker state polish 20260705 === */
+.dream-char-menu button,
+.dream-control .dream-char-menu button {
+    height: 42px !important;
+    justify-content: flex-start !important;
+    padding: 0 16px !important;
+    border: 1px solid transparent !important;
+    border-radius: 15px !important;
+    background: transparent !important;
+    color: rgba(255,255,255,0.68) !important;
+    box-shadow: none !important;
+}
+
+.dream-char-menu button:hover,
+.dream-control .dream-char-menu button:hover {
+    background: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.92) !important;
+}
+
+.dream-char-menu button.active,
+.dream-control .dream-char-menu button.active {
+    background: linear-gradient(180deg, rgba(255,255,255,0.90), rgba(218,221,228,0.82)) !important;
+    border-color: rgba(255,255,255,0.74) !important;
+    color: #0b0d11 !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 10px 24px rgba(0,0,0,0.26) !important;
+}
+/* === End Dream Vault picker state polish 20260705 === */
 .monitor-window,
 .monitor-shell {
     background: #050708;
@@ -17760,6 +17818,10 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     font-size: 11px;
     font-weight: 820;
 }
+.font-batch-head button:disabled {
+    opacity: 0.62;
+    cursor: wait;
+}
 .font-batch-box textarea {
     width: 100%;
     min-height: 86px;
@@ -17773,6 +17835,17 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     font-size: 12px;
     line-height: 1.5;
 }
+.font-batch-status {
+    min-height: 18px;
+    margin-top: 8px;
+    color: rgba(109,86,98,0.72);
+    font-size: 11px;
+    line-height: 1.35;
+}
+.font-batch-status[data-tone="busy"] { color: #7b6a75; }
+.font-batch-status[data-tone="done"] { color: #34785d; }
+.font-batch-status[data-tone="warn"] { color: #9a6b20; }
+.font-batch-status[data-tone="error"] { color: #b34242; }
 .wcs-monitor-mode-row {
     margin-top: 10px;
     display: grid;
@@ -28658,3 +28731,593 @@ button.wc-ai-phone-sync {
     font-size: 23px !important;
 }
 /* === End Music mini play button scale fix 20260705 === */
+
+/* === Monitor Codex Pets in-page gallery 20260705 === */
+.monitor-pet-gallery-head {
+    min-height: 46px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 18px !important;
+    background: rgba(255,255,255,0.68) !important;
+    border: 1px solid rgba(17,17,17,0.07) !important;
+    overflow-x: auto !important;
+}
+
+.monitor-pet-gallery-head div {
+    flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    color: #111 !important;
+}
+
+.monitor-pet-gallery-head div i {
+    width: 26px !important;
+    height: 26px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 9px !important;
+    background: #111 !important;
+    color: #ddff67 !important;
+    font-size: 14px !important;
+}
+
+.monitor-pet-gallery-head strong {
+    color: #111 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+.monitor-pet-gallery-head > span {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    padding: 7px 10px !important;
+    border-radius: 12px !important;
+    color: rgba(17,17,17,0.56) !important;
+    font-size: 11px !important;
+    font-weight: 760 !important;
+    letter-spacing: 0 !important;
+}
+
+.monitor-pet-gallery-head > span:first-of-type {
+    background: rgba(17,17,17,0.06) !important;
+    color: #111 !important;
+}
+
+.monitor-pet-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+}
+
+.monitor-pet-card {
+    position: relative !important;
+    border-radius: 18px !important;
+    background: rgba(255,255,255,0.76) !important;
+    border: 1px solid rgba(17,17,17,0.08) !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.06) !important;
+    overflow: hidden !important;
+}
+
+.monitor-pet-card-image {
+    height: 172px !important;
+    aspect-ratio: auto !important;
+    background: rgba(250,249,246,0.96) !important;
+}
+
+.monitor-pet-card-image img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    padding: 14px !important;
+}
+
+.monitor-pet-card-stats {
+    position: absolute !important;
+    top: 128px !important;
+    right: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 5px 8px !important;
+    border-radius: 999px !important;
+    background: rgba(255,255,255,0.82) !important;
+    color: rgba(17,17,17,0.58) !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.06) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.monitor-pet-card-stats span {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    color: inherit !important;
+    font-size: 10px !important;
+    font-weight: 650 !important;
+}
+
+.monitor-pet-card-stats i {
+    font-size: 12px !important;
+}
+
+.monitor-pet-card-copy {
+    padding: 12px 14px 8px !important;
+    gap: 6px !important;
+}
+
+.monitor-pet-card-copy strong {
+    color: #111 !important;
+    font-size: 17px !important;
+    line-height: 1.18 !important;
+    font-weight: 880 !important;
+    white-space: normal !important;
+}
+
+.monitor-pet-card-copy > span {
+    color: rgba(17,17,17,0.50) !important;
+    font-size: 11px !important;
+    font-weight: 640 !important;
+    white-space: nowrap !important;
+}
+
+.monitor-pet-card-copy p {
+    margin: 3px 0 0 !important;
+    color: rgba(17,17,17,0.58) !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+}
+
+.monitor-pet-card-copy div {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin-top: 4px !important;
+}
+
+.monitor-pet-card-copy em {
+    max-width: 92px !important;
+    padding: 5px 9px !important;
+    border-radius: 999px !important;
+    background: rgba(17,17,17,0.045) !important;
+    border: 1px solid rgba(17,17,17,0.07) !important;
+    color: rgba(17,17,17,0.56) !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+    font-size: 10px !important;
+    font-style: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.monitor-pet-card-actions {
+    grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)) !important;
+    padding: 10px 12px 12px !important;
+    border-top: 1px solid rgba(17,17,17,0.06) !important;
+}
+
+.monitor-pet-card-actions button {
+    height: 34px !important;
+    border-radius: 13px !important;
+    font-size: 11px !important;
+}
+/* === End Monitor Codex Pets in-page gallery 20260705 === */
+
+/* === Music NetEase player control placement fix 20260705 === */
+#app-music-window .mn-player-body {
+    padding: 2px 40px calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+#app-music-window .mn-vinyl-wrap {
+    margin-top: clamp(10px, 2.4vh, 24px) !important;
+    width: min(54vw, 250px) !important;
+    height: min(54vw, 250px) !important;
+}
+
+#app-music-window .mn-player-lyric {
+    margin-top: clamp(20px, 3.6vh, 34px) !important;
+}
+
+#app-music-window .mn-player-progress {
+    margin-top: 14px !important;
+}
+
+#app-music-window .mn-player-controls {
+    margin-top: clamp(44px, 8.6vh, 88px) !important;
+    padding-top: 0 !important;
+    flex: 0 0 auto !important;
+}
+
+#app-music-window .mn-player-controls .mn-play-btn {
+    width: 62px !important;
+    height: 62px !important;
+}
+/* === End Music NetEase player control placement fix 20260705 === */
+
+/* === Music NetEase player readable text and waveform progress 20260705 === */
+#app-music-window .mn-player-lyric {
+    color: rgba(45, 54, 69, 0.72) !important;
+    font-weight: 720 !important;
+    text-shadow: none !important;
+}
+
+#app-music-window .mn-player-times {
+    color: rgba(96, 107, 124, 0.62) !important;
+    font-weight: 650 !important;
+}
+
+#app-music-window .mn-player-controls button {
+    color: rgba(83, 94, 113, 0.72) !important;
+    opacity: 1 !important;
+}
+
+#app-music-window .mn-player-controls button:not(.mn-play-btn) {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#app-music-window .mn-player-controls .mn-heart.active {
+    color: #ef3f48 !important;
+}
+
+#app-music-window .mn-player-controls .mn-play-btn {
+    color: #fff !important;
+    background: #f43f46 !important;
+    box-shadow: 0 18px 34px rgba(244, 63, 70, 0.28) !important;
+}
+
+#app-music-window .mn-wave-progress {
+    height: 34px !important;
+    margin-top: 16px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    background: transparent !important;
+}
+
+#app-music-window .mn-wave-progress::before,
+#app-music-window .mn-player-progress-fill {
+    display: none !important;
+}
+
+#app-music-window .mn-wave-bar {
+    flex: 1 1 0 !important;
+    min-width: 3px !important;
+    height: var(--bar-h, 14px) !important;
+    border-radius: 999px !important;
+    background: rgba(151, 162, 180, 0.22) !important;
+    transition: height 0.18s ease, background 0.18s ease, transform 0.18s ease !important;
+}
+
+#app-music-window .mn-wave-bar.active {
+    background: linear-gradient(180deg, #ff7f92 0%, #8c83ff 100%) !important;
+}
+
+#app-music-window .mn-wave-progress:active .mn-wave-bar.active {
+    transform: scaleY(1.08) !important;
+}
+/* === End Music NetEase player readable text and waveform progress 20260705 === */
+
+/* === Music mini player action gap fix 20260705 === */
+#app-music-window:not([data-music-tab="home"]) .music-now-card {
+    grid-template-columns: 66px minmax(0, 1fr) 44px 54px !important;
+    column-gap: 18px !important;
+    padding-right: 18px !important;
+}
+
+#app-music-window:not([data-music-tab="home"]) .music-now-actions {
+    right: 74px !important;
+    width: 44px !important;
+}
+
+#app-music-window:not([data-music-tab="home"]) .music-now-actions button {
+    justify-self: center !important;
+}
+
+#app-music-window:not([data-music-tab="home"]) .music-controls .music-play-btn {
+    justify-self: center !important;
+}
+/* === End Music mini player action gap fix 20260705 === */
+
+/* === Music live sync waveform and lyric spacing 20260705 === */
+#app-music-window .music-wave span {
+    opacity: 0.18 !important;
+    transform-origin: center !important;
+}
+
+#app-music-window .music-wave span.active {
+    opacity: 1 !important;
+    background: linear-gradient(180deg, #ff7f92 0%, #8c83ff 100%) !important;
+}
+
+#app-music-window .music-wave.is-playing span.active {
+    animation: music-mini-wave-pulse 0.72s ease-in-out infinite alternate !important;
+    animation-delay: calc(var(--wave-i, 0) * -0.04s) !important;
+}
+
+#app-music-window .mn-player-body {
+    padding: 2px 40px calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+#app-music-window .mn-player-lyric {
+    flex: 1 1 auto !important;
+    min-height: 92px !important;
+    margin-top: clamp(18px, 3.2vh, 30px) !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    white-space: normal !important;
+    line-height: 1.45 !important;
+    overflow: hidden !important;
+}
+
+#app-music-window .mn-wave-progress {
+    margin-top: auto !important;
+    transform: translateY(18px) !important;
+}
+
+#app-music-window .mn-player-times {
+    transform: translateY(18px) !important;
+}
+
+#app-music-window .mn-player-controls {
+    margin-top: clamp(48px, 7vh, 70px) !important;
+}
+
+#app-music-window .mn-wave-bar {
+    transform-origin: center !important;
+}
+
+#app-music-window .mn-wave-progress.is-playing .mn-wave-bar.active {
+    animation: music-ncm-wave-pulse 0.78s ease-in-out infinite alternate !important;
+    animation-delay: calc(var(--bar-i, 0) * -0.035s) !important;
+}
+
+@keyframes music-ncm-wave-pulse {
+    from { transform: scaleY(0.76); }
+    to { transform: scaleY(1.22); }
+}
+
+@keyframes music-mini-wave-pulse {
+    from { transform: scaleY(0.72); }
+    to { transform: scaleY(1.18); }
+}
+/* === End Music live sync waveform and lyric spacing 20260705 === */
+
+/* === Music NetEase multi-line lyric window 20260705 === */
+#app-music-window .mn-player-lyric {
+    width: 100% !important;
+    min-height: 126px !important;
+    max-height: 136px !important;
+    align-items: center !important;
+}
+
+#app-music-window .mn-lyric-stack {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+}
+
+#app-music-window .mn-lyric-line {
+    max-width: min(360px, 100%) !important;
+    color: rgba(98, 108, 126, 0.52) !important;
+    font-size: 13px !important;
+    line-height: 1.28 !important;
+    font-weight: 650 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#app-music-window .mn-lyric-line.active {
+    color: rgba(45, 54, 69, 0.86) !important;
+    font-size: 15px !important;
+    font-weight: 820 !important;
+}
+
+#app-music-window .mn-lyric-line.passed {
+    opacity: 0.55 !important;
+}
+
+#app-music-window .mn-lyric-line.next {
+    opacity: 0.72 !important;
+}
+
+#app-music-window .mn-wave-progress {
+    transform: translateY(8px) !important;
+}
+
+#app-music-window .mn-player-times {
+    transform: translateY(8px) !important;
+}
+/* === End Music NetEase multi-line lyric window 20260705 === */
+
+/* === Music NetEase monochrome waveform reference 20260705 === */
+#app-music-window .mn-wave-progress {
+    height: 48px !important;
+    margin-top: auto !important;
+    padding: 0 !important;
+    gap: 2px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transform: translateY(12px) !important;
+}
+
+#app-music-window .mn-wave-progress::before,
+#app-music-window .mn-player-progress-fill {
+    display: none !important;
+}
+
+#app-music-window .mn-wave-bar {
+    flex: 1 1 0 !important;
+    min-width: 2px !important;
+    max-width: 4px !important;
+    height: var(--bar-h, 12px) !important;
+    border-radius: 999px !important;
+    background: #d9dde4 !important;
+    opacity: 1 !important;
+    transform-origin: center !important;
+    transition: background 0.16s ease, opacity 0.16s ease, transform 0.16s ease !important;
+}
+
+#app-music-window .mn-wave-bar.active {
+    background: #121722 !important;
+}
+
+#app-music-window .mn-wave-progress.is-playing .mn-wave-bar.near {
+    animation: music-ncm-playhead-breathe 0.64s ease-in-out infinite alternate !important;
+    animation-delay: calc(var(--bar-i, 0) * -0.026s) !important;
+}
+
+#app-music-window .mn-player-times {
+    color: rgba(36, 43, 55, 0.44) !important;
+    font-size: 12px !important;
+    font-weight: 720 !important;
+    transform: translateY(8px) !important;
+}
+
+#app-music-window .mn-player-times span:first-child {
+    color: #121722 !important;
+}
+
+@keyframes music-ncm-playhead-breathe {
+    from { transform: scaleY(0.82); }
+    to { transform: scaleY(1.18); }
+}
+/* === End Music NetEase monochrome waveform reference 20260705 === */
+
+/* === Music detail comments and co-listen fixes 20260705 === */
+#app-music-window .music-detail-content {
+    padding-bottom: calc(206px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: calc(206px + env(safe-area-inset-bottom)) !important;
+}
+
+#app-music-window .music-detail-actions button {
+    color: #121722 !important;
+    font-size: 13px !important;
+    font-weight: 880 !important;
+    opacity: 1 !important;
+}
+
+#app-music-window .music-detail-actions button i {
+    display: inline-flex !important;
+    color: currentColor !important;
+    font-size: 17px !important;
+    line-height: 1 !important;
+}
+
+#app-music-window .music-detail-actions button span {
+    display: inline-block !important;
+    color: currentColor !important;
+    white-space: nowrap !important;
+}
+
+#app-music-window .music-detail-actions button.active {
+    background: #121722 !important;
+    color: #fff !important;
+    border-color: #121722 !important;
+}
+
+#app-music-window .music-ai-head button,
+#app-music-window .music-ai-head em {
+    min-width: 76px !important;
+    min-height: 34px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    color: #121722 !important;
+    opacity: 1 !important;
+    white-space: nowrap !important;
+}
+
+#app-music-window .music-ai-head button span,
+#app-music-window .music-ai-head em span {
+    display: inline-block !important;
+    color: currentColor !important;
+    margin: 0 !important;
+    font-size: inherit !important;
+}
+
+#app-music-window .music-ai-thinking i {
+    display: inline-flex !important;
+    color: currentColor !important;
+    animation: spin 0.9s linear infinite !important;
+}
+
+#app-music-window .music-comments-list {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+}
+
+#app-music-window .music-comment-compose {
+    position: absolute !important;
+    left: 42px !important;
+    right: 42px !important;
+    bottom: calc(176px + env(safe-area-inset-bottom)) !important;
+    display: none !important;
+    grid-template-columns: minmax(0, 1fr) 62px !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    height: 56px !important;
+    padding: 5px !important;
+    z-index: 18 !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    border: 1px solid rgba(17, 24, 39, 0.07) !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.11) !important;
+    backdrop-filter: blur(22px) saturate(1.12) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+}
+
+#app-music-window .music-detail-view.music-detail-comments-mode .music-comment-compose {
+    display: grid !important;
+}
+
+#app-music-window .music-comment-compose input {
+    height: 46px !important;
+    border: none !important;
+    border-radius: 999px !important;
+    padding: 0 16px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-size: 14px !important;
+    font-weight: 650 !important;
+}
+
+#app-music-window .music-comment-compose button {
+    height: 46px !important;
+    border-radius: 999px !important;
+    background: #303741 !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.13) !important;
+}
+/* === End Music detail comments and co-listen fixes 20260705 === */
+
+/* === Music mini player click-through detail 20260705 === */
+#app-music-window .music-now-card {
+    cursor: pointer !important;
+}
+
+#app-music-window .music-now-card button {
+    cursor: pointer !important;
+}
+
+#app-music-window .music-now-card:active {
+    transform: translateY(1px) !important;
+}
+/* === End Music mini player click-through detail 20260705 === */

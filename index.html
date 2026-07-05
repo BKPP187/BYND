@@ -27,7 +27,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260705-music-mini-play13">
+    <link rel="stylesheet" href="style.css?v=20260705-music-comment-pill1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -196,7 +196,7 @@
 
         <div id="app-music-window" class="app-window hidden music-window">
             <div class="music-header">
-                <button type="button" onclick="closeApp('music')" aria-label="关闭音乐"><i class="ri-arrow-left-s-line"></i></button>
+                <button type="button" onclick="handleMusicHeaderBack()" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
                 <div>
                     <strong>BEYOND SCREEN</strong>
                 </div>
@@ -233,8 +233,8 @@
                         <input type="url" id="music-go-api-base" placeholder="http://127.0.0.1:8080">
                     </label>
                     <label>
-                        <span>网易云 API 服务（空着用默认本机 18867）</span>
-                        <input type="url" id="music-netease-api-base" placeholder="http://127.0.0.1:18867">
+                        <span>网易云 API 服务（空着默认用 bynd.ccwu.cc 代理）</span>
+                        <input type="url" id="music-netease-api-base" placeholder="https://bynd.ccwu.cc/netease/api">
                     </label>
                     <label>
                         <span>网易云音频代理（可选）</span>
@@ -254,15 +254,15 @@
                     <div class="music-imported-playlists" id="music-imported-playlists"></div>
                     <button type="button" onclick="saveMusicSourceSettingsFromUI()">保存并重搜</button>
                 </div>
-                <section class="music-now-card">
+                <section class="music-now-card" onclick="openCurrentMusicDetail()" role="button" tabindex="0" aria-label="打开音乐详情" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCurrentMusicDetail();}">
                     <div class="music-cover" id="music-now-cover"></div>
                     <div class="music-now-meta">
                         <span id="music-now-album">Quiet Playlist</span>
                         <strong id="music-now-title">Beyond the Screen</strong>
                         <em id="music-now-artist">BYND Radio</em>
                         <div class="music-now-actions">
-                            <button type="button" id="music-now-favorite-btn" onclick="toggleMusicFavorite()" aria-label="收藏"><i class="ri-heart-line"></i></button>
-                            <button type="button" onclick="openCurrentMusicDetail()" aria-label="更多"><i class="ri-more-fill"></i></button>
+                            <button type="button" id="music-now-favorite-btn" onclick="event.stopPropagation();toggleMusicFavorite()" aria-label="收藏"><i class="ri-heart-line"></i></button>
+                            <button type="button" onclick="event.stopPropagation();openCurrentMusicDetail()" aria-label="更多"><i class="ri-more-fill"></i></button>
                         </div>
                     </div>
                     <div class="music-wave" aria-hidden="true">
@@ -271,16 +271,16 @@
                         <span style="--h:88%"></span><span style="--h:34%"></span><span style="--h:64%"></span><span style="--h:42%"></span>
                         <span style="--h:76%"></span><span style="--h:26%"></span><span style="--h:54%"></span><span style="--h:72%"></span>
                     </div>
-                    <button type="button" class="music-progress" onclick="seekMusic(event)" aria-label="调整播放进度">
+                    <button type="button" class="music-progress" onclick="event.stopPropagation();seekMusic(event)" aria-label="调整播放进度">
                         <span id="music-progress-fill"></span>
                     </button>
                     <div class="music-time-row"><span id="music-time-elapsed">0:00</span><span id="music-time-duration">0:30</span></div>
                     <div class="music-controls">
-                        <button type="button" id="music-shuffle-btn" class="music-mode-btn music-shuffle-btn" onclick="toggleMusicShuffle()" aria-label="随机播放"><i class="ri-shuffle-line"></i></button>
-                        <button type="button" class="music-prev-btn" onclick="playPrevMusicTrack()" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
-                        <button type="button" class="music-play-btn" onclick="toggleMusicPlayback()" aria-label="播放或暂停"><i id="music-play-icon" class="ri-play-fill"></i></button>
-                        <button type="button" class="music-next-btn" onclick="playNextMusicTrack()" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
-                        <button type="button" id="music-repeat-btn" class="music-mode-btn music-repeat-btn" onclick="toggleMusicRepeatMode()" aria-label="循环播放"><i class="ri-repeat-line"></i></button>
+                        <button type="button" id="music-shuffle-btn" class="music-mode-btn music-shuffle-btn" onclick="event.stopPropagation();toggleMusicShuffle()" aria-label="随机播放"><i class="ri-shuffle-line"></i></button>
+                        <button type="button" class="music-prev-btn" onclick="event.stopPropagation();playPrevMusicTrack()" aria-label="上一首"><i class="ri-skip-back-fill"></i></button>
+                        <button type="button" class="music-play-btn" onclick="event.stopPropagation();toggleMusicPlayback()" aria-label="播放或暂停"><i id="music-play-icon" class="ri-play-fill"></i></button>
+                        <button type="button" class="music-next-btn" onclick="event.stopPropagation();playNextMusicTrack()" aria-label="下一首"><i class="ri-skip-forward-fill"></i></button>
+                        <button type="button" id="music-repeat-btn" class="music-mode-btn music-repeat-btn" onclick="event.stopPropagation();toggleMusicRepeatMode()" aria-label="循环播放"><i class="ri-repeat-line"></i></button>
                     </div>
                 </section>
                 <section class="music-list-section">
@@ -293,7 +293,7 @@
             </div>
             <div class="music-detail-view hidden" id="music-detail-view">
                 <div class="music-detail-header">
-                    <button type="button" onclick="closeMusicDetail()" aria-label="返回音乐列表"><i class="ri-arrow-left-s-line"></i></button>
+                    <button type="button" onclick="goBackMusicView()" aria-label="返回音乐列表"><i class="ri-arrow-left-s-line"></i></button>
                     <strong>歌词与评论</strong>
                     <button type="button" onclick="toggleMusicPlayback()" aria-label="播放或暂停"><i class="ri-play-fill" id="music-detail-play-icon"></i></button>
                 </div>
@@ -324,11 +324,11 @@
                     </section>
                     <section class="music-detail-panel" id="music-comments-panel">
                         <div class="music-comments-list" id="music-comments-list"></div>
-                        <div class="music-comment-compose">
-                            <input type="text" id="music-comment-input" placeholder="写一条留言..." onkeydown="if(event.key==='Enter'){event.preventDefault();addMusicComment();}">
-                            <button type="button" onclick="addMusicComment()">发送</button>
-                        </div>
                     </section>
+                </div>
+                <div class="music-comment-compose">
+                    <input type="text" id="music-comment-input" placeholder="写一条留言..." onkeydown="if(event.key==='Enter'){event.preventDefault();addMusicComment();}">
+                    <button type="button" onclick="addMusicComment()">发送</button>
                 </div>
             </div>
             <div class="music-netease-view hidden" id="music-netease-view">
@@ -1210,9 +1210,10 @@
                         <div class="font-batch-box">
                             <div class="font-batch-head">
                                 <span>批量导入字体链接</span>
-                                <button type="button" onclick="importFontsBatch()">批量添加</button>
+                                <button type="button" id="font-batch-import-btn" onclick="importFontsBatch()">批量添加</button>
                             </div>
                             <textarea id="font-batch-input" placeholder="每行一个字体，例如：奶兔小小莓——https://files.catbox.moe/m8x7m7.ttf"></textarea>
+                            <div class="font-batch-status" id="font-batch-status"></div>
                         </div>
                     </div>
 
@@ -2251,9 +2252,9 @@
     <script src="modules/wechat/ui-theme.js?v=20260705-telegram-avatar-tab7"></script>
     <script src="wechat.js?v=20260705-telegram-tab-avatar1"></script>
     <script src="theme.js?v=20260705-douyin-icon-align1"></script>
-    <script src="settings.js?v=20260705-douyin-icon-align1"></script>
-    <script src="script.js?v=20260705-music-mini-heart12"></script>
-    <script src="netease.js?v=20260705-netease-audio-proxy1"></script>
+    <script src="settings.js?v=20260705-font-link-instant1"></script>
+    <script src="script.js?v=20260705-music-comment-fixed1"></script>
+    <script src="netease.js?v=20260705-netease-mono-wave1"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
 </body>
