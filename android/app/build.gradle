@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'cc.ccwu.bynd'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'cc.ccwu.bynd'
+        minSdk 23
+        targetSdk 28
+        versionCode 1
+        versionName '1.1.558-test'
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += ["$buildDir/generated/assets"]
+        }
+    }
+}
+
+tasks.register('syncWebAssets', Copy) {
+    from(rootProject.projectDir.parentFile) {
+        include '*.html'
+        include '*.js'
+        include '*.css'
+        include '*.svg'
+        include '*.webmanifest'
+        include 'assets/**'
+        include 'modules/**'
+        include 'styles/**'
+        include '表情包/**'
+        exclude 'android/**'
+        exclude '.git/**'
+        exclude '.github/**'
+        exclude '.wrangler/**'
+    }
+    into "$buildDir/generated/assets/www"
+}
+
+preBuild.dependsOn syncWebAssets

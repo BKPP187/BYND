@@ -4276,7 +4276,21 @@ function ensureMonitorPetState(char) {
 }
 
 function isMonitorScreenSharingActive() {
+    const bridge = getMonitorAndroidScreenBridge();
+    if (bridge) {
+        try {
+            return String(bridge.isScreenCaptureActive && bridge.isScreenCaptureActive()) === 'true';
+        } catch (e) {
+            return false;
+        }
+    }
     return !!(monitorScreenStream && monitorScreenStream.getVideoTracks().some(track => track.readyState === 'live'));
+}
+
+function getMonitorAndroidScreenBridge() {
+    const bridge = window.ByndAndroid;
+    if (!bridge || typeof bridge !== 'object') return null;
+    return typeof bridge.captureScreenFrame === 'function' ? bridge : null;
 }
 
 function updateMonitorScreenStatus(text) {
@@ -4302,6 +4316,17 @@ function ensureMonitorScreenVideo() {
 }
 
 async function startMonitorScreenShare() {
+    const bridge = getMonitorAndroidScreenBridge();
+    if (bridge && typeof bridge.startScreenCapture === 'function') {
+        try {
+            bridge.startScreenCapture();
+            updateMonitorScreenStatus('已请求安卓屏幕录制授权，请在系统弹窗中确认。');
+            renderMonitorCharacters();
+        } catch (e) {
+            updateMonitorScreenStatus(`安卓屏幕授权失败：${e && e.message ? e.message : e}`);
+        }
+        return false;
+    }
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
         updateMonitorScreenStatus('当前浏览器不支持屏幕共享；APK 版需要接 Android MediaProjection。');
         if (typeof showWechatToast === 'function') showWechatToast('当前浏览器不支持屏幕共享');
@@ -4332,6 +4357,12 @@ async function startMonitorScreenShare() {
 window.startMonitorScreenShare = startMonitorScreenShare;
 
 function stopMonitorScreenShare(render = true) {
+    const bridge = getMonitorAndroidScreenBridge();
+    if (bridge && typeof bridge.stopScreenCapture === 'function') {
+        try {
+            bridge.stopScreenCapture();
+        } catch (e) {}
+    }
     if (monitorScreenStream) {
         monitorScreenStream.getTracks().forEach(track => track.stop());
     }
@@ -4345,6 +4376,22 @@ function stopMonitorScreenShare(render = true) {
 window.stopMonitorScreenShare = stopMonitorScreenShare;
 
 async function captureMonitorScreenFrame() {
+    const bridge = getMonitorAndroidScreenBridge();
+    if (bridge) {
+        try {
+            const dataUrl = String(bridge.captureScreenFrame && bridge.captureScreenFrame() || '');
+            if (/^data:image\//i.test(dataUrl)) {
+                monitorScreenFrameDataUrl = dataUrl;
+                monitorScreenLastCaptureAt = Date.now();
+                updateMonitorScreenStatus(`已读取安卓屏幕画面 ${new Date(monitorScreenLastCaptureAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+                return dataUrl;
+            }
+            updateMonitorScreenStatus(isMonitorScreenSharingActive() ? '安卓屏幕画面准备中，请稍后再试。' : '还没有授权安卓屏幕录制。');
+        } catch (e) {
+            updateMonitorScreenStatus(`安卓屏幕读取失败：${e && e.message ? e.message : e}`);
+        }
+        return '';
+    }
     if (!isMonitorScreenSharingActive()) return '';
     const video = ensureMonitorScreenVideo();
     if (!video.videoWidth || !video.videoHeight) {
