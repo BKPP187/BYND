@@ -407,6 +407,10 @@ function isByndMobileRuntime() {
     return document.documentElement.classList.contains('mobile-runtime');
 }
 
+function isByndAndroidAppRuntime() {
+    return !!window.ByndAndroid;
+}
+
 function markByndDisplayMode() {
     const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
     const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
@@ -416,6 +420,7 @@ function markByndDisplayMode() {
 }
 
 function tryByndFullscreen() {
+    if (isByndAndroidAppRuntime()) return;
     if (!isByndMobileRuntime() || document.fullscreenElement) return;
     const target = document.documentElement;
     const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
@@ -424,6 +429,10 @@ function tryByndFullscreen() {
 
 function initByndFullscreenRuntime() {
     markByndDisplayMode();
+    if (isByndAndroidAppRuntime()) {
+        document.documentElement.classList.add('bynd-android-app');
+        return;
+    }
     window.matchMedia?.('(display-mode: fullscreen)').addEventListener?.('change', markByndDisplayMode);
     window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
     document.addEventListener('fullscreenchange', markByndDisplayMode);

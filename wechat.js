@@ -8357,6 +8357,23 @@ function updateWechatImageStack(stack, activeIndex, dragOffset = 0) {
     if (count) count.textContent = `${active + 1}/${cards.length}`;
 }
 
+function openWechatImageStackPreview(stack, activeIndex) {
+    if (!stack || window._msgMultiSelectMode) return false;
+    const cards = Array.from(stack.querySelectorAll('.wc-image-stack-card'));
+    if (!cards.length) return false;
+    const max = cards.length - 1;
+    const index = Math.max(0, Math.min(max, Number(activeIndex || 0)));
+    const sources = cards
+        .map(item => item.dataset.src || '')
+        .filter(Boolean);
+    const src = sources[index] || cards[index]?.dataset.src || '';
+    if (!src) return false;
+    updateWechatImageStack(stack, index);
+    stack.dataset.previewOpenedAt = String(Date.now());
+    openWechatImagePreview(src, `第 ${index + 1} 张`, sources, index);
+    return true;
+}
+
 function bindWechatImageStacks(root) {
     const scope = root || document;
     scope.querySelectorAll('.wc-image-stack').forEach(stack => {
@@ -8368,11 +8385,14 @@ function bindWechatImageStacks(root) {
         let pointerId = null;
         let horizontalDrag = false;
         let moved = false;
+        let downCardIndex = 0;
         stack.addEventListener('pointerdown', event => {
             if (event.pointerType === 'mouse' && event.button !== 0) return;
+            const downCard = event.target.closest?.('.wc-image-stack-card');
             startX = event.clientX;
             startY = event.clientY;
             pointerId = event.pointerId;
+            downCardIndex = downCard ? Number(downCard.dataset.index || 0) : Number(stack.dataset.active || 0);
             horizontalDrag = false;
             moved = false;
             stack.classList.add('dragging');
@@ -8409,6 +8429,11 @@ function bindWechatImageStacks(root) {
             } else {
                 updateWechatImageStack(stack, active);
             }
+            if (!moved && Math.hypot(dx, dy) <= 10) {
+                event.preventDefault();
+                event.stopPropagation();
+                openWechatImageStackPreview(stack, downCardIndex);
+            }
             setTimeout(() => { moved = false; }, 0);
         });
         stack.addEventListener('pointercancel', event => {
@@ -8430,17 +8455,15 @@ function bindWechatImageStacks(root) {
                 if (window._msgMultiSelectMode) return;
                 event.preventDefault();
                 event.stopPropagation();
+                if (Date.now() - Number(stack.dataset.previewOpenedAt || 0) < 450) return;
                 const index = Number(card.dataset.index || 0);
                 const active = Number(stack.dataset.active || 0);
                 if (moved) return;
                 if (index !== active) {
-                    updateWechatImageStack(stack, index);
-                    return;
+                    openWechatImageStackPreview(stack, index);
+                } else {
+                    openWechatImageStackPreview(stack, active);
                 }
-                const sources = Array.from(stack.querySelectorAll('.wc-image-stack-card'))
-                    .map(item => item.dataset.src || '')
-                    .filter(Boolean);
-                openWechatImagePreview(card.dataset.src || '', `第 ${index + 1} 张`, sources, index);
             });
         });
     });
