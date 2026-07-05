@@ -64,6 +64,14 @@ public class MainActivity extends Activity {
         Window window = getWindow();
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams attrs = window.getAttributes();
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            window.setAttributes(attrs);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             window.setStatusBarColor(Color.TRANSPARENT);
@@ -112,6 +120,7 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(true);
         settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        view.setBackgroundColor(Color.rgb(242, 244, 246));
         view.setWebViewClient(new WebViewClient());
         view.setWebChromeClient(new WebChromeClient());
     }

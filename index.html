@@ -19,6 +19,9 @@
             var shortSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
             var longSide = Math.max(screen.width || innerWidth, screen.height || innerHeight);
             var mobileUa = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS|MiuiBrowser|HuaweiBrowser|Quark|UCBrowser/i.test(ua);
+            if (window.ByndAndroid) {
+                document.documentElement.classList.add('bynd-android-app');
+            }
             if (mobileUa || (touch && shortSide <= 820 && longSide <= 1368)) {
                 document.documentElement.classList.add('mobile-runtime');
             }
@@ -27,7 +30,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260706-monitor-screen-apk2">
+    <link rel="stylesheet" href="style.css?v=20260706-android-fill-top1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
