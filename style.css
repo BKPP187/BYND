@@ -57,6 +57,32 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 html.mobile-runtime, html.mobile-runtime body { width: 100%; height: 100%; overflow: hidden; background-color: var(--bynd-mobile-bg, #f8f8f8); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; overscroll-behavior: none; }
 html.mobile-runtime body { display: block; min-height: 100dvh; padding: env(safe-area-inset-top) 0 0 0; }
 html.mobile-runtime .phone-container { width: 100vw; height: calc(100dvh - env(safe-area-inset-top)); max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+html.mobile-runtime.bynd-ios-pwa,
+html.mobile-runtime.bynd-ios-pwa body {
+    height: 100lvh;
+    min-height: 100lvh;
+}
+html.mobile-runtime.bynd-ios-pwa body {
+    position: relative;
+    isolation: isolate;
+}
+html.mobile-runtime.bynd-ios-pwa body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-color: var(--bynd-mobile-bg, #f8f8f8);
+    background-image: var(--bynd-mobile-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+html.mobile-runtime.bynd-ios-pwa .phone-container {
+    position: relative;
+    z-index: 1;
+    height: calc(100lvh - env(safe-area-inset-top));
+}
 html.mobile-runtime.bynd-android-app,
 html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
 html.mobile-runtime.bynd-android-app body { padding: 0; }

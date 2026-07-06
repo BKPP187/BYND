@@ -30,6 +30,8 @@
                 var iosStandalone = window.navigator && window.navigator.standalone === true;
                 var pwaStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
                 var isIOS = /iPhone|iPad|iPod/i.test(ua);
+                if (isIOS) document.documentElement.classList.add('bynd-ios');
+                if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
                 var shouldHideStatusBar = savedTheme.phoneStatusBarEnabled === false || (savedTheme.phoneStatusBarEnabled == null && isIOS && (iosStandalone || pwaStandalone));
                 if (shouldHideStatusBar) {
                     document.documentElement.classList.add('bynd-statusbar-hidden');
@@ -42,9 +44,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.562">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.563">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.562">
+    <link rel="stylesheet" href="style.css?v=1.1.563">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -1279,7 +1281,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.562
+                    Beyond Screen v1.1.563
                 </div>
             </div>
         </div>
