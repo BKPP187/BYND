@@ -684,8 +684,25 @@ function getByndHomeWallpaperSrc() {
     return match ? match[1] : '';
 }
 
+function toByndCssUrl(value) {
+    return `url("${String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]/g, '')}")`;
+}
+
+function syncByndMobileOuterBackground(src) {
+    const root = document.documentElement;
+    const home = document.getElementById('home-screen');
+    const homeStyle = home ? getComputedStyle(home) : null;
+    const bgColor = homeStyle?.backgroundColor && homeStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
+        ? homeStyle.backgroundColor
+        : '#f8f8f8';
+    root.style.setProperty('--bynd-mobile-bg', bgColor);
+    const wallpaper = src || getByndHomeWallpaperSrc();
+    root.style.setProperty('--bynd-mobile-bg-image', wallpaper ? toByndCssUrl(wallpaper) : 'none');
+}
+
 function applyByndAdaptiveTheme(src) {
     src = src || getByndHomeWallpaperSrc();
+    syncByndMobileOuterBackground(src);
     if (!src) {
         applyByndAdaptivePalette(window.homeIsDark ? [38, 42, 48] : [242, 244, 246], window.homeIsDark ? [150, 176, 210] : [42, 54, 70]);
         return;
