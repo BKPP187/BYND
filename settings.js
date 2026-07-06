@@ -2220,6 +2220,7 @@ const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
     'my_api_data',
+    'my_global_regex_scripts',
     'my_font_data',
     'my_user_profile',
     'my_theme_data',

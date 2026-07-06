@@ -1,6 +1,29 @@
 // Regex script manager
 
-window.globalRegexScripts = window.globalRegexScripts || [
+const GLOBAL_REGEX_STORAGE_KEY = 'my_global_regex_scripts';
+
+function loadGlobalRegexFromStorage() {
+    try {
+        const raw = localStorage.getItem(GLOBAL_REGEX_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        console.warn('全局正则规则读取失败，使用默认规则', e);
+        return null;
+    }
+}
+
+function saveGlobalRegexToStorage() {
+    try {
+        localStorage.setItem(GLOBAL_REGEX_STORAGE_KEY, JSON.stringify(window.globalRegexScripts || []));
+    } catch (e) {
+        console.warn('全局正则规则保存失败', e);
+    }
+}
+window.saveGlobalRegexToStorage = saveGlobalRegexToStorage;
+
+window.globalRegexScripts = loadGlobalRegexFromStorage() || window.globalRegexScripts || [
     { name: "Markdown 加粗", regex: "\\*\\*(.*?)\\*\\*", replace: "<b>$1</b>", placement: "Global", enabled: true },
 ];
 
@@ -163,6 +186,7 @@ function toggleRegexScript(index, isGlobal, enabled) {
         if (char && Array.isArray(char.regex)) script = char.regex[index];
     }
     if (script) script.enabled = enabled;
+    if (isGlobal) saveGlobalRegexToStorage();
     if (!isGlobal && typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
     renderRegexContent();
 }
@@ -236,6 +260,7 @@ function saveNewRegex() {
         } else {
             window.globalRegexScripts.push(scriptData);
         }
+        saveGlobalRegexToStorage();
     } else {
         const charId = document.getElementById('re-new-char-select').value || selectedLocalCharId;
         const char = findRegexCharById(charId);

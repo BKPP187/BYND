@@ -4331,6 +4331,7 @@ async function startMonitorScreenShare() {
             bridge.startScreenCapture();
             updateMonitorScreenStatus('已请求安卓屏幕录制授权，请在系统弹窗中确认。');
             renderMonitorCharacters();
+            startMonitorPetAutoObserve();
         } catch (e) {
             updateMonitorScreenStatus(`安卓屏幕授权失败：${e && e.message ? e.message : e}`);
         }
@@ -4355,8 +4356,9 @@ async function startMonitorScreenShare() {
             track.addEventListener('ended', () => stopMonitorScreenShare(true), { once: true });
         });
         monitorScreenFrameDataUrl = '';
-        updateMonitorScreenStatus('已授权屏幕共享，桌宠下一次说话会读取一帧画面。');
+        updateMonitorScreenStatus('已授权屏幕共享，桌宠会定期自动观察屏幕画面，点击桌宠可立刻观察一次。');
         renderMonitorCharacters();
+        startMonitorPetAutoObserve();
         return false;
     } catch (e) {
         updateMonitorScreenStatus(`屏幕共享未开启：${e && e.message ? e.message : '用户取消或浏览器拒绝'}`);
@@ -4366,6 +4368,7 @@ async function startMonitorScreenShare() {
 window.startMonitorScreenShare = startMonitorScreenShare;
 
 function stopMonitorScreenShare(render = true) {
+    stopMonitorPetAutoObserve();
     const bridge = getMonitorAndroidScreenBridge();
     if (bridge && typeof bridge.stopScreenCapture === 'function') {
         try {
@@ -4383,6 +4386,60 @@ function stopMonitorScreenShare(render = true) {
     return false;
 }
 window.stopMonitorScreenShare = stopMonitorScreenShare;
+
+let monitorPetAutoObserveTimer = null;
+
+function getMonitorPetAutoObserveIntervalMs() {
+    const raw = localStorage.getItem('bynd_monitor_pet_observe_interval_v1');
+    if (raw === '0') return 0;
+    const stored = Number(raw);
+    const seconds = Number.isFinite(stored) && stored >= 30 ? stored : 120;
+    return seconds * 1000;
+}
+
+function setMonitorPetObserveInterval(value) {
+    const seconds = Math.max(0, Number(value) || 0);
+    localStorage.setItem('bynd_monitor_pet_observe_interval_v1', String(seconds === 0 ? 0 : Math.max(30, seconds)));
+    if (seconds === 0) {
+        stopMonitorPetAutoObserve();
+        updateMonitorScreenStatus('已切换为仅点击桌宠时观察屏幕。');
+    } else {
+        if (isMonitorScreenSharingActive()) startMonitorPetAutoObserve();
+        updateMonitorScreenStatus(`桌宠会每 ${seconds >= 60 ? `${Math.round(seconds / 60)} 分钟` : `${seconds} 秒`}左右自动观察一次屏幕。`);
+    }
+    renderMonitorCharacters();
+    return false;
+}
+window.setMonitorPetObserveInterval = setMonitorPetObserveInterval;
+
+function startMonitorPetAutoObserve() {
+    stopMonitorPetAutoObserve();
+    if (getMonitorPetAutoObserveIntervalMs() <= 0) return;
+    const schedule = () => {
+        const base = getMonitorPetAutoObserveIntervalMs();
+        const delay = Math.round(base * (0.85 + Math.random() * 0.3));
+        monitorPetAutoObserveTimer = setTimeout(async () => {
+            try {
+                if (!document.hidden
+                    && isMonitorScreenSharingActive()
+                    && document.querySelector('.monitor-pet-floating')
+                    && typeof getMonitorPetBoundChar === 'function'
+                    && getMonitorPetBoundChar()) {
+                    await requestMonitorPetReaction('observe');
+                }
+            } catch (e) {}
+            if (monitorPetAutoObserveTimer !== null) schedule();
+        }, delay);
+    };
+    schedule();
+}
+
+function stopMonitorPetAutoObserve() {
+    if (monitorPetAutoObserveTimer !== null) {
+        clearTimeout(monitorPetAutoObserveTimer);
+        monitorPetAutoObserveTimer = null;
+    }
+}
 
 async function captureMonitorScreenFrame() {
     const bridge = getMonitorAndroidScreenBridge();
@@ -4582,6 +4639,15 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
 function renderMonitorScreenSharePanel() {
     const active = isMonitorScreenSharingActive();
     const supported = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+    const intervalMs = getMonitorPetAutoObserveIntervalMs();
+    const intervalSeconds = Math.round(intervalMs / 1000);
+    const observeOptions = [
+        { value: 0, label: '仅点击时观察' },
+        { value: 60, label: '每 1 分钟' },
+        { value: 120, label: '每 2 分钟（推荐）' },
+        { value: 300, label: '每 5 分钟' },
+        { value: 600, label: '每 10 分钟' }
+    ];
     return `
         <div class="monitor-screen-panel ${active ? 'active' : ''}">
             <div class="monitor-screen-copy">
@@ -4595,6 +4661,13 @@ function renderMonitorScreenSharePanel() {
                     <span>${active ? '读一帧' : '授权屏幕'}</span>
                 </button>
                 ${active ? '<button type="button" class="ghost" onclick="stopMonitorScreenShare()"><i class="ri-stop-circle-line"></i><span>停止</span></button>' : ''}
+            </div>
+            <div class="monitor-screen-observe">
+                <label for="monitor-observe-interval"><i class="ri-timer-line"></i> 自动观察频率</label>
+                <select id="monitor-observe-interval" onchange="setMonitorPetObserveInterval(this.value)">
+                    ${observeOptions.map(opt => `<option value="${opt.value}" ${opt.value === intervalSeconds ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+                <small>${intervalSeconds > 0 ? '授权屏幕后，桌宠会按这个频率自己看一眼屏幕并搭话。' : '桌宠只在你点击它时才看一眼屏幕。'}</small>
             </div>
         </div>
     `;
@@ -5073,10 +5146,17 @@ function buildMonitorPetReactionMessages(char, reason = 'tap', screenImage = '')
     ].filter(Boolean).map(item => String(item)).join('\n').slice(0, 3600);
     const pet = getMonitorPetLibrary().find(item => item.id === getActiveMonitorPetId());
     const hasScreenImage = /^data:image\//i.test(String(screenImage || ''));
+    const lastBubble = String(char && char.chatConfig && char.chatConfig.monitorPetState && char.chatConfig.monitorPetState.bubbleText || '').trim();
+    const triggerText = reason === 'tap'
+        ? '用户点击了桌宠'
+        : reason === 'observe'
+            ? '桌宠例行看了一眼共享屏幕（用户没有召唤你，是你自己在观察）'
+            : '桌宠状态更新';
     const userPrompt = [
         identity,
         `【角色名】${getMonitorCharName(char)}`,
-        `【触发】${reason === 'tap' ? '用户点击了桌宠' : '桌宠状态更新'}`,
+        `【触发】${triggerText}`,
+        lastBubble ? `【上一条气泡】${lastBubble}（这句刚说过，禁止重复它的内容和句式）` : '',
         pet ? `【桌宠素材】${pet.displayName}` : '',
         `【可感知状态】${getMonitorPetCurrentSceneText()}`,
         hasScreenImage ? '【真实屏幕截图】本轮附带了一帧用户主动授权共享的真实屏幕画面。你可以观察这张图，但不要说得像长期监控。' : '【真实屏幕截图】本轮没有屏幕画面。你不能假装看见真实屏幕。',
@@ -5164,6 +5244,9 @@ async function requestMonitorPetReaction(reason = 'tap') {
         const screenImage = isMonitorScreenSharingActive()
             ? await captureMonitorScreenFrame().catch(() => '')
             : '';
+        if (reason === 'observe' && !/^data:image\//i.test(String(screenImage || ''))) {
+            return false;
+        }
         const result = await callChatApi(buildMonitorPetReactionMessages(char, reason, screenImage), {
             max_tokens: screenImage ? 220 : 160,
             temperature: 0.82,

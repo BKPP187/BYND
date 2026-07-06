@@ -46,3 +46,26 @@ jobs:
         with:
           name: BYND-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Prepare release keystore
+        run: |
+          echo "$BYND_KEYSTORE_BASE64" | base64 -d > android/bynd-release.keystore
+          {
+            echo "storeFile=bynd-release.keystore"
+            echo "storeType=PKCS12"
+            echo "storePassword=$BYND_KEYSTORE_PASSWORD"
+            echo "keyAlias=bynd"
+            echo "keyPassword=$BYND_KEYSTORE_PASSWORD"
+          } > android/keystore.properties
+        env:
+          BYND_KEYSTORE_BASE64: ${{ secrets.BYND_KEYSTORE_BASE64 }}
+          BYND_KEYSTORE_PASSWORD: ${{ secrets.BYND_KEYSTORE_PASSWORD }}
+
+      - name: Build signed release APK
+        run: gradle -p android :app:assembleRelease --no-daemon
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BYND-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk

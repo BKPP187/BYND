@@ -2,3 +2,8 @@
 .qa-screenshots/
 .chrome-*/
 .wrangler/
+android/keystore.properties
+android/bynd-release.keystore
+android/.gradle/
+android/app/build/
+dist/
