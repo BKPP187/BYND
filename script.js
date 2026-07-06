@@ -416,7 +416,8 @@ function markByndDisplayMode() {
     const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
     const iosStandalone = window.navigator?.standalone === true;
     document.documentElement.classList.toggle('bynd-display-standalone', !!standalone || iosStandalone);
-    document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen || iosStandalone);
+    // iOS PWA 不是真全屏：系统状态栏仍在，误标 fullscreen 会清掉安全区让位
+    document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen);
 }
 
 function tryByndFullscreen() {
@@ -4223,6 +4224,7 @@ const MONITOR_PET_LIBRARY_KEY = 'bynd_monitor_pet_library_v1';
 const MONITOR_ACTIVE_PET_KEY = 'bynd_monitor_active_pet_v1';
 const MONITOR_PET_FLOAT_POS_KEY = 'bynd_monitor_pet_float_pos_v1';
 const MONITOR_PET_BOUND_CHAR_KEY = 'bynd_monitor_pet_bound_char_v1';
+const MONITOR_PET_ENABLED_KEY = 'bynd_monitor_pet_enabled_v1';
 const MONITOR_PET_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_DB_STORE = 'assets';
 const MONITOR_PET_ORIGIN = 'https://codex-pets.net';
@@ -4283,6 +4285,34 @@ function ensureMonitorPetState(char) {
     char.chatConfig.monitorPetState = char.chatConfig.monitorPetState || {};
     return char.chatConfig.monitorPetState;
 }
+
+function isMonitorPetEnabled() {
+    return localStorage.getItem(MONITOR_PET_ENABLED_KEY) !== '0';
+}
+
+function setMonitorPetEnabled(value) {
+    const enabled = !!value;
+    localStorage.setItem(MONITOR_PET_ENABLED_KEY, enabled ? '1' : '0');
+    monitorPetFloatMessage = '';
+    if (!enabled) {
+        stopMonitorPetAutoObserve();
+        document.querySelector('.phone-container > .monitor-pet-floating')?.remove();
+        updateMonitorPetStatus('桌宠已关闭，素材和绑定角色会保留。');
+    } else {
+        updateMonitorPetStatus('桌宠已开启。');
+        if (isMonitorScreenSharingActive()) startMonitorPetAutoObserve();
+    }
+    syncMonitorPetFloating();
+    renderMonitorCharacters();
+    if (typeof showWechatToast === 'function') showWechatToast(enabled ? '桌宠已开启' : '桌宠已关闭');
+    return false;
+}
+window.setMonitorPetEnabled = setMonitorPetEnabled;
+
+function toggleMonitorPetEnabled() {
+    return setMonitorPetEnabled(!isMonitorPetEnabled());
+}
+window.toggleMonitorPetEnabled = toggleMonitorPetEnabled;
 
 function isMonitorScreenSharingActive() {
     const bridge = getMonitorAndroidScreenBridge();
@@ -4414,6 +4444,7 @@ window.setMonitorPetObserveInterval = setMonitorPetObserveInterval;
 
 function startMonitorPetAutoObserve() {
     stopMonitorPetAutoObserve();
+    if (!isMonitorPetEnabled()) return;
     if (getMonitorPetAutoObserveIntervalMs() <= 0) return;
     const schedule = () => {
         const base = getMonitorPetAutoObserveIntervalMs();
@@ -4560,7 +4591,7 @@ function renderMonitorOverview(chars) {
         const tools = [
             { id: 'internal', icon: 'ri-radar-line', title: '内部剧情', text: stats.enabled ? '已启用' : '未接入' },
             { id: 'island', icon: 'ri-notification-4-line', title: '后台提示', text: stats.enabled ? '跟随角色' : '待角色接入' },
-            { id: 'pet', icon: 'ri-bubble-chart-line', title: '桌宠气泡', text: stats.enabled ? '跟随角色' : '待角色接入' },
+            { id: 'pet', icon: 'ri-bubble-chart-line', title: '桌宠气泡', text: isMonitorPetEnabled() ? (stats.enabled ? '跟随角色' : '待角色接入') : '已关闭' },
             { id: 'phone', icon: 'ri-smartphone-line', title: '真实手机', text: isMonitorScreenSharingActive() ? '已授权' : '需授权' }
         ];
         toolbar.innerHTML = tools.map(item => `
@@ -4600,8 +4631,10 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
         pet: {
             icon: 'ri-bubble-chart-line',
             title: '桌宠气泡',
-            desc: stats.enabled ? '桌宠会绑定已接入的角色；授权屏幕共享后，点击桌宠会把当前真实屏幕的一帧交给视觉模型。' : '先接入至少一位角色，桌宠才会按人设和世界书说话。',
-            status: stats.enabled ? '跟随角色' : '等待角色',
+            desc: isMonitorPetEnabled()
+                ? (stats.enabled ? '桌宠会绑定已接入的角色；授权屏幕共享后，点击桌宠会把当前真实屏幕的一帧交给视觉模型。' : '先接入至少一位角色，桌宠才会按人设和世界书说话。')
+                : '桌宠已关闭，素材、位置和绑定角色都会保留，重新开启后继续使用。',
+            status: isMonitorPetEnabled() ? (stats.enabled ? '跟随角色' : '等待角色') : '已关闭',
             action: '查看角色',
             onclick: "document.getElementById('monitor-char-list')?.scrollIntoView({behavior:'smooth',block:'start'})"
         },
@@ -4619,6 +4652,15 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
     const item = configs[monitorActiveTool] || configs.internal;
     const petLibrary = monitorActiveTool === 'pet' ? renderMonitorPetLibrary() : '';
     const screenPanel = (monitorActiveTool === 'pet' || monitorActiveTool === 'phone') ? renderMonitorScreenSharePanel() : '';
+    const actionControl = monitorActiveTool === 'pet'
+        ? `
+            <label class="monitor-tool-switch ${isMonitorPetEnabled() ? 'active' : ''}" title="${musicEscapeAttr(isMonitorPetEnabled() ? '关闭桌宠' : '开启桌宠')}">
+                <input type="checkbox" ${isMonitorPetEnabled() ? 'checked' : ''} onchange="setMonitorPetEnabled(this.checked)">
+                <span aria-hidden="true"></span>
+                <b>${isMonitorPetEnabled() ? '已开' : '已关'}</b>
+            </label>
+        `
+        : `<button type="button" onclick="${item.onclick}">${musicEscapeHtml(item.action)}</button>`;
     panel.dataset.tool = monitorActiveTool;
     panel.innerHTML = `
         <div class="monitor-tool-card">
@@ -4628,7 +4670,7 @@ function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
                 <strong>${musicEscapeHtml(item.title)}</strong>
                 <p>${musicEscapeHtml(item.desc)}</p>
             </div>
-            <button type="button" onclick="${item.onclick}">${musicEscapeHtml(item.action)}</button>
+            ${actionControl}
         </div>
         ${screenPanel}
         ${petLibrary}
@@ -4757,6 +4799,7 @@ function renderMonitorPetLibrary() {
     const savedCards = saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('');
     const activePet = saved.find(pet => pet.id === activeId);
     const boundChar = getMonitorPetBoundChar();
+    const petEnabled = isMonitorPetEnabled();
     const boundText = boundChar ? ` · 绑定 ${getMonitorCharName(boundChar)}` : ' · 未接入角色';
     const onlineContent = monitorPetLoading
         ? '<div class="monitor-pet-empty">正在加载素材...</div>'
@@ -4768,8 +4811,13 @@ function renderMonitorPetLibrary() {
                 <div>
                     <span>当前桌宠素材</span>
                     <strong>${musicEscapeHtml(activePet ? activePet.displayName : '还没有应用素材')}</strong>
-                    <p>${musicEscapeHtml(activePet ? `来自 ${activePet.source}${boundText}` : '先搜索、下载，再应用到项目中。')}</p>
+                    <p>${musicEscapeHtml(activePet ? (petEnabled ? `来自 ${activePet.source}${boundText}` : '桌宠已关闭，开启后会重新浮到页面上。') : '先搜索、下载，再应用到项目中。')}</p>
                 </div>
+                <label class="monitor-pet-enable ${petEnabled ? 'active' : ''}" title="${musicEscapeAttr(petEnabled ? '关闭桌宠' : '开启桌宠')}">
+                    <input type="checkbox" ${petEnabled ? 'checked' : ''} onchange="setMonitorPetEnabled(this.checked)">
+                    <span aria-hidden="true"></span>
+                    <b>${petEnabled ? '已开' : '已关'}</b>
+                </label>
             </div>
             <div class="monitor-pet-search">
                 <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value, 1)">
@@ -4916,7 +4964,7 @@ function syncMonitorPetFloating() {
     const home = document.getElementById('home-screen');
     const lock = document.getElementById('lock-screen');
     const unlocked = !home || !home.classList.contains('hidden') || lock?.classList.contains('unlocked');
-    if (!unlocked) {
+    if (!unlocked || !isMonitorPetEnabled()) {
         host?.querySelector(':scope > .monitor-pet-floating')?.remove();
         return;
     }
@@ -5044,7 +5092,7 @@ function renderMonitorPetFloat(pet, mode = '') {
     const host = document.querySelector('.phone-container');
     if (!host) return;
     let node = host.querySelector(':scope > .monitor-pet-floating');
-    if (!pet) {
+    if (!pet || !isMonitorPetEnabled()) {
         if (node) node.remove();
         return;
     }
@@ -5221,6 +5269,10 @@ function normalizeMonitorPetReactionText(value) {
 }
 
 async function requestMonitorPetReaction(reason = 'tap') {
+    if (!isMonitorPetEnabled()) {
+        updateMonitorPetStatus('桌宠已关闭，开启后才会生成气泡。');
+        return false;
+    }
     const char = getMonitorPetBoundChar();
     if (!char) {
         updateMonitorPetStatus('先接入一个角色，桌宠才会按角色人设说话。');
@@ -5449,6 +5501,7 @@ function applyMonitorPet(petId, button) {
     if (!pet) return false;
     setMonitorPetActionButton(button, 'loading', '应用中');
     localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
+    localStorage.setItem(MONITOR_PET_ENABLED_KEY, '1');
     monitorPetFloatMessage = '';
     updateMonitorPetStatus(`已应用 ${pet.displayName}，桌宠已浮到页面上。`);
     renderMonitorPetFloat(pet, 'apply');
@@ -17151,6 +17204,77 @@ function getDesktopFlowSlotRects(pageArea) {
     return slots.sort((a, b) => (a.top - b.top) || (a.left - b.left));
 }
 
+function getDesktopStableSlotRects(pageArea, items, flowSlots = []) {
+    if (!pageArea) return [];
+    const orderedItems = Array.isArray(items) ? items : [];
+    const slots = [];
+    const pushSlot = rect => {
+        if (!rect) return;
+        const safe = clampDesktopLayoutRect(rect, pageArea);
+        const duplicate = slots.some(slot => (
+            getDesktopRectIntersectionRatio(safe, slot) > 0.68
+            || (
+                Math.abs((safe.left + safe.width / 2) - (slot.left + slot.width / 2)) < 12
+                && Math.abs((safe.top + safe.height / 2) - (slot.top + slot.height / 2)) < 12
+            )
+        ));
+        if (!duplicate) slots.push(safe);
+    };
+
+    orderedItems
+        .map(item => getDesktopStyleRect(item, pageArea))
+        .filter(Boolean)
+        .sort((a, b) => (a.top - b.top) || (a.left - b.left))
+        .forEach(pushSlot);
+
+    if (slots.length < orderedItems.length && Array.isArray(flowSlots)) {
+        for (const slot of flowSlots) {
+            if (slots.length >= orderedItems.length) break;
+            pushSlot(slot);
+        }
+    }
+
+    let fallbackIndex = 0;
+    const fallbackLimit = Math.max(orderedItems.length + 12, 24);
+    while (slots.length < orderedItems.length && fallbackIndex < fallbackLimit) {
+        pushSlot(getDesktopFallbackSlotRect(pageArea, fallbackIndex));
+        fallbackIndex += 1;
+    }
+
+    return slots;
+}
+
+function getDesktopCompactSlotRects(pageArea, items, flowSlots = []) {
+    if (!pageArea) return [];
+    const orderedItems = Array.isArray(items) ? items : [];
+    const slots = [];
+    const pushSlot = rect => {
+        if (!rect || slots.length >= orderedItems.length) return;
+        const safe = clampDesktopLayoutRect(rect, pageArea);
+        const duplicate = slots.some(slot => (
+            getDesktopRectIntersectionRatio(safe, slot) > 0.68
+            || (
+                Math.abs((safe.left + safe.width / 2) - (slot.left + slot.width / 2)) < 12
+                && Math.abs((safe.top + safe.height / 2) - (slot.top + slot.height / 2)) < 12
+            )
+        ));
+        if (!duplicate) slots.push(safe);
+    };
+
+    if (Array.isArray(flowSlots)) {
+        flowSlots.forEach(pushSlot);
+    }
+
+    let fallbackIndex = 0;
+    const fallbackLimit = Math.max(orderedItems.length + 12, 24);
+    while (slots.length < orderedItems.length && fallbackIndex < fallbackLimit) {
+        pushSlot(getDesktopFallbackSlotRect(pageArea, fallbackIndex));
+        fallbackIndex += 1;
+    }
+
+    return slots;
+}
+
 function getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots = new Set(), preferredIndex = null) {
     if (!pageArea || !item || !Array.isArray(slots) || !slots.length) return 0;
     const preferred = Number(preferredIndex);
@@ -17184,19 +17308,24 @@ function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
     }, pageArea);
 }
 
-function captureDesktopPageSlotRects(pageArea) {
+function captureDesktopPageSlotRects(pageArea, options = {}) {
     if (!pageArea) return [];
     const items = getDesktopOrderedSlotItems(pageArea, true);
     const flowSlots = getDesktopFlowSlotRects(pageArea);
-    if (flowSlots.length) {
+    const slotRects = options.compact
+        ? getDesktopCompactSlotRects(pageArea, items, flowSlots)
+        : getDesktopStableSlotRects(pageArea, items, flowSlots);
+    if (slotRects.length) {
         const usedSlots = new Set();
         items.forEach(item => {
-            const index = getNearestDesktopFlowSlotIndex(pageArea, item, flowSlots, usedSlots, item.dataset.desktopSlot);
+            const index = options.compact
+                ? usedSlots.size
+                : getNearestDesktopFlowSlotIndex(pageArea, item, slotRects, usedSlots, null);
             usedSlots.add(index);
             item.dataset.desktopSlot = String(index);
         });
-        pageArea._desktopSlotRects = flowSlots;
-        return flowSlots;
+        pageArea._desktopSlotRects = slotRects;
+        return slotRects;
     }
     const slots = items.map((item, index) => {
         const rect = clampDesktopLayoutRect({
@@ -17337,9 +17466,10 @@ function insertDesktopAppAtSlot(pageArea, item, targetIndex) {
     }
 }
 
-function compactDesktopSlotOrder(pageArea, excludedItem = null) {
+function compactDesktopSlotOrder(pageArea, excludedItem = null, options = {}) {
     if (!pageArea) return;
     delete pageArea._desktopSlotRects;
+    if (options.compact) captureDesktopPageSlotRects(pageArea, { compact: true });
     getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== excludedItem).forEach((item, index) => {
         item.dataset.desktopSlot = String(index);
         const rect = getDesktopSlotRect(pageArea, index, item);
@@ -17523,8 +17653,8 @@ function repairDesktopLayoutOverlaps() {
 function settleDesktopAppsAroundWidget(widgetItem, pageArea) {
     if (!widgetItem || !pageArea || widgetItem.classList.contains('layout-app')) return;
     delete pageArea._desktopSlotRects;
-    captureDesktopPageSlotRects(pageArea);
-    compactDesktopSlotOrder(pageArea);
+    captureDesktopPageSlotRects(pageArea, { compact: true });
+    compactDesktopSlotOrder(pageArea, null, { compact: true });
     repairDesktopAppOverlaps(pageArea);
 }
 
