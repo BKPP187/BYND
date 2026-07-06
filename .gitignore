@@ -7,3 +7,4 @@ android/bynd-release.keystore
 android/.gradle/
 android/app/build/
 dist/
+BYND使用说明书.md
