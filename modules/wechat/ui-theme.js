@@ -102,7 +102,7 @@ const WECHAT_UI_THEMES = [
         preview: ['#f7f1e8', '#fffaf2', '#2f261d'],
         searchPlaceholder: '搜索对话',
         tabs: {
-            chat: { label: '聊天', title: 'Claude', icon: 'ri-chat-1-line' },
+            chat: { label: '聊天', title: 'Chats', icon: 'ri-chat-1-line' },
             contacts: { label: '角色', title: '角色', icon: 'ri-user-6-line' },
             discover: { label: '动态', title: '动态', icon: 'ri-sparkling-2-line' },
             me: { label: '我的', title: '我的', icon: 'ri-user-smile-line' }
@@ -361,6 +361,16 @@ function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
                 <i class="ri-add-circle-line" onclick="openWechatPlusMenu(event)" aria-label="新建"></i>
             `;
         }
+    } else if (theme.id === 'claude') {
+        if (headerLeftIcon) headerLeftIcon.className = 'ri-menu-line';
+        if (headerLeftText) headerLeftText.textContent = '';
+        if (headerRight) {
+            headerRight.innerHTML = `
+                <button type="button" class="wc-claude-header-compose" onclick="openWechatPlusMenu(event)" aria-label="New chat">
+                    <i class="ri-add-line"></i>
+                </button>
+            `;
+        }
     } else {
         if (headerLeftIcon) headerLeftIcon.className = 'ri-arrow-left-s-line';
         if (headerLeftText) headerLeftText.textContent = '微信';
@@ -457,6 +467,7 @@ function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
 
 function getWechatChatInputPlaceholder(themeId = getWechatUiThemeId()) {
     if (themeId === 'telegram') return '\u8f93\u5165\u6d88\u606f';
+    if (themeId === 'claude') return 'Reply to Claude';
     return themeId === 'douyin' ? '\u53d1\u9001\u6d88\u606f' : '\u53d1\u6d88\u606f...';
 }
 
@@ -727,20 +738,7 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
             </button>
         `;
     }
-    if (theme.id === 'claude') {
-        return `
-            <div class="wc-claude-hero">
-                <div class="wc-claude-orb" aria-hidden="true"><span></span></div>
-                <div class="wc-claude-copy">
-                    <strong>Claude</strong>
-                    <span>${signatureText ? signature : '今天想聊什么？'}</span>
-                </div>
-                <button type="button" class="wc-claude-new-chat" onclick="openWechatPlusMenu(event)" aria-label="新建对话">
-                    <i class="ri-edit-2-line"></i>
-                </button>
-            </div>
-        `;
-    }
+    if (theme.id === 'claude') return '';
     if (theme.id === 'hallowrok') {
         const hasInbox = getWechatGroupContacts({ includeGroupNpc: false }).length > 0 || (window.myCharacters || []).some(char => char && char.isGroupChat);
         return `

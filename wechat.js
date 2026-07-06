@@ -325,11 +325,38 @@ function renderChatList() {
     listEl.innerHTML = ''; 
     const themeId = getWechatUiThemeId();
     const isXTheme = themeId === 'hallowrok';
+    const isClaudeTheme = themeId === 'claude';
     const syncThemeChrome = () => {
         if (typeof updateWechatUiThemeStructure === 'function') updateWechatUiThemeStructure(getWechatUiTheme());
     };
 
     if (getWechatVisibleChatCharacters().length === 0) {
+        if (isClaudeTheme) {
+            listEl.innerHTML = `
+                <div class="wc-claude-empty">
+                    <svg class="wc-claude-empty-mark" viewBox="0 0 80 80" aria-hidden="true">
+                        <g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round">
+                            <path d="M40 10v60"/>
+                            <path d="M10 40h60"/>
+                            <path d="M18.8 18.8l42.4 42.4"/>
+                            <path d="M61.2 18.8 18.8 61.2"/>
+                            <path d="M28.5 12.5 51.5 67.5"/>
+                            <path d="M67.5 28.5 12.5 51.5"/>
+                            <path d="M51.5 12.5 28.5 67.5"/>
+                            <path d="M12.5 28.5 67.5 51.5"/>
+                        </g>
+                    </svg>
+                    <h2>How can I help you today?</h2>
+                    <button type="button" class="wc-claude-empty-composer" onclick="openWechatPlusMenu(event)">
+                        <span>Chat with Claude</span>
+                        <i class="ri-add-line"></i>
+                        <b><i class="ri-mic-line"></i><em></em></b>
+                    </button>
+                </div>
+            `;
+            syncThemeChrome();
+            return;
+        }
         if (isXTheme) {
             syncThemeChrome();
             return;
