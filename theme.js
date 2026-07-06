@@ -432,6 +432,148 @@ function applyLockscreenEnabled(enabled) {
 }
 window.applyLockscreenEnabled = applyLockscreenEnabled;
 
+function shouldDefaultHidePhoneStatusBar() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const standalone = window.navigator?.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
+    return isIOS && standalone;
+}
+
+function resolvePhoneStatusBarEnabled(value) {
+    if (value === false) return false;
+    if (value === true) return true;
+    return !shouldDefaultHidePhoneStatusBar();
+}
+
+let phoneStatusBarSlots = [];
+
+function syncPhoneStatusBarHideStyle(isEnabled) {
+    const styleId = 'bynd-phone-statusbar-hide-style';
+    let styleEl = document.getElementById(styleId);
+    if (isEnabled) {
+        styleEl?.remove();
+        return;
+    }
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = '.status-bar{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;}';
+}
+
+function detachPhoneStatusBarNodes() {
+    document.querySelectorAll('.status-bar').forEach(statusBar => {
+        let slot = phoneStatusBarSlots.find(item => item.node === statusBar);
+        if (!slot) {
+            const marker = document.createComment('bynd-phone-status-bar-slot');
+            statusBar.parentNode?.insertBefore(marker, statusBar);
+            slot = { node: statusBar, marker };
+            phoneStatusBarSlots.push(slot);
+        }
+        statusBar.remove();
+    });
+}
+
+function restorePhoneStatusBarNodes() {
+    phoneStatusBarSlots.forEach(slot => {
+        const node = slot.node;
+        if (node.isConnected) return;
+        if (slot.marker?.parentNode) {
+            slot.marker.parentNode.insertBefore(node, slot.marker.nextSibling);
+            return;
+        }
+        const phone = document.querySelector('.phone-container');
+        const lockScreen = document.getElementById('lock-screen');
+        if (phone && lockScreen) phone.insertBefore(node, lockScreen);
+        else phone?.prepend(node);
+    });
+}
+
+function syncPhoneStatusBarElements(isEnabled) {
+    document.documentElement.classList.toggle('bynd-statusbar-hidden', !isEnabled);
+    document.body?.classList.toggle('bynd-statusbar-hidden', !isEnabled);
+    syncPhoneStatusBarHideStyle(isEnabled);
+    if (isEnabled) restorePhoneStatusBarNodes();
+    document.querySelectorAll('.status-bar').forEach(statusBar => {
+        statusBar.classList.toggle('bynd-statusbar-force-hidden', !isEnabled);
+        statusBar.hidden = false;
+        if (isEnabled) {
+            statusBar.style.removeProperty('display');
+            statusBar.style.removeProperty('visibility');
+            statusBar.style.removeProperty('opacity');
+            statusBar.style.removeProperty('pointer-events');
+        } else {
+            statusBar.style.setProperty('display', 'none', 'important');
+            statusBar.style.setProperty('visibility', 'hidden', 'important');
+            statusBar.style.setProperty('opacity', '0', 'important');
+            statusBar.style.setProperty('pointer-events', 'none', 'important');
+        }
+        statusBar.setAttribute('aria-hidden', isEnabled ? 'false' : 'true');
+    });
+    if (!isEnabled) detachPhoneStatusBarNodes();
+}
+
+function schedulePhoneStatusBarSync(isEnabled) {
+    syncPhoneStatusBarElements(isEnabled);
+    [0, 16, 80, 180, 420, 900].forEach(delay => {
+        setTimeout(() => syncPhoneStatusBarElements(isEnabled), delay);
+    });
+    requestAnimationFrame(() => syncPhoneStatusBarElements(isEnabled));
+    requestAnimationFrame(() => requestAnimationFrame(() => syncPhoneStatusBarElements(isEnabled)));
+}
+
+function applyPhoneStatusBarEnabled(enabled) {
+    const isEnabled = resolvePhoneStatusBarEnabled(enabled);
+    schedulePhoneStatusBarSync(isEnabled);
+    return isEnabled;
+}
+window.applyPhoneStatusBarEnabled = applyPhoneStatusBarEnabled;
+
+function setPhoneStatusBarEnabled(enabled) {
+    const isEnabled = enabled !== false;
+    const data = getSavedThemeData();
+    data.phoneStatusBarEnabled = isEnabled;
+    try {
+        localStorage.setItem('my_theme_data', JSON.stringify(data));
+    } catch (e) {
+        console.warn('Failed to save phone status bar setting', e);
+    }
+    setThemeCheckbox('phone-status-bar-enabled', isEnabled);
+    applyPhoneStatusBarEnabled(isEnabled);
+}
+window.setPhoneStatusBarEnabled = setPhoneStatusBarEnabled;
+
+function getPhoneStatusBarEnabledFromInput(fallbackValue) {
+    const el = document.getElementById('phone-status-bar-enabled');
+    return el ? el.checked : resolvePhoneStatusBarEnabled(fallbackValue);
+}
+
+function bindPhoneStatusBarSettingControl() {
+    const el = document.getElementById('phone-status-bar-enabled');
+    if (!el || el.dataset.phoneStatusBarBound === '1') return;
+    el.dataset.phoneStatusBarBound = '1';
+    el.addEventListener('change', () => setPhoneStatusBarEnabled(el.checked));
+    el.addEventListener('input', () => setPhoneStatusBarEnabled(el.checked));
+    el.addEventListener('click', () => requestAnimationFrame(() => setPhoneStatusBarEnabled(el.checked)));
+}
+
+function initPhoneStatusBarSettingDelegation() {
+    if (document.documentElement.dataset.phoneStatusBarDelegated === '1') return;
+    document.documentElement.dataset.phoneStatusBarDelegated = '1';
+    const syncFromEvent = event => {
+        const input = event.target?.id === 'phone-status-bar-enabled'
+            ? event.target
+            : event.target?.closest?.('label')?.querySelector?.('#phone-status-bar-enabled');
+        if (!input) return;
+        setTimeout(() => setPhoneStatusBarEnabled(input.checked), 0);
+    };
+    document.addEventListener('change', syncFromEvent, true);
+    document.addEventListener('input', syncFromEvent, true);
+    document.addEventListener('click', syncFromEvent, true);
+}
+initPhoneStatusBarSettingDelegation();
+
 function byndClamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -794,6 +936,9 @@ window.updateLockDateDisplay = updateLockDateDisplay;
 function applyLockscreenOptions(data) {
     data = data || getSavedThemeData();
     applyLockscreenEnabled(data.lockEnabled !== false);
+    if (Object.prototype.hasOwnProperty.call(data, 'phoneStatusBarEnabled')) {
+        applyPhoneStatusBarEnabled(data.phoneStatusBarEnabled);
+    }
     const leftPhoto = document.getElementById('lock-photo-left');
     const rightPhoto = document.getElementById('lock-photo-right');
     const vibeText = document.getElementById('ls-vibe-text');
@@ -891,9 +1036,12 @@ function convertFile(input, targetInputId) {
 // 3. 读取设置
 function loadSavedSettings() {
     try {
-        const data = JSON.parse(localStorage.getItem('my_theme_data'));
+        const data = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
         renderThemeLibrary();
-        if (!data) return;
+        bindPhoneStatusBarSettingControl();
+        const phoneStatusBarEnabled = applyPhoneStatusBarEnabled(data.phoneStatusBarEnabled);
+        setThemeCheckbox('phone-status-bar-enabled', phoneStatusBarEnabled);
+        if (Object.keys(data).length === 0) return;
 
         if (data.wpLock) document.getElementById('input-wp-lock').value = data.wpLock;
         if (data.wpHome) document.getElementById('input-wp-home').value = data.wpHome;
@@ -904,6 +1052,7 @@ function loadSavedSettings() {
         if (data.d1) document.getElementById('input-desk-img-1').value = data.d1;
         if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
         setThemeCheckbox('lock-enabled', data.lockEnabled);
+        setThemeCheckbox('phone-status-bar-enabled', phoneStatusBarEnabled);
         setThemeCheckbox('lock-show-left', data.lockShowLeft);
         setThemeCheckbox('lock-show-right', data.lockShowRight);
         setThemeCheckbox('lock-show-text', data.lockShowText);
@@ -994,6 +1143,7 @@ function collectThemeDataFromInputs() {
         d2: readValue('input-desk-img-2', fallback.d2),
         icons: iconInputs,
         lockEnabled: getThemeCheckbox('lock-enabled'),
+        phoneStatusBarEnabled: getPhoneStatusBarEnabledFromInput(fallback.phoneStatusBarEnabled),
         lockShowLeft: getThemeCheckbox('lock-show-left'),
         lockShowRight: getThemeCheckbox('lock-show-right'),
         lockShowText: getThemeCheckbox('lock-show-text'),
@@ -1285,6 +1435,7 @@ function saveTheme() {
     const deskImg1 = document.getElementById('input-desk-img-1').value;
     const deskImg2 = document.getElementById('input-desk-img-2').value;
     const lockEnabled = getThemeCheckbox('lock-enabled');
+    const phoneStatusBarEnabled = getPhoneStatusBarEnabledFromInput();
     const lockShowLeft = getThemeCheckbox('lock-show-left');
     const lockShowRight = getThemeCheckbox('lock-show-right');
     const lockShowText = getThemeCheckbox('lock-show-text');
@@ -1314,6 +1465,7 @@ function saveTheme() {
     else checkImageBrightness("", 'home');
     applyLockscreenAdaptiveTheme(wpLock);
     applyByndAdaptiveTheme(wpHome);
+    applyPhoneStatusBarEnabled(phoneStatusBarEnabled);
 
     setLockMusicText(musicText);
     const lockVibeText = document.getElementById('ls-vibe-text');
@@ -1331,7 +1483,8 @@ function saveTheme() {
         lockBottomIcon,
         lockWeather,
         lockClockColorMode,
-        lockClockColor
+        lockClockColor,
+        phoneStatusBarEnabled
     });
     // 组件系统
     const widgetType1 = 'photo';
@@ -1386,7 +1539,7 @@ function saveTheme() {
     const themeData = {
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
         l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs,
-        lockEnabled,
+        lockEnabled, phoneStatusBarEnabled,
         lockShowLeft, lockShowRight, lockShowText, lockShowTopDeco, lockShowBottomDeco,
         lockTopIcon, lockBottomIcon, lockWeather, lockClockColorMode, lockClockColor,
         calMode: calMode, calBg: calBg, calText: calText, calDim: calDim, calAccent: calAccent, calTransparency: calTransparency,
@@ -1422,10 +1575,12 @@ function initTheme() {
         if (saveBtn) saveBtn.onclick = saveCurrentThemeLibraryItem;
         renderThemeLibrary();
         initGlobalTapEffect();
+        bindPhoneStatusBarSettingControl();
         renderTapEffectSettings(data.tapEffect);
         applyByndAdaptiveTheme(data.wpHome || '');
         applyLockscreenAdaptiveTheme(data.wpLock || '');
         applyLockscreenEnabled(data.lockEnabled !== false);
+        applyPhoneStatusBarEnabled(data.phoneStatusBarEnabled);
         if (Object.keys(data).length === 0) return;
 
         if (data.wpLock) {

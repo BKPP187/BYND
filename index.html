@@ -25,12 +25,26 @@
             if (mobileUa || (touch && shortSide <= 820 && longSide <= 1368)) {
                 document.documentElement.classList.add('mobile-runtime');
             }
+            try {
+                var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+                var iosStandalone = window.navigator && window.navigator.standalone === true;
+                var pwaStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+                var isIOS = /iPhone|iPad|iPod/i.test(ua);
+                var shouldHideStatusBar = savedTheme.phoneStatusBarEnabled === false || (savedTheme.phoneStatusBarEnabled == null && isIOS && (iosStandalone || pwaStandalone));
+                if (shouldHideStatusBar) {
+                    document.documentElement.classList.add('bynd-statusbar-hidden');
+                    var styleEl = document.createElement('style');
+                    styleEl.id = 'bynd-phone-statusbar-hide-style';
+                    styleEl.textContent = '.status-bar{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;}';
+                    document.head.appendChild(styleEl);
+                }
+            } catch (e) {}
         })();
     </script>
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=20260529-outing-desktop41">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260706-monitor-pet-card1">
+    <link rel="stylesheet" href="style.css?v=20260706-ios-pwa-statusbar1">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -819,6 +833,11 @@
                             <i class="ri-lock-2-line"></i>
                             <span>启用锁屏页面</span>
                         </label>
+                        <label class="lockscreen-mode-card">
+                            <input type="checkbox" id="phone-status-bar-enabled" checked onchange="setPhoneStatusBarEnabled(this.checked)">
+                            <i class="ri-smartphone-line"></i>
+                            <span>显示状态栏</span>
+                        </label>
                     </div>
                     <div class="upload-stack">
                         <div class="upload-box wide" onclick="document.getElementById('file-wp-lock').click()">
@@ -1260,7 +1279,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.560
+                    Beyond Screen v1.1.561
                 </div>
             </div>
         </div>
@@ -2254,7 +2273,7 @@
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=20260705-telegram-avatar-tab7"></script>
     <script src="wechat.js?v=20260706-image-stack-tap1"></script>
-    <script src="theme.js?v=20260705-douyin-icon-align1"></script>
+    <script src="theme.js?v=20260706-ios-statusbar-toggle6"></script>
     <script src="settings.js?v=20260706-monitor-screen-apk2"></script>
     <script src="script.js?v=20260706-ios-safearea1"></script>
     <script src="netease.js?v=20260705-netease-mono-wave1"></script>
