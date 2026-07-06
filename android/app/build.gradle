@@ -42,6 +42,11 @@ android {
         }
     }
 
+    lint {
+        // 侧载分发不上 Google Play，targetSdk 28 是有意保留的运行时行为
+        disable 'ExpiredTargetSdkVersion'
+    }
+
     sourceSets {
         main {
             assets.srcDirs += ["$buildDir/generated/assets"]
