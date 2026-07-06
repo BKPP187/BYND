@@ -27,7 +27,7 @@
 
 body { background-color: #ddd; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-.phone-container { width: 375px; height: 812px; background: var(--bynd-mobile-bg, var(--bg-color)); border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
+.phone-container { width: 375px; height: 812px; background-color: var(--bynd-mobile-bg, var(--bg-color)); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
 .phone-container *::-webkit-scrollbar { display: none; }
 .phone-container * { scrollbar-width: none; -ms-overflow-style: none; }
 .tapfx-layer { position: absolute; inset: 0; z-index: 5000; pointer-events: none; overflow: hidden; contain: layout paint; }
@@ -115,6 +115,14 @@ body.bynd-statusbar-hidden .status-bar,
     background-size: cover; background-position: center; background-repeat: no-repeat;
     display: flex; flex-direction: column; justify-content: space-between; 
     padding-top: 55px !important; 
+}
+
+#home-screen.screen-content {
+    background-color: var(--bynd-mobile-bg, #f8f8f8);
+    background-image: var(--bynd-mobile-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 #home-screen,
