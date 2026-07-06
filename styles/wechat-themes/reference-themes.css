@@ -2732,3 +2732,296 @@
     bottom: -7px !important;
 }
 /* === End Rednote chat composer reference UI 20260526 === */
+
+/* === Claude iOS inspired theme 20260707 === */
+#app-wechat-window.wc-ui-theme-claude {
+    --wc-theme-bg: #f7f1e8;
+    --wc-theme-header: rgba(247, 241, 232, 0.96);
+    --wc-theme-content: #f7f1e8;
+    --wc-theme-card: #fffaf2;
+    --wc-theme-search: #efe6d9;
+    --wc-theme-text: #2f261d;
+    --wc-theme-muted: #8d7f70;
+    --wc-theme-border: rgba(67, 52, 38, 0.10);
+    --wc-theme-accent: #c15f3c;
+    --wc-theme-chat-bg: #f7f1e8;
+    --wc-theme-ai-bubble: #fffaf2;
+    --wc-theme-user-bubble: #2f261d;
+    --wc-theme-ai-text: #2f261d;
+    --wc-theme-user-text: #fff8ef;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(255, 250, 242, 0.95), transparent 34%),
+        linear-gradient(180deg, #f7f1e8 0%, #f1e6d7 100%) !important;
+    color: #2f261d;
+}
+#app-wechat-window.wc-ui-theme-claude .wechat-header {
+    height: 86px;
+    padding: 38px 20px 0;
+    background: rgba(247, 241, 232, 0.94) !important;
+    border-bottom: 1px solid rgba(67, 52, 38, 0.08);
+    box-shadow: none;
+    color: #2f261d;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-header-title {
+    font-size: 18px;
+    font-weight: 760;
+    letter-spacing: 0;
+    color: #2f261d;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-header-left i,
+#app-wechat-window.wc-ui-theme-claude .wc-header-right i {
+    color: #4a3a2b !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab-view,
+#app-wechat-window.wc-ui-theme-claude .wechat-content,
+#app-wechat-window.wc-ui-theme-claude .wc-chat-list,
+#app-wechat-window.wc-ui-theme-claude #wc-view-chat {
+    background: #f7f1e8 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab-view.active {
+    padding-bottom: 104px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-search-box {
+    padding: 8px 18px 12px;
+    background: #f7f1e8 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-search-inner {
+    height: 42px;
+    border: 1px solid rgba(67, 52, 38, 0.10);
+    border-radius: 18px;
+    background: rgba(239, 230, 217, 0.82);
+    color: #8d7f70;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-search-input {
+    color: #2f261d;
+    font-size: 14px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-theme-chat-hero-claude {
+    padding: 10px 18px 12px;
+    background: #f7f1e8;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-hero {
+    min-height: 86px;
+    border: 1px solid rgba(67, 52, 38, 0.10);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 88% 8%, rgba(193, 95, 60, 0.13), transparent 38%),
+        linear-gradient(145deg, #fffaf2, #f4e9da);
+    box-shadow: 0 16px 34px rgba(67, 52, 38, 0.08);
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) 42px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-orb {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    background: #2f261d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 20px rgba(47, 38, 29, 0.14);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-orb span {
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    display: block;
+    background:
+        radial-gradient(circle at 50% 0%, transparent 0 34%, #fff8ef 36% 39%, transparent 41%),
+        radial-gradient(circle at 100% 50%, transparent 0 34%, #fff8ef 36% 39%, transparent 41%),
+        radial-gradient(circle at 50% 100%, transparent 0 34%, #fff8ef 36% 39%, transparent 41%),
+        radial-gradient(circle at 0% 50%, transparent 0 34%, #fff8ef 36% 39%, transparent 41%),
+        #c15f3c;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-copy {
+    min-width: 0;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-copy strong {
+    display: block;
+    color: #2f261d;
+    font-size: 22px;
+    line-height: 1.08;
+    font-weight: 780;
+    letter-spacing: 0;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-copy span {
+    display: block;
+    margin-top: 5px;
+    color: #8d7f70;
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-claude-new-chat {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(67, 52, 38, 0.10);
+    border-radius: 15px;
+    background: rgba(255, 250, 242, 0.82);
+    color: #2f261d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    box-shadow: 0 8px 18px rgba(67, 52, 38, 0.08);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-list {
+    padding: 0 12px 14px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-list .wc-swipe-container {
+    margin: 8px 0;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(67, 52, 38, 0.055);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-item {
+    min-height: 78px;
+    height: auto;
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(67, 52, 38, 0.08);
+    border-radius: 20px;
+    background: rgba(255, 250, 242, 0.92) !important;
+    box-shadow: none;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-item:active {
+    background: #f0e5d6 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-avatar {
+    border-radius: 16px;
+    box-shadow: inset 0 0 0 1px rgba(67, 52, 38, 0.08);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-name {
+    color: #2f261d !important;
+    font-size: 15px;
+    font-weight: 760;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-msg,
+#app-wechat-window.wc-ui-theme-claude .wc-time {
+    color: #8d7f70 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab-bar {
+    height: 88px;
+    padding: 7px 14px calc(11px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(67, 52, 38, 0.08);
+    background: rgba(255, 250, 242, 0.90) !important;
+    box-shadow: 0 -16px 36px rgba(67, 52, 38, 0.06);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab {
+    border-radius: 18px;
+    color: #8d7f70;
+    font-weight: 700;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab.active {
+    background: #efe6d9;
+    color: #2f261d;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab .wc-theme-tab-icon {
+    font-size: 22px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-tab > span:not(.wc-theme-tab-icon) {
+    font-size: 10px;
+    transform: none;
+    font-weight: 720;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room {
+    background: #f7f1e8 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-header {
+    display: flex !important;
+    height: 88px;
+    padding: 38px 14px 8px;
+    background: rgba(247, 241, 232, 0.94) !important;
+    border-bottom: 1px solid rgba(67, 52, 38, 0.08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-header-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-title {
+    color: #2f261d;
+    font-size: 16px;
+    font-weight: 760;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-status {
+    color: #8d7f70;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-header i {
+    color: #4a3a2b;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-content {
+    padding: 98px 12px 104px;
+    background: #f7f1e8 !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .msg-bubble:not(.green):not(.image-bubble):not(.sticker) {
+    border: 1px solid rgba(67, 52, 38, 0.09) !important;
+    border-radius: 20px 20px 20px 8px !important;
+    background: #fffaf2 !important;
+    color: #2f261d !important;
+    box-shadow: 0 8px 18px rgba(67, 52, 38, 0.055) !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .msg-bubble.green {
+    border-radius: 20px 20px 8px 20px !important;
+    background: #2f261d !important;
+    color: #fff8ef !important;
+    box-shadow: 0 8px 18px rgba(47, 38, 29, 0.14) !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .msg-meta {
+    color: rgba(141, 127, 112, 0.76);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-footer {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    min-height: 52px;
+    padding: 0 10px;
+    border: 1px solid rgba(67, 52, 38, 0.10);
+    border-radius: 26px;
+    background: rgba(255, 250, 242, 0.92) !important;
+    box-shadow: 0 16px 34px rgba(67, 52, 38, 0.10);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-footer::before {
+    display: none !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-input {
+    height: 38px;
+    padding: 0 4px;
+    border: none;
+    border-radius: 0;
+    background: transparent !important;
+    color: #2f261d;
+    font-size: 15px;
+    font-weight: 620;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-input::placeholder {
+    color: #9b8b7b;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-voice-btn,
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-sticker-btn,
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-add-btn,
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-ai-btn,
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-send-btn {
+    color: #4a3a2b !important;
+}
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-send-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 14px;
+    background: #2f261d !important;
+    color: #fff8ef !important;
+}
+/* === End Claude iOS inspired theme 20260707 === */

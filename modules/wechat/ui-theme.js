@@ -94,6 +94,21 @@ const WECHAT_UI_THEMES = [
         }
     },
     {
+        id: 'claude',
+        name: 'Claude 主题',
+        tone: '暖白',
+        desc: '参考 Claude iOS 的暖白底、墨色文字、细边卡片和克制圆角聊天体验。',
+        accent: '#c15f3c',
+        preview: ['#f7f1e8', '#fffaf2', '#2f261d'],
+        searchPlaceholder: '搜索对话',
+        tabs: {
+            chat: { label: '聊天', title: 'Claude', icon: 'ri-chat-1-line' },
+            contacts: { label: '角色', title: '角色', icon: 'ri-user-6-line' },
+            discover: { label: '动态', title: '动态', icon: 'ri-sparkling-2-line' },
+            me: { label: '我的', title: '我的', icon: 'ri-user-smile-line' }
+        }
+    },
+    {
         id: 'wechat',
         name: '微信主题',
         tone: '微信',
@@ -710,6 +725,20 @@ function getWechatThemeHeroHtml(theme = getWechatUiTheme()) {
                 <span><strong>今天有 ${chars.length || 0} 位好友在列表中</strong><em>${unreadTotal > 0 ? `${unreadTotal} 条新消息等你查看` : lineStatus}</em></span>
                 <b>LINE</b>
             </button>
+        `;
+    }
+    if (theme.id === 'claude') {
+        return `
+            <div class="wc-claude-hero">
+                <div class="wc-claude-orb" aria-hidden="true"><span></span></div>
+                <div class="wc-claude-copy">
+                    <strong>Claude</strong>
+                    <span>${signatureText ? signature : '今天想聊什么？'}</span>
+                </div>
+                <button type="button" class="wc-claude-new-chat" onclick="openWechatPlusMenu(event)" aria-label="新建对话">
+                    <i class="ri-edit-2-line"></i>
+                </button>
+            </div>
         `;
     }
     if (theme.id === 'hallowrok') {
