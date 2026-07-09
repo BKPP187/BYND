@@ -2771,8 +2771,8 @@
 }
 #app-wechat-window.wc-ui-theme-claude .wc-header-left,
 #app-wechat-window.wc-ui-theme-claude .wc-claude-header-compose {
-    width: 54px;
-    height: 54px;
+    width: 44px;
+    height: 44px;
     border: none;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.92);
@@ -2780,7 +2780,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 14px 34px rgba(42, 38, 32, 0.08);
+    box-shadow: 0 10px 24px rgba(42, 38, 32, 0.075);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
 }
@@ -2789,7 +2789,7 @@
 }
 #app-wechat-window.wc-ui-theme-claude .wc-header-left i {
     color: #292723 !important;
-    font-size: 25px;
+    font-size: 22px;
     margin: 0;
 }
 #app-wechat-window.wc-ui-theme-claude .wc-header-right {
@@ -2802,8 +2802,8 @@
     cursor: pointer;
 }
 #app-wechat-window.wc-ui-theme-claude .wc-claude-header-compose i {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     margin: 0;
     border-radius: 50%;
     background: #c96f4f;
@@ -2811,7 +2811,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
 }
 #app-wechat-window.wc-ui-theme-claude .wc-tab-view,

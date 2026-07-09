@@ -415,9 +415,11 @@ function markByndDisplayMode() {
     const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
     const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
     const iosStandalone = window.navigator?.standalone === true;
+    const isIOS = document.documentElement.classList.contains('bynd-ios');
     document.documentElement.classList.toggle('bynd-display-standalone', !!standalone || iosStandalone);
-    // iOS PWA 不是真全屏：系统状态栏仍在，误标 fullscreen 会清掉安全区让位
-    document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen);
+    // iOS PWA 不是真全屏：系统状态栏仍在，误标 fullscreen 会清掉安全区让位。
+    // manifest "display: fullscreen" 会让 iOS 的 matchMedia 报 fullscreen=true，必须排除 iOS（2026-07-09 真机七图事故）。
+    document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen && !isIOS);
 }
 
 function tryByndFullscreen() {
@@ -1043,6 +1045,7 @@ const MUSIC_CO_LISTEN_CHAR_KEY = 'bynd_music_co_listen_char_v1';
 const MUSIC_SOURCE_MODE_KEY = 'bynd_music_source_mode_v1';
 const MUSIC_SOURCE_SETTINGS_KEY = 'bynd_music_source_settings_v1';
 const MUSIC_PLAYLISTS_KEY = 'bynd_music_playlists_v1';
+const MUSIC_LIBRARY_STATE_KEY = 'bynd_music_library_state_v1';
 const MUSIC_SOURCE_DEFAULTS = {
     metingBases: [
         'https://meting.mikus.ink/api',
@@ -1182,6 +1185,49 @@ function getUserMusicTrackEntries() {
     return (Array.isArray(musicTracks) ? musicTracks : [])
         .map((track, index) => ({ track, index }))
         .filter(item => item.track && !isMusicFallbackTrack(item.track));
+}
+
+function getPersistableMusicTracks() {
+    return (Array.isArray(musicTracks) ? musicTracks : [])
+        .filter(track => track && !isMusicFallbackTrack(track))
+        .map(track => normalizeMusicTrack(track))
+        .slice(0, 500);
+}
+
+function saveMusicLibraryState(source = 'music') {
+    try {
+        const tracks = getPersistableMusicTracks();
+        if (!tracks.length) return;
+        const currentKey = getMusicTrackKey(musicTracks[musicCurrentIndex]);
+        const currentIndex = Math.max(0, tracks.findIndex(track => getMusicTrackKey(track) === currentKey));
+        localStorage.setItem(MUSIC_LIBRARY_STATE_KEY, JSON.stringify({
+            tracks,
+            currentIndex,
+            mainTab: musicMainTab,
+            albumFilter: musicAlbumFilter,
+            source,
+            updatedAt: Date.now()
+        }));
+    } catch (e) {}
+}
+window.saveMusicLibraryState = saveMusicLibraryState;
+
+function restoreMusicLibraryState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(MUSIC_LIBRARY_STATE_KEY) || 'null');
+        const tracks = Array.isArray(state?.tracks)
+            ? state.tracks.map(normalizeMusicTrack).filter(track => track && !isMusicFallbackTrack(track))
+            : [];
+        if (!tracks.length) return false;
+        musicTracks = tracks;
+        const index = Number(state.currentIndex);
+        musicCurrentIndex = Number.isFinite(index) ? Math.min(Math.max(0, index), musicTracks.length - 1) : 0;
+        if (['home', 'search', 'albums', 'favorites'].includes(state.mainTab)) musicMainTab = state.mainTab;
+        musicAlbumFilter = state.albumFilter ? String(state.albumFilter) : '';
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 function loadMusicSourceSettings() {
@@ -1343,6 +1389,7 @@ async function importMusicPlaylist() {
         musicMainTab = 'home';
         musicAlbumFilter = '';
         closeMusicDetail();
+        saveMusicLibraryState('playlist-import');
         renderMusicApp();
         renderMusicImportedPlaylists();
         showMusicStatus(`已导入 ${platformLabel} 歌单，${musicTracks.length} 首。`);
@@ -1395,6 +1442,7 @@ function loadImportedMusicPlaylist(id) {
     musicMainTab = 'home';
     musicAlbumFilter = '';
     closeMusicDetail();
+    saveMusicLibraryState('playlist-open');
     renderMusicApp();
     showMusicStatus(`已打开歌单：${item.name || item.platformLabel || '导入歌单'}`);
 }
@@ -1410,7 +1458,10 @@ function initMusicApp() {
     const win = document.getElementById('app-music-window');
     if (!win || win.dataset.ready === '1') return;
     win.dataset.ready = '1';
-    musicTracks = [];
+    if (!restoreMusicLibraryState()) {
+        musicTracks = [];
+        musicCurrentIndex = 0;
+    }
     syncMusicSourceUI();
     const input = document.getElementById('music-search-input');
     if (input) input.value = '';
@@ -1603,7 +1654,7 @@ function renderMusicAlbums() {
             <button type="button" class="music-album-back" onclick="closeMusicAlbum()">
                 <i class="ri-arrow-left-s-line"></i><span>返回专辑列表</span>
             </button>
-            ${rows.map(({ track, index }) => renderMusicTrackRow(track, index, true)).join('') || '<div class="music-empty-state"><strong>这张专辑还没有歌曲</strong></div>'}
+            ${rows.map(({ track, index }) => renderMusicTrackRow(track, index, false)).join('') || '<div class="music-empty-state"><strong>这张专辑还没有歌曲</strong></div>'}
         `;
         return;
     }
@@ -1623,7 +1674,7 @@ function renderMusicAlbums() {
         const artwork = getMusicArtwork(first);
         const artists = Array.from(new Set(items.map(item => item.track.artistName).filter(Boolean))).slice(0, 2).join(' / ');
         const action = items.length === 1
-            ? `playMusicTrackFromAlbum(${items[0].index})`
+            ? `openMusicDetail(${items[0].index})`
             : `openMusicAlbum(this.dataset.album)`;
         return `
             <button type="button" class="music-album-item" data-album="${musicEscapeAttr(name)}" onclick="${action}">
@@ -1632,7 +1683,7 @@ function renderMusicAlbums() {
                     <strong>${musicEscapeHtml(name)}</strong>
                     <span>${musicEscapeHtml(artists || first.sourceName || 'Album')} · ${items.length} 首</span>
                 </div>
-                <i class="${items.length === 1 ? 'ri-play-circle-line' : 'ri-arrow-right-s-line'}"></i>
+                <i class="ri-arrow-right-s-line"></i>
             </button>
         `;
     }).join('');
@@ -1791,6 +1842,7 @@ function selectMusicTrack(index, autoplay) {
         musicAudio.load();
     }
     musicIsPlaying = false;
+    saveMusicLibraryState('select');
     renderMusicApp();
     if (autoplay) toggleMusicPlayback(true);
 }
@@ -1865,6 +1917,7 @@ function startMusicCoListenFromWechat(trackData, charId, options = {}) {
         musicTracks.unshift(track);
         musicCurrentIndex = 0;
     }
+    saveMusicLibraryState('wechat-co-listen');
     musicCoListening = true;
     musicCoListenLastTrackKey = '';
     setupMusicAudio();
@@ -1996,6 +2049,7 @@ async function searchMusic(term) {
         if (!tracks.length) throw new Error('empty result');
         musicTracks = tracks;
         musicCurrentIndex = 0;
+        saveMusicLibraryState('search');
         if (musicAudio) musicAudio.pause();
         musicIsPlaying = false;
         closeMusicDetail();

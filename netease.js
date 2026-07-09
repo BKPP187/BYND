@@ -406,6 +406,7 @@ async function resolveAndPlayNeteaseMusic(track, autoplay = true) {
             musicCurrentIndex = storedIndex;
         }
         track.audioUrl = url;
+        if (typeof saveMusicLibraryState === 'function') saveMusicLibraryState('netease-audio');
         if (typeof renderMusicApp === 'function') renderMusicApp();
         if (autoplay) toggleMusicPlayback(true);
         renderNeteasePlayer();
@@ -432,6 +433,13 @@ function importNeteaseTracksToMusic(name, playlistId, tracks) {
     const list = getMusicPlaylistsStore().filter(row => row.id !== item.id);
     list.unshift(item);
     saveMusicPlaylistsStore(list);
+    musicTracks = item.tracks.map(normalizeMusicTrack);
+    musicCurrentIndex = 0;
+    musicMainTab = 'home';
+    musicAlbumFilter = '';
+    if (typeof saveMusicLibraryState === 'function') saveMusicLibraryState('netease-import');
+    if (typeof closeMusicDetail === 'function') closeMusicDetail();
+    if (typeof renderMusicApp === 'function') renderMusicApp();
     renderMusicImportedPlaylists();
     if (typeof showMusicStatus === 'function') showMusicStatus(`已导入「${item.name}」，${item.tracks.length} 首。`);
 }
@@ -663,6 +671,7 @@ function playNeteasePlaylistTrack(index) {
     musicCurrentIndex = index;
     musicMainTab = 'home';
     musicAlbumFilter = '';
+    if (typeof saveMusicLibraryState === 'function') saveMusicLibraryState('netease-playlist');
     renderMusicApp();
     neteasePlayerBackTo = 'playlist';
     switchNeteaseSection('player');

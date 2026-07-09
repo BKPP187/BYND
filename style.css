@@ -1,5 +1,5 @@
 @import url("./styles/wechat-themes/base-overrides.css?v=20260705-telegram-back-clear8");
-@import url("./styles/wechat-themes/reference-themes.css?v=1.1.565-claude-mobbin");
+@import url("./styles/wechat-themes/reference-themes.css?v=1.1.569");
 
 /* style.css - main stylesheet */
 /* --- Core Utilities --- */
@@ -88,9 +88,9 @@ html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
 html.mobile-runtime.bynd-android-app body { padding: 0; }
 html.mobile-runtime.bynd-android-app .phone-container { width: 100vw; height: 100dvh; }
 html.mobile-runtime:fullscreen body,
-html.mobile-runtime.bynd-display-fullscreen body { padding: 0; }
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding: 0; }
 html.mobile-runtime:fullscreen .phone-container,
-html.mobile-runtime.bynd-display-fullscreen .phone-container { width: 100vw; height: 100dvh; }
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { width: 100vw; height: 100dvh; }
 /* iOS PWA keeps top safe area for the native status bar; bottom controls handle home indicator spacing locally. */
 html.lockscreen-disabled .lock-screen { display: none !important; }
 
@@ -129,7 +129,7 @@ body.bynd-statusbar-hidden .status-bar,
 .music-pill { width: 160px; overflow: hidden; white-space: nowrap; }
 .spin { animation: spin 4s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
-.ls-footer { display: flex; justify-content: space-between; align-items: center; padding: 0 40px 40px 40px; }
+.ls-footer { display: flex; justify-content: space-between; align-items: center; padding: 0 40px calc(40px + env(safe-area-inset-bottom, 0px)) 40px; }
 .round-btn { width: 50px; height: 50px; background: var(--lock-control-bg); color: var(--lock-control-text); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 0.2s, box-shadow 0.2s, color 0.2s; }
 .round-btn.ls-flash-on { background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,200,0.8); color: #333; }
 .swipe-hint { width: 120px; height: 5px; background: var(--lock-swipe-bg); border-radius: 3px; transition: background 0.35s ease; }
@@ -2385,7 +2385,7 @@ body.bynd-statusbar-hidden .status-bar,
 }
 .pw-mini-bow::before { left: 0; border-radius: 70% 18% 65% 20%; transform: rotate(14deg); }
 .pw-mini-bow::after { right: 0; border-radius: 18% 70% 20% 65%; transform: rotate(-14deg); }
-.dock-bar { width: fit-content; min-width: 96px; max-width: calc(100% - 30px); margin: 15px auto; height: 84px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 12px; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: width 0.18s ease, min-width 0.18s ease, padding 0.18s ease; }
+.dock-bar { width: fit-content; min-width: 96px; max-width: calc(100% - 30px); margin: 15px auto calc(15px + env(safe-area-inset-bottom, 0px)); height: 84px; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 12px; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: width 0.18s ease, min-width 0.18s ease, padding 0.18s ease; }
 .dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 60px; min-width: 54px; cursor: pointer; touch-action: pan-x; border-radius: 16px; transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
 .dock-icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #333; transition: transform 0.1s; overflow: hidden; border-radius: 12px; flex-shrink: 0; }
 .dock-icon-box img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
@@ -3700,9 +3700,9 @@ body.bynd-statusbar-hidden .status-bar,
 .wc-time { font-size: 10px; color: #b2b2b2; }
 .wc-bottom { display: flex; }
 .wc-msg { font-size: 13px; color: #b2b2b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; min-height: 18px; /* Keep empty previews from collapsing. */ }
-.wc-tab-view { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px; background: white; }
+.wc-tab-view { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); background: white; }
 .wc-tab-view.active { display: flex; flex-direction: column; flex: 1; }
-.wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: 12px; z-index: 10; }
+.wc-tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: calc(80px + env(safe-area-inset-bottom, 0px)); background: #f7f7f7; border-top: 1px solid #dcdcdc; display: flex; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
 .wc-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #111; gap: 2px; cursor: pointer; }
 .wc-tab svg { width: 24px; height: 24px; margin-bottom: -2px; }
 .wc-tab span { font-size: 10px; transform: scale(0.85); font-weight: 500; }
