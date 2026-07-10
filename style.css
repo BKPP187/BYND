@@ -1,5 +1,5 @@
 @import url("./styles/wechat-themes/base-overrides.css?v=20260705-telegram-back-clear8");
-@import url("./styles/wechat-themes/reference-themes.css?v=1.1.569");
+@import url("./styles/wechat-themes/reference-themes.css?v=1.1.570");
 
 /* style.css - main stylesheet */
 /* --- Core Utilities --- */
@@ -29954,3 +29954,157 @@ button.wc-ai-phone-sync {
     transform: translateY(1px) !important;
 }
 /* === End Music mini player click-through detail 20260705 === */
+
+/* === iOS PWA WeChat/Telegram tabbar safe area 20260710 === */
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab-view.active {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab-bar {
+    bottom: 0 !important;
+    height: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+    align-items: flex-start !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab {
+    height: 72px !important;
+    padding: 8px 0 0 !important;
+    display: grid !important;
+    grid-template-rows: 30px 13px !important;
+    align-content: center !important;
+    align-items: center !important;
+    justify-items: center !important;
+    justify-content: stretch !important;
+    gap: 3px !important;
+    overflow: visible !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab > .wc-theme-tab-icon {
+    width: 36px !important;
+    height: 30px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: center !important;
+    justify-self: center !important;
+    overflow: visible !important;
+    transform: none !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+    flex: none !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab > .wc-theme-tab-icon * {
+    overflow: visible !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab .wc-wechat-tab-svg {
+    width: 31px !important;
+    height: 24px !important;
+    display: block !important;
+    overflow: visible !important;
+    margin: 0 auto !important;
+    transform-origin: center center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-wechat .wc-tab > span:not(.wc-theme-tab-icon) {
+    max-width: 64px !important;
+    transform: none !important;
+    overflow: visible !important;
+    line-height: 1 !important;
+    font-size: 11px !important;
+    align-self: center !important;
+    justify-self: center !important;
+    text-align: center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab-view.active {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab-bar {
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    height: 66px !important;
+    padding: 0 5px 5px !important;
+    align-items: center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab {
+    height: 58px !important;
+    padding: 4px 0 0 !important;
+    display: grid !important;
+    grid-template-rows: 24px 11px !important;
+    align-content: center !important;
+    align-items: center !important;
+    justify-items: center !important;
+    justify-content: stretch !important;
+    gap: 2px !important;
+    overflow: visible !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab > .wc-theme-tab-icon {
+    width: 25px !important;
+    height: 25px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    align-self: center !important;
+    justify-self: center !important;
+    overflow: visible !important;
+    transform: none !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+    flex: none !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab > .wc-theme-tab-icon * {
+    overflow: visible !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-svg {
+    width: 20px !important;
+    height: 20px !important;
+    display: block !important;
+    overflow: visible !important;
+    margin: 0 auto !important;
+    transform-origin: center center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-telegram-tab-avatar {
+    width: 20px !important;
+    height: 20px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    align-self: center !important;
+    justify-self: center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab > span:not(.wc-theme-tab-icon) {
+    max-width: 62px !important;
+    transform: none !important;
+    overflow: visible !important;
+    line-height: 1 !important;
+    font-size: 10px !important;
+    align-self: center !important;
+    justify-self: center !important;
+    text-align: center !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-tab.active::before {
+    top: 50% !important;
+    width: 54px !important;
+    height: 50px !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+html.mobile-runtime.bynd-ios-pwa #app-wechat-window.wc-ui-theme-telegram .wc-telegram-floating-actions {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* === End iOS PWA WeChat/Telegram tabbar safe area 20260710 === */
