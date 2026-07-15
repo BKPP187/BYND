@@ -44,9 +44,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.570">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.578">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.570-ios-tabbar-safearea1">
+    <link rel="stylesheet" href="style.css?v=1.1.578-chat-toolbar-layer">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -182,6 +182,10 @@
                             <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')">
                                 <div class="app-icon icon-black"><i class="ri-image-2-line"></i></div>
                                 <span>相册</span>
+                            </div>
+                            <div class="app-item" data-app-id="manual" data-layout-id="app-manual" onclick="openApp('manual')">
+                                <div class="app-icon icon-black"><i class="ri-book-2-line"></i></div>
+                                <span>说明书</span>
                             </div>
                         </div>
                     </div>
@@ -645,7 +649,7 @@
                         <span>PAGEMATE</span>
                         <strong>和 char 读这一页</strong>
                     </div>
-                    <button type="button" onclick="openCoReadCommentPanel()" aria-label="打开 char 共读气泡"><i class="ri-chat-quote-line"></i></button>
+                    <button type="button" id="coread-topbar-action" onclick="return openCoReadShelfTools(event)" aria-label="打开书架工具"><i class="ri-more-fill"></i></button>
                 </div>
                 <div class="coread-content">
                     <section class="coread-search-hero" data-coread-panel="shelf">
@@ -673,6 +677,14 @@
                     <section id="coread-search-results" class="coread-search-results" data-coread-panel="shelf"></section>
                     <section class="coread-shelf-control" data-coread-panel="shelf">
                         <div class="coread-shelf-tabs" id="coread-shelf-tabs"></div>
+                    </section>
+                    <section id="coread-selection-toolbar" class="coread-selection-toolbar" data-coread-panel="shelf" aria-hidden="true">
+                        <strong id="coread-selection-count" aria-live="polite">已选 0 本</strong>
+                        <div class="coread-selection-actions">
+                            <button type="button" onclick="selectAllCurrentCoReadShelfBooks()">全选当前</button>
+                            <button type="button" id="coread-selection-manage" onclick="openCoReadShelfSelectionManager()" disabled>整理/管理</button>
+                            <button type="button" onclick="toggleCoReadShelfSelectionMode(false)">完成</button>
+                        </div>
                     </section>
                     <section class="coread-import-strip" data-coread-panel="shelf">
                         <label class="coread-file">
@@ -749,8 +761,9 @@
                         </div>
                     </section>
                 </div>
-                <aside id="coread-shelf-menu" class="coread-shelf-menu" aria-hidden="true">
-                    <div class="coread-shelf-menu-panel" id="coread-shelf-menu-panel"></div>
+                <aside id="coread-shelf-menu" class="coread-shelf-menu" role="dialog" aria-modal="true" aria-label="书架工具" aria-hidden="true">
+                    <button type="button" class="coread-shelf-menu-scrim" onclick="toggleCoReadShelfMenu(false)" aria-label="关闭书架工具"></button>
+                    <div class="coread-shelf-menu-panel" id="coread-shelf-menu-panel" role="document" tabindex="-1"></div>
                 </aside>
                 <aside id="coread-toc-drawer" class="coread-toc-drawer" aria-hidden="true">
                     <button type="button" class="coread-toc-scrim" onclick="toggleCoReadToc(false)" aria-label="关闭目录"></button>
@@ -816,6 +829,358 @@
                     <aside id="album-char-tabs" class="album-char-tabs"></aside>
                     <main id="album-grid" class="album-grid"></main>
                 </div>
+            </div>
+        </div>
+
+        <div id="app-manual-window" class="app-window hidden manual-window" role="dialog" aria-modal="true" aria-labelledby="manual-window-title">
+            <div class="manual-shell">
+                <header class="manual-header">
+                    <button type="button" class="manual-back" onclick="closeApp('manual')" aria-label="返回桌面"><i class="ri-arrow-left-s-line"></i></button>
+                    <div class="manual-heading">
+                        <span>BYND 使用帮助</span>
+                        <h2 id="manual-window-title">暖心使用手册</h2>
+                    </div>
+                    <button type="button" class="manual-top" onclick="manualScrollToTop()" aria-label="回到顶部"><i class="ri-arrow-up-line"></i></button>
+                </header>
+
+                <div class="manual-search-area">
+                    <div id="manual-match-nav" class="manual-match-nav hidden" aria-label="精准搜索命中导航">
+                        <button type="button" onclick="goToManualMatch(-1)" aria-label="上一处"><i class="ri-arrow-up-s-line"></i></button>
+                        <span id="manual-match-count" aria-live="polite">0/0</span>
+                        <button type="button" onclick="goToManualMatch(1)" aria-label="下一处"><i class="ri-arrow-down-s-line"></i></button>
+                    </div>
+                    <div class="manual-search">
+                        <i class="ri-search-line" aria-hidden="true"></i>
+                        <input id="manual-search-input" type="search" placeholder="搜索 API、角色、备份或报错代码" autocomplete="off" oninput="handleManualSearch(this.value)" aria-label="搜索说明书">
+                        <button type="button" onclick="clearManualSearch()" aria-label="清空搜索"><i class="ri-close-circle-fill"></i></button>
+                    </div>
+                </div>
+                <main id="manual-scroll" class="manual-content">
+                    <section class="manual-intro" aria-labelledby="manual-welcome-title">
+                        <div class="manual-intro-icon"><img src="bynd-icon.svg" alt="" aria-hidden="true"></div>
+                        <div>
+                            <span>谢谢你选择 BYND</span>
+                            <h3 id="manual-welcome-title">慢慢来，我们陪你把每一步走明白</h3>
+                            <p>哪怕第一次接触 AI 也完全没关系。这里会从“点哪里”开始说起，遇到报错也可以按对应方法一点点排查。</p>
+                        </div>
+                    </section>
+
+
+                    <nav class="manual-quick-nav" aria-label="快速目录">
+                        <button type="button" onclick="manualGoToSection('manual-start')"><i class="ri-rocket-line"></i><span>第一次使用</span></button>
+                        <button type="button" onclick="manualGoToSection('manual-api')"><i class="ri-links-line"></i><span>API 配置</span></button>
+                        <button type="button" onclick="manualGoToSection('manual-wechat')"><i class="ri-wechat-line"></i><span>角色聊天</span></button>
+                        <button type="button" onclick="manualGoToSection('manual-theme')"><i class="ri-palette-line"></i><span>美化桌面</span></button>
+                        <button type="button" onclick="manualGoToSection('manual-tools')"><i class="ri-apps-2-line"></i><span>更多玩法</span></button>
+                        <button type="button" onclick="manualGoToSection('manual-data')"><i class="ri-shield-heart-line"></i><span>备份与隐私</span></button>
+                    </nav>
+
+                    <div class="manual-list-head">
+                        <div><span>从你关心的部分开始</span><strong id="manual-search-status" aria-live="polite">按主题阅读，或输入关键词搜索</strong></div>
+                        <button type="button" onclick="toggleAllManualSections()">全部展开</button>
+                    </div>
+
+                    <div id="manual-no-results" class="manual-no-results hidden" role="status">
+                        <i class="ri-file-search-line"></i>
+                        <strong>暂时没找到对应内容</strong>
+                        <span>可以换个说法试试，例如“401”“视觉模型”或“备份”。</span>
+                        <button type="button" onclick="clearManualSearch()">看看全部内容</button>
+                    </div>
+
+                    <div id="manual-sections" class="manual-sections">
+                        <details id="manual-start" class="manual-section" data-manual-keywords="首次进入 打开 安装 浏览器 主屏幕 APK 解锁 锁屏 桌面 状态栏 翻页 编辑 布局 图标 文件夹 组件">
+                            <summary><span class="manual-section-icon"><i class="ri-rocket-line"></i></span><span><strong>第一次打开：从锁屏走到桌面</strong><em>打开方式、解锁、翻页与布局</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <p class="manual-lead">把 BYND 想成一台住在网页里的小手机就好。浏览器打开最省心；添加到主屏幕后，看起来会更像独立 App。</p>
+                                <h4>宝宝级打开步骤</h4>
+                                <ol class="manual-steps">
+                                    <li><strong>用浏览器打开：</strong>在手机或电脑打开 Chrome、Edge 或 Safari，把你购买后拿到的 BYND 地址粘贴到地址栏，再点“前往”或按回车。</li>
+                                    <li><strong>想放到桌面：</strong>iPhone / iPad 可点 Safari 的“分享”→“添加到主屏幕”；Android 可点浏览器右上角菜单→“添加到主屏幕”或“安装应用”。不同浏览器的名字可能略有差别。</li>
+                                    <li><strong>如果使用 APK：</strong>只从购买渠道提供的可信页面获取。系统询问安装来源时，可以先核对文件名和来源；不确定时继续使用网页版也很好。</li>
+                                    <li><strong>进入桌面：</strong>看到锁屏后轻点画面。默认没有解锁密码；如果后来自己设置了密码，就输入自己的密码进入。</li>
+                                    <li><strong>认识桌面：</strong>左右滑动空白处切换页面，底部圆点会告诉你当前在哪一页。顶部是状态栏，桌面上的每个图标都可以点开。</li>
+                                </ol>
+                                <h4>想整理成自己的样子</h4>
+                                <ol>
+                                    <li>长按桌面空白处或项目，进入编辑状态；也可以打开“美化”后点“开始编辑”。</li>
+                                    <li>拖动图标、文件夹和组件到喜欢的位置，需要时再调整大小或移动页面。</li>
+                                    <li>确认顺眼后点“保存布局”。“恢复原始”会回到初始摆放，如果现在的布局很喜欢，可以先保存主题或导出一次数据。</li>
+                                </ol>
+                                <p class="manual-tip"><strong>小贴士：</strong>网页需要网络才能首次加载。偶尔看到旧界面时，轻轻刷新一次通常就能更新；已经保存的本地数据一般不会因为普通刷新消失。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-api" class="manual-section" data-manual-keywords="API 是什么 服务商 模型 Base URL API Key 密钥 测试 连接 余额 额度 聊天 生图 视觉 多模态 语音 TTS MiniMax OpenAI ElevenLabs 400 401 403 404 408 429 500 502 503 504 超时 空回复 Failed to fetch CORS">
+                            <summary><span class="manual-section-icon"><i class="ri-links-line"></i></span><span><strong>API 与模型：给角色接上“大脑”</strong><em>概念、配置、视觉模型与完整报错对照</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <p class="manual-lead">BYND 负责呈现手机、角色和聊天体验，真正生成回复的是你连接的 AI 服务。这个连接就叫 API。第一次看见这些词容易发懵，我们先用生活里的比喻认识它们。</p>
+                                <div class="manual-glossary">
+                                    <div><i class="ri-phone-line"></i><span><strong>API</strong><em>像一条电话线：BYND 把你的消息送给 AI，再把回答接回来。</em></span></div>
+                                    <div><i class="ri-building-4-line"></i><span><strong>服务商</strong><em>提供这条线路和 AI 能力的平台，通常会有自己的控制台、计费与使用规则。</em></span></div>
+                                    <div><i class="ri-map-pin-line"></i><span><strong>Base URL</strong><em>像服务地址。它常以 https:// 开头，有些服务以 /v1 结尾，以服务商页面给出的格式为准。</em></span></div>
+                                    <div><i class="ri-key-2-line"></i><span><strong>API Key</strong><em>像只属于你的钥匙，用来确认账户和额度。它和登录密码一样适合私下保存。</em></span></div>
+                                    <div><i class="ri-brain-line"></i><span><strong>模型</strong><em>像不同型号的大脑：速度、价格、文字能力和看图能力可能不同。</em></span></div>
+                                </div>
+
+                                <h4>开始前，先准备这三样</h4>
+                                <ul class="manual-checklist">
+                                    <li>服务商控制台里创建的一枚 API Key。</li>
+                                    <li>服务商文档或购买页面给出的 Base URL。</li>
+                                    <li>一个可用模型名，或让 BYND 测试后读取模型列表。</li>
+                                </ul>
+                                <p class="manual-tip"><strong>关于费用：</strong>BYND 与 AI 服务商通常是两套独立服务。AI 请求是否计费、余额如何充值、模型单价多少，都以你选择的服务商页面为准。先用少量额度测试，会更安心。</p>
+
+                                <h4>跟着点：连接聊天 API</h4>
+                                <ol class="manual-steps">
+                                    <li><strong>找到入口：</strong>回到桌面，打开“设置”→“API 连接”→“添加 API”。</li>
+                                    <li><strong>写个名称：</strong>例如“我的聊天 API”。这个名字只方便自己辨认，不影响连接。</li>
+                                    <li><strong>粘贴 Base URL：</strong>从服务商说明页完整复制。若对方已经给出 /v1，就原样保留；若没有，也不用凭感觉添加，以对方文档为准。</li>
+                                    <li><strong>粘贴 API Key：</strong>留意开头和结尾是否多了空格，也可以重新复制一次。Key 不会显示完整字符，这是正常的隐私保护。</li>
+                                    <li><strong>点“测试”：</strong>成功后通常会出现可选模型。若失败，先记下页面上的数字代码，再看下方“报错翻译”。</li>
+                                    <li><strong>选择聊天模型：</strong>在模型列表里选一个文字模型。列表较多时，可先选服务商推荐的通用聊天模型。</li>
+                                    <li><strong>保存连接：</strong>点“保存”。如果有多张 API 卡片，再到“默认用途”把这一张设为聊天用途。</li>
+                                    <li><strong>发一句测试消息：</strong>进入任意角色聊天，发送“你好”，再点 AI 回复按钮。能收到回答，就说明线路接好了。</li>
+                                </ol>
+
+                                <h4>看图、画图和语音不是同一件事</h4>
+                                <div class="manual-callout">
+                                    <p><strong>视觉模型 / 多模态模型：</strong>能读懂你发送的照片或截图。若普通文字能回复、发图却失败，可以换成明确支持图片输入的聊天模型。</p>
+                                    <p><strong>生图模型：</strong>负责从文字生成图片，常用于自拍、通话画面等。它不等于“能看图”的视觉模型，可能需要单独选择生图用途或单独配置服务。</p>
+                                    <p><strong>语音服务：</strong>把文字念成声音，属于 TTS。可以按设置页对应入口配置 MiniMax、OpenAI、ElevenLabs 或本地 TTS，再用“测试语音”听一下效果。</p>
+                                </div>
+
+                                <h4>报错翻译：看到数字时怎么做</h4>
+                                <div class="manual-table-wrap">
+                                    <table class="manual-error-table">
+                                        <thead><tr><th>提示</th><th>它大多在说什么</th><th>可以这样试</th></tr></thead>
+                                        <tbody>
+                                            <tr><td><code>400</code></td><td>请求格式、参数、模型名或上下文不合适。</td><td>重新选择模型；核对 Base URL；减少过长的角色卡、世界书或聊天记录；再试一条短消息。</td></tr>
+                                            <tr><td><code>401</code></td><td>没有识别到有效 Key，可能复制不全、过期或填错位置。</td><td>回到服务商控制台复制新 Key，去掉首尾空格，确认 Key 与 Base URL 来自同一家服务。</td></tr>
+                                            <tr><td><code>403</code></td><td>Key 可能有效，但账户、地区、模型或接口权限暂未开放。</td><td>查看服务商的模型权限、余额和地区说明；换成账户已开通的模型，或联系对应服务商确认。</td></tr>
+                                            <tr><td><code>404</code></td><td>地址、接口路径或模型名没有找到。</td><td>逐字核对 Base URL 和模型名；避免重复写两次 /v1；按服务商提供的兼容接口地址填写。</td></tr>
+                                            <tr><td><code>408</code></td><td>服务端等待请求太久，网络或上游响应可能偏慢。</td><td>检查网络，稍等片刻重试；缩短消息与上下文；也可以换响应更快的模型。</td></tr>
+                                            <tr><td><code>429</code></td><td>请求频率、并发或额度碰到服务商限制。</td><td>歇几分钟再试，查看余额与限额；减少连续点击或自动请求，必要时换一个有额度的连接。</td></tr>
+                                            <tr><td><code>500</code></td><td>服务商内部临时出错。</td><td>稍后再试；若持续出现，可换同服务的其他模型或另一条 API，并查看服务商状态页。</td></tr>
+                                            <tr><td><code>502</code></td><td>网关没有从上游 AI 收到正常回答。</td><td>通常是服务链路短暂波动，稍后重试或切换节点、模型、服务连接。</td></tr>
+                                            <tr><td><code>503</code></td><td>服务正在维护、过载或暂时不可用。</td><td>给它一点恢复时间，再试一次；急用时可切换备用模型或备用连接。</td></tr>
+                                            <tr><td><code>504</code></td><td>网关等上游太久，最终超时。</td><td>缩短角色设定和聊天上下文，换更快模型；网络稳定后重试，或稍后再回来。</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h4>没有数字代码，也可以这样看</h4>
+                                <ul class="manual-faq-list">
+                                    <li><strong>连接超时 / 请求超时：</strong>常见于网络不稳、模型繁忙、上下文太长或图片太大。先发一句很短的纯文字；若短消息成功，再精简角色卡、世界书和近期聊天，或换快一点的模型。</li>
+                                    <li><strong>空回复 / 什么都没显示：</strong>可能是服务商返回空内容、内容过滤、模型协议不兼容，或输出额度太小。新开一段聊天发简单句测试，再换通用聊天模型；若仍为空，可在服务商控制台查看调用记录。</li>
+                                    <li><strong>Failed to fetch / 网络错误：</strong>通常是地址不可达、证书、网络拦截或浏览器 CORS 跨域限制。核对 https 地址并换网络测试；服务商若要求代理，可使用自己信任的后端或 Worker。</li>
+                                    <li><strong>模型列表为空：</strong>测试可能还没成功，或者服务商不开放模型列表。先确认连接测试通过；若页面允许手填模型名，可复制服务商文档中的准确名称。</li>
+                                    <li><strong>文字能聊，图片看不懂：</strong>当前模型可能只支持文字。换成服务商明确标注“Vision / 视觉 / 多模态 / 图片输入”的聊天模型，并适当压缩图片后再试。</li>
+                                </ul>
+                                <p class="manual-note"><strong>隐私小提醒：</strong>聊天内容会经由你填写的服务商或代理发送给 AI。API Key 更适合只保存在自己的设备和可信页面里；截图求助时，可以先遮住 Key、完整地址和个人聊天内容。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-presets" class="manual-section" data-manual-keywords="预设 提示词 JSON 手动新建 导入 世界书 正则">
+                            <summary><span class="manual-section-icon"><i class="ri-equalizer-line"></i></span><span><strong>预设、世界书与正则先怎么区分</strong><em>决定表达方式、补充设定与整理显示</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <div class="manual-glossary compact">
+                                    <div><i class="ri-equalizer-line"></i><span><strong>预设</strong><em>像聊天的总导演，影响回复结构、语气和思考方式。</em></span></div>
+                                    <div><i class="ri-book-read-line"></i><span><strong>世界书</strong><em>像设定资料库，在关键词出现时把相关背景交给 AI。</em></span></div>
+                                    <div><i class="ri-code-s-slash-line"></i><span><strong>正则</strong><em>像显示滤镜，可查找、隐藏或替换消息里的特定文字。</em></span></div>
+                                </div>
+                                <ol>
+                                    <li>打开桌面底部“预设”，点“手动新建预设”填写名称和内容，再保存。</li>
+                                    <li>已有兼容 JSON 时，点“导入预设 (.json)”选择文件；导入后先读一遍内容，确认符合自己的聊天期待再启用。</li>
+                                    <li>预设不会代替角色卡或世界书。效果太强时，可以先关闭预设做一次对比，再决定是否调整。</li>
+                                </ol>
+                                <p class="manual-tip"><strong>温柔建议：</strong>刚开始用时先保持简单：一个角色、一份预设、少量世界书。确认聊天稳定后再慢慢叠加，更容易找到问题来自哪里。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-wechat" class="manual-section" data-manual-keywords="微信 角色卡 PNG 导入 新建 领养 开场白 聊天 AI 回复 图片 表情 贴纸 语音 红包 转账 撤回 重生成 通讯录 头像 人设 记忆">
+                            <summary><span class="manual-section-icon"><i class="ri-wechat-line"></i></span><span><strong>领养角色并开始第一次聊天</strong><em>导入角色卡、发送消息与聊天进阶</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <h4>导入一张角色卡</h4>
+                                <ol class="manual-steps">
+                                    <li>打开“微信”，点右上角“+”→“导入角色”。</li>
+                                    <li>手里有角色卡图片时，选“导入角色卡 (PNG)”并挑选文件。角色卡看起来是图片，但里面可能还带着名字、人设和开场白。</li>
+                                    <li>没有角色卡时，选“手动新建角色”，填写名字、简介和开场白，再确认添加。</li>
+                                    <li>回到消息或通讯录，点新角色的头像进入聊天。</li>
+                                </ol>
+                                <h4>发出第一条消息</h4>
+                                <ol>
+                                    <li>在底部输入框写一句话，点“发送”。</li>
+                                    <li>想让角色回答时，点输入栏旁的 AI 回复按钮。若没有反应，可以回到上一章测试 API。</li>
+                                    <li>表情按钮可打开贴纸；“+”或更多工具里可以发图片、拍照、红包、转账或发起通话，实际入口会随屏幕宽度略有变化。</li>
+                                    <li>长按消息可查看复制、引用、编辑、撤回、删除或重新生成等操作。不同类型消息能看到的选项可能不同。</li>
+                                </ol>
+                                <h4>让 TA 更像你熟悉的人</h4>
+                                <p>聊天页右上角“更多”可以进入角色聊天设置，调整彼此称呼、人设、线上 / 线下场景、时间模式、世界书、头像和通话画面。改好后点页面底部“保存设置”，新设置会从后续聊天开始发挥作用。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-social" class="manual-section" data-manual-keywords="群聊 发起群聊 QQ群 联系人 朋友圈 发现 评论 收藏 转发 通话 视频 语音 一起听 查手机 双击头像 贴纸商店">
+                            <summary><span class="manual-section-icon"><i class="ri-group-line"></i></span><span><strong>群聊、朋友圈与丰富互动</strong><em>多人聊天、动态、通话和一起听</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol>
+                                    <li><strong>建群：</strong>微信右上角“+”→“发起群聊”，选择至少 2 位已有角色，填写群名后点“创建群聊”。群里的每次 AI 回复都可能消耗 API 额度。</li>
+                                    <li><strong>朋友圈：</strong>打开“发现”→“朋友圈”。右上角相机可发布文字或图片动态；角色也可能评论。动态可收藏、转发、编辑或删除。</li>
+                                    <li><strong>AI 朋友圈：</strong>在角色设置里编辑 TA 的签名、背景和动态，“AI 写”会调用当前聊天 API 生成草稿，你仍可以改到满意再添加。</li>
+                                    <li><strong>通话：</strong>聊天页“更多”里可选语音或视频通话。真实麦克风、相机和屏幕共享会先由浏览器询问，按自己的需要决定是否开启。</li>
+                                    <li><strong>一起听：</strong>音乐详情或支持的聊天入口可以邀请角色一起听，歌词与评论依赖对应音乐来源。</li>
+                                    <li><strong>看看 TA 的手机：</strong>双击角色头像进入char手机内容</li>
+                                </ol>
+                                <p class="manual-tip"><strong>更舒服的使用方式：</strong>发照片、开启相机或共享屏幕前，可以先扫一眼画面里有没有姓名、地址、二维码、通知内容等个人信息。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-knowledge" class="manual-section" data-manual-keywords="世界书 书架 关键词 条目 常驻 角色 正则 脚本 Regex Replacement 替换 全局 角色专属">
+                            <summary><span class="manual-section-icon"><i class="ri-book-read-line"></i></span><span><strong>世界书与正则脚本</strong><em>给故事补背景，让消息显示更清爽</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <h4>世界书：把设定按主题收好</h4>
+                                <ol>
+                                    <li>打开“世界书”，点右上角“+”新建一本书，起一个自己看得懂的名字。</li>
+                                    <li>进入书本后新增条目，填写关键词和内容。例如关键词写“学校”，内容写学校名称、地点与规则。</li>
+                                    <li>保存条目后，到角色聊天设置里勾选这本世界书。关键词在聊天中出现时，相关内容更容易被带给 AI。</li>
+                                    <li>设定很多时可以拆成多条短内容。过长世界书会占用上下文，也可能让回复变慢。</li>
+                                </ol>
+                                <h4>正则：先从一条小规则试起</h4>
+                                <ol>
+                                    <li>打开“正则脚本”，选择“全局通用”或“角色专属”，再点右上角“+”。</li>
+                                    <li>填写脚本名称、Regex（查找规则）和 Replacement（替换内容），保存后回聊天观察显示效果。</li>
+                                    <li>如果文字突然不见，可以先关闭最近添加的脚本。复杂规则更适合先在角色专属范围测试，满意后再考虑全局使用。</li>
+                                </ol>
+                            </div>
+                        </details>
+
+                        <details id="manual-theme" class="manual-section" data-manual-keywords="美化 壁纸 主题 主题库 深色 图标 锁屏 桌面 组件 日历 字体 触碰特效 拍立得 长按 编辑">
+                            <summary><span class="manual-section-icon"><i class="ri-palette-line"></i></span><span><strong>美化、主题与桌面组件</strong><em>把锁屏和桌面装扮成喜欢的样子</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol class="manual-steps">
+                                    <li>打开“美化”，在“全局壁纸设置”分别选择锁屏和桌面背景，也能开关锁屏页与状态栏。</li>
+                                    <li>继续往下看，可以调整锁屏拍立得、时间颜色、触碰特效、日历配色、字体、快捷按钮和 App 图标。</li>
+                                    <li>想移动桌面项目时，点“开始编辑”，拖到喜欢的位置并调整大小，再点“保存布局”。</li>
+                                    <li>全部搭配好后点顶部“保存”。想留下整套装扮，可进入“主题库”，命名后点“保存当前主题”。</li>
+                                </ol>
+                                <p class="manual-tip"><strong>显示小建议：</strong>浅壁纸配深色文字、深壁纸配浅色文字通常更清楚。高分辨率壁纸、自定义字体和大量图标会多占一些本地空间，设备变慢时可以从较轻的素材开始。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-music" class="manual-section" data-manual-keywords="音乐 网易云 歌单 登录 扫码 搜索 Meting 多源 公开 导入 一起听 歌词 评论">
+                            <summary><span class="manual-section-icon"><i class="ri-music-2-line"></i></span><span><strong>音乐与网易云歌单</strong><em>搜索、播放、搬入歌单和一起听</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol>
+                                    <li>从桌面底部打开“音乐”，在搜索框输入歌名或歌手，可按页面提供的选项切换“多源”“网易云”或“公开”来源。</li>
+                                    <li>想同步网易云时，点“网易云音乐”入口，跟随页面扫码登录并读取歌单。</li>
+                                    <li>也可以打开“更多设置”，粘贴网易云歌单链接或 ID，再点“导入到音乐”。</li>
+                                    <li>点歌曲进入详情页查看歌词或评论；出现“一起听”时，可以选择一位角色陪伴。</li>
+                                </ol>
+                                <p class="manual-note"><strong>加载不出来时：</strong>音乐播放和歌单解析依赖网络及第三方来源，偶尔会有地区、版权或接口波动。换一个来源、换首歌或稍后再试，通常比反复点击更轻松。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-tools" class="manual-section" data-manual-keywords="学习 学习卡 语言翻牌 记账 游戏 小游戏 狼人杀 肥鸡 跳一跳 2048 五子棋 倒水 排序 盗梦 监控 桌宠 出门 共读 相册 相机 通知">
+                            <summary><span class="manual-section-icon"><i class="ri-apps-2-line"></i></span><span><strong>学习、记账、游戏与其他 App</strong><em>从实用小工具到陪伴玩法</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <div class="manual-feature-grid">
+                                    <div><strong>学习</strong><span>填写学习内容、解释和例句，点“保存学习卡”；已有卡片可以复习或用于语言翻牌。</span></div>
+                                    <div><strong>记账</strong><span>填写收支后点“+ 记一笔”，在月度区域看汇总。这里适合个人记录，金额仍以实际账单为准。</span></div>
+                                    <div><strong>Game</strong><span>可体验狼人杀、肥鸡大冒险、跳一跳、倒水排序、2048、五子棋等。角色玩法通常需要角色与聊天 API。</span></div>
+                                    <div><strong>盗梦空间</strong><span>选择入梦角色，点“生成梦境”。梦境文字由 AI 生成，因此会使用 API。</span></div>
+                                    <div><strong>一起出门</strong><span>选择陪伴角色并开启定位，移动后可触发互动，也能拍照给 TA 看。定位精度取决于设备和浏览器。</span></div>
+                                    <div><strong>PageMate</strong><span>在书架导入支持的文档或添加书籍链接，进入阅读器后可调字体和外观，并邀请角色一起读。</span></div>
+                                </div>
+                                <p class="manual-tip"><strong>找不到某个 App：</strong>先左右滑动看看第二页，也可以检查桌面文件夹。若自己改过布局，进入美化编辑模式更容易找到被移动的图标。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-companion" class="manual-section" data-manual-keywords="盗梦空间 梦境 监控 桌宠 弹幕 屏幕共享 角色 观察 内部聊天">
+                            <summary><span class="manual-section-icon"><i class="ri-eye-line"></i></span><span><strong>监控、桌宠与屏幕陪伴</strong><em>让角色参与更多屏幕内场景</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol>
+                                    <li>在“监控”中选择监控者接入 BYND 内部聊天，可查看剧情、后台提示和桌宠气泡，并按喜好调整视角与弹幕速度。</li>
+                                    <li>想用桌宠时，在监控工具里开启桌宠并绑定已接入角色。点击桌宠可以触发一次观察。</li>
+                                    <li>开启屏幕观察时，浏览器会弹出共享选择。只选自己愿意展示的窗口或标签页，用完点系统的“停止共享”即可。</li>
+                                </ol>
+                                <p class="manual-note"><strong>隐私小提醒：</strong>共享画面里可能带有聊天通知、账号、文件名或工作内容。更安心的做法是先关掉无关窗口和通知，再只共享需要的单个标签页。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-outing" class="manual-section" data-manual-keywords="一起出门 定位 GPS 距离 500米 叫醒 拍照 PageMate 共读 书架 导入 txt md doc pdf 阅读 ISBN">
+                            <summary><span class="manual-section-icon"><i class="ri-map-pin-user-line"></i></span><span><strong>一起出门与 PageMate 共读</strong><em>定位陪伴、拍照互动和阅读</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <h4>一起出门</h4>
+                                <ol>
+                                    <li>打开“一起出门”，先选择“出门对象”，再点“开启”。</li>
+                                    <li>浏览器询问定位时，按自己的使用场景选择。开启后页面会记录距离，约每移动 500 米可叫醒角色互动。</li>
+                                    <li>点“拍照给他看”会打开相机或文件选择；照片能否被理解，还取决于聊天模型是否支持视觉输入。</li>
+                                </ol>
+                                <h4>PageMate 共读</h4>
+                                <ol>
+                                    <li>在“书架”导入页面支持的本地文档，或添加书籍链接；“发现”里还可以按书名、作者或 ISBN 搜索。</li>
+                                    <li>选择书进入阅读器，用“字体”和“设置”调成舒服的阅读外观。</li>
+                                    <li>在“一起读”选择角色，在“想法”里查看阅读记录与互动。较大的 PDF 或复杂网页可能需要多等一会儿，也可能受来源限制。</li>
+                                </ol>
+                            </div>
+                        </details>
+
+                        <details id="manual-media" class="manual-section" data-manual-keywords="相册 相机 照片 聊天生成图 通知 主动消息 后台提醒 权限 麦克风 定位 屏幕共享">
+                            <summary><span class="manual-section-icon"><i class="ri-image-2-line"></i></span><span><strong>相册、相机、权限与主动提醒</strong><em>保存图片，管理设备权限和后台消息</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol>
+                                    <li><strong>相册：</strong>打开第二页“相册”，按角色筛选聊天中保存的生成图。这里为空时，可以先在角色聊天里完成一次图片生成。</li>
+                                    <li><strong>相机：</strong>点底部“相机”后，设备可能打开真实相机，也可能显示文件选择器，具体取决于浏览器能力和权限。</li>
+                                    <li><strong>主动提醒：</strong>打开“设置”→“主动消息提醒”，开启“后台消息”并选择时间，再按系统弹窗决定是否允许通知。</li>
+                                    <li><strong>改回权限：</strong>之前点了拒绝也没关系，可以到浏览器地址栏旁的网站设置，重新调整相机、麦克风、定位或通知。</li>
+                                </ol>
+                                <p class="manual-tip"><strong>关于提醒时间：</strong>浏览器为了省电可能暂停后台网页，所以提醒偶尔会晚一些。把 BYND 添加到主屏幕、减少系统省电限制，通常会更稳定，但仍会受设备策略影响。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-data" class="manual-section" data-manual-keywords="数据 备份 导出 导入 JSON 恢复 换设备 清理缓存 隐私 安全 API Key 本地存储 丢失 浏览器">
+                            <summary><span class="manual-section-icon"><i class="ri-shield-heart-line"></i></span><span><strong>备份、换设备与隐私</strong><em>温柔照看角色、聊天和自己的信息</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <p class="manual-lead">角色、聊天、主题和部分进度主要保存在当前浏览器里。刷新页面通常没事，但清理站点数据、浏览器故障、卸载应用或更换设备，都可能让本地内容消失。定期导出一份，就像给这台小手机留一把备用钥匙。</p>
+                                <h4>三分钟做一次备份</h4>
+                                <ol class="manual-steps">
+                                    <li>打开“设置”→“数据管理”。</li>
+                                    <li>点“导出数据”，等待浏览器下载一个 JSON 文件。</li>
+                                    <li>把文件改成容易认的名字，例如“BYND-2026-07-11.json”。</li>
+                                    <li>保存到自己的加密网盘、加密磁盘或另一个可靠设备。保留最近两到三份，更容易回到合适的版本。</li>
+                                </ol>
+                                <h4>换手机或恢复数据</h4>
+                                <ol>
+                                    <li>先在旧设备导出最新数据，再把 JSON 文件传到新设备。</li>
+                                    <li>新设备打开 BYND→“设置”→“数据管理”→“导入数据”，选择刚才的 JSON。</li>
+                                    <li>导入完成后，查看角色、聊天、主题和 API 卡片是否齐全，再发一句短消息测试。</li>
+                                    <li>如果导入前新设备已经有内容，可以先给新设备也导出一份，方便需要时回退。</li>
+                                </ol>
+                                <h4>这份备份里可能有什么</h4>
+                                <p>备份可能包含角色资料、聊天内容、图片记录、主题、定位相关记录以及 API 配置。它更适合放在只有自己能访问的位置；分享截图或把文件发给他人前，可以先想想里面是否带有私密内容。</p>
+                                <p class="manual-note"><strong>更安心的顺序：</strong>遇到存储异常时，先导出备份，再使用“清理无效缓存”。浏览器的“清除网站数据”范围更大，可能连角色和聊天一起清掉，所以把它留作最后一步会更稳妥。</p>
+                            </div>
+                        </details>
+
+                        <details id="manual-faq" class="manual-section" data-manual-keywords="常见问题 FAQ 失败 没回复 空回复 视觉模型 图片 模型 空白 权限 数据丢失 卡顿 搜索 无结果 400 401 403 404 408 429 500 502 503 504 超时">
+                            <summary><span class="manual-section-icon"><i class="ri-question-line"></i></span><span><strong>常见问题：按现象慢慢排查</strong><em>无回复、看不懂图片、权限与数据恢复</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
+                            <div class="manual-section-body">
+                                <ol class="manual-troubleshoot">
+                                    <li><strong>AI 完全没有回复</strong><span>先确认网络能打开其他网页→到设置测试 API→确认聊天默认用途和模型已经保存→发一句短纯文字。若出现数字代码，可回到“API 与模型”对照表查看。</span></li>
+                                    <li><strong>一直转圈，最后超时</strong><span>先停一下连续点击→换稳定网络→缩短消息→暂时关闭较大的世界书或预设→换更快模型。图片消息还可以先压缩尺寸。</span></li>
+                                    <li><strong>收到空白气泡或空回复</strong><span>新开聊天发“你好”测试；换通用模型；检查服务商是否记录了内容过滤、输出上限或余额问题。只有某个角色为空时，可暂时停用该角色的正则和预设做对比。</span></li>
+                                    <li><strong>TA 看不懂照片</strong><span>确认聊天模型支持视觉 / 多模态输入，而不只是生图；换一张较小的 JPG 或 PNG，并在图片旁补一句“说说你看到了什么”。</span></li>
+                                    <li><strong>生成不了图片</strong><span>确认已经配置生图模型，并在“默认用途”中选好图片用途。聊天视觉模型和生图模型是两类能力，只有其中一个时，另一项可能仍不可用。</span></li>
+                                    <li><strong>模型列表一直为空</strong><span>重新测试 Base URL 与 Key；查看服务商是否支持读取模型列表。若支持手填，就从服务商文档复制准确模型名，留意大小写和连字符。</span></li>
+                                    <li><strong>相机、麦克风、定位或通知打不开</strong><span>点浏览器地址栏旁的锁形图标或网站设置，找到对应权限并改为允许，再重新打开功能。系统设置里也可能有一层 App 权限。</span></li>
+                                    <li><strong>图片、音乐或书籍加载失败</strong><span>这类内容还依赖第三方来源，换网络、换来源或稍后重试即可。只有某一个链接失败时，往往是来源本身不再可用。</span></li>
+                                    <li><strong>换设备后内容不见了</strong><span>数据不会自动跟随账号同步。若旧设备仍能打开，从旧设备导出 JSON，再到新设备导入；没有备份时，可以检查旧浏览器是否仍保留站点数据。</span></li>
+                                    <li><strong>页面变慢或空间不足</strong><span>先导出备份，再清理无效缓存；适当减少大图、壁纸、自定义字体和过长聊天。普通刷新可以先试，清除整个网站数据则更适合放在最后。</span></li>
+                                </ol>
+                                <p class="manual-tip"><strong>求助时带上这些信息会更快：</strong>设备和浏览器、使用的模型名、完整报错代码、问题发生在哪一步。API Key、私聊内容和完整备份文件可以先遮挡或省略。</p>
+                            </div>
+                        </details>
+                    </div>
+                </main>
             </div>
         </div>
 
@@ -1281,7 +1646,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.570
+                    Beyond Screen v1.1.578
                 </div>
             </div>
         </div>
@@ -2273,11 +2638,11 @@
     <script src="chat-api.js?v=20260705-douyin-icon-align1"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.570"></script>
-    <script src="wechat.js?v=20260706-image-stack-tap1"></script>
-    <script src="theme.js?v=20260706-ios-safearea-bg1"></script>
-    <script src="settings.js?v=20260706-monitor-screen-apk2"></script>
-    <script src="script.js?v=1.1.570-ios-tabbar-safearea1"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.578"></script>
+    <script src="wechat.js?v=1.1.578-wallet-balance"></script>
+    <script src="theme.js?v=20260711-manual-icon1"></script>
+    <script src="settings.js?v=1.1.578"></script>
+    <script src="script.js?v=1.1.578"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

@@ -9,7 +9,7 @@ const THEME_ICON_TARGETS = [
     {i:'ri-map-pin-user-line', n:'一起出门'},
     {i:'ri-book-open-line', n:'PageMate'}, {i:'ri-image-2-line', n:'相册'},
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
-    {i:'ri-equalizer-line', n:'预设'}
+    {i:'ri-equalizer-line', n:'预设'}, {i:'ri-file-text-line', n:'说明书'}
 ];
 const THEME_DESKTOP_ICON_COUNT = 13;
 const THEME_DOCK_ICON_START = THEME_DESKTOP_ICON_COUNT;
@@ -107,11 +107,7 @@ function normalizeThemeIconList(icons) {
         return normalized;
     }
     if (icons.length === THEME_ICON_TARGETS.length - 1) {
-        for (let i = 0; i < 10; i++) normalized[i] = icons[i] || '';
-        normalized[10] = '';
-        normalized[THEME_DOCK_ICON_START] = icons[10] || '';
-        normalized[THEME_DOCK_ICON_START + 1] = icons[11] || '';
-        normalized[THEME_DOCK_ICON_START + 2] = icons[12] || '';
+        for (let i = 0; i < icons.length; i++) normalized[i] = icons[i] || '';
         return normalized;
     }
     if (icons.length === 12) {
@@ -1530,7 +1526,7 @@ function saveTheme() {
 
     iconInputs.forEach((url, index) => {
         if (!url) return; 
-        if (index >= THEME_DOCK_ICON_START) {
+        if (index >= THEME_DOCK_ICON_START && index < THEME_DOCK_ICON_START + 3) {
             const dockIndex = index - THEME_DOCK_ICON_START;
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
@@ -1656,7 +1652,7 @@ function initTheme() {
             if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons({ ...data, icons: normalizedIcons });
             normalizedIcons.forEach((url, index) => {
                 if (!url) return;
-                if (index >= THEME_DOCK_ICON_START) {
+                if (index >= THEME_DOCK_ICON_START && index < THEME_DOCK_ICON_START + 3) {
                     const dockIndex = index - THEME_DOCK_ICON_START;
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');

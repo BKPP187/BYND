@@ -17,7 +17,7 @@ android {
         minSdk 23
         targetSdk 28
         versionCode 14
-        versionName '1.1.570'
+        versionName '1.1.578'
     }
 
     signingConfigs {

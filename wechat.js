@@ -10580,6 +10580,8 @@ function toggleChatToolbar() {
     if (picker && !picker.classList.contains('hidden')) picker.classList.add('hidden');
     if (isWechatVoiceInputMode()) setWechatVoiceInputMode(false, { keepDraft: true });
     toolbar.classList.toggle('hidden');
+    const room = document.getElementById('wechat-chat-room');
+    if (room) room.classList.toggle('wc-toolbar-open', !toolbar.classList.contains('hidden'));
     const addBtn = document.querySelector('.wc-add-btn');
     if (addBtn) addBtn.classList.toggle('is-open', !toolbar.classList.contains('hidden'));
 }
@@ -10587,6 +10589,7 @@ function toggleChatToolbar() {
 function closeChatToolbar() {
     const toolbar = document.getElementById('wc-chat-toolbar');
     if (toolbar && !toolbar.classList.contains('hidden')) toolbar.classList.add('hidden');
+    document.getElementById('wechat-chat-room')?.classList.remove('wc-toolbar-open');
     const addBtn = document.querySelector('.wc-add-btn');
     if (addBtn) addBtn.classList.remove('is-open');
     const picker = document.getElementById('wc-sticker-picker');
@@ -20363,7 +20366,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
     const baseDiary = buildWechatAiPhonePersonaDiaryFallback(kind, charName, userName);
     const packs = {
         government: {
-            wallet: `${charName}的钱包里是工资卡、政务通勤和日常消费记录，私账清楚克制。`,
+            wallet: `工资卡余额 ¥36,820.50 · ${charName}的政务通勤和日常消费记录清楚克制。`,
             scheduleRecords: [
                 { time: '09:30', title: 'CBD地下空间方案会', meta: '今天' },
                 { time: '14:00', title: '文旅端午保障调度', meta: '下午' },
@@ -20402,7 +20405,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         idol: {
-            wallet: `${charName}的钱包里有演出结算、品牌报销和私人卡，余额/额度符合艺人日常开销。`,
+            wallet: `私人卡可用额度 ¥286,000.00 · ${charName}另有演出结算和品牌报销记录。`,
             scheduleRecords: [
                 { time: '08:40', title: '妆发和造型确认', meta: '今天' },
                 { time: '13:20', title: '舞台/拍摄彩排', meta: '下午' },
@@ -20440,7 +20443,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         student: {
-            wallet: `${charName}的钱包里主要是校园卡、交通卡和日常零钱。`,
+            wallet: `日常零钱 ¥1,268.50 · ${charName}另有校园卡和交通卡余额。`,
             scheduleRecords: [
                 { time: '08:10', title: '早课/签到', meta: '今天' },
                 { time: '15:30', title: '图书馆自习', meta: '下午' },
@@ -20474,7 +20477,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         business: {
-            wallet: `${charName}的钱包里有商务卡、差旅额度和私人账户，资金记录符合高强度工作身份。`,
+            wallet: `私人账户余额 ¥528,600.00 · ${charName}另有商务卡和差旅额度。`,
             scheduleRecords: [
                 { time: '09:30', title: '核心会议', meta: '今天' },
                 { time: '14:00', title: '合同/项目确认', meta: '下午' },
@@ -20508,7 +20511,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         creator: {
-            wallet: `${charName}的钱包里有稿费/版权/委托结算，也有零碎创作开销。`,
+            wallet: `可用余额 ¥42,680.00 · ${charName}的钱包包含稿费、版权和委托结算。`,
             scheduleRecords: [
                 { time: '10:20', title: '作品线索归档', meta: '今天' },
                 { time: '16:40', title: '主创进度确认', meta: '下午' },
@@ -20542,7 +20545,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         medical: {
-            wallet: `${charName}的钱包里是通勤、餐饮和值班相关记录。`,
+            wallet: `工资卡余额 ¥28,460.80 · ${charName}的钱包包含通勤、餐饮和值班记录。`,
             scheduleRecords: [
                 { time: '07:50', title: '查房/交班', meta: '今天' },
                 { time: '12:30', title: '短暂休息', meta: '午间' },
@@ -20576,7 +20579,7 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
             gameRecords: []
         },
         fantasy: {
-            wallet: `${charName}的钱包记录被折算成这个世界的通行货币、契约和私人物品。`,
+            wallet: `折算余额 ¥960,000.00 · ${charName}的通行货币、契约和私人物品由 BYND 统一折算。`,
             scheduleRecords: [
                 { time: '09:00', title: '巡查/议事', meta: '今天' },
                 { time: '15:30', title: '处理私下委托', meta: '下午' },
@@ -20604,14 +20607,14 @@ function getWechatAiPhonePersonaFallbackPack(char, userName, fields = {}) {
                 { title: '旧档案', detail: '查和关系有关的线索', meta: '最近' }
             ],
             walletRecords: [
-                { title: '契约结算', detail: '身份相关收入/资源', meta: '+高额' },
-                { title: '护身物付款', detail: `准备给${userName}`, meta: '已完成' }
+                { title: '契约结算', detail: '身份相关收入/资源', meta: '+¥280,000' },
+                { title: '护身物付款', detail: `准备给${userName}`, meta: '-¥18,800' }
             ],
             gameRecords: []
         }
     };
     const pack = packs[kind] || {
-        wallet: `${charName}的钱包里保留着日常消费、礼物和私人转账记录。`,
+        wallet: `零钱余额 ¥8,860.00 · ${charName}的钱包保留着日常消费、礼物和私人转账记录。`,
         scheduleRecords: [
             { time: '09:30', title: '日常安排', meta: '今天' },
             { time: '15:00', title: '临时事项', meta: '下午' },
@@ -21309,10 +21312,13 @@ function getWechatAiPhoneWalletSummary(snapshot, char) {
 
 function getWechatAiPhoneWalletPassInfo(snapshot, char) {
     const info = getWechatAiPhoneWalletInfoFromValue(snapshot && snapshot.wallet, char);
+    const fallbackInfo = info.amount
+        ? { amount: '', detail: '' }
+        : getWechatAiPhoneWalletInfoFromValue(buildWechatAiPhoneFallback(char).wallet, char);
     return {
-        amount: info.amount || '金额待同步',
+        amount: info.amount || fallbackInfo.amount || '金额待同步',
         owner: getWechatCharDisplayName(char),
-        detail: info.detail || getWechatAiPhoneWalletSummary(snapshot, char)
+        detail: info.detail || fallbackInfo.detail || getWechatAiPhoneWalletSummary(snapshot, char)
     };
 }
 
