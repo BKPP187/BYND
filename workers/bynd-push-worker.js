@@ -9,13 +9,37 @@ const FONT_PROXY_ALLOWED_HOSTS = new Set([
   'raw.githubusercontent.com'
 ]);
 const FONT_PROXY_EXTENSIONS = ['.ttf', '.otf', '.woff', '.woff2', '.ttc'];
+const MCP_ALLOWED_METHODS = new Set(['POST', 'DELETE']);
+const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
+const MCP_ALLOWED_ORIGINS = new Set([
+  'https://bynd.ccwu.cc',
+  'null'
+]);
+const MCP_FORWARDED_HEADERS = [
+  'Authorization',
+  'Content-Type',
+  'Accept',
+  'MCP-Protocol-Version',
+  'Mcp-Session-Id',
+  'X-MCP-Toolsets',
+  'X-MCP-Tools',
+  'X-MCP-Readonly',
+  'X-MCP-Lockdown',
+  'X-MCP-Insiders'
+];
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === 'OPTIONS') return corsResponse(null, 204);
 
     try {
+      if (url.pathname === '/mcp/bridge') {
+        return proxyGitHubMcp(request, url);
+      }
+      if (url.pathname.startsWith('/mcp/')) {
+        return mcpJsonResponse(url, request.headers.get('Origin'), 404, 'not found');
+      }
+      if (request.method === 'OPTIONS') return corsResponse(null, 204);
       if (request.method === 'POST' && url.pathname === '/subscribe') {
         return corsResponse(await handleSubscribe(request, env));
       }
@@ -37,6 +61,9 @@ export default {
       }
       return corsResponse({ ok: false, error: 'not found' }, 404);
     } catch (error) {
+      if (url.pathname.startsWith('/mcp/')) {
+        return mcpJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
+      }
       return corsResponse({ ok: false, error: error.message || String(error) }, 500);
     }
   },
@@ -45,6 +72,155 @@ export default {
     ctx.waitUntil(runProactiveTick(env));
   }
 };
+
+async function proxyGitHubMcp(request, requestUrl) {
+  const requestOrigin = request.headers.get('Origin');
+  if (!isAllowedMcpOrigin(requestOrigin, requestUrl)) {
+    return mcpJsonResponse(requestUrl, requestOrigin, 403, 'origin not allowed');
+  }
+
+  if (request.method === 'OPTIONS') {
+    const requestedMethod = String(request.headers.get('Access-Control-Request-Method') || '').toUpperCase();
+    if (requestedMethod && !MCP_ALLOWED_METHODS.has(requestedMethod)) {
+      return mcpJsonResponse(requestUrl, requestOrigin, 405, 'method not allowed', { Allow: 'POST, DELETE, OPTIONS' });
+    }
+    return mcpResponse(null, 204, requestUrl, requestOrigin);
+  }
+
+  if (!MCP_ALLOWED_METHODS.has(request.method)) {
+    return mcpJsonResponse(requestUrl, requestOrigin, 405, 'method not allowed', { Allow: 'POST, DELETE, OPTIONS' });
+  }
+
+  let upstreamBody;
+  if (request.method === 'POST') {
+    if (!isMcpJsonContentType(request.headers.get('Content-Type'))) {
+      return mcpJsonResponse(requestUrl, requestOrigin, 415, 'content type must be application/json');
+    }
+    try {
+      upstreamBody = await readMcpRequestBody(request, MCP_MAX_REQUEST_BYTES);
+    } catch (error) {
+      return mcpJsonResponse(requestUrl, requestOrigin, error?.status === 413 ? 413 : 400, error?.message || 'unable to read request body');
+    }
+  }
+
+  const targetValues = requestUrl.searchParams.getAll('url');
+  if (targetValues.length !== 1) {
+    return mcpJsonResponse(requestUrl, requestOrigin, 400, 'exactly one url query parameter is required');
+  }
+  const targetUrl = normalizeGitHubMcpTargetUrl(targetValues[0]);
+  if (!targetUrl) {
+    return mcpJsonResponse(requestUrl, requestOrigin, 400, 'target url is not allowed');
+  }
+
+  const upstreamHeaders = new Headers();
+  MCP_FORWARDED_HEADERS.forEach(name => {
+    const value = request.headers.get(name);
+    if (value !== null) upstreamHeaders.set(name, value);
+  });
+
+  let upstream;
+  try {
+    upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers: upstreamHeaders,
+      body: upstreamBody,
+      redirect: 'manual'
+    });
+  } catch (error) {
+    return mcpJsonResponse(requestUrl, requestOrigin, 502, 'upstream request failed');
+  }
+
+  const responseHeaders = new Headers();
+  copyMcpHeader(upstream.headers, responseHeaders, 'Content-Type');
+  copyMcpHeader(upstream.headers, responseHeaders, 'Mcp-Session-Id');
+  return mcpResponse(upstream.body, upstream.status, requestUrl, requestOrigin, responseHeaders, upstream.statusText);
+}
+
+function normalizeGitHubMcpTargetUrl(value) {
+  if (!value || value !== value.trim()) return null;
+  let targetUrl;
+  try {
+    targetUrl = new URL(value);
+  } catch (error) {
+    return null;
+  }
+  if (
+    targetUrl.protocol !== 'https:' ||
+    targetUrl.username ||
+    targetUrl.password ||
+    targetUrl.port ||
+    targetUrl.hash
+  ) {
+    return null;
+  }
+  const hostname = targetUrl.hostname.toLowerCase();
+  const isOfficial = hostname === 'api.githubcopilot.com';
+  const isEnterprise = /^copilot-api\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.ghe\.com$/.test(hostname);
+  const isMcpPath = targetUrl.pathname === '/mcp' || targetUrl.pathname.startsWith('/mcp/');
+  return isMcpPath && (isOfficial || isEnterprise) ? targetUrl : null;
+}
+
+function isAllowedMcpOrigin(requestOrigin, requestUrl) {
+  return !!requestOrigin && (requestOrigin === requestUrl.origin || MCP_ALLOWED_ORIGINS.has(requestOrigin));
+}
+
+function isMcpJsonContentType(value) {
+  return String(value || '').split(';', 1)[0].trim().toLowerCase() === 'application/json';
+}
+
+async function readMcpRequestBody(request, maxBytes) {
+  const declaredLength = Number(request.headers.get('Content-Length'));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    throw Object.assign(new Error('request body too large'), { status: 413 });
+  }
+  if (!request.body) return new Uint8Array(0);
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+    total += chunk.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch (error) {}
+      throw Object.assign(new Error('request body too large'), { status: 413 });
+    }
+    chunks.push(chunk);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(chunk => {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  });
+  return body;
+}
+
+function copyMcpHeader(source, destination, name) {
+  const value = source.get(name);
+  if (value !== null) destination.set(name, value);
+}
+
+function mcpJsonResponse(requestUrl, requestOrigin, status, error, extraHeaders) {
+  const headers = new Headers(extraHeaders);
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  return mcpResponse(JSON.stringify({ ok: false, error }), status, requestUrl, requestOrigin, headers);
+}
+
+function mcpResponse(body, status, requestUrl, requestOrigin, headers = new Headers(), statusText) {
+  if (requestOrigin && isAllowedMcpOrigin(requestOrigin, requestUrl)) {
+    headers.set('Access-Control-Allow-Origin', requestOrigin);
+  }
+  headers.set('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', MCP_FORWARDED_HEADERS.join(', '));
+  headers.set('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+  headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  headers.set('Pragma', 'no-cache');
+  headers.set('Expires', '0');
+  headers.append('Vary', 'Origin');
+  return new Response(body, { status, statusText, headers });
+}
 
 async function handleSubscribe(request, env) {
   const payload = await request.json();

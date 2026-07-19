@@ -5,7 +5,8 @@ workers_dev = true
 preview_urls = false
 
 routes = [
-  { pattern = "bynd.ccwu.cc/font-proxy*", zone_name = "bynd.ccwu.cc" }
+  { pattern = "bynd.ccwu.cc/font-proxy*", zone_name = "bynd.ccwu.cc" },
+  { pattern = "bynd.ccwu.cc/mcp/*", zone_name = "bynd.ccwu.cc" }
 ]
 
 kv_namespaces = [

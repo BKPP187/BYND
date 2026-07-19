@@ -348,6 +348,9 @@ function updateWechatQqChannelTopbar() {
 function updateWechatUiThemeStructure(theme = getWechatUiTheme()) {
     const root = document.getElementById('app-wechat-window');
     if (!root) return;
+    if (typeof window.bindWechatClaudeTitleInteractions === 'function') {
+        window.bindWechatClaudeTitleInteractions(typeof getCurrentChatChar === 'function' ? getCurrentChatChar() : null);
+    }
     updateWechatQqChannelTopbar();
     const headerLeftIcon = root.querySelector('.wc-header-left i');
     const headerLeftText = root.querySelector('.wc-header-left span');

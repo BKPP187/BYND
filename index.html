@@ -44,9 +44,9 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.578">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.582">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.578-chat-toolbar-layer">
+    <link rel="stylesheet" href="style.css?v=1.1.582-mcp">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -186,6 +186,10 @@
                             <div class="app-item" data-app-id="manual" data-layout-id="app-manual" onclick="openApp('manual')">
                                 <div class="app-icon icon-black"><i class="ri-book-2-line"></i></div>
                                 <span>说明书</span>
+                            </div>
+                            <div class="app-item" data-app-id="mcp" data-layout-id="app-mcp" onclick="openApp('mcp')">
+                                <div class="app-icon icon-black mcp-desktop-icon"><i class="ri-github-fill"></i><b></b><b></b><b></b></div>
+                                <span>MCP</span>
                             </div>
                         </div>
                     </div>
@@ -1646,7 +1650,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.578
+                    Beyond Screen v1.1.582
                 </div>
             </div>
         </div>
@@ -2632,17 +2636,104 @@
             </div>
         </div>
 
+        <div id="app-mcp-window" class="app-window hidden mcp-window" role="dialog" aria-modal="true" aria-labelledby="mcp-window-title">
+            <div class="mcp-shell">
+                <header class="mcp-topbar">
+                    <button type="button" class="mcp-back" onclick="closeApp('mcp')" aria-label="返回桌面"><i class="ri-arrow-left-s-line"></i></button>
+                    <div class="mcp-topbar-title">
+                        <span class="mcp-mini-mark"><i class="ri-github-fill"></i><b></b><b></b><b></b></span>
+                        <div><strong id="mcp-window-title">GitHub MCP</strong><small id="mcp-header-status">未连接</small></div>
+                    </div>
+                    <button type="button" class="mcp-disconnect" id="mcp-disconnect-btn" onclick="disconnectGitHubMcp()" disabled>断开</button>
+                </header>
+
+                <main class="mcp-scroll">
+                    <section class="mcp-hero">
+                        <div class="mcp-hero-mark"><i class="ri-github-fill"></i><span></span><span></span><span></span></div>
+                        <div>
+                            <p>MODEL CONTEXT PROTOCOL</p>
+                            <h2>把 GitHub 工具接进 BYND</h2>
+                            <span>读取仓库、Issue、PR 与 Actions，也可按授权调用写入工具。</span>
+                        </div>
+                        <em id="mcp-status-pill" data-state="idle"><i></i>未连接</em>
+                    </section>
+
+                    <section class="mcp-panel mcp-connect-panel">
+                        <div class="mcp-panel-heading"><div><strong>连接配置</strong><span>GitHub 官方 Remote MCP Server</span></div><i class="ri-shield-keyhole-line"></i></div>
+
+                        <label class="mcp-field">
+                            <span>功能预设</span>
+                            <select id="mcp-preset-select" onchange="applyGitHubMcpPreset(this.value)">
+                                <option value="default">默认工具集</option>
+                                <option value="readonly">默认工具集 · 只读</option>
+                                <option value="all-readonly">全部工具 · 只读</option>
+                                <option value="repos">仓库</option>
+                                <option value="issues">Issues</option>
+                                <option value="pull_requests">Pull Requests</option>
+                                <option value="actions">Actions</option>
+                                <option value="custom">自定义地址</option>
+                            </select>
+                        </label>
+
+                        <label class="mcp-field">
+                            <span>Server URL</span>
+                            <input id="mcp-server-url" type="url" inputmode="url" autocomplete="off" value="https://api.githubcopilot.com/mcp/" placeholder="https://api.githubcopilot.com/mcp/">
+                        </label>
+
+                        <label class="mcp-field">
+                            <span>GitHub Personal Access Token</span>
+                            <div class="mcp-secret-field">
+                                <input id="mcp-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_… 或 ghp_…">
+                                <button type="button" onclick="toggleMcpTokenVisibility()" aria-label="显示或隐藏 Token"><i class="ri-eye-line"></i></button>
+                            </div>
+                        </label>
+
+                        <label class="mcp-field">
+                            <span>Toolsets <small>可选，逗号分隔</small></span>
+                            <input id="mcp-toolsets" type="text" autocomplete="off" placeholder="repos,issues,pull_requests">
+                        </label>
+
+                        <div class="mcp-switch-row">
+                            <label><input id="mcp-readonly" type="checkbox" checked><span></span><b>只读模式</b></label>
+                            <label><input id="mcp-lockdown" type="checkbox"><span></span><b>Lockdown</b></label>
+                        </div>
+
+                        <button type="button" class="mcp-primary-btn" id="mcp-connect-btn" onclick="connectGitHubMcp()"><i class="ri-plug-line"></i><span>连接并读取工具</span></button>
+                        <p class="mcp-security-note"><i class="ri-lock-2-line"></i>Token 仅保存在当前浏览器会话，不写入本地永久存储，也不会出现在日志中。</p>
+                    </section>
+
+                    <section class="mcp-panel mcp-tools-panel hidden" id="mcp-tools-panel">
+                        <div class="mcp-panel-heading"><div><strong>可用工具</strong><span id="mcp-tools-count">0 个工具</span></div><i class="ri-tools-line"></i></div>
+                        <div class="mcp-search"><i class="ri-search-line"></i><input id="mcp-tool-search" type="search" oninput="filterMcpTools(this.value)" placeholder="搜索工具名称或说明"></div>
+                        <div class="mcp-tool-list" id="mcp-tool-list"></div>
+                    </section>
+
+                    <section class="mcp-panel mcp-runner hidden" id="mcp-tool-runner">
+                        <div class="mcp-runner-head"><button type="button" onclick="closeMcpToolRunner()"><i class="ri-close-line"></i></button><div><strong id="mcp-selected-tool">工具</strong><span id="mcp-selected-tool-description"></span></div></div>
+                        <label class="mcp-field"><span>Arguments · JSON</span><textarea id="mcp-tool-arguments" rows="8" spellcheck="false">{}</textarea></label>
+                        <button type="button" class="mcp-primary-btn" id="mcp-call-btn" onclick="callSelectedMcpTool()"><i class="ri-play-circle-line"></i><span>调用工具</span></button>
+                        <div class="mcp-result hidden" id="mcp-result"><div><strong>返回结果</strong><button type="button" onclick="copyMcpResult()"><i class="ri-file-copy-line"></i>复制</button></div><pre id="mcp-result-output"></pre></div>
+                    </section>
+
+                    <section class="mcp-footnote">
+                        <i class="ri-information-line"></i>
+                        <p>此入口使用 GitHub 官方 <code>https://api.githubcopilot.com/mcp/</code>。本地 stdio MCP 仓库不能直接在浏览器运行，需要部署成 Streamable HTTP 服务后再接入。</p>
+                    </section>
+                </main>
+            </div>
+        </div>
+
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=20260705-douyin-icon-align1"></script>
+    <script src="chat-api.js?v=1.1.582-image-stack-vision"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.578"></script>
-    <script src="wechat.js?v=1.1.578-wallet-balance"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.582"></script>
+    <script src="wechat.js?v=1.1.582-no-hardcoded-phone"></script>
     <script src="theme.js?v=20260711-manual-icon1"></script>
-    <script src="settings.js?v=1.1.578"></script>
-    <script src="script.js?v=1.1.578"></script>
+    <script src="settings.js?v=1.1.582"></script>
+    <script src="script.js?v=1.1.582-mcp"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

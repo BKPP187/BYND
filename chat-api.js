@@ -621,21 +621,33 @@ function getChatApiImageUrl(msg) {
     return '';
 }
 
+function getChatApiImageUrls(msg) {
+    if (!msg) return [];
+    const rawImages = Array.isArray(msg.images)
+        ? msg.images
+        : (Array.isArray(msg.imageUrls) ? msg.imageUrls : []);
+    const candidates = rawImages.length ? rawImages : [getChatApiImageUrl(msg)];
+    return candidates
+        .map(value => String(value || '').trim())
+        .filter(value => /^data:image\//i.test(value) || /^https?:\/\//i.test(value))
+        .slice(0, 12);
+}
+
 function buildChatApiImageContent(msg) {
-    const imageUrl = getChatApiImageUrl(msg);
+    const imageUrls = getChatApiImageUrls(msg);
     const note = cleanChatApiVisibleContent(msg.caption || msg.text || msg.description || '[用户发送了一张图片]')
         .replace(/<[^>]+>/g, '')
         .trim() || '[用户发送了一张图片]';
-    if (!imageUrl) return note;
+    if (!imageUrls.length) return note;
     return [
         {
             type: 'text',
-            text: `${note}\n请直接观察这张图片的内容，并结合角色人设、上下文和用户关系自然回复。不要说你看不到图片，除非接口明确无法解析图片。`
+            text: `${note}\n请直接观察${imageUrls.length > 1 ? `这 ${imageUrls.length} 张图片` : '这张图片'}的内容，并结合角色人设、上下文和用户关系自然回复。不要说你看不到图片，除非接口明确无法解析图片。`
         },
-        {
+        ...imageUrls.map(imageUrl => ({
             type: 'image_url',
             image_url: { url: imageUrl }
-        }
+        }))
     ];
 }
 
@@ -1428,9 +1440,9 @@ function buildMessages(char, history, maxMessages) {
         if (isInternalContext && !msg.content && !msg.description && !msg.dialogue) return;
         // 获取消息内容（处理不同消息类型）
         let content = msg.content || '';
-        if (msg.type === 'image' && msg.isMe) {
+        if ((msg.type === 'image' || msg.type === 'image_stack') && msg.isMe) {
             content = buildChatApiImageContent(msg);
-        } else if (msg.type === 'image') {
+        } else if (msg.type === 'image' || msg.type === 'image_stack') {
             content = msg.description || '[图片]';
         } else if (msg.type === 'sticker') {
             content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
