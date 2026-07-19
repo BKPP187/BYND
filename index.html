@@ -46,7 +46,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=1.1.582">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.582-mcp-hub-redesign2">
+    <link rel="stylesheet" href="style.css?v=1.1.582-mcp-hub-auth2">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -2700,13 +2700,22 @@
                                 <input id="mcp-server-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" value="https://api.githubcopilot.com/mcp/" placeholder="https://api.githubcopilot.com/mcp/" oninput="handleMcpServerUrlInput()">
                             </label>
 
-                            <label class="mcp-field mcp-control-row mcp-token-row">
-                                <span id="mcp-token-label">GitHub Personal Access Token <small>必填</small></span>
-                                <div class="mcp-secret-field">
-                                    <input id="mcp-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_… 或 ghp_…">
-                                    <button type="button" onclick="toggleMcpTokenVisibility()" aria-label="显示或隐藏 Token"><i class="ri-eye-line"></i></button>
-                                </div>
-                            </label>
+                            <p class="mcp-address-hint"><i class="ri-magic-line"></i><span id="mcp-address-hint-text">多数 HTTP MCP 服务只需填写地址即可连接。</span></p>
+
+                            <details id="mcp-auth-details" class="mcp-advanced-auth">
+                                <summary>
+                                    <span class="mcp-auth-summary-icon"><i class="ri-key-2-line"></i></span>
+                                    <span class="mcp-auth-summary-copy"><strong id="mcp-auth-summary-title">高级认证</strong><small id="mcp-auth-summary-hint">服务器要求时再填</small></span>
+                                    <i class="ri-arrow-down-s-line mcp-auth-chevron"></i>
+                                </summary>
+                                <label class="mcp-field mcp-control-row mcp-token-row">
+                                    <span id="mcp-token-label">GitHub Personal Access Token <small>必填</small></span>
+                                    <div class="mcp-secret-field">
+                                        <input id="mcp-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_… 或 ghp_…">
+                                        <button type="button" onclick="toggleMcpTokenVisibility()" aria-label="显示或隐藏 Token"><i class="ri-eye-line"></i></button>
+                                    </div>
+                                </label>
+                            </details>
 
                             <div id="mcp-github-options" class="mcp-github-options">
                                 <label class="mcp-field mcp-control-row">
@@ -2722,7 +2731,7 @@
                         </div>
 
                         <button type="button" class="mcp-primary-btn" id="mcp-connect-btn" onclick="connectGitHubMcp()"><i class="ri-plug-line"></i><span>连接并载入工具</span><b><i class="ri-arrow-right-line"></i></b></button>
-                        <p class="mcp-security-note"><i class="ri-lock-2-line"></i>凭证仅保留在当前会话，不写入日志。</p>
+                        <p class="mcp-security-note"><i class="ri-lock-2-line"></i><span id="mcp-security-note-text">凭证仅保留在当前会话，不写入日志。</span></p>
                     </section>
 
                     <section class="mcp-panel mcp-tools-panel hidden" id="mcp-tools-panel">
@@ -2756,7 +2765,7 @@
     <script src="wechat.js?v=1.1.582-no-hardcoded-phone"></script>
     <script src="theme.js?v=20260711-manual-icon1"></script>
     <script src="settings.js?v=1.1.582"></script>
-    <script src="script.js?v=1.1.582-mcp-importer2"></script>
+    <script src="script.js?v=1.1.582-mcp-auth2"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

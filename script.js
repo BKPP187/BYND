@@ -559,6 +559,11 @@ function refreshMcpConnectionFormMode(options = {}) {
     const kind = document.getElementById('mcp-connection-kind');
     const icon = document.getElementById('mcp-connection-icon');
     const label = document.getElementById('mcp-token-label');
+    const authDetails = document.getElementById('mcp-auth-details');
+    const authTitle = document.getElementById('mcp-auth-summary-title');
+    const authHint = document.getElementById('mcp-auth-summary-hint');
+    const addressHint = document.getElementById('mcp-address-hint-text');
+    const securityNote = document.getElementById('mcp-security-note-text');
     let isGitHub = preset?.value !== 'custom';
     let normalized = null;
     try {
@@ -571,13 +576,36 @@ function refreshMcpConnectionFormMode(options = {}) {
     githubOptions?.classList.toggle('hidden', !isGitHub);
     if (kind) kind.textContent = isGitHub ? 'GitHub Remote MCP · 经 BYND 安全代理' : '第三方 Streamable HTTP · 本机直连';
     if (icon) icon.className = isGitHub ? 'ri-shield-keyhole-line' : 'ri-router-line';
-    if (label) label.innerHTML = isGitHub ? 'GitHub Personal Access Token <small>必填</small>' : 'Bearer Token <small>可选</small>';
-    if (token) token.placeholder = isGitHub ? 'github_pat_… 或 ghp_…' : '可选的 Bearer Token';
+    if (label) label.innerHTML = isGitHub ? 'GitHub Personal Access Token <small>必填</small>' : 'Bearer Token <small>服务器要求时再填</small>';
+    if (token) token.placeholder = isGitHub ? 'github_pat_… 或 ghp_…' : '服务器要求时填写 Bearer Token';
     const scope = getMcpTokenScope(normalized?.url || input?.value || '');
-    if (token && (options.force || (scope && scope !== githubMcpState.formTokenScope))) {
+    const scopeChanged = !!scope && scope !== githubMcpState.formTokenScope;
+    if (token && (options.force || scopeChanged)) {
         token.value = options.loadToken ? getMcpSessionToken(normalized?.url || input?.value || '') : '';
     }
+    authDetails?.classList.remove('is-error');
+    authDetails?.classList.toggle('is-required', isGitHub);
+    if (authTitle) authTitle.textContent = isGitHub ? 'GitHub 认证' : '高级认证';
+    if (authHint) authHint.textContent = isGitHub ? 'Personal Access Token 必填' : '服务器要求时再填';
+    if (addressHint) addressHint.textContent = isGitHub
+        ? 'GitHub 官方 MCP 需要服务地址和 Personal Access Token。'
+        : '多数 HTTP MCP 服务只需填写地址，BYND 会自动初始化并读取工具。';
+    if (securityNote) securityNote.textContent = isGitHub
+        ? 'Token 仅保留在当前会话，不写入日志。'
+        : '无需认证时不用填写 Token；凭证只保留在当前会话。';
+    if (authDetails) {
+        if (isGitHub) authDetails.open = true;
+        else if (options.force || scopeChanged) authDetails.open = !!token?.value;
+    }
     githubMcpState.formTokenScope = scope;
+}
+
+function revealMcpAuthentication(message = '服务器要求认证') {
+    const authDetails = document.getElementById('mcp-auth-details');
+    const authHint = document.getElementById('mcp-auth-summary-hint');
+    authDetails?.classList.add('is-error');
+    if (authDetails) authDetails.open = true;
+    if (authHint) authHint.textContent = message;
 }
 
 function handleMcpServerUrlInput() {
@@ -1084,11 +1112,19 @@ async function sendGitHubMcpPayload(payload, options = {}) {
     try {
         const sessionId = response.headers.get('Mcp-Session-Id');
         if (sessionId) githubMcpState.sessionId = sessionId;
-        const parsed = await parseGitHubMcpResponse(response, payload && payload.id);
+        let parsed = null;
+        try {
+            parsed = await parseGitHubMcpResponse(response, payload && payload.id);
+        } catch (parseError) {
+            if (response.ok) throw parseError;
+        }
         if (!response.ok) {
             const detail = parsed?.error?.message || parsed?.error || `${response.status} ${response.statusText}`;
             if (response.status === 401 || response.status === 403) {
-                throw new Error(config.isGitHub ? 'GitHub Token 无效、权限不足，或该账户未启用远程 MCP' : 'Bearer Token 无效或该服务拒绝访问');
+                if (!config.isGitHub) revealMcpAuthentication(config.token ? 'Token 无效或权限不足' : '此服务需要 Bearer Token');
+                throw new Error(config.isGitHub
+                    ? 'GitHub Token 无效、权限不足，或该账户未启用远程 MCP'
+                    : (config.token ? 'Bearer Token 无效或权限不足' : '此 MCP 服务需要认证，请填写 Bearer Token 后重试'));
             }
             throw new Error(`MCP 请求失败：${detail}`);
         }

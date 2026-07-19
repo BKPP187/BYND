@@ -32271,7 +32271,30 @@ body:has(#home-screen.dark-mode) .manual-window {
 }
 .mcp-control-stack > .mcp-field,
 .mcp-github-options > .mcp-field { margin: 0; padding: 13px 12px 12px; border-bottom: 1px solid rgba(224,238,232,.075); }
-.mcp-control-stack > .mcp-token-row { border-bottom: 0; }
+.mcp-address-hint { margin: 0; padding: 9px 12px 11px; display: flex; align-items: flex-start; gap: 7px; border-bottom: 1px solid rgba(224,238,232,.075); color: #85928b; background: rgba(112,184,255,.018); font-size: 10px; line-height: 1.45; }
+.mcp-address-hint i { margin-top: 1px; flex: 0 0 auto; color: var(--mcp-blue); font-size: 12px; }
+.mcp-advanced-auth { background: rgba(255,255,255,.012); }
+.mcp-advanced-auth > summary { min-height: 52px; padding: 8px 12px; display: grid; grid-template-columns: 30px minmax(0, 1fr) 18px; align-items: center; gap: 9px; color: #c8d1cc; cursor: pointer; list-style: none; transition: background .18s ease; }
+.mcp-advanced-auth > summary::-webkit-details-marker { display: none; }
+.mcp-auth-summary-icon { width: 30px; height: 30px; border: 1px solid rgba(224,238,232,.09); border-radius: 9px; display: grid; place-items: center; color: #8f9b95; background: #0d1214; }
+.mcp-auth-summary-icon i { font-size: 14px; }
+.mcp-auth-summary-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mcp-auth-summary-copy strong { color: #cbd4cf; font-size: 11px; line-height: 1.2; font-weight: 700; }
+.mcp-auth-summary-copy small { color: #68756e; font-size: 9px; line-height: 1.2; font-weight: 560; }
+.mcp-auth-chevron { color: #657169; font-size: 16px; transition: transform .18s ease, color .18s ease; }
+.mcp-advanced-auth[open] > summary { border-bottom: 1px solid rgba(224,238,232,.075); background: rgba(184,243,106,.025); }
+.mcp-advanced-auth[open] .mcp-auth-chevron { transform: rotate(180deg); color: var(--mcp-accent); }
+.mcp-advanced-auth.is-error { box-shadow: inset 0 0 0 1px rgba(255,121,111,.28); }
+.mcp-advanced-auth.is-error > summary { background: rgba(255,121,111,.045); }
+.mcp-advanced-auth.is-error .mcp-auth-summary-icon,
+.mcp-advanced-auth.is-error .mcp-auth-chevron { color: #ff8c84; }
+.mcp-advanced-auth.is-error .mcp-auth-summary-copy small { color: #ff9e97; }
+.mcp-advanced-auth > .mcp-token-row { margin: 0; padding: 12px; border-bottom: 0; }
+.mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-advanced-auth > summary { border-bottom: 1px solid rgba(184,243,106,.1); background: rgba(184,243,106,.025); }
+.mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-advanced-auth > .mcp-token-row { display: block; }
+.mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-icon { border-color: rgba(184,243,106,.15); color: var(--mcp-accent); background: rgba(184,243,106,.055); }
+.mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-copy small { color: #8b9a90; }
+.mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-chevron { transform: rotate(180deg); color: var(--mcp-accent); }
 .mcp-control-row > span { margin-bottom: 6px; }
 .mcp-control-row > span small { margin-left: auto; }
 .mcp-control-row input,
