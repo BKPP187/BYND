@@ -17011,7 +17011,10 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         ? getDefaultImageApi()
         : (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
     if (!api || !api.baseUrl) return { ok: false, error: '未配置生图 API' };
-    const baseUrl = api.baseUrl.replace(/\/+$/, '');
+    const configuredBaseUrl = api.baseUrl.replace(/\/+$/, '');
+    const baseUrl = typeof resolveByndApiBaseUrl === 'function'
+        ? resolveByndApiBaseUrl(configuredBaseUrl)
+        : configuredBaseUrl;
     const jsonHeaders = { 'Content-Type': 'application/json' };
     if (api.apiKey) jsonHeaders.Authorization = `Bearer ${api.apiKey}`;
     const formHeaders = {};
@@ -21526,6 +21529,190 @@ function renderWechatAiPhoneAppButton(app) {
     `;
 }
 
+function getWechatAiPhoneHomeSettings(char) {
+    const raw = char && char.chatConfig && char.chatConfig.aiPhoneHomeSettings;
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const validImage = value => {
+        const source = String(value || '').trim();
+        return /^(?:data:image\/|blob:|https?:\/\/)/i.test(source) ? source : '';
+    };
+    const photos = Array.isArray(safe.photos) ? safe.photos : [];
+    return {
+        avatar: validImage(safe.avatar),
+        photos: Array.from({ length: 4 }, (_, index) => validImage(photos[index]))
+    };
+}
+
+function getWechatAiPhoneHomeAvatar(char) {
+    const settings = getWechatAiPhoneHomeSettings(char);
+    const avatar = settings.avatar || getWechatCharAvatarSource(char, DEFAULT_AVATAR);
+    return /^(?:data:image\/|blob:|https?:\/\/|\/|\.\.?\/)/i.test(String(avatar || '').trim())
+        ? avatar
+        : DEFAULT_AVATAR;
+}
+
+function renderWechatAiPhonePhotoSlot(source, className, label) {
+    return source
+        ? `<span class="${className}"><img src="${wcEscapeAttr(source)}" alt="${wcEscapeAttr(label)}"></span>`
+        : `<span class="${className} is-empty" aria-label="${wcEscapeAttr(label)}"><i class="ri-image-add-line"></i></span>`;
+}
+
+function renderWechatAiPhonePhotoWidget(char) {
+    const settings = getWechatAiPhoneHomeSettings(char);
+    const avatar = getWechatAiPhoneHomeAvatar(char);
+    return `
+        <section class="wc-ai-phone-photo-widget" onclick="openWechatAiPhoneHomeEditor('${wcEscapeAttr(char && char.id)}')" aria-label="编辑 ${wcEscapeAttr(getWechatCharDisplayName(char))} 的桌面照片">
+            ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
+            <span class="wc-ai-phone-photo-avatar"><img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"></span>
+            <span class="wc-ai-phone-photo-strip">
+                ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`)).join('')}
+            </span>
+        </section>
+    `;
+}
+
+function renderWechatAiPhoneHomeEditor(char) {
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    if (!modal || !char) return;
+    const settings = getWechatAiPhoneHomeSettings(char);
+    const avatar = getWechatAiPhoneHomeAvatar(char);
+    modal.dataset.charId = char.id;
+    modal.innerHTML = `
+        <div class="wc-ai-phone-home-editor-card" onclick="event.stopPropagation()">
+            <div class="wc-ai-phone-home-editor-head">
+                <span><strong>编辑桌面照片</strong><small>${wcEscapeHtml(getWechatCharDisplayName(char))} 的小手机</small></span>
+                <button type="button" onclick="closeWechatAiPhoneHomeEditor()" aria-label="完成"><i class="ri-check-line"></i></button>
+            </div>
+            <div class="wc-ai-phone-home-editor-preview">
+                ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
+                <label class="wc-ai-phone-photo-avatar is-editing" title="更换独立头像">
+                    <img src="${wcEscapeAttr(avatar)}" alt="桌面头像" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
+                    <i class="ri-camera-line"></i>
+                    <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomeAvatar(this)">
+                </label>
+                <span class="wc-ai-phone-photo-strip">
+                    ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`)).join('')}
+                </span>
+            </div>
+            <div class="wc-ai-phone-home-photo-fields">
+                ${settings.photos.map((source, index) => `
+                    <div class="wc-ai-phone-home-photo-field">
+                        <label>
+                            ${source ? `<img src="${wcEscapeAttr(source)}" alt="照片 ${index + 1}">` : '<i class="ri-image-add-line"></i>'}
+                            <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomePhoto(this, ${index})">
+                        </label>
+                        <span>${index === 0 ? '主照片' : `照片 ${index + 1}`}</span>
+                        <button type="button" onclick="clearWechatAiPhoneHomePhoto(${index})" ${source ? '' : 'disabled'} aria-label="清除照片 ${index + 1}"><i class="ri-delete-bin-6-line"></i></button>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="wc-ai-phone-home-editor-actions">
+                <button type="button" onclick="resetWechatAiPhoneHomeAvatar()"><i class="ri-user-follow-line"></i><span>头像跟随角色</span></button>
+                <button type="button" onclick="clearWechatAiPhoneHomePhotos()"><i class="ri-delete-bin-6-line"></i><span>清空照片</span></button>
+            </div>
+        </div>
+    `;
+}
+
+function openWechatAiPhoneHomeEditor(charId) {
+    const char = (window.myCharacters || []).find(item => item.id === (charId || window._wechatAiPhoneOpenCharId));
+    if (!char) return;
+    let modal = document.getElementById('wc-ai-phone-home-editor');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wc-ai-phone-home-editor';
+        modal.className = 'wc-ai-phone-home-editor';
+        modal.setAttribute('onclick', 'if(event.target===this) closeWechatAiPhoneHomeEditor()');
+        getWechatModalRoot().appendChild(modal);
+    }
+    renderWechatAiPhoneHomeEditor(char);
+}
+window.openWechatAiPhoneHomeEditor = openWechatAiPhoneHomeEditor;
+
+function closeWechatAiPhoneHomeEditor() {
+    document.getElementById('wc-ai-phone-home-editor')?.remove();
+}
+window.closeWechatAiPhoneHomeEditor = closeWechatAiPhoneHomeEditor;
+
+function updateWechatAiPhoneHomeSettings(char, updater) {
+    if (!char) return;
+    const current = getWechatAiPhoneHomeSettings(char);
+    const next = typeof updater === 'function' ? updater(current) : current;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.aiPhoneHomeSettings = {
+        avatar: String(next.avatar || ''),
+        photos: Array.from({ length: 4 }, (_, index) => String(next.photos && next.photos[index] || ''))
+    };
+    saveCharactersToStorage();
+    if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
+    renderWechatAiPhoneHomeEditor(char);
+}
+
+async function uploadWechatAiPhoneHomePhoto(input, index) {
+    const file = input && input.files && input.files[0];
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
+    if (!file || !char || index < 0 || index > 3) return;
+    try {
+        const compressed = await compressWechatSettingsImage(file, index === 0 ? 1200 : 720, 0.82);
+        updateWechatAiPhoneHomeSettings(char, current => {
+            current.photos[index] = compressed;
+            return current;
+        });
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast(error && error.message ? error.message : '照片读取失败');
+    } finally {
+        input.value = '';
+    }
+}
+window.uploadWechatAiPhoneHomePhoto = uploadWechatAiPhoneHomePhoto;
+
+function uploadWechatAiPhoneHomeAvatar(input) {
+    const file = input && input.files && input.files[0];
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
+    if (!file || !char) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+        openWechatAvatarCropper(event.target.result, compressed => {
+            updateWechatAiPhoneHomeSettings(char, current => ({ ...current, avatar: compressed }));
+        }, { outputSize: 320, quality: 0.82 });
+    };
+    reader.onerror = () => {
+        if (typeof showWechatToast === 'function') showWechatToast('头像读取失败');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+window.uploadWechatAiPhoneHomeAvatar = uploadWechatAiPhoneHomeAvatar;
+
+function clearWechatAiPhoneHomePhoto(index) {
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
+    if (!char || index < 0 || index > 3) return;
+    updateWechatAiPhoneHomeSettings(char, current => {
+        current.photos[index] = '';
+        return current;
+    });
+}
+window.clearWechatAiPhoneHomePhoto = clearWechatAiPhoneHomePhoto;
+
+function clearWechatAiPhoneHomePhotos() {
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
+    if (!char) return;
+    updateWechatAiPhoneHomeSettings(char, current => ({ ...current, photos: ['', '', '', ''] }));
+}
+window.clearWechatAiPhoneHomePhotos = clearWechatAiPhoneHomePhotos;
+
+function resetWechatAiPhoneHomeAvatar() {
+    const modal = document.getElementById('wc-ai-phone-home-editor');
+    const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
+    if (!char) return;
+    updateWechatAiPhoneHomeSettings(char, current => ({ ...current, avatar: '' }));
+}
+window.resetWechatAiPhoneHomeAvatar = resetWechatAiPhoneHomeAvatar;
+
 function renderWechatAiPhoneSection(title, icon, items, emptyText = '暂无记录') {
     const list = Array.isArray(items) ? items.filter(Boolean) : [];
     return `
@@ -22024,6 +22211,431 @@ function renderWechatAiPhoneScheduleRows(items) {
     `;
 }
 
+const WATCH_TOGETHER_CHAR_STORAGE_KEY = 'bynd_watch_together_char_v1';
+
+function getWatchTogetherCharacters() {
+    return Array.isArray(window.myCharacters)
+        ? window.myCharacters.filter(char => char
+            && char.id
+            && !char.isGroupChat
+            && !(typeof isWechatGroupNpcContact === 'function' && isWechatGroupNpcContact(char)))
+        : [];
+}
+
+function getWatchTogetherActiveChar() {
+    const chars = getWatchTogetherCharacters();
+    if (!chars.length) {
+        window._watchTogetherCharId = '';
+        return null;
+    }
+    let storedId = '';
+    try {
+        storedId = localStorage.getItem(WATCH_TOGETHER_CHAR_STORAGE_KEY) || '';
+    } catch (_) {}
+    const requestedId = String(window._watchTogetherCharId || storedId || '');
+    const char = chars.find(item => String(item.id) === requestedId) || chars[0];
+    window._watchTogetherCharId = char.id;
+    try {
+        localStorage.setItem(WATCH_TOGETHER_CHAR_STORAGE_KEY, char.id);
+    } catch (_) {}
+    return char;
+}
+
+function selectWatchTogetherChar(charId) {
+    const char = getWatchTogetherCharacters().find(item => String(item.id) === String(charId || ''));
+    if (!char) return;
+    window._watchTogetherCharId = char.id;
+    try {
+        localStorage.setItem(WATCH_TOGETHER_CHAR_STORAGE_KEY, char.id);
+    } catch (_) {}
+    renderWatchTogetherApp();
+}
+window.selectWatchTogetherChar = selectWatchTogetherChar;
+
+function initWatchTogetherApp() {
+    renderWatchTogetherApp();
+}
+window.initWatchTogetherApp = initWatchTogetherApp;
+
+function renderWatchTogetherApp() {
+    const root = document.getElementById('watch-together-content');
+    if (!root) return;
+    const chars = getWatchTogetherCharacters();
+    if (!chars.length) {
+        root.innerHTML = `
+            <section class="watch-together-no-character">
+                <span><i class="ri-user-add-line"></i></span>
+                <strong>还没有可选择的角色</strong>
+                <p>请先在微信中创建或导入角色，再回来选择一起观看的对象。</p>
+                <button type="button" onclick="openApp('wechat')"><i class="ri-wechat-line"></i><span>去创建角色</span></button>
+            </section>
+        `;
+        return;
+    }
+    const char = getWatchTogetherActiveChar();
+    if (!char) return;
+    root.innerHTML = `
+        <section class="watch-together-character-list" aria-label="选择一起观看的角色">
+            <div class="watch-together-list-head">
+                <span><i class="ri-user-3-line"></i>选择一起观看的角色</span>
+                <small>${chars.length} 个角色</small>
+            </div>
+            <div class="watch-together-character-rows">
+                ${chars.map(item => {
+                    const itemAvatar = getWechatCharAvatarSource(item, DEFAULT_AVATAR);
+                    const itemName = getWechatCharDisplayName(item);
+                    const itemDetail = stripWechatPromptText(item.description || item.persona || item.chatConfig?.description || '', 42);
+                    const selected = String(item.id) === String(char.id);
+                    return `
+                        <button type="button" class="watch-together-character-row${selected ? ' is-selected' : ''}" onclick="selectWatchTogetherChar(${quoteWechatJsString(item.id)})" aria-pressed="${selected ? 'true' : 'false'}">
+                            <span class="watch-together-character-avatar"><img src="${wcEscapeAttr(itemAvatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"></span>
+                            <span class="watch-together-character-identity"><strong>${wcEscapeHtml(itemName)}</strong><small>${wcEscapeHtml(itemDetail || (selected ? '当前一起观看' : '可选择'))}</small></span>
+                            <i class="${selected ? 'ri-check-line' : 'ri-arrow-right-s-line'}" aria-hidden="true"></i>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        </section>
+        <section class="watch-together-workspace">
+            ${renderWechatAiPhoneWatchScreen(char)}
+        </section>
+    `;
+}
+window.renderWatchTogetherApp = renderWatchTogetherApp;
+
+function getWechatAiPhoneWatchStore(char) {
+    const raw = char && char.chatConfig && char.chatConfig.aiPhoneWatch;
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const sourceUrl = /^https?:\/\//i.test(String(safe.sourceUrl || '').trim()) ? String(safe.sourceUrl).trim() : '';
+    return {
+        sourceUrl,
+        title: stripWechatPromptText(safe.title || '', 80),
+        subtitleName: stripWechatPromptText(safe.subtitleName || '', 80),
+        cues: Array.isArray(safe.cues) ? safe.cues.slice(0, 600) : [],
+        reactions: Array.isArray(safe.reactions) ? safe.reactions.slice(-20) : []
+    };
+}
+
+function getWechatAiPhoneWatchRuntime(char) {
+    window._wechatAiPhoneWatchRuntime = window._wechatAiPhoneWatchRuntime || {};
+    const charId = String(char && char.id || '');
+    if (!window._wechatAiPhoneWatchRuntime[charId]) {
+        window._wechatAiPhoneWatchRuntime[charId] = { sourceUrl: '', title: '', currentTime: 0, busy: false };
+    }
+    return window._wechatAiPhoneWatchRuntime[charId];
+}
+
+function saveWechatAiPhoneWatchStore(char, next) {
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    char.chatConfig.aiPhoneWatch = {
+        sourceUrl: String(next.sourceUrl || ''),
+        title: stripWechatPromptText(next.title || '', 80),
+        subtitleName: stripWechatPromptText(next.subtitleName || '', 80),
+        cues: Array.isArray(next.cues) ? next.cues.slice(0, 600) : [],
+        reactions: Array.isArray(next.reactions) ? next.reactions.slice(-20) : []
+    };
+    saveCharactersToStorage();
+}
+
+function getWechatAiPhoneWatchSource(char) {
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    const store = getWechatAiPhoneWatchStore(char);
+    return {
+        url: runtime.sourceUrl || store.sourceUrl,
+        title: runtime.title || store.title || '未命名影片',
+        isLocal: !!runtime.sourceUrl
+    };
+}
+
+function formatWechatAiPhoneWatchTime(seconds) {
+    const value = Math.max(0, Math.floor(Number(seconds) || 0));
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    const secs = value % 60;
+    return hours > 0
+        ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        : `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function parseWechatAiPhoneSubtitleTime(value) {
+    const parts = String(value || '').trim().replace(',', '.').split(':').map(Number);
+    if (!parts.length || parts.some(part => !Number.isFinite(part))) return null;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts[0];
+}
+
+function parseWechatAiPhoneSubtitles(text) {
+    return String(text || '')
+        .replace(/^\uFEFF/, '')
+        .replace(/\r\n?/g, '\n')
+        .split(/\n{2,}/)
+        .map(block => {
+            const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+            const timingIndex = lines.findIndex(line => line.includes('-->'));
+            if (timingIndex < 0) return null;
+            const timing = lines[timingIndex].split('-->');
+            const start = parseWechatAiPhoneSubtitleTime(timing[0]);
+            const end = parseWechatAiPhoneSubtitleTime(String(timing[1] || '').trim().split(/\s+/)[0]);
+            const cueText = lines.slice(timingIndex + 1)
+                .join(' ')
+                .replace(/<[^>]*>/g, '')
+                .trim()
+                .slice(0, 280);
+            return Number.isFinite(start) && Number.isFinite(end) && end >= start && cueText
+                ? { start, end, text: cueText }
+                : null;
+        })
+        .filter(Boolean)
+        .slice(0, 600);
+}
+
+function getWechatAiPhoneSubtitleAt(store, currentTime) {
+    const time = Number(currentTime) || 0;
+    return (store.cues || [])
+        .filter(cue => Number(cue.start) <= time + 1.5 && Number(cue.end) >= time - 1.5)
+        .map(cue => String(cue.text || '').trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' ');
+}
+
+function renderWechatAiPhoneWatchScreen(char) {
+    const store = getWechatAiPhoneWatchStore(char);
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    const source = getWechatAiPhoneWatchSource(char);
+    if (!source.url) {
+        return `
+            <div class="wc-ai-phone-watch-empty">
+                <span class="wc-ai-phone-watch-mark"><i class="ri-movie-2-line"></i></span>
+                <strong>一起看</strong>
+                <p>与 ${wcEscapeHtml(getWechatCharDisplayName(char))} 一起观看</p>
+                <label class="wc-ai-phone-watch-primary"><i class="ri-folder-video-line"></i><span>选择本地视频</span><input type="file" accept="video/*" onchange="openWechatAiPhoneWatchFile(this)"></label>
+                <div class="wc-ai-phone-watch-url-form">
+                    <input id="wc-ai-phone-watch-url" type="url" inputmode="url" placeholder="https://.../movie.mp4" autocomplete="off">
+                    <button type="button" onclick="openWechatAiPhoneWatchUrl()" aria-label="打开视频链接"><i class="ri-arrow-right-line"></i></button>
+                </div>
+            </div>
+        `;
+    }
+    return `
+        <div class="wc-ai-phone-watch-room">
+            <div class="wc-ai-phone-watch-stage">
+                <video id="wc-ai-phone-watch-video" src="${wcEscapeAttr(source.url)}" controls playsinline preload="metadata" crossorigin="anonymous" onloadedmetadata="restoreWechatAiPhoneWatchPlayback()" ontimeupdate="updateWechatAiPhoneWatchTime(this)"></video>
+                <span class="wc-ai-phone-watch-together"><img src="${wcEscapeAttr(getWechatCharAvatarSource(char, DEFAULT_AVATAR))}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"><i></i></span>
+            </div>
+            <div class="wc-ai-phone-watch-meta">
+                <span><strong>${wcEscapeHtml(source.title)}</strong><small id="wc-ai-phone-watch-time">${formatWechatAiPhoneWatchTime(runtime.currentTime)}</small></span>
+                <button type="button" onclick="clearWechatAiPhoneWatchSource()" aria-label="更换影片"><i class="ri-loop-left-line"></i></button>
+            </div>
+            <div class="wc-ai-phone-watch-tools">
+                <label><i class="ri-file-text-line"></i><span>${wcEscapeHtml(store.subtitleName || '导入字幕')}</span><input type="file" accept=".srt,.vtt,text/vtt" onchange="uploadWechatAiPhoneWatchSubtitle(this)"></label>
+                ${store.subtitleName ? '<button type="button" onclick="clearWechatAiPhoneWatchSubtitle()" aria-label="移除字幕"><i class="ri-close-line"></i></button>' : ''}
+            </div>
+            <div class="wc-ai-phone-watch-reactions">
+                ${store.reactions.length ? store.reactions.map(item => `
+                    <div class="wc-ai-phone-watch-reaction">
+                        <img src="${wcEscapeAttr(getWechatCharAvatarSource(char, DEFAULT_AVATAR))}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
+                        <span><small>${wcEscapeHtml(formatWechatAiPhoneWatchTime(item.time))}${item.question ? ` · ${wcEscapeHtml(item.question)}` : ''}</small><p>${wcEscapeHtml(item.text || '')}</p></span>
+                    </div>
+                `).join('') : '<div class="wc-ai-phone-watch-reactions-empty"><i class="ri-eye-line"></i><span>等待第一幕</span></div>'}
+            </div>
+            <form class="wc-ai-phone-watch-compose" onsubmit="event.preventDefault(); askWechatAiPhoneWatchReaction()">
+                <input id="wc-ai-phone-watch-question" type="text" maxlength="160" placeholder="和 ${wcEscapeAttr(getWechatCharDisplayName(char))} 聊这一幕">
+                <button type="submit" ${runtime.busy ? 'disabled' : ''} aria-label="让 ${wcEscapeAttr(getWechatCharDisplayName(char))} 看这一幕"><i class="${runtime.busy ? 'ri-loader-4-line' : 'ri-eye-line'}"></i></button>
+            </form>
+        </div>
+    `;
+}
+
+function openWechatAiPhoneWatchFile(input) {
+    const file = input && input.files && input.files[0];
+    const char = getWatchTogetherActiveChar();
+    if (!file || !char) return;
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    if (runtime.sourceUrl && runtime.sourceUrl.startsWith('blob:')) URL.revokeObjectURL(runtime.sourceUrl);
+    runtime.sourceUrl = URL.createObjectURL(file);
+    runtime.title = stripWechatPromptText(file.name.replace(/\.[^.]+$/, ''), 80) || '本地影片';
+    runtime.currentTime = 0;
+    renderWatchTogetherApp();
+    input.value = '';
+}
+window.openWechatAiPhoneWatchFile = openWechatAiPhoneWatchFile;
+
+function openWechatAiPhoneWatchUrl() {
+    const input = document.getElementById('wc-ai-phone-watch-url');
+    const value = String(input && input.value || '').trim();
+    const char = getWatchTogetherActiveChar();
+    if (!char) return;
+    let parsed;
+    try {
+        parsed = new URL(value);
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('视频链接格式不正确');
+        return;
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        if (typeof showWechatToast === 'function') showWechatToast('只支持 HTTP 或 HTTPS 视频链接');
+        return;
+    }
+    const store = getWechatAiPhoneWatchStore(char);
+    store.sourceUrl = parsed.toString();
+    const pathName = parsed.pathname.split('/').pop() || parsed.hostname;
+    store.title = stripWechatPromptText(pathName.replace(/\.[^.]+$/, ''), 80) || parsed.hostname;
+    saveWechatAiPhoneWatchStore(char, store);
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    runtime.sourceUrl = '';
+    runtime.title = '';
+    runtime.currentTime = 0;
+    renderWatchTogetherApp();
+}
+window.openWechatAiPhoneWatchUrl = openWechatAiPhoneWatchUrl;
+
+function clearWechatAiPhoneWatchSource() {
+    const char = getWatchTogetherActiveChar();
+    if (!char) return;
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    if (runtime.sourceUrl && runtime.sourceUrl.startsWith('blob:')) URL.revokeObjectURL(runtime.sourceUrl);
+    runtime.sourceUrl = '';
+    runtime.title = '';
+    runtime.currentTime = 0;
+    const store = getWechatAiPhoneWatchStore(char);
+    store.sourceUrl = '';
+    store.title = '';
+    saveWechatAiPhoneWatchStore(char, store);
+    renderWatchTogetherApp();
+}
+window.clearWechatAiPhoneWatchSource = clearWechatAiPhoneWatchSource;
+
+function updateWechatAiPhoneWatchTime(video) {
+    const char = getWatchTogetherActiveChar();
+    if (!char || !video) return;
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    runtime.currentTime = Number(video.currentTime) || 0;
+    const label = document.getElementById('wc-ai-phone-watch-time');
+    if (label) label.textContent = formatWechatAiPhoneWatchTime(runtime.currentTime);
+}
+window.updateWechatAiPhoneWatchTime = updateWechatAiPhoneWatchTime;
+
+function restoreWechatAiPhoneWatchPlayback() {
+    const char = getWatchTogetherActiveChar();
+    const video = document.getElementById('wc-ai-phone-watch-video');
+    if (!char || !video) return;
+    const time = Math.max(0, Number(getWechatAiPhoneWatchRuntime(char).currentTime) || 0);
+    if (time && Number.isFinite(video.duration)) video.currentTime = Math.min(time, Math.max(0, video.duration - 0.05));
+}
+window.restoreWechatAiPhoneWatchPlayback = restoreWechatAiPhoneWatchPlayback;
+
+function uploadWechatAiPhoneWatchSubtitle(input) {
+    const file = input && input.files && input.files[0];
+    const char = getWatchTogetherActiveChar();
+    if (!file || !char) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+        const cues = parseWechatAiPhoneSubtitles(event.target.result);
+        if (!cues.length) {
+            if (typeof showWechatToast === 'function') showWechatToast('没有读到有效的 SRT/VTT 字幕');
+            return;
+        }
+        const store = getWechatAiPhoneWatchStore(char);
+        store.subtitleName = file.name;
+        store.cues = cues;
+        saveWechatAiPhoneWatchStore(char, store);
+        renderWatchTogetherApp();
+    };
+    reader.onerror = () => {
+        if (typeof showWechatToast === 'function') showWechatToast('字幕读取失败');
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+window.uploadWechatAiPhoneWatchSubtitle = uploadWechatAiPhoneWatchSubtitle;
+
+function clearWechatAiPhoneWatchSubtitle() {
+    const char = getWatchTogetherActiveChar();
+    if (!char) return;
+    const store = getWechatAiPhoneWatchStore(char);
+    store.subtitleName = '';
+    store.cues = [];
+    saveWechatAiPhoneWatchStore(char, store);
+    renderWatchTogetherApp();
+}
+window.clearWechatAiPhoneWatchSubtitle = clearWechatAiPhoneWatchSubtitle;
+
+function captureWechatAiPhoneWatchFrame(video) {
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        throw new Error('影片画面还没加载好');
+    }
+    const maxWidth = 768;
+    const scale = Math.min(maxWidth / video.videoWidth, 1);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+        return canvas.toDataURL('image/jpeg', 0.8);
+    } catch (error) {
+        throw new Error('这个视频源允许播放，但不允许 AI 读取画面。请改用本地视频或允许跨域读取的直链');
+    }
+}
+
+async function askWechatAiPhoneWatchReaction() {
+    const char = getWatchTogetherActiveChar();
+    const video = document.getElementById('wc-ai-phone-watch-video');
+    if (!char || !video || typeof callChatApi !== 'function') return;
+    const runtime = getWechatAiPhoneWatchRuntime(char);
+    if (runtime.busy) return;
+    const questionInput = document.getElementById('wc-ai-phone-watch-question');
+    const question = stripWechatPromptText(questionInput && questionInput.value || '', 160);
+    let frame;
+    try {
+        frame = captureWechatAiPhoneWatchFrame(video);
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast(error.message || '无法读取当前画面');
+        return;
+    }
+    runtime.currentTime = Number(video.currentTime) || 0;
+    runtime.busy = true;
+    renderWatchTogetherApp();
+    try {
+        const store = getWechatAiPhoneWatchStore(char);
+        const source = getWechatAiPhoneWatchSource(char);
+        const subtitle = getWechatAiPhoneSubtitleAt(store, runtime.currentTime);
+        const messages = typeof buildMessages === 'function' ? buildMessages(char, char.history || [], 20) : [];
+        messages.push({
+            role: 'system',
+            content: `你正在和用户一起看《${source.title}》。你必须以 ${getWechatCharDisplayName(char)} 的人设、记忆、关系和当前情绪回应，只根据用户提供的真实当前画面与字幕判断，不得假装看到了画面之外的剧情。回复一段自然、简短的现场反应，不要写系统说明。`
+        });
+        messages.push({
+            role: 'user',
+            content: [
+                {
+                    type: 'text',
+                    text: `影片时间 ${formatWechatAiPhoneWatchTime(runtime.currentTime)}。${subtitle ? `当前字幕：${subtitle}。` : '当前没有字幕。'}${question ? `用户问：${question}` : '请说说你看到这一幕时最自然的反应。'}`
+                },
+                { type: 'image_url', image_url: { url: frame } }
+            ]
+        });
+        const result = await callChatApi(messages, { max_tokens: 500, temperature: 0.72 });
+        if (!result || !result.ok) {
+            if (typeof showWechatToast === 'function') showWechatToast(result && result.error ? result.error : '当前角色暂时没有回应');
+            return;
+        }
+        const text = stripWechatPromptText(result.content, 800);
+        if (!text) return;
+        store.reactions.push({ time: runtime.currentTime, question, text, createdAt: Date.now() });
+        saveWechatAiPhoneWatchStore(char, store);
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast(error && error.message ? error.message : '共看回应失败');
+    } finally {
+        runtime.busy = false;
+        renderWatchTogetherApp();
+    }
+}
+window.askWechatAiPhoneWatchReaction = askWechatAiPhoneWatchReaction;
+
 function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
     const clock = getWechatAiPhoneClockParts();
     const charName = getWechatCharDisplayName(char);
@@ -22207,11 +22819,9 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
 }
 
 function renderWechatAiPhoneHome(snapshot, char, isLoading) {
-    const clock = getWechatAiPhoneClockParts();
     const apps = getWechatAiPhoneApps(char, snapshot);
     const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
-    const latestChat = Array.isArray(snapshot.chats) && snapshot.chats.length ? snapshot.chats[0] : null;
     const syncError = stripWechatPromptText(snapshot && snapshot.syncError, 118);
     const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`);
     const retryId = quoteWechatJsString(char && char.id);
@@ -22223,20 +22833,14 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
             <div class="wc-ai-phone-home-top">
                 <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
                 ${syncPill}
-                <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="按角色人设和世界书生成小手机内容" title="按角色人设和世界书生成">
-                    <i class="${isLoading ? 'ri-loader-4-line' : 'ri-sparkling-2-fill'}"></i>
-                </button>
+                <div class="wc-ai-phone-home-actions">
+                    <button type="button" class="wc-ai-phone-edit-home" onclick="event.stopPropagation(); openWechatAiPhoneHomeEditor(${retryId})" aria-label="编辑小手机桌面" title="编辑桌面"><i class="ri-edit-2-line"></i></button>
+                    <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="按角色人设和世界书生成小手机内容" title="按角色人设和世界书生成">
+                        <i class="${isLoading ? 'ri-loader-4-line' : 'ri-sparkling-2-fill'}"></i>
+                    </button>
+                </div>
             </div>
-            <section class="wc-ai-phone-clock-widget" onclick="switchWechatAiPhoneTab('clock')">
-                <span>${wcEscapeHtml(clock.date)}</span>
-                <strong>${wcEscapeHtml(clock.time)}</strong>
-                <p>${wcEscapeHtml(getWechatCharDisplayName(char))} 的手机</p>
-            </section>
-            <section class="wc-ai-phone-widget-stack" onclick="switchWechatAiPhoneTab('chat')">
-                <div><i class="ri-wechat-fill"></i><span>微信</span></div>
-                <strong>${wcEscapeHtml(latestChat ? latestChat.name : '聊天记录')}</strong>
-                <p>${wcEscapeHtml(latestChat ? latestChat.text : '还没有新的聊天')}</p>
-            </section>
+            ${renderWechatAiPhonePhotoWidget(char)}
             <div class="wc-ai-phone-grid">
                 ${gridApps.map(renderWechatAiPhoneAppButton).join('')}
             </div>

@@ -256,7 +256,16 @@ function openApp(appName) {
             initAlbumApp();
         }
     }
-    // 16. 说明书
+    // 16. 一起看
+    else if (appName === 'watch') {
+        const win = document.getElementById('app-watch-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            if (typeof initWatchTogetherApp === 'function') initWatchTogetherApp();
+        }
+    }
+    // 17. 说明书
     else if (appName === 'manual') {
         const win = document.getElementById('app-manual-window');
         if (win) {
@@ -265,7 +274,7 @@ function openApp(appName) {
             initManualApp();
         }
     }
-    // 17. GitHub MCP
+    // 18. GitHub MCP
     else if (appName === 'mcp') {
         const win = document.getElementById('app-mcp-window');
         if (win) {
@@ -274,7 +283,7 @@ function openApp(appName) {
             initMcpApp();
         }
     }
-    // 18. System Camera
+    // 19. System Camera
     else if (appName === 'camera') {
         openSystemCamera();
     }
@@ -334,6 +343,7 @@ function closeApp(appName) {
     else if (appName === 'outing') winId = 'app-outing-window';
     else if (appName === 'coread') winId = 'app-coread-window';
     else if (appName === 'album') winId = 'app-album-window';
+    else if (appName === 'watch') winId = 'app-watch-window';
     else if (appName === 'manual') winId = 'app-manual-window';
     else if (appName === 'mcp') winId = 'app-mcp-window';
     const win = document.getElementById(winId);
@@ -1187,7 +1197,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.582' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.586' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -12171,7 +12181,8 @@ function getDesktopThemeIconUrl(appId, source) {
         camera: 14,
         preset: 15,
         manual: 16,
-        mcp: 17
+        mcp: 17,
+        watch: 18
     }[appId];
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);
@@ -17738,6 +17749,7 @@ const DESKTOP_APPS = [
     { id: 'dream', name: '盗梦空间', icon: 'ri-moon-cloudy-line' },
     { id: 'monitor', name: '监控', icon: 'ri-eye-line' },
     { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' },
+    { id: 'watch', name: '一起看', icon: 'ri-movie-2-line' },
     { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' },
     { id: 'manual', name: '说明书', icon: 'ri-book-2-line' },
@@ -22524,6 +22536,38 @@ function migrateDesktopMcpApp() {
     return true;
 }
 
+function migrateDesktopWatchApp() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {};
+    } catch (e) {
+        return false;
+    }
+    const hasSavedLayout = Array.isArray(saved.items) || Array.isArray(saved.dock) || Array.isArray(saved.deletedBuiltins);
+    if (!hasSavedLayout) return false;
+    const hasWatchInFolder = (Array.isArray(window._folders) ? window._folders : []).some(folder =>
+        (Array.isArray(folder?.apps) ? folder.apps : []).some(app => String(app?.id || app) === 'watch')
+    );
+    const hasWatchInSavedLayout = (Array.isArray(saved.items) ? saved.items : []).some(item => String(item?.id || '') === 'app-watch');
+    const hasWatchInSavedDock = (Array.isArray(saved.dock) ? saved.dock : []).some(appId => String(appId) === 'watch');
+    const hasWatchOnDesktop = Array.from(document.querySelectorAll('#pages-container .desktop-layout-item.layout-app'))
+        .some(item => getDesktopAppIdFromElement(item) === 'watch');
+    const hasWatchInDock = collectDesktopDockLayout().includes('watch');
+    if (hasWatchInFolder || hasWatchInSavedLayout || hasWatchInSavedDock || hasWatchOnDesktop || hasWatchInDock) return false;
+
+    const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+    const app = DESKTOP_APPS.find(item => item.id === 'watch');
+    if (!area?.classList.contains('layout-canvas') || !app) return false;
+    const item = addDesktopAppAfterFolderPage(app, area, 2);
+    if (!item) return false;
+    if (hasDesktopMeasurableLayoutCanvas()) {
+        persistDesktopLayoutRepair(saved);
+    } else {
+        _desktopLayoutNeedsVisiblePersist = true;
+    }
+    return true;
+}
+
 function ensureMonitorDesktopEntry() {
     const page = ensureDesktopPage(1);
     const area = page?.querySelector('.desktop-scroll-area');
@@ -22540,7 +22584,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor', 'outing', 'coread', 'album', 'manual', 'mcp'].forEach(appId => {
+    ['dream', 'monitor', 'outing', 'watch', 'coread', 'album', 'manual', 'mcp'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -22597,6 +22641,7 @@ function initEditMode() {
         applySavedDesktopLayout();
         migrateDesktopManualApp();
         migrateDesktopMcpApp();
+        migrateDesktopWatchApp();
         ensureMonitorDesktopEntry();
         ensureDesktopLovelyWidget();
         setupDesktopDockEditing();
