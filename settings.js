@@ -1004,13 +1004,10 @@ async function testApiFromModal() {
         }
     } else {
         resultEl.innerHTML = `<span style="color:#f87171;">❌ ${result.error || '连接失败'}</span>`;
-        selectEl.innerHTML = '<option value="">连接失败</option>';
-        selectEl.disabled = true;
-        selectEl.style.cursor = 'not-allowed';
-        imageSelectEl.innerHTML = '<option value="">连接失败</option>';
-        imageSelectEl.disabled = true;
-        imageSelectEl.style.cursor = 'not-allowed';
-        if (imageHintEl) imageHintEl.textContent = '这个站点暂时不可用';
+        convertModelToInput();
+        convertImageModelToInput();
+        if (hintEl) hintEl.textContent = '连接失败，可核对文档后手动填写模型';
+        if (imageHintEl) imageHintEl.textContent = '连接失败，可手动填写生图模型后保存';
         refreshApiModelPickers();
     }
 }
@@ -1940,7 +1937,37 @@ function isNvidiaApiBaseUrl(baseUrl) {
     return /(^|\/\/|\.)(nvidia\.com|integrate\.api\.nvidia\.com)(\/|$)/i.test(String(baseUrl || ''));
 }
 
+function isWisartApiBaseUrl(baseUrl) {
+    try {
+        const url = new URL(String(baseUrl || '').trim());
+        return url.protocol === 'https:'
+            && url.hostname.toLowerCase() === 'wisart.kuaileshifu.com'
+            && !url.port
+            && /^\/v1\/?$/.test(url.pathname)
+            && !url.search
+            && !url.hash;
+    } catch (error) {
+        return false;
+    }
+}
+
+function resolveByndApiBaseUrl(baseUrl) {
+    const original = String(baseUrl || '').trim().replace(/\/+$/, '');
+    if (!isWisartApiBaseUrl(original)) return original;
+    const isProductionWeb = typeof location !== 'undefined'
+        && location.protocol === 'https:'
+        && location.hostname.toLowerCase() === 'bynd.ccwu.cc';
+    return isProductionWeb
+        ? `${location.origin}/wisart/v1`
+        : 'https://bynd-push.myluckylxy.workers.dev/wisart/v1';
+}
+window.isWisartApiBaseUrl = isWisartApiBaseUrl;
+window.resolveByndApiBaseUrl = resolveByndApiBaseUrl;
+
 function getApiProxyHint(baseUrl) {
+    if (isWisartApiBaseUrl(baseUrl)) {
+        return 'BYND 已自动通过固定 Wisart 代理连接；请确认 Worker 已部署、API Key 有效，并重试。';
+    }
     if (isNvidiaApiBaseUrl(baseUrl)) {
         return 'NVIDIA 接口通常不允许浏览器静态网页直连。请走 BYND AI Proxy Worker：Worker 不保存 key；网页 Base URL 填 Worker 地址，API Key 继续填用户自己的 NVIDIA key。';
     }
@@ -1950,13 +1977,14 @@ function getApiProxyHint(baseUrl) {
 // 10. 核心测试逻辑 — 一次请求返回连接状态+模型列表
 async function doTestApi(baseUrl, apiKey) {
     baseUrl = baseUrl.replace(/\/+$/, '');
+    const requestBaseUrl = resolveByndApiBaseUrl(baseUrl);
 
     const headers = {};
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
     // 尝试 /models 接口
     try {
-        const resp = await fetch(baseUrl + '/models', {
+        const resp = await fetch(requestBaseUrl + '/models', {
             method: 'GET',
             headers: headers,
             signal: AbortSignal.timeout(10000)
@@ -1973,7 +2001,7 @@ async function doTestApi(baseUrl, apiKey) {
             const count = models.length;
             if (count === 0) return { ok: true, detail: '', models: models };
 
-            const probe = await probeChatModels(baseUrl, apiKey, models);
+            const probe = await probeChatModels(requestBaseUrl, apiKey, models);
             if (probe.ok) {
                 const sortedModels = [probe.model, ...models.filter(m => m !== probe.model)];
                 return { ok: true, detail: `(${count} 个模型，可聊天: ${probe.model})`, models: sortedModels, chatModel: probe.model };
@@ -2435,7 +2463,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.582';
+const APP_VERSION = 'v1.1.586';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const ALL_DATA_KEYS = [

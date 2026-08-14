@@ -27,6 +27,18 @@ const MCP_FORWARDED_HEADERS = [
   'X-MCP-Lockdown',
   'X-MCP-Insiders'
 ];
+const WISART_UPSTREAM_ORIGIN = 'https://wisart.kuaileshifu.com';
+const WISART_MAX_REQUEST_BYTES = 24 * 1024 * 1024;
+const WISART_ALLOWED_ORIGINS = new Set([
+  'https://bynd.ccwu.cc',
+  'null'
+]);
+const WISART_ROUTES = new Map([
+  ['/v1/models', 'GET'],
+  ['/v1/images/generations', 'POST'],
+  ['/v1/images/edits', 'POST']
+]);
+const WISART_FORWARDED_HEADERS = ['Authorization', 'Content-Type', 'Accept'];
 
 export default {
   async fetch(request, env) {
@@ -38,6 +50,9 @@ export default {
       }
       if (url.pathname.startsWith('/mcp/')) {
         return mcpJsonResponse(url, request.headers.get('Origin'), 404, 'not found');
+      }
+      if (url.pathname.startsWith('/wisart/')) {
+        return proxyWisart(request, url);
       }
       if (request.method === 'OPTIONS') return corsResponse(null, 204);
       if (request.method === 'POST' && url.pathname === '/subscribe') {
@@ -64,6 +79,9 @@ export default {
       if (url.pathname.startsWith('/mcp/')) {
         return mcpJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
       }
+      if (url.pathname.startsWith('/wisart/')) {
+        return wisartJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
+      }
       return corsResponse({ ok: false, error: error.message || String(error) }, 500);
     }
   },
@@ -72,6 +90,90 @@ export default {
     ctx.waitUntil(runProactiveTick(env));
   }
 };
+
+async function proxyWisart(request, requestUrl) {
+  const requestOrigin = request.headers.get('Origin');
+  if (!isAllowedWisartOrigin(requestOrigin, requestUrl)) {
+    return wisartJsonResponse(requestUrl, requestOrigin, 403, 'origin not allowed');
+  }
+
+  const upstreamPath = requestUrl.pathname.slice('/wisart'.length);
+  const allowedMethod = WISART_ROUTES.get(upstreamPath);
+  if (!allowedMethod || requestUrl.search) {
+    return wisartJsonResponse(requestUrl, requestOrigin, 404, 'not found');
+  }
+
+  if (request.method === 'OPTIONS') {
+    const requestedMethod = String(request.headers.get('Access-Control-Request-Method') || allowedMethod).toUpperCase();
+    if (requestedMethod !== allowedMethod) {
+      return wisartJsonResponse(requestUrl, requestOrigin, 405, 'method not allowed', { Allow: `${allowedMethod}, OPTIONS` });
+    }
+    return wisartResponse(null, 204, requestUrl, requestOrigin);
+  }
+
+  if (request.method !== allowedMethod) {
+    return wisartJsonResponse(requestUrl, requestOrigin, 405, 'method not allowed', { Allow: `${allowedMethod}, OPTIONS` });
+  }
+
+  const upstreamHeaders = new Headers();
+  WISART_FORWARDED_HEADERS.forEach(name => {
+    const value = request.headers.get(name);
+    if (value !== null) upstreamHeaders.set(name, value);
+  });
+  let body;
+  if (request.method === 'POST') {
+    const contentType = String(request.headers.get('Content-Type') || '').toLowerCase();
+    const acceptsBody = contentType.startsWith('application/json') || contentType.startsWith('multipart/form-data;');
+    if (!acceptsBody) {
+      return wisartJsonResponse(requestUrl, requestOrigin, 415, 'unsupported content type');
+    }
+    try {
+      body = await readMcpRequestBody(request, WISART_MAX_REQUEST_BYTES);
+    } catch (error) {
+      return wisartJsonResponse(requestUrl, requestOrigin, error?.status === 413 ? 413 : 400, error?.message || 'unable to read request body');
+    }
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(`${WISART_UPSTREAM_ORIGIN}${upstreamPath}`, {
+      method: request.method,
+      headers: upstreamHeaders,
+      body,
+      redirect: 'manual'
+    });
+  } catch (error) {
+    return wisartJsonResponse(requestUrl, requestOrigin, 502, 'upstream request failed');
+  }
+
+  const responseHeaders = new Headers();
+  const contentType = upstream.headers.get('Content-Type');
+  if (contentType) responseHeaders.set('Content-Type', contentType);
+  return wisartResponse(upstream.body, upstream.status, requestUrl, requestOrigin, responseHeaders, upstream.statusText);
+}
+
+function isAllowedWisartOrigin(requestOrigin, requestUrl) {
+  if (!requestOrigin) return true;
+  if (requestOrigin === requestUrl.origin || WISART_ALLOWED_ORIGINS.has(requestOrigin)) return true;
+  return /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(requestOrigin);
+}
+
+function wisartJsonResponse(requestUrl, requestOrigin, status, error, extraHeaders) {
+  const headers = new Headers(extraHeaders);
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  return wisartResponse(JSON.stringify({ error: { message: error } }), status, requestUrl, requestOrigin, headers);
+}
+
+function wisartResponse(body, status, requestUrl, requestOrigin, headers = new Headers(), statusText) {
+  if (requestOrigin && isAllowedWisartOrigin(requestOrigin, requestUrl)) {
+    headers.set('Access-Control-Allow-Origin', requestOrigin);
+  }
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', WISART_FORWARDED_HEADERS.join(', '));
+  headers.set('Cache-Control', 'no-store');
+  headers.append('Vary', 'Origin');
+  return new Response(body, { status, statusText, headers });
+}
 
 async function proxyGitHubMcp(request, requestUrl) {
   const requestOrigin = request.headers.get('Origin');
