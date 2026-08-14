@@ -50,6 +50,7 @@ function normalizeApiData(data) {
     }
     const voiceApi = normalizeVoiceApiData(data.voiceApi || data.minimaxVoiceApi || {});
     const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi || data.openaiVoiceApi || {});
+    const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi || data.fishVoiceApi || {});
     const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi || data.elevenlabsVoiceApi || {});
     const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi || data.localTtsApi || {});
     return {
@@ -59,6 +60,7 @@ function normalizeApiData(data) {
         imageDefaultId,
         voiceApi,
         openAiVoiceApi,
+        fishAudioVoiceApi,
         elevenLabsVoiceApi,
         localVoiceApi,
         voiceDefaultProvider: normalizeVoiceDefaultProvider(
@@ -66,7 +68,8 @@ function normalizeApiData(data) {
             voiceApi,
             localVoiceApi,
             openAiVoiceApi,
-            elevenLabsVoiceApi
+            elevenLabsVoiceApi,
+            fishAudioVoiceApi
         )
     };
 }
@@ -144,6 +147,42 @@ function getOpenAiVoiceSummary(api) {
     const model = String(api.voiceModel || api.model || '').trim() || 'OpenAI';
     const voice = String(api.voiceId || api.voice || '').trim() || 'alloy';
     return `${model} · ${voice}`;
+}
+
+function normalizeFishAudioVoiceApiData(api) {
+    api = api && typeof api === 'object' ? api : {};
+    const format = String(api.voiceFormat || api.format || 'mp3').toLowerCase();
+    return {
+        provider: 'fish-audio',
+        enabled: !!api.enabled,
+        name: api.name || 'Fish Audio',
+        baseUrl: api.baseUrl || 'https://api.fish.audio/compat/v1',
+        apiKey: api.apiKey || '',
+        voiceModel: api.voiceModel || api.model || 'fish-audio/s2.1-pro-free',
+        voiceId: api.voiceId || api.voice || api.referenceId || '',
+        voiceEndpoint: api.voiceEndpoint || api.endpoint || '',
+        voiceFormat: ['mp3', 'wav', 'opus'].includes(format) ? format : 'mp3',
+        voiceSpeed: api.voiceSpeed || api.speed || '1',
+        _status: api._status || ''
+    };
+}
+
+function isFishAudioVoiceEnabled(api) {
+    const provider = api?.voiceProvider || api?.provider;
+    return !!(
+        api
+        && provider === 'fish-audio'
+        && api.enabled !== false
+        && String(api.apiKey || '').trim()
+        && String(api.voiceModel || api.model || '').trim()
+    );
+}
+
+function getFishAudioVoiceSummary(api) {
+    if (!api) return '';
+    const model = String(api.voiceModel || api.model || '').trim() || 'Fish Audio';
+    const voice = String(api.voiceId || api.voice || api.referenceId || '').trim();
+    return voice ? `${model} · ${voice}` : `${model} · 默认声线`;
 }
 
 function normalizeElevenLabsVoiceApiData(api) {
@@ -227,14 +266,16 @@ function getLocalVoiceSummary(api) {
     return parts.length ? `${parts.join(' · ')} · ${host}` : host;
 }
 
-function normalizeVoiceDefaultProvider(provider, minimaxApi, localApi, openAiApi, elevenLabsApi) {
-    const saved = ['minimax', 'openai', 'elevenlabs', 'local'].includes(provider) ? provider : '';
+function normalizeVoiceDefaultProvider(provider, minimaxApi, localApi, openAiApi, elevenLabsApi, fishAudioApi) {
+    const saved = ['minimax', 'openai', 'fish-audio', 'elevenlabs', 'local'].includes(provider) ? provider : '';
     if (saved === 'local' && isLocalVoiceEnabled(localApi)) return 'local';
     if (saved === 'minimax' && isApiVoiceEnabled(minimaxApi)) return 'minimax';
     if (saved === 'openai' && isOpenAiVoiceEnabled(openAiApi)) return 'openai';
+    if (saved === 'fish-audio' && isFishAudioVoiceEnabled(fishAudioApi)) return 'fish-audio';
     if (saved === 'elevenlabs' && isElevenLabsVoiceEnabled(elevenLabsApi)) return 'elevenlabs';
     if (isApiVoiceEnabled(minimaxApi)) return 'minimax';
     if (isOpenAiVoiceEnabled(openAiApi)) return 'openai';
+    if (isFishAudioVoiceEnabled(fishAudioApi)) return 'fish-audio';
     if (isElevenLabsVoiceEnabled(elevenLabsApi)) return 'elevenlabs';
     if (isLocalVoiceEnabled(localApi)) return 'local';
     return saved || 'minimax';
@@ -296,18 +337,20 @@ function renderApiRoutePanel(data = getApiData()) {
     const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
     const voiceApi = normalizeVoiceApiData(data.voiceApi);
     const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi);
     const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
     const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
     const voiceReady = isApiVoiceEnabled(voiceApi);
     const openAiVoiceReady = isOpenAiVoiceEnabled(openAiVoiceApi);
+    const fishAudioVoiceReady = isFishAudioVoiceEnabled(fishAudioVoiceApi);
     const elevenLabsVoiceReady = isElevenLabsVoiceEnabled(elevenLabsVoiceApi);
     const localVoiceReady = isLocalVoiceEnabled(localVoiceApi);
-    const voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi);
+    const voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi, fishAudioVoiceApi);
     panel.innerHTML = `
         <div class="api-route-head">
             <div>
                 <strong>API 工作台</strong>
-                <span>聊天和生图走中转站 API；语音可以选 MiniMax 官方或本地 TTS，互不混用。</span>
+                <span>聊天和生图走中转站 API；语音供应商可单独配置并选择默认项。</span>
             </div>
             <button type="button" onclick="openApiModal()"><i class="ri-add-line"></i> 添加</button>
         </div>
@@ -343,6 +386,15 @@ function renderApiRoutePanel(data = getApiData()) {
                         ready: openAiVoiceReady,
                         active: voiceDefaultProvider === 'openai' && openAiVoiceReady,
                         editAction: 'openApiOpenAiVoiceModal()'
+                    })}
+                    ${renderVoiceProviderRoute({
+                        provider: 'fish-audio',
+                        title: 'Fish Audio',
+                        name: fishAudioVoiceApi.enabled ? (fishAudioVoiceApi.name || 'Fish Audio') : '未启用',
+                        summary: fishAudioVoiceReady ? getFishAudioVoiceSummary(fishAudioVoiceApi) : '官方 OpenAI 兼容接口',
+                        ready: fishAudioVoiceReady,
+                        active: voiceDefaultProvider === 'fish-audio' && fishAudioVoiceReady,
+                        editAction: 'openApiFishAudioVoiceModal()'
                     })}
                     ${renderVoiceProviderRoute({
                         provider: 'elevenlabs',
@@ -615,6 +667,32 @@ function openApiOpenAiVoiceModal() {
 
 function closeApiOpenAiVoiceModal() {
     document.getElementById('api-openai-voice-modal')?.classList.add('hidden');
+}
+
+function fillApiFishAudioVoiceModal(api = getApiData().fishAudioVoiceApi) {
+    const voice = normalizeFishAudioVoiceApiData(api);
+    setApiVoiceModalValue('api-fish-voice-enabled', voice.enabled);
+    setApiVoiceModalValue('api-fish-voice-name', voice.name);
+    setApiVoiceModalValue('api-fish-voice-url', voice.baseUrl);
+    setApiVoiceModalValue('api-fish-voice-key', voice.apiKey);
+    setApiVoiceModalValue('api-fish-voice-model', voice.voiceModel);
+    setApiVoiceModalValue('api-fish-voice-id', voice.voiceId);
+    setApiVoiceModalValue('api-fish-voice-endpoint', voice.voiceEndpoint);
+    setApiVoiceModalValue('api-fish-voice-format', voice.voiceFormat);
+    setApiVoiceModalValue('api-fish-voice-speed', voice.voiceSpeed);
+}
+
+function openApiFishAudioVoiceModal() {
+    const modal = document.getElementById('api-fish-voice-modal');
+    const resultEl = document.getElementById('api-fish-voice-test-result');
+    if (!modal) return;
+    if (resultEl) resultEl.innerHTML = '';
+    fillApiFishAudioVoiceModal();
+    modal.classList.remove('hidden');
+}
+
+function closeApiFishAudioVoiceModal() {
+    document.getElementById('api-fish-voice-modal')?.classList.add('hidden');
 }
 
 function fillApiElevenLabsVoiceModal(api = getApiData().elevenLabsVoiceApi) {
@@ -1049,6 +1127,21 @@ function getApiOpenAiVoiceConfigFromModal() {
     };
 }
 
+function getApiFishAudioVoiceConfigFromModal() {
+    return {
+        provider: 'fish-audio',
+        enabled: !!document.getElementById('api-fish-voice-enabled')?.checked,
+        name: (document.getElementById('api-fish-voice-name')?.value || '').trim() || 'Fish Audio',
+        baseUrl: (document.getElementById('api-fish-voice-url')?.value || '').trim(),
+        apiKey: (document.getElementById('api-fish-voice-key')?.value || '').trim(),
+        voiceModel: (document.getElementById('api-fish-voice-model')?.value || '').trim(),
+        voiceId: (document.getElementById('api-fish-voice-id')?.value || '').trim(),
+        voiceEndpoint: (document.getElementById('api-fish-voice-endpoint')?.value || '').trim(),
+        voiceFormat: (document.getElementById('api-fish-voice-format')?.value || '').trim() || 'mp3',
+        voiceSpeed: (document.getElementById('api-fish-voice-speed')?.value || '').trim() || '1'
+    };
+}
+
 function getApiElevenLabsVoiceConfigFromModal() {
     return {
         provider: 'elevenlabs',
@@ -1110,6 +1203,13 @@ function buildOpenAiVoiceEndpoint(api) {
     if (explicit) return explicit;
     const base = normalizeOpenAiBaseUrl(api?.baseUrl);
     return /\/audio\/speech$/i.test(base) ? base : (/\/v1$/i.test(base) ? `${base}/audio/speech` : `${base}/v1/audio/speech`);
+}
+
+function buildFishAudioVoiceEndpoint(api) {
+    const explicit = String(api?.voiceEndpoint || '').trim();
+    if (explicit) return explicit;
+    const base = String(api?.baseUrl || 'https://api.fish.audio/compat/v1').trim().replace(/\/+$/, '');
+    return /\/audio\/speech$/i.test(base) ? base : `${base}/audio/speech`;
 }
 
 function normalizeElevenLabsBaseUrl(baseUrl) {
@@ -1294,6 +1394,60 @@ async function requestOpenAiVoiceAudio(text, apiConfig) {
     };
 }
 
+async function requestFishAudioVoiceAudio(text, apiConfig) {
+    const api = normalizeFishAudioVoiceApiData(apiConfig);
+    const content = String(text || '').trim();
+    if (!content) throw new Error('语音文本为空');
+    if (!isFishAudioVoiceEnabled(api)) throw new Error('还没有配置可用的 Fish Audio');
+
+    const format = api.voiceFormat || 'mp3';
+    const resp = await fetch(buildFishAudioVoiceEndpoint(api), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'audio/*',
+            'Authorization': `Bearer ${api.apiKey}`
+        },
+        body: JSON.stringify({
+            model: api.voiceModel,
+            input: content,
+            voice: api.voiceId || '',
+            response_format: format,
+            speed: clampMiniMaxNumber(api.voiceSpeed, 1, 0.5, 2)
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (resp.ok && /^(audio\/|application\/octet-stream)/i.test(contentType)) {
+        const blob = await resp.blob();
+        return {
+            audioUrl: await blobToDataUrl(blob),
+            mimeType: blob.type || contentType.split(';')[0] || getMiniMaxAudioMime(format),
+            duration: estimateTextAudioDuration(content),
+            raw: null
+        };
+    }
+
+    const rawText = await resp.text();
+    let json = {};
+    try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
+    const errorValue = json?.error;
+    const detail = json?.error?.message
+        || json?.message
+        || json?.detail?.message
+        || json?.detail
+        || (typeof errorValue === 'string' ? errorValue : '')
+        || rawText
+        || resp.statusText
+        || '请求失败';
+    const status = json?.status || json?.error?.status || resp.status;
+    if (!resp.ok || errorValue || json?.message) {
+        throw new Error(`Fish Audio ${status}: ${String(detail).slice(0, 180)}`);
+    }
+    throw new Error(`Fish Audio ${status}: 接口没有返回音频数据`);
+}
+
 async function requestElevenLabsVoiceAudio(text, apiConfig) {
     const api = normalizeElevenLabsVoiceApiData(apiConfig);
     const content = String(text || '').trim();
@@ -1428,6 +1582,7 @@ async function requestDefaultVoiceAudio(text) {
     const provider = api.provider || api.voiceProvider;
     if (provider === 'local') return requestLocalVoiceAudio(text, api);
     if (provider === 'openai') return requestOpenAiVoiceAudio(text, api);
+    if (provider === 'fish-audio') return requestFishAudioVoiceAudio(text, api);
     if (provider === 'elevenlabs') return requestElevenLabsVoiceAudio(text, api);
     return requestMiniMaxVoiceAudio(text, api);
 }
@@ -1454,6 +1609,15 @@ async function testOpenAiVoiceApi(api) {
         return { ok: true, detail: '(OpenAI TTS 可用)', models: [], chatModel: '' };
     } catch (e) {
         return { ok: false, error: `OpenAI TTS 失败：${e.message || e}`, models: [] };
+    }
+}
+
+async function testFishAudioVoiceApi(api) {
+    try {
+        await requestFishAudioVoiceAudio('你好，这是 Fish Audio 语音测试。', api);
+        return { ok: true, detail: '(Fish Audio 可用)', models: [], chatModel: '' };
+    } catch (e) {
+        return { ok: false, error: `Fish Audio 失败：${e.message || e}`, models: [] };
     }
 }
 
@@ -1523,6 +1687,30 @@ async function testOpenAiVoiceApiFromModal() {
     }
 }
 
+async function testFishAudioVoiceApiFromModal() {
+    const resultEl = document.getElementById('api-fish-voice-test-result');
+    const api = getApiFishAudioVoiceConfigFromModal();
+    if (!resultEl) return;
+    if (!api.baseUrl && !api.voiceEndpoint) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Fish Audio Base URL</span>';
+        return;
+    }
+    const testApi = { ...api, enabled: true };
+    if (!isFishAudioVoiceEnabled(testApi)) {
+        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key 和模型</span>';
+        return;
+    }
+    resultEl.innerHTML = '<span style="color:#fbbf24;">正在请求 Fish Audio...</span>';
+    try {
+        const result = await requestFishAudioVoiceAudio('你好，这是 Fish Audio 语音测试。', testApi);
+        resultEl.innerHTML = '<span style="color:#66d9a0;">Fish Audio 可用，已试听测试音频</span>';
+        const audio = new Audio(result.audioUrl);
+        audio.play().catch(() => {});
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#f87171;">${escapeHtml(e.message || 'Fish Audio 测试失败')}</span>`;
+    }
+}
+
 async function testElevenLabsVoiceApiFromModal() {
     const resultEl = document.getElementById('api-elevenlabs-voice-test-result');
     const api = getApiElevenLabsVoiceConfigFromModal();
@@ -1586,7 +1774,7 @@ function saveApiVoiceSettings() {
     }
     const data = getApiData();
     data.voiceApi = voiceApi;
-    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi);
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi, data.fishAudioVoiceApi);
     saveApiData(data);
     closeApiVoiceModal();
     renderApiList();
@@ -1611,9 +1799,34 @@ function saveApiOpenAiVoiceSettings() {
     }
     const data = getApiData();
     data.openAiVoiceApi = openAiVoiceApi;
-    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, openAiVoiceApi, data.elevenLabsVoiceApi);
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, openAiVoiceApi, data.elevenLabsVoiceApi, data.fishAudioVoiceApi);
     saveApiData(data);
     closeApiOpenAiVoiceModal();
+    renderApiList();
+}
+
+function saveApiFishAudioVoiceSettings() {
+    const resultEl = document.getElementById('api-fish-voice-test-result');
+    const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(getApiFishAudioVoiceConfigFromModal());
+    if (fishAudioVoiceApi.enabled) {
+        if (!fishAudioVoiceApi.baseUrl && !fishAudioVoiceApi.voiceEndpoint) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio Base URL</span>';
+            return;
+        }
+        if (!fishAudioVoiceApi.apiKey) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio API Key</span>';
+            return;
+        }
+        if (!fishAudioVoiceApi.voiceModel) {
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio 模型</span>';
+            return;
+        }
+    }
+    const data = getApiData();
+    data.fishAudioVoiceApi = fishAudioVoiceApi;
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi, fishAudioVoiceApi);
+    saveApiData(data);
+    closeApiFishAudioVoiceModal();
     renderApiList();
 }
 
@@ -1636,7 +1849,7 @@ function saveApiElevenLabsVoiceSettings() {
     }
     const data = getApiData();
     data.elevenLabsVoiceApi = elevenLabsVoiceApi;
-    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, elevenLabsVoiceApi);
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, elevenLabsVoiceApi, data.fishAudioVoiceApi);
     saveApiData(data);
     closeApiElevenLabsVoiceModal();
     renderApiList();
@@ -1651,7 +1864,7 @@ function saveApiLocalVoiceSettings() {
     }
     const data = getApiData();
     data.localVoiceApi = localVoiceApi;
-    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi);
+    data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi, data.fishAudioVoiceApi);
     saveApiData(data);
     closeApiLocalVoiceModal();
     renderApiList();
@@ -1661,6 +1874,7 @@ function setDefaultVoiceProvider(provider) {
     const data = getApiData();
     const voiceApi = normalizeVoiceApiData(data.voiceApi);
     const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi);
     const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
     const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
     if (provider === 'minimax' && !isApiVoiceEnabled(voiceApi)) {
@@ -1670,6 +1884,11 @@ function setDefaultVoiceProvider(provider) {
     }
     if (provider === 'openai' && !isOpenAiVoiceEnabled(openAiVoiceApi)) {
         alert('OpenAI TTS 还没有配置完整。');
+        renderApiList();
+        return;
+    }
+    if (provider === 'fish-audio' && !isFishAudioVoiceEnabled(fishAudioVoiceApi)) {
+        alert('Fish Audio 还没有配置完整。');
         renderApiList();
         return;
     }
@@ -1883,15 +2102,18 @@ function getDefaultVoiceApi() {
     const data = getApiData();
     const voiceApi = normalizeVoiceApiData(data.voiceApi);
     const openAiVoiceApi = normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi);
     const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
     const localVoiceApi = normalizeLocalVoiceApiData(data.localVoiceApi);
-    const provider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi);
+    const provider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi, fishAudioVoiceApi);
     if (provider === 'local' && isLocalVoiceEnabled(localVoiceApi)) return localVoiceApi;
     if (provider === 'minimax' && isApiVoiceEnabled(voiceApi)) return voiceApi;
     if (provider === 'openai' && isOpenAiVoiceEnabled(openAiVoiceApi)) return openAiVoiceApi;
+    if (provider === 'fish-audio' && isFishAudioVoiceEnabled(fishAudioVoiceApi)) return fishAudioVoiceApi;
     if (provider === 'elevenlabs' && isElevenLabsVoiceEnabled(elevenLabsVoiceApi)) return elevenLabsVoiceApi;
     if (isApiVoiceEnabled(voiceApi)) return voiceApi;
     if (isOpenAiVoiceEnabled(openAiVoiceApi)) return openAiVoiceApi;
+    if (isFishAudioVoiceEnabled(fishAudioVoiceApi)) return fishAudioVoiceApi;
     if (isElevenLabsVoiceEnabled(elevenLabsVoiceApi)) return elevenLabsVoiceApi;
     if (isLocalVoiceEnabled(localVoiceApi)) return localVoiceApi;
     return null;

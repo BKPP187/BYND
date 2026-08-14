@@ -46,7 +46,7 @@
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=1.1.582">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.582-mcp-hub-auth2">
+    <link rel="stylesheet" href="style.css?v=1.1.583-mcp-hub-auth2-fish-audio">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -914,7 +914,7 @@
                             </div>
                         </details>
 
-                        <details id="manual-api" class="manual-section" data-manual-keywords="API 是什么 服务商 模型 Base URL API Key 密钥 测试 连接 余额 额度 聊天 生图 视觉 多模态 语音 TTS MiniMax OpenAI ElevenLabs 400 401 403 404 408 429 500 502 503 504 超时 空回复 Failed to fetch CORS">
+                        <details id="manual-api" class="manual-section" data-manual-keywords="API 是什么 服务商 模型 Base URL API Key 密钥 测试 连接 余额 额度 聊天 生图 视觉 多模态 语音 TTS MiniMax OpenAI Fish Audio ElevenLabs 400 401 403 404 408 429 500 502 503 504 超时 空回复 Failed to fetch CORS">
                             <summary><span class="manual-section-icon"><i class="ri-links-line"></i></span><span><strong>API 与模型：给角色接上“大脑”</strong><em>概念、配置、视觉模型与完整报错对照</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
                             <div class="manual-section-body">
                                 <p class="manual-lead">BYND 负责呈现手机、角色和聊天体验，真正生成回复的是你连接的 AI 服务。这个连接就叫 API。第一次看见这些词容易发懵，我们先用生活里的比喻认识它们。</p>
@@ -950,7 +950,7 @@
                                 <div class="manual-callout">
                                     <p><strong>视觉模型 / 多模态模型：</strong>能读懂你发送的照片或截图。若普通文字能回复、发图却失败，可以换成明确支持图片输入的聊天模型。</p>
                                     <p><strong>生图模型：</strong>负责从文字生成图片，常用于自拍、通话画面等。它不等于“能看图”的视觉模型，可能需要单独选择生图用途或单独配置服务。</p>
-                                    <p><strong>语音服务：</strong>把文字念成声音，属于 TTS。可以按设置页对应入口配置 MiniMax、OpenAI、ElevenLabs 或本地 TTS，再用“测试语音”听一下效果。</p>
+                                    <p><strong>语音服务：</strong>把文字念成声音，属于 TTS。可以按设置页对应入口配置 MiniMax、OpenAI、Fish Audio、ElevenLabs 或本地 TTS，再用“测试语音”听一下效果。云端供应商需要各自有效的 API Key，并按服务商规则消耗额度。</p>
                                 </div>
 
                                 <h4>报错翻译：看到数字时怎么做</h4>
@@ -1833,6 +1833,70 @@
                     <button class="btn-confirm" onclick="saveApiOpenAiVoiceSettings()" style="background:linear-gradient(135deg,#34d399,#059669); flex:1; border-radius:14px;">保存</button>
                 </div>
                 <div id="api-openai-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
+            </div>
+        </div>
+
+        <div id="api-fish-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
+            <div class="wc-char-card api-voice-modal-card" style="background:#fffafb; border:1.5px solid rgba(244,63,94,0.22); border-radius:24px;">
+                <div class="wc-card-header" style="border-bottom-color:rgba(244,63,94,0.14);">
+                    <span style="color:#be123c; font-weight:800;">Fish Audio API</span>
+                    <i class="ri-close-line" onclick="closeApiFishAudioVoiceModal()" style="color:#be123c;"></i>
+                </div>
+                <div class="wc-card-body" style="gap:12px;">
+                    <label class="api-voice-enable-row" style="background:rgba(244,63,94,0.08); border-color:rgba(244,63,94,0.13); color:#be123c;">
+                        <span><i class="ri-sound-module-line"></i> 启用 Fish Audio</span>
+                        <input type="checkbox" id="api-fish-voice-enabled" style="accent-color:#be123c;">
+                    </label>
+                    <div class="wc-form-group">
+                        <label style="color:#be123c;">名称</label>
+                        <input type="text" id="api-fish-voice-name" placeholder="Fish Audio" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#be123c;">Base URL</label>
+                        <input type="text" id="api-fish-voice-url" placeholder="https://api.fish.audio/compat/v1" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
+                    </div>
+                    <div class="wc-form-group">
+                        <label style="color:#be123c;">Fish Audio API Key</label>
+                        <input type="password" id="api-fish-voice-key" placeholder="填 Fish Audio API Key" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
+                    </div>
+                    <div class="api-voice-grid">
+                        <label>
+                            <span>模型</span>
+                            <input type="text" id="api-fish-voice-model" placeholder="fish-audio/s2.1-pro-free" style="border-color:rgba(244,63,94,0.18);">
+                        </label>
+                        <label>
+                            <span>音色 / Reference ID</span>
+                            <input type="text" id="api-fish-voice-id" placeholder="可留空使用默认声线" style="border-color:rgba(244,63,94,0.18);">
+                        </label>
+                        <label>
+                            <span>Endpoint</span>
+                            <input type="text" id="api-fish-voice-endpoint" placeholder="留空自动 /audio/speech" style="border-color:rgba(244,63,94,0.18);">
+                        </label>
+                        <label>
+                            <span>格式</span>
+                            <select id="api-fish-voice-format" style="border-color:rgba(244,63,94,0.18);">
+                                <option value="mp3">mp3</option>
+                                <option value="wav">wav</option>
+                                <option value="opus">opus</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>语速</span>
+                            <input type="number" id="api-fish-voice-speed" min="0.5" max="2" step="0.1" style="border-color:rgba(244,63,94,0.18);">
+                        </label>
+                    </div>
+                    <div class="api-voice-method" style="border-color:rgba(244,63,94,0.12);">
+                        <strong style="color:#be123c;">接入方法</strong>
+                        <span>使用 Fish Audio 官方 OpenAI 兼容接口，默认请求 Base URL + /audio/speech；Endpoint 留空即可。</span>
+                        <span>API Key 与模型必填。音色 / Reference ID 可以留空，此时由接口使用默认声线；测试和正式语音都会消耗 Fish Audio 账户额度。</span>
+                        <span><a href="https://fish.audio/zh-CN/" target="_blank" rel="noopener noreferrer" style="color:#be123c;">Fish Audio 官网</a> · <a href="https://fish.audio/app/api-keys/" target="_blank" rel="noopener noreferrer" style="color:#be123c;">创建 API Key</a> · <a href="https://docs.fish.audio/developer-guide/compat/migrate-from-openai" target="_blank" rel="noopener noreferrer" style="color:#be123c;">官方兼容接口文档</a></span>
+                    </div>
+                </div>
+                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
+                    <button class="btn-confirm" onclick="testFishAudioVoiceApiFromModal()" style="background:transparent; color:#be123c; border:1.5px solid rgba(244,63,94,0.38); flex:1; border-radius:14px;">测试语音</button>
+                    <button class="btn-confirm" onclick="saveApiFishAudioVoiceSettings()" style="background:linear-gradient(135deg,#fb7185,#be123c); flex:1; border-radius:14px;">保存</button>
+                </div>
+                <div id="api-fish-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
             </div>
         </div>
 
@@ -2764,7 +2828,7 @@
     <script src="modules/wechat/ui-theme.js?v=1.1.582"></script>
     <script src="wechat.js?v=1.1.582-no-hardcoded-phone"></script>
     <script src="theme.js?v=20260711-manual-icon1"></script>
-    <script src="settings.js?v=1.1.582"></script>
+    <script src="settings.js?v=1.1.583-fish-audio"></script>
     <script src="script.js?v=1.1.582-mcp-auth2"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>

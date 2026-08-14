@@ -10407,6 +10407,9 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .api-voice-route.openai.ready {
     border-color: rgba(16,185,129,0.24);
 }
+.api-voice-route.fish-audio.ready {
+    border-color: rgba(244,63,94,0.24);
+}
 .api-voice-route.elevenlabs.ready {
     border-color: rgba(245,158,11,0.26);
 }
@@ -10418,6 +10421,9 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .api-voice-route.openai.active {
     box-shadow: 0 10px 24px rgba(16,185,129,0.12), inset 0 0 0 1px rgba(16,185,129,0.12);
+}
+.api-voice-route.fish-audio.active {
+    box-shadow: 0 10px 24px rgba(190,18,60,0.12), inset 0 0 0 1px rgba(190,18,60,0.12);
 }
 .api-voice-route.elevenlabs.active {
     box-shadow: 0 10px 24px rgba(245,158,11,0.13), inset 0 0 0 1px rgba(245,158,11,0.14);
@@ -10438,6 +10444,9 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .api-voice-route.openai .api-voice-route-main strong {
     color: #059669;
+}
+.api-voice-route.fish-audio .api-voice-route-main strong {
+    color: #be123c;
 }
 .api-voice-route.elevenlabs .api-voice-route-main strong {
     color: #b45309;
@@ -10487,6 +10496,9 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .api-voice-route.openai button {
     background: #059669;
 }
+.api-voice-route.fish-audio button {
+    background: #be123c;
+}
 .api-voice-route.elevenlabs button {
     background: #b45309;
 }
@@ -10506,6 +10518,10 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .api-voice-route.openai button.api-voice-default-btn:disabled {
     background: rgba(16,185,129,0.12);
     color: #059669;
+}
+.api-voice-route.fish-audio button.api-voice-default-btn:disabled {
+    background: rgba(190,18,60,0.12);
+    color: #be123c;
 }
 .api-voice-route.elevenlabs button.api-voice-default-btn:disabled {
     background: rgba(245,158,11,0.14);
