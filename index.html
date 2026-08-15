@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#111318">
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#111318">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111318">
+    <meta name="theme-color" content="#0B0D10">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0B0D10">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B0D10">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -44,12 +44,33 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.587">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.588">
+    <link rel="icon" href="bynd-icon.svg?v=1.1.588" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.587-watch-removed">
+    <link rel="stylesheet" href="style.css?v=1.1.588-startup">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
+
+    <div id="bynd-startup" class="bynd-startup" role="status" aria-label="BYND 正在启动">
+        <div class="bynd-startup-panels" aria-hidden="true">
+            <span class="bynd-startup-panel bynd-startup-panel-left"></span>
+            <span class="bynd-startup-panel bynd-startup-panel-right"></span>
+        </div>
+        <div class="bynd-startup-stage">
+            <span class="bynd-startup-seam" aria-hidden="true"></span>
+            <svg class="bynd-startup-wordmark" viewBox="0 0 276 80" aria-hidden="true">
+                <g class="bynd-startup-wordmark-fill" fill-rule="evenodd">
+                    <path d="M6 8h26c15 0 24 7 24 19 0 7-4 12-11 15 8 2 13 8 13 17 0 10-10 13-24 13H6V8Zm14 12v14h11c7 0 11-3 11-7 0-5-4-7-11-7H20Zm0 26v14h13c7 0 11-2 11-7s-4-7-12-7H20Z"></path>
+                    <path d="M68 8h17l11 22 11-22h17l-20 36v28H88V44L68 8Z"></path>
+                    <path d="M136 8h16l24 40V8h16v64h-16l-24-40v40h-16V8Z"></path>
+                    <path d="M206 8h26c23 0 38 11 38 32s-15 32-38 32h-26V8Zm16 13v38h9c15 0 23-6 23-19s-8-19-23-19h-9Z"></path>
+                </g>
+                <path class="bynd-startup-wordmark-edge" d="M268 24v32"></path>
+            </svg>
+            <span class="bynd-startup-tagline">BEYOND THE SCREEN</span>
+        </div>
+    </div>
 
     <div class="phone-container">
         
@@ -1650,7 +1671,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.587
+                    Beyond Screen v1.1.588
                 </div>
             </div>
         </div>
@@ -2822,14 +2843,14 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.587-image-stack-vision"></script>
+    <script src="chat-api.js?v=1.1.588-image-stack-vision"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.587"></script>
-    <script src="wechat.js?v=1.1.587-watch-removed"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.588"></script>
+    <script src="wechat.js?v=1.1.588-startup"></script>
     <script src="theme.js?v=20260711-manual-icon1"></script>
-    <script src="settings.js?v=1.1.587-wisart-proxy"></script>
-    <script src="script.js?v=1.1.587-watch-removed"></script>
+    <script src="settings.js?v=1.1.588-wisart-proxy"></script>
+    <script src="script.js?v=1.1.588-startup"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

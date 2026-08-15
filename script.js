@@ -1,22 +1,97 @@
 // --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
-document.addEventListener('DOMContentLoaded', () => {
-    initClock();
-    initBattery();
-    initDate();
-    initLockScreen();
-    initCalendar();
-    initByndFullscreenRuntime();
-    
-    if (typeof initIconGrid === 'function') initIconGrid();
-    if (typeof initTheme === 'function') initTheme();
-    initLockscreenWeatherRuntime();
-    if (typeof loadCharactersFromStorage === 'function') loadCharactersFromStorage(); 
-    if (typeof initOutingAppRuntime === 'function') initOutingAppRuntime();
-    if (typeof initDesktopStatusWidgetRuntime === 'function') initDesktopStatusWidgetRuntime();
-    initProactiveNotify();
-    if (typeof syncMonitorPetFloating === 'function') syncMonitorPetFloating();
-});
+const BYND_STARTUP_STORAGE_KEY = 'bynd_startup_seen_v1';
+const byndStartupController = initByndStartup();
+
+function initByndStartup() {
+    const layer = document.getElementById('bynd-startup');
+    if (!layer) return { markReady() {} };
+
+    const forcedMode = new URLSearchParams(window.location.search).get('bynd-intro');
+    let hasSeenStartup = false;
+    try {
+        hasSeenStartup = localStorage.getItem(BYND_STARTUP_STORAGE_KEY) === '1';
+    } catch (e) {}
+    const mode = forcedMode === 'first' || forcedMode === 'regular'
+        ? forcedMode
+        : (hasSeenStartup ? 'regular' : 'first');
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const minimumDuration = reduceMotion ? 0 : (mode === 'first' ? 2350 : 650);
+    const startedAt = performance.now();
+    let readyHandled = false;
+
+    layer.classList.add(`is-${mode}`);
+    layer.dataset.mode = mode;
+
+    return {
+        markReady() {
+            if (readyHandled) return;
+            readyHandled = true;
+            const remaining = Math.max(0, minimumDuration - (performance.now() - startedAt));
+            window.setTimeout(() => {
+                try {
+                    localStorage.setItem(BYND_STARTUP_STORAGE_KEY, '1');
+                } catch (e) {}
+                layer.classList.add('is-opening');
+                layer.setAttribute('aria-hidden', 'true');
+                window.setTimeout(() => {
+                    layer.hidden = true;
+                }, reduceMotion ? 180 : 600);
+            }, remaining);
+        }
+    };
+}
+
+function initializeByndApp() {
+    const run = (initializer, label) => {
+        try {
+            return initializer();
+        } catch (error) {
+            console.error(`BYND 初始化失败：${label}`, error);
+            return undefined;
+        }
+    };
+
+    run(initClock, '时钟');
+    run(initBattery, '电池');
+    run(initDate, '日期');
+    run(initLockScreen, '锁屏');
+    run(initCalendar, '日历');
+    run(initByndFullscreenRuntime, '全屏模式');
+    if (typeof initIconGrid === 'function') run(initIconGrid, '图标');
+    if (typeof initTheme === 'function') run(initTheme, '主题');
+    run(initLockscreenWeatherRuntime, '锁屏天气');
+
+    const charactersReady = typeof loadCharactersFromStorage === 'function'
+        ? Promise.resolve(run(loadCharactersFromStorage, '角色数据')).catch(error => {
+            console.warn('角色数据读取未完成，继续启动', error);
+        })
+        : Promise.resolve();
+
+    if (typeof initOutingAppRuntime === 'function') run(initOutingAppRuntime, '一起出门');
+    if (typeof initDesktopStatusWidgetRuntime === 'function') run(initDesktopStatusWidgetRuntime, '桌面状态');
+    run(initProactiveNotify, '主动提醒');
+    if (typeof syncMonitorPetFloating === 'function') run(syncMonitorPetFloating, '桌宠');
+
+    const fontsReady = document.fonts?.ready
+        ? Promise.resolve(document.fonts.ready).catch(error => {
+            console.warn('字体加载未完成，继续启动', error);
+        })
+        : Promise.resolve();
+
+    return Promise.all([charactersReady, fontsReady]);
+}
+
+function startByndAppInitialization() {
+    window.__byndCoreReady = initializeByndApp();
+    window.__byndCoreReady.then(() => byndStartupController.markReady());
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startByndAppInitialization, { once: true });
+} else {
+    Promise.resolve().then(startByndAppInitialization);
+}
 
 // --- 基础功能 ---
 function initClock() {
@@ -1187,7 +1262,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.587' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.588' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };

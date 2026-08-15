@@ -12965,10 +12965,12 @@ function applyLoadedWechatCharacters(data, sourceLabel) {
 }
 
 function loadCharactersFromStorage() {
+    let localData = null;
+    let meta = {};
+    let localReadFailed = false;
     try {
         const raw = localStorage.getItem(WECHAT_CHARACTERS_STORAGE_KEY);
-        let localData = null;
-        const meta = getWechatCharacterStorageMeta();
+        meta = getWechatCharacterStorageMeta();
         if (raw) localData = JSON.parse(raw);
         if (Array.isArray(localData) && localData.length > 0) {
             applyLoadedWechatCharacters(localData, meta.mode === 'indexeddb' ? '(轻量索引)' : '');
@@ -12976,25 +12978,27 @@ function loadCharactersFromStorage() {
             console.log("无已保存的角色数据");
         }
 
-        loadWechatCharactersFromIndexedDb().then(record => {
-            const data = record && Array.isArray(record.characters) ? record.characters : null;
-            if (!data || !data.length) return;
-            const shouldUseIndexedDb = !Array.isArray(localData)
-                || !localData.length
-                || meta.mode === 'indexeddb'
-                || isWechatCompactCharacterSnapshot(localData)
-                || Number(record.updatedAt || 0) >= Number(meta.updatedAt || 0);
-            if (shouldUseIndexedDb) applyLoadedWechatCharacters(data, '(IndexedDB)');
-        }).catch(err => {
-            if (meta.mode === 'indexeddb') console.warn('读取大容量角色数据失败', err);
-        });
     } catch (e) {
+        localReadFailed = true;
         console.error("加载角色数据失败:", e);
-        loadWechatCharactersFromIndexedDb().then(record => {
-            const data = record && Array.isArray(record.characters) ? record.characters : null;
-            if (data && data.length) applyLoadedWechatCharacters(data, '(IndexedDB fallback)');
-        }).catch(err => console.error("加载 IndexedDB 角色数据失败:", err));
     }
+
+    return loadWechatCharactersFromIndexedDb().then(record => {
+        const data = record && Array.isArray(record.characters) ? record.characters : null;
+        if (!data || !data.length) return null;
+        const shouldUseIndexedDb = !Array.isArray(localData)
+            || !localData.length
+            || meta.mode === 'indexeddb'
+            || isWechatCompactCharacterSnapshot(localData)
+            || Number(record.updatedAt || 0) >= Number(meta.updatedAt || 0);
+        if (shouldUseIndexedDb) {
+            applyLoadedWechatCharacters(data, localReadFailed ? '(IndexedDB fallback)' : '(IndexedDB)');
+        }
+        return record;
+    }).catch(err => {
+        console.warn('读取 IndexedDB 角色数据失败，继续使用本地数据', err);
+        return null;
+    });
 }
 
 async function saveWechatImportedCharactersData(characters, updatedAt = Date.now()) {
