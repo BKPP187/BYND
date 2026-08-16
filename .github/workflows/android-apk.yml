@@ -24,6 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Test dream and UI features
+        run: |
+          node tests/dream-feature.test.cjs
+          node tests/ui-regression.test.cjs
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:

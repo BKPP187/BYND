@@ -44,10 +44,10 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.588">
-    <link rel="icon" href="bynd-icon.svg?v=1.1.588" type="image/svg+xml">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.589">
+    <link rel="icon" href="bynd-icon.svg?v=1.1.589" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.588-startup">
+    <link rel="stylesheet" href="style.css?v=1.1.589-dream-ui-2">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
@@ -66,7 +66,6 @@
                     <path d="M136 8h16l24 40V8h16v64h-16l-24-40v40h-16V8Z"></path>
                     <path d="M206 8h26c23 0 38 11 38 32s-15 32-38 32h-26V8Zm16 13v38h9c15 0 23-6 23-19s-8-19-23-19h-9Z"></path>
                 </g>
-                <path class="bynd-startup-wordmark-edge" d="M268 24v32"></path>
             </svg>
             <span class="bynd-startup-tagline">BEYOND THE SCREEN</span>
         </div>
@@ -531,35 +530,60 @@
 
         <div id="app-dream-window" class="app-window hidden dream-window">
             <div class="dream-shell">
-                <div class="dream-topbar">
-                    <button type="button" onclick="closeApp('dream')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
-                    <div>
-                        <span>DREAM VAULT</span>
-                        <strong>盗梦空间</strong>
+                <section class="dream-view dream-entry-view" id="dream-entry-view">
+                    <header class="dream-topbar">
+                        <button type="button" class="dream-icon-button" onclick="closeApp('dream')" aria-label="返回"><i class="ri-arrow-left-line"></i></button>
+                        <div><span>BEYOND THE SCREEN</span><strong>盗梦空间</strong></div>
+                        <button type="button" class="dream-icon-button" onclick="showDreamArchive()" aria-label="梦境档案"><i class="ri-archive-line"></i></button>
+                    </header>
+                    <div class="dream-entry-content">
+                        <div class="dream-section-label"><span>CHOOSE A DREAMER</span><em id="dream-char-count"></em></div>
+                        <nav class="dream-char-strip" id="dream-char-strip" aria-label="选择入梦角色"></nav>
+                        <section class="dream-selected" id="dream-selected">
+                            <img id="dream-selected-avatar" src="" alt="">
+                            <span>SELECTED DREAMER</span>
+                            <h2 id="dream-selected-name"></h2>
+                            <p>昼事未竟，梦中续之。</p>
+                        </section>
+                        <button type="button" class="dream-primary-button" id="dream-generate-button" onclick="generateDreamRecord()">
+                            <i class="ri-moon-clear-line"></i><span>生成梦境</span>
+                        </button>
+                        <button type="button" class="dream-latest-link hidden" id="dream-latest-link" onclick="openLatestDreamPreview()">
+                            <span><em>LATEST DREAM</em><strong id="dream-latest-title"></strong></span>
+                            <i class="ri-arrow-right-line"></i>
+                        </button>
+                        <p class="dream-status" id="dream-status" role="status"></p>
                     </div>
-                    <button type="button" onclick="generateDreamRecord()" aria-label="生成梦境"><i class="ri-sparkling-2-line"></i></button>
-                </div>
-                <div class="dream-content">
-                    <section class="dream-hero" id="dream-hero">
-                        <div class="dream-hero-visual">
-                            <div class="dream-portal"></div>
-                            <i class="ri-box-3-line"></i>
-                        </div>
-                        <div class="dream-hero-copy">
-                            <span>OPEN THE BOX</span>
-                            <strong>把角色醒来后不肯说出口的梦，封存在这里。</strong>
-                        </div>
-                    </section>
-                    <section class="dream-control">
-                        <label>
-                            <span>入梦角色</span>
-                            <select id="dream-char-select"></select>
-                        </label>
-                        <button type="button" onclick="generateDreamRecord()"><i class="ri-sparkling-2-line"></i> 生成梦境</button>
-                    </section>
-                    <p class="dream-status" id="dream-status"></p>
-                    <section class="dream-list" id="dream-list"></section>
-                </div>
+                </section>
+
+                <section class="dream-view dream-preview-view hidden" id="dream-preview-view">
+                    <header class="dream-topbar">
+                        <button type="button" class="dream-icon-button" onclick="showDreamEntry()" aria-label="返回选择"><i class="ri-arrow-left-line"></i></button>
+                        <div><span>DREAM PREVIEW</span><strong>梦境预览</strong></div>
+                        <button type="button" class="dream-icon-button" onclick="showDreamArchive()" aria-label="梦境档案"><i class="ri-archive-line"></i></button>
+                    </header>
+                    <div class="dream-preview-content" id="dream-preview-content"></div>
+                </section>
+
+                <section class="dream-view dream-archive-view hidden" id="dream-archive-view">
+                    <header class="dream-topbar">
+                        <button type="button" class="dream-icon-button" onclick="showDreamEntry()" aria-label="返回选择"><i class="ri-arrow-left-line"></i></button>
+                        <div><span>DREAM ARCHIVE</span><strong>梦境档案</strong></div>
+                        <span class="dream-header-spacer" aria-hidden="true"></span>
+                    </header>
+                    <div class="dream-archive-content">
+                        <div class="dream-list" id="dream-list"></div>
+                    </div>
+                </section>
+
+                <section class="dream-view dream-session-view hidden" id="dream-session-view">
+                    <header class="dream-topbar">
+                        <button type="button" class="dream-icon-button" onclick="exitDreamSession()" aria-label="退出梦境"><i class="ri-close-line"></i></button>
+                        <div><span>INSIDE THE DREAM</span><strong id="dream-session-header-title">入梦</strong></div>
+                        <button type="button" class="dream-icon-button" onclick="exitDreamSession()" aria-label="暂存并退出"><i class="ri-bookmark-line"></i></button>
+                    </header>
+                    <div class="dream-session-content" id="dream-session-content"></div>
+                </section>
             </div>
         </div>
 
@@ -1671,7 +1695,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.588
+                    Beyond Screen v1.1.589
                 </div>
             </div>
         </div>
@@ -2843,14 +2867,14 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.588-image-stack-vision"></script>
+    <script src="chat-api.js?v=1.1.589-dream-context"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.588"></script>
-    <script src="wechat.js?v=1.1.588-startup"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.589"></script>
+    <script src="wechat.js?v=1.1.589-dream-context"></script>
     <script src="theme.js?v=20260711-manual-icon1"></script>
-    <script src="settings.js?v=1.1.588-wisart-proxy"></script>
-    <script src="script.js?v=1.1.588-startup"></script>
+    <script src="settings.js?v=1.1.589-dream-backup"></script>
+    <script src="script.js?v=1.1.589-dream-interaction-4"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

@@ -1,5 +1,5 @@
 @import url("./styles/wechat-themes/base-overrides.css?v=20260705-telegram-back-clear8");
-@import url("./styles/wechat-themes/reference-themes.css?v=1.1.588-mcp");
+@import url("./styles/wechat-themes/reference-themes.css?v=1.1.589-dream-ui");
 
 /* style.css - main stylesheet */
 /* --- Core Utilities --- */
@@ -85,15 +85,6 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     will-change: clip-path, opacity;
 }
 .bynd-startup-wordmark-fill { fill: #F5F7F4; }
-.bynd-startup-wordmark-edge {
-    fill: none;
-    stroke: #D8E6FF;
-    stroke-width: 4;
-    stroke-linecap: square;
-    opacity: 0;
-    transform: translateX(-30px);
-    transform-origin: center;
-}
 .bynd-startup-tagline {
     margin-top: 18px;
     color: #D8E6FF;
@@ -111,19 +102,11 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 .bynd-startup.is-first .bynd-startup-wordmark {
     animation: bynd-startup-wordmark-first 1050ms cubic-bezier(.2, .78, .2, 1) 360ms forwards;
 }
-.bynd-startup.is-first .bynd-startup-wordmark-edge {
-    animation: bynd-startup-edge-enter 720ms cubic-bezier(.2, .82, .24, 1) 940ms forwards,
-        bynd-startup-edge-tension 2400ms ease-in-out 2350ms infinite;
-}
 .bynd-startup.is-first .bynd-startup-tagline {
     animation: bynd-startup-copy-in 430ms ease 1540ms forwards;
 }
 .bynd-startup.is-regular .bynd-startup-wordmark {
     animation: bynd-startup-wordmark-first 310ms cubic-bezier(.2, .78, .2, 1) 35ms forwards;
-}
-.bynd-startup.is-regular .bynd-startup-wordmark-edge {
-    animation: bynd-startup-edge-enter 280ms cubic-bezier(.2, .82, .24, 1) 170ms forwards,
-        bynd-startup-edge-tension 2400ms ease-in-out 650ms infinite;
 }
 .bynd-startup.is-regular .bynd-startup-tagline {
     animation: bynd-startup-copy-in 180ms ease 360ms forwards;
@@ -142,14 +125,6 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     from { opacity: 0; clip-path: inset(0 50% 0 50%); }
     to { opacity: 1; clip-path: inset(0 0 0 0); }
 }
-@keyframes bynd-startup-edge-enter {
-    from { opacity: 0; transform: translateX(-30px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes bynd-startup-edge-tension {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(3px); }
-}
 @keyframes bynd-startup-copy-in {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -163,7 +138,6 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     .bynd-startup .bynd-startup-wordmark,
     .bynd-startup .bynd-startup-tagline { animation: none; opacity: 1; transform: none; }
     .bynd-startup .bynd-startup-wordmark { clip-path: none; }
-    .bynd-startup .bynd-startup-wordmark-edge { animation: none; opacity: 1; transform: none; }
     .bynd-startup.is-opening { opacity: 0; transition: opacity 160ms ease; }
     .bynd-startup.is-opening .bynd-startup-panel-left,
     .bynd-startup.is-opening .bynd-startup-panel-right { transform: none; }
@@ -15186,1083 +15160,671 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .dream-window,
 .dream-shell {
-    background: #07090f;
-    color: #f8f4ea;
+    background: #fff;
+    color: #0a0a0a;
 }
 .dream-shell {
     position: relative;
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+.dream-view {
+    height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    isolation: isolate;
+    background: #fff;
 }
-.dream-shell::before {
-    content: '';
-    position: absolute;
-    inset: -18%;
-    z-index: -2;
-    background:
-        radial-gradient(circle at 18% 18%, rgba(111,89,220,0.30), transparent 32%),
-        radial-gradient(circle at 82% 12%, rgba(214,172,98,0.18), transparent 28%),
-        radial-gradient(circle at 54% 70%, rgba(54,94,130,0.30), transparent 36%),
-        linear-gradient(180deg, #080a10, #121018 54%, #090a0d);
-}
-.dream-shell::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-    background-size: 38px 38px;
-    mask-image: radial-gradient(circle at 50% 32%, rgba(0,0,0,0.92), transparent 68%);
+.dream-view.hidden {
+    display: none;
 }
 .dream-topbar {
-    height: 102px;
-    padding: 48px 20px 12px;
+    flex: 0 0 auto;
+    min-height: 64px;
+    padding: max(12px, env(safe-area-inset-top)) 18px 10px;
+    border-bottom: 1px solid #d8d8d8;
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
-    align-items: center;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    align-items: end;
     gap: 12px;
-    background: rgba(7,9,15,0.62);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(22px) saturate(1.1);
-    -webkit-backdrop-filter: blur(22px) saturate(1.1);
+    background: #fff;
+    color: #0a0a0a;
 }
-.dream-topbar button {
-    width: 40px;
-    height: 40px;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 16px;
-    background: rgba(255,255,255,0.08);
-    color: #f8f4ea;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 12px 24px rgba(0,0,0,0.20);
-}
-.dream-topbar button:disabled {
-    opacity: 0.46;
-}
-.dream-topbar div {
+.dream-topbar > div {
     min-width: 0;
     text-align: center;
 }
-.dream-topbar span {
-    color: rgba(248,244,234,0.48);
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 0.16em;
-}
+.dream-topbar span,
 .dream-topbar strong {
     display: block;
-    margin-top: 4px;
-    color: #fffaf0;
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 930;
+    letter-spacing: 0;
 }
-.dream-content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 16px 18px 28px;
+.dream-topbar span {
+    color: #707070;
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 700;
 }
-.dream-hero {
-    position: relative;
-    min-height: 250px;
-    padding: 18px;
-    border-radius: 34px;
+.dream-topbar strong {
+    margin-top: 3px;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
-        radial-gradient(circle at 50% 22%, rgba(228,198,131,0.22), transparent 34%),
-        rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 54px rgba(0,0,0,0.26);
-}
-.dream-hero-visual {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
-.dream-portal {
-    width: 168px;
-    height: 168px;
-    border-radius: 50%;
-    border: 1px solid rgba(238,210,151,0.32);
-    background:
-        radial-gradient(circle, rgba(255,237,189,0.24), transparent 38%),
-        conic-gradient(from 20deg, rgba(255,255,255,0.08), rgba(228,198,131,0.42), rgba(117,108,224,0.26), rgba(255,255,255,0.08));
-    filter: drop-shadow(0 0 34px rgba(222,194,133,0.26));
-    animation: dreamPortalPulse 5.6s ease-in-out infinite;
-}
-.dream-hero-visual > i {
-    position: absolute;
-    color: rgba(255,237,189,0.86);
-    font-size: 58px;
-    text-shadow: 0 0 24px rgba(255,225,159,0.38);
-}
-@keyframes dreamPortalPulse {
-    0%, 100% { transform: scale(0.96) rotate(0deg); opacity: 0.72; }
-    50% { transform: scale(1.06) rotate(12deg); opacity: 0.94; }
-}
-.dream-hero-copy {
-    position: relative;
-    z-index: 1;
-    max-width: 286px;
-}
-.dream-hero-copy span {
-    color: rgba(238,210,151,0.88);
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 0.18em;
-}
-.dream-hero-copy strong {
-    display: block;
-    margin-top: 8px;
-    color: #fffaf0;
-    font-size: 23px;
-    line-height: 1.18;
-    font-weight: 920;
-}
-.dream-hero-copy p {
-    margin: 9px 0 0;
-    color: rgba(248,244,234,0.58);
-    font-size: 12px;
-    line-height: 1.55;
-}
-.dream-control {
-    margin-top: 14px;
-    padding: 12px;
-    border-radius: 24px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.10);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 10px;
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-}
-.dream-control label {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    position: relative;
-}
-.dream-control label span {
-    color: rgba(248,244,234,0.48);
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-}
-.dream-control select {
-    width: 100%;
-    min-width: 0;
-    height: 42px;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 17px;
-    padding: 0 12px;
-    outline: none;
-    background: rgba(255,255,255,0.10);
-    color: #fffaf0;
-    font-size: 13px;
-    font-weight: 820;
-}
-.dream-control select option {
-    color: #171a22;
-}
-.dream-native-select {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
-.dream-char-picker {
-    position: relative;
-    z-index: 5;
-}
-.dream-char-trigger {
-    width: 100%;
-    height: 42px;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 17px;
-    padding: 0 12px;
-    outline: none;
-    background: rgba(255,255,255,0.10);
-    color: #fffaf0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    font-size: 13px;
-    font-weight: 820;
-}
-.dream-char-trigger span {
-    min-width: 0;
-    overflow: hidden;
+    color: #0a0a0a;
+    font-size: 17px;
+    line-height: 1.2;
+    font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.dream-char-trigger i {
-    font-size: 19px;
-    color: rgba(247,241,230,0.78);
-    transition: transform 160ms ease;
-}
-.dream-char-picker.open .dream-char-trigger i {
-    transform: rotate(180deg);
-}
-.dream-char-menu {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(100% + 8px);
-    z-index: 20;
-    display: none;
-    padding: 6px;
-    border-radius: 18px;
-    background: rgba(30,31,38,0.96);
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 20px 42px rgba(0,0,0,0.34);
-    backdrop-filter: blur(18px) saturate(1.08);
-    -webkit-backdrop-filter: blur(18px) saturate(1.08);
-}
-.dream-char-picker.open .dream-char-menu {
-    display: grid;
-    gap: 3px;
-}
-.dream-char-menu button {
-    width: 100%;
-    height: 36px;
-    border: none;
-    border-radius: 13px;
-    padding: 0 12px;
-    background: transparent;
-    color: rgba(247,241,230,0.82);
-    text-align: left;
-    font-size: 13px;
-    font-weight: 760;
-}
-.dream-char-menu button.active {
-    background: linear-gradient(135deg, rgba(234,211,154,0.24), rgba(255,255,255,0.08));
-    color: #fff7df;
-}
-.dream-char-menu button:hover {
-    background: rgba(255,255,255,0.09);
-}
-.dream-char-menu em {
-    padding: 10px 12px;
-    color: rgba(247,241,230,0.46);
-    font-size: 12px;
-    font-style: normal;
-}
-.dream-control button {
+.dream-icon-button,
+.dream-header-spacer {
+    width: 42px;
     height: 42px;
-    border: none;
-    border-radius: 17px;
-    padding: 0 13px;
-    background: linear-gradient(135deg, #f2d28b, #a992ff);
-    color: #161820;
+}
+.dream-icon-button {
+    padding: 0;
+    border: 1px solid #d8d8d8;
+    border-radius: 6px;
+    background: #fff;
+    color: #0a0a0a;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    font-weight: 920;
-    white-space: nowrap;
-    box-shadow: 0 14px 28px rgba(169,146,255,0.20);
+    justify-content: center;
+    font-size: 20px;
 }
-.dream-control button:disabled {
-    opacity: 0.52;
+.dream-icon-button:disabled,
+.dream-primary-button:disabled,
+.dream-secondary-button:disabled,
+.dream-choice-list button:disabled {
+    opacity: 0.42;
 }
-.dream-control .dream-char-trigger {
-    width: 100%;
-    height: 42px;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 17px;
-    padding: 0 12px;
-    background: rgba(255,255,255,0.10);
-    color: #fffaf0;
-    justify-content: space-between;
-    font-size: 13px;
-    font-weight: 820;
-    box-shadow: none;
+.dream-entry-content,
+.dream-preview-content,
+.dream-archive-content,
+.dream-session-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
 }
-.dream-control .dream-char-menu button {
-    width: 100%;
-    height: 36px;
-    border: none;
-    border-radius: 13px;
-    padding: 0 12px;
-    background: transparent;
-    color: rgba(247,241,230,0.82);
-    justify-content: flex-start;
-    text-align: left;
-    font-size: 13px;
-    font-weight: 760;
-    box-shadow: none;
+.dream-entry-content::-webkit-scrollbar,
+.dream-preview-content::-webkit-scrollbar,
+.dream-archive-content::-webkit-scrollbar,
+.dream-session-content::-webkit-scrollbar,
+.dream-char-strip::-webkit-scrollbar {
+    display: none;
 }
-.dream-control .dream-char-menu button.active {
-    background: linear-gradient(135deg, rgba(234,211,154,0.24), rgba(255,255,255,0.08));
-    color: #fff7df;
+.dream-entry-content {
+    width: min(100%, 680px);
+    margin: 0 auto;
+    padding: 24px 20px calc(28px + env(safe-area-inset-bottom));
 }
-.dream-control .dream-char-menu button:hover {
-    background: rgba(255,255,255,0.09);
-}
-.dream-status {
-    min-height: 20px;
-    margin: 12px 3px 0;
-    color: rgba(248,244,234,0.52);
-    font-size: 12px;
-    line-height: 1.45;
-}
-.dream-status[data-tone="busy"] { color: #f2d28b; }
-.dream-status[data-tone="done"] { color: #9ee7b8; }
-.dream-status[data-tone="warn"] { color: #ffd28f; }
-.dream-status[data-tone="error"] { color: #ff9a9a; }
-.dream-list {
-    margin-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.dream-record {
-    position: relative;
-    padding: 10px;
-    border-radius: 28px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.10);
-    box-shadow: 0 18px 40px rgba(0,0,0,0.18);
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1fr);
-    gap: 12px;
-}
-.dream-record-cover {
-    width: 92px;
-    min-height: 132px;
-    border-radius: 22px;
-    overflow: hidden;
-    background: linear-gradient(145deg, rgba(242,210,139,0.18), rgba(169,146,255,0.18));
-    border: 1px solid rgba(255,255,255,0.12);
+.dream-section-label {
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: rgba(248,244,234,0.66);
-    font-size: 30px;
+    justify-content: space-between;
+    gap: 16px;
+    color: #5e5e5e;
+    font-size: 10px;
+    line-height: 1.2;
+    font-weight: 700;
 }
-.dream-record-cover img {
+.dream-section-label span,
+.dream-section-label em {
+    letter-spacing: 0;
+    font-style: normal;
+}
+.dream-char-strip {
+    width: 100%;
+    min-height: 94px;
+    margin-top: 13px;
+    padding: 0 0 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+}
+.dream-char-item {
+    flex: 0 0 62px;
+    width: 62px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #777;
+    text-align: center;
+    scroll-snap-align: start;
+}
+.dream-char-item img {
+    width: 58px;
+    height: 58px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f3f3f0;
+}
+.dream-char-item span {
+    display: block;
+    margin-top: 7px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dream-char-item.active {
+    color: #0a0a0a;
+    font-weight: 800;
+}
+.dream-char-item.active img {
+    border-color: #0a0a0a;
+}
+.dream-no-characters {
+    margin: 18px 0 0;
+    color: #707070;
+    font-size: 13px;
+}
+.dream-selected {
+    min-height: 274px;
+    padding: 22px 0 24px;
+    border-top: 1px solid #d8d8d8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+.dream-selected > img {
+    width: 132px;
+    height: 132px;
+    border: 1px solid #d8d8d8;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f3f3f0;
+}
+.dream-selected > span {
+    margin-top: 18px;
+    color: #707070;
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+.dream-selected h2 {
+    max-width: 100%;
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
+    color: #0a0a0a;
+    font-size: 27px;
+    line-height: 1.15;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+.dream-selected p {
+    max-width: 370px;
+    margin: 13px 0 0;
+    color: #626262;
+    font-size: 13px;
+    line-height: 1.65;
+    letter-spacing: 0;
+}
+.dream-primary-button,
+.dream-secondary-button {
+    width: 100%;
+    min-height: 50px;
+    padding: 0 16px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-size: 14px;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.dream-primary-button {
+    border: 1px solid #0a0a0a;
+    background: #0a0a0a;
+    color: #fff;
+}
+.dream-secondary-button {
+    border: 1px solid #0a0a0a;
+    background: #fff;
+    color: #0a0a0a;
+}
+.dream-primary-button i,
+.dream-secondary-button i {
+    font-size: 18px;
+}
+.dream-latest-link {
+    width: 100%;
+    min-height: 66px;
+    margin-top: 18px;
+    padding: 10px 2px;
+    border: 0;
+    border-top: 1px solid #d8d8d8;
+    border-bottom: 1px solid #d8d8d8;
+    border-radius: 0;
+    background: #fff;
+    color: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    text-align: left;
+}
+.dream-latest-link > span {
+    min-width: 0;
+}
+.dream-latest-link em,
+.dream-latest-link strong {
+    display: block;
+    overflow: hidden;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dream-latest-link em {
+    color: #707070;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+}
+.dream-latest-link strong {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 800;
+}
+.dream-latest-link > i {
+    flex: 0 0 auto;
+    font-size: 18px;
+}
+.dream-status,
+.dream-preview-status,
+.dream-session-status {
+    min-height: 18px;
+    margin: 12px 0 0;
+    color: #5f5f5f;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    letter-spacing: 0;
+}
+.dream-status[data-tone="error"],
+.dream-preview-status[data-tone="error"],
+.dream-session-status[data-tone="error"] {
+    color: #b42318;
+}
+.dream-status[data-tone="busy"],
+.dream-preview-status[data-tone="busy"],
+.dream-session-status[data-tone="busy"] {
+    color: #3f3f3f;
+}
+.dream-preview-content {
+    width: min(100%, 720px);
+    margin: 0 auto;
+    padding: 18px 20px calc(30px + env(safe-area-inset-bottom));
+}
+.dream-preview-media {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: 560px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f3f3f0;
+}
+.dream-preview-media img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+.dream-preview-media.avatar-only {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dream-preview-media.avatar-only img {
+    width: 156px;
+    height: 156px;
+    border-radius: 50%;
+}
+.dream-preview-identity,
+.dream-session-identity {
+    min-height: 68px;
+    border-bottom: 1px solid #d8d8d8;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+}
+.dream-preview-identity img,
+.dream-session-identity img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f3f3f0;
+}
+.dream-preview-identity span,
+.dream-session-identity span {
+    min-width: 0;
+}
+.dream-preview-identity em,
+.dream-preview-identity strong,
+.dream-session-identity em,
+.dream-session-identity strong {
     display: block;
+    overflow: hidden;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dream-preview-identity em,
+.dream-session-identity em {
+    color: #707070;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+}
+.dream-preview-identity strong,
+.dream-session-identity strong {
+    margin-top: 3px;
+    font-size: 13px;
+    font-weight: 800;
+}
+.dream-preview-identity time,
+.dream-session-identity small {
+    color: #707070;
+    font-size: 10px;
+    letter-spacing: 0;
+}
+.dream-preview-content > h2 {
+    margin: 27px 0 25px;
+    overflow-wrap: anywhere;
+    font-size: 30px;
+    line-height: 1.15;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+.dream-preview-section {
+    padding: 19px 0 21px;
+    border-top: 1px solid #d8d8d8;
+}
+.dream-preview-section > span,
+.dream-scene > span {
+    color: #707070;
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.dream-preview-section p {
+    margin: 9px 0 0;
+    color: #232323;
+    font-size: 14px;
+    line-height: 1.78;
+    white-space: pre-wrap;
+    letter-spacing: 0;
+}
+.dream-incomplete,
+.dream-image-error {
+    margin: 18px 0;
+    padding: 12px;
+    border-left: 3px solid #b42318;
+    background: #f3f3f0;
+    color: #b42318;
+    font-size: 12px;
+    line-height: 1.55;
+}
+.dream-preview-actions {
+    padding-top: 9px;
+    display: grid;
+    gap: 10px;
+}
+.dream-archive-content {
+    width: min(100%, 720px);
+    margin: 0 auto;
+    padding: 18px 18px calc(30px + env(safe-area-inset-bottom));
+}
+.dream-list {
+    display: grid;
+    gap: 10px;
+}
+.dream-empty {
+    min-height: 220px;
+    border: 1px dashed #bdbdbd;
+    border-radius: 8px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: #707070;
+    text-align: center;
+}
+.dream-empty i {
+    font-size: 28px;
+}
+.dream-empty strong {
+    color: #0a0a0a;
+    font-size: 14px;
+    letter-spacing: 0;
+}
+.dream-empty span {
+    font-size: 12px;
+    letter-spacing: 0;
+}
+.dream-record {
+    position: relative;
+    min-height: 142px;
+    padding: 15px 72px 15px 15px;
+    border: 1px solid #d8d8d8;
+    border-radius: 8px;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: start;
+    gap: 13px;
+}
+.dream-record-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f3f3f0;
 }
 .dream-record-body {
     min-width: 0;
-    padding: 4px 22px 4px 0;
 }
 .dream-record-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px;
+    color: #707070;
+    font-size: 9px;
+    line-height: 1.2;
 }
 .dream-record-meta span,
 .dream-record-meta em {
-    color: rgba(248,244,234,0.46);
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 820;
     overflow: hidden;
+    font-style: normal;
+    letter-spacing: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.dream-record-body strong {
+.dream-record-body > strong {
     display: block;
-    margin-top: 7px;
-    color: #fffaf0;
-    font-size: 16px;
-    line-height: 1.22;
-    font-weight: 920;
-}
-.dream-record-body p {
-    margin: 7px 0 0;
-    color: rgba(248,244,234,0.66);
-    font-size: 12px;
-    line-height: 1.62;
-    user-select: text;
-}
-.dream-record-body small {
-    display: block;
-    margin-top: 8px;
-    color: #ffbc98;
-    font-size: 10px;
-    line-height: 1.35;
-}
-.dream-delete {
-    position: absolute;
-    right: 9px;
-    top: 9px;
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.26);
-    color: rgba(255,255,255,0.72);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.dream-empty {
-    min-height: 160px;
-    border-radius: 28px;
-    border: 1px dashed rgba(255,255,255,0.14);
-    background: rgba(255,255,255,0.05);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-align: center;
-    color: rgba(248,244,234,0.52);
-}
-.dream-empty i {
-    font-size: 34px;
-    color: rgba(242,210,139,0.74);
-}
-.dream-empty strong {
-    color: rgba(255,250,240,0.86);
-    font-size: 14px;
-    font-weight: 880;
-}
-.dream-empty span {
-    max-width: 240px;
-    color: rgba(248,244,234,0.46);
-    font-size: 11px;
-    line-height: 1.45;
-}
-
-/* === Dream Vault refined compact UI 20260704 === */
-.dream-window,
-.dream-shell {
-    background: #090b10;
-    color: #f7f1e6;
-}
-.dream-shell::before {
-    inset: 0;
-    background:
-        linear-gradient(180deg, #10101a 0%, #111014 38%, #0b1118 100%),
-        linear-gradient(135deg, rgba(215,188,124,0.10), transparent 42%);
-}
-.dream-shell::after {
-    opacity: 0.48;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.020) 1px, transparent 1px);
-    background-size: 32px 32px;
-    mask-image: linear-gradient(180deg, rgba(0,0,0,0.72), transparent 82%);
-}
-.dream-topbar {
-    height: 86px;
-    padding: 34px 22px 10px;
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
-    background: rgba(11,12,17,0.80);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    backdrop-filter: blur(18px) saturate(1.05);
-    -webkit-backdrop-filter: blur(18px) saturate(1.05);
-}
-.dream-topbar button {
-    width: 42px;
-    height: 42px;
-    border-radius: 15px;
-    background: rgba(255,255,255,0.075);
-    border-color: rgba(255,255,255,0.12);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.24);
-}
-.dream-topbar span {
-    color: rgba(247,241,230,0.44);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-}
-.dream-topbar strong {
-    margin-top: 3px;
-    font-size: 20px;
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+    color: #0a0a0a;
+    font-size: 15px;
+    line-height: 1.3;
     letter-spacing: 0;
 }
-.dream-content {
-    padding: 14px 18px 26px;
+.dream-record-body > p {
+    margin: 7px 0 0;
+    overflow: hidden;
+    color: #5f5f5f;
+    font-size: 12px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
-.dream-hero {
-    min-height: 202px;
-    border-radius: 28px;
-    padding: 22px;
-    background:
-        linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035) 42%, rgba(12,14,20,0.50)),
-        linear-gradient(180deg, rgba(215,188,124,0.08), rgba(255,255,255,0.02));
-    border: 1px solid rgba(255,255,255,0.13);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.13), 0 20px 44px rgba(0,0,0,0.24);
+.dream-record-enter {
+    min-height: 34px;
+    margin-top: 12px;
+    padding: 0 10px;
+    border: 1px solid #0a0a0a;
+    border-radius: 5px;
+    background: #0a0a0a;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
 }
-.dream-hero::before {
-    content: '';
+.dream-record-open,
+.dream-delete {
     position: absolute;
-    inset: 14px;
-    border-radius: 22px;
-    border: 1px solid rgba(255,255,255,0.055);
-    pointer-events: none;
-}
-.dream-hero-visual {
-    inset: 18px 18px auto auto;
-    width: 104px;
-    height: 104px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #d8d8d8;
+    border-radius: 5px;
+    background: #fff;
+    color: #0a0a0a;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    font-size: 16px;
 }
-.dream-portal {
-    width: 76px;
-    height: 76px;
-    border-radius: 22px;
-    transform: rotate(45deg);
-    border: 1px solid rgba(227,201,139,0.30);
-    background:
-        linear-gradient(135deg, rgba(227,201,139,0.20), rgba(255,255,255,0.06)),
-        rgba(255,255,255,0.045);
-    filter: none;
-    box-shadow: 0 18px 34px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10);
-    animation: none;
+.dream-record-open {
+    top: 15px;
 }
-.dream-hero-visual > i {
-    font-size: 38px;
-    color: rgba(239,211,147,0.90);
-    text-shadow: 0 10px 24px rgba(0,0,0,0.28);
-}
-.dream-hero-copy {
-    max-width: none;
-    padding-right: 100px;
-}
-.dream-hero-copy span {
-    color: rgba(228,201,139,0.82);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-}
-.dream-hero-copy strong {
-    max-width: 300px;
-    margin-top: 7px;
-    font-size: 21px;
-    line-height: 1.20;
-    font-weight: 900;
-}
-.dream-hero-copy p {
-    max-width: 312px;
-    margin-top: 10px;
-    color: rgba(247,241,230,0.55);
-    font-size: 12px;
-    line-height: 1.58;
-}
-.dream-hero-copy p:empty {
-    display: none;
-}
-.dream-control {
-    margin-top: 12px;
-    padding: 10px;
-    border-radius: 22px;
-    background: rgba(255,255,255,0.065);
-    border-color: rgba(255,255,255,0.10);
-    gap: 9px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.16);
-}
-.dream-control label span {
-    padding-left: 4px;
-    color: rgba(247,241,230,0.50);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-}
-.dream-control select {
-    height: 40px;
-    border-radius: 15px;
-    background: rgba(255,255,255,0.105);
-    border-color: rgba(255,255,255,0.11);
-    font-size: 13px;
-    font-weight: 760;
-}
-.dream-char-trigger {
-    height: 40px;
-    border-radius: 15px;
-    background: rgba(255,255,255,0.105);
-    border-color: rgba(255,255,255,0.11);
-    font-size: 13px;
-    font-weight: 760;
-}
-.dream-char-menu {
-    background: rgba(23,24,30,0.97);
-}
-.dream-control button {
-    height: 40px;
-    border-radius: 15px;
-    padding: 0 14px;
-    background: linear-gradient(135deg, #ead39a, #d7b970);
-    color: #17130d;
-    font-size: 12px;
-    font-weight: 860;
-    box-shadow: 0 12px 24px rgba(215,185,112,0.18);
-}
-.dream-status {
-    margin: 10px 4px 0;
-    font-size: 12px;
-    color: rgba(247,241,230,0.50);
-}
-.dream-list {
-    margin-top: 10px;
-}
-.dream-empty {
-    min-height: 138px;
-    border-radius: 24px;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028)),
-        rgba(14,20,28,0.72);
-    border: 1px dashed rgba(255,255,255,0.13);
-    gap: 7px;
-}
-.dream-empty i {
-    font-size: 30px;
-    color: rgba(227,201,139,0.78);
-}
-.dream-empty strong {
-    font-size: 13px;
-    font-weight: 840;
-}
-.dream-empty span {
-    max-width: 228px;
-    color: rgba(247,241,230,0.44);
-    font-size: 11px;
-}
-.dream-record {
-    border-radius: 24px;
-    background: rgba(255,255,255,0.065);
-    border-color: rgba(255,255,255,0.10);
-    box-shadow: 0 14px 32px rgba(0,0,0,0.18);
-}
-.dream-record-cover {
-    border-radius: 18px;
-    background: linear-gradient(145deg, rgba(227,201,139,0.18), rgba(255,255,255,0.06));
-}
-.dream-control .dream-char-trigger {
-    height: 40px;
-    border: 1px solid rgba(255,255,255,0.11);
-    border-radius: 15px;
-    padding: 0 12px;
-    background: rgba(255,255,255,0.105);
-    color: #fffaf0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    font-size: 13px;
-    font-weight: 760;
-    box-shadow: none;
-}
-.dream-control .dream-char-menu {
-    background: rgba(23,24,30,0.97);
-    border-color: rgba(255,255,255,0.12);
-}
-.dream-control .dream-char-menu button {
-    height: 36px;
-    border: none;
-    border-radius: 13px;
-    padding: 0 12px;
-    background: transparent;
-    color: rgba(247,241,230,0.82);
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    text-align: left;
-    font-size: 13px;
-    font-weight: 760;
-    box-shadow: none;
-}
-.dream-control .dream-char-menu button.active {
-    background: linear-gradient(135deg, rgba(234,211,154,0.24), rgba(255,255,255,0.08));
-    color: #fff7df;
-}
-.dream-control .dream-char-menu button:hover {
-    background: rgba(255,255,255,0.09);
-}
-
-/* === Dream Vault iOS graphite liquid glass UI 20260705 === */
-.dream-window,
-.dream-shell {
-    background: #050608 !important;
-    color: #f6f7f8 !important;
-}
-
-.dream-shell {
-    isolation: isolate !important;
-}
-
-.dream-shell::before {
-    inset: 0 !important;
-    background:
-        radial-gradient(circle at 18% 0%, rgba(255,255,255,0.13), transparent 28%),
-        radial-gradient(circle at 84% 18%, rgba(150,160,176,0.10), transparent 32%),
-        linear-gradient(180deg, #0b0c10 0%, #07080b 44%, #030507 100%) !important;
-}
-
-.dream-shell::after {
-    opacity: 1 !important;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.055), transparent 22%, rgba(255,255,255,0.025) 100%),
-        radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.11), transparent 42%) !important;
-    background-size: auto !important;
-    mask-image: none !important;
-}
-
-.dream-topbar {
-    height: 88px !important;
-    padding: 34px 22px 10px !important;
-    background: rgba(8, 9, 12, 0.72) !important;
-    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-    box-shadow: 0 14px 34px rgba(0,0,0,0.24) !important;
-    backdrop-filter: blur(28px) saturate(1.25) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.25) !important;
-}
-
-.dream-topbar button {
-    width: 42px !important;
-    height: 42px !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(255,255,255,0.13) !important;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.17), rgba(255,255,255,0.055)) !important;
-    color: rgba(255,255,255,0.92) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.16),
-        0 12px 28px rgba(0,0,0,0.34) !important;
-    backdrop-filter: blur(18px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
-}
-
-.dream-topbar span {
-    color: rgba(255,255,255,0.46) !important;
-    font-size: 9px !important;
-    font-weight: 820 !important;
-    letter-spacing: 0.17em !important;
-}
-
-.dream-topbar strong {
-    margin-top: 3px !important;
-    color: #ffffff !important;
-    font-size: 20px !important;
-    font-weight: 860 !important;
-    text-shadow: 0 1px 12px rgba(255,255,255,0.08) !important;
-}
-
-.dream-content {
-    padding: 16px 18px 30px !important;
-}
-
-.dream-hero {
-    min-height: 214px !important;
-    padding: 24px !important;
-    border-radius: 30px !important;
-    background:
-        linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.055) 42%, rgba(255,255,255,0.025)),
-        rgba(21, 22, 27, 0.68) !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.18),
-        inset 0 -1px 0 rgba(255,255,255,0.045),
-        0 24px 54px rgba(0,0,0,0.32) !important;
-    backdrop-filter: blur(26px) saturate(1.18) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(1.18) !important;
-}
-
-.dream-hero::before {
-    inset: 16px !important;
-    border-radius: 24px !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    background: linear-gradient(135deg, rgba(255,255,255,0.055), transparent 58%) !important;
-}
-
-.dream-hero-visual {
-    inset: 20px 22px auto auto !important;
-    width: 108px !important;
-    height: 108px !important;
-}
-
-.dream-portal {
-    width: 80px !important;
-    height: 80px !important;
-    border-radius: 25px !important;
-    border: 1px solid rgba(255,255,255,0.16) !important;
-    background:
-        linear-gradient(145deg, rgba(255,255,255,0.20), rgba(255,255,255,0.055)),
-        rgba(54, 55, 61, 0.72) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.18),
-        0 18px 38px rgba(0,0,0,0.38) !important;
-    filter: none !important;
-}
-
-.dream-hero-visual > i {
-    color: rgba(255,255,255,0.86) !important;
-    font-size: 38px !important;
-    text-shadow: 0 12px 30px rgba(0,0,0,0.40) !important;
-}
-
-.dream-hero-copy {
-    padding-right: 102px !important;
-}
-
-.dream-hero-copy span {
-    color: rgba(255,255,255,0.54) !important;
-    font-size: 9px !important;
-    font-weight: 850 !important;
-    letter-spacing: 0.18em !important;
-}
-
-.dream-hero-copy strong {
-    max-width: 300px !important;
-    color: #ffffff !important;
-    font-size: 21px !important;
-    line-height: 1.2 !important;
-    font-weight: 860 !important;
-    text-shadow: 0 10px 26px rgba(0,0,0,0.32) !important;
-}
-
-.dream-hero-copy p {
-    color: rgba(255,255,255,0.56) !important;
-}
-
-.dream-control {
-    margin-top: 14px !important;
-    padding: 10px !important;
-    border-radius: 24px !important;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.055)),
-        rgba(20, 21, 25, 0.76) !important;
-    border: 1px solid rgba(255,255,255,0.13) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.12),
-        0 18px 42px rgba(0,0,0,0.26) !important;
-    backdrop-filter: blur(24px) saturate(1.16) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(1.16) !important;
-}
-
-.dream-control label span {
-    color: rgba(255,255,255,0.48) !important;
-    font-size: 9px !important;
-    font-weight: 820 !important;
-}
-
-.dream-control select,
-.dream-char-trigger,
-.dream-control .dream-char-trigger {
-    height: 40px !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(255,255,255,0.11) !important;
-    background: rgba(255,255,255,0.09) !important;
-    color: rgba(255,255,255,0.90) !important;
-    font-size: 13px !important;
-    font-weight: 760 !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
-}
-
-.dream-control select option {
-    color: #f6f7f8 !important;
-    background: #191a1f !important;
-}
-
-.dream-control button {
-    height: 40px !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(255,255,255,0.16) !important;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.82), rgba(213,216,222,0.88)) !important;
-    color: #07080a !important;
-    font-size: 12px !important;
-    font-weight: 850 !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.92),
-        0 14px 30px rgba(0,0,0,0.28) !important;
-}
-
-.dream-char-menu,
-.dream-control .dream-char-menu {
-    padding: 7px !important;
-    border-radius: 20px !important;
-    background: rgba(28, 29, 34, 0.92) !important;
-    border: 1px solid rgba(255,255,255,0.13) !important;
-    box-shadow: 0 24px 54px rgba(0,0,0,0.42) !important;
-    backdrop-filter: blur(24px) saturate(1.18) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(1.18) !important;
-}
-
-.dream-char-menu button,
-.dream-control .dream-char-menu button {
-    color: rgba(255,255,255,0.78) !important;
-    border-radius: 14px !important;
-    font-weight: 730 !important;
-}
-
-.dream-char-menu button.active,
-.dream-control .dream-char-menu button.active {
-    background: rgba(255,255,255,0.13) !important;
-    color: #ffffff !important;
-}
-
-.dream-status {
-    margin: 10px 5px 0 !important;
-    color: rgba(255,255,255,0.46) !important;
-    font-size: 12px !important;
-}
-
-.dream-status[data-tone="busy"] { color: rgba(255,255,255,0.72) !important; }
-.dream-status[data-tone="done"] { color: #b8f7d0 !important; }
-.dream-status[data-tone="warn"] { color: #f2d493 !important; }
-.dream-status[data-tone="error"] { color: #ff9a9a !important; }
-
-.dream-list {
-    margin-top: 12px !important;
-    gap: 12px !important;
-}
-
-.dream-empty,
-.dream-record {
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.105), rgba(255,255,255,0.045)),
-        rgba(17, 18, 22, 0.72) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.10),
-        0 18px 42px rgba(0,0,0,0.28) !important;
-    backdrop-filter: blur(22px) saturate(1.14) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(1.14) !important;
-}
-
-.dream-empty {
-    min-height: 146px !important;
-    border-radius: 26px !important;
-    border-style: solid !important;
-}
-
-.dream-empty i {
-    color: rgba(255,255,255,0.70) !important;
-    font-size: 31px !important;
-}
-
-.dream-empty strong {
-    color: rgba(255,255,255,0.88) !important;
-    font-size: 13px !important;
-    font-weight: 820 !important;
-}
-
-.dream-empty span {
-    color: rgba(255,255,255,0.42) !important;
-    font-size: 11px !important;
-}
-
-.dream-record {
-    border-radius: 25px !important;
-}
-
-.dream-record-cover {
-    border-radius: 19px !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
-    background:
-        linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.035)),
-        rgba(44, 45, 51, 0.70) !important;
-    color: rgba(255,255,255,0.58) !important;
-}
-
-.dream-record-meta span,
-.dream-record-meta em {
-    color: rgba(255,255,255,0.44) !important;
-}
-
-.dream-record-body strong {
-    color: rgba(255,255,255,0.94) !important;
-    font-weight: 840 !important;
-}
-
-.dream-record-body p {
-    color: rgba(255,255,255,0.62) !important;
-}
-
 .dream-delete {
-    background: rgba(255,255,255,0.09) !important;
-    color: rgba(255,255,255,0.72) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
+    bottom: 15px;
+    color: #b42318;
 }
-/* === End Dream Vault iOS graphite liquid glass UI 20260705 === */
-
-/* === Dream Vault dropdown layer fix 20260705 === */
-.dream-control {
-    position: relative !important;
-    z-index: 40 !important;
-    overflow: visible !important;
+.dream-session-content {
+    width: min(100%, 680px);
+    margin: 0 auto;
+    padding: 20px 22px calc(30px + env(safe-area-inset-bottom));
 }
-
-.dream-control label,
-.dream-char-picker {
-    position: relative !important;
-    z-index: 41 !important;
+.dream-session-identity {
+    margin-bottom: 34px;
 }
-
-.dream-char-picker.open {
-    z-index: 120 !important;
+.dream-scene {
+    margin: 0;
 }
-
-.dream-char-menu,
-.dream-control .dream-char-menu {
-    z-index: 130 !important;
+.dream-scene h2 {
+    margin: 10px 0 18px;
+    overflow-wrap: anywhere;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 900;
+    letter-spacing: 0;
 }
-
-.dream-list,
-.dream-empty,
-.dream-record {
-    position: relative !important;
-    z-index: 1 !important;
+.dream-scene p {
+    margin: 12px 0 0;
+    color: #161616;
+    font-family: Georgia, "Times New Roman", "Noto Serif SC", serif;
+    font-size: 18px;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    letter-spacing: 0;
 }
-/* === End Dream Vault dropdown layer fix 20260705 === */
-
-/* === Dream Vault picker state polish 20260705 === */
-.dream-char-menu button,
-.dream-control .dream-char-menu button {
-    height: 42px !important;
-    justify-content: flex-start !important;
-    padding: 0 16px !important;
-    border: 1px solid transparent !important;
-    border-radius: 15px !important;
-    background: transparent !important;
-    color: rgba(255,255,255,0.68) !important;
-    box-shadow: none !important;
+.dream-char-action {
+    margin-top: 30px;
+    padding: 18px 0;
+    border-top: 1px solid #0a0a0a;
+    border-bottom: 1px solid #d8d8d8;
 }
-
-.dream-char-menu button:hover,
-.dream-control .dream-char-menu button:hover {
-    background: rgba(255,255,255,0.08) !important;
-    color: rgba(255,255,255,0.92) !important;
+.dream-char-action span {
+    color: #0a0a0a;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0;
 }
-
-.dream-char-menu button.active,
-.dream-control .dream-char-menu button.active {
-    background: linear-gradient(180deg, rgba(255,255,255,0.90), rgba(218,221,228,0.82)) !important;
-    border-color: rgba(255,255,255,0.74) !important;
-    color: #0b0d11 !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 10px 24px rgba(0,0,0,0.26) !important;
+.dream-char-action p {
+    margin: 9px 0 0;
+    color: #303030;
+    font-size: 14px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    letter-spacing: 0;
 }
-/* === End Dream Vault picker state polish 20260705 === */
+.dream-choice-list {
+    margin-top: 22px;
+    border-top: 1px solid #0a0a0a;
+}
+.dream-choice-list button {
+    width: 100%;
+    min-height: 58px;
+    padding: 12px 2px;
+    border: 0;
+    border-bottom: 1px solid #d8d8d8;
+    border-radius: 0;
+    background: #fff;
+    color: #0a0a0a;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 24px;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.45;
+    font-weight: 700;
+}
+.dream-choice-list button i {
+    justify-self: end;
+    font-size: 17px;
+}
+@media (max-width: 520px) {
+    .dream-topbar {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+    .dream-entry-content {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+    .dream-selected {
+        min-height: 256px;
+    }
+    .dream-selected > img {
+        width: 120px;
+        height: 120px;
+    }
+    .dream-preview-content,
+    .dream-session-content {
+        padding-right: 18px;
+        padding-left: 18px;
+    }
+    .dream-preview-content > h2 {
+        font-size: 27px;
+    }
+    .dream-scene p {
+        font-size: 17px;
+    }
+    .dream-record {
+        padding-left: 13px;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 11px;
+    }
+    .dream-record-avatar {
+        width: 44px;
+        height: 44px;
+    }
+}
 .monitor-window,
 .monitor-shell {
     background: #050708;
@@ -18990,38 +18552,18 @@ button.wc-ai-phone-sync {
 
 /* === AI Character Phone: editable photo desktop === */
 .wc-ai-phone-home-top {
-    grid-template-columns: 34px minmax(0, 1fr) 74px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
     gap: 7px;
 }
 .wc-ai-phone-home-actions {
     display: grid;
-    grid-template-columns: repeat(2, 34px);
-    gap: 6px;
+    grid-template-columns: 34px;
     justify-self: end;
-}
-.wc-ai-phone-edit-home {
-    width: 34px;
-    height: 34px;
-    border: 1px solid rgba(17,24,39,0.06);
-    border-radius: 50%;
-    background: #20242b;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 7px 16px rgba(17,24,39,0.18);
-}
-.wc-ai-phone-edit-home i {
-    font-size: 17px;
 }
 .wc-ai-phone-photo-widget,
 .wc-ai-phone-home-editor-preview {
     position: relative;
-    min-height: 210px;
-}
-.wc-ai-phone-photo-widget {
-    cursor: pointer;
+    min-height: 254px;
 }
 .wc-ai-phone-photo-main {
     display: flex;
@@ -19075,7 +18617,7 @@ button.wc-ai-phone-sync {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 9px;
-    margin-top: 12px;
+    margin-top: 52px;
 }
 .wc-ai-phone-photo-small {
     display: flex;
@@ -19310,7 +18852,7 @@ button.wc-ai-phone-sync {
     color: #111827;
 }
 .wc-ai-phone-home-top {
-    grid-template-columns: 34px minmax(0, 1fr) 74px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
 }
 .wc-ai-phone-close,
 .wc-ai-phone-generate {
@@ -19690,6 +19232,52 @@ button.wc-ai-phone-sync {
     color: #c7c7cc;
     font-size: 18px;
     font-weight: 400;
+}
+.wc-ai-phone-settings-profile {
+    min-height: 82px;
+    padding: 12px;
+    border: 1px solid #e5e5ea;
+    border-radius: 14px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.wc-ai-phone-settings-profile img {
+    width: 56px;
+    height: 56px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #e5e5ea;
+}
+.wc-ai-phone-settings-profile span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.wc-ai-phone-settings-profile strong {
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.15;
+    font-weight: 720;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-settings-profile em {
+    color: #8e8e93;
+    font-size: 12px;
+    line-height: 1.2;
+    font-style: normal;
+}
+.wc-ai-phone-settings-list {
+    margin-top: 14px;
+}
+.wc-ai-phone-settings-list .wc-ai-phone-ios-row {
+    min-height: 62px;
+    cursor: pointer;
 }
 .wc-ai-phone-schedule-list {
     border-radius: 18px;

@@ -21519,7 +21519,8 @@ function getWechatAiPhoneAllApps() {
         { key: 'diary', label: '日记', icon: 'ri-book-2-fill', tone: 'pink' },
         { key: 'footprints', label: '足迹', icon: 'ri-map-pin-time-fill', tone: 'purple' },
         { key: 'usage', label: '使用记录', icon: 'ri-history-fill', tone: 'gray' },
-        { key: 'clock', label: '时钟', icon: 'ri-time-fill', tone: 'orange' }
+        { key: 'clock', label: '时钟', icon: 'ri-time-fill', tone: 'orange' },
+        { key: 'settings', label: '设置', icon: 'ri-settings-3-fill', tone: 'gray' }
     ];
 }
 
@@ -21574,7 +21575,7 @@ function renderWechatAiPhonePhotoWidget(char) {
     const settings = getWechatAiPhoneHomeSettings(char);
     const avatar = getWechatAiPhoneHomeAvatar(char);
     return `
-        <section class="wc-ai-phone-photo-widget" onclick="openWechatAiPhoneHomeEditor('${wcEscapeAttr(char && char.id)}')" aria-label="编辑 ${wcEscapeAttr(getWechatCharDisplayName(char))} 的桌面照片">
+        <section class="wc-ai-phone-photo-widget" aria-label="${wcEscapeAttr(getWechatCharDisplayName(char))} 的桌面照片">
             ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
             <span class="wc-ai-phone-photo-avatar"><img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"></span>
             <span class="wc-ai-phone-photo-strip">
@@ -22404,6 +22405,23 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
             </div>
         `;
     }
+    if (activeTab === 'settings') {
+        const avatar = getWechatAiPhoneHomeAvatar(char);
+        return `
+            <div class="wc-ai-phone-app-title wc-ai-phone-app-title-compact"><strong>设置</strong><span>${wcEscapeHtml(charName)} 的小手机</span></div>
+            <div class="wc-ai-phone-settings-profile">
+                <img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
+                <span><strong>${wcEscapeHtml(charName)}</strong><em>桌面与显示</em></span>
+            </div>
+            <div class="wc-ai-phone-ios-list wc-ai-phone-settings-list">
+                <button type="button" class="wc-ai-phone-ios-row" onclick="openWechatAiPhoneHomeEditor('${wcEscapeAttr(char.id)}')">
+                    <i class="ri-gallery-line"></i>
+                    <span><strong>桌面照片与头像</strong><em>编辑主图、照片组件和桌面头像</em></span>
+                    <b class="ri-arrow-right-s-line"></b>
+                </button>
+            </div>
+        `;
+    }
     return '';
 }
 
@@ -22423,7 +22441,6 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
                 <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
                 ${syncPill}
                 <div class="wc-ai-phone-home-actions">
-                    <button type="button" class="wc-ai-phone-edit-home" onclick="event.stopPropagation(); openWechatAiPhoneHomeEditor(${retryId})" aria-label="编辑小手机桌面" title="编辑桌面"><i class="ri-edit-2-line"></i></button>
                     <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="按角色人设和世界书生成小手机内容" title="按角色人设和世界书生成">
                         <i class="${isLoading ? 'ri-loader-4-line' : 'ri-sparkling-2-fill'}"></i>
                     </button>
@@ -22478,7 +22495,7 @@ function renderWechatAiPhone(char) {
 }
 
 function switchWechatAiPhoneTab(tabName) {
-    const validTabs = ['home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games'];
+    const validTabs = ['home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
     window._wechatAiPhoneTab = validTabs.includes(tabName) ? tabName : 'home';
     if (window._wechatAiPhoneTab !== 'diary') window._wechatAiPhoneDiaryOpen = -1;
     if (window._wechatAiPhoneTab !== 'memo') window._wechatAiPhoneMemoIndex = -1;

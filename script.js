@@ -1262,7 +1262,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.588' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.589' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -5273,6 +5273,11 @@ window.clearMoneyRecords = clearMoneyRecords;
 // --- Dream Vault / 盗梦空间 ---
 const DREAM_RECORDS_KEY = 'bynd_dream_records_v1';
 let dreamGenerating = false;
+let dreamEntering = false;
+let dreamAdvancing = false;
+let dreamSelectedCharId = '';
+let dreamPreviewRecordId = '';
+let dreamActiveRecordId = '';
 
 function getDreamRecords() {
     try {
@@ -5288,13 +5293,65 @@ function saveDreamRecords(records) {
 }
 
 function getDreamCharacters() {
-    return Array.isArray(window.myCharacters)
-        ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat)
-        : [];
+    let characters = [];
+    if (typeof getWechatSortedChatCharacters === 'function') {
+        characters = getWechatSortedChatCharacters();
+    } else if (typeof getWechatGroupContacts === 'function') {
+        characters = getWechatGroupContacts({ includeGroupNpc: false });
+    } else if (Array.isArray(window.myCharacters)) {
+        characters = window.myCharacters;
+    }
+    return characters.filter(char => (
+        char
+        && char.id
+        && !char.isGroupChat
+        && !(typeof isWechatGroupNpcContact === 'function'
+            ? isWechatGroupNpcContact(char)
+            : (char.isGroupNpc || char.groupNpc || char.npcOriginGroupId))
+    ));
 }
 
 function getDreamCharName(char) {
-    return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
+    if (typeof getWechatCharDisplayName === 'function') return getWechatCharDisplayName(char);
+    return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '对方';
+}
+
+function getDreamCharFallbackAvatar(char) {
+    const name = getDreamCharName(char).trim();
+    const initial = Array.from(name)[0] || '梦';
+    return 'data:image/svg+xml,' + encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="100" fill="#f3f3f0"/><text x="100" y="112" text-anchor="middle" font-family="serif" font-size="72" font-weight="700" fill="#0a0a0a">${initial.replace(/[<>&"']/g, '')}</text></svg>`
+    );
+}
+
+function isDreamAvatarSourceUsable(value) {
+    const source = String(value || '').trim();
+    if (!source || source === 'undefined' || source === 'null') return false;
+    if (/^data:image\//i.test(source) || /^blob:/i.test(source)) return true;
+    try {
+        const candidate = new URL(source, window.location.href);
+        const current = new URL(window.location.href);
+        if (candidate.origin === current.origin && candidate.pathname === '/' && !candidate.search && !candidate.hash) return false;
+    } catch (_) {
+        return false;
+    }
+    return true;
+}
+
+function getDreamCharAvatar(char) {
+    const fallback = getDreamCharFallbackAvatar(char);
+    const source = typeof getWechatCharAvatarSource === 'function'
+        ? getWechatCharAvatarSource(char, '')
+        : (char && char.avatar);
+    return isDreamAvatarSourceUsable(source) ? source : fallback;
+}
+
+function getDreamCharReferenceImage(char) {
+    const source = typeof getWechatImageReferenceForChar === 'function'
+        ? getWechatImageReferenceForChar(char)
+        : ((char && char.chatConfig && char.chatConfig.imageReference) || (char && char.avatar));
+    if (!isDreamAvatarSourceUsable(source) || source === window.DEFAULT_AVATAR) return '';
+    return source;
 }
 
 function getDreamTimeText(ts) {
@@ -5311,6 +5368,7 @@ function setDreamStatus(text, tone = '') {
 }
 
 function extractDreamJsonPayload(text) {
+    if (typeof parseWechatJsonObject === 'function') return parseWechatJsonObject(text);
     const raw = String(text || '').trim();
     if (!raw) return null;
     const unfenced = raw
@@ -5330,177 +5388,282 @@ function extractDreamJsonPayload(text) {
     return null;
 }
 
-function getDreamRecentContext(char) {
-    const history = Array.isArray(char && char.history) ? char.history : [];
-    return history.slice(-10).map(msg => {
-        const who = msg.isMe ? '用户' : getDreamCharName(char);
-        const text = String(msg.description || msg.content || msg.dialogue || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-        return text ? `${who}: ${text.slice(0, 220)}` : '';
-    }).filter(Boolean).join('\n');
+function getDreamPromptContext(char) {
+    const userProfile = typeof getWechatChatUserProfile === 'function'
+        ? getWechatChatUserProfile(char)
+        : (typeof getUserProfile === 'function' ? getUserProfile() : {});
+    const identity = typeof buildWechatIdentityContextPrompt === 'function'
+        ? buildWechatIdentityContextPrompt(char, userProfile)
+        : '';
+    const persona = typeof getWechatCharacterPersonaText === 'function'
+        ? getWechatCharacterPersonaText(char, 12000)
+        : String(char && char.description || '').trim();
+    const memory = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
+    const recent = typeof buildWechatRecentHistoryForPrompt === 'function'
+        ? buildWechatRecentHistoryForPrompt(char, 18)
+        : '';
+    return { userProfile, identity, persona, memory, recent };
 }
 
 function buildDreamGenerationMessages(char) {
-    const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
-    const name = getDreamCharName(char);
-    const description = String(char && char.description || '').replace(/\s+/g, ' ').slice(0, 2800);
-    const worldBook = Array.isArray(char && char.worldBook)
-        ? char.worldBook.slice(0, 12).map(entry => {
-            const key = entry.key || entry.keys || entry.keyword || '';
-            const content = String(entry.content || entry.entry || entry.value || '').replace(/\s+/g, ' ').slice(0, 380);
-            return content ? `${key ? `【${key}】` : ''}${content}` : '';
-        }).filter(Boolean).join('\n')
-        : '';
-    const recent = getDreamRecentContext(char) || '暂无最近聊天。';
+    const context = getDreamPromptContext(char);
+    const charName = getDreamCharName(char);
+    const userName = context.userProfile.name || '用户';
     return [
         {
             role: 'system',
             content: [
-                '你是 BYND 盗梦空间的梦境档案编写器，只输出 JSON 对象，不要解释，不要 Markdown。',
-                '字段必须是：title、text、imagePrompt。',
-                'title：12 字以内，像电影章节名。',
-                'text：220-520 字，中文，梦幻、神秘、有电影感，像打开潘多拉盒子后看到的私人梦境档案。',
-                'imagePrompt：英文或中文都可以，用于文生图，必须描述画面、光线、镜头、氛围和角色一致性。',
-                '可以写暧昧、眷恋、身体距离和潜意识欲望，但不要写露骨性器官、具体性行为或未成年人内容。'
+                '你是 BYND 的梦境叙事引擎。只输出一个严格 JSON 对象，不要解释，不要 Markdown。',
+                'JSON 必须且只能包含：title、summary、intent、openingScene、charAction、choices、imagePrompt。',
+                'title 是简短梦名；summary 是梦境梗概；intent 是角色在白日未完成、想在梦里对用户继续做的事；openingScene 是用户刚进入梦境时看见的场景叙述；charAction 是角色入梦后的第一个主动动作或对白；choices 是由 2 到 4 个非空字符串组成的数组，每项都是用户对该动作的反应；imagePrompt 是梦境主视觉生成提示。',
+                `梦境的主导者是 ${charName}，${charName} 的愿望、犹豫与行动推动情节；用户只能选择自己的反应，不能替 ${charName} 做决定。`,
+                '必须忠于角色卡、世界书、关系记忆和聊天上下文。只有资料中明确发生过的事才能写成既成事实；推断出的未完成念头必须写成角色的梦中愿望、担忧或假设，不能伪造共同经历。',
+                '不要复述提示词，不要解释数据来源，不要使用通用恋爱模板。',
+                '允许亲密、暧昧和潜意识表达，但不得包含露骨性行为、未成年人性内容、胁迫或伤害引导。'
             ].join('\n')
         },
         {
             role: 'user',
             content: [
-                `角色原名：${char.name || name}`,
-                `用户给角色的备注名：${name}`,
-                `用户：${profile.name || '我'}`,
-                description ? `角色卡：${description}` : '',
-                worldBook ? `世界书：\n${worldBook}` : '',
-                `最近聊天：\n${recent}`,
-                '请基于角色人设和最近互动，生成一条“角色醒来后被记录下来的梦境”。只输出 JSON。'
+                context.identity,
+                context.persona ? `【角色卡与世界设定】\n${context.persona}` : '',
+                context.memory,
+                context.recent ? `【最近聊天上下文】\n${context.recent}` : '',
+                `请生成由 ${charName} 主导、${userName} 可以进入并互动的梦境开场。严格输出指定 JSON。`
             ].filter(Boolean).join('\n\n')
         }
     ];
 }
 
-function renderDreamEmpty(message) {
-    return `
-        <div class="dream-empty">
-            <i class="ri-moon-cloudy-line"></i>
-            <strong>${musicEscapeHtml(message || '还没有梦境档案')}</strong>
-            <span>选择一个角色后生成，文字走聊天 API，封面走生图 API。</span>
-        </div>
-    `;
+function normalizeDreamChoices(value) {
+    if (!Array.isArray(value)) return [];
+    return value.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean);
+}
+
+function validateDreamGenerationPayload(payload) {
+    if (!payload || Array.isArray(payload) || typeof payload !== 'object') throw new Error('AI 返回的梦境格式不是 JSON 对象');
+    const normalized = {
+        title: String(payload.title || '').trim(),
+        summary: String(payload.summary || '').trim(),
+        intent: String(payload.intent || '').trim(),
+        openingScene: String(payload.openingScene || '').trim(),
+        charAction: String(payload.charAction || '').trim(),
+        choices: normalizeDreamChoices(payload.choices),
+        imagePrompt: String(payload.imagePrompt || '').trim()
+    };
+    const missing = ['title', 'summary', 'intent', 'openingScene', 'charAction', 'imagePrompt'].filter(key => !normalized[key]);
+    if (missing.length) throw new Error(`AI 返回缺少字段：${missing.join('、')}`);
+    if (normalized.choices.length < 2 || normalized.choices.length > 4) throw new Error('AI 返回的 choices 必须是 2 到 4 个非空选项');
+    return normalized;
+}
+
+function validateDreamTurnPayload(payload) {
+    if (!payload || Array.isArray(payload) || typeof payload !== 'object') throw new Error('AI 返回的互动格式不是 JSON 对象');
+    const normalized = {
+        scene: String(payload.scene || '').trim(),
+        charAction: String(payload.charAction || '').trim(),
+        choices: normalizeDreamChoices(payload.choices),
+        isEnding: payload.isEnding === true,
+        endingTitle: String(payload.endingTitle || '').trim()
+    };
+    if (!normalized.scene) throw new Error('AI 返回缺少 scene');
+    if (!normalized.charAction) throw new Error('AI 返回缺少 charAction');
+    if (normalized.isEnding) {
+        if (!normalized.endingTitle) throw new Error('梦境结束时必须返回 endingTitle');
+        if (normalized.choices.length > 4) throw new Error('AI 返回了过多结局选项');
+    } else if (normalized.choices.length < 2 || normalized.choices.length > 4) {
+        throw new Error('未结束的互动必须返回 2 到 4 个 choices');
+    }
+    return normalized;
+}
+
+function getDreamRecordById(id) {
+    return getDreamRecords().find(record => record && record.id === id) || null;
+}
+
+function updateDreamRecord(id, updater) {
+    const records = getDreamRecords();
+    const index = records.findIndex(record => record && record.id === id);
+    if (index < 0) return null;
+    const next = typeof updater === 'function' ? updater(records[index]) : updater;
+    if (!next) return null;
+    records[index] = next;
+    saveDreamRecords(records);
+    return next;
+}
+
+function renderDreamEmpty() {
+    return '<div class="dream-empty"><i class="ri-archive-line"></i><strong>还没有梦境档案</strong><span>返回选择角色，生成第一段梦境。</span></div>';
 }
 
 function renderDreamList() {
     const list = document.getElementById('dream-list');
     if (!list) return;
-    const records = getDreamRecords().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const records = getDreamRecords().sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
     if (!records.length) {
-        list.innerHTML = renderDreamEmpty('梦境盒子还没有被打开');
+        list.innerHTML = renderDreamEmpty();
         return;
     }
-    list.innerHTML = records.map(record => `
+    list.innerHTML = records.map(record => {
+        const char = getDreamCharacters().find(item => item.id === record.charId);
+        const charName = char ? getDreamCharName(char) : record.charName;
+        const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+        return `
         <article class="dream-record">
-            <div class="dream-record-cover">
-                ${record.imageUrl ? `<img src="${musicEscapeAttr(record.imageUrl)}" alt="${musicEscapeAttr(record.title || '梦境封面')}" onerror="this.remove()">` : '<i class="ri-moon-foggy-line"></i>'}
-            </div>
+            <img class="dream-record-avatar" src="${musicEscapeAttr(avatar || '')}" alt="">
             <div class="dream-record-body">
                 <div class="dream-record-meta">
-                    <span>${musicEscapeHtml(record.charName || '未知角色')}</span>
+                    <span>${musicEscapeHtml(charName || '角色已移除')}</span>
                     <em>${musicEscapeHtml(getDreamTimeText(record.createdAt))}</em>
                 </div>
-                <strong>${musicEscapeHtml(record.title || '无题梦境')}</strong>
-                <p>${musicEscapeHtml(record.text || '')}</p>
-                ${record.imageError ? `<small>封面生成失败：${musicEscapeHtml(record.imageError)}</small>` : ''}
+                ${record.title ? `<strong>${musicEscapeHtml(record.title)}</strong>` : '<strong>旧记录内容不完整</strong>'}
+                ${record.summary || record.text ? `<p>${musicEscapeHtml(record.summary || record.text)}</p>` : ''}
+                <button type="button" class="dream-record-enter" onclick="enterDreamRecord('${musicEscapeAttr(record.id)}')"><i class="ri-footprint-line"></i><span>${record.session ? (record.session.status === 'ended' ? '查看结局' : '继续入梦') : '进入梦境'}</span></button>
             </div>
-            <button type="button" class="dream-delete" onclick="deleteDreamRecord('${musicEscapeAttr(record.id)}')" aria-label="删除梦境"><i class="ri-close-line"></i></button>
+            <button type="button" class="dream-record-open" onclick="openDreamPreview('${musicEscapeAttr(record.id)}')" aria-label="查看梦境"><i class="ri-arrow-right-line"></i></button>
+            <button type="button" class="dream-delete" onclick="deleteDreamRecord('${musicEscapeAttr(record.id)}')" aria-label="删除梦境"><i class="ri-delete-bin-line"></i></button>
         </article>
-    `).join('');
+    `;
+    }).join('');
+}
+
+function showDreamView(viewId) {
+    document.querySelectorAll('#app-dream-window .dream-view').forEach(view => {
+        view.classList.toggle('hidden', view.id !== viewId);
+    });
+}
+
+function getDreamSelectedCharacter() {
+    const chars = getDreamCharacters();
+    return chars.find(char => char.id === dreamSelectedCharId) || chars[0] || null;
+}
+
+function getLatestDreamRecord(charId = '') {
+    return getDreamRecords()
+        .filter(record => !charId || record.charId === charId)
+        .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0))[0] || null;
+}
+
+function renderDreamLatestLink() {
+    const link = document.getElementById('dream-latest-link');
+    const title = document.getElementById('dream-latest-title');
+    if (!link || !title) return;
+    const latest = getLatestDreamRecord(dreamSelectedCharId);
+    link.classList.toggle('hidden', !latest);
+    title.textContent = latest ? (latest.title || '内容不完整，打开查看') : '';
+}
+
+function renderDreamCharacterStrip() {
+    const strip = document.getElementById('dream-char-strip');
+    const count = document.getElementById('dream-char-count');
+    const chars = getDreamCharacters();
+    const selected = getDreamSelectedCharacter();
+    if (selected) dreamSelectedCharId = selected.id;
+    if (count) count.textContent = chars.length ? `${chars.length} CHARACTERS` : '';
+    if (strip) {
+        strip.innerHTML = chars.length ? chars.map(char => {
+            const active = char.id === dreamSelectedCharId;
+            const name = getDreamCharName(char);
+            const avatar = getDreamCharAvatar(char);
+            const fallback = getDreamCharFallbackAvatar(char);
+            return `<button type="button" class="dream-char-item${active ? ' active' : ''}" onclick="selectDreamChar('${musicEscapeAttr(char.id)}')" aria-label="选择 ${musicEscapeAttr(name)}" aria-pressed="${active}">
+                <img src="${musicEscapeAttr(avatar)}" data-fallback="${musicEscapeAttr(fallback)}" alt="" onerror="this.onerror=null;this.src=this.dataset.fallback">
+                <span>${musicEscapeHtml(name)}</span>
+            </button>`;
+        }).join('') : '<p class="dream-no-characters">小手机里还没有可用角色</p>';
+    }
+    const avatar = document.getElementById('dream-selected-avatar');
+    const name = document.getElementById('dream-selected-name');
+    const generateButton = document.getElementById('dream-generate-button');
+    if (avatar) {
+        const fallback = selected ? getDreamCharFallbackAvatar(selected) : '';
+        avatar.onerror = selected ? () => {
+            avatar.onerror = null;
+            avatar.src = fallback;
+        } : null;
+        avatar.src = selected ? getDreamCharAvatar(selected) : '';
+        avatar.alt = selected ? getDreamCharName(selected) : '';
+        avatar.classList.toggle('hidden', !selected);
+    }
+    if (name) name.textContent = selected ? getDreamCharName(selected) : '请先在小手机中添加角色';
+    if (generateButton) generateButton.disabled = !selected || dreamGenerating;
+    renderDreamLatestLink();
 }
 
 function initDreamApp() {
-    const select = document.getElementById('dream-char-select');
     const chars = getDreamCharacters();
-    if (select) {
-        const previous = select.value;
-        select.classList.add('dream-native-select');
-        select.innerHTML = chars.length
-            ? chars.map(char => `<option value="${musicEscapeAttr(char.id)}">${musicEscapeHtml(getDreamCharName(char))}</option>`).join('')
-            : '<option value="">先导入角色卡</option>';
-        if (previous && chars.some(char => char.id === previous)) select.value = previous;
-    }
-    renderDreamCharPicker(chars);
-    setDreamStatus(chars.length ? '选择角色，打开梦境盒子。' : '还没有可生成梦境的角色。', chars.length ? '' : 'warn');
+    if (!chars.some(char => char.id === dreamSelectedCharId)) dreamSelectedCharId = chars[0]?.id || '';
+    setDreamStatus(chars.length ? '' : '小手机里还没有可生成梦境的角色。', chars.length ? '' : 'warn');
+    showDreamEntry();
     renderDreamList();
 }
 window.initDreamApp = initDreamApp;
 
-function renderDreamCharPicker(chars = getDreamCharacters()) {
-    const select = document.getElementById('dream-char-select');
-    const label = select?.closest('label');
-    if (!select || !label) return;
-    let picker = label.querySelector('.dream-char-picker');
-    if (!picker) {
-        picker = document.createElement('div');
-        picker.className = 'dream-char-picker';
-        select.insertAdjacentElement('afterend', picker);
-    }
-    const selected = chars.find(char => char.id === select.value) || chars[0] || null;
-    if (selected && select.value !== selected.id) select.value = selected.id;
-    const buttonLabel = selected ? getDreamCharName(selected) : '先导入角色卡';
-    picker.innerHTML = `
-        <button type="button" class="dream-char-trigger" onclick="toggleDreamCharPicker(event)" ${chars.length ? '' : 'disabled'}>
-            <span>${musicEscapeHtml(buttonLabel)}</span>
-            <i class="ri-arrow-down-s-line"></i>
-        </button>
-        <div class="dream-char-menu">
-            ${chars.length ? chars.map(char => {
-                const active = char.id === select.value;
-                return `<button type="button" class="${active ? 'active' : ''}" onclick="selectDreamChar('${musicEscapeAttr(char.id)}')">${musicEscapeHtml(getDreamCharName(char))}</button>`;
-            }).join('') : '<em>还没有角色</em>'}
-        </div>
-    `;
-    if (!document.documentElement.dataset.dreamPickerBound) {
-        document.documentElement.dataset.dreamPickerBound = '1';
-        document.addEventListener('pointerdown', event => {
-            if (event.target.closest('.dream-char-picker')) return;
-            closeDreamCharPicker();
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeDreamCharPicker();
-        });
-    }
+function showDreamEntry() {
+    dreamPreviewRecordId = '';
+    showDreamView('dream-entry-view');
+    renderDreamCharacterStrip();
 }
-
-function toggleDreamCharPicker(event) {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    const picker = document.querySelector('.dream-char-picker');
-    if (!picker) return false;
-    picker.classList.toggle('open');
-    return false;
-}
-window.toggleDreamCharPicker = toggleDreamCharPicker;
-
-function closeDreamCharPicker() {
-    document.querySelectorAll('.dream-char-picker.open').forEach(item => item.classList.remove('open'));
-}
-window.closeDreamCharPicker = closeDreamCharPicker;
+window.showDreamEntry = showDreamEntry;
 
 function selectDreamChar(charId) {
-    const select = document.getElementById('dream-char-select');
-    if (!select) return false;
-    select.value = charId;
-    closeDreamCharPicker();
-    renderDreamCharPicker();
+    if (!getDreamCharacters().some(char => char.id === charId)) return false;
+    dreamSelectedCharId = charId;
+    renderDreamCharacterStrip();
     return false;
 }
 window.selectDreamChar = selectDreamChar;
 
+function openLatestDreamPreview() {
+    const record = getLatestDreamRecord(dreamSelectedCharId);
+    if (record) openDreamPreview(record.id);
+}
+window.openLatestDreamPreview = openLatestDreamPreview;
+
+function renderDreamPreview(record) {
+    const content = document.getElementById('dream-preview-content');
+    if (!content || !record) return;
+    const char = getDreamCharacters().find(item => item.id === record.charId);
+    const charName = char ? getDreamCharName(char) : record.charName;
+    const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+    const complete = !!(record.title && record.summary && record.intent && record.openingScene && record.charAction && normalizeDreamChoices(record.choices).length >= 2);
+    const session = record.session && typeof record.session === 'object' ? record.session : null;
+    const actionLabel = session ? (session.status === 'ended' ? '查看结局' : '继续入梦') : (complete ? '进入梦境' : '由 AI 重建入口并入梦');
+    const previewText = record.summary || record.text || '';
+    content.innerHTML = `
+        <div class="dream-preview-media${record.imageUrl ? '' : ' avatar-only'}">
+            <img src="${musicEscapeAttr(record.imageUrl || avatar || '')}" alt="">
+        </div>
+        <div class="dream-preview-identity">
+            <img src="${musicEscapeAttr(avatar || '')}" alt="">
+            <span><em>DREAMER</em><strong>${musicEscapeHtml(charName || '角色已移除')}</strong></span>
+            <time>${musicEscapeHtml(getDreamTimeText(record.createdAt))}</time>
+        </div>
+        ${record.title ? `<h2>${musicEscapeHtml(record.title)}</h2>` : '<p class="dream-incomplete">这条旧记录缺少标题，需要由 AI 重建入梦入口。</p>'}
+        ${previewText ? `<section class="dream-preview-section"><span>THE DREAM</span><p>${musicEscapeHtml(previewText)}</p></section>` : ''}
+        ${record.openingScene ? `<section class="dream-preview-section"><span>OPENING SCENE</span><p>${musicEscapeHtml(record.openingScene)}</p></section>` : ''}
+        ${record.imageError ? `<p class="dream-image-error">梦境图生成失败：${musicEscapeHtml(record.imageError)}</p>` : ''}
+        <p class="dream-preview-status" id="dream-preview-status" role="status"></p>
+        <div class="dream-preview-actions">
+            <button type="button" class="dream-primary-button" id="dream-enter-button" onclick="enterDreamRecord('${musicEscapeAttr(record.id)}')"><i class="ri-footprint-line"></i><span>${musicEscapeHtml(actionLabel)}</span></button>
+            ${char ? `<button type="button" class="dream-secondary-button" onclick="selectDreamChar('${musicEscapeAttr(char.id)}'); showDreamEntry(); generateDreamRecord()"><i class="ri-refresh-line"></i><span>重新生成</span></button>` : ''}
+        </div>`;
+}
+
+function openDreamPreview(id) {
+    const record = getDreamRecordById(id);
+    if (!record) return;
+    dreamPreviewRecordId = id;
+    renderDreamPreview(record);
+    showDreamView('dream-preview-view');
+}
+window.openDreamPreview = openDreamPreview;
+
 async function generateDreamRecord() {
     if (dreamGenerating) return;
-    const select = document.getElementById('dream-char-select');
-    const charId = select?.value || '';
-    const char = getDreamCharacters().find(item => item.id === charId) || getDreamCharacters()[0];
+    const char = getDreamSelectedCharacter();
     if (!char) {
-        setDreamStatus('还没有可生成梦境的角色。', 'warn');
+        setDreamStatus('小手机里还没有可生成梦境的角色。', 'warn');
         return;
     }
     if (typeof callChatApi !== 'function') {
@@ -5508,28 +5671,20 @@ async function generateDreamRecord() {
         return;
     }
     dreamGenerating = true;
-    document.querySelectorAll('.dream-control button, .dream-topbar button:last-child').forEach(btn => btn.disabled = true);
-    setDreamStatus('正在读取角色记忆，生成梦境文字...', 'busy');
+    renderDreamCharacterStrip();
+    setDreamStatus('正在读取角色记忆与最近聊天...', 'busy');
     try {
-        const result = await callChatApi(buildDreamGenerationMessages(char));
+        const result = await callChatApi(buildDreamGenerationMessages(char), { temperature: 0.86, max_tokens: 2200 });
         if (!result.ok) throw new Error(result.error || '梦境文字生成失败');
-        const payload = extractDreamJsonPayload(result.content);
-        if (!payload) throw new Error('AI 没有返回可解析的梦境 JSON');
-        const title = String(payload.title || '未命名梦境').trim().slice(0, 24);
-        const text = String(payload.text || payload.content || '').trim();
-        const imagePrompt = String(payload.imagePrompt || payload.prompt || title).trim();
-        if (!text) throw new Error('AI 没有返回梦境正文');
+        const payload = validateDreamGenerationPayload(extractDreamJsonPayload(result.content));
 
         let imageUrl = '';
         let imageError = '';
-        if (typeof callWechatImageGenerationApi === 'function' && imagePrompt) {
-            setDreamStatus('梦境文字已生成，正在生成封面...', 'busy');
+        if (typeof callWechatImageGenerationApi === 'function') {
+            setDreamStatus('梦境已经成形，正在生成梦境图...', 'busy');
             const imageResult = await callWechatImageGenerationApi(
-                [
-                    imagePrompt,
-                    `cinematic dream archive, mysterious portal, Pandora box atmosphere, ${getDreamCharName(char)} as the central figure, soft surreal lighting, high detail, portrait composition`
-                ].join('\n'),
-                { referenceImage: (char.chatConfig && char.chatConfig.imageReference) || char.avatar || '', size: '1024x1024' }
+                payload.imagePrompt,
+                { referenceImage: getDreamCharReferenceImage(char), size: '1024x1024' }
             );
             if (imageResult.ok && imageResult.url) imageUrl = imageResult.url;
             else imageError = imageResult.error || '图片接口没有返回图片';
@@ -5538,35 +5693,296 @@ async function generateDreamRecord() {
         }
 
         const records = getDreamRecords();
-        records.unshift({
+        const record = {
             id: `dream_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
             charId: char.id,
             charName: getDreamCharName(char),
-            avatar: char.avatar || '',
+            avatar: getDreamCharAvatar(char),
             createdAt: Date.now(),
-            title,
-            text,
-            imagePrompt,
+            updatedAt: Date.now(),
+            ...payload,
             imageUrl,
-            imageError
-        });
+            imageError,
+            session: null
+        };
+        records.unshift(record);
         saveDreamRecords(records);
         renderDreamList();
-        setDreamStatus(imageError ? `梦境已保存，但封面生成失败：${imageError}` : '梦境已封存。', imageError ? 'warn' : 'done');
+        setDreamStatus('');
+        openDreamPreview(record.id);
     } catch (e) {
         setDreamStatus(`生成失败：${e.message || e}`, 'error');
     } finally {
         dreamGenerating = false;
-        document.querySelectorAll('.dream-control button, .dream-topbar button:last-child').forEach(btn => btn.disabled = false);
+        renderDreamCharacterStrip();
     }
 }
 window.generateDreamRecord = generateDreamRecord;
+
+function buildDreamInteractionMessages(char, record, session, selectedChoice = '', bootstrap = false) {
+    const context = getDreamPromptContext(char);
+    const transcript = Array.isArray(session && session.turns) ? session.turns.slice(-16).map((turn, index) => [
+        `第 ${index + 1} 轮用户反应：${turn.choice}`,
+        `场景推进：${turn.scene}`,
+        `角色行动/对白：${turn.charAction}`,
+        turn.isEnding ? `结局：${turn.endingTitle}` : ''
+    ].filter(Boolean).join('\n')).join('\n\n') : '';
+    const recordSource = {
+        title: record.title || '',
+        summary: record.summary || record.text || '',
+        intent: record.intent || '',
+        openingScene: record.openingScene || '',
+        charAction: record.charAction || '',
+        choices: normalizeDreamChoices(record.choices)
+    };
+    const currentState = session && session.currentScene ? {
+        scene: session.currentScene,
+        charAction: session.currentCharAction || '',
+        choices: normalizeDreamChoices(session.options || session.choices)
+    } : null;
+    return [
+        {
+            role: 'system',
+            content: [
+                '你是 BYND 的梦境互动叙事引擎。只输出一个严格 JSON 对象，不要解释，不要 Markdown。',
+                'JSON 必须且只能包含：scene、charAction、choices、isEnding、endingTitle。',
+                'scene 是新的场景叙述；charAction 是角色主动完成的动作、对白或情绪推进；choices 是由 2 到 4 个非空字符串组成的数组，每项都是用户可以选择的反应；isEnding 是布尔值；只有 isEnding=true 时 endingTitle 才能是非空结局名。',
+                `情节必须由 ${getDreamCharName(char)} 的未完成意图推动。选项描述用户如何回应当前角色行动，不能替角色选择、说话或行动。`,
+                '严格延续原梦境和已发生的互动，不跳出角色，不把资料里不存在的现实往事写成事实，不复述提示词。',
+                '不要无限拖延：在合适的情节节点可以自然结束梦境。'
+            ].join('\n')
+        },
+        {
+            role: 'user',
+            content: [
+                context.identity,
+                context.persona ? `【角色卡与世界设定】\n${context.persona}` : '',
+                context.memory,
+                context.recent ? `【现实中的最近聊天，仅作梦境来源】\n${context.recent}` : '',
+                `【原梦境档案】\n${JSON.stringify(recordSource, null, 2)}`,
+                transcript ? `【已发生的入梦互动】\n${transcript}` : '',
+                currentState ? `【当前互动状态】\n${JSON.stringify(currentState, null, 2)}` : '',
+                bootstrap
+                    ? '这是一条旧梦境记录，缺少可互动入口。请依据现有档案和角色真实上下文重建第一个可互动场景。'
+                    : `【用户本轮选择的反应】\n${selectedChoice}\n请推进下一幕。`
+            ].filter(Boolean).join('\n\n')
+        }
+    ];
+}
+
+function createDreamSessionFromRecord(record) {
+    return {
+        status: 'active',
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+        currentScene: record.openingScene,
+        currentCharAction: record.charAction,
+        choices: normalizeDreamChoices(record.choices),
+        options: normalizeDreamChoices(record.choices),
+        turns: [],
+        endingTitle: ''
+    };
+}
+
+function setDreamPreviewStatus(text, tone = '') {
+    const el = document.getElementById('dream-preview-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.dataset.tone = tone || '';
+}
+
+function setDreamSessionStatus(text, tone = '') {
+    const el = document.getElementById('dream-session-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.dataset.tone = tone || '';
+}
+
+async function enterDreamRecord(id) {
+    if (dreamEntering || dreamAdvancing) return;
+    let record = getDreamRecordById(id);
+    if (!record) return;
+    const previewView = document.getElementById('dream-preview-view');
+    if (!previewView || previewView.classList.contains('hidden')) {
+        openDreamPreview(id);
+        record = getDreamRecordById(id);
+        if (!record) return;
+    }
+    const char = getDreamCharacters().find(item => item.id === record.charId);
+    if (!char) {
+        setDreamPreviewStatus('角色已从小手机删除，无法继续生成互动。', 'error');
+        return;
+    }
+    dreamActiveRecordId = id;
+    if (record.session && record.session.currentScene) {
+        renderDreamSession(record);
+        showDreamView('dream-session-view');
+        return;
+    }
+    const complete = !!(record.openingScene && record.charAction && normalizeDreamChoices(record.choices).length >= 2);
+    if (complete) {
+        record = updateDreamRecord(id, current => ({ ...current, updatedAt: Date.now(), session: createDreamSessionFromRecord(current) }));
+        renderDreamSession(record);
+        showDreamView('dream-session-view');
+        renderDreamList();
+        return;
+    }
+    if (!(record.summary || record.text)) {
+        setDreamPreviewStatus('这条旧记录缺少可用于重建的正文，请重新生成梦境。', 'error');
+        return;
+    }
+    if (typeof callChatApi !== 'function') {
+        setDreamPreviewStatus('聊天 API 模块没有加载，无法重建入梦入口。', 'error');
+        return;
+    }
+    dreamEntering = true;
+    const button = document.getElementById('dream-enter-button');
+    if (button) button.disabled = true;
+    setDreamPreviewStatus('正在由 AI 重建这条旧梦境的互动入口...', 'busy');
+    try {
+        const result = await callChatApi(buildDreamInteractionMessages(char, record, null, '', true), { temperature: 0.82, max_tokens: 1800 });
+        if (!result.ok) throw new Error(result.error || '入梦入口重建失败');
+        const payload = validateDreamTurnPayload(extractDreamJsonPayload(result.content));
+        const session = {
+            status: payload.isEnding ? 'ended' : 'active',
+            startedAt: Date.now(),
+            updatedAt: Date.now(),
+            currentScene: payload.scene,
+            currentCharAction: payload.charAction,
+            choices: payload.choices,
+            options: payload.choices,
+            turns: [],
+            endingTitle: payload.endingTitle
+        };
+        record = updateDreamRecord(id, current => ({ ...current, updatedAt: Date.now(), session }));
+        renderDreamSession(record);
+        showDreamView('dream-session-view');
+        renderDreamList();
+    } catch (e) {
+        setDreamPreviewStatus(`重建失败：${e.message || e}`, 'error');
+    } finally {
+        dreamEntering = false;
+        if (button) button.disabled = false;
+    }
+}
+window.enterDreamRecord = enterDreamRecord;
+
+function renderDreamSession(record) {
+    const content = document.getElementById('dream-session-content');
+    const title = document.getElementById('dream-session-header-title');
+    if (!content || !record || !record.session) return;
+    const char = getDreamCharacters().find(item => item.id === record.charId);
+    const charName = char ? getDreamCharName(char) : record.charName;
+    const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+    const session = record.session;
+    const ended = session.status === 'ended';
+    if (title) title.textContent = record.title || '入梦';
+    content.innerHTML = `
+        <div class="dream-session-identity">
+            <img src="${musicEscapeAttr(avatar || '')}" alt="">
+            <span><em>DREAMER</em><strong>${musicEscapeHtml(charName || '角色已移除')}</strong></span>
+            <small>${Array.isArray(session.turns) ? session.turns.length + 1 : 1}</small>
+        </div>
+        <article class="dream-scene">
+            <span>SCENE</span>
+            ${ended && session.endingTitle ? `<h2>${musicEscapeHtml(session.endingTitle)}</h2>` : ''}
+            <p>${musicEscapeHtml(session.currentScene || '')}</p>
+        </article>
+        ${session.currentCharAction ? `<section class="dream-char-action"><span>${musicEscapeHtml(charName || '角色')}</span><p>${musicEscapeHtml(session.currentCharAction)}</p></section>` : ''}
+        <p class="dream-session-status" id="dream-session-status" role="status"></p>
+        ${ended ? `<button type="button" class="dream-primary-button" onclick="exitDreamSession()"><i class="ri-sun-line"></i><span>醒来</span></button>` : `
+            <div class="dream-choice-list" aria-label="选择你的反应">
+                ${normalizeDreamChoices(session.options || session.choices).map((choice, index) => `<button type="button" onclick="advanceDreamSession(${index})"><span>${musicEscapeHtml(choice)}</span><i class="ri-arrow-right-line"></i></button>`).join('')}
+            </div>`}
+    `;
+}
+
+async function advanceDreamSession(choiceIndex) {
+    if (dreamAdvancing || dreamEntering) return;
+    let record = getDreamRecordById(dreamActiveRecordId);
+    if (!record || !record.session || record.session.status === 'ended') return;
+    const char = getDreamCharacters().find(item => item.id === record.charId);
+    if (!char) {
+        setDreamSessionStatus('角色已从小手机删除，无法继续梦境。', 'error');
+        return;
+    }
+    const choices = normalizeDreamChoices(record.session.options || record.session.choices);
+    const selectedChoice = choices[Number(choiceIndex)];
+    if (!selectedChoice) return;
+    if (typeof callChatApi !== 'function') {
+        setDreamSessionStatus('聊天 API 模块没有加载，无法继续梦境。', 'error');
+        return;
+    }
+    dreamAdvancing = true;
+    document.querySelectorAll('#dream-session-content button').forEach(button => button.disabled = true);
+    setDreamSessionStatus('梦境正在回应你的选择...', 'busy');
+    try {
+        const result = await callChatApi(buildDreamInteractionMessages(char, record, record.session, selectedChoice, false), { temperature: 0.86, max_tokens: 1800 });
+        if (!result.ok) throw new Error(result.error || '梦境推进失败');
+        const payload = validateDreamTurnPayload(extractDreamJsonPayload(result.content));
+        record = updateDreamRecord(record.id, current => {
+            const previousSession = current.session || {};
+            const turns = Array.isArray(previousSession.turns) ? previousSession.turns.slice() : [];
+            turns.push({
+                choice: selectedChoice,
+                scene: payload.scene,
+                charAction: payload.charAction,
+                choices: payload.choices,
+                isEnding: payload.isEnding,
+                endingTitle: payload.endingTitle,
+                createdAt: Date.now()
+            });
+            return {
+                ...current,
+                updatedAt: Date.now(),
+                session: {
+                    ...previousSession,
+                    status: payload.isEnding ? 'ended' : 'active',
+                    updatedAt: Date.now(),
+                    currentScene: payload.scene,
+                    currentCharAction: payload.charAction,
+                    choices: payload.choices,
+                    options: payload.choices,
+                    turns,
+                    endingTitle: payload.endingTitle
+                }
+            };
+        });
+        renderDreamSession(record);
+        renderDreamList();
+    } catch (e) {
+        setDreamSessionStatus(`推进失败：${e.message || e}`, 'error');
+        document.querySelectorAll('#dream-session-content button').forEach(button => button.disabled = false);
+    } finally {
+        dreamAdvancing = false;
+    }
+}
+window.advanceDreamSession = advanceDreamSession;
+
+function exitDreamSession() {
+    const id = dreamActiveRecordId;
+    dreamActiveRecordId = '';
+    if (id && getDreamRecordById(id)) openDreamPreview(id);
+    else showDreamArchive();
+}
+window.exitDreamSession = exitDreamSession;
+
+function showDreamArchive() {
+    renderDreamList();
+    showDreamView('dream-archive-view');
+}
+window.showDreamArchive = showDreamArchive;
 
 function deleteDreamRecord(id) {
     const record = getDreamRecords().find(item => item.id === id);
     if (!record) return;
     if (!confirm(`删除「${record.title || '这条梦境'}」？`)) return;
     saveDreamRecords(getDreamRecords().filter(item => item.id !== id));
+    if (dreamPreviewRecordId === id || dreamActiveRecordId === id) {
+        dreamPreviewRecordId = '';
+        dreamActiveRecordId = '';
+        showDreamArchive();
+    }
     renderDreamList();
     setDreamStatus('已删除一条梦境档案。', 'done');
 }
