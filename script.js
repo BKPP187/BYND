@@ -7,6 +7,18 @@ function initByndStartup() {
     const layer = document.getElementById('bynd-startup');
     if (!layer) return { markReady() {} };
 
+    let startupEnabled = true;
+    try {
+        const themeData = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+        startupEnabled = themeData.startupEnabled !== false;
+    } catch (e) {}
+    if (!startupEnabled) {
+        layer.hidden = true;
+        document.documentElement.classList.remove('bynd-startup-disabled');
+        layer.setAttribute('aria-hidden', 'true');
+        return { markReady() {} };
+    }
+
     const forcedMode = new URLSearchParams(window.location.search).get('bynd-intro');
     let hasSeenStartup = false;
     try {

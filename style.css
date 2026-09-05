@@ -29,9 +29,9 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 
 /* --- BYND startup ritual --- */
 .bynd-startup {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 2147483000;
+    z-index: 9000;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -41,6 +41,7 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     contain: layout paint;
 }
 .bynd-startup[hidden] { display: none; }
+.bynd-startup-disabled .bynd-startup { display: none !important; }
 .bynd-startup-panels,
 .bynd-startup-stage { position: absolute; inset: 0; }
 .bynd-startup-panels { z-index: 0; }

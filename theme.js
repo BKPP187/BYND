@@ -1066,6 +1066,7 @@ function loadSavedSettings() {
         if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
         setThemeCheckbox('lock-enabled', data.lockEnabled);
         setThemeCheckbox('phone-status-bar-enabled', phoneStatusBarEnabled);
+        setThemeCheckbox('startup-enabled', data.startupEnabled);
         setThemeCheckbox('lock-show-left', data.lockShowLeft);
         setThemeCheckbox('lock-show-right', data.lockShowRight);
         setThemeCheckbox('lock-show-text', data.lockShowText);
@@ -1157,6 +1158,7 @@ function collectThemeDataFromInputs() {
         icons: iconInputs,
         lockEnabled: getThemeCheckbox('lock-enabled'),
         phoneStatusBarEnabled: getPhoneStatusBarEnabledFromInput(fallback.phoneStatusBarEnabled),
+        startupEnabled: getThemeCheckbox('startup-enabled'),
         lockShowLeft: getThemeCheckbox('lock-show-left'),
         lockShowRight: getThemeCheckbox('lock-show-right'),
         lockShowText: getThemeCheckbox('lock-show-text'),
@@ -1449,6 +1451,7 @@ function saveTheme() {
     const deskImg2 = document.getElementById('input-desk-img-2').value;
     const lockEnabled = getThemeCheckbox('lock-enabled');
     const phoneStatusBarEnabled = getPhoneStatusBarEnabledFromInput();
+    const startupEnabled = getThemeCheckbox('startup-enabled');
     const lockShowLeft = getThemeCheckbox('lock-show-left');
     const lockShowRight = getThemeCheckbox('lock-show-right');
     const lockShowText = getThemeCheckbox('lock-show-text');
@@ -1552,7 +1555,7 @@ function saveTheme() {
     const themeData = {
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
         l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs,
-        lockEnabled, phoneStatusBarEnabled,
+        lockEnabled, phoneStatusBarEnabled, startupEnabled,
         lockShowLeft, lockShowRight, lockShowText, lockShowTopDeco, lockShowBottomDeco,
         lockTopIcon, lockBottomIcon, lockWeather, lockClockColorMode, lockClockColor,
         calMode: calMode, calBg: calBg, calText: calText, calDim: calDim, calAccent: calAccent, calTransparency: calTransparency,
