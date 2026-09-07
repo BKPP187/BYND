@@ -12,32 +12,8 @@
     <meta name="apple-mobile-web-app-title" content="BYND">
     <meta name="apple-touch-fullscreen" content="yes">
     <meta name="format-detection" content="telephone=no">
-    <style id="bynd-startup-styles">
-        /* The loading shell must render before external stylesheets arrive. */
-        html.bynd-styles-pending body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; background: #ddd; }
-        html.bynd-styles-pending .phone-container { box-sizing: border-box; position: relative; width: 375px; height: 812px; border: 8px solid #111; border-radius: 40px; overflow: hidden; background: #f8f8f8; box-shadow: 0 30px 60px rgba(0,0,0,.3); }
-        html.bynd-styles-pending .phone-container > :not(.bynd-startup) { visibility: hidden; }
-        .bynd-startup { position: absolute; inset: 0; z-index: 9000; display: none; place-items: center; overflow: hidden; isolation: isolate; color: #F5F7F4; background: #0B0D10; pointer-events: auto; contain: layout paint; }
-        .bynd-startup-loading .bynd-startup { display: grid; }
-        .bynd-startup[hidden], .bynd-startup-disabled .bynd-startup { display: none !important; }
-        .bynd-startup-stage { box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom)); }
-        .bynd-startup-wordmark { display: block; width: min(270px, 100%); height: auto; overflow: visible; animation: bynd-startup-breathe 1800ms ease-in-out infinite; }
-        .bynd-startup-wordmark-fill { fill: #F5F7F4; }
-        .bynd-startup-tagline { margin-top: 18px; color: #D8E6FF; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; }
-        @keyframes bynd-startup-breathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
-        @media (prefers-reduced-motion: reduce) { .bynd-startup-wordmark { animation: none; } }
-        @media (min-width: 700px) { .bynd-startup-wordmark { width: min(320px, 100%); } .bynd-startup-tagline { font-size: 12px; } }
-        @media (max-width: 600px) and (hover: none) and (pointer: coarse) {
-            html.bynd-styles-pending .phone-container { width: 100vw; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
-        }
-        html.mobile-runtime.bynd-styles-pending body { display: block; min-height: 100dvh; padding: env(safe-area-inset-top) 0 0; box-sizing: border-box; background: #f8f8f8; }
-        html.mobile-runtime.bynd-styles-pending .phone-container { width: 100vw; height: calc(100dvh - env(safe-area-inset-top)); border: 0; border-radius: 0; box-shadow: none; }
-        html.bynd-android-app.bynd-styles-pending body { padding: 0; }
-        html.bynd-android-app.bynd-styles-pending .phone-container { height: 100dvh; }
-    </style>
     <script>
         (function () {
-            document.documentElement.classList.add('bynd-styles-pending');
             var ua = navigator.userAgent || '';
             var touch = navigator.maxTouchPoints > 1;
             var shortSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
@@ -49,10 +25,6 @@
                 window.matchMedia('(display-mode: fullscreen)').matches
             );
             var isIOS = /iPhone|iPad|iPod/i.test(ua);
-            if (window.ByndAndroid || iosStandalone || pwaStandalone) {
-                // Installed apps already show a system launch screen.
-                document.documentElement.classList.add('bynd-startup-disabled');
-            }
             if (window.ByndAndroid) {
                 document.documentElement.classList.add('bynd-android-app');
             }
@@ -63,9 +35,6 @@
             if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
             try {
                 var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
-                if (savedTheme.startupEnabled === false) {
-                    document.documentElement.classList.add('bynd-startup-disabled');
-                }
                 var shouldHideStatusBar = savedTheme.phoneStatusBarEnabled === false || (savedTheme.phoneStatusBarEnabled == null && isIOS && (iosStandalone || pwaStandalone));
                 if (shouldHideStatusBar) {
                     document.documentElement.classList.add('bynd-statusbar-hidden');
@@ -75,53 +44,18 @@
                     document.head.appendChild(styleEl);
                 }
             } catch (e) {}
-
-            // Loading belongs to this document's initialization, with no playback timer.
-            var startupReady = false;
-            function hideStartup() {
-                document.documentElement.classList.remove('bynd-startup-loading');
-                var layer = document.getElementById('bynd-startup');
-                if (layer) {
-                    layer.hidden = true;
-                    layer.setAttribute('aria-hidden', 'true');
-                }
-            }
-            window.__byndStartup = {
-                markReady: function () {
-                    if (startupReady) return;
-                    startupReady = true;
-                    hideStartup();
-                }
-            };
-            if (!document.documentElement.classList.contains('bynd-startup-disabled')) {
-                document.documentElement.classList.add('bynd-startup-loading');
-            }
         })();
     </script>
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.591-api-errors-20260907" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="style.css?v=1.1.593-remove-web-splash-20260907" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
 </head>
 <body>
 
     <div class="phone-container">
-        <div id="bynd-startup" class="bynd-startup" role="status" aria-label="BYND 正在加载">
-            <div class="bynd-startup-stage">
-                <svg class="bynd-startup-wordmark" viewBox="0 0 276 80" aria-hidden="true">
-                    <g class="bynd-startup-wordmark-fill" fill-rule="evenodd">
-                        <path d="M6 8h26c15 0 24 7 24 19 0 7-4 12-11 15 8 2 13 8 13 17 0 10-10 13-24 13H6V8Zm14 12v14h11c7 0 11-3 11-7 0-5-4-7-11-7H20Zm0 26v14h13c7 0 11-2 11-7s-4-7-12-7H20Z"></path>
-                        <path d="M68 8h17l11 22 11-22h17l-20 36v28H88V44L68 8Z"></path>
-                        <path d="M136 8h16l24 40V8h16v64h-16l-24-40v40h-16V8Z"></path>
-                        <path d="M206 8h26c23 0 38 11 38 32s-15 32-38 32h-26V8Zm16 13v38h9c15 0 23-6 23-19s-8-19-23-19h-9Z"></path>
-                    </g>
-                </svg>
-                <span class="bynd-startup-tagline">BEYOND THE SCREEN</span>
-            </div>
-        </div>
-        
         <div class="status-bar">
             <span id="clock-time-small">--:--</span>
             <div class="status-right">
@@ -1302,11 +1236,6 @@
                             <input type="checkbox" id="phone-status-bar-enabled" checked onchange="setPhoneStatusBarEnabled(this.checked)">
                             <i class="ri-smartphone-line"></i>
                             <span>显示状态栏</span>
-                        </label>
-                        <label class="lockscreen-mode-card">
-                            <input type="checkbox" id="startup-enabled" checked>
-                            <i class="ri-play-circle-line"></i>
-                            <span>网页加载动画</span>
                         </label>
                     </div>
                     <div class="upload-stack">
@@ -2926,9 +2855,9 @@
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
     <script src="wechat.js?v=1.1.591-api-errors-20260907"></script>
-    <script src="theme.js?v=1.1.590-startup-toggle"></script>
+    <script src="theme.js?v=1.1.593-remove-web-splash-20260907"></script>
     <script src="settings.js?v=1.1.590-storage-camera-20260907"></script>
-    <script src="script.js?v=1.1.592-document-loading-20260907"></script>
+    <script src="script.js?v=1.1.593-remove-web-splash-20260907"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

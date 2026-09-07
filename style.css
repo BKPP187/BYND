@@ -27,61 +27,8 @@
 
 body { background-color: #ddd; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-/* --- BYND document loading --- */
-.bynd-startup {
-    position: absolute;
-    inset: 0;
-    z-index: 9000;
-    display: none;
-    place-items: center;
-    overflow: hidden;
-    isolation: isolate;
-    color: #F5F7F4;
-    background: #0B0D10;
-    pointer-events: auto;
-    contain: layout paint;
-}
-.bynd-startup-loading .bynd-startup { display: grid; }
-.bynd-startup[hidden] { display: none !important; }
-.bynd-startup-disabled .bynd-startup { display: none !important; }
-.bynd-startup-stage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
-}
-.bynd-startup-wordmark {
-    display: block;
-    width: min(270px, 100%);
-    height: auto;
-    overflow: visible;
-    animation: bynd-startup-breathe 1800ms ease-in-out infinite;
-}
-.bynd-startup-wordmark-fill { fill: #F5F7F4; }
-.bynd-startup-tagline {
-    margin-top: 18px;
-    color: #D8E6FF;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: 0;
-}
-
-@keyframes bynd-startup-breathe {
-    0%, 100% { opacity: .6; }
-    50% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .bynd-startup-wordmark { animation: none; }
-}
-
-@media (min-width: 700px) {
-    .bynd-startup-wordmark { width: min(320px, 100%); }
-    .bynd-startup-tagline { font-size: 12px; }
-}
+/* Hide the retired web splash in older cached HTML. */
+#bynd-startup { display: none !important; }
 
 .phone-container { width: 375px; height: 812px; background-color: var(--bynd-mobile-bg, var(--bg-color)); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
 .phone-container *::-webkit-scrollbar { display: none; }

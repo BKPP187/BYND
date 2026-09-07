@@ -1,19 +1,13 @@
 // --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
-const byndStartupController = initByndStartup();
+removeLegacyByndStartup();
 const byndStylesReady = waitForByndStyles();
 
-function initByndStartup() {
-    if (window.__byndStartup) return window.__byndStartup;
-    return {
-        markReady() {
-            const layer = document.getElementById('bynd-startup');
-            if (layer) {
-                layer.hidden = true;
-                layer.setAttribute('aria-hidden', 'true');
-            }
-        }
-    };
+function removeLegacyByndStartup() {
+    // Cached HTML may still contain the retired splash and its controller.
+    window.__byndStartup?.markReady?.();
+    document.getElementById('bynd-startup')?.remove();
+    document.documentElement.classList.remove('bynd-startup-loading', 'bynd-startup-disabled');
 }
 
 function initializeByndApp() {
@@ -63,9 +57,8 @@ function waitForByndStyles() {
 
 function startByndAppInitialization() {
     window.__byndCoreReady = byndStylesReady.then(initializeByndApp);
-    window.__byndCoreReady.then(() => byndStartupController.markReady(), error => {
+    window.__byndCoreReady.catch(error => {
         console.error('BYND 初始化失败', error);
-        byndStartupController.markReady();
     });
 }
 
