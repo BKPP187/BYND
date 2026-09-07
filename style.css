@@ -27,63 +27,36 @@
 
 body { background-color: #ddd; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-/* --- BYND startup ritual --- */
+/* --- BYND document loading --- */
 .bynd-startup {
     position: absolute;
     inset: 0;
     z-index: 9000;
-    display: grid;
+    display: none;
     place-items: center;
     overflow: hidden;
     isolation: isolate;
     color: #F5F7F4;
+    background: #0B0D10;
     pointer-events: auto;
     contain: layout paint;
 }
-.bynd-startup[hidden] { display: none; }
+.bynd-startup-loading .bynd-startup { display: grid; }
+.bynd-startup[hidden] { display: none !important; }
 .bynd-startup-disabled .bynd-startup { display: none !important; }
-.bynd-startup-panels,
-.bynd-startup-stage { position: absolute; inset: 0; }
-.bynd-startup-panels { z-index: 0; }
-.bynd-startup-panel {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: calc(50% + 1px);
-    background: #0B0D10;
-    transition: transform 560ms cubic-bezier(.72, 0, .2, 1);
-    will-change: transform;
-}
-.bynd-startup-panel-left { left: 0; }
-.bynd-startup-panel-right { right: 0; }
 .bynd-startup-stage {
-    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
-    transition: opacity 160ms ease;
-}
-.bynd-startup-seam {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 1px;
-    height: 56px;
-    background: #D8E6FF;
-    opacity: 0;
-    transform: translate(-50%, -50%) scaleY(.08);
-    transform-origin: center;
 }
 .bynd-startup-wordmark {
     display: block;
-    width: 270px;
+    width: min(270px, 100%);
     height: auto;
     overflow: visible;
-    opacity: 0;
-    clip-path: inset(0 50% 0 50%);
-    will-change: clip-path, opacity;
+    animation: bynd-startup-breathe 1800ms ease-in-out infinite;
 }
 .bynd-startup-wordmark-fill { fill: #F5F7F4; }
 .bynd-startup-tagline {
@@ -94,58 +67,19 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
-    opacity: 0;
-    transform: translateY(6px);
 }
-.bynd-startup.is-first .bynd-startup-seam {
-    animation: bynd-startup-seam-first 620ms cubic-bezier(.2, .75, .25, 1) 100ms both;
-}
-.bynd-startup.is-first .bynd-startup-wordmark {
-    animation: bynd-startup-wordmark-first 1050ms cubic-bezier(.2, .78, .2, 1) 360ms forwards;
-}
-.bynd-startup.is-first .bynd-startup-tagline {
-    animation: bynd-startup-copy-in 430ms ease 1540ms forwards;
-}
-.bynd-startup.is-regular .bynd-startup-wordmark {
-    animation: bynd-startup-wordmark-first 310ms cubic-bezier(.2, .78, .2, 1) 35ms forwards;
-}
-.bynd-startup.is-regular .bynd-startup-tagline {
-    animation: bynd-startup-copy-in 180ms ease 360ms forwards;
-}
-.bynd-startup.is-opening { pointer-events: none; }
-.bynd-startup.is-opening .bynd-startup-stage { opacity: 0; }
-.bynd-startup.is-opening .bynd-startup-panel-left { transform: translateX(-100%); }
-.bynd-startup.is-opening .bynd-startup-panel-right { transform: translateX(100%); }
 
-@keyframes bynd-startup-seam-first {
-    0% { opacity: 0; transform: translate(-50%, -50%) scaleY(.08); }
-    35% { opacity: .72; }
-    100% { opacity: 0; transform: translate(-50%, -50%) scaleY(1); }
-}
-@keyframes bynd-startup-wordmark-first {
-    from { opacity: 0; clip-path: inset(0 50% 0 50%); }
-    to { opacity: 1; clip-path: inset(0 0 0 0); }
-}
-@keyframes bynd-startup-copy-in {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes bynd-startup-breathe {
+    0%, 100% { opacity: .6; }
+    50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .bynd-startup,
-    .bynd-startup-stage,
-    .bynd-startup-panel { transition: none; }
-    .bynd-startup .bynd-startup-seam { display: none; }
-    .bynd-startup .bynd-startup-wordmark,
-    .bynd-startup .bynd-startup-tagline { animation: none; opacity: 1; transform: none; }
-    .bynd-startup .bynd-startup-wordmark { clip-path: none; }
-    .bynd-startup.is-opening { opacity: 0; transition: opacity 160ms ease; }
-    .bynd-startup.is-opening .bynd-startup-panel-left,
-    .bynd-startup.is-opening .bynd-startup-panel-right { transform: none; }
+    .bynd-startup-wordmark { animation: none; }
 }
 
 @media (min-width: 700px) {
-    .bynd-startup-wordmark { width: 320px; }
+    .bynd-startup-wordmark { width: min(320px, 100%); }
     .bynd-startup-tagline { font-size: 12px; }
 }
 
@@ -178,7 +112,8 @@ body { background-color: #ddd; display: flex; justify-content: center; align-ite
 }
 html.mobile-runtime, html.mobile-runtime body { width: 100%; height: 100%; overflow: hidden; background-color: var(--bynd-mobile-bg, #f8f8f8); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; overscroll-behavior: none; }
 html.mobile-runtime body { display: block; min-height: 100dvh; padding: env(safe-area-inset-top) 0 0 0; }
-html.mobile-runtime .phone-container { width: 100vw; height: calc(100dvh - env(safe-area-inset-top)); max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+/* The body already reserves the native status bar here; headers must not reserve it again. */
+html.mobile-runtime .phone-container { --bynd-header-safe-top: 0px; width: 100vw; height: calc(100dvh - env(safe-area-inset-top)); max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
 html.mobile-runtime.bynd-ios-pwa,
 html.mobile-runtime.bynd-ios-pwa body {
     height: 100lvh;
@@ -208,11 +143,11 @@ html.mobile-runtime.bynd-ios-pwa .phone-container {
 html.mobile-runtime.bynd-android-app,
 html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
 html.mobile-runtime.bynd-android-app body { padding: 0; }
-html.mobile-runtime.bynd-android-app .phone-container { width: 100vw; height: 100dvh; }
+html.mobile-runtime.bynd-android-app .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
 html.mobile-runtime:fullscreen body,
 html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding: 0; }
 html.mobile-runtime:fullscreen .phone-container,
-html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { width: 100vw; height: 100dvh; }
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
 /* iOS PWA keeps top safe area for the native status bar; bottom controls handle home indicator spacing locally. */
 html.lockscreen-disabled .lock-screen { display: none !important; }
 
@@ -4520,6 +4455,10 @@ body.bynd-statusbar-hidden .status-bar,
 .wc-ai-status-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 5px; padding: 0 18px 12px; border-bottom: 1px dashed rgba(0,0,0,0.45); }
 .wc-ai-status-meta span { font-size: 12px; font-weight: 900; letter-spacing: 0.3px; }
 .wc-ai-status-meta b { font-size: 12px; font-weight: 900; text-align: right; }
+.wc-ai-status-sync { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; margin: 12px 18px 0; }
+.wc-ai-status-sync p { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.wc-ai-status-sync button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid #171717; border-radius: 2px; background: transparent; color: #171717; font-size: 12px; font-weight: 700; cursor: pointer; }
+.wc-ai-status-sync button:disabled { opacity: .55; cursor: default; }
 .wc-ai-status-bar { margin: 12px 18px 6px; padding: 4px 8px; background: #050505; color: #fff; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
 .wc-ai-status-fields { display: flex; flex-direction: column; padding: 0 18px 10px; }
 .wc-ai-status-row { padding: 8px 0 9px; border-bottom: 1px dotted rgba(0,0,0,0.32); }
@@ -15182,8 +15121,8 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 }
 .dream-topbar {
     flex: 0 0 auto;
-    min-height: 64px;
-    padding: max(12px, env(safe-area-inset-top)) 18px 10px;
+    min-height: calc(64px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding: calc(12px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 18px 10px;
     border-bottom: 1px solid #d8d8d8;
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr) 42px;
@@ -32511,3 +32450,87 @@ body:has(#home-screen.dark-mode) .manual-window {
     .mcp-scroll { scroll-behavior: auto; }
 }
 /* === End MCP app === */
+
+/* Rich role cards are self-contained layouts, so they must not inherit a chat bubble. */
+.msg-rich-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    max-width: min(calc(100% - 46px), 306px);
+    min-width: 0;
+}
+.msg-row.right .msg-rich-shell { align-items: flex-end; }
+.msg-rich-card {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    line-height: 1.45;
+    pointer-events: auto;
+}
+.msg-rich-card > :first-child { margin-top: 0 !important; }
+.msg-rich-card > :last-child { margin-bottom: 0 !important; }
+.msg-rich-card :where(*) {
+    max-width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+}
+.msg-rich-card :where(img, video, canvas, svg, iframe) {
+    max-width: 100% !important;
+    height: auto !important;
+}
+.msg-rich-card :where(table) { width: 100% !important; table-layout: fixed; border-collapse: collapse; }
+.msg-rich-card :where(td, th, pre, code) { word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+.msg-rich-card .msg-meta { float: none; display: flex; width: max-content; max-width: 100%; margin: 6px 0 0 auto; }
+.msg-rich-card .msg-quote { margin-bottom: 6px; }
+.msg-rich-card :where(a, button, [role="button"], input, select, textarea, summary) { cursor: pointer; }
+.msg-rich-card .encrypted-overlay.decrypted { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+.msg-rich-card :where(.encrypted-overlay, .decrypt-button) { cursor: pointer; }
+
+/* The same rich-card contract applies to every selectable WeChat theme. */
+#app-wechat-window[class*="wc-ui-theme-"] .wc-chat-room .msg-rich-card { background: transparent; border: 0; box-shadow: none; }
+#app-wechat-window[class*="wc-ui-theme-"] .wc-chat-room .msg-rich-shell { max-width: min(calc(100% - 46px), 306px); }
+
+.bynd-camera-recipient-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4200;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+    background: rgba(10, 13, 18, .36);
+    backdrop-filter: blur(12px);
+}
+.bynd-camera-recipient-panel {
+    width: min(100%, 330px);
+    max-height: min(86%, 560px);
+    overflow: auto;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,.72);
+    border-radius: 24px;
+    background: rgba(255,255,255,.94);
+    box-shadow: 0 20px 54px rgba(15,23,42,.22);
+}
+.bynd-camera-recipient-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bynd-camera-recipient-heading span { display: block; color: #89919c; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.bynd-camera-recipient-heading strong { display: block; margin-top: 3px; color: #171b23; font-size: 17px; line-height: 1.2; }
+.bynd-camera-recipient-close { width: 34px; height: 34px; flex: 0 0 auto; border: 0; border-radius: 50%; color: #727b88; background: #f0f2f5; font-size: 19px; }
+.bynd-camera-recipient-preview { display: block; width: 100%; max-height: 220px; margin: 14px 0; object-fit: contain; border-radius: 16px; background: #eef1f5; }
+.bynd-camera-recipient-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.bynd-camera-recipient { min-width: 0; padding: 9px 5px 8px; border: 1px solid #e6e9ee; border-radius: 14px; color: #343b46; background: #fff; font-size: 11px; }
+.bynd-camera-recipient:active { transform: scale(.98); background: #f5f7fa; }
+.bynd-camera-recipient:disabled, .bynd-camera-recipient-close:disabled { opacity: .5; cursor: wait; }
+.bynd-camera-recipient-status { margin: 10px 0 0; color: #727b88; font-size: 12px; line-height: 1.5; }
+.bynd-camera-recipient-status:empty { display: none; }
+.bynd-camera-recipient img { display: block; width: 48px; height: 48px; margin: 0 auto 5px; object-fit: cover; border-radius: 50%; background: #edf0f4; }
+.bynd-camera-recipient span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bynd-camera-recipient-empty { grid-column: 1 / -1; margin: 22px 0; color: #7e8792; text-align: center; font-size: 13px; }

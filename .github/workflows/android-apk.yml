@@ -11,6 +11,8 @@ on:
       - 'assets/**'
       - 'modules/**'
       - 'styles/**'
+      - 'tests/**'
+      - '.github/workflows/android-apk.yml'
       - 'manifest.webmanifest'
       - 'bynd-icon.svg'
 
@@ -24,10 +26,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Test dream and UI features
-        run: |
-          node tests/dream-feature.test.cjs
-          node tests/ui-regression.test.cjs
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test web application
+        run: node tests/run.cjs
 
       - name: Set up JDK
         uses: actions/setup-java@v4

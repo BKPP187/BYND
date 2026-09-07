@@ -54,9 +54,14 @@ async function drainChatApiBackgroundQueue() {
     }
 }
 
+function isChatApiQuotaErrorText(error) {
+    return /insufficient[\s_-]*(?:quota|balance|credits?|funds)|billing[\s_-]*hard[\s_-]*limit|(?:credits?|balance)[\s_-]*(?:exhausted|depleted)|(?:exhausted|depleted)[\s_-]*(?:credits?|balance)|exceeded your current quota|(?:余额|积分|额度|配额)(?:不足|已用完|已耗尽)|欠费/i.test(String(error || ''));
+}
+
 function isChatApiRateLimitErrorText(error) {
     const text = String(error || '');
-    return /(^|[^0-9])429([^0-9]|$)|rate.?limit|too many requests|quota|请求.*频繁|限流/i.test(text);
+    if (isChatApiQuotaErrorText(text)) return false;
+    return /(^|[^0-9])429([^0-9]|$)|rate.?limit|too many requests|请求.*频繁|限流/i.test(text);
 }
 
 function getChatApiRateLimitRetryMs(resp, detail = '') {
@@ -64,18 +69,18 @@ function getChatApiRateLimitRetryMs(resp, detail = '') {
     try {
         retryAfter = resp && resp.headers && resp.headers.get && resp.headers.get('retry-after') || '';
     } catch (_) {}
-    const seconds = Number.parseFloat(retryAfter);
-    if (Number.isFinite(seconds) && seconds > 0) return Math.min(30 * 60 * 1000, Math.max(30 * 1000, seconds * 1000));
+    const seconds = /^\s*\d+(?:\.\d+)?\s*$/.test(retryAfter) ? Number(retryAfter) : NaN;
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.max(30 * 1000, seconds * 1000);
     const dateMs = Date.parse(retryAfter);
-    if (Number.isFinite(dateMs) && dateMs > Date.now()) return Math.min(30 * 60 * 1000, Math.max(30 * 1000, dateMs - Date.now()));
+    if (Number.isFinite(dateMs) && dateMs > Date.now()) return Math.max(30 * 1000, dateMs - Date.now());
     const detailText = String(detail || '');
     const match = detailText.match(/(?:retry|again|after|wait|重试|稍后|等待)[^\d]{0,16}(\d+(?:\.\d+)?)\s*(ms|毫秒|s|sec|second|seconds|秒|m|min|minute|minutes|分钟)?/i);
     if (match) {
         const value = Number.parseFloat(match[1]);
         const unit = String(match[2] || 's').toLowerCase();
         if (Number.isFinite(value) && value > 0) {
-            const ms = /m|min|minute|分钟/.test(unit) ? value * 60 * 1000 : (/ms|毫秒/.test(unit) ? value : value * 1000);
-            return Math.min(30 * 60 * 1000, Math.max(30 * 1000, ms));
+            const ms = /^(?:ms|毫秒)$/.test(unit) ? value : (/^(?:m|min|minute|minutes|分钟)$/.test(unit) ? value * 60 * 1000 : value * 1000);
+            return Math.max(30 * 1000, ms);
         }
     }
     return CHAT_API_RATE_LIMIT_PAUSE_MS;
@@ -1586,12 +1591,15 @@ async function callChatApi(messages, options = {}) {
         if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
             let detail = errText;
+            let errorCode = '';
             try {
                 const errJson = parseChatApiResponseText(errText);
                 detail = errJson.error?.message || errJson.message || errText;
+                errorCode = [errJson.error?.code, errJson.error?.type, errJson.code].filter(Boolean).join(' ');
             } catch (_) {}
             const detailText = String(detail || '');
-            const isRateLimited = resp.status === 429 || isChatApiRateLimitErrorText(detailText);
+            const quotaExceeded = isChatApiQuotaErrorText(`${errorCode} ${detailText}`);
+            const isRateLimited = !quotaExceeded && (resp.status === 429 || isChatApiRateLimitErrorText(`${errorCode} ${detailText}`));
             let retryAfterMs = 0;
             if (isRateLimited) {
                 retryAfterMs = getChatApiRateLimitRetryMs(resp, detailText);
@@ -1603,8 +1611,9 @@ async function callChatApi(messages, options = {}) {
             const rateLimitHint = isRateLimited ? `，已暂停自动请求约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
             return {
                 ok: false,
-                error: `API 错误 (${resp.status})${rateLimitHint}: ${detailText.slice(0, 160)}${visionHint}`,
+                error: `API ${quotaExceeded ? '额度不足' : '错误'} (${resp.status})${rateLimitHint}: ${detailText.slice(0, 160)}${visionHint}`,
                 rateLimited: isRateLimited,
+                quotaExceeded,
                 retryAfterMs
             };
         }

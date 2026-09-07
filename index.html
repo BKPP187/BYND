@@ -19,22 +19,29 @@
             var shortSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
             var longSide = Math.max(screen.width || innerWidth, screen.height || innerHeight);
             var mobileUa = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS|MiuiBrowser|HuaweiBrowser|Quark|UCBrowser/i.test(ua);
+            var iosStandalone = window.navigator && window.navigator.standalone === true;
+            var pwaStandalone = window.matchMedia && (
+                window.matchMedia('(display-mode: standalone)').matches ||
+                window.matchMedia('(display-mode: fullscreen)').matches
+            );
+            var isIOS = /iPhone|iPad|iPod/i.test(ua);
+            if (window.ByndAndroid || iosStandalone || pwaStandalone) {
+                // Installed apps already show a system launch screen.
+                document.documentElement.classList.add('bynd-startup-disabled');
+            }
             if (window.ByndAndroid) {
                 document.documentElement.classList.add('bynd-android-app');
             }
             if (mobileUa || (touch && shortSide <= 820 && longSide <= 1368)) {
                 document.documentElement.classList.add('mobile-runtime');
             }
+            if (isIOS) document.documentElement.classList.add('bynd-ios');
+            if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
             try {
                 var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
                 if (savedTheme.startupEnabled === false) {
                     document.documentElement.classList.add('bynd-startup-disabled');
                 }
-                var iosStandalone = window.navigator && window.navigator.standalone === true;
-                var pwaStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-                var isIOS = /iPhone|iPad|iPod/i.test(ua);
-                if (isIOS) document.documentElement.classList.add('bynd-ios');
-                if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
                 var shouldHideStatusBar = savedTheme.phoneStatusBarEnabled === false || (savedTheme.phoneStatusBarEnabled == null && isIOS && (iosStandalone || pwaStandalone));
                 if (shouldHideStatusBar) {
                     document.documentElement.classList.add('bynd-statusbar-hidden');
@@ -44,25 +51,42 @@
                     document.head.appendChild(styleEl);
                 }
             } catch (e) {}
+
+            // Start before the application scripts download; fast loads never show an intro.
+            var startupReady = false;
+            var startupTimer;
+            window.__byndStartup = {
+                markReady: function () {
+                    if (startupReady) return;
+                    startupReady = true;
+                    window.clearTimeout(startupTimer);
+                    document.documentElement.classList.remove('bynd-startup-loading');
+                    var layer = document.getElementById('bynd-startup');
+                    if (layer) {
+                        layer.hidden = true;
+                        layer.setAttribute('aria-hidden', 'true');
+                    }
+                }
+            };
+            if (!document.documentElement.classList.contains('bynd-startup-disabled')) {
+                startupTimer = window.setTimeout(function () {
+                    if (!startupReady) document.documentElement.classList.add('bynd-startup-loading');
+                }, 300);
+            }
         })();
     </script>
     <title>BYND</title>
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.1.590-startup-toggle">
+    <link rel="stylesheet" href="style.css?v=1.1.590-startup-status-20260907">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2">
 </head>
 <body>
 
     <div class="phone-container">
-        <div id="bynd-startup" class="bynd-startup" role="status" aria-label="BYND 正在启动">
-            <div class="bynd-startup-panels" aria-hidden="true">
-                <span class="bynd-startup-panel bynd-startup-panel-left"></span>
-                <span class="bynd-startup-panel bynd-startup-panel-right"></span>
-            </div>
+        <div id="bynd-startup" class="bynd-startup" role="status" aria-label="BYND 正在加载">
             <div class="bynd-startup-stage">
-                <span class="bynd-startup-seam" aria-hidden="true"></span>
                 <svg class="bynd-startup-wordmark" viewBox="0 0 276 80" aria-hidden="true">
                     <g class="bynd-startup-wordmark-fill" fill-rule="evenodd">
                         <path d="M6 8h26c15 0 24 7 24 19 0 7-4 12-11 15 8 2 13 8 13 17 0 10-10 13-24 13H6V8Zm14 12v14h11c7 0 11-3 11-7 0-5-4-7-11-7H20Zm0 26v14h13c7 0 11-2 11-7s-4-7-12-7H20Z"></path>
@@ -1259,7 +1283,7 @@
                         <label class="lockscreen-mode-card">
                             <input type="checkbox" id="startup-enabled" checked>
                             <i class="ri-play-circle-line"></i>
-                            <span>开机动画</span>
+                            <span>网页加载动画</span>
                         </label>
                     </div>
                     <div class="upload-stack">
@@ -2265,7 +2289,7 @@
                 </div>
                 <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
                 <input type="file" id="wc-image-input" accept="image/*" multiple style="display:none" onchange="handleImagePick(this)">
-                <input type="file" id="bynd-system-camera-input" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleSystemCameraCapture(this)">
+                <input type="file" id="bynd-system-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleSystemCameraCapture(this)">
 
                 <!-- 表情选择器 -->
                 <div id="wc-sticker-picker" class="wc-sticker-picker hidden">
@@ -2874,14 +2898,14 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.590-dream-context"></script>
+    <script src="chat-api.js?v=1.1.590-startup-status-20260907"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.590-dream-context"></script>
+    <script src="wechat.js?v=1.1.590-startup-status-20260907"></script>
     <script src="theme.js?v=1.1.590-startup-toggle"></script>
-    <script src="settings.js?v=1.1.590-startup-toggle"></script>
-    <script src="script.js?v=1.1.590-startup-toggle"></script>
+    <script src="settings.js?v=1.1.590-storage-camera-20260907"></script>
+    <script src="script.js?v=1.1.590-storage-camera-20260907"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>

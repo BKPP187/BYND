@@ -1,55 +1,16 @@
 // --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
-const BYND_STARTUP_STORAGE_KEY = 'bynd_startup_seen_v1';
 const byndStartupController = initByndStartup();
 
 function initByndStartup() {
-    const layer = document.getElementById('bynd-startup');
-    if (!layer) return { markReady() {} };
-
-    let startupEnabled = true;
-    try {
-        const themeData = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
-        startupEnabled = themeData.startupEnabled !== false;
-    } catch (e) {}
-    if (!startupEnabled) {
-        layer.hidden = true;
-        document.documentElement.classList.remove('bynd-startup-disabled');
-        layer.setAttribute('aria-hidden', 'true');
-        return { markReady() {} };
-    }
-
-    const forcedMode = new URLSearchParams(window.location.search).get('bynd-intro');
-    let hasSeenStartup = false;
-    try {
-        hasSeenStartup = localStorage.getItem(BYND_STARTUP_STORAGE_KEY) === '1';
-    } catch (e) {}
-    const mode = forcedMode === 'first' || forcedMode === 'regular'
-        ? forcedMode
-        : (hasSeenStartup ? 'regular' : 'first');
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const minimumDuration = reduceMotion ? 0 : (mode === 'first' ? 2350 : 650);
-    const startedAt = performance.now();
-    let readyHandled = false;
-
-    layer.classList.add(`is-${mode}`);
-    layer.dataset.mode = mode;
-
+    if (window.__byndStartup) return window.__byndStartup;
     return {
         markReady() {
-            if (readyHandled) return;
-            readyHandled = true;
-            const remaining = Math.max(0, minimumDuration - (performance.now() - startedAt));
-            window.setTimeout(() => {
-                try {
-                    localStorage.setItem(BYND_STARTUP_STORAGE_KEY, '1');
-                } catch (e) {}
-                layer.classList.add('is-opening');
+            const layer = document.getElementById('bynd-startup');
+            if (layer) {
+                layer.hidden = true;
                 layer.setAttribute('aria-hidden', 'true');
-                window.setTimeout(() => {
-                    layer.hidden = true;
-                }, reduceMotion ? 180 : 600);
-            }, remaining);
+            }
         }
     };
 }
@@ -85,18 +46,15 @@ function initializeByndApp() {
     run(initProactiveNotify, '主动提醒');
     if (typeof syncMonitorPetFloating === 'function') run(syncMonitorPetFloating, '桌宠');
 
-    const fontsReady = document.fonts?.ready
-        ? Promise.resolve(document.fonts.ready).catch(error => {
-            console.warn('字体加载未完成，继续启动', error);
-        })
-        : Promise.resolve();
-
-    return Promise.all([charactersReady, fontsReady]);
+    return charactersReady;
 }
 
 function startByndAppInitialization() {
-    window.__byndCoreReady = initializeByndApp();
-    window.__byndCoreReady.then(() => byndStartupController.markReady());
+    window.__byndCoreReady = Promise.resolve().then(initializeByndApp);
+    window.__byndCoreReady.then(() => byndStartupController.markReady(), error => {
+        console.error('BYND 初始化失败', error);
+        byndStartupController.markReady();
+    });
 }
 
 if (document.readyState === 'loading') {
@@ -373,13 +331,12 @@ function openApp(appName) {
 }
 
 function openSystemCamera() {
-    let input = document.getElementById('bynd-system-camera-input')
-        || document.getElementById('wc-camera-input');
+    let input = document.getElementById('bynd-system-camera-input');
     if (!input) {
         input = document.createElement('input');
         input.id = 'bynd-system-camera-input';
         input.type = 'file';
-        input.accept = 'image/*,video/*';
+        input.accept = 'image/*';
         input.setAttribute('capture', 'environment');
         input.style.display = 'none';
         input.onchange = () => handleSystemCameraCapture(input);
@@ -397,12 +354,192 @@ window.openSystemCamera = openSystemCamera;
 function handleSystemCameraCapture(input) {
     const file = input?.files?.[0];
     if (!file) return;
-    const kind = /^video\//i.test(file.type) ? '视频' : '照片';
-    const msg = `已拍摄${kind}：${file.name || 'camera capture'}`;
-    if (typeof showWechatToast === 'function') showWechatToast(msg);
-    else alert(msg);
+    input.value = '';
+    if (!/^image\//i.test(file.type)) {
+        if (typeof showWechatToast === 'function') showWechatToast('相机入口只支持照片');
+        return;
+    }
+    openByndCameraRecipientPicker(file);
 }
 window.handleSystemCameraCapture = handleSystemCameraCapture;
+
+function getByndCameraRecipients() {
+    const source = typeof getWechatSortedChatCharacters === 'function'
+        ? getWechatSortedChatCharacters()
+        : (Array.isArray(window.myCharacters) ? window.myCharacters : []);
+    return (Array.isArray(source) ? source : [])
+        .filter(char => char && !char.isGroupNpc && !char.groupNpc && !char.isGroupChat);
+}
+
+function closeByndCameraRecipientPicker() {
+    const modal = document.getElementById('bynd-camera-recipient-modal');
+    if (!modal) return;
+    if (modal.dataset.sending === 'true') return;
+    const preview = modal.querySelector('[data-camera-preview]');
+    if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+    modal.remove();
+}
+window.closeByndCameraRecipientPicker = closeByndCameraRecipientPicker;
+
+function openByndCameraRecipientPicker(file) {
+    if (window._byndCameraSendPromise) return;
+    closeByndCameraRecipientPicker();
+    const host = document.querySelector('.phone-container') || document.body;
+    const modal = document.createElement('div');
+    modal.id = 'bynd-camera-recipient-modal';
+    modal.className = 'bynd-camera-recipient-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'bynd-camera-recipient-title');
+
+    const panel = document.createElement('div');
+    panel.className = 'bynd-camera-recipient-panel';
+    const heading = document.createElement('div');
+    heading.className = 'bynd-camera-recipient-heading';
+    heading.innerHTML = '<div><span>CAMERA MESSAGE</span><strong id="bynd-camera-recipient-title">发给哪个角色？</strong></div>';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'bynd-camera-recipient-close';
+    close.setAttribute('aria-label', '取消发送');
+    close.innerHTML = '<i class="ri-close-line"></i>';
+    close.addEventListener('click', closeByndCameraRecipientPicker);
+    heading.appendChild(close);
+
+    const preview = document.createElement('img');
+    preview.className = 'bynd-camera-recipient-preview';
+    preview.alt = '拍摄的照片预览';
+    preview.dataset.cameraPreview = '1';
+    preview.dataset.objectUrl = URL.createObjectURL(file);
+    preview.src = preview.dataset.objectUrl;
+
+    const list = document.createElement('div');
+    list.className = 'bynd-camera-recipient-list';
+    const recipients = getByndCameraRecipients();
+    if (!recipients.length) {
+        const empty = document.createElement('p');
+        empty.className = 'bynd-camera-recipient-empty';
+        empty.textContent = '请先导入角色卡';
+        list.appendChild(empty);
+    }
+    recipients.forEach(char => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'bynd-camera-recipient';
+        const avatar = document.createElement('img');
+        avatar.alt = '';
+        avatar.src = typeof getWechatCharAvatarSource === 'function'
+            ? getWechatCharAvatarSource(char, typeof DEFAULT_AVATAR === 'string' ? DEFAULT_AVATAR : '')
+            : (char.avatar || '');
+        avatar.addEventListener('error', () => {
+            if (typeof DEFAULT_AVATAR === 'string') avatar.src = DEFAULT_AVATAR;
+        }, { once: true });
+        const name = document.createElement('span');
+        name.textContent = typeof getWechatCharDisplayName === 'function'
+            ? getWechatCharDisplayName(char)
+            : (char.name || '角色');
+        button.append(avatar, name);
+        button.addEventListener('click', () => sendByndCameraFileToCharacter(file, char.id));
+        list.appendChild(button);
+    });
+
+    const status = document.createElement('p');
+    status.className = 'bynd-camera-recipient-status';
+    status.dataset.cameraStatus = '1';
+    status.setAttribute('role', 'status');
+    panel.append(heading, preview, list, status);
+    modal.appendChild(panel);
+    modal.addEventListener('click', event => {
+        if (event.target === modal) closeByndCameraRecipientPicker();
+    });
+    modal.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeByndCameraRecipientPicker();
+    });
+    host.appendChild(modal);
+    close.focus();
+}
+window.openByndCameraRecipientPicker = openByndCameraRecipientPicker;
+
+function setByndCameraSending(modal, sending, message = '') {
+    if (!modal) return;
+    modal.dataset.sending = String(sending);
+    modal.setAttribute('aria-busy', String(sending));
+    modal.querySelectorAll('button').forEach(button => { button.disabled = sending; });
+    const status = modal.querySelector('[data-camera-status]');
+    if (status) status.textContent = message;
+}
+
+function sendByndCameraFileToCharacter(file, charId) {
+    if (window._byndCameraSendPromise) return window._byndCameraSendPromise;
+    const modal = document.getElementById('bynd-camera-recipient-modal');
+    setByndCameraSending(modal, true, '正在发送照片…');
+    window._byndCameraSendPromise = (async () => {
+        let char;
+        let message;
+        let saved = false;
+        let stage = 'read';
+        try {
+            if (!file) throw new Error('没有可发送的照片');
+            if (window._wechatCharactersLoadPromise) await window._wechatCharactersLoadPromise;
+            const imageUrl = typeof compressWechatImageFile === 'function'
+                ? await compressWechatImageFile(file)
+                : await readByndCameraFile(file);
+            if (!imageUrl) throw new Error('照片内容为空');
+            char = getByndCameraRecipients().find(item => item.id === charId);
+            if (!char) throw new Error('所选角色已不存在，请重新选择');
+            stage = 'save';
+            if (typeof saveCharactersToStorage !== 'function') throw new Error('角色存储尚未准备好');
+            message = {
+                type: 'image', isMe: true, content: imageUrl, imageUrl,
+                description: '[用户从相机发送了一张照片]',
+                timestamp: typeof createMessageTimestamp === 'function' ? createMessageTimestamp() : Date.now()
+            };
+            char.history = Array.isArray(char.history) ? char.history : [];
+            char.history.push(message);
+            saved = await saveCharactersToStorage() === true;
+            if (!saved) throw new Error('照片未能保存');
+            // Notify other modules only after the photo is durable.
+            try {
+                if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
+                if (typeof notifyWechatMonitors === 'function') notifyWechatMonitors(char, message);
+                if (window.currentChatCharId === char.id && typeof refreshChatView === 'function') refreshChatView(char);
+                if (typeof renderChatList === 'function') renderChatList();
+            } catch (error) {
+                console.warn('照片已保存，界面刷新失败', error);
+            }
+            setByndCameraSending(modal, false);
+            closeByndCameraRecipientPicker();
+            if (typeof showWechatToast === 'function') showWechatToast(`照片已发给${typeof getWechatCharDisplayName === 'function' ? getWechatCharDisplayName(char) : char.name || '角色'}`);
+            return true;
+        } catch (error) {
+            if (message && !saved) {
+                const index = char.history.indexOf(message);
+                if (index >= 0) char.history.splice(index, 1);
+                // A later queued save may have observed the pending photo. Queue the rollback too.
+                try { await saveCharactersToStorage(); } catch (_) {}
+            }
+            const hint = stage === 'save' ? '照片未发送，请检查存储空间后重试' : '照片读取或角色选择失败，请重试';
+            setByndCameraSending(modal, false, hint);
+            if (typeof showWechatToast === 'function') showWechatToast(hint);
+            console.warn('camera image send failed:', error);
+            return false;
+        }
+    })().finally(() => {
+        window._byndCameraSendPromise = null;
+        setByndCameraSending(modal, false, modal?.querySelector('[data-camera-status]')?.textContent || '');
+    });
+    return window._byndCameraSendPromise;
+}
+window.sendByndCameraFileToCharacter = sendByndCameraFileToCharacter;
+
+function readByndCameraFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('camera image read failed'));
+        reader.onabort = () => reject(new Error('camera image read cancelled'));
+        reader.readAsDataURL(file);
+    });
+}
 
 function closeApp(appName) {
     let winId = '';
@@ -18163,9 +18300,9 @@ function saveChatAlbumStore(list) {
 
 function recordWechatGeneratedImageToAlbum(char, msg) {
     const url = msg && (msg.imageUrl || msg.content);
-    if (!char || !url) return;
+    if (!char || !url || msg.isMe || msg.type !== 'image' || msg.imagePending) return false;
     const list = getChatAlbumStore();
-    if (list.some(item => item.url === url)) return;
+    if (list.some(item => item.url === url && item.charId === char.id)) return false;
     list.unshift({
         id: `album_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         charId: char.id || '',
@@ -18178,6 +18315,7 @@ function recordWechatGeneratedImageToAlbum(char, msg) {
     });
     saveChatAlbumStore(list);
     if (!document.getElementById('app-album-window')?.classList.contains('hidden')) renderAlbumApp();
+    return true;
 }
 window.recordWechatGeneratedImageToAlbum = recordWechatGeneratedImageToAlbum;
 

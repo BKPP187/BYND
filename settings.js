@@ -2502,8 +2502,77 @@ const ALL_DATA_KEYS = [
     'bynd_monitor_pet_float_pos_v1',
     'bynd_monitor_pet_bound_char_v1',
     'desktop_default_princess_deleted_v1',
-    'desktop_default_lovely_deleted_v1'
+    'desktop_default_lovely_deleted_v1',
+    // Module-owned localStorage used by music, MCP, games, camera/gallery,
+    // notifications and the WeChat themed surfaces.
+    'bynd_music_comments_v1',
+    'bynd_music_favorites_v1',
+    'bynd_music_co_listen_v1',
+    'bynd_music_co_listen_char_v1',
+    'bynd_music_source_mode_v1',
+    'bynd_music_source_settings_v1',
+    'bynd_music_playlists_v1',
+    'bynd_music_library_state_v1',
+    'bynd_github_mcp_config_v1',
+    'bynd_outing_date_state_v1',
+    'bynd_chat_album_v1',
+    'bynd_coread_shelf_settings_v1',
+    'bynd_coread_shelf_meta_v1',
+    'bynd_monitor_pet_enabled_v1',
+    'bynd_monitor_pet_observe_interval_v1',
+    'bynd_proactive_notify_settings_v1',
+    'bynd_proactive_notify_state_v1',
+    'bynd_proactive_notify_client_id_v1',
+    'bynd_startup_seen_v1',
+    'bynd_game_active_v1',
+    'bynd_game_wolfcha_state_v1',
+    'bynd_game_wolfcha_setup_v1',
+    'bynd_game_wolfcha_entry_v1',
+    'bynd_game_hub_filter_v1',
+    'bynd_game_sync_char_v1',
+    'bynd_game_sync_state_v2',
+    'bynd_game_acting_state_v1',
+    'bynd_game_2048_state_v1',
+    'bynd_game_catpot_state_v5',
+    'bynd_game_jump_state_v1',
+    'bynd_game_jump_best_v1',
+    'bynd_game_water_sort_state_v1',
+    'bynd_game_water_sort_best_level_v1',
+    'bynd_game_gomoku_state_v1',
+    'bynd_game_chicken_best_v1',
+    'bynd_game_chicken_avatar_v1',
+    'bynd_game_cardmatch_rules_skip_date_v1',
+    'wechat_ui_theme_v1',
+    'wechat_favorites_store',
+    'wechat_moments_store',
+    'wechat_video_state',
+    'wechat_live_state',
+    'wechat_shop_store',
+    'wechat_takeout_store',
+    'wechat_music_play_mode',
+    'wechat_music_queue_added_tracks_v1',
+    'wechat_x_realtime_news_cache_v4'
 ];
+
+// Keep backup/cleanup scoped to BYND-owned storage. Modules add keys over time,
+// so relying on a hand-maintained allowlist alone can silently lose new data.
+const APP_STORAGE_KEY_PREFIXES = ['my_', 'bynd_', 'wechat_', 'desktop_', 'XuexiFontDB'];
+// Only keys whose contents can be fetched again belong here. Unknown keys are retained.
+const REBUILDABLE_CACHE_KEYS = new Set(['wechat_x_realtime_news_cache_v4']);
+
+function isByndStorageKey(key) {
+    const value = String(key || '');
+    return APP_STORAGE_KEY_PREFIXES.some(prefix => value.startsWith(prefix));
+}
+
+function getBackupLocalStorageKeys() {
+    const keys = new Set(ALL_DATA_KEYS);
+    for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (isByndStorageKey(key)) keys.add(key);
+    }
+    return Array.from(keys);
+}
 
 function parseBackupLocalStorageValue(raw) {
     try {
@@ -2587,34 +2656,30 @@ async function importMonitorPetAssetsFromBackup(entries) {
     }
 }
 
-// 导出所有数据
-async function exportAllData() {
+async function buildByndBackupData() {
+    if (typeof getWechatCharacterSnapshotForBackup !== 'function') {
+        throw new Error('角色数据模块尚未准备好，请加载完成后重试');
+    }
+    const snapshot = await getWechatCharacterSnapshotForBackup();
     const exportData = { _version: APP_VERSION, _exportTime: new Date().toISOString() };
     const rawLocalStorageKeys = [];
+    const warnings = [];
 
     // localStorage 数据
-    ALL_DATA_KEYS.forEach(key => {
-        try {
-            const raw = localStorage.getItem(key);
-            if (raw !== null) {
-                const parsed = parseBackupLocalStorageValue(raw);
-                exportData[key] = parsed.value;
-                if (parsed.raw) rawLocalStorageKeys.push(key);
-            }
-        } catch (e) { console.warn('导出跳过 ' + key, e); }
+    getBackupLocalStorageKeys().forEach(key => {
+        if (key === 'my_characters_data' || key === 'my_characters_data_meta') return;
+        const raw = localStorage.getItem(key);
+        if (raw !== null) {
+            const parsed = parseBackupLocalStorageValue(raw);
+            exportData[key] = parsed.value;
+            if (parsed.raw) rawLocalStorageKeys.push(key);
+        }
     });
     if (rawLocalStorageKeys.length) exportData._rawLocalStorageKeys = rawLocalStorageKeys;
 
-    // 角色完整数据可能已迁到 IndexedDB，导出时用完整数据覆盖轻量索引。
-    try {
-        if (typeof loadWechatCharactersFromIndexedDb === 'function') {
-            const record = await loadWechatCharactersFromIndexedDb().catch(() => null);
-            if (record && Array.isArray(record.characters) && record.characters.length) {
-                exportData.my_characters_data = record.characters;
-                exportData._wechatCharactersIndexedDb = { updatedAt: record.updatedAt || Date.now() };
-            }
-        }
-    } catch (e) { console.warn('导出 IndexedDB 角色数据跳过', e); }
+    exportData.my_characters_data = snapshot.characters;
+    exportData.my_characters_data_meta = { mode: 'full', updatedAt: snapshot.updatedAt, count: snapshot.characters.length };
+    exportData._wechatCharactersIndexedDb = { updatedAt: snapshot.updatedAt };
 
     // IndexedDB 字体文件
     try {
@@ -2625,9 +2690,10 @@ async function exportAllData() {
             for (const f of fileFonts) {
                 const blob = await loadFontBlob(f.id).catch(() => null);
                 if (blob) exportData._fontBlobs[f.id] = blob;
+                else warnings.push(`字体「${f.name || f.id}」未能读取`);
             }
         }
-    } catch (e) { console.warn('导出字体文件跳过', e); }
+    } catch (e) { warnings.push('字体文件未能完整读取'); console.warn('导出字体文件失败', e); }
 
     // IndexedDB 桌宠素材包
     try {
@@ -2635,19 +2701,31 @@ async function exportAllData() {
         if (monitorPetAssets && Object.keys(monitorPetAssets).length) {
             exportData._monitorPetAssets = monitorPetAssets;
         }
-    } catch (e) { console.warn('导出桌宠素材跳过', e); }
+    } catch (e) { warnings.push('桌宠素材未能读取'); console.warn('导出桌宠素材失败', e); }
+    if (warnings.length) exportData._backupWarnings = warnings;
+    return exportData;
+}
 
-    // 下载
-    const json = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `AI_OS备份_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    alert('导出成功！');
+// 导出所有数据。完整角色数据不可读时，不下载轻量索引冒充备份。
+async function exportAllData() {
+    try {
+        const exportData = await buildByndBackupData();
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AI_OS备份_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert(exportData._backupWarnings?.length
+            ? `备份已下载，但以下内容未完整备份：\n${exportData._backupWarnings.join('\n')}\n请保留当前设备的数据。`
+            : '导出成功！');
+        return true;
+    } catch (error) {
+        console.error('导出失败', error);
+        alert('导出失败：' + error.message);
+        return false;
+    }
 }
 
 // 导入数据
@@ -2664,39 +2742,39 @@ async function importAllData(input) {
             alert('这不是有效的备份文件');
             return;
         }
+        if (Object.prototype.hasOwnProperty.call(data, 'my_characters_data')
+            && (!Array.isArray(data.my_characters_data)
+                || data.my_characters_data.some(char => !char || typeof char !== 'object' || Array.isArray(char) || char.__indexedDbBacked))) {
+            throw new Error('备份中缺少完整角色数据，不能导入轻量索引');
+        }
 
         if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
 
+        // 先确认完整角色数据可保存，再恢复其他设置。
+        if (Array.isArray(data.my_characters_data)) {
+            if (typeof saveWechatImportedCharactersData !== 'function') throw new Error('角色存储模块尚未准备好');
+            await saveWechatImportedCharactersData(data.my_characters_data);
+        }
+
         // 恢复 localStorage。角色数据单独处理，避免大备份再次撑爆 localStorage。
         const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
-        ALL_DATA_KEYS.forEach(key => {
-            if (key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (Object.prototype.hasOwnProperty.call(data, key)) {
+        Object.keys(data).forEach(key => {
+            if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
+            if (isByndStorageKey(key)) {
                 localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });
 
-        if (Array.isArray(data.my_characters_data)) {
-            const updatedAt = data._wechatCharactersIndexedDb?.updatedAt || Date.now();
-            if (typeof saveWechatImportedCharactersData === 'function') {
-                await saveWechatImportedCharactersData(data.my_characters_data, updatedAt);
-            } else {
-                localStorage.setItem('my_characters_data', JSON.stringify(data.my_characters_data));
-            }
-        } else if (data.my_characters_data) {
-            localStorage.setItem('my_characters_data', JSON.stringify(data.my_characters_data));
-        }
-
         // 恢复 IndexedDB 字体文件
         if (data._fontBlobs) {
             for (const [fontId, blob] of Object.entries(data._fontBlobs)) {
-                await saveFontBlob(fontId, blob).catch(() => {});
+                await saveFontBlob(fontId, blob);
             }
         }
 
         // 恢复 IndexedDB 桌宠素材包
         if (data._monitorPetAssets) {
-            await importMonitorPetAssetsFromBackup(data._monitorPetAssets).catch(() => {});
+            await importMonitorPetAssetsFromBackup(data._monitorPetAssets);
         }
 
         alert('导入成功！页面即将刷新...');
@@ -2710,54 +2788,17 @@ async function importAllData(input) {
 async function clearInvalidCache() {
     let cleaned = 0;
 
-    // 1. 清理 localStorage 中非本应用的数据
-    const validPrefixes = ['my_', 'XuexiFontDB'];
+    // 只清除已确认可重建的缓存；业务数据、未知键和用户导入的素材保持原样。
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (!ALL_DATA_KEYS.includes(key) && !validPrefixes.some(p => key.startsWith(p))) {
+        if (REBUILDABLE_CACHE_KEYS.has(key)) {
             keysToRemove.push(key);
         }
     }
     keysToRemove.forEach(key => { localStorage.removeItem(key); cleaned++; });
 
-    // 2. 清理 IndexedDB 中孤立的字体文件（元数据已删除但 blob 还在）
-    try {
-        const fontStore = getFontStore();
-        const validFontIds = fontStore.fonts.map(f => f.id);
-        const db = await openFontDB();
-        const tx = db.transaction(FONT_DB_STORE, 'readwrite');
-        const store = tx.objectStore(FONT_DB_STORE);
-        const allKeys = await new Promise((resolve, reject) => {
-            const req = store.getAllKeys();
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-        for (const key of allKeys) {
-            if (!validFontIds.includes(key)) {
-                store.delete(key);
-                cleaned++;
-            }
-        }
-    } catch (e) { console.warn('清理 IndexedDB 跳过', e); }
-
-    // 3. 清理角色数据中空的聊天记录和无效引用
-    try {
-        const raw = localStorage.getItem('my_characters_data');
-        if (raw) {
-            const chars = JSON.parse(raw);
-            let modified = false;
-            chars.forEach(char => {
-                // 清理空 history
-                if (char.history && char.history.length === 0) delete char.history;
-                // 清理空 worldBook/regex
-                if (char.worldBook && char.worldBook.length === 0) { delete char.worldBook; modified = true; }
-                if (char.regex && char.regex.length === 0) { delete char.regex; modified = true; }
-            });
-        }
-    } catch (e) {}
-
-    // 4. 计算存储用量
+    // 计算存储用量。
     let totalSize = 0;
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -2765,7 +2806,7 @@ async function clearInvalidCache() {
     }
     const sizeKB = (totalSize * 2 / 1024).toFixed(1); // UTF-16
 
-    alert(`清理完成！\n清除了 ${cleaned} 项无效数据\n当前 localStorage 用量：${sizeKB} KB`);
+    alert(`清理完成！\n清除了 ${cleaned} 项可重建缓存\n当前 localStorage 用量：${sizeKB} KB`);
 }
 
 // ========== 字体设置（下拉列表 + IndexedDB 存储） ==========
