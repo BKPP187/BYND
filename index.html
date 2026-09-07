@@ -52,25 +52,44 @@
                 }
             } catch (e) {}
 
-            // Start before the application scripts download; fast loads never show an intro.
+            // Skip fast loads; once rendered, keep one full 1800 ms animation cycle visible.
             var startupReady = false;
+            var startupShownAt = null;
             var startupTimer;
+            var startupFrame;
+            function hideStartup() {
+                document.documentElement.classList.remove('bynd-startup-loading');
+                var layer = document.getElementById('bynd-startup');
+                if (layer) {
+                    layer.hidden = true;
+                    layer.setAttribute('aria-hidden', 'true');
+                }
+            }
+            function showStartup() {
+                startupFrame = window.requestAnimationFrame(function () {
+                    if (startupReady) return;
+                    if (!document.getElementById('bynd-startup')) {
+                        showStartup();
+                        return;
+                    }
+                    document.documentElement.classList.add('bynd-startup-loading');
+                    startupShownAt = performance.now();
+                });
+            }
             window.__byndStartup = {
                 markReady: function () {
                     if (startupReady) return;
                     startupReady = true;
                     window.clearTimeout(startupTimer);
-                    document.documentElement.classList.remove('bynd-startup-loading');
-                    var layer = document.getElementById('bynd-startup');
-                    if (layer) {
-                        layer.hidden = true;
-                        layer.setAttribute('aria-hidden', 'true');
-                    }
+                    window.cancelAnimationFrame(startupFrame);
+                    var remainingMs = startupShownAt === null ? 0 : Math.max(0, 1800 - (performance.now() - startupShownAt));
+                    if (remainingMs > 0) startupTimer = window.setTimeout(hideStartup, remainingMs);
+                    else hideStartup();
                 }
             };
             if (!document.documentElement.classList.contains('bynd-startup-disabled')) {
                 startupTimer = window.setTimeout(function () {
-                    if (!startupReady) document.documentElement.classList.add('bynd-startup-loading');
+                    if (!startupReady) showStartup();
                 }, 300);
             }
         })();

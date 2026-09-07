@@ -51,7 +51,11 @@ function createPage(savedTheme = '{}', { storageError = false, runHead = true, d
             timers.set(id, { callback, due: now + delay });
             return id;
         },
-        clearTimeout: id => timers.delete(id)
+        clearTimeout: id => timers.delete(id),
+        requestAnimationFrame(callback) {
+            return this.setTimeout(() => callback(now), 16);
+        },
+        cancelAnimationFrame: id => timers.delete(id)
     };
     const context = vm.createContext({
         window,
@@ -77,12 +81,16 @@ function createPage(savedTheme = '{}', { storageError = false, runHead = true, d
     return {
         window, document, layer, classList, context, timers, listeners, storageWrites, errors,
         advance(duration) {
-            now += duration;
-            for (const [id, timer] of timers) {
-                if (timer.due > now) continue;
+            const target = now + duration;
+            while (true) {
+                const next = [...timers].filter(([, timer]) => timer.due <= target).sort((a, b) => a[1].due - b[1].due)[0];
+                if (!next) break;
+                const [id, timer] = next;
+                now = timer.due;
                 timers.delete(id);
                 timer.callback();
             }
+            now = target;
         },
         loadRuntime() {
             vm.runInContext(`${script}\nglobalThis.__controller = byndStartupController;`, context);
@@ -97,13 +105,19 @@ async function main() {
         assert.equal(page.classList.contains('bynd-startup-loading'), false);
         page.advance(299);
         assert.equal(page.classList.contains('bynd-startup-loading'), false);
-        page.advance(1);
+        page.advance(17);
         assert.equal(page.classList.contains('bynd-startup-loading'), true, 'slow downloads must show loading before application scripts run');
         const controller = page.loadRuntime();
         assert.equal(controller, page.window.__byndStartup, 'runtime must reuse the HTML loading lifecycle');
         controller.markReady();
+        assert.equal(page.classList.contains('bynd-startup-loading'), true, 'a just-shown intro must not flash away on readiness');
+        assert.equal(page.layer.hidden, false);
+        page.advance(1799);
+        assert.equal(page.layer.hidden, false, 'a visible intro must finish its 1800 ms animation cycle');
+        controller.markReady();
+        page.advance(1);
         assert.equal(page.classList.contains('bynd-startup-loading'), false);
-        assert.equal(page.layer.hidden, true, 'ready must hide immediately without a minimum duration or exit timer');
+        assert.equal(page.layer.hidden, true, 'repeated readiness must not restart or extend the intro');
         assert.equal(page.layer.attributes.get('aria-hidden'), 'true');
         assert.equal(page.timers.size, 0);
         controller.markReady();
@@ -113,7 +127,7 @@ async function main() {
     }
 
     const unavailable = createPage(null, { storageError: true });
-    unavailable.advance(300);
+    unavailable.advance(316);
     assert.equal(unavailable.classList.contains('bynd-startup-loading'), true);
 
     for (const runtime of [
@@ -137,7 +151,7 @@ async function main() {
     }
 
     const mobileBrowser = createPage('{}', { userAgent: 'Android', displayMode: 'browser' });
-    mobileBrowser.advance(300);
+    mobileBrowser.advance(316);
     assert.equal(mobileBrowser.classList.contains('bynd-startup-loading'), true, 'ordinary mobile tabs still need their loading indicator');
 
     const fast = createPage();
@@ -146,6 +160,29 @@ async function main() {
     fast.advance(10000);
     assert.equal(fast.classList.contains('bynd-startup-loading'), false, 'fast loads must skip the logo entirely');
     assert.equal(fast.timers.size, 0);
+
+    const beforePaint = createPage();
+    beforePaint.advance(300);
+    beforePaint.loadRuntime().markReady();
+    beforePaint.advance(10000);
+    assert.equal(beforePaint.classList.contains('bynd-startup-loading'), false, 'readiness before the first frame must cancel the pending intro');
+    assert.equal(beforePaint.layer.hidden, true);
+    assert.equal(beforePaint.timers.size, 0);
+
+    const partlyShown = createPage();
+    partlyShown.advance(316);
+    partlyShown.advance(1200);
+    partlyShown.loadRuntime().markReady();
+    partlyShown.advance(599);
+    assert.equal(partlyShown.layer.hidden, false);
+    partlyShown.advance(1);
+    assert.equal(partlyShown.layer.hidden, true, 'only the remaining visible time is added');
+
+    const slow = createPage();
+    slow.advance(5000);
+    slow.loadRuntime().markReady();
+    assert.equal(slow.layer.hidden, true, 'a slow load that already completed the animation must exit immediately');
+    assert.equal(slow.timers.size, 0);
 
     const disabled = createPage('{"startupEnabled":false}');
     assert.equal(disabled.classList.contains('bynd-startup-disabled'), true);
@@ -172,18 +209,21 @@ async function main() {
     core.listeners.get('DOMContentLoaded')[0]();
     await Promise.resolve();
     await Promise.resolve();
-    core.advance(300);
+    core.advance(316);
     assert.equal(core.classList.contains('bynd-startup-loading'), true, 'character hydration must complete before leaving loading');
     resolveCharacters();
     await core.window.__byndCoreReady;
+    assert.equal(core.layer.hidden, false, 'data readiness must not truncate the visible animation');
+    core.advance(1800);
     assert.equal(core.layer.hidden, true);
 
     const failed = createPage();
     failed.loadRuntime();
     failed.context.initializeByndApp = () => { throw new Error('initialization failed'); };
-    failed.advance(300);
+    failed.advance(316);
     failed.listeners.get('DOMContentLoaded')[0]();
     await assert.rejects(failed.window.__byndCoreReady, /initialization failed/);
+    failed.advance(1800);
     assert.equal(failed.layer.hidden, true, 'initialization errors must not leave a permanent loading overlay');
     assert.equal(failed.errors.length, 1);
 
