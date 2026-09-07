@@ -1,6 +1,7 @@
 // --- 📱 script.js: 核心系统与路由 (最终完整版) ---
 
 const byndStartupController = initByndStartup();
+const byndStylesReady = waitForByndStyles();
 
 function initByndStartup() {
     if (window.__byndStartup) return window.__byndStartup;
@@ -49,8 +50,19 @@ function initializeByndApp() {
     return charactersReady;
 }
 
+function waitForByndStyles() {
+    const stylesheets = Array.from(document.querySelectorAll('link[data-bynd-core-style]'));
+    return Promise.all(stylesheets.map(link => {
+        if (link.media === 'all') return;
+        return new Promise(resolve => {
+            link.addEventListener('load', resolve, { once: true });
+            link.addEventListener('error', resolve, { once: true });
+        });
+    })).then(() => document.documentElement.classList.remove('bynd-styles-pending'));
+}
+
 function startByndAppInitialization() {
-    window.__byndCoreReady = Promise.resolve().then(initializeByndApp);
+    window.__byndCoreReady = byndStylesReady.then(initializeByndApp);
     window.__byndCoreReady.then(() => byndStartupController.markReady(), error => {
         console.error('BYND 初始化失败', error);
         byndStartupController.markReady();
@@ -18494,16 +18506,20 @@ function initFolderDrag() {
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        byndStylesReady.then(() => {
+            cleanupRemovedWatchTogetherData();
+            if (window._folders.length > 0) rebuildDesktop();
+            setTimeout(initFolderDrag, 500);
+            initPageSwipe();
+        });
+    });
+} else {
+    byndStylesReady.then(() => {
         cleanupRemovedWatchTogetherData();
         if (window._folders.length > 0) rebuildDesktop();
         setTimeout(initFolderDrag, 500);
         initPageSwipe();
     });
-} else {
-    cleanupRemovedWatchTogetherData();
-    if (window._folders.length > 0) rebuildDesktop();
-    setTimeout(initFolderDrag, 500);
-    initPageSwipe();
 }
 
 function addDesktopAppToCurrentPage(app, offsetIndex = 0, preferredArea = null, options = {}) {
@@ -23305,7 +23321,7 @@ function initEditMode() {
 }
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initEditMode);
+    document.addEventListener('DOMContentLoaded', () => byndStylesReady.then(initEditMode));
 } else {
-    initEditMode();
+    byndStylesReady.then(initEditMode);
 }

@@ -15,7 +15,7 @@ function makeClassList() {
     };
 }
 
-function createPage(savedTheme = '{}', { storageError = false, runHead = true, displayMode = 'browser', iosStandalone = false, androidApp = false, userAgent = 'Mozilla/5.0' } = {}) {
+function createPage(savedTheme = '{}', { storageError = false, runHead = true, displayMode = 'browser', iosStandalone = false, androidApp = false, userAgent = 'Mozilla/5.0', stylesheets = [] } = {}) {
     let now = 0;
     let nextTimerId = 0;
     const timers = new Map();
@@ -39,7 +39,7 @@ function createPage(savedTheme = '{}', { storageError = false, runHead = true, d
             handlers.push(handler);
             listeners.set(name, handlers);
         },
-        querySelectorAll: () => []
+        querySelectorAll: selector => selector === 'link[data-bynd-core-style]' ? stylesheets : []
     };
     const window = {
         navigator: { standalone: iosStandalone },
@@ -102,22 +102,13 @@ function createPage(savedTheme = '{}', { storageError = false, runHead = true, d
 async function main() {
     for (const data of ['{}', '{"startupEnabled":true}', '{', null]) {
         const page = createPage(data);
-        assert.equal(page.classList.contains('bynd-startup-loading'), false);
-        page.advance(299);
-        assert.equal(page.classList.contains('bynd-startup-loading'), false);
-        page.advance(17);
-        assert.equal(page.classList.contains('bynd-startup-loading'), true, 'slow downloads must show loading before application scripts run');
+        assert.equal(page.classList.contains('bynd-startup-loading'), true, 'initial HTML must provide its loading state before external resources arrive');
+        assert.equal(page.timers.size, 0, 'loading must not wait for a playback timer');
         const controller = page.loadRuntime();
         assert.equal(controller, page.window.__byndStartup, 'runtime must reuse the HTML loading lifecycle');
         controller.markReady();
-        assert.equal(page.classList.contains('bynd-startup-loading'), true, 'a just-shown intro must not flash away on readiness');
-        assert.equal(page.layer.hidden, false);
-        page.advance(1799);
-        assert.equal(page.layer.hidden, false, 'a visible intro must finish its 1800 ms animation cycle');
-        controller.markReady();
-        page.advance(1);
         assert.equal(page.classList.contains('bynd-startup-loading'), false);
-        assert.equal(page.layer.hidden, true, 'repeated readiness must not restart or extend the intro');
+        assert.equal(page.layer.hidden, true, 'readiness must hide the loading screen synchronously');
         assert.equal(page.layer.attributes.get('aria-hidden'), 'true');
         assert.equal(page.timers.size, 0);
         controller.markReady();
@@ -158,31 +149,18 @@ async function main() {
     fast.advance(100);
     fast.loadRuntime().markReady();
     fast.advance(10000);
-    assert.equal(fast.classList.contains('bynd-startup-loading'), false, 'fast loads must skip the logo entirely');
+    assert.equal(fast.classList.contains('bynd-startup-loading'), false, 'fast readiness must not start or replay a timed intro');
     assert.equal(fast.timers.size, 0);
 
-    const beforePaint = createPage();
-    beforePaint.advance(300);
-    beforePaint.loadRuntime().markReady();
-    beforePaint.advance(10000);
-    assert.equal(beforePaint.classList.contains('bynd-startup-loading'), false, 'readiness before the first frame must cancel the pending intro');
-    assert.equal(beforePaint.layer.hidden, true);
-    assert.equal(beforePaint.timers.size, 0);
-
-    const partlyShown = createPage();
-    partlyShown.advance(316);
-    partlyShown.advance(1200);
-    partlyShown.loadRuntime().markReady();
-    partlyShown.advance(599);
-    assert.equal(partlyShown.layer.hidden, false);
-    partlyShown.advance(1);
-    assert.equal(partlyShown.layer.hidden, true, 'only the remaining visible time is added');
-
-    const slow = createPage();
-    slow.advance(5000);
-    slow.loadRuntime().markReady();
-    assert.equal(slow.layer.hidden, true, 'a slow load that already completed the animation must exit immediately');
-    assert.equal(slow.timers.size, 0);
+    for (const elapsed of [0, 16, 100, 300, 316, 1516, 5000]) {
+        const loading = createPage();
+        loading.advance(elapsed);
+        loading.loadRuntime().markReady();
+        assert.equal(loading.layer.hidden, true, `a ${elapsed} ms load must not add any extra waiting`);
+        assert.equal(loading.timers.size, 0);
+        loading.advance(10000);
+        assert.equal(loading.classList.contains('bynd-startup-loading'), false, 'the loader cannot reappear after readiness');
+    }
 
     const disabled = createPage('{"startupEnabled":false}');
     assert.equal(disabled.classList.contains('bynd-startup-disabled'), true);
@@ -204,18 +182,20 @@ async function main() {
         'initOutingAppRuntime', 'initDesktopStatusWidgetRuntime', 'initProactiveNotify', 'syncMonitorPetFloating'
     ]) core.context[name] = () => {};
     let resolveCharacters;
-    core.context.loadCharactersFromStorage = () => new Promise(resolve => { resolveCharacters = resolve; });
+    let notifyCharacterRequest;
+    const charactersRequested = new Promise(resolve => { notifyCharacterRequest = resolve; });
+    core.context.loadCharactersFromStorage = () => {
+        notifyCharacterRequest();
+        return new Promise(resolve => { resolveCharacters = resolve; });
+    };
     core.document.fonts = { get ready() { assert.fail('optional fonts must not hold the loading screen'); } };
     core.listeners.get('DOMContentLoaded')[0]();
-    await Promise.resolve();
-    await Promise.resolve();
+    await charactersRequested;
     core.advance(316);
     assert.equal(core.classList.contains('bynd-startup-loading'), true, 'character hydration must complete before leaving loading');
     resolveCharacters();
     await core.window.__byndCoreReady;
-    assert.equal(core.layer.hidden, false, 'data readiness must not truncate the visible animation');
-    core.advance(1800);
-    assert.equal(core.layer.hidden, true);
+    assert.equal(core.layer.hidden, true, 'data readiness must end loading immediately');
 
     const failed = createPage();
     failed.loadRuntime();
@@ -223,9 +203,45 @@ async function main() {
     failed.advance(316);
     failed.listeners.get('DOMContentLoaded')[0]();
     await assert.rejects(failed.window.__byndCoreReady, /initialization failed/);
-    failed.advance(1800);
     assert.equal(failed.layer.hidden, true, 'initialization errors must not leave a permanent loading overlay');
     assert.equal(failed.errors.length, 1);
+
+    function stylesheet(media = 'print') {
+        const handlers = new Map();
+        return {
+            media,
+            addEventListener: (name, handler) => handlers.set(name, handler),
+            finish(event) {
+                this.media = 'all';
+                handlers.get(event)?.();
+            }
+        };
+    }
+    for (const event of ['load', 'error']) {
+        const mainStyle = stylesheet();
+        const themeStyle = stylesheet();
+        const styled = createPage('{}', { stylesheets: [mainStyle, themeStyle] });
+        styled.loadRuntime();
+        let initializations = 0;
+        styled.context.initializeByndApp = () => { initializations += 1; };
+        styled.listeners.get('DOMContentLoaded')[0]();
+        assert.equal(initializations, 0, 'application layout must wait for its stylesheets');
+        assert.equal(styled.layer.hidden, false);
+        mainStyle.finish('load');
+        await Promise.resolve();
+        assert.equal(initializations, 0, 'one completed stylesheet must not release the other');
+        themeStyle.finish(event);
+        await styled.window.__byndCoreReady;
+        assert.equal(initializations, 1);
+        assert.equal(styled.classList.contains('bynd-styles-pending'), false);
+        assert.equal(styled.layer.hidden, true, 'stylesheet failures must not leave a permanent loader');
+    }
+    const cachedStyles = createPage('{}', { stylesheets: [stylesheet('all')] });
+    cachedStyles.loadRuntime();
+    cachedStyles.context.initializeByndApp = () => {};
+    cachedStyles.listeners.get('DOMContentLoaded')[0]();
+    await cachedStyles.window.__byndCoreReady;
+    assert.equal(cachedStyles.layer.hidden, true, 'stylesheets loaded before the runtime must not stall initialization');
 
     console.log('startup feature tests passed');
 }
