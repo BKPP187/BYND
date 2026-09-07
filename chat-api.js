@@ -5,8 +5,8 @@ const CHAT_API_STATUS_MIN_COMPLETION_TOKENS = 2200;
 const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS = 2400;
-const CHAT_API_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
 const CHAT_API_BACKGROUND_QUEUE_DELAY_MS = 120;
+const chatApiRateLimitPauses = new Map();
 
 const chatApiBackgroundQueue = {
     active: false,
@@ -58,47 +58,42 @@ function isChatApiQuotaErrorText(error) {
     return /insufficient[\s_-]*(?:quota|balance|credits?|funds)|billing[\s_-]*hard[\s_-]*limit|(?:credits?|balance)[\s_-]*(?:exhausted|depleted)|(?:exhausted|depleted)[\s_-]*(?:credits?|balance)|exceeded your current quota|(?:余额|积分|额度|配额)(?:不足|已用完|已耗尽)|欠费/i.test(String(error || ''));
 }
 
-function isChatApiRateLimitErrorText(error) {
-    const text = String(error || '');
-    if (isChatApiQuotaErrorText(text)) return false;
-    return /(^|[^0-9])429([^0-9]|$)|rate.?limit|too many requests|请求.*频繁|限流/i.test(text);
+function isChatApiRateLimitResponse(status, codes = []) {
+    return status === 429 || codes.some(code => /^(?:429|rate_limit_exceeded|rate_limited|too_many_requests)$/i.test(String(code || '').trim()));
 }
 
-function getChatApiRateLimitRetryMs(resp, detail = '') {
+function getChatApiRateLimitRetryMs(resp) {
     let retryAfter = '';
     try {
         retryAfter = resp && resp.headers && resp.headers.get && resp.headers.get('retry-after') || '';
     } catch (_) {}
     const seconds = /^\s*\d+(?:\.\d+)?\s*$/.test(retryAfter) ? Number(retryAfter) : NaN;
-    if (Number.isFinite(seconds) && seconds >= 0) return Math.max(30 * 1000, seconds * 1000);
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
     const dateMs = Date.parse(retryAfter);
-    if (Number.isFinite(dateMs) && dateMs > Date.now()) return Math.max(30 * 1000, dateMs - Date.now());
-    const detailText = String(detail || '');
-    const match = detailText.match(/(?:retry|again|after|wait|重试|稍后|等待)[^\d]{0,16}(\d+(?:\.\d+)?)\s*(ms|毫秒|s|sec|second|seconds|秒|m|min|minute|minutes|分钟)?/i);
-    if (match) {
-        const value = Number.parseFloat(match[1]);
-        const unit = String(match[2] || 's').toLowerCase();
-        if (Number.isFinite(value) && value > 0) {
-            const ms = /^(?:ms|毫秒)$/.test(unit) ? value : (/^(?:m|min|minute|minutes|分钟)$/.test(unit) ? value * 60 * 1000 : value * 1000);
-            return Math.max(30 * 1000, ms);
-        }
-    }
-    return CHAT_API_RATE_LIMIT_PAUSE_MS;
+    return Number.isFinite(dateMs) ? Math.max(0, dateMs - Date.now()) : 0;
 }
 
-function setChatApiRateLimitPause(error, ms = CHAT_API_RATE_LIMIT_PAUSE_MS) {
-    const pauseMs = Math.max(30 * 1000, Number(ms) || CHAT_API_RATE_LIMIT_PAUSE_MS);
-    const until = Date.now() + pauseMs;
-    if (typeof window !== 'undefined') {
-        window._chatApiRateLimitPausedUntil = Math.max(Number(window._chatApiRateLimitPausedUntil) || 0, until);
-    }
-    console.warn('chat api paused by rate limit:', error);
-    return until;
+function getChatApiRateLimitScope(api) {
+    const selected = api || (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
+    if (!selected) return '';
+    // Keep credential-specific scope in memory only; never persist or log it.
+    return JSON.stringify([String(selected.baseUrl || '').replace(/\/+$/, ''), selected.model || '', selected.apiKey || '']);
 }
 
-function getChatApiRateLimitPauseRemainingMs() {
-    if (typeof window === 'undefined') return 0;
-    return Math.max(0, (Number(window._chatApiRateLimitPausedUntil) || 0) - Date.now());
+function setChatApiRateLimitPause(ms, api) {
+    const scope = getChatApiRateLimitScope(api);
+    const delay = Number(ms);
+    if (!scope || !Number.isFinite(delay) || delay <= 0) return;
+    const now = Date.now();
+    for (const [key, until] of chatApiRateLimitPauses) {
+        if (until <= now) chatApiRateLimitPauses.delete(key);
+    }
+    chatApiRateLimitPauses.set(scope, Math.max(chatApiRateLimitPauses.get(scope) || 0, now + delay));
+}
+
+function getChatApiRateLimitPauseRemainingMs(api) {
+    const scope = getChatApiRateLimitScope(api);
+    return Math.max(0, (chatApiRateLimitPauses.get(scope) || 0) - Date.now());
 }
 
 function formatChatApiRateLimitPause(ms) {
@@ -1542,13 +1537,15 @@ async function callChatApi(messages, options = {}) {
         return { ok: false, error: '还没选模型哦～\n去设置里测试 API 然后选一个模型' };
     }
 
-    const pauseRemainingMs = getChatApiRateLimitPauseRemainingMs();
+    const pauseRemainingMs = getChatApiRateLimitPauseRemainingMs(api);
     const shouldRespectRateLimitPause = !!(options.background || options.respectRateLimitPause);
     if (!options.force && shouldRespectRateLimitPause && pauseRemainingMs > 0) {
         return {
             ok: false,
-            error: `API 请求太频繁，已暂停自动请求，约 ${formatChatApiRateLimitPause(pauseRemainingMs)} 后再试`,
-            rateLimited: true,
+            error: `当前接口要求等待约 ${formatChatApiRateLimitPause(pauseRemainingMs)}，此次后台请求未发送`,
+            errorSource: 'client',
+            deferred: true,
+            rateLimited: false,
             retryAfterMs: pauseRemainingMs
         };
     }
@@ -1591,33 +1588,37 @@ async function callChatApi(messages, options = {}) {
         if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
             let detail = errText;
-            let errorCode = '';
+            let errorCodes = [];
             try {
                 const errJson = parseChatApiResponseText(errText);
                 detail = errJson.error?.message || errJson.message || errText;
-                errorCode = [errJson.error?.code, errJson.error?.type, errJson.code].filter(Boolean).join(' ');
+                errorCodes = [errJson.error?.code, errJson.error?.type, errJson.code].filter(value => typeof value === 'string' || typeof value === 'number');
             } catch (_) {}
-            const detailText = String(detail || '');
-            const quotaExceeded = isChatApiQuotaErrorText(`${errorCode} ${detailText}`);
-            const isRateLimited = !quotaExceeded && (resp.status === 429 || isChatApiRateLimitErrorText(`${errorCode} ${detailText}`));
+            const detailText = api.apiKey ? String(detail || '').split(api.apiKey).join('[已隐藏]') : String(detail || '');
+            const quotaExceeded = isChatApiQuotaErrorText(`${errorCodes.join(' ')} ${detailText}`);
+            const isRateLimited = !quotaExceeded && isChatApiRateLimitResponse(resp.status, errorCodes);
             let retryAfterMs = 0;
             if (isRateLimited) {
-                retryAfterMs = getChatApiRateLimitRetryMs(resp, detailText);
-                setChatApiRateLimitPause(detailText || resp.status, retryAfterMs);
+                retryAfterMs = getChatApiRateLimitRetryMs(resp);
+                setChatApiRateLimitPause(retryAfterMs, api);
             }
             const visionHint = /image|vision|multi[- ]?modal|content\s*array|image_url/i.test(detailText)
                 ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
                 : '';
-            const rateLimitHint = isRateLimited ? `，已暂停自动请求约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
+            const rateLimitHint = retryAfterMs > 0 ? `；接口要求等待约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
             return {
                 ok: false,
-                error: `API ${quotaExceeded ? '额度不足' : '错误'} (${resp.status})${rateLimitHint}: ${detailText.slice(0, 160)}${visionHint}`,
+                error: `API ${quotaExceeded ? '额度不足' : '错误'} (${resp.status}): ${detailText.slice(0, 160)}${visionHint}${rateLimitHint}`,
+                errorSource: 'provider',
+                httpStatus: resp.status,
+                errorCode: errorCodes.join(' '),
                 rateLimited: isRateLimited,
                 quotaExceeded,
                 retryAfterMs
             };
         }
 
+        chatApiRateLimitPauses.delete(getChatApiRateLimitScope(api));
         const rawText = await resp.text();
         const json = parseChatApiResponseText(rawText);
         const rawContent = getChatApiRawResponseContent(json);
@@ -1631,7 +1632,7 @@ async function callChatApi(messages, options = {}) {
                 max_tokens: getChatApiEmptyLengthRetryTokens(params.max_tokens)
             });
             if (retryResult && retryResult.ok) return retryResult;
-            if (retryResult && retryResult.rateLimited) return retryResult;
+            if (retryResult && (retryResult.httpStatus || retryResult.deferred)) return retryResult;
             if (retryResult && retryResult.error) console.warn('chat api empty length retry failed:', retryResult.error);
         }
 
