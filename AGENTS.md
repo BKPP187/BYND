@@ -6,3 +6,4 @@
 - 完成修改后运行 `node tests/run.cjs`。数据保存、导入导出和发送流程必须验证失败路径，不能吞掉错误后显示成功。
 - 桌面相机负责拍照后发送给指定角色；BYND 相册保存角色发给用户的生成图。
 - Android 工具链位于 `D:\000000000000000\BYND_build_tools`；构建完成的 APK 继续放入其 `downloads` 目录。
+- `downloads` 中只保留一个已校验的最新版 APK，固定命名为 `BYND-latest.apk`。新包签名及资源校验通过后再替换并清理旧 APK；保留 SDK、JDK、Gradle 等工具压缩包。

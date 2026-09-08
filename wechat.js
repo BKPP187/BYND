@@ -8045,6 +8045,38 @@ function getWechatLiteActionContent(msg, kind) {
     return value || fallback;
 }
 
+function getWechatPokeSuffix(msg, charObj = null) {
+    if (typeof msg.pokeSuffix === 'string') return msg.pokeSuffix.trim().replace(/^的\s*/, '');
+    let text = String(msg.note || msg.content || '').trim()
+        .replace(/^(?:\[(?:微信)?拍一拍\]|【(?:微信)?拍一拍】)\s*[：:]?\s*/, '');
+    const action = /^(.*?)拍(?:了|一)?拍\s*/.exec(text);
+    const actor = action?.[1].trim().replace(/^[“"「]|[”"」]$/g, '');
+    const knownActors = ['你', '我', '对方', 'TA', getWechatChatUserProfile(charObj).name, getWechatCharDisplayName(charObj), msg.senderName, msg.speakerName];
+    if (action && (!actor || knownActors.includes(actor) || /^[“"「]/.test(text.slice(action[0].length)))) {
+        text = text.slice(action[0].length);
+        const targetName = msg.isMe ? getWechatCharDisplayName(charObj) : getWechatChatUserProfile(charObj).name;
+        if (targetName && text.startsWith(targetName)) text = text.slice(targetName.length);
+        else text = text.replace(/^(?:“[^”]*”|"[^"]*"|「[^」]*」|对方|自己|你|我|TA)\s*/i, '');
+    }
+    return text.trim().replace(/^[的：:]\s*/, '');
+}
+
+function getWechatPokeText(msg, charObj = null) {
+    const userName = getWechatChatUserProfile(charObj).name || getWechatDisplayUserName();
+    const member = !msg.isMe && charObj?.isGroupChat
+        ? findWechatGroupMember(charObj, msg.senderId || msg.speakerId || msg.senderName || msg.speakerName)
+        : null;
+    const charName = member ? getWechatGroupMemberName(member) : getWechatCharDisplayName(charObj);
+    const sender = msg.isMe ? userName : charName;
+    const target = msg.isMe ? charName : userName;
+    const suffix = getWechatPokeSuffix(msg, charObj);
+    return `${sender}拍了拍“${target}”${suffix ? `的${suffix}` : ''}`;
+}
+
+function renderWechatPokeNotice(msg, charObj = null) {
+    return `<div class="msg-time-divider msg-poke-notice">${wcEscapeHtml(getWechatPokeText(msg, charObj))}</div>`;
+}
+
 function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = null) {
     const metaHtml = buildMessageMeta(msg);
     const sideClass = msg.isMe ? ' green' : '';
@@ -8054,20 +8086,7 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
     }
 
     if (msg.type === 'poke') {
-        const text = getWechatLiteActionContent(msg, 'poke');
-        return `
-            <div class="msg-bubble msg-lite-action-bubble msg-poke-bubble${sideClass}">
-                ${quoteHtml}
-                <div class="msg-lite-action-main">
-                    <div class="msg-lite-action-icon"><i class="ri-hand-heart-line"></i></div>
-                    <div class="msg-lite-action-info">
-                        <strong>拍一拍</strong>
-                        <span>${wcEscapeHtml(text)}</span>
-                    </div>
-                </div>
-                ${metaHtml}
-            </div>
-        `;
+        return renderWechatPokeNotice(msg, charObj);
     }
 
     if (msg.type === 'screen_shake') {
@@ -8531,6 +8550,14 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         row.className = 'msg-row system';
         row.innerHTML = `<div class="msg-system-notice">${wcEscapeHtml(msg.content || '')}</div>`;
         container.appendChild(row);
+        return;
+    }
+
+    if (msg.type === 'poke') {
+        row.className = 'msg-row time msg-poke-row';
+        row.innerHTML = renderWechatPokeNotice(msg, charObj);
+        container.appendChild(row);
+        bindWechatMessageRowActions(row, msg, msgIndex);
         return;
     }
 
@@ -21725,6 +21752,7 @@ function getWechatAiPhoneHomeSettings(char) {
     const photos = Array.isArray(safe.photos) ? safe.photos : [];
     return {
         avatar: validImage(safe.avatar),
+        wallpaper: validImage(safe.wallpaper),
         photos: Array.from({ length: 4 }, (_, index) => validImage(photos[index]))
     };
 }
@@ -21760,8 +21788,10 @@ function renderWechatAiPhonePhotoWidget(char) {
     const avatar = getWechatAiPhoneHomeAvatar(char);
     return `
         <section class="wc-ai-phone-photo-widget" aria-label="${wcEscapeAttr(getWechatCharDisplayName(char))} 的桌面照片">
-            ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
-            <span class="wc-ai-phone-photo-avatar"><img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"></span>
+            <div class="wc-ai-phone-photo-hero">
+                ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
+                <span class="wc-ai-phone-photo-avatar"><img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR"></span>
+            </div>
             <span class="wc-ai-phone-photo-strip">
                 ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`)).join('')}
             </span>
@@ -21782,12 +21812,14 @@ function renderWechatAiPhoneHomeEditor(char) {
                 <button type="button" onclick="closeWechatAiPhoneHomeEditor()" aria-label="完成"><i class="ri-check-line"></i></button>
             </div>
             <div class="wc-ai-phone-home-editor-preview">
-                ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片', 0)}
-                <label class="wc-ai-phone-photo-avatar is-editing" title="更换独立头像">
-                    <img src="${wcEscapeAttr(avatar)}" alt="桌面头像" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
-                    <i class="ri-camera-line"></i>
-                    <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomeAvatar(this)">
-                </label>
+                <div class="wc-ai-phone-photo-hero">
+                    ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片', 0)}
+                    <label class="wc-ai-phone-photo-avatar is-editing" title="更换独立头像">
+                        <img src="${wcEscapeAttr(avatar)}" alt="桌面头像" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
+                        <i class="ri-camera-line"></i>
+                        <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomeAvatar(this)">
+                    </label>
+                </div>
                 <span class="wc-ai-phone-photo-strip">
                     ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`, index + 1)).join('')}
                 </span>
@@ -21832,13 +21864,14 @@ async function updateWechatAiPhoneHomeSettings(char, updater) {
             const next = typeof updater === 'function' ? updater(current) : current;
             char.chatConfig.aiPhoneHomeSettings = {
                 avatar: String(next.avatar || ''),
+                wallpaper: String(next.wallpaper || ''),
                 photos: Array.from({ length: 4 }, (_, index) => String(next.photos && next.photos[index] || ''))
             };
-            if (await saveCharactersToStorage() === false) throw new Error('照片设置保存失败，请重试');
+            if (await saveCharactersToStorage() === false) throw new Error('桌面设置保存失败，请重试');
         } catch (error) {
             if (previous === undefined) delete char.chatConfig.aiPhoneHomeSettings;
             else char.chatConfig.aiPhoneHomeSettings = previous;
-            if (typeof showWechatToast === 'function') showWechatToast(error?.message || '照片设置保存失败，请重试');
+            if (typeof showWechatToast === 'function') showWechatToast(error?.message || '桌面设置保存失败，请重试');
             return false;
         }
         if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
@@ -21853,17 +21886,42 @@ async function updateWechatAiPhoneHomeSettings(char, updater) {
     }
 }
 
+function getWechatAiPhoneHomeCropOptions(kind) {
+    const wallpaper = kind === 'wallpaper';
+    const mainPhoto = kind === 'main';
+    const screen = document.querySelector('#wc-ai-phone-overlay .wc-ai-phone-wallpaper')?.getBoundingClientRect();
+    const aspect = wallpaper ? (screen?.width && screen?.height ? screen.width / screen.height : 9 / 19.5) : (mainPhoto ? 11 / 5 : 1);
+    const root = getWechatModalRoot();
+    const maxWidth = Math.min(mainPhoto ? 264 : 240, Math.max(120, (root.clientWidth || window.innerWidth) - 72));
+    const maxHeight = Math.min(320, Math.max(120, (root.clientHeight || window.innerHeight) - 260));
+    const cropWidth = Math.min(maxWidth, maxHeight * aspect);
+    const cropHeight = cropWidth / aspect;
+    const outputHeight = wallpaper ? 1440 : (mainPhoto ? 500 : 720);
+    return {
+        mode: 'cover',
+        title: wallpaper ? '裁剪桌面壁纸' : (mainPhoto ? '裁剪主照片' : '裁剪方形照片'),
+        helpText: '拖动图片调整位置，拉动缩放条选择保留的画面。',
+        confirmText: wallpaper ? '设为壁纸' : '保存照片',
+        cropWidth,
+        cropHeight,
+        outputWidth: Math.round(outputHeight * aspect),
+        outputHeight,
+        quality: 0.86
+    };
+}
+
 async function uploadWechatAiPhoneHomePhoto(input, index) {
     const file = input && input.files && input.files[0];
     const modal = document.getElementById('wc-ai-phone-home-editor');
     const char = (window.myCharacters || []).find(item => item.id === (modal && modal.dataset.charId));
-    if (!file || !char || index < 0 || index > 3) return;
+    if (!file || !char || !Number.isInteger(index) || index < 0 || index > 3) return;
     try {
-        const compressed = await compressWechatSettingsImage(file, index === 0 ? 1200 : 720, 0.82);
-        await updateWechatAiPhoneHomeSettings(char, current => {
-            current.photos[index] = compressed;
+        const image = await compressWechatSettingsImage(file, 1600, 0.94);
+        if (document.getElementById('wc-ai-phone-home-editor')?.dataset.charId !== char.id) return;
+        openWechatAvatarCropper(image, cropped => updateWechatAiPhoneHomeSettings(char, current => {
+            current.photos[index] = cropped;
             return current;
-        });
+        }), getWechatAiPhoneHomeCropOptions(index === 0 ? 'main' : 'photo'));
     } catch (error) {
         if (typeof showWechatToast === 'function') showWechatToast(error && error.message ? error.message : '照片读取失败');
     } finally {
@@ -21890,6 +21948,28 @@ function uploadWechatAiPhoneHomeAvatar(input) {
     input.value = '';
 }
 window.uploadWechatAiPhoneHomeAvatar = uploadWechatAiPhoneHomeAvatar;
+
+async function uploadWechatAiPhoneHomeWallpaper(input, charId) {
+    const file = input && input.files && input.files[0];
+    const char = (window.myCharacters || []).find(item => item.id === charId);
+    if (!file || !char) return;
+    try {
+        const image = await compressWechatSettingsImage(file, 1600, 0.94);
+        if (window._wechatAiPhoneOpenCharId !== char.id) return;
+        openWechatAvatarCropper(image, cropped => updateWechatAiPhoneHomeSettings(char, current => ({ ...current, wallpaper: cropped })), getWechatAiPhoneHomeCropOptions('wallpaper'));
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast(error?.message || '壁纸读取失败');
+    } finally {
+        input.value = '';
+    }
+}
+window.uploadWechatAiPhoneHomeWallpaper = uploadWechatAiPhoneHomeWallpaper;
+
+function resetWechatAiPhoneHomeWallpaper(charId) {
+    const char = (window.myCharacters || []).find(item => item.id === charId);
+    return updateWechatAiPhoneHomeSettings(char, current => ({ ...current, wallpaper: '' }));
+}
+window.resetWechatAiPhoneHomeWallpaper = resetWechatAiPhoneHomeWallpaper;
 
 function clearWechatAiPhoneHomePhoto(index) {
     const modal = document.getElementById('wc-ai-phone-home-editor');
@@ -22598,6 +22678,8 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
     }
     if (activeTab === 'settings') {
         const avatar = getWechatAiPhoneHomeAvatar(char);
+        const homeSettings = getWechatAiPhoneHomeSettings(char);
+        const charIdArgument = quoteWechatJsString(char.id);
         return `
             <div class="wc-ai-phone-app-title wc-ai-phone-app-title-compact"><strong>设置</strong><span>${wcEscapeHtml(charName)} 的小手机</span></div>
             <div class="wc-ai-phone-settings-profile">
@@ -22610,6 +22692,17 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                     <span><strong>桌面照片与头像</strong><em>编辑主图、照片组件和桌面头像</em></span>
                     <b class="ri-arrow-right-s-line"></b>
                 </button>
+                <button type="button" class="wc-ai-phone-ios-row wc-ai-phone-wallpaper-pick" onclick="this.nextElementSibling.click()">
+                    <i class="ri-image-line"></i>
+                    <span><strong>桌面壁纸</strong><em>${homeSettings.wallpaper ? '已设置壁纸，点击更换' : '选择图片并裁剪'}</em></span>
+                    <b class="ri-arrow-right-s-line"></b>
+                </button>
+                <input class="hidden" type="file" accept="image/*" onchange="uploadWechatAiPhoneHomeWallpaper(this, ${charIdArgument})" tabindex="-1" aria-hidden="true">
+                ${homeSettings.wallpaper ? `<button type="button" class="wc-ai-phone-ios-row" onclick="resetWechatAiPhoneHomeWallpaper(${charIdArgument})">
+                    <i class="ri-refresh-line"></i>
+                    <span><strong>恢复默认壁纸</strong><em>使用原来的浅色桌面</em></span>
+                    <b class="ri-arrow-right-s-line"></b>
+                </button>` : ''}
             </div>
         `;
     }
@@ -22657,16 +22750,18 @@ function renderWechatAiPhone(char) {
     const clock = getWechatAiPhoneClockParts();
     const meta = getWechatAiPhoneAppMeta(activeTab === 'wechatChat' ? 'chat' : activeTab, char, snapshot);
     const isHome = activeTab === 'home';
+    const wallpaper = isHome ? getWechatAiPhoneHomeSettings(char).wallpaper : '';
     const backTarget = activeTab === 'wechatChat' ? 'chat' : 'home';
     const backLabel = activeTab === 'wechatChat' ? '微信' : '桌面';
     modal.innerHTML = `
-        <div class="wc-ai-phone wc-ai-phone-ios ${isHome ? 'is-home' : 'is-app'}">
+        <div class="wc-ai-phone wc-ai-phone-ios ${isHome ? 'is-home' : 'is-app'}${wallpaper ? ' has-custom-wallpaper' : ''}">
             <div class="wc-ai-phone-status">
                 <span>${wcEscapeHtml(clock.time)}</span>
                 <b></b>
                 <span><i class="ri-signal-wifi-fill"></i><i class="ri-battery-2-charge-fill"></i></span>
             </div>
             <div class="wc-ai-phone-wallpaper">
+                ${wallpaper ? `<img class="wc-ai-phone-wallpaper-image" src="${wcEscapeAttr(wallpaper)}" alt="" aria-hidden="true">` : ''}
                 ${isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
                     <div class="wc-ai-phone-app-page tone-${meta.tone}">
                         <div class="wc-ai-phone-app-nav">
@@ -24201,9 +24296,9 @@ function composeField(type, msg, options = {}) {
         return `
             <label class="wc-compose-field">
                 <span>拍一拍内容</span>
-                <input id="wc-compose-action-content" type="text" maxlength="80" value="${value('content', '你拍了拍对方')}" placeholder="例如：你拍了拍对方的肩膀">
+                <input id="wc-compose-action-content" type="text" maxlength="80" value="${wcEscapeAttr(getWechatPokeSuffix(msg || {}, getCurrentChatChar()) || '肩膀')}" placeholder="例如：肩膀、脑袋">
             </label>
-            <div class="wc-compose-hint">发送后会保留成一条拍一拍气泡，也会触发轻微提示。</div>
+            <div class="wc-compose-hint">填写“的”后面的内容，发送后显示为居中提示。</div>
         `;
     }
     if (type === 'screen_shake') {
@@ -24298,7 +24393,8 @@ function buildWechatSpecialMessageFromComposer(type, existingMsg) {
         if (amount) msg.amount = normalizeWechatAmount(amount);
         msg.status = existingMsg?.status || '待收取';
     } else if (type === 'poke') {
-        msg.content = (document.getElementById('wc-compose-action-content')?.value || '').trim() || '你拍了拍对方';
+        msg.pokeSuffix = (document.getElementById('wc-compose-action-content')?.value || '').trim() || '肩膀';
+        msg.content = getWechatPokeText(msg, getCurrentChatChar());
         msg.note = msg.content;
     } else if (type === 'screen_shake') {
         msg.content = (document.getElementById('wc-compose-action-content')?.value || '').trim() || '你震动了对方的屏幕';
