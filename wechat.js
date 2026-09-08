@@ -2253,6 +2253,8 @@ function getWechatCurrentTimeContext(char) {
 function ensureMessageTimestamp(msg) {
     if (!msg.timestamp && !msg.createdAt && !msg.time) {
         msg.timestamp = createMessageTimestamp();
+        // A display fallback for imported history is not a known send time.
+        msg.timestampEstimated = true;
         return true;
     }
     return false;
@@ -19757,7 +19759,13 @@ function buildWechatPreviousAiStatusPrompt(char) {
         const value = sanitizeWechatAiStatusFieldValue(snapshot.fields[item.key], item.key);
         if (!isWechatStatusPlaceholderValue(value)) useful[item.key] = value;
     });
-    return Object.keys(useful).length ? JSON.stringify(useful, null, 2) : '';
+    if (!Object.keys(useful).length) return '';
+    const timeContext = getWechatCurrentTimeContext(char);
+    const timestamp = typeof getChatApiMessageTimestamp === 'function'
+        ? getChatApiMessageTimestamp({ timestamp: snapshot.updatedAt }) : 0;
+    const recordedAt = timeContext.mode !== 'virtual' && timestamp
+        ? `记录于${formatWechatDateTimeForPrompt(timestamp)}。` : '';
+    return `【历史状态】${recordedAt}以下只代表记录当时的状态，不能默认旧动作、服饰、地点一直延续到现在。\n${JSON.stringify(useful, null, 2)}`;
 }
 
 function buildWechatWorldBookPrompt(char, limit = 30) {
@@ -19828,15 +19836,19 @@ function getWechatMessagePromptContent(msg) {
 
 function buildWechatRecentHistoryForPrompt(char, limit = 12) {
     const history = Array.isArray(char && char.history) ? char.history : [];
+    const timeContext = getWechatCurrentTimeContext(char);
     const userName = ((typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : (typeof getUserProfile === 'function' ? getUserProfile() : {})) || {}).name || '用户';
     const charName = getWechatCharDisplayName(char);
     const lines = history
-        .filter(msg => !isWechatRegexPayloadMessage(msg, char))
+        .filter(msg => msg && msg.type !== 'user_event' && !isWechatRegexPayloadMessage(msg, char)
+            && (typeof isChatApiInternalHistoryMessage !== 'function' || !isChatApiInternalHistoryMessage(msg)))
         .slice(-limit)
         .map(msg => {
             const role = msg.isMe ? userName : charName;
             const content = stripWechatPromptText(getWechatMessagePromptContent(msg), 220);
-            return content ? `${role}: ${content}` : '';
+            const timeLabel = typeof buildChatApiHistoryTimeLabel === 'function'
+                ? buildChatApiHistoryTimeLabel(msg, timeContext) : '';
+            return content ? `${timeLabel}${role}: ${content}` : '';
         }).filter(Boolean);
     return lines.length ? lines.join('\n') : '暂无聊天记录。';
 }
@@ -20184,6 +20196,7 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
             const worldBookAnchor = buildWechatWorldBookPrompt(char);
             const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
             const characterCard = getWechatCharacterPersonaText(char, 6500);
+            const timeAnchor = typeof buildCurrentTimeAnchor === 'function' ? buildCurrentTimeAnchor(char) : '';
             const baseSystemPrompt = `你是 BYND 的微信角色状态收据生成器。你的任务不是继续聊天，而是根据真实上下文生成「${char.name || '角色'}」此刻的状态快照。只返回 JSON，不要 Markdown，不要解释。JSON 字段必须包含：innerMonologue, miniDiary, thoughts, outfit, posture, action, gaze, penis；字段名必须保留 penis，页面会显示为 PENIS。miniDiary 是想对用户说但没说出口的话。必须综合角色卡、角色设定、启用预设、正则设定、世界书、当前聊天备注/称呼、记忆、朋友圈、最近聊天和上一轮状态。用户给角色设置的备注只是身份元信息，不是用户名字，也不一定是聊天主题；如果最近聊天没有谈到名字/备注/称呼，不要让内心独白、小日记或想法围绕备注展开。不要编造用户没有说过的名字争议。所有字段都按最近聊天情绪和角色设定自然生成，禁止固定占位、模板化省略、拒绝式套话或“未特别描写”。禁止输出 [表情]、[微信表情:...]、表情031、[图片] 这类占位符；如果最近消息是表情、贴纸或图片，只能用自然语言写它造成的气氛或角色误读，不能照抄占位符。
 outfit、posture、action、gaze、penis 都必须写当前这一刻的具体状态；禁止写“没有新的描写/没有变化/保持角色设定/沿用设定/不适用/无该器官/当前剧情没有……”。
 penis 是 PENIS 栏的身体/生理状态字段，不是拒绝字段，也不是固定模板。状态是什么就写什么：必须按当前上下文、角色身体设定、世界书、服饰、姿势、情绪、关系阶段和剧情尺度推演。角色卡明确有对应器官时，可以如实写该器官此刻在衣物、姿势、刺激和情绪影响下的具体状态；角色设定不对应该器官时，也要写与该角色身体相符的下腹、腿间、敏感处、呼吸、体温或肌肉反应，不能用否定句绕过。不要无上下文硬升级情色；已有成人/亲密上下文时，就按当下尺度具体写。`;
@@ -20200,7 +20213,7 @@ penis 是 PENIS 栏的身体/生理状态字段，不是拒绝字段，也不是
                 const result = await callChatApi([
                     {
                         role: 'system',
-                        content: `${baseSystemPrompt}${retryRule}`
+                        content: `${baseSystemPrompt}\n${timeAnchor}${retryRule}`
                     },
                     {
                         role: 'user',
@@ -23086,7 +23099,7 @@ function buildWechatMemoryPrompt(char) {
     if (memories.longTerm.length) sections.push(`【长期记忆】\n${renderLines(memories.longTerm)}`);
     if (memories.segments.length) sections.push(`【近期分段记忆】\n${renderLines(memories.segments)}`);
     if (!sections.length) return '';
-    return `【当前聊天对象记忆】\n这些记忆只属于当前 AI 角色和用户的关系。压缩记忆是关系底色，长期记忆是稳定事实/偏好，近期分段记忆是新鲜但可能需要继续校准的信息。回复时自然遵守，不要主动解释记忆系统；如果记忆和最新聊天冲突，以最新聊天为准，并可用 [微信记忆:...] 主动更新。\n${sections.join('\n')}`;
+    return `【当前聊天对象记忆】\n这些记忆只属于当前 AI 角色和用户的关系。压缩记忆是关系底色，长期记忆是稳定事实/偏好，分段记忆是发生过的事件，其时效要结合当前时间判断；记忆中的动作、场景和临时状态不代表此刻仍在持续，长时间未联系也不会自动清空稳定关系。回复时自然遵守，不要主动解释记忆系统；如果记忆和最新聊天冲突，以最新聊天为准，并可用 [微信记忆:...] 主动更新。\n${sections.join('\n')}`;
 }
 
 function getWechatMemoryCategoryLabel(category) {

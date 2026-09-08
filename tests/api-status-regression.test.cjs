@@ -14,7 +14,10 @@ const successResponse = snapshot => response(200, { choices: [{ message: { conte
 
 function harness() {
     const state = { now: 1800000000000, requests: [], saves: 0, notices: [], api: { baseUrl: 'https://example.invalid/v1', model: 'test' }, respond: () => successResponse(validSnapshot()) };
-    class Clock extends Date { static now() { return state.now; } }
+    class Clock extends Date {
+        constructor(...args) { super(...(args.length ? args : [state.now])); }
+        static now() { return state.now; }
+    }
     const modal = { innerHTML: '' };
     const context = vm.createContext({
         Date: Clock, Response, Promise, Map, setTimeout, clearTimeout,
@@ -70,6 +73,21 @@ function harness() {
     context.window.myCharacters.push(char);
     return { context, state, char, modal };
 }
+
+test('status requests carry the current time and the contact gap after a long absence', async () => {
+    const h = harness();
+    h.char.history = [
+        { isMe: true, timestamp: h.state.now - 59 * 86400000, type: 'text', content: '一会儿见' },
+        { isMe: false, timestamp: h.state.now - 59 * 86400000 + 60000, type: 'text', content: '在门口等你' },
+        { isMe: true, timestamp: h.state.now, type: 'text', content: '最近好吗' }
+    ];
+    await h.context.requestWechatAiStatusSnapshot(h.char, { reason: 'manual_refresh', force: true });
+    assert.equal(h.state.requests.length, 1);
+    const messages = JSON.parse(h.state.requests[0].options.body).messages;
+    assert.match(messages[0].content, /当前时间锚点/);
+    assert.match(messages[0].content, /1个月29天/);
+    assert.match(messages[0].content, /旧场景/);
+});
 
 test('billing failures are distinct from temporary limits, including HTTP 429 insufficient_quota', async () => {
     const h = harness();

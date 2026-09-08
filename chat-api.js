@@ -6,6 +6,7 @@ const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS = 2400;
 const CHAT_API_BACKGROUND_QUEUE_DELAY_MS = 120;
+const CHAT_API_CONTACT_SESSION_GAP_MS = 4 * 60 * 60 * 1000;
 const chatApiRateLimitPauses = new Map();
 
 const chatApiBackgroundQueue = {
@@ -128,32 +129,64 @@ function formatChatApiDateTime(value) {
 }
 
 function getChatApiTimestampValue(value) {
-    if (!value) return 0;
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    if (value == null || value === '' || typeof value === 'boolean') return 0;
+    const raw = typeof value === 'string' && /^\d{10,13}$/.test(value.trim()) ? Number(value) : value;
+    const date = new Date(typeof raw === 'number' && raw >= 1e9 && raw < 1e11 ? raw * 1000 : raw);
+    const time = date.getTime();
+    return Number.isFinite(time) && time > 0 ? time : 0;
 }
 
-function getChatApiLatestVisibleMessageTime(char) {
-    const history = Array.isArray(char?.history) ? char.history : [];
-    for (let i = history.length - 1; i >= 0; i--) {
-        const msg = history[i];
-        if (!msg || msg.hiddenFromChat || msg.internalEvent || msg.type === 'system_notice') continue;
-        const time = getChatApiTimestampValue(msg.timestamp || msg.createdAt || msg.time);
-        if (time > 0) return time;
+function getChatApiMessageTimestamp(msg, nowMs = Date.now()) {
+    if (!msg) return 0;
+    const candidates = [msg.timestampEstimated ? null : msg.timestamp, msg.createdAt, msg.time];
+    for (const value of candidates) {
+        const time = getChatApiTimestampValue(value);
+        if (time > 0 && time <= nowMs) return time;
     }
     return 0;
 }
 
+function getChatApiContactTimeContext(history, nowMs) {
+    // Only actual user messages establish contact; proactive AI messages do not.
+    // Keep the boundary through multiple pending messages, retries and follow-up
+    // turns. The just-appended user message must not erase the preceding gap.
+    const messages = Array.isArray(history) ? history : [];
+    let latestUserAt = 0;
+    let sessionStartedAt = 0;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+        if (!isChatApiVisibleUserHistoryMessage(messages[i])) continue;
+        const time = getChatApiMessageTimestamp(messages[i], nowMs);
+        if (!time) break;
+        if (!latestUserAt) {
+            latestUserAt = sessionStartedAt = time;
+            if (nowMs - time >= CHAT_API_CONTACT_SESSION_GAP_MS) break;
+        } else {
+            if (time > sessionStartedAt) break;
+            if (sessionStartedAt - time >= CHAT_API_CONTACT_SESSION_GAP_MS) {
+                return { latestUserAt, previousUserAt: time, sessionStartedAt, gapMs: sessionStartedAt - time };
+            }
+            sessionStartedAt = time;
+        }
+    }
+    return { latestUserAt };
+}
+
+function buildChatApiHistoryTimeLabel(msg, timeContext) {
+    if (timeContext?.mode === 'virtual') return '';
+    const time = getChatApiMessageTimestamp(msg);
+    return `【消息时间：${time ? formatChatApiDateTime(time) : '时间不详'}】`;
+}
+
 function formatChatApiElapsed(ms) {
     const minutes = Math.floor(Math.max(0, ms) / 60000);
-    if (minutes < 1) return '刚刚';
+    if (minutes < 1) return '不到1分钟';
     if (minutes < 60) return `${minutes}分钟`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}小时`;
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days}天`;
     const months = Math.floor(days / 30);
-    return `${months}个月`;
+    return `${months}个月${days % 30 ? `${days % 30}天` : ''}`;
 }
 
 function getChatApiLunarDateParts(date) {
@@ -225,18 +258,26 @@ function getChatApiFestivalName(date) {
     return [fixedName, lunarFestival].filter(Boolean).join(' / ');
 }
 
-function buildChatApiTemporalAwarenessAnchor(char, timeContext) {
+function buildChatApiTemporalAwarenessAnchor(char, timeContext, history = char?.history) {
     const date = timeContext?.iso ? new Date(timeContext.iso) : new Date();
     const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
     const nowMs = safeDate.getTime();
-    const lastMs = getChatApiLatestVisibleMessageTime(char);
     const rows = [];
-    if (lastMs > 0) {
-        const gapMs = Math.max(0, nowMs - lastMs);
-        const lastText = formatChatApiDateTime(lastMs);
-        rows.push(`上一次可见聊天时间：${lastText}，距离现在约${formatChatApiElapsed(gapMs)}。如果间隔达到数小时/数天/更久，角色应自然意识到用户很久没来，而不是像刚刚连续聊天。`);
+    if (timeContext?.mode === 'virtual') {
+        rows.push('当前采用虚拟时间。聊天记录的现实保存时间不代表剧情时间，不能用现实日期差推断角色经历了数天或数月；按设定的虚拟时间和用户明确的剧情推进回应。');
     } else {
-        rows.push('这段聊天没有可见历史时间；按第一次/久未联系的状态自然回应。');
+        const contact = getChatApiContactTimeContext(history, nowMs);
+        if (!contact.latestUserAt) {
+            rows.push('用户此前的实际互动时间不详，无法确认联系间隔；不要编造离开多久，也不要仅因缺少时间就断言是初次见面。');
+        } else if (contact.previousUserAt) {
+            rows.push(`本次恢复联系前，用户上次实际互动：${formatChatApiDateTime(contact.previousUserAt)}。本次联系开始于：${formatChatApiDateTime(contact.sessionStartedAt)}。两次联系相隔约${formatChatApiElapsed(contact.gapMs)}；后续连发消息和本轮回复不会抹掉这段间隔。`);
+            rows.push('本次联系已经恢复，可以按人设自然意识到久别；如果已经回应过这次重逢，不要每轮反复寒暄或重复计算离开多久。');
+        } else {
+            rows.push(`最近一次有可靠时间的用户实际互动：${formatChatApiDateTime(contact.latestUserAt)}，距今${formatChatApiElapsed(nowMs - contact.latestUserAt)}。`);
+        }
+        rows.push('真实时间持续流逝。角色单方面的后台消息、状态刷新和系统事件不等于用户回来，不能缩短用户未联系的间隔。');
+        rows.push('历史消息中的“刚才、今晚、明天”只相对于该条消息的日期。相隔数小时应考虑时段变化；相隔数天或数月时，旧场景中的临时动作、地点、邀约和状态属于过去，不能默认一直持续到现在。人设、稳定关系和长期记忆仍然保留。');
+        rows.push('正常连续聊天应自然衔接；长时间未联系后，以现在的日期和用户新消息确定当前场景，除非用户明确要求续演，否则不要直接接着数天或数月前的临时动作演。不要擅自编造缺席原因、这段时间双方共同经历的事件或关系变化，也不要默认责怪用户。消息时间和系统时间说明仅供理解，不要照抄到回复。');
     }
     const festival = getChatApiFestivalName(safeDate);
     if (festival) rows.push(`今天的重要日期：${festival}。角色可以按人设自然意识到这个日期，但不要每句话都硬提。`);
@@ -676,14 +717,8 @@ function prependChatApiContextToContent(content, contextText) {
     return `${prefix}\n${content}`;
 }
 
-function buildCurrentTimeAnchor(char) {
-    const timeContext = getChatApiCurrentTimeContext(char);
-    return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。`;
-}
-
-function buildCurrentTimeAnchor(char) {
-    const timeContext = getChatApiCurrentTimeContext(char);
-    return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。\n${buildChatApiTemporalAwarenessAnchor(char, timeContext)}`;
+function buildCurrentTimeAnchor(char, history = char?.history, timeContext = getChatApiCurrentTimeContext(char)) {
+    return `【当前时间锚点】当前采用${timeContext.label}。现在是 ${timeContext.text}。今天就是 ${timeContext.date}，当前时刻是 ${timeContext.time}。如果用户问现在几点、今天日期、刚才/今晚/明天等相对时间，必须按这个时间回答，不要说你无法得知实时信息。\n${buildChatApiTemporalAwarenessAnchor(char, timeContext, history)}`;
 }
 
 function buildMemoryAnchor(char) {
@@ -1365,9 +1400,12 @@ function isChatApiVisibleUserHistoryMessage(msg) {
 
 function buildMessages(char, history, maxMessages) {
     maxMessages = maxMessages || 30; // 微信对话默认带最近 30 条，兼顾角色卡长设定和最近上下文
+    history = Array.isArray(history) ? history : (Array.isArray(char?.history) ? char.history : []);
 
     const messages = [];
     const coreIdentityAnchor = buildChatApiCoreIdentityAnchor(char);
+    const timeContext = getChatApiCurrentTimeContext(char);
+    const timeAnchor = buildCurrentTimeAnchor(char, history, timeContext);
 
     // System prompt
     messages.push({
@@ -1380,7 +1418,7 @@ function buildMessages(char, history, maxMessages) {
     });
     messages.push({
         role: 'system',
-        content: buildCurrentTimeAnchor(char)
+        content: timeAnchor
     });
     const memoryAnchor = buildMemoryAnchor(char);
     if (memoryAnchor) {
@@ -1497,10 +1535,11 @@ function buildMessages(char, history, maxMessages) {
             const quote = truncateChatAnchorText(String(msg.replyTo.text || '').replace(/<[^>]+>/g, '').trim(), 180);
             if (quote) content = prependChatApiQuoteToContent(content, `【引用${sender}】${quote}`);
         }
+        content = prependChatApiQuoteToContent(content, buildChatApiHistoryTimeLabel(msg, timeContext));
         if (msg === latestUserMsg) {
             content = prependChatApiContextToContent(
                 content,
-                `【本轮私有系统上下文，不是用户发言】\n${prepareChatApiPromptText(coreIdentityAnchor, 9000)}\n\n【执行要求】只回应用户真实消息；回复必须按「${(char && char.name) || '角色'}」的人设、世界书、记忆和当前关系生成。`
+                `【本轮私有系统上下文，不是用户发言】\n${timeAnchor}\n${prepareChatApiPromptText(coreIdentityAnchor, 9000)}\n\n【执行要求】只回应用户真实消息；回复必须按「${(char && char.name) || '角色'}」的人设、世界书、记忆和当前关系生成。`
             );
         }
 
@@ -1512,7 +1551,7 @@ function buildMessages(char, history, maxMessages) {
 
     messages.push({
         role: 'system',
-        content: `【本轮回复前最后校验】下一条回复必须优先遵守「${(char && char.name) || '角色'}」的人设原文、世界书、记忆、用户资料和最近聊天；不要按通用模板回复，不要脱离角色，不要替用户说话或行动。`
+        content: `【本轮回复前最后校验】下一条回复必须优先遵守「${(char && char.name) || '角色'}」的人设原文、世界书、记忆、用户资料和最近聊天；不要按通用模板回复，不要脱离角色，不要替用户说话或行动。同时遵守本轮时间锚点：旧聊天和记忆中的现场状态不能盖过当前日期与实际联系间隔。`
     });
 
     return messages;
