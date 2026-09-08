@@ -21737,7 +21737,19 @@ function getWechatAiPhoneHomeAvatar(char) {
         : DEFAULT_AVATAR;
 }
 
-function renderWechatAiPhonePhotoSlot(source, className, label) {
+function renderWechatAiPhonePhotoSlot(source, className, label, editIndex = null) {
+    if (Number.isInteger(editIndex)) {
+        const action = `${source ? '更换' : '添加'}${label}`;
+        return `
+            <span class="${className} is-editing${source ? '' : ' is-empty'}" data-photo-index="${editIndex}">
+                <button type="button" class="wc-ai-phone-photo-pick" onclick="this.nextElementSibling.click()" aria-label="${wcEscapeAttr(action)}" title="${wcEscapeAttr(action)}">
+                    ${source ? `<img src="${wcEscapeAttr(source)}" alt="">` : '<i class="ri-image-add-line"></i>'}
+                </button>
+                <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomePhoto(this, ${editIndex})" tabindex="-1" aria-hidden="true">
+                ${source ? `<button type="button" class="wc-ai-phone-photo-remove" onclick="clearWechatAiPhoneHomePhoto(${editIndex})" aria-label="清除${wcEscapeAttr(label)}" title="清除${wcEscapeAttr(label)}"><i class="ri-delete-bin-6-line"></i></button>` : ''}
+            </span>
+        `;
+    }
     return source
         ? `<span class="${className}"><img src="${wcEscapeAttr(source)}" alt="${wcEscapeAttr(label)}"></span>`
         : `<span class="${className} is-empty" aria-label="${wcEscapeAttr(label)}"><i class="ri-image-add-line"></i></span>`;
@@ -21770,27 +21782,15 @@ function renderWechatAiPhoneHomeEditor(char) {
                 <button type="button" onclick="closeWechatAiPhoneHomeEditor()" aria-label="完成"><i class="ri-check-line"></i></button>
             </div>
             <div class="wc-ai-phone-home-editor-preview">
-                ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片')}
+                ${renderWechatAiPhonePhotoSlot(settings.photos[0], 'wc-ai-phone-photo-main', '主照片', 0)}
                 <label class="wc-ai-phone-photo-avatar is-editing" title="更换独立头像">
                     <img src="${wcEscapeAttr(avatar)}" alt="桌面头像" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
                     <i class="ri-camera-line"></i>
                     <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomeAvatar(this)">
                 </label>
                 <span class="wc-ai-phone-photo-strip">
-                    ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`)).join('')}
+                    ${settings.photos.slice(1).map((source, index) => renderWechatAiPhonePhotoSlot(source, 'wc-ai-phone-photo-small', `照片 ${index + 2}`, index + 1)).join('')}
                 </span>
-            </div>
-            <div class="wc-ai-phone-home-photo-fields">
-                ${settings.photos.map((source, index) => `
-                    <div class="wc-ai-phone-home-photo-field">
-                        <label>
-                            ${source ? `<img src="${wcEscapeAttr(source)}" alt="照片 ${index + 1}">` : '<i class="ri-image-add-line"></i>'}
-                            <input type="file" accept="image/*" onchange="uploadWechatAiPhoneHomePhoto(this, ${index})">
-                        </label>
-                        <span>${index === 0 ? '主照片' : `照片 ${index + 1}`}</span>
-                        <button type="button" onclick="clearWechatAiPhoneHomePhoto(${index})" ${source ? '' : 'disabled'} aria-label="清除照片 ${index + 1}"><i class="ri-delete-bin-6-line"></i></button>
-                    </div>
-                `).join('')}
             </div>
             <div class="wc-ai-phone-home-editor-actions">
                 <button type="button" onclick="resetWechatAiPhoneHomeAvatar()"><i class="ri-user-follow-line"></i><span>头像跟随角色</span></button>
@@ -21820,18 +21820,37 @@ function closeWechatAiPhoneHomeEditor() {
 }
 window.closeWechatAiPhoneHomeEditor = closeWechatAiPhoneHomeEditor;
 
-function updateWechatAiPhoneHomeSettings(char, updater) {
-    if (!char) return;
-    const current = getWechatAiPhoneHomeSettings(char);
-    const next = typeof updater === 'function' ? updater(current) : current;
-    char.chatConfig = char.chatConfig || {};
-    char.chatConfig.aiPhoneHomeSettings = {
-        avatar: String(next.avatar || ''),
-        photos: Array.from({ length: 4 }, (_, index) => String(next.photos && next.photos[index] || ''))
-    };
-    saveCharactersToStorage();
-    if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
-    renderWechatAiPhoneHomeEditor(char);
+async function updateWechatAiPhoneHomeSettings(char, updater) {
+    if (!char) return false;
+    // Serialize edits so a failed save cannot roll back a later photo change.
+    const saves = window._wechatAiPhoneHomeSaves = window._wechatAiPhoneHomeSaves || new Map();
+    const promise = (saves.get(char.id) || Promise.resolve()).then(async () => {
+        char.chatConfig = char.chatConfig || {};
+        const previous = char.chatConfig.aiPhoneHomeSettings;
+        try {
+            const current = getWechatAiPhoneHomeSettings(char);
+            const next = typeof updater === 'function' ? updater(current) : current;
+            char.chatConfig.aiPhoneHomeSettings = {
+                avatar: String(next.avatar || ''),
+                photos: Array.from({ length: 4 }, (_, index) => String(next.photos && next.photos[index] || ''))
+            };
+            if (await saveCharactersToStorage() === false) throw new Error('照片设置保存失败，请重试');
+        } catch (error) {
+            if (previous === undefined) delete char.chatConfig.aiPhoneHomeSettings;
+            else char.chatConfig.aiPhoneHomeSettings = previous;
+            if (typeof showWechatToast === 'function') showWechatToast(error?.message || '照片设置保存失败，请重试');
+            return false;
+        }
+        if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
+        if (document.getElementById('wc-ai-phone-home-editor')?.dataset.charId === char.id) renderWechatAiPhoneHomeEditor(char);
+        return true;
+    });
+    saves.set(char.id, promise);
+    try {
+        return await promise;
+    } finally {
+        if (saves.get(char.id) === promise) saves.delete(char.id);
+    }
 }
 
 async function uploadWechatAiPhoneHomePhoto(input, index) {
@@ -21841,7 +21860,7 @@ async function uploadWechatAiPhoneHomePhoto(input, index) {
     if (!file || !char || index < 0 || index > 3) return;
     try {
         const compressed = await compressWechatSettingsImage(file, index === 0 ? 1200 : 720, 0.82);
-        updateWechatAiPhoneHomeSettings(char, current => {
+        await updateWechatAiPhoneHomeSettings(char, current => {
             current.photos[index] = compressed;
             return current;
         });
