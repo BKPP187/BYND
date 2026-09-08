@@ -9205,7 +9205,8 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-payment-return { background: #f3f4f6; color: #4b5563; }
 .wc-payment-accept { background: #07c160; color: #fff; box-shadow: 0 10px 22px rgba(7,193,96,0.18); }
 .wc-payment-action-footer button:active { transform: scale(0.98); }
-.wc-avatar-cropper-overlay { z-index: 3550 !important; }
+/* Cropping must stay above the character phone photo editor (3940). */
+.wc-avatar-cropper-overlay { z-index: 3950 !important; }
 .wc-avatar-cropper-card { width: min(328px, calc(100% - 38px)); overflow: hidden; border-radius: 26px; background: rgba(255,255,255,0.98); border: 1px solid rgba(255,255,255,0.86); box-shadow: 0 22px 60px rgba(15,23,42,0.28); animation: popIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .wc-avatar-cropper-body { padding: 16px 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .wc-avatar-crop-stage { position: relative; width: 240px; height: 240px; overflow: hidden; border-radius: 30px; background: #eef2f7; box-shadow: inset 0 0 0 1px rgba(15,23,42,0.08), 0 14px 34px rgba(15,23,42,0.12); touch-action: none; cursor: grab; user-select: none; }

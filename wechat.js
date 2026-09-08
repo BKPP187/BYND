@@ -9924,7 +9924,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');
             }
         } else {
-            const errMsg = { type: 'text', isMe: false, content: `⚠️ ${result.error}`, timestamp: createMessageTimestamp() };
+            const errMsg = { type: 'text', isMe: false, apiError: true, content: `⚠️ ${result.error}`, timestamp: createMessageTimestamp() };
             char.history.push(errMsg);
             if (shouldTouchChatUi) refreshChatView(char);
         }
@@ -21360,6 +21360,40 @@ function buildWechatAiPhoneErrorSnapshot(char, errorText, previousSnapshot = nul
     return snapshot;
 }
 
+function getWechatAiPhoneSyncTurn(char) {
+    const history = Array.isArray(char?.history) ? char.history : [];
+    let replied = false;
+    let repliedAt = 0;
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+        const msg = history[index];
+        if (isChatApiInternalHistoryMessage(msg) || msg.type === 'user_event') continue;
+        if (isChatApiVisibleUserHistoryMessage(msg)) {
+            if (!replied) return null;
+            const timestamp = msg.timestamp || msg.createdAt || msg.time || '';
+            return {
+                key: JSON.stringify([msg.id || '', timestamp, msg.id || timestamp ? '' : index]),
+                repliedAt
+            };
+        }
+        if (msg.isMe === false && !msg.apiError && !/^\u26a0\ufe0f?\s/.test(String(msg.content || ''))) {
+            replied = true;
+            repliedAt = getChatApiMessageTimestamp(msg);
+        }
+    }
+    return null;
+}
+
+function shouldAutoSyncWechatAiPhone(char, turn = getWechatAiPhoneSyncTurn(char)) {
+    if (!turn) return false;
+    const snapshot = char?.chatConfig?.aiPhoneSnapshot;
+    if (snapshot?.syncTurnKey === turn.key) return false;
+    if (snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'syncTurnKey')) return true;
+    if (!getWechatAiPhoneReusableSnapshot(char)) return true;
+    // Existing saved phones already include replies made before their last sync.
+    const syncedAt = Math.max(Number(snapshot.updatedAt) || 0, Number(snapshot.syncFailedAt) || 0);
+    return turn.repliedAt > 0 && turn.repliedAt > syncedAt;
+}
+
 function scheduleWechatAiPhoneSyncAfterStatus(char) {
     if (!char || !char.id) return;
     window._wechatAiPhoneDeferredSyncTimers = window._wechatAiPhoneDeferredSyncTimers || new Map();
@@ -21380,10 +21414,16 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
     if (!char) return null;
     char.chatConfig = char.chatConfig || {};
     const previousSnapshot = getWechatAiPhoneReusableSnapshot(char);
+    window._wechatAiPhoneGenerating = window._wechatAiPhoneGenerating || new Map();
+    if (window._wechatAiPhoneGenerating.has(char.id)) return window._wechatAiPhoneGenerating.get(char.id);
+    const syncTurn = getWechatAiPhoneSyncTurn(char);
+    if (!options.force && !shouldAutoSyncWechatAiPhone(char, syncTurn)) {
+        return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
+    }
     if (!options.force && (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused())) {
         return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     }
-    if (!options.force && isWechatAiStatusGenerationActive()) {
+    if (!options.force && (window._wechatAiBusy || isWechatAiStatusGenerationActive())) {
         scheduleWechatAiPhoneSyncAfterStatus(char);
         return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     }
@@ -21393,12 +21433,19 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
         window._wechatAiPhoneDeferredSyncTimers.delete(char.id);
     }
     delete char.chatConfig.aiPhoneUsageLog;
-    window._wechatAiPhoneGenerating = window._wechatAiPhoneGenerating || new Map();
-    if (window._wechatAiPhoneGenerating.has(char.id)) return window._wechatAiPhoneGenerating.get(char.id);
 
-    const promise = (async () => {
+    const promise = Promise.resolve().then(async () => {
         let snapshot = buildWechatAiPhoneFallback(char);
         try {
+            // Persist the attempted turn before using API quota, including failed
+            // syncs. Capture this turn now so a newer reply is not consumed later.
+            char.chatConfig.aiPhoneSnapshot = {
+                ...(previousSnapshot || snapshot),
+                syncTurnKey: syncTurn?.key || ''
+            };
+            if (await saveCharactersToStorage() === false) {
+                throw new Error('同步记录未能保存，本次未请求 API。请检查存储后手动重试。');
+            }
             const status = getWechatAiStatusSnapshot(char) || { fields: {} };
             const identityAnchor = typeof buildWechatIdentityContextPrompt === 'function'
                 ? buildWechatIdentityContextPrompt(char, (typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char) : {}))
@@ -21505,8 +21552,15 @@ diaryLetters 必须是 char 第一人称正式写给 user 的中文书信，不�
             console.warn('request ai phone failed:', e);
             snapshot = buildWechatAiPhoneErrorSnapshot(char, e && e.message ? e.message : 'AI 小手机同步异常', previousSnapshot);
         }
+        snapshot.syncTurnKey = syncTurn?.key || '';
         char.chatConfig.aiPhoneSnapshot = snapshot;
-        saveCharactersToStorage();
+        try {
+            if (await saveCharactersToStorage() === false) throw new Error('小手机内容未能保存，请检查存储后手动重试。');
+        } catch (error) {
+            snapshot = buildWechatAiPhoneErrorSnapshot(char, error.message || '小手机内容保存失败', previousSnapshot);
+            snapshot.syncTurnKey = syncTurn?.key || '';
+            char.chatConfig.aiPhoneSnapshot = snapshot;
+        }
         if (window._wechatAiPhoneOpenCharId === char.id) {
             renderWechatAiPhone(char);
             if (options.force && snapshot.generatedBy === 'error' && snapshot.syncError) {
@@ -21514,9 +21568,10 @@ diaryLetters 必须是 char 第一人称正式写给 user 的中文书信，不�
             }
         }
         return snapshot;
-    })();
+    });
 
     window._wechatAiPhoneGenerating.set(char.id, promise);
+    if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
     try {
         return await promise;
     } finally {
@@ -21542,14 +21597,7 @@ function openWechatAiPhone(charId) {
         getWechatModalRoot().appendChild(modal);
     }
     renderWechatAiPhone(char);
-    const phoneSnapshot = char.chatConfig
-        && char.chatConfig.aiPhoneSnapshot
-        && char.chatConfig.aiPhoneSnapshot.generatedBy === 'api'
-        && char.chatConfig.aiPhoneSnapshot.schemaVersion === WECHAT_AI_PHONE_SCHEMA_VERSION
-        ? char.chatConfig.aiPhoneSnapshot
-        : null;
-    const statusSnapshot = getWechatAiStatusSnapshot(char);
-    if (!phoneSnapshot || (statusSnapshot && statusSnapshot.updatedAt > phoneSnapshot.updatedAt)) {
+    if (shouldAutoSyncWechatAiPhone(char)) {
         requestWechatAiPhoneSnapshot(char).catch(e => console.warn('ai phone open failed:', e));
     }
 }
@@ -22554,7 +22602,7 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const syncError = stripWechatPromptText(snapshot && snapshot.syncError, 118);
-    const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}`);
+    const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : (snapshot.generatedBy === 'api' ? `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}` : '尚未同步'));
     const retryId = quoteWechatJsString(char && char.id);
     const syncPill = syncError
         ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="event.stopPropagation(); openWechatAiPhoneErrorPrompt(${retryId})" aria-label="查看小手机同步失败原因">${wcEscapeHtml(syncLabel)}</button>`
@@ -22565,8 +22613,8 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
                 <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
                 ${syncPill}
                 <div class="wc-ai-phone-home-actions">
-                    <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="按角色人设和世界书生成小手机内容" title="按角色人设和世界书生成">
-                        <i class="${isLoading ? 'ri-loader-4-line' : 'ri-sparkling-2-fill'}"></i>
+                    <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="手动同步小手机" title="手动同步" ${isLoading ? 'disabled aria-busy="true"' : ''}>
+                        <i class="${isLoading ? 'ri-loader-4-line' : 'ri-refresh-line'}"></i>
                     </button>
                 </div>
             </div>
@@ -22768,6 +22816,9 @@ function flushWechatAiPhoneContactReplyReactions(char) {
 function closeWechatAiPhone() {
     const charId = window._wechatAiPhoneOpenCharId;
     const char = (window.myCharacters || []).find(c => c.id === charId);
+    const deferredTimer = window._wechatAiPhoneDeferredSyncTimers?.get(charId);
+    if (deferredTimer) clearTimeout(deferredTimer);
+    window._wechatAiPhoneDeferredSyncTimers?.delete(charId);
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     closeWechatAiPhoneErrorPrompt();
