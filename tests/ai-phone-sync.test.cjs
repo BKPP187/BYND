@@ -47,7 +47,6 @@ function harness(savedChar) {
         getWechatAiPhoneSnapshotGapSummary: () => '',
         stripWechatPromptText: (value, max) => String(value || '').slice(0, max),
         cleanWechatVisibleContent: value => String(value || ''),
-        parseWechatJsonObject: value => { try { return JSON.parse(value); } catch { return null; } },
         normalizeWechatAiPhoneSnapshot: raw => savedPhone({ ...raw, diaryLetters: context.getWechatAiPhoneDiaryLetters(raw), updatedAt: now }),
         renderWechatAiPhone: () => { state.renders += 1; },
         closeWechatAiPhoneErrorPrompt() {}, openWechatAiPhoneErrorPrompt() {}, flushWechatAiPhoneContactReplyReactions() {},
@@ -67,7 +66,8 @@ function harness(savedChar) {
     vm.runInContext(`const WECHAT_AI_PHONE_SCHEMA_VERSION = '${schema}';`, context);
     vm.runInContext(sourceSection('wechat.js', 'function stripWechatPromptText(', 'function formatWechatSnapshotTime('), context);
     vm.runInContext(sourceSection('wechat.js', 'function cleanWechatAiPhoneBlockText(', 'function normalizeWechatAiPhoneMemoList('), context);
-    vm.runInContext(sourceSection('wechat.js', 'function isWechatAiPhoneGenericDiaryTitle(', 'function renderWechatAiPhoneDiaryMailbox('), context);
+    vm.runInContext(sourceSection('wechat.js', 'function cleanWechatJsonCandidate(', 'function isWechatAiStatusSnapshotComplete('), context);
+    vm.runInContext(sourceSection('wechat.js', 'function isWechatAiPhoneDiaryPlaceholder(', 'function renderWechatAiPhoneDiaryMailbox('), context);
     vm.runInContext(sourceSection('wechat.js', 'function getWechatAiPhoneRenderSnapshot(', 'function getWechatAiPhoneSyncErrorText('), context);
     vm.runInContext(sourceSection('wechat.js', 'function closeWechatAiPhone() {', '// ========== 微信记忆系统'), context);
     const finish = async () => { await context.window._wechatAiPhoneGenerating?.get(char.id); };
@@ -270,12 +270,12 @@ test('complete letters survive common punctuation, date and paragraph formats wi
 
 test('letter normalization still rejects missing content, placeholders and impossible dates', () => {
     const h = harness();
-    for (const key of Object.keys(letters()[0])) {
+    for (const key of ['salutation', 'greeting', 'body', 'signature', 'date']) {
         const raw = letters()[0];
         delete raw[key];
         assert.equal(h.context.normalizeWechatAiPhoneDiaryLetterList([raw]).length, 0, key);
     }
-    for (const extra of [{ title: '日记' }, { body: '待补充' }, { body: '我想你了。' }, { date: '2026-02-30' }, { signature: '未填写' }]) {
+    for (const extra of [{ closing: '', wish: '' }, { body: '待补充' }, { body: '我想你了。' }, { date: '2026-02-30' }, { signature: '未填写' }]) {
         assert.equal(h.context.normalizeWechatAiPhoneDiaryLetterList([{ ...letters()[0], ...extra }]).length, 0);
     }
 });
@@ -395,4 +395,83 @@ test('repeated diary clicks share the pending request without consuming a newer 
     assert.equal(h.state.requests.length, 1);
     assert.equal(h.char.chatConfig.aiPhoneSnapshot.syncTurnKey, 'saved-turn');
     assert.equal(h.context.shouldAutoSyncWechatAiPhone(h.char), true);
+});
+
+test('diary sync uses the production parser for quoted and nested model responses', async () => {
+    const h = harness();
+    const rows = letters().map(letter => ({ ...letter, subtitle: '', meta: '', body: letter.body.replace('安静', '“安静”') }));
+    h.state.respond = async () => ({ ok: true, content: JSON.stringify({ data: { result: { diary_letters: rows } } }) });
+    const result = await h.context.regenerateWechatAiPhoneDiary(h.char.id);
+    assert.equal(h.state.requests.length, 1);
+    assert.equal(result.diaryLetters.length, 2);
+    assert.equal(result.diaryLetters[0].body, rows[0].body);
+    assert.equal(result.diarySyncError, undefined);
+    assert.equal(h.state.savedChar.chatConfig.aiPhoneSnapshot.diaryLetters[0].body, rows[0].body);
+});
+
+test('a bounded repair completes the remaining letter without discarding the first response', async () => {
+    const h = harness();
+    h.state.respond = async () => phoneResponse({ diaryLetters: [letters()[h.state.requests.length - 1]] });
+    const result = await h.context.regenerateWechatAiPhoneDiary(h.char.id);
+    assert.equal(h.state.requests.length, 2);
+    assert.equal(result.diaryLetters.length, 2);
+    assert.match(h.state.requests[1].messages.at(-1).content, /剩余 1 封/);
+    assert.equal(result.diarySyncError, undefined);
+});
+
+test('a complete letter from the full phone response survives the diary repair', async () => {
+    const h = harness();
+    h.state.respond = async () => phoneResponse({ diaryLetters: [letters()[h.state.requests.length - 1]] });
+    const result = await h.context.requestWechatAiPhoneSnapshot(h.char, { force: true });
+    assert.equal(h.state.requests.length, 2);
+    assert.equal(result.diaryLetters.length, 2);
+    assert.equal(result.diarySyncError, undefined);
+});
+
+test('partial diary responses remain readable and failure details survive reload', async () => {
+    const h = harness();
+    const bad = { ...letters()[1], signature: '' };
+    h.state.respond = async () => phoneResponse({ diaryLetters: [letters()[0], bad] });
+    const result = await h.context.regenerateWechatAiPhoneDiary(h.char.id);
+    assert.equal(h.state.requests.length, 2);
+    assert.equal(result.diaryLetters.length, 1);
+    assert.match(result.diarySyncError, /署名/);
+    assert.match(h.state.requests[1].messages.at(-1).content, /署名/);
+    assert.equal(result.diarySyncDiagnostics.responses.length, 2);
+    assert.equal(result.diarySyncDiagnostics.responses[1].candidateCount, 2);
+    assert.equal(result.diarySyncDiagnostics.responses[1].acceptedCount, 1);
+    const reloaded = harness(h.state.savedChar);
+    reloaded.open();
+    await reloaded.finish();
+    assert.equal(reloaded.state.requests.length, 0);
+    assert.equal(reloaded.char.chatConfig.aiPhoneSnapshot.diaryLetters.length, 1);
+    assert.match(reloaded.char.chatConfig.aiPhoneSnapshot.diarySyncError, /署名/);
+    await reloaded.context.regenerateWechatAiPhoneDiary(reloaded.char.id);
+    assert.equal(reloaded.char.chatConfig.aiPhoneSnapshot.diarySyncDiagnostics, undefined);
+});
+
+test('a provider failure during repair preserves fresh and previously saved complete letters', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: letters(), diaryUpdatedAt: now - 1000 });
+    const fresh = { ...letters()[0], title: '新的来信', body: letterBody.replace('河边', '公园') };
+    h.state.respond = async () => h.state.requests.length === 1 ? phoneResponse({ diaryLetters: [fresh] }) : ({ ok: false, error: 'API 错误 (429)' });
+    const result = await h.context.regenerateWechatAiPhoneDiary(h.char.id);
+    assert.equal(h.state.requests.length, 2);
+    assert.equal(result.diaryLetters.length, 3);
+    assert.equal(result.diaryLetters[0].body, fresh.body);
+    assert.deepEqual(clone(result.diaryLetters.slice(1)), letters());
+    assert.match(result.diarySyncError, /429/);
+});
+
+test('saving a partial diary failure cannot replace cached letters when storage rejects it', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: letters(), diaryUpdatedAt: now - 1000 });
+    const before = clone(h.char.chatConfig.aiPhoneSnapshot);
+    h.state.saveResult = count => count !== 2;
+    h.state.respond = async () => phoneResponse({ diaryLetters: [{ ...letters()[0], body: letterBody.replace('河边', '公园') }] });
+    const result = await h.context.regenerateWechatAiPhoneDiary(h.char.id);
+    assert.deepEqual(clone(result.diaryLetters), before.diaryLetters);
+    assert.equal(result.diaryUpdatedAt, before.diaryUpdatedAt);
+    assert.equal(result.diarySyncDiagnostics, undefined);
+    assert.match(result.diarySyncError, /保存/);
 });
