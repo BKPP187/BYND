@@ -17,7 +17,9 @@ assert.ok(!wechat.includes('class="wc-ai-phone-edit-home"'), 'phone header edit 
 assert.match(wechat, /key: 'settings', label: '设置'/, 'phone must expose a settings app');
 assert.match(wechat, /activeTab === 'settings'/, 'phone settings app must render a page');
 assert.match(wechat, /'games', 'settings'/, 'phone router must allow the settings app');
-assert.match(style, /\.wc-ai-phone-photo-strip\s*\{[^}]*margin-top:\s*52px;/s, 'photo strip must clear the center avatar');
+const avatarBottom = Number(style.match(/\.wc-ai-phone-photo-avatar\s*\{[^}]*bottom:\s*(-?[\d.]+)px;/s)?.[1]);
+const photoStripMargin = Number(style.match(/\.wc-ai-phone-photo-strip\s*\{[^}]*margin-top:\s*([\d.]+)px;/s)?.[1]);
+assert.ok(Number.isFinite(avatarBottom) && Number.isFinite(photoStripMargin) && photoStripMargin + avatarBottom >= 12, 'photo strip must leave a visible gap below the center avatar');
 assert.match(script, /const previewText = record\.summary \|\| record\.text \|\| '';/, 'legacy dream text must render in previews');
 assert.match(style, /\.dream-topbar\s*\{[^}]*min-height:\s*calc\(64px\s*\+\s*var\(--bynd-header-safe-top,\s*env\(safe-area-inset-top,\s*0px\)\)\)/s, 'dream header height must include the unreserved iPhone safe area');
 assert.match(style, /\.dream-topbar\s*\{[^}]*padding:\s*calc\(12px\s*\+\s*var\(--bynd-header-safe-top,\s*env\(safe-area-inset-top,\s*0px\)\)\)/s, 'dream header content must start below the unreserved safe area');

@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const { sourceSection, deferred, clone } = require('./helpers/harness.cjs');
 
 function harness() {
-    const char = { id: 'photo-test', chatConfig: { aiPhoneHomeSettings: { avatar: 'data:image/jpeg;base64,avatar', wallpaper: 'data:image/jpeg;base64,wallpaper', photos: ['data:image/jpeg;base64,main', 'data:image/jpeg;base64,second', '', ''] } } };
+    const char = { id: 'photo-test', chatConfig: { aiPhoneHomeSettings: { avatar: 'data:image/jpeg;base64,avatar', wallpaper: 'data:image/jpeg;base64,wallpaper', photos: ['data:image/jpeg;base64,main', 'data:image/jpeg;base64,second', '', ''], icons: {} } } };
     const modal = { dataset: { charId: char.id } };
     const state = { writes: [], rendered: [], editorRenders: 0, notices: [], crops: [], save: async () => true, readImage: async () => { throw new Error('图片加载失败'); } };
     const context = vm.createContext({
@@ -18,10 +18,13 @@ function harness() {
         showWechatToast: message => state.notices.push(message),
         renderWechatAiPhone: () => state.rendered.push(clone(char.chatConfig.aiPhoneHomeSettings)),
         renderWechatAiPhoneHomeEditor: () => { state.editorRenders += 1; },
+        renderWechatAiPhoneIconEditor() {},
         compressWechatSettingsImage: (...args) => state.readImage(...args),
         openWechatAvatarCropper: (source, confirm, options) => state.crops.push({ source, confirm, options })
     });
+    vm.runInContext(sourceSection('wechat.js', 'function getWechatAiPhoneAllApps(', 'function getWechatAiPhoneApps('), context);
     vm.runInContext(sourceSection('wechat.js', 'function getWechatAiPhoneHomeSettings(', 'function getWechatAiPhoneHomeAvatar('), context);
+    vm.runInContext(sourceSection('wechat.js', 'async function uploadWechatAiPhoneAppIcon(', 'async function updateWechatAiPhoneHomeSettings('), context);
     vm.runInContext(sourceSection('wechat.js', 'async function updateWechatAiPhoneHomeSettings(', 'function uploadWechatAiPhoneHomeAvatar('), context);
     vm.runInContext(sourceSection('wechat.js', 'async function uploadWechatAiPhoneHomeWallpaper(', 'function clearWechatAiPhoneHomePhoto('), context);
     return { char, modal, state, context, update: updater => context.updateWechatAiPhoneHomeSettings(char, updater) };
@@ -176,14 +179,15 @@ test('failed wallpaper saves and resets retain the previous wallpaper and report
 });
 
 test('finishing image decoding after switching characters does not open a stale cropper', async () => {
-    for (const kind of ['photo', 'wallpaper']) {
+    for (const kind of ['photo', 'wallpaper', 'icon']) {
         const h = harness();
         const pending = deferred();
         h.state.readImage = () => pending.promise;
         const input = { files: [{}], value: 'image.jpg' };
         const loading = kind === 'photo'
             ? h.context.uploadWechatAiPhoneHomePhoto(input, 0)
-            : h.context.uploadWechatAiPhoneHomeWallpaper(input, h.char.id);
+            : kind === 'wallpaper' ? h.context.uploadWechatAiPhoneHomeWallpaper(input, h.char.id)
+                : h.context.uploadWechatAiPhoneAppIcon(input, 'memo');
         h.modal.dataset.charId = 'other';
         h.context.window._wechatAiPhoneOpenCharId = 'other';
         pending.resolve('data:image/jpeg;base64,late-image');
@@ -204,4 +208,62 @@ test('a corrupt selected wallpaper leaves settings unchanged and can be selected
     assert.equal(input.value, '');
     assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), before);
     assert.equal(h.state.notices[0], '图片加载失败');
+});
+
+test('only known apps and image sources are accepted as saved phone icons', () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneHomeSettings.icons = { memo: 'data:image/png;base64,memo', chat: 'https://example.com/chat.png', diary: 'javascript:alert(1)', unknown: 'data:image/png;base64,unknown' };
+    const settings = h.context.getWechatAiPhoneHomeSettings(h.char);
+    assert.deepEqual(clone(settings.icons), { memo: 'data:image/png;base64,memo', chat: 'https://example.com/chat.png' });
+});
+
+test('icon crops save only the chosen app and single/all resets preserve photos and wallpaper', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneHomeSettings.icons = { chat: 'data:image/png;base64,chat' };
+    const before = clone(h.char.chatConfig.aiPhoneHomeSettings);
+    h.state.readImage = async () => 'data:image/png;base64,source';
+    const input = { files: [{}], value: 'icon.png' };
+    await h.context.uploadWechatAiPhoneAppIcon(input, 'memo');
+    assert.equal(input.value, '');
+    assert.equal(h.state.writes.length, 0);
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), before);
+    const crop = h.state.crops[0];
+    assert.equal(crop.options.cropWidth, crop.options.cropHeight);
+    assert.equal(crop.options.outputWidth, crop.options.outputHeight);
+    assert.equal(await crop.confirm('data:image/jpeg;base64,cropped-icon'), true);
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), { ...before, icons: { ...before.icons, memo: 'data:image/jpeg;base64,cropped-icon' } });
+    assert.equal(await h.context.resetWechatAiPhoneAppIcon('memo'), true);
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), before);
+    assert.equal(await h.context.resetWechatAiPhoneAppIcon(), true);
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), { ...before, icons: {} });
+});
+
+test('failed icon saves and resets preserve the previous icon and report the storage error', async () => {
+    for (const save of [async () => false, async () => { throw new Error('存储不可用'); }]) {
+        const h = harness();
+        h.char.chatConfig.aiPhoneHomeSettings.icons = { memo: 'data:image/png;base64,saved' };
+        const before = clone(h.char.chatConfig.aiPhoneHomeSettings);
+        h.state.readImage = async () => 'data:image/png;base64,source';
+        h.state.save = save;
+        await h.context.uploadWechatAiPhoneAppIcon({ files: [{}], value: 'icon.png' }, 'memo');
+        assert.equal(await h.state.crops[0].confirm('data:image/jpeg;base64,new'), false);
+        assert.equal(await h.context.resetWechatAiPhoneAppIcon('memo'), false);
+        assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), before);
+        assert.equal(h.state.rendered.length, 0);
+        assert.equal(h.state.notices.length, 2);
+    }
+});
+
+test('corrupt icons and unknown app keys never save or open a cropper', async () => {
+    const h = harness();
+    const before = clone(h.char.chatConfig.aiPhoneHomeSettings);
+    const input = { files: [{}], value: 'bad.png' };
+    await h.context.uploadWechatAiPhoneAppIcon(input, 'memo');
+    assert.equal(input.value, '');
+    assert.equal(h.state.notices[0], '图片加载失败');
+    await h.context.uploadWechatAiPhoneAppIcon({ files: [{}], value: 'bad.png' }, 'unknown');
+    assert.equal(h.context.resetWechatAiPhoneAppIcon('unknown'), false);
+    assert.equal(h.state.writes.length, 0);
+    assert.equal(h.state.crops.length, 0);
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneHomeSettings), before);
 });

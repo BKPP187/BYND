@@ -16,8 +16,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 23
-        versionName '1.1.598'
+        versionCode 24
+        versionName '1.1.599'
     }
 
     signingConfigs {

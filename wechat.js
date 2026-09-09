@@ -18722,7 +18722,7 @@ function uploadCharAvatar(input) {
     input.value = '';
 }
 
-function compressWechatSettingsImage(file, maxWidth = 720, quality = 0.72) {
+function compressWechatSettingsImage(file, maxWidth = 720, quality = 0.72, mimeType = 'image/jpeg') {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
@@ -18736,7 +18736,7 @@ function compressWechatSettingsImage(file, maxWidth = 720, quality = 0.72) {
                 canvas.height = Math.max(1, Math.round(img.height * scale));
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', quality));
+                resolve(canvas.toDataURL(mimeType, quality));
             };
             img.src = e.target.result;
         };
@@ -21091,34 +21091,45 @@ function isWechatAiPhoneGenericDiaryTitle(value) {
 }
 
 function normalizeWechatAiPhoneDiaryLetterList(value) {
-    const source = Array.isArray(value) ? value : [];
+    const source = Array.isArray(value) ? value : (value && typeof value === 'object' ? [value] : []);
     const placeholderPattern = /(?:待补充|待完善|暂无|无内容|未填写|占位|模板内容|这里填写|按角色卡生成|结合世界书生成|最近真实聊天|状态栏内容|内心独白|小日记原文)/i;
-    const genericBodyPattern = /(?:有些话不能只当成一条普通消息|若我偶尔沉默|并非忽视你|不是忘记你|等下一次(?:见面|开口)|把这些字说得更像自己)/;
+    const punctuate = text => text ? text.replace(/!$/, '！').replace(/\?$/, '？').replace(/\.$/, '。').replace(/([^。！？])$/, '$1！') : '';
     return source.map(item => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
-        const title = stripWechatPromptText(item.title, 40);
-        const subtitle = stripWechatPromptText(item.subtitle, 60);
-        const meta = stripWechatPromptText(item.meta, 28);
-        const salutation = stripWechatPromptText(item.salutation, 42).replace(/:$/, '：');
-        const greeting = stripWechatPromptText(item.greeting, 80);
-        const body = cleanWechatAiPhoneBlockText(item.body, 1000);
-        const closing = stripWechatPromptText(item.closing, 24);
-        const wish = stripWechatPromptText(item.wish, 36);
-        const signature = stripWechatPromptText(item.signature, 28);
-        const date = stripWechatPromptText(item.date, 24);
-        const paragraphs = body.split(/\n+/).map(paragraph => paragraph.trim()).filter(Boolean);
+        const title = stripWechatPromptText(item.title || item.subject || item['标题'], 40);
+        const subtitle = stripWechatPromptText(item.subtitle || item['副标题'], 60);
+        const meta = stripWechatPromptText(item.meta || item['信封信息'], 28);
+        const addressee = stripWechatPromptText(item.salutation || item['称呼'], 42).replace(/[：:,，。]+$/, '');
+        const salutation = addressee ? `${addressee}：` : '';
+        const greeting = punctuate(stripWechatPromptText(item.greeting || item['问候'], 80));
+        const rawBody = item.body || item.content || item.paragraphs || item['正文'];
+        const body = cleanWechatAiPhoneBlockText((Array.isArray(rawBody) ? rawBody.join('\n') : String(rawBody || ''))
+            .replace(/\\r\\n|\\n|\\r/g, '\n').replace(/<br\s*\/?\s*>/gi, '\n').replace(/\r\n?/g, '\n'), 4000);
+        const closing = stripWechatPromptText(item.closing || item['祝颂语'], 24);
+        const wish = punctuate(stripWechatPromptText(item.wish || item['祝愿'], 36));
+        const signature = stripWechatPromptText(item.signature || item['署名'], 28);
+        const rawDate = stripWechatPromptText(item.date || item['日期'], 24);
+        const dateParts = rawDate.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})日?$/);
+        const date = dateParts ? `${dateParts[1]}年${Number(dateParts[2])}月${Number(dateParts[3])}日` : rawDate;
+        let paragraphs = body.split(/\n+/).map(paragraph => paragraph.trim()).filter(Boolean);
+        // Formatting a complete single-paragraph letter must not discard its words.
+        if (paragraphs.length === 1) {
+            const breaks = Array.from(body.matchAll(/[。！？!?][”’」』]?/g), match => match.index + match[0].length)
+                .filter(index => index >= body.length / 4 && index <= body.length * 3 / 4);
+            const split = breaks.sort((a, b) => Math.abs(a - body.length / 2) - Math.abs(b - body.length / 2))[0];
+            if (split) paragraphs = [body.slice(0, split).trim(), body.slice(split).trim()];
+        }
         const bodyLength = paragraphs.join('').replace(/\s+/g, '').length;
         const requiredValues = [title, subtitle, meta, salutation, greeting, body, closing, wish, signature, date];
         if (requiredValues.some(field => !field || placeholderPattern.test(field))) return null;
         if (isWechatAiPhoneGenericDiaryTitle(title)) return null;
         if (/^(?:Letter From|For\s+|Saved by\s+)/i.test(subtitle)) return null;
         if (/^(?:PRIVATE|BYND|FOURTEEN)$/i.test(meta)) return null;
-        if (!/：$/.test(salutation) || greeting === salutation || paragraphs.length < 2 || bodyLength < 120 || bodyLength > 360) return null;
-        if (closing === wish || !/[。！]$/.test(greeting) || !/[！。]$/.test(wish)) return null;
-        if (/^此致[，。！!]*$/.test(closing) && !/^敬礼[！!。]*$/.test(wish)) return null;
+        if (greeting === salutation || paragraphs.length < 2 || bodyLength < 120 || bodyLength > 2000) return null;
+        if (closing === wish) return null;
         if (!/我/.test(body) || !/[你您]/.test(body)) return null;
-        if (genericBodyPattern.test(body)) return null;
         if (!/^\d{4}年(?:1[0-2]|0?[1-9])月(?:3[01]|[12]\d|0?[1-9])日$/.test(date)) return null;
+        if (dateParts && Number(dateParts[3]) > new Date(Number(dateParts[1]), Number(dateParts[2]), 0).getDate()) return null;
         return {
             title,
             subtitle,
@@ -21135,25 +21146,34 @@ function normalizeWechatAiPhoneDiaryLetterList(value) {
 }
 
 function getWechatAiPhoneDiaryLetters(snapshot) {
-    return normalizeWechatAiPhoneDiaryLetterList(snapshot && (snapshot.diaryLetters || snapshot.letters || snapshot['日记信件'] || snapshot['信件']));
+    if (Array.isArray(snapshot)) return normalizeWechatAiPhoneDiaryLetterList(snapshot);
+    if (!snapshot || typeof snapshot !== 'object') return [];
+    const data = snapshot.phoneData || snapshot.aiPhone || snapshot.iphone || snapshot.data || snapshot;
+    for (const key of ['diaryLetters', 'letters', 'letterCards', 'mailbox', '日记信件', '信件', '信封']) {
+        const letters = normalizeWechatAiPhoneDiaryLetterList(data[key]);
+        if (letters.length) return letters;
+    }
+    return [];
 }
 
 function renderWechatAiPhoneDiaryMailbox(snapshot, char, isLoading = false) {
     const letters = getWechatAiPhoneDiaryLetters(snapshot);
+    const retryId = quoteWechatJsString(char && char.id);
+    const diaryError = stripWechatPromptText(snapshot && (snapshot.diarySyncError || (snapshot.generatedBy === 'error' ? snapshot.syncError : '')), 260);
+    const syncButton = `<button type="button" class="wc-ai-phone-letter-back" aria-label="${isLoading ? '正在同步日记' : '同步日记'}" onclick="regenerateWechatAiPhoneDiary(${retryId})" ${isLoading ? 'disabled aria-busy="true"' : ''}><i class="${isLoading ? 'ri-loader-4-line' : 'ri-refresh-line'}" aria-hidden="true"></i>${isLoading ? '正在同步日记' : '同步日记'}</button>`;
+    const syncControls = `<div class="wc-ai-phone-diary-sync">${diaryError ? `<p role="status">本次未能完整更新，已保留可用信件。${wcEscapeHtml(getWechatAiPhoneFriendlyErrorText(diaryError))}</p>` : ''}${syncButton}</div>`;
     if (!letters.length) {
         window._wechatAiPhoneDiaryOpen = -1;
-        const retryId = quoteWechatJsString(char && char.id);
-        const syncFailed = snapshot && snapshot.generatedBy === 'error';
-        const emptyTitle = isLoading ? 'AI 正在生成正式信件' : (syncFailed ? '信件同步失败' : '尚未同步到完整信件');
+        const emptyTitle = isLoading ? '正在生成信件' : (diaryError ? '日记同步失败' : '还没有信件');
         const emptyDetail = isLoading
-            ? '生成完成前不会显示任何固定正文或替代信件。'
-            : (syncFailed ? '本次没有可用的完整信件，未使用任何兜底内容。' : '只有 AI 返回完整正规书信后才会在这里显示。');
+            ? '正在根据角色资料和你们的聊天书写，请稍候。'
+            : (diaryError ? getWechatAiPhoneFriendlyErrorText(diaryError) : '点击同步日记，生成写给你的信件。');
         return `
             <div class="wc-ai-phone-diary-mailbox">
                 <div class="wc-ai-phone-empty">
                     <strong>${wcEscapeHtml(emptyTitle)}</strong>
                     <p>${wcEscapeHtml(emptyDetail)}</p>
-                    ${isLoading ? '' : `<button type="button" class="wc-ai-phone-letter-back" onclick="regenerateWechatAiPhoneSnapshot(${retryId})"><i class="ri-refresh-line"></i>重新同步</button>`}
+                    ${syncButton}
                 </div>
             </div>
         `;
@@ -21165,6 +21185,7 @@ function renderWechatAiPhoneDiaryMailbox(snapshot, char, isLoading = false) {
         return `
             <div class="wc-ai-phone-diary-open">
                 <button type="button" class="wc-ai-phone-letter-back" onclick="closeWechatAiPhoneDiaryLetter()"><i class="ri-arrow-left-s-line"></i>信件</button>
+                ${syncControls}
                 <div class="wc-ai-phone-open-envelope">
                     <div class="wc-ai-phone-envelope-flap"></div>
                     <article class="wc-ai-phone-letter-paper">
@@ -21185,6 +21206,7 @@ function renderWechatAiPhoneDiaryMailbox(snapshot, char, isLoading = false) {
     const featuredLetter = letters[0];
     return `
         <div class="wc-ai-phone-diary-mailbox">
+            ${syncControls}
             <div class="wc-ai-phone-letter-hero">
                 <span>${wcEscapeHtml(featuredLetter.meta)}</span>
                 <strong>${wcEscapeHtml(featuredLetter.title)}</strong>
@@ -21305,7 +21327,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
     const shoppingRows = getWechatAiPhoneShoppingRows({ shoppingRecords: pickWechatAiPhoneField(data, ['shoppingRecords', 'shopping', 'orders', 'purchaseRecords', 'shoppingOrders', 'wishList', 'favorites', '购物', '购物记录', '订单', '购买记录', '收藏夹']) }, char);
     const takeoutRows = getWechatAiPhoneTakeoutRows({ takeoutRecords: pickWechatAiPhoneField(data, ['takeoutRecords', 'takeout', 'foodDelivery', 'deliveryRecords', 'mealOrders', 'drinkOrders', '外卖', '外卖记录', '点单', '饮品', '送餐记录']) }, char);
     const gameRows = getWechatAiPhoneGameRows({ gameRecords: pickWechatAiPhoneField(data, ['gameRecords', 'games', 'gameHistory', 'playedGames', 'Game Center', '游戏', '玩的游戏', '游戏记录']) }, char);
-    const diaryLetterRows = normalizeWechatAiPhoneDiaryLetterList(pickWechatAiPhoneField(data, ['diaryLetters', 'letters', 'letterCards', 'mailbox', '日记信件', '信件', '信封']));
+    const diaryLetterRows = getWechatAiPhoneDiaryLetters(data);
     const rawWallet = pickWechatAiPhoneField(data, ['wallet', 'walletSummary', 'balance', 'money', '钱包', '钱包概要', '余额']);
     const wallet = typeof rawWallet === 'string' ? cleanWechatAiPhoneWalletText(rawWallet) : '';
 
@@ -21330,7 +21352,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
     };
 }
 
-function getWechatAiPhoneSnapshotGapSummary(snapshot) {
+function getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary = true } = {}) {
     if (!snapshot || typeof snapshot !== 'object') return '没有返回手机数据';
     const required = [
         ['memos', '备忘录'],
@@ -21342,14 +21364,14 @@ function getWechatAiPhoneSnapshotGapSummary(snapshot) {
         ['footprints', '足迹'],
         ['usageRecords', '使用记录'],
         ['diaryLetters', '日记信件', 2]
-    ];
+    ].filter(([key]) => includeDiary || key !== 'diaryLetters');
     const missing = required
         .filter(([key, , minCount = 1]) => !Array.isArray(snapshot[key]) || snapshot[key].length < minCount)
         .map(([, label, minCount = 1]) => minCount > 1 ? `${label}（需 ${minCount} 封完整信件）` : label);
     if (!formatWechatAiPhoneMoneyText(snapshot.wallet)) missing.push('钱包余额');
     const totalRows = required.reduce((sum, [key]) => sum + (Array.isArray(snapshot[key]) ? snapshot[key].length : 0), 0);
     const diary = stripWechatPromptText(snapshot.diary, 80);
-    if (!missing.length && totalRows >= 12 && diary) return '';
+    if (!missing.length && totalRows >= (includeDiary ? 12 : 10) && diary) return '';
     return `缺少：${missing.join('、') || '内容过少'}；总记录 ${totalRows} 条${diary ? '' : '；日记为空'}`;
 }
 
@@ -21369,11 +21391,11 @@ function getWechatAiPhoneRenderSnapshot(char) {
     return buildWechatAiPhoneFallback(char);
 }
 
-function getWechatAiPhoneReusableSnapshot(char) {
+function getWechatAiPhoneReusableSnapshot(char, refreshUserChat = true) {
     const snapshot = char && char.chatConfig && char.chatConfig.aiPhoneSnapshot;
     if (!snapshot || snapshot.schemaVersion !== WECHAT_AI_PHONE_SCHEMA_VERSION) return null;
     if (snapshot.generatedBy !== 'api' && snapshot.generatedBy !== 'error') return null;
-    return withWechatAiPhoneRealUserChat({ ...snapshot }, char);
+    return refreshUserChat ? withWechatAiPhoneRealUserChat({ ...snapshot }, char) : { ...snapshot };
 }
 
 function buildWechatAiPhoneErrorSnapshot(char, errorText, previousSnapshot = null) {
@@ -21434,13 +21456,45 @@ function scheduleWechatAiPhoneSyncAfterStatus(char) {
     window._wechatAiPhoneDeferredSyncTimers.set(char.id, timer);
 }
 
+async function requestWechatAiPhoneDiaryLetters(char, contextMessage, background = false) {
+    const messages = [
+        {
+            role: 'system',
+            content: `你是「${char.name}」写给 user 的书信作者。只生成这个角色小手机日记里的两封正式中文书信，不生成其他手机应用数据。只返回可 JSON.parse 的对象 {"diaryLetters":[...]}，不要 Markdown、分析或解释。
+每封信完整返回 title、subtitle、meta、salutation、greeting、body、closing、wish、signature、date 十个非空字符串。title/subtitle/meta 要针对本封内容原创，不能使用“日记、草稿、便签、未寄出的信、未命名信件、一封信”等通用标题，不能出现品牌或占位文字。
+salutation 只写收信称呼；greeting 单独问候。body 用“我”对“你”写 120-260 字、2-4 段，在 JSON 字符串中用 \\n 分段。结合角色身份、世界书、记忆、关系和真实聊天中的具体话题，不能复制状态、写旁白、套模板或替 user 编造说过的话。没有可引用的聊天事实时，只写角色自己基于人设和关系想表达的内容。
+closing 与 wish 分别写祝颂语和祝愿，signature 写符合角色身份的署名，date 写 YYYY年M月D日。保留完整正文、称呼、问候、祝颂、署名和日期，不得返回字段碎片或固定兜底信件。`
+        },
+        contextMessage
+    ];
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        const result = await callChatApi(messages, { max_tokens: 3200, temperature: attempt ? 0.5 : 0.72, background });
+        if (!result?.ok) throw new Error(result?.error || '日记接口未返回内容，请稍后重试。');
+        const parsed = parseWechatJsonObject(result.content);
+        const letters = getWechatAiPhoneDiaryLetters(parsed);
+        if (letters.length >= 2) return letters;
+        const reason = parsed
+            ? `只收到 ${letters.length} 封可用信件，仍缺少完整的称呼、问候、两段正文、祝颂、署名或日期。`
+            : '返回的信件 JSON 不完整或无法解析。';
+        if (attempt) throw new Error(`日记未能完整生成：${reason}请重新同步日记。`);
+        messages.push({ role: 'assistant', content: String(result.content || '').slice(0, 12000) });
+        messages.push({ role: 'user', content: `${reason}请重新返回两封完整信件，只输出 diaryLetters，不要返回其他应用内容。正文不能省略，十个字段都要有真实内容。` });
+    }
+}
+
 async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
     const char = typeof charOrId === 'string'
         ? (window.myCharacters || []).find(c => c.id === charOrId)
         : charOrId;
     if (!char) return null;
     char.chatConfig = char.chatConfig || {};
-    const previousSnapshot = getWechatAiPhoneReusableSnapshot(char);
+    const previousSnapshot = getWechatAiPhoneReusableSnapshot(char, !options.diaryOnly);
+    const buildFailureSnapshot = errorText => options.diaryOnly ? {
+        ...(previousSnapshot || buildWechatAiPhoneFallback(char)),
+        generatedBy: previousSnapshot?.generatedBy || 'error',
+        diarySyncError: stripWechatPromptText(errorText || '日记同步失败', 260),
+        diarySyncFailedAt: Date.now()
+    } : buildWechatAiPhoneErrorSnapshot(char, errorText, previousSnapshot);
     window._wechatAiPhoneGenerating = window._wechatAiPhoneGenerating || new Map();
     if (window._wechatAiPhoneGenerating.has(char.id)) return window._wechatAiPhoneGenerating.get(char.id);
     const syncTurn = getWechatAiPhoneSyncTurn(char);
@@ -21468,7 +21522,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
             // syncs. Capture this turn now so a newer reply is not consumed later.
             char.chatConfig.aiPhoneSnapshot = {
                 ...(previousSnapshot || snapshot),
-                syncTurnKey: syncTurn?.key || ''
+                ...(options.diaryOnly ? {} : { syncTurnKey: syncTurn?.key || '' })
             };
             if (await saveCharactersToStorage() === false) {
                 throw new Error('同步记录未能保存，本次未请求 API。请检查存储后手动重试。');
@@ -21491,6 +21545,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
             const statusText = JSON.stringify(status.fields || {});
             const historyText = buildWechatRecentHistoryForPrompt(char, 14);
             const proxyContinuityText = buildWechatAiPhoneProxyContinuityContext(char);
+            const today = new Date();
             const buildMessages = (extraRule = '') => [
                 {
                     role: 'system',
@@ -21509,88 +21564,116 @@ diaryLetters 必须是 char 第一人称正式写给 user 的中文书信，不�
                 },
                 {
                     role: 'user',
-                    content: `【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}\n【小手机代发连续性】${proxyContinuityText || '暂无'}`
+                    content: `【当前日期】${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日\n【角色资料】${contextText || String(char.description || '').slice(0, 5000)}\n【状态】${statusText}\n【最近聊天】${historyText}\n【小手机代发连续性】${proxyContinuityText || '暂无'}`
                 }
             ];
-            const phoneApiOptions = { max_tokens: 2600, temperature: 0.78, background: !options.force };
-            let result = await callChatApi(buildMessages(), phoneApiOptions);
-            if ((!result || !result.ok) && /空内容/.test(String(result && result.error || ''))) {
-                result = await callChatApi(
-                    buildMessages('上一次响应没有 JSON 正文。现在必须直接输出一个 minified JSON 对象，禁止 thinking、reasoning、分析、解释、Markdown。每组数组最多 2 条；非信件字符串可以更短，但 diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信。'),
-                    { max_tokens: 1900, temperature: 0.42, background: !options.force }
-                );
-            }
-            if (result && result.ok) {
-                let parsed = parseWechatJsonObject(result.content);
-                let rawJsonText = result.content || '';
-                if (!parsed) {
-                    const repair = await callChatApi([
-                        {
-                            role: 'system',
-                            content: '你是 JSON 修复器。只把用户给你的残缺/多余说明/尾逗号/少括号 JSON 修成一个合法 JSON 对象；不要新增解释，不要 Markdown，不要重写内容。'
-                        },
-                        {
-                            role: 'user',
-                            content: String(rawJsonText || '').slice(0, 9000)
-                        }
-                    ], { max_tokens: 2600, temperature: 0, background: !options.force });
-                    if (repair && repair.ok) {
-                        rawJsonText = repair.content || rawJsonText;
-                        parsed = parseWechatJsonObject(repair.content);
-                    }
-                }
-                if (!parsed) {
-                    const retry = await callChatApi(
-                        buildMessages('上一次不是合法 JSON 或被截断。这次只给 minified JSON；每组 2 条；不要任何多余文字。diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信，不得缩成字段碎片。'),
-                        { max_tokens: 2200, temperature: 0.45, background: !options.force }
+            if (options.diaryOnly) {
+                snapshot = {
+                    ...(previousSnapshot || snapshot),
+                    generatedBy: previousSnapshot?.generatedBy || 'api',
+                    diaryLetters: await requestWechatAiPhoneDiaryLetters(char, buildMessages()[1], !options.force),
+                    diaryUpdatedAt: Date.now()
+                };
+                delete snapshot.diarySyncError;
+                delete snapshot.diarySyncFailedAt;
+                if (!getWechatAiPhoneSnapshotGapSummary(snapshot)) delete snapshot.syncRecovered;
+            } else {
+                const phoneApiOptions = { max_tokens: 4096, temperature: 0.78, background: !options.force };
+                let result = await callChatApi(buildMessages(), phoneApiOptions);
+                if ((!result || !result.ok) && /空内容/.test(String(result && result.error || ''))) {
+                    result = await callChatApi(
+                        buildMessages('上一次响应没有 JSON 正文。现在必须直接输出一个 minified JSON 对象，禁止 thinking、reasoning、分析、解释、Markdown。每组数组最多 2 条；非信件字符串可以更短，但 diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信。'),
+                        { max_tokens: 4096, temperature: 0.42, background: !options.force }
                     );
-                    if (retry && retry.ok) {
-                        rawJsonText = retry.content || rawJsonText;
-                        parsed = parseWechatJsonObject(retry.content);
-                    }
                 }
-                if (parsed) {
-                    let rawPhoneData = parsed;
-                    snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
-                    const gap = getWechatAiPhoneSnapshotGapSummary(snapshot);
-                    if (gap) {
-                        const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设、世界书、关系和最近真实聊天定制补齐；不要重写已有完整字段，不要套模板。若 diaryLetters 缺少或有不完整信件，必须返回 diaryLetters 数组，内含 2 封各自具备 title/subtitle/meta/salutation/greeting/body/closing/wish/signature/date 全部字段、正文至少两段的完整正式书信，不得只返回单个字段或信件碎片。`), { max_tokens: 2400, temperature: 0.62, background: !options.force });
+                if (result && result.ok) {
+                    let parsed = parseWechatJsonObject(result.content);
+                    let rawJsonText = result.content || '';
+                    if (!parsed) {
+                        const repair = await callChatApi([
+                            {
+                                role: 'system',
+                                content: '你是 JSON 修复器。只把用户给你的残缺/多余说明/尾逗号/少括号 JSON 修成一个合法 JSON 对象；不要新增解释，不要 Markdown，不要重写内容。'
+                            },
+                            {
+                                role: 'user',
+                                content: String(rawJsonText || '').slice(0, 9000)
+                            }
+                        ], { max_tokens: 4096, temperature: 0, background: !options.force });
+                        if (repair && repair.ok) {
+                            rawJsonText = repair.content || rawJsonText;
+                            parsed = parseWechatJsonObject(repair.content);
+                        }
+                    }
+                    if (!parsed) {
+                        const retry = await callChatApi(
+                            buildMessages('上一次不是合法 JSON 或被截断。这次只给 minified JSON；每组 2 条；不要任何多余文字。diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信，不得缩成字段碎片。'),
+                            { max_tokens: 4096, temperature: 0.45, background: !options.force }
+                        );
                         if (retry && retry.ok) {
-                            const retryParsed = parseWechatJsonObject(retry.content);
-                            if (retryParsed) {
-                                rawPhoneData = mergeWechatAiPhoneRawPatch(rawPhoneData, retryParsed);
-                                snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
+                            rawJsonText = retry.content || rawJsonText;
+                            parsed = parseWechatJsonObject(retry.content);
+                        }
+                    }
+                    if (parsed) {
+                        let rawPhoneData = parsed;
+                        snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
+                        const gap = getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary: false });
+                        if (gap) {
+                            const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设、世界书、关系和最近真实聊天定制补齐；不要重写已有完整字段，不要套模板。本次不要生成 diaryLetters，信件会单独补全。`), { max_tokens: 2400, temperature: 0.62, background: !options.force });
+                            if (retry && retry.ok) {
+                                const retryParsed = parseWechatJsonObject(retry.content);
+                                if (retryParsed) {
+                                    rawPhoneData = mergeWechatAiPhoneRawPatch(rawPhoneData, retryParsed);
+                                    snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
+                                }
                             }
                         }
-                    }
-                    const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
-                    if (finalGap) {
-                        snapshot.generatedBy = 'api';
-                        snapshot.syncRecovered = `AI 已按角色资料生成，仍有部分字段偏少：${finalGap}`;
+                        if (getWechatAiPhoneDiaryLetters(snapshot).length < 2) {
+                            try {
+                                snapshot.diaryLetters = await requestWechatAiPhoneDiaryLetters(char, buildMessages()[1], !options.force);
+                                snapshot.diaryUpdatedAt = Date.now();
+                            } catch (error) {
+                                const savedLetters = getWechatAiPhoneDiaryLetters(previousSnapshot);
+                                if (savedLetters.length) {
+                                    snapshot.diaryLetters = savedLetters;
+                                    snapshot.diaryUpdatedAt = previousSnapshot.diaryUpdatedAt || previousSnapshot.updatedAt;
+                                }
+                                snapshot.diarySyncError = stripWechatPromptText(error?.message || '日记同步失败，请重试。', 260);
+                                snapshot.diarySyncFailedAt = Date.now();
+                            }
+                        } else {
+                            snapshot.diaryUpdatedAt = Date.now();
+                        }
+                        const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
+                        if (finalGap) {
+                            snapshot.generatedBy = 'api';
+                            snapshot.syncRecovered = `AI 已按角色资料生成，仍有部分字段偏少：${finalGap}`;
+                        }
+                    } else {
+                        snapshot = buildFailureSnapshot('AI 返回的 JSON 不完整，自动重试后仍无法解析。');
+                        console.warn('ai phone json parse failed:', rawJsonText);
                     }
                 } else {
-                    snapshot = buildWechatAiPhoneErrorSnapshot(char, 'AI 返回的 JSON 不完整，自动重试后仍无法解析。', previousSnapshot);
-                    console.warn('ai phone json parse failed:', rawJsonText);
+                    snapshot = buildFailureSnapshot(result && result.error ? result.error : 'AI 小手机同步失败');
                 }
-            } else {
-                snapshot = buildWechatAiPhoneErrorSnapshot(char, result && result.error ? result.error : 'AI 小手机同步失败', previousSnapshot);
             }
         } catch (e) {
             console.warn('request ai phone failed:', e);
-            snapshot = buildWechatAiPhoneErrorSnapshot(char, e && e.message ? e.message : 'AI 小手机同步异常', previousSnapshot);
+            snapshot = buildFailureSnapshot(e && e.message ? e.message : 'AI 小手机同步异常');
         }
-        snapshot.syncTurnKey = syncTurn?.key || '';
+        if (!options.diaryOnly) snapshot.syncTurnKey = syncTurn?.key || '';
         char.chatConfig.aiPhoneSnapshot = snapshot;
         try {
             if (await saveCharactersToStorage() === false) throw new Error('小手机内容未能保存，请检查存储后手动重试。');
         } catch (error) {
-            snapshot = buildWechatAiPhoneErrorSnapshot(char, error.message || '小手机内容保存失败', previousSnapshot);
-            snapshot.syncTurnKey = syncTurn?.key || '';
+            snapshot = buildFailureSnapshot(error.message || '小手机内容保存失败');
+            if (!options.diaryOnly) snapshot.syncTurnKey = syncTurn?.key || '';
             char.chatConfig.aiPhoneSnapshot = snapshot;
         }
         if (window._wechatAiPhoneOpenCharId === char.id) {
             renderWechatAiPhone(char);
-            if (options.force && snapshot.generatedBy === 'error' && snapshot.syncError) {
+            if (options.force && !options.diaryOnly && snapshot.generatedBy === 'error' && snapshot.syncError) {
                 setTimeout(() => openWechatAiPhoneErrorPrompt(char.id, snapshot.syncError), 0);
             }
         }
@@ -21636,6 +21719,13 @@ function regenerateWechatAiPhoneSnapshot(charId) {
     renderWechatAiPhone(char);
 }
 window.regenerateWechatAiPhoneSnapshot = regenerateWechatAiPhoneSnapshot;
+
+function regenerateWechatAiPhoneDiary(charId) {
+    return requestWechatAiPhoneSnapshot(charId, { force: true, diaryOnly: true }).catch(error => {
+        console.warn('ai phone diary sync failed:', error);
+        if (typeof showWechatToast === 'function') showWechatToast(error?.message || '日记同步失败，请重试');
+    });
+}
 
 function getWechatAiPhoneSyncErrorText(charId, fallback = '') {
     const char = (window.myCharacters || []).find(c => c.id === charId);
@@ -21733,10 +21823,15 @@ function getWechatAiPhoneAppMeta(tabName, char = null, snapshot = null) {
         || getWechatAiPhoneAllApps()[0];
 }
 
-function renderWechatAiPhoneAppButton(app) {
+function renderWechatAiPhoneAppIcon(app, char) {
+    const source = getWechatAiPhoneHomeSettings(char).icons[app.key];
+    return `<span class="wc-ai-phone-icon-image"><i class="${app.icon}"></i>${source ? `<img src="${wcEscapeAttr(source)}" alt="" onerror="this.remove()">` : ''}</span>`;
+}
+
+function renderWechatAiPhoneAppButton(app, char) {
     return `
-        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone}" onclick="switchWechatAiPhoneTab('${app.key}')">
-            <span><i class="${app.icon}"></i></span>
+        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone}" onclick="switchWechatAiPhoneTab('${app.key}')" aria-label="${wcEscapeAttr(app.label)}">
+            ${renderWechatAiPhoneAppIcon(app, char)}
             <b>${wcEscapeHtml(app.label)}</b>
         </button>
     `;
@@ -21750,10 +21845,16 @@ function getWechatAiPhoneHomeSettings(char) {
         return /^(?:data:image\/|blob:|https?:\/\/)/i.test(source) ? source : '';
     };
     const photos = Array.isArray(safe.photos) ? safe.photos : [];
+    const icons = {};
+    getWechatAiPhoneAllApps().forEach(app => {
+        const source = validImage(safe.icons && safe.icons[app.key]);
+        if (source) icons[app.key] = source;
+    });
     return {
         avatar: validImage(safe.avatar),
         wallpaper: validImage(safe.wallpaper),
-        photos: Array.from({ length: 4 }, (_, index) => validImage(photos[index]))
+        photos: Array.from({ length: 4 }, (_, index) => validImage(photos[index])),
+        icons
     };
 }
 
@@ -21852,6 +21953,86 @@ function closeWechatAiPhoneHomeEditor() {
 }
 window.closeWechatAiPhoneHomeEditor = closeWechatAiPhoneHomeEditor;
 
+function renderWechatAiPhoneIconEditor(char) {
+    const modal = document.getElementById('wc-ai-phone-icon-editor');
+    if (!modal || !char) return;
+    const settings = getWechatAiPhoneHomeSettings(char);
+    const apps = getWechatAiPhoneApps(char, getWechatAiPhoneRenderSnapshot(char));
+    modal.dataset.charId = char.id;
+    modal.innerHTML = `
+        <div class="wc-ai-phone-home-editor-card" onclick="event.stopPropagation()">
+            <div class="wc-ai-phone-home-editor-head">
+                <span><strong>更换应用图标</strong><small>${wcEscapeHtml(getWechatCharDisplayName(char))} 的小手机 · 点图标选择图片</small></span>
+                <button type="button" onclick="closeWechatAiPhoneIconEditor()" aria-label="完成"><i class="ri-check-line"></i></button>
+            </div>
+            <div class="wc-ai-phone-icon-editor-grid">
+                ${apps.map(app => `
+                    <div class="wc-ai-phone-icon-edit-item" data-app-key="${app.key}">
+                        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone}" onclick="this.nextElementSibling.click()" aria-label="更换${wcEscapeAttr(app.label)}图标">
+                            ${renderWechatAiPhoneAppIcon(app, char)}
+                            <b>${wcEscapeHtml(app.label)}</b>
+                        </button>
+                        <input type="file" accept="image/*" onchange="uploadWechatAiPhoneAppIcon(this, '${app.key}')" hidden tabindex="-1" aria-hidden="true">
+                        ${settings.icons[app.key] ? `<button type="button" class="wc-ai-phone-icon-reset" onclick="resetWechatAiPhoneAppIcon('${app.key}')" aria-label="恢复${wcEscapeAttr(app.label)}默认图标">恢复默认</button>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+            <button type="button" class="wc-ai-phone-icons-reset-all" onclick="resetWechatAiPhoneAppIcon()" ${Object.keys(settings.icons).length ? '' : 'disabled'}>恢复全部默认图标</button>
+        </div>
+    `;
+}
+
+function openWechatAiPhoneIconEditor(charId) {
+    const char = (window.myCharacters || []).find(item => item.id === (charId || window._wechatAiPhoneOpenCharId));
+    if (!char) return;
+    let modal = document.getElementById('wc-ai-phone-icon-editor');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wc-ai-phone-icon-editor';
+        modal.className = 'wc-ai-phone-home-editor';
+        modal.setAttribute('onclick', 'if(event.target===this) closeWechatAiPhoneIconEditor()');
+        getWechatModalRoot().appendChild(modal);
+    }
+    renderWechatAiPhoneIconEditor(char);
+}
+
+function closeWechatAiPhoneIconEditor() {
+    document.getElementById('wc-ai-phone-icon-editor')?.remove();
+}
+
+async function uploadWechatAiPhoneAppIcon(input, appKey) {
+    const file = input?.files?.[0];
+    const modal = document.getElementById('wc-ai-phone-icon-editor');
+    const char = (window.myCharacters || []).find(item => item.id === modal?.dataset.charId);
+    const app = getWechatAiPhoneAllApps().find(item => item.key === appKey);
+    if (!file || !char || !app) return;
+    try {
+        const image = await compressWechatSettingsImage(file, 1024, 0.94, 'image/png');
+        if (document.getElementById('wc-ai-phone-icon-editor')?.dataset.charId !== char.id) return;
+        openWechatAvatarCropper(image, cropped => updateWechatAiPhoneHomeSettings(char, current => ({
+            ...current, icons: { ...current.icons, [appKey]: cropped }
+        })), {
+            ...getWechatAiPhoneHomeCropOptions('icon'),
+            title: `裁剪${app.label}图标`, confirmText: '设为图标', outputWidth: 384, outputHeight: 384
+        });
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast(error?.message || '图标读取失败');
+    } finally {
+        input.value = '';
+    }
+}
+
+function resetWechatAiPhoneAppIcon(appKey) {
+    const modal = document.getElementById('wc-ai-phone-icon-editor');
+    const char = (window.myCharacters || []).find(item => item.id === modal?.dataset.charId);
+    if (appKey !== undefined && !getWechatAiPhoneAllApps().some(app => app.key === appKey)) return false;
+    return updateWechatAiPhoneHomeSettings(char, current => {
+        if (appKey === undefined) current.icons = {};
+        else delete current.icons[appKey];
+        return current;
+    });
+}
+
 async function updateWechatAiPhoneHomeSettings(char, updater) {
     if (!char) return false;
     // Serialize edits so a failed save cannot roll back a later photo change.
@@ -21862,11 +22043,7 @@ async function updateWechatAiPhoneHomeSettings(char, updater) {
         try {
             const current = getWechatAiPhoneHomeSettings(char);
             const next = typeof updater === 'function' ? updater(current) : current;
-            char.chatConfig.aiPhoneHomeSettings = {
-                avatar: String(next.avatar || ''),
-                wallpaper: String(next.wallpaper || ''),
-                photos: Array.from({ length: 4 }, (_, index) => String(next.photos && next.photos[index] || ''))
-            };
+            char.chatConfig.aiPhoneHomeSettings = getWechatAiPhoneHomeSettings({ chatConfig: { aiPhoneHomeSettings: next } });
             if (await saveCharactersToStorage() === false) throw new Error('桌面设置保存失败，请重试');
         } catch (error) {
             if (previous === undefined) delete char.chatConfig.aiPhoneHomeSettings;
@@ -21876,6 +22053,7 @@ async function updateWechatAiPhoneHomeSettings(char, updater) {
         }
         if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
         if (document.getElementById('wc-ai-phone-home-editor')?.dataset.charId === char.id) renderWechatAiPhoneHomeEditor(char);
+        if (document.getElementById('wc-ai-phone-icon-editor')?.dataset.charId === char.id) renderWechatAiPhoneIconEditor(char);
         return true;
     });
     saves.set(char.id, promise);
@@ -22687,6 +22865,11 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                 <span><strong>${wcEscapeHtml(charName)}</strong><em>桌面与显示</em></span>
             </div>
             <div class="wc-ai-phone-ios-list wc-ai-phone-settings-list">
+                <button type="button" class="wc-ai-phone-ios-row" aria-label="应用图标" onclick="openWechatAiPhoneIconEditor(${charIdArgument})">
+                    <i class="ri-apps-2-line"></i>
+                    <span><strong>应用图标</strong><em>选择图片，定制桌面和底栏图标</em></span>
+                    <b class="ri-arrow-right-s-line"></b>
+                </button>
                 <button type="button" class="wc-ai-phone-ios-row" onclick="openWechatAiPhoneHomeEditor('${wcEscapeAttr(char.id)}')">
                     <i class="ri-gallery-line"></i>
                     <span><strong>桌面照片与头像</strong><em>编辑主图、照片组件和桌面头像</em></span>
@@ -22714,11 +22897,12 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const syncError = stripWechatPromptText(snapshot && snapshot.syncError, 118);
-    const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : (snapshot.generatedBy === 'api' ? `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}` : '尚未同步'));
+    const diaryError = snapshot && snapshot.diarySyncError;
+    const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : (diaryError ? '日记待同步' : (snapshot.generatedBy === 'api' ? `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}` : '尚未同步')));
     const retryId = quoteWechatJsString(char && char.id);
     const syncPill = syncError
         ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="event.stopPropagation(); openWechatAiPhoneErrorPrompt(${retryId})" aria-label="查看小手机同步失败原因">${wcEscapeHtml(syncLabel)}</button>`
-        : `<div class="wc-ai-phone-sync">${wcEscapeHtml(syncLabel)}</div>`;
+        : (diaryError ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="switchWechatAiPhoneTab('diary')" aria-label="查看日记同步失败原因">${wcEscapeHtml(syncLabel)}</button>` : `<div class="wc-ai-phone-sync">${wcEscapeHtml(syncLabel)}</div>`);
     return `
         <div class="wc-ai-phone-home">
             <div class="wc-ai-phone-home-top">
@@ -22732,10 +22916,10 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
             </div>
             ${renderWechatAiPhonePhotoWidget(char)}
             <div class="wc-ai-phone-grid">
-                ${gridApps.map(renderWechatAiPhoneAppButton).join('')}
+                ${gridApps.map(app => renderWechatAiPhoneAppButton(app, char)).join('')}
             </div>
             <div class="wc-ai-phone-dock">
-                ${dockApps.map(renderWechatAiPhoneAppButton).join('')}
+                ${dockApps.map(app => renderWechatAiPhoneAppButton(app, char)).join('')}
             </div>
         </div>
     `;
@@ -22957,6 +23141,8 @@ function closeWechatAiPhone() {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     closeWechatAiPhoneErrorPrompt();
+    closeWechatAiPhoneHomeEditor();
+    closeWechatAiPhoneIconEditor();
     window._wechatAiPhoneOpenCharId = '';
     window._wechatAiPhoneTab = 'home';
     window._wechatAiPhoneChatIndex = 0;
