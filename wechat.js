@@ -22741,6 +22741,27 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     `;
 }
 
+function updateWechatAiPhoneWallpaperTone(image) {
+    const phone = image?.closest('.wc-ai-phone-ios.has-custom-wallpaper');
+    if (!phone || !image.naturalWidth) return;
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 24;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) return;
+        context.drawImage(image, 0, 0, 24, 24);
+        const pixels = context.getImageData(0, 0, 24, 24).data;
+        let brightness = 0;
+        for (let index = 0; index < pixels.length; index += 4) {
+            brightness += pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722;
+        }
+        phone.classList.toggle('has-light-wallpaper', brightness / (pixels.length / 4) > 156);
+    } catch {
+        // Imported remote images may disallow canvas reads; keep the default light labels.
+        phone.classList.remove('has-light-wallpaper');
+    }
+}
+
 function renderWechatAiPhone(char) {
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal || !char) return;
@@ -22761,7 +22782,7 @@ function renderWechatAiPhone(char) {
                 <span><i class="ri-signal-wifi-fill"></i><i class="ri-battery-2-charge-fill"></i></span>
             </div>
             <div class="wc-ai-phone-wallpaper">
-                ${wallpaper ? `<img class="wc-ai-phone-wallpaper-image" src="${wcEscapeAttr(wallpaper)}" alt="" aria-hidden="true">` : ''}
+                ${wallpaper ? `<img class="wc-ai-phone-wallpaper-image" src="${wcEscapeAttr(wallpaper)}" alt="" aria-hidden="true" onload="updateWechatAiPhoneWallpaperTone(this)">` : ''}
                 ${isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
                     <div class="wc-ai-phone-app-page tone-${meta.tone}">
                         <div class="wc-ai-phone-app-nav">
