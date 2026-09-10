@@ -6191,9 +6191,11 @@ function getMonitorCharName(char) {
 
 function getMonitorPetBoundChar() {
     const chars = getMonitorCharacters();
+    const boundId = localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) || '';
+    const custom = chars.find(char => char.id === boundId && char.chatConfig?.characterPet?.active);
+    if (custom) return custom;
     const enabled = chars.filter(char => !!(char.chatConfig && char.chatConfig.monitorEnabled));
     if (!enabled.length) return null;
-    const boundId = localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) || '';
     return enabled.find(char => char.id === boundId) || enabled[0] || null;
 }
 
@@ -6201,6 +6203,7 @@ function setMonitorPetBoundChar(charId) {
     const id = String(charId || '').trim();
     if (id) localStorage.setItem(MONITOR_PET_BOUND_CHAR_KEY, id);
     else localStorage.removeItem(MONITOR_PET_BOUND_CHAR_KEY);
+    if (window.ByndCharacterPet) for (const char of getMonitorCharacters()) window.ByndCharacterPet.reset(char);
 }
 
 function ensureMonitorPetState(char) {
@@ -6220,6 +6223,7 @@ function setMonitorPetEnabled(value) {
     monitorPetFloatMessage = '';
     if (!enabled) {
         stopMonitorPetAutoObserve();
+        if (window.ByndCharacterPet) for (const char of getMonitorCharacters()) window.ByndCharacterPet.reset(char);
         document.querySelector('.phone-container > .monitor-pet-floating')?.remove();
         updateMonitorPetStatus('桌宠已关闭，素材和绑定角色会保留。');
     } else {
@@ -6721,8 +6725,8 @@ function renderMonitorPetLibrary() {
     const saved = getMonitorPetLibrary();
     const activeId = getActiveMonitorPetId();
     const savedCards = saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('');
-    const activePet = saved.find(pet => pet.id === activeId);
     const boundChar = getMonitorPetBoundChar();
+    const activePet = (boundChar && window.ByndCharacterPet?.material(boundChar)) || saved.find(pet => pet.id === activeId);
     const petEnabled = isMonitorPetEnabled();
     const boundText = boundChar ? ` · 绑定 ${getMonitorCharName(boundChar)}` : ' · 未接入角色';
     const onlineContent = monitorPetLoading
@@ -6730,6 +6734,7 @@ function renderMonitorPetLibrary() {
         : renderMonitorPetOnlineContent(saved, activeId);
     return `
         <div class="monitor-pet-library">
+            <button type="button" class="monitor-pet-studio-entry" onclick="openMonitorPetStudio()"><i class="ri-sparkling-2-line"></i><span><strong>制作角色专属桌宠</strong><small>上传角色图 · 生成透明 3D 形象 · 按人设互动</small></span><i class="ri-arrow-right-s-line"></i></button>
             <div class="monitor-pet-active">
                 <div class="monitor-pet-preview">${activePet ? `<img src="${musicEscapeAttr(getMonitorPetDisplayImage(activePet))}" alt="${musicEscapeAttr(activePet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
                 <div>
@@ -6892,8 +6897,10 @@ function syncMonitorPetFloating() {
         host?.querySelector(':scope > .monitor-pet-floating')?.remove();
         return;
     }
-    const activePet = getMonitorPetLibrary().find(pet => pet.id === getActiveMonitorPetId());
+    const char = getMonitorPetBoundChar();
+    const activePet = (char && window.ByndCharacterPet?.material(char)) || getMonitorPetLibrary().find(pet => pet.id === getActiveMonitorPetId());
     renderMonitorPetFloat(activePet || null);
+    window.ByndCharacterPet?.observeScene();
 }
 window.syncMonitorPetFloating = syncMonitorPetFloating;
 
@@ -6909,7 +6916,14 @@ function clampMonitorPetFloatPosition(host, node, x, y) {
     const width = Math.max(76, node.offsetWidth || 96);
     const height = Math.max(76, node.offsetHeight || 96);
     const maxX = Math.max(8, host.clientWidth - width - 8);
-    const maxY = Math.max(8, host.clientHeight - height - 8);
+    let maxY = Math.max(8, host.clientHeight - height - 8);
+    if (node.classList.contains('character-pet')) {
+        const footer = document.querySelector('#app-wechat-window.active .wc-room-footer');
+        if (footer && footer.getClientRects().length) {
+            const top = footer.getBoundingClientRect().top - host.getBoundingClientRect().top;
+            if (top > 0) maxY = Math.max(8, Math.min(maxY, top - height - 16));
+        }
+    }
     return {
         x: Math.min(maxX, Math.max(8, Number(x) || 8)),
         y: Math.min(maxY, Math.max(8, Number(y) || 8))
@@ -6921,7 +6935,7 @@ function applyMonitorPetFloatPosition(host, node, pos) {
     const height = Math.max(76, node.offsetHeight || 96);
     const target = pos || {
         x: host.clientWidth - width - 18,
-        y: host.clientHeight - height - 30
+        y: host.clientHeight - height - (node.classList.contains('character-pet') ? 140 : 30)
     };
     const clamped = clampMonitorPetFloatPosition(host, node, target.x, target.y);
     node.style.left = `${clamped.x}px`;
@@ -6956,6 +6970,7 @@ function finishMonitorPetFloatDrag(event, allowTap) {
     }
     if (moved) {
         saveMonitorPetFloatPosition(host, node);
+        syncMonitorPetFloating();
         return;
     }
     if (allowTap) requestMonitorPetReaction('tap');
@@ -7016,6 +7031,7 @@ function renderMonitorPetFloat(pet, mode = '') {
     const host = document.querySelector('.phone-container');
     if (!host) return;
     let node = host.querySelector(':scope > .monitor-pet-floating');
+    if (node && monitorPetDragState?.node === node) return;
     if (!pet || !isMonitorPetEnabled()) {
         if (node) node.remove();
         return;
@@ -7025,17 +7041,20 @@ function renderMonitorPetFloat(pet, mode = '') {
         node.className = 'monitor-pet-floating';
         host.appendChild(node);
     }
-    const image = getMonitorPetDisplayImage(pet);
     const boundChar = getMonitorPetBoundChar();
+    const custom = !!(pet.characterId && pet.characterId === boundChar?.id && window.ByndCharacterPet);
+    const visual = custom ? window.ByndCharacterPet.visual(boundChar) : null;
+    const image = visual ? visual.image : getMonitorPetDisplayImage(pet);
     const petState = boundChar && boundChar.chatConfig ? (boundChar.chatConfig.monitorPetState || {}) : {};
-    const pending = !!(petState && petState.pending);
-    const characterMessage = String((petState && petState.bubbleText) || '').trim();
+    const pending = visual ? visual.pending : !!(petState && petState.pending);
+    const characterMessage = visual ? visual.bubble : String((petState && petState.bubbleText) || '').trim();
     const transientMessage = String(monitorPetFloatMessage || '').trim();
     const message = transientMessage || (pending ? '...' : characterMessage);
     const hasBubble = !!message;
     const boundName = boundChar ? getMonitorCharName(boundChar) : '';
-    node.className = `monitor-pet-floating ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} pop`;
+    node.className = `monitor-pet-floating ${custom ? 'character-pet' : ''} ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} pop`;
     node.dataset.boundChar = boundChar ? boundChar.id : '';
+    node.dataset.petState = visual?.state || 'idle';
     node.innerHTML = `
         ${hasBubble ? `<div class="monitor-pet-floating-bubble">${pending ? '<span class="monitor-pet-thinking-text">...</span>' : musicEscapeHtml(message)}</div>` : ''}
         <button type="button" class="monitor-pet-floating-body" aria-label="${musicEscapeAttr(boundName ? `点击让 ${boundName} 说话` : '先接入角色再让桌宠说话')}" title="${musicEscapeAttr(boundName ? `绑定：${boundName}` : '未绑定角色')}">
@@ -7198,6 +7217,7 @@ async function requestMonitorPetReaction(reason = 'tap') {
         return false;
     }
     const char = getMonitorPetBoundChar();
+    if (char && window.ByndCharacterPet?.active(char)) return window.ByndCharacterPet.request(char, reason);
     if (!char) {
         updateMonitorPetStatus('先接入一个角色，桌宠才会按角色人设说话。');
         if (typeof showWechatToast === 'function') showWechatToast('先接入一个角色');
@@ -7363,12 +7383,13 @@ function openMonitorPetDb() {
 
 async function saveMonitorPetAsset(id, value) {
     const db = await openMonitorPetDb();
-    return new Promise((resolve, reject) => {
+    try { return await new Promise((resolve, reject) => {
         const tx = db.transaction(MONITOR_PET_DB_STORE, 'readwrite');
         tx.objectStore(MONITOR_PET_DB_STORE).put(value, id);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
-    });
+        tx.onabort = () => reject(tx.error || new Error('桌宠图片保存中断'));
+    }); } finally { db.close(); }
 }
 
 function monitorBlobToDataUrl(blob) {
@@ -7420,9 +7441,14 @@ async function downloadMonitorPet(petId, button) {
 }
 window.downloadMonitorPet = downloadMonitorPet;
 
-function applyMonitorPet(petId, button) {
+async function applyMonitorPet(petId, button) {
     const pet = getMonitorPetLibrary().find(item => item.id === petId);
     if (!pet) return false;
+    const char = getMonitorPetBoundChar();
+    if (char && window.ByndCharacterPet?.profile(char).active) {
+        try { await window.ByndCharacterPet.update(char, next => { next.active = false; }); }
+        catch (error) { updateMonitorPetStatus(error.message || '桌宠切换未能保存'); return false; }
+    }
     setMonitorPetActionButton(button, 'loading', '应用中');
     localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
     localStorage.setItem(MONITOR_PET_ENABLED_KEY, '1');

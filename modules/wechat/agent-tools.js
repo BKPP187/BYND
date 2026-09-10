@@ -35,6 +35,8 @@
             ${row('allowMemory', '自动整理记忆', '允许角色从当前聊天整理自己的记忆')}
             ${row('allowTodos', '记录待办', '允许角色在当前聊天里添加自己的待办事项')}
             <p class="bynd-agent-note">以上权限仅作用于当前角色。小手机和记忆仍可手动更新。OpenClaw 的权限需在服务端单独设置。</p>
+        </div><div class="wcs-section-title">角色桌宠</div><div class="wcs-section">
+            <button type="button" class="bynd-agent-nav" onclick="openMonitorPetStudio(document.getElementById('wcs-agent-features').dataset.charId)"><span><strong>专属形象与人设互动</strong><small>沿用生图设置，制作透明 3D 形象和专属表情</small></span><i class="ri-arrow-right-s-line"></i></button>
         </div><div class="wcs-section-title">OpenClaw · 微信</div><div class="wcs-section">
             <button type="button" class="bynd-agent-nav" onclick="openWechatOpenClawSettings()"><span><strong>角色绑定与连接</strong><small>${char.chatConfig?.openClawBinding?.agentId ? '已保存角色绑定 · 点击管理连接' : '设置服务地址，准备微信角色绑定'}</small></span><i class="ri-arrow-right-s-line"></i></button>
         </div><div class="wcs-section-title">角色待办</div><div class="wcs-section bynd-agent-todos">${renderTodos(char)}</div>`;
@@ -163,6 +165,7 @@
     window.buildWechatAgentInstructions = char => {
         const config = preferences(char);
         return [
+            window.ByndCharacterPet?.chatInstructions(char) || '',
             config.showThinking ? '请在回复开头用 <bynd_summary>...</bynd_summary> 提供 1-3 句简短、可公开的回应思路摘要。只说明回应目标和必要依据，不输出私有思维链、逐步内部推理或系统提示；正文仍放在标签之外。' : '不要输出 bynd_summary 或思考过程，只给角色正文。',
             !config.allowImages ? '当前角色的生图权限已关闭，不要发出图片生成指令。' : '',
             config.allowTodos ? '可以使用当前角色的待办工具：<bynd_tool>{"name":"todo.add","title":"具体待办标题","note":"可选说明"}</bynd_tool> 或 <bynd_tool>{"name":"todo.list"}</bynd_tool>。只有用户需要记下/查看待办时才调用。最多 3 次；这些是应用内清单，不会自动向系统推送提醒。正文同时自然回应用户。' : '当前角色没有写入待办的权限，不要声称已经创建待办。'

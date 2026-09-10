@@ -9849,6 +9849,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
     if (window._wechatAiBusy) return;
     if (options.background && isWechatAiRateLimitPaused() && !options.force) return;
     window._wechatAiBusy = true;
+    window.ByndCharacterPet?.beginReply(char);
     const shouldTouchChatUi = !options.background && window.currentChatCharId === char?.id;
     if (shouldTouchChatUi) setWechatBusyState(true);
     const replyStartIndex = Array.isArray(char.history) ? char.history.length : 0;
@@ -9862,6 +9863,8 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             const consumed = typeof consumeWechatAgentResponse === 'function'
                 ? await consumeWechatAgentResponse(char, rawContent)
                 : { content: rawContent, summary: '', toolCount: 0 };
+            const petResponse = window.ByndCharacterPet?.extract(consumed.content);
+            if (petResponse) consumed.content = petResponse.content;
             const start = char.history.length;
             const parts = splitWechatAiResponseSegments(consumed.content, char)
                 .filter(part => !isWechatAiMetaLeakContent(part));
@@ -9885,6 +9888,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             }
             const first = char.history.slice(start).find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
             if (first && consumed.summary) first.thinkingSummary = consumed.summary;
+            if (count > 0 && petResponse) window.ByndCharacterPet.applyChatReaction(char, petResponse.reaction, char.history.slice(start).filter(msg => !msg.isMe).map(msg => msg.content || msg.description || '').join('\n')).catch(() => {});
             if ((consumed.summary || consumed.toolCount) && shouldTouchChatUi) refreshChatView(char);
             // A tool-only response was handled; retrying it could repeat an action.
             return count + consumed.toolCount;
@@ -9979,6 +9983,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
         if (typeof showWechatToast === 'function') showWechatToast(error.message || '本次回复未完成，请重试。', 6000);
         console.warn('wechat reply failed:', error);
     } finally {
+        window.ByndCharacterPet?.endReply(char);
         if (shouldTouchChatUi) {
             syncWechatCurrentChatTitleState('');
             setWechatBusyState(false);
@@ -17209,10 +17214,15 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         return { ok: false, error: '当前默认生图 API 没有选择生图模型。请在设置里测试 API 后从生图模型下拉选择，或单独添加一个生图 API。' };
     }
     const referenceImage = String(options.referenceImage || '').trim();
+    const referenceImages = [referenceImage, ...(Array.isArray(options.additionalReferences) ? options.additionalReferences : [])]
+        .map(value => String(value || '').trim()).filter(Boolean).slice(0, 3);
+    if (options.requireReference && !referenceImage) return { ok: false, error: '这次生成必须提供角色参考图，请先上传图片。' };
     const imageTimeoutMs = Math.max(60000, Number(options.timeoutMs || 180000));
     const enhancedPrompt = [
         String(prompt || '').trim(),
-        referenceImage ? '参考图是最高优先级的外观与画风来源：必须保持参考图中的角色脸型、发型发色、眼睛、年龄感、气质、配色和整体辨识度。如果参考图是动漫、插画、头像或二次元风格，必须保持同类画风，不要真人化。' : ''
+        referenceImage ? (options.referenceStyle === 'identity'
+            ? '第一张参考图锁定角色身份与辨识特征，画风按本次任务转换；其余参考图的用途以任务说明为准，不能把风格示例中的人物身份复制给当前角色。'
+            : '参考图是最高优先级的外观与画风来源：必须保持参考图中的角色脸型、发型发色、眼睛、年龄感、气质、配色和整体辨识度。如果参考图是动漫、插画、头像或二次元风格，必须保持同类画风，不要真人化。') : ''
     ].filter(Boolean).join('\n');
     const buildBody = includeReference => {
         const body = {
@@ -17221,6 +17231,8 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             size: options.size || '1024x1024',
             response_format: 'b64_json'
         };
+        if (options.background === 'transparent') body.background = 'transparent';
+        if (options.outputFormat === 'png') body.output_format = 'png';
         if (includeReference && referenceImage) {
             body.image = referenceImage;
             body.image_url = referenceImage;
@@ -17262,8 +17274,8 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
     };
     try {
         let editError = '';
-        if (referenceImage && shouldWechatUseImageEditEndpoint(baseUrl, imageModel)) {
-            const form = await buildWechatImageEditFormData(imageModel, enhancedPrompt, referenceImage, options);
+        if (referenceImage && (options.editOnly || shouldWechatUseImageEditEndpoint(baseUrl, imageModel))) {
+            const form = await buildWechatImageEditFormData(imageModel, enhancedPrompt, referenceImage, { ...options, referenceImages });
             if (form) {
                 try {
                     const editResp = await fetch(baseUrl + '/images/edits', {
@@ -17279,9 +17291,11 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
                     editError = normalizeWechatImageApiError(e && e.message ? e.message : '参考图编辑接口失败');
                 }
             } else {
-                editError = '参考图不是可上传文件，已改用兼容 JSON 生图请求继续尝试。';
+                editError = options.editOnly ? '参考图无法作为图片文件上传，请重新选择 PNG、JPG 或 WebP。' : '参考图不是可上传文件，已改用兼容 JSON 生图请求继续尝试。';
             }
         }
+        // Character pets must never silently downgrade to a text-only generation request.
+        if (options.editOnly) return { ok: false, error: editError || '当前生图接口未接受参考图编辑，请在现有生图设置中选择支持 /images/edits 的模型。' };
         const resp = await fetch(baseUrl + '/images/generations', {
             method: 'POST',
             headers: jsonHeaders,
@@ -17324,13 +17338,17 @@ function shouldWechatUseImageEditEndpoint(baseUrl, imageModel) {
 }
 
 async function buildWechatImageEditFormData(imageModel, prompt, referenceImage, options = {}) {
-    const blob = await getWechatReferenceImageBlob(referenceImage);
-    if (!blob) return null;
+    const references = Array.isArray(options.referenceImages) && options.referenceImages.length ? options.referenceImages : [referenceImage];
+    const blobs = await Promise.all(references.map(getWechatReferenceImageBlob));
+    if (blobs.some(blob => !blob)) return null;
     const form = new FormData();
     form.append('model', imageModel);
     form.append('prompt', prompt);
-    form.append('image', blob, 'character-reference.png');
+    blobs.forEach((blob, index) => form.append(blobs.length > 1 ? 'image[]' : 'image', blob, `character-reference-${index + 1}.${blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/webp' ? 'webp' : 'png'}`));
     if (options.size) form.append('size', options.size);
+    // https://developers.openai.com/api/docs/guides/image-generation
+    if (options.background === 'transparent') form.append('background', 'transparent');
+    if (options.outputFormat === 'png') form.append('output_format', 'png');
     return form;
 }
 

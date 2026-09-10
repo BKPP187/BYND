@@ -32,15 +32,20 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int SCREEN_CAPTURE_REQUEST = 7311;
     private static final int FILE_CHOOSER_REQUEST = 7312;
+    private static final int PNG_EXPORT_REQUEST = 7313;
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
     private ValueCallback<Uri[]> fileChooserCallback;
+    private byte[] pendingPngBytes;
+    private String pendingPngId;
     private MediaProjectionManager projectionManager;
     private MediaProjection mediaProjection;
     private VirtualDisplay virtualDisplay;
@@ -162,6 +167,31 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PNG_EXPORT_REQUEST) {
+            final byte[] bytes = pendingPngBytes;
+            final String id = pendingPngId;
+            pendingPngBytes = null;
+            pendingPngId = null;
+            if (id == null) return;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                notifyPngExport(id, false, "已取消保存 PNG");
+            } else {
+                final Uri destination = data.getData();
+                new Thread(() -> {
+                    try (OutputStream stream = getContentResolver().openOutputStream(destination, "w")) {
+                        if (stream == null || bytes == null) throw new IllegalStateException("No output stream");
+                        stream.write(bytes);
+                        stream.flush();
+                    } catch (Exception error) {
+                        runOnUiThread(() -> notifyPngExport(id, false, "PNG 未能保存，请重新选择位置后重试"));
+                        return;
+                    }
+                    runOnUiThread(() -> notifyPngExport(id, true, "PNG 已保存到所选位置"));
+                }, "BYND-PNG-export").start();
+            }
+            applyFullscreenSystemBars();
+            return;
+        }
         if (requestCode == FILE_CHOOSER_REQUEST) {
             ValueCallback<Uri[]> callback = fileChooserCallback;
             fileChooserCallback = null;
@@ -258,6 +288,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         stopProjection();
+        pendingPngBytes = null;
+        pendingPngId = null;
         if (webView != null) {
             webView.destroy();
             webView = null;
@@ -265,7 +297,51 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    private void notifyPngExport(String id, boolean ok, String message) {
+        if (webView == null) return;
+        String script = "window.dispatchEvent(new CustomEvent('bynd:png-export',{detail:{id:"
+                + JSONObject.quote(id) + ",ok:" + ok + ",message:" + JSONObject.quote(message) + "}}));";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void requestPngExport(String id, String name, String dataUrl) {
+        if (webView == null || id == null || !id.matches("[a-zA-Z0-9_-]{1,80}")) return;
+        String page = webView.getUrl();
+        if (page == null || !page.startsWith("file:///android_asset/www/")) {
+            notifyPngExport(id, false, "请在 BYND 应用内导出图片");
+            return;
+        }
+        if (pendingPngId != null) { notifyPngExport(id, false, "请先完成当前图片的保存"); return; }
+        try {
+            if (dataUrl == null || dataUrl.length() > 28 * 1024 * 1024 || !dataUrl.startsWith("data:image/png;base64,")) throw new IllegalArgumentException();
+            byte[] bytes = Base64.decode(dataUrl.substring("data:image/png;base64,".length()), Base64.DEFAULT);
+            byte[] signature = new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+            if (bytes.length < signature.length) throw new IllegalArgumentException();
+            for (int i = 0; i < signature.length; i++) if (bytes[i] != signature[i]) throw new IllegalArgumentException();
+            String filename = name == null ? "BYND-char-pet.png" : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
+            if (filename.length() > 100) filename = filename.substring(0, 100);
+            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".png")) filename += ".png";
+            // Storage Access Framework grants access only to the user-selected document.
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/png");
+            intent.putExtra(Intent.EXTRA_TITLE, filename);
+            pendingPngBytes = bytes;
+            pendingPngId = id;
+            startActivityForResult(intent, PNG_EXPORT_REQUEST);
+        } catch (Exception error) {
+            pendingPngBytes = null;
+            pendingPngId = null;
+            notifyPngExport(id, false, "无法导出 PNG，请检查图片或系统文件管理器");
+        }
+    }
+
     public class ByndAndroidBridge {
+        @JavascriptInterface
+        public void exportPng(String id, String name, String dataUrl) {
+            runOnUiThread(() -> requestPngExport(id, name, dataUrl));
+        }
+
         @JavascriptInterface
         public void startScreenCapture() {
             runOnUiThread(() -> requestScreenCapture());
