@@ -117,8 +117,7 @@
         const state = id === 'idle' ? null : config.states.find(item => item.id === id);
         if (id !== 'idle' && !state) throw new Error('该表情已移除。');
         const sourceKey = removeBackground ? (state ? state.draftKey : config.draftBaseKey) : state ? config.baseKey : config.referenceKey;
-        if (!sourceKey) throw new Error(state ? '请先确认基础形象，再生成对应表情。' : '请先上传角色参考图。');
-        if (![char.description, char.personality, char.prompt, char.setting].some(value => String(value || '').trim())) throw new Error('请先完善这个角色的人设，再生成专属桌宠。');
+        if (!sourceKey) throw new Error(removeBackground ? '请先生成或上传需要去背景的图片。' : state ? '请先确认基础形象，再生成对应表情。' : '请先上传角色参考图。');
         const reference = await C.readAsset(sourceKey);
         if (!reference?.url) throw new Error('参考图未能读取，请重新上传。');
         const prompt = C.imagePrompt(char, state, removeBackground);
@@ -211,7 +210,7 @@
         const initial = Array.from(C.name(char) || '角')[0];
         return `<span class="pet-role-avatar" aria-hidden="true"><span>${escape(initial)}</span>${source ? `<img src="${escape(source)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
     }
-    const roleSummary = char => C.clean([char.description, char.personality, char.setting, char.prompt].find(value => String(value || '').trim()) || '尚未填写角色人设', 140).replace(/\s+/g, ' ');
+    const roleSummary = char => C.clean(String([char.description, char.personality, char.setting, char.prompt].find(value => String(value || '').trim()) || C.personaSource(char) || '尚未填写角色人设').replace(/【[^】]*】/g, ''), 140).replace(/\s+/g, ' ');
     function roleButton(char, position = 'top') {
         const expanded = !!document.getElementById('pet-role-picker');
         return `<button type="button" class="pet-role-button" data-pet-role-trigger="${position}" aria-label="${position === 'top' ? '选择桌宠角色' : '从角色列表选择人设'}" aria-haspopup="dialog" aria-controls="pet-role-picker" aria-expanded="${expanded}" onclick="ByndPetStudio.openRoles(this.dataset.petRoleTrigger)">${roleAvatar(char)}<span class="pet-role-copy"><small>${position === 'top' ? '当前角色' : '使用这个角色的人设'}</small><strong>${escape(C.name(char))}</strong></span><span class="pet-role-change">切换<i class="ri-arrow-right-s-line" aria-hidden="true"></i></span></button>`;
@@ -299,7 +298,7 @@
             <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div>
             ${imageFeedback(char, 'reference')}
             ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
-            <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>选定母版后，专属表情都从这一张派生。</p></div></div>
+            <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>先按参考图制作自然待机形象，确认后再制作专属表情。</p></div></div>
             ${imageBox(config.draftBaseKey || config.baseKey, draft ? (draft.transparent ? '透明背景已检查 · 待你确认' : '背景未透明 · 暂不可应用') : config.baseKey ? '已确认的基础形象' : imageLabel)}
             ${controls(char, 'idle', config.draftBaseKey, config.baseKey)}
             ${config.baseKey ? `<div class="pet-apply"><button type="button" ${off} onclick="ByndPetStudio.apply()">${C.active(char) ? '当前正在使用' : '绑定并使用桌宠'}</button>${C.active(char) ? `<button type="button" class="secondary" ${off} onclick="ByndPetStudio.hide()">隐藏桌宠</button>` : ''}</div>` : ''}
@@ -411,7 +410,7 @@
             state.form.appearance = appearance; state.notice = '外观已识别，请核对并保存后再生成。';
         }, true, 'reference'),
         plan: () => task('正在按人设设计专属反应…', async (char, state) => {
-            if (![char.description, char.personality, char.prompt, char.setting].some(value => String(value || '').trim())) throw new Error('请先完善角色人设。');
+            if (!C.hasPersona(char)) throw new Error('推荐互动表情需要性格与关系设定，请在「角色列表」补充角色卡或世界书。基础形象可直接按参考图生成。');
             const result = await callChatApi([
                 { role: 'system', content: '为指定角色设计 4-6 个可用于桌宠的专属外在表现。人设、禁区和关系优先，不能套用被夸就脸红、摸头就开心等通用规则。内在情绪与外在表现分开：克制角色可以开心但只轻微微笑。可结合倾听、共读、听歌、困倦等场景，动作仍需符合角色。每项明确适用条件、关系门槛和动作幅度，不生成关系升级。避免与已有状态重复。只输出 JSON {"states":[{"label":"短名称","emotion":"内在情绪","description":"可画出的面部表情和肢体姿势，保持角色服装与辨识特征","when":"有依据时才允许触发的具体条件"}]}。不要生成图片。' },
                 { role: 'user', content: C.persona(char) + '\n\n【最近互动】\n' + C.recent(char) + '\n\n【已有状态】\n' + JSON.stringify(C.profile(char).states) }

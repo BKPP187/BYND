@@ -25,8 +25,12 @@ function harness() {
         saveMonitorPetAsset: async (key, value) => { if (state.failAsset) throw new Error('database full'); data.set(key, value); },
         openMonitorPetDb: async () => ({ close() {}, transaction: () => ({ objectStore: () => ({ get(key) { const request = {}; queueMicrotask(() => { request.result = data.get(key); request.onsuccess(); }); return request; } }) }) }),
         callChatApi: async (messages, options) => { state.calls.push({ messages, options }); return typeof state.answer === 'function' ? state.answer(messages) : state.answer; },
+        stripWechatPromptText: (value, limit) => String(value || '').replace(/<[^>]*>/g, '').trim().slice(0, limit),
+        getWechatPromptWorldBookSelection: c => c.chatConfig?.promptWorldBookIds || null,
+        getWechatWorldBookEntryId: (entry, index) => String(entry.id || index),
         wcEscapeHtml: value => String(value).replace(/[<>&"]/g, char => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[char]))
     });
+    vm.runInContext(sourceSection('wechat.js', 'function buildWechatWorldBookPrompt(', 'function getWechatVoicePromptContent('), context);
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), context);
     return { context, C: context.window.ByndCharacterPet, studio: context.window.ByndPetStudio, char, other, data, state, timers };
@@ -88,6 +92,7 @@ for (const [label, change] of [
     ['global off', h => { h.state.enabled = false; }],
     ['automatic reactions off', h => { h.char.chatConfig.characterPet.autoReact = false; }],
     ['changed personality', h => { h.char.description = '性格已修改，不会微笑。'; }],
+    ['changed imported persona', h => { h.char.system_prompt = '不能用微笑回应感谢。'; }],
     ['removed character', h => { h.context.window.myCharacters = [h.other]; }]
 ]) test('an outstanding pet review is discarded after ' + label, async () => {
     const h = harness(); const gate = deferred(); h.state.answer = () => gate.promise;
@@ -190,6 +195,114 @@ test('image prompts use only the user identity reference and keep variants ancho
     assert.match(variant, /已确认的角色母版/);
     assert.match(variant, /仅嘴角轻微上扬/);
     assert.doesNotMatch(variant, /第二张图片仅参考/);
+});
+
+for (const [label, id, removeBackground, sourceKey] of [
+    ['base image', 'idle', false, 'reference'],
+    ['background removal', 'idle', true, 'candidate'],
+    ['explicit expression', 'quiet_smile', false, 'base']
+]) test('a reference and appearance can reach image generation without a persona: ' + label, async () => {
+    const { studio, C, char, context, data } = harness();
+    delete char.description; char.worldBook = [];
+    char.chatConfig.characterPet.appearance = '银灰短发，红色眼睛，保留参考图中的服装。';
+    char.chatConfig.characterPet.draftBaseKey = 'candidate';
+    data.set('candidate', { url: 'data:image/png;base64,Y2FuZGlkYXRl', transparent: false });
+    const before = JSON.stringify(C.profile(char));
+    const calls = [];
+    context.callWechatImageGenerationApi = async (prompt, options) => {
+        calls.push({ prompt, options });
+        return { ok: false, error: 'test provider unavailable' };
+    };
+    await assert.rejects(studio.generateImage(char, id, removeBackground), /test provider unavailable/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.referenceImage, data.get(sourceKey).url);
+    assert.equal(calls[0].options.requireReference, true);
+    assert.equal(calls[0].options.editOnly, true);
+    assert.equal(calls[0].options.background, 'transparent');
+    if (removeBackground) assert.match(calls[0].prompt, /只移除/);
+    else {
+        assert.match(calls[0].prompt, /银灰短发/);
+        assert.match(calls[0].prompt, /不从外观推断性格/);
+        assert.match(calls[0].prompt, id === 'idle' ? /中性.*自然待机/ : /仅嘴角轻微上扬/);
+    }
+    assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+test('appearance text alone never bypasses the required image reference', async () => {
+    const { studio, other, context } = harness();
+    other.chatConfig.characterPet = { appearance: '银灰短发，红色眼睛。' };
+    let calls = 0;
+    context.callWechatImageGenerationApi = async () => { calls++; };
+    await assert.rejects(studio.generateImage(other), /上传角色参考图/);
+    assert.equal(calls, 0);
+});
+
+test('persona checks and prompts use imported card fields, not appearance or role names', () => {
+    const { C, other } = harness();
+    delete other.description;
+    other.chatConfig.characterPet = { appearance: '银灰短发，红色眼睛。' };
+    assert.equal(C.hasPersona(other), false);
+    for (const key of ['description', 'personality', 'prompt', 'setting', 'scenario', 'mes_example', 'mesExample', 'system_prompt', 'systemPrompt', 'post_history_instructions', 'postHistoryInstructions', 'creator_notes', 'creatorNotes', 'character_note', 'characterNote', 'first_mes', 'first_mes_original', 'alternates']) {
+        other[key] = key === 'alternates' ? ['沉稳克制，不默认亲密。'] : '沉稳克制，不默认亲密。';
+        assert.equal(C.hasPersona(other), true, key);
+        assert.match(C.persona(other), /沉稳克制/);
+        assert.match(C.imagePrompt(other), /沉稳克制/);
+        delete other[key];
+    }
+    assert.equal(C.hasPersona(other), false);
+});
+
+test('enabled world book content is recognized as persona and disabled or empty entries are not', () => {
+    const { C, other } = harness();
+    delete other.description;
+    for (const key of ['content', 'text', 'entry', 'value', 'description']) {
+        other.worldBook = [{ name: '关系设定', [key]: '只是初识同事，表达感谢时也保持克制。', enabled: true }];
+        assert.equal(C.hasPersona(other), true, key);
+        assert.match(C.persona(other), /只是初识同事/);
+        assert.match(C.imagePrompt(other), /只是初识同事/);
+        other.worldBook[0].enabled = false;
+        assert.equal(C.hasPersona(other), false, key + ' disabled');
+    }
+    other.worldBook = [{ name: '空的人设条目', content: '   ' }];
+    assert.equal(C.hasPersona(other), false);
+});
+
+test('expanded persona reading retains detailed original cards and world-book boundaries', () => {
+    const { C, char } = harness();
+    char.description = '角色经历。'.repeat(1800) + '重要边界：拒绝无依据亲昵。';
+    char.worldBook = [{ content: '关系背景。'.repeat(200) + '关系不能自动升级。', enabled: true }];
+    char.system_prompt = '对话保持简洁。';
+    const persona = C.persona(char);
+    assert.match(persona, /重要边界：拒绝无依据亲昵/);
+    assert.match(persona, /关系不能自动升级/);
+    assert.match(persona, /对话保持简洁/);
+});
+
+test('expression recommendations accept a world-book-only persona and reject appearance-only input', async () => {
+    const { C, studio, other, state } = harness();
+    delete other.description;
+    other.chatConfig.characterPet = { appearance: '银灰短发，红色眼睛。' };
+    await studio.select(other.id);
+    assert.equal(await studio.plan(), false);
+    assert.equal(state.calls.length, 0);
+    other.worldBook = [{ content: '成年人，冷静克制，与用户是初识同事。', enabled: true }];
+    state.answer = { ok: true, content: JSON.stringify({ states: [{ label: '倾听', emotion: '专注', description: '安静倾听，站姿不变。', when: '用户认真讲述事情时。' }] }) };
+    assert.equal(await studio.plan(), true);
+    assert.equal(state.calls.length, 1);
+    assert.match(JSON.stringify(state.calls[0].messages), /初识同事/);
+    assert.equal(C.profile(other).planDraft.length, 1);
+});
+
+test('a pet with only an image stays neutral until personality evidence is available', async () => {
+    const { C, char, state } = harness();
+    delete char.description; char.worldBook = [];
+    char.chatConfig.characterPet.appearance = '银灰短发，红色眼睛。';
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢。'), false);
+    await assert.rejects(C.testReaction(char, '今天开心吗？'), /性格.*关系/);
+    assert.equal(state.calls.length, 0);
+    assert.equal(C.runtime(char).state, 'idle');
+    assert.equal(C.runtime(char).bubble, '');
 });
 
 function imageApiHarness(config = {}) {
