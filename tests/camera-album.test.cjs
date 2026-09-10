@@ -88,16 +88,53 @@ test('a post-save UI error does not turn a delivered photo into a failed send', 
     assert.ok(h.events.toasts.some(message => message.startsWith('照片已发给')));
 });
 
-test('album accepts generated incoming images, excludes camera photos, and deduplicates per character', () => {
+test('album accepts generated incoming images, excludes camera photos, and deduplicates per character', async () => {
     const h = cameraHarness();
     const [a, b] = h.context.window.myCharacters;
     const incoming = { type: 'image', isMe: false, content: 'https://example.test/generated.png', imagePrompt: 'a garden' };
-    assert.equal(h.context.recordWechatGeneratedImageToAlbum(a, { ...incoming, isMe: true }), false);
-    assert.equal(h.context.recordWechatGeneratedImageToAlbum(a, { ...incoming, imagePending: true }), false);
-    assert.equal(h.context.recordWechatGeneratedImageToAlbum(a, incoming), true);
-    assert.equal(h.context.recordWechatGeneratedImageToAlbum(a, incoming), false);
-    assert.equal(h.context.recordWechatGeneratedImageToAlbum(b, incoming), true);
-    const rows = JSON.parse(h.localStorage.getItem('bynd_chat_album_v1'));
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(a, { ...incoming, isMe: true }), false);
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(a, { ...incoming, imagePending: true }), false);
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(a, incoming), true);
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(a, incoming), false);
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(b, incoming), true);
+    const rows = clone(h.context.getChatAlbumStore());
     assert.equal(rows.length, 2);
     assert.deepEqual(rows.map(row => row.charId).sort(), ['a', 'b']);
+    assert.equal(h.localStorage.getItem('bynd_chat_album_v1'), null);
+    assert.equal(a.chatConfig.generatedImages.length, 1);
+    assert.equal(h.events.saved, 2);
+});
+
+test('album recovers legacy and historical image stacks, keeps photos after chat clearing, and never copies them to localStorage', async () => {
+    const h = cameraHarness();
+    const a = h.context.window.myCharacters[0];
+    const url = 'data:image/png;base64,HISTORY';
+    a.history = [{ type: 'image_stack', isMe: false, images: [url, 'https://example.test/second.jpg'], timestamp: 2 }, { type: 'image', isMe: true, content: 'data:image/png;base64,USER' }];
+    h.localStorage.setItem('bynd_chat_album_v1', JSON.stringify([{ charId: 'a', url, createdAt: 1 }]));
+    await h.context.saveChatAlbumStore(h.context.getChatAlbumStore());
+    assert.equal(h.context.getChatAlbumStore().length, 2);
+    a.history = [];
+    assert.equal(h.context.getChatAlbumStore().length, 2);
+    assert.equal(h.localStorage.writes.length, 1);
+    assert.equal(a.chatConfig.generatedImages.length, 2);
+});
+
+test('album save failure retains history, removes only its own additions and can retry', async () => {
+    const h = cameraHarness();
+    const a = h.context.window.myCharacters[0];
+    const msg = { type: 'image', isMe: false, content: 'https://example.test/picture.jpg', timestamp: 1 };
+    a.history.push(msg);
+    h.context.saveCharactersToStorage = async () => {
+        a.chatConfig.generatedImages.push({ charId: a.id, url: 'https://example.test/concurrent.jpg' });
+        return false;
+    };
+    await assert.rejects(h.context.recordWechatGeneratedImageToAlbum(a, msg), /保存失败/);
+    assert.equal(a.history.length, 1);
+    assert.equal(a.chatConfig.generatedImages.length, 1);
+    assert.equal(h.context.getChatAlbumStore().length, 2);
+    assert.match(h.context.window._chatAlbumSaveError, /保存失败/);
+    h.context.saveCharactersToStorage = async () => true;
+    assert.equal(await h.context.recordWechatGeneratedImageToAlbum(a, msg), true);
+    assert.equal(h.context.window._chatAlbumSaveError, '');
+    assert.equal(a.chatConfig.generatedImages.length, 2);
 });

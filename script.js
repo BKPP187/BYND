@@ -18290,7 +18290,7 @@ window.askCoReadComment = askCoReadComment;
 // --- Chat Album / 相册 ---
 const CHAT_ALBUM_KEY = 'bynd_chat_album_v1';
 
-function getChatAlbumStore() {
+function getLegacyChatAlbumStore() {
     try {
         const list = JSON.parse(localStorage.getItem(CHAT_ALBUM_KEY) || '[]');
         return Array.isArray(list) ? list.filter(Boolean) : [];
@@ -18299,28 +18299,80 @@ function getChatAlbumStore() {
     }
 }
 
-function saveChatAlbumStore(list) {
-    localStorage.setItem(CHAT_ALBUM_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 500)));
-}
-
-function recordWechatGeneratedImageToAlbum(char, msg) {
-    const url = msg && (msg.imageUrl || msg.content);
-    if (!char || !url || msg.isMe || msg.type !== 'image' || msg.imagePending) return false;
-    const list = getChatAlbumStore();
-    if (list.some(item => item.url === url && item.charId === char.id)) return false;
-    list.unshift({
-        id: `album_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        charId: char.id || '',
+function getWechatAlbumMessageRows(char, msg) {
+    if (!char?.id || !msg || msg.isMe || msg.imagePending || msg.imageError || !['image', 'image_stack'].includes(msg.type)) return [];
+    const sources = msg.type === 'image_stack' ? (msg.images || msg.imageUrls || []) : [msg.imageUrl || msg.content || msg.url];
+    return (Array.isArray(sources) ? sources : []).filter(url => typeof url === 'string' && /^(?:https?:\/\/|data:image\/)/i.test(url)).map((url, index) => ({
+        id: `album_${char.id}_${msg.timestamp || msg.id || 'saved'}_${index}`,
+        charId: char.id,
         charName: getCoReadCharName(char),
         avatar: char.avatar || DEFAULT_AVATAR,
         url,
         description: String(msg.description || msg.imagePrompt || '').slice(0, 260),
         prompt: String(msg.imagePrompt || '').slice(0, 800),
-        createdAt: Date.now()
+        createdAt: Number(msg.timestamp) || Date.now()
+    }));
+}
+
+function getChatAlbumStore() {
+    const rows = getLegacyChatAlbumStore();
+    for (const char of (window.myCharacters || [])) {
+        if (!char?.id) continue;
+        rows.push(...(Array.isArray(char.chatConfig?.generatedImages) ? char.chatConfig.generatedImages : []));
+        for (const msg of (char.history || [])) rows.push(...getWechatAlbumMessageRows(char, msg));
+    }
+    const seen = new Map();
+    rows.forEach(row => {
+        if (!row?.charId || typeof row.url !== 'string' || !/^(?:https?:\/\/|data:image\/)/i.test(row.url)) return;
+        const key = row.charId + '\n' + row.url;
+        if (!seen.has(key)) seen.set(key, row);
     });
-    saveChatAlbumStore(list);
-    if (!document.getElementById('app-album-window')?.classList.contains('hidden')) renderAlbumApp();
-    return true;
+    return Array.from(seen.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+async function saveChatAlbumStore(list) {
+    // Store full-size images with the character's IndexedDB-backed data, not a second localStorage copy.
+    const added = [];
+    for (const row of (Array.isArray(list) ? list : [])) {
+        const char = (window.myCharacters || []).find(item => item.id === row?.charId);
+        if (!char) continue;
+        char.chatConfig = char.chatConfig || {};
+        const current = Array.isArray(char.chatConfig.generatedImages) ? char.chatConfig.generatedImages : [];
+        if (current.some(item => item.url === row.url)) continue;
+        char.chatConfig.generatedImages = [...current, row];
+        added.push({ char, row });
+    }
+    if (!added.length && !window._chatAlbumSaveError) return false;
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('相册保存失败，请重试；图片仍可从聊天中查看。');
+        window._chatAlbumSaveError = '';
+        for (const char of (window.myCharacters || [])) for (const msg of (char.history || [])) delete msg.imageSaveError;
+        // Release old duplicate data only after the full character snapshot is durable.
+        const legacy = getLegacyChatAlbumStore();
+        const remaining = legacy.filter(row => !(window.myCharacters || []).some(char => char.id === row.charId && char.chatConfig?.generatedImages?.some(image => image.url === row.url)));
+        if (remaining.length < legacy.length) {
+            try {
+                if (remaining.length) localStorage.setItem(CHAT_ALBUM_KEY, JSON.stringify(remaining));
+                else localStorage.removeItem(CHAT_ALBUM_KEY);
+            } catch (error) { console.warn('旧相册缓存暂未清理，完整照片已保存', error); }
+        }
+        return added.length > 0;
+    } catch (error) {
+        for (const { char, row } of added) char.chatConfig.generatedImages = (char.chatConfig.generatedImages || []).filter(item => item !== row);
+        window._chatAlbumSaveError = error.message || '相册保存失败';
+        throw error;
+    }
+}
+
+async function recordWechatGeneratedImageToAlbum(char, msg) {
+    const rows = getWechatAlbumMessageRows(char, msg);
+    if (!rows.length) return false;
+    const saved = await saveChatAlbumStore(rows);
+    const album = document.getElementById('app-album-window');
+    if (album && !album.classList.contains('hidden')) {
+        try { renderAlbumApp(); } catch (error) { console.warn('相册已保存，界面刷新失败', error); }
+    }
+    return saved;
 }
 window.recordWechatGeneratedImageToAlbum = recordWechatGeneratedImageToAlbum;
 
@@ -18331,9 +18383,10 @@ function renderAlbumApp() {
     if (!tabs || !grid) return;
     const chars = getCoReadCharacters();
     const store = getChatAlbumStore();
-    const active = window._albumActiveCharId || (chars[0] && chars[0].id) || '';
+    const requested = window._albumActiveCharId || '';
+    const active = chars.some(char => char.id === requested) ? requested : '';
     window._albumActiveCharId = active;
-    tabs.innerHTML = chars.map(char => {
+    tabs.innerHTML = `<button type="button" class="${active ? '' : 'active'}" onclick="selectAlbumChar('')"><i class="ri-gallery-line"></i><span>全部照片</span><em>${store.length}</em></button>` + chars.map(char => {
         const count = store.filter(item => item.charId === char.id).length;
         return `
             <button type="button" class="${char.id === active ? 'active' : ''}" onclick="selectAlbumChar('${musicEscapeAttr(char.id)}')">
@@ -18352,12 +18405,20 @@ function renderAlbumApp() {
                 <span>${musicEscapeHtml(item.description || '聊天生成图片')}</span>
             </figcaption>
         </figure>
-    `).join('') || '<div class="album-empty">这个角色还没有聊天生成图</div>';
-    if (status) status.textContent = `已保存 ${store.length} 张聊天生成图`;
+    `).join('') || `<div class="album-empty">${active ? '这个角色' : '相册'}还没有聊天生成图</div>`;
+    if (status) status.innerHTML = window._chatAlbumSaveError ? `${store.length} 张 · <button type="button" onclick="initAlbumApp()">重试保存</button>` : `已收录 ${store.length} 张聊天生成图`;
 }
 
-function initAlbumApp() {
-    renderAlbumApp();
+async function initAlbumApp() {
+    const status = document.getElementById('album-status');
+    if (status) status.textContent = '读取照片中';
+    try {
+        if (window._wechatCharactersLoadPromise) await window._wechatCharactersLoadPromise;
+        await saveChatAlbumStore(getChatAlbumStore());
+    } catch (error) {
+        window._chatAlbumSaveError = error.message || '相册保存失败';
+        if (typeof showWechatToast === 'function') showWechatToast(window._chatAlbumSaveError);
+    } finally { renderAlbumApp(); }
 }
 window.initAlbumApp = initAlbumApp;
 

@@ -1,0 +1,148 @@
+.bynd-agent-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 6100;
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    color: #253a35;
+    background: #f5faf7;
+}
+.bynd-agent-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    font-size: 14px;
+}
+.bynd-agent-overlay *, .bynd-agent-detail *, #wcs-agent-features * { box-sizing: border-box; }
+.bynd-agent-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    min-height: calc(64px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding: calc(12px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 14px 12px;
+    border-bottom: 1px solid #e2ece6;
+    background: rgba(255, 255, 255, .97);
+}
+.bynd-agent-header > span { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.bynd-agent-header strong { font-size: 17px; letter-spacing: .3px; }
+.bynd-agent-header small { font-size: 11px; color: #7b9187; overflow-wrap: anywhere; }
+.bynd-agent-header > i { font-size: 24px; color: #7eab97; padding-right: 6px; }
+.bynd-agent-header button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 13px;
+    color: #385649;
+    background: #f0f6f2;
+    font-size: 27px;
+}
+.bynd-agent-overlay button, #wcs-agent-features button { cursor: pointer; font-family: inherit; }
+.bynd-agent-overlay button:disabled, #wcs-agent-features input:disabled { opacity: .5; cursor: wait; }
+.bynd-agent-overlay button:focus-visible, .bynd-agent-overlay summary:focus-visible, .bynd-agent-detail summary:focus-visible { outline: 2px solid #5a9980; outline-offset: 2px; }
+.bynd-agent-settings { padding: 0 14px; }
+.bynd-agent-toggle { display: flex; gap: 14px; align-items: center; padding: 15px 0; cursor: pointer; }
+.bynd-agent-toggle + .bynd-agent-toggle { border-top: 1px solid rgba(119, 145, 129, .12); }
+.bynd-agent-toggle > span { flex: 1; min-width: 0; }
+.bynd-agent-toggle strong, .bynd-agent-nav strong, .bynd-agent-todos strong { display: block; font-size: 14px; font-weight: 600; }
+.bynd-agent-toggle small, .bynd-agent-nav small, .bynd-agent-todos small { display: block; margin-top: 5px; color: #7d8982; line-height: 1.6; font-size: 11px; overflow-wrap: anywhere; }
+.bynd-agent-toggle input { appearance: none; -webkit-appearance: none; width: 42px; height: 26px; flex-shrink: 0; margin: 0; border-radius: 20px; background: #d8dfda; position: relative; transition: background .2s; cursor: pointer; }
+.bynd-agent-toggle input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transition: transform .2s; }
+.bynd-agent-toggle input:checked { background: #68a48a; }
+.bynd-agent-toggle input:checked::after { transform: translateX(16px); }
+.bynd-agent-toggle input:focus-visible { outline: 2px solid #37644f; outline-offset: 3px; }
+.bynd-agent-note { margin: 0; padding: 12px 0; line-height: 1.8; color: #869189; font-size: 11px; }
+.bynd-agent-nav { display: flex; width: 100%; gap: 12px; align-items: center; padding: 16px; text-align: left; border: 0; background: transparent; color: inherit; }
+.bynd-agent-nav > span { flex: 1; min-width: 0; }
+.bynd-agent-nav > i { font-size: 22px; color: #97a59b; }
+.bynd-agent-todos { padding: 0 14px; max-height: 360px; overflow-y: auto; }
+.bynd-agent-clear-todos { width: 100%; padding: 12px; margin: 8px 0; border: 0; border-radius: 10px; background: #edf3ed; color: #698573; font-size: 12px; }
+.bynd-agent-todos label { display: flex; gap: 10px; padding: 12px 0; align-items: center; }
+.bynd-agent-todos input { accent-color: #69a78c; width: 18px; height: 18px; flex-shrink: 0; }
+.bynd-agent-todos input:checked + span { opacity: .55; text-decoration: line-through; }
+.bynd-agent-detail {
+    width: calc(100% - 66px);
+    margin: 7px 14px 10px 52px;
+    border: 1px solid rgba(124, 153, 139, .2);
+    border-radius: 12px;
+    background: rgba(245, 249, 247, .94);
+    color: #587165;
+    font-size: 11px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.bynd-agent-detail summary { display: flex; align-items: center; gap: 6px; padding: 10px; cursor: pointer; list-style: none; line-height: 1.5; }
+.bynd-agent-detail summary::-webkit-details-marker { display: none; }
+.bynd-agent-detail summary > i:first-child { transition: transform .15s; flex-shrink: 0; }
+.bynd-agent-detail[open] summary > i:first-child { transform: rotate(90deg); }
+.bynd-agent-detail summary strong, .bynd-agent-detail summary > span:not(.bynd-agent-state) { flex: 1; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.bynd-agent-detail summary small { margin-left: auto; font-size: 10px; flex-shrink: 0; color: #8a9b92; }
+.bynd-agent-detail-body { padding: 2px 13px 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-agent-detail-body p { margin: 4px 0; }
+.bynd-agent-state { width: 6px; height: 6px; border-radius: 50%; background: #a9b4ac; flex-shrink: 0; }
+.bynd-agent-state.running { background: #89aeba; animation: bynd-agent-pulse 1s infinite alternate; }
+.bynd-agent-state.success { background: #68a48a; }
+.bynd-agent-state.error, .bynd-agent-state.interrupted { background: #cb967b; }
+@keyframes bynd-agent-pulse { to { opacity: .35; } }
+.bynd-generator-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 18px; }
+.bynd-generator-intro { padding: 30px 6px 22px; text-align: center; }
+.bynd-generator-orb { display: inline-grid; width: 58px; height: 58px; place-items: center; border-radius: 20px; color: #79a78b; background: #e7f2e9; font-size: 30px; box-shadow: 0 4px 18px #bdd2bf25; }
+.bynd-generator-intro h2, .bynd-openclaw-intro h2 { margin: 16px 0 9px; font-size: 21px; font-weight: 600; color: #2e4e3d; }
+.bynd-generator-intro p, .bynd-openclaw-intro p { margin: 0; font-size: 12px; color: #86958b; line-height: 1.9; }
+.bynd-generator-message { width: fit-content; max-width: 91%; padding: 12px 14px; margin: 12px 0; border: 1px solid #e4ece6; border-radius: 16px 16px 16px 4px; background: #fff; color: #53665a; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-generator-message.is-user { margin-left: auto; border-color: #dcebdc; border-radius: 16px 16px 4px 16px; background: #e8f3e6; color: #3b5b43; }
+.bynd-generator-working { display: flex; gap: 6px; align-items: center; color: #8ba293; font-size: 12px; padding: 9px 4px; }
+.bynd-generated-card { border: 1px solid #dce9dd; border-radius: 18px; background: #fff; padding: 17px; margin: 20px 0 8px; }
+.bynd-generated-card > div { display: flex; align-items: center; gap: 12px; }
+.bynd-generated-card > div > i { font-size: 28px; color: #80aa8e; }
+.bynd-generated-card strong { display: block; font-size: 17px; }
+.bynd-generated-card small { display: block; font-size: 11px; margin-top: 5px; color: #8ca18e; }
+.bynd-generated-card details { margin: 16px 0; font-size: 12px; color: #6a7e6c; }
+.bynd-generated-card summary { padding: 6px 0; cursor: pointer; }
+.bynd-generated-card p { white-space: pre-wrap; line-height: 1.9; overflow-wrap: anywhere; }
+.bynd-generated-card h4 { margin-bottom: 5px; font-size: 13px; }
+.bynd-generated-card button, .bynd-openclaw-actions button, .bynd-openclaw-export { width: 100%; border: 0; border-radius: 11px; background: #6f987d; color: #fff; padding: 12px; font-size: 13px; min-height: 43px; }
+.bynd-agent-overlay button.subtle { background: #edf3ed; color: #698573; margin-top: 9px; }
+.bynd-generator-composer { display: flex; flex-shrink: 0; gap: 10px; align-items: flex-end; padding: 12px 14px 6px; background: #fff; border-top: 1px solid #e3ece5; }
+.bynd-generator-composer textarea { flex: 1; min-width: 0; max-height: 130px; resize: none; border: 1px solid #e4ece5; border-radius: 14px; background: #f9fbf8; color: #435846; padding: 11px; font-size: 14px; line-height: 1.6; font-family: inherit; }
+.bynd-generator-composer textarea:focus { outline: 1px solid #9abb9f; }
+.bynd-generator-composer button { width: 42px; height: 42px; border: 0; border-radius: 14px; color: #fff; background: #749e82; font-size: 23px; flex-shrink: 0; margin-bottom: 3px; }
+.bynd-generator-footer { flex-shrink: 0; margin: 0; padding: 4px 10px calc(12px + env(safe-area-inset-bottom, 0px)); background: #fff; color: #a0afa2; font-size: 10px; line-height: 1.6; text-align: center; }
+.bynd-agent-error { padding: 12px; background: #fff1e9; color: #a66f52; border-radius: 10px; line-height: 1.8; font-size: 12px; overflow-wrap: anywhere; }
+.bynd-openclaw-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px calc(25px + env(safe-area-inset-bottom, 0px)); }
+.bynd-openclaw-intro { padding: 26px 5px 19px; text-align: center; }
+.bynd-openclaw-intro > i { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 17px; background: #e3efe6; color: #74a180; font-size: 28px; }
+.bynd-openclaw-status { padding: 12px; border: 1px solid #dde8e0; border-radius: 11px; background: #fff; color: #8a9b90; line-height: 1.7; font-size: 12px; overflow-wrap: anywhere; }
+.bynd-openclaw-status[data-state="success"] { color: #5f876c; border-color: #c5ddcc; background: #eff8f0; }
+.bynd-openclaw-status[data-state="error"] { color: #a16e53; border-color: #ead6c9; background: #fff6ef; }
+#bynd-openclaw-form label { display: block; padding-top: 20px; font-size: 13px; font-weight: 500; }
+#bynd-openclaw-form input { display: block; width: 100%; min-width: 0; min-height: 45px; margin: 8px 0 5px; padding: 12px; border: 1px solid #dce7df; border-radius: 11px; background: #fff; color: #425a49; font-size: 14px; font-family: inherit; }
+#bynd-openclaw-form input:focus { outline: 1px solid #8caf96; }
+#bynd-openclaw-form small { display: block; color: #8d9f90; font-size: 11px; font-weight: 400; line-height: 1.7; }
+.bynd-openclaw-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 23px 0 18px; }
+.bynd-openclaw-actions button.subtle { margin: 0; }
+.bynd-openclaw-guide { padding: 15px; border: 1px solid #e0e9e1; border-radius: 12px; background: #fff; font-size: 12px; line-height: 1.9; color: #718a77; overflow-wrap: anywhere; }
+.bynd-openclaw-guide summary { cursor: pointer; font-weight: 500; }
+.bynd-openclaw-guide ol { padding-left: 19px; }
+.bynd-openclaw-guide li { padding: 5px 0; }
+.bynd-openclaw-guide a { color: #61876d; }
+.bynd-openclaw-guide code { white-space: normal; font-size: 11px; }
+.bynd-openclaw-export { margin-top: 16px !important; }
+.bynd-openclaw-unbind { display: block; margin: 15px auto 0; padding: 12px 20px; border: 0; color: #a28878; background: transparent; font-size: 12px; }
+@media (max-width: 350px) {
+    .bynd-agent-header { padding-left: 10px; padding-right: 10px; }
+    .bynd-generator-messages, .bynd-openclaw-body { padding-left: 13px; padding-right: 13px; }
+    .bynd-agent-detail { width: calc(100% - 52px); margin-left: 42px; margin-right: 10px; }
+    .bynd-agent-detail summary { gap: 4px; padding: 9px 7px; }
+    .bynd-agent-detail summary small { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .bynd-agent-state.running { animation: none; }
+}

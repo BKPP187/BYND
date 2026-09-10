@@ -2463,7 +2463,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.602';
+const APP_VERSION = 'v1.1.603';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const ALL_DATA_KEYS = [
@@ -2516,6 +2516,7 @@ const ALL_DATA_KEYS = [
     'bynd_github_mcp_config_v1',
     'bynd_outing_date_state_v1',
     'bynd_chat_album_v1',
+    'bynd_character_generator_v1',
     'bynd_coread_shelf_settings_v1',
     'bynd_coread_shelf_meta_v1',
     'bynd_monitor_pet_enabled_v1',

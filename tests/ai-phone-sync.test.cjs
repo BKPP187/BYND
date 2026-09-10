@@ -76,6 +76,35 @@ function harness(savedChar) {
     return { char, state, context, timers, open, close, finish };
 }
 
+test('phone permission blocks automatic work but preserves explicit manual refresh', async () => {
+    const h = harness();
+    h.context.getWechatAgentPreferences = () => ({ allowPhone: false });
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: letters() });
+    h.char.history = [message(true, now - 100), message(false, now - 50)];
+    h.open();
+    await h.finish();
+    assert.equal(h.state.requests.length, 0);
+    await h.context.requestWechatAiPhoneSnapshot(h.char, { force: true });
+    assert.equal(h.state.requests.length, 1);
+});
+
+test('revoking phone permission during an automatic request keeps the saved phone and letters', async () => {
+    const h = harness();
+    let allowed = true;
+    h.context.getWechatAgentPreferences = () => ({ allowPhone: allowed });
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: letters(), diaryUpdatedAt: now - 1000 });
+    const before = clone(h.char.chatConfig.aiPhoneSnapshot);
+    h.char.history = [message(true, now - 100), message(false, now - 50)];
+    const gate = deferred();
+    h.state.respond = () => gate.promise;
+    const work = h.context.requestWechatAiPhoneSnapshot(h.char);
+    await new Promise(setImmediate);
+    allowed = false;
+    gate.resolve(phoneResponse());
+    await work;
+    assert.deepEqual(clone(h.char.chatConfig.aiPhoneSnapshot), before);
+});
+
 test('a new user turn waits for the AI reply, then syncs once across repeated opens and reloads', async () => {
     const h = harness();
     h.char.chatConfig.aiPhoneSnapshot = savedPhone();

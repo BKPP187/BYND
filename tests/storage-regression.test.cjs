@@ -5,6 +5,39 @@ const { clone, deferred, storageHarness, addBackupModule } = require('./helpers/
 const old = [{ id: 'role', name: '角色', history: [{ content: '旧消息' }] }];
 const latest = [{ id: 'role', name: '角色', history: [{ content: '新消息' }] }];
 
+test('image work in progress never persists a flag that prevents retry after reload', async () => {
+    const source = [{ id: 'role', name: '角色', history: [{ type: 'image', imagePending: true, imageResolving: true }] }];
+    const h = storageHarness({ local: source });
+    await h.context.loadCharactersFromStorage();
+    assert.equal(h.context.window.myCharacters[0].history[0].imageResolving, undefined);
+    h.context.window.myCharacters[0].history[0].imageResolving = true;
+    assert.equal(await h.context.saveCharactersToStorage(), true);
+    assert.equal(h.state.record.characters[0].history[0].imageResolving, undefined);
+    assert.equal(h.context.window.myCharacters[0].history[0].imageResolving, true);
+});
+
+test('large generated albums stay in the full database and backup without inflating the local index', async () => {
+    const source = [{ id: 'role', name: '角色', history: [{ content: '你好', thinkingSummary: '回应问候' }], chatConfig: {
+        generatedImages: [{ charId: 'role', url: 'data:image/png;base64,' + 'A'.repeat(2500000) }],
+        agentPreferences: { showThinking: true }, agentTodos: [{ title: '还书' }], agentActivity: [{ title: '生成图片', state: 'success' }],
+        generatorDraftId: 'draft-a', openClawBinding: { agentId: 'role', endpoint: '' }
+    } }];
+    const h = addBackupModule(storageHarness({ local: [] }));
+    await h.context.loadCharactersFromStorage();
+    h.context.window.myCharacters = source;
+    assert.equal(await h.context.saveCharactersToStorage(), true);
+    const local = JSON.parse(h.localStorage.getItem('my_characters_data'));
+    assert.equal(local[0].chatConfig.generatedImages, undefined);
+    assert.equal(local[0].chatConfig.agentActivity, undefined);
+    assert.equal(local[0].chatConfig.agentTodos, undefined);
+    assert.equal(h.state.record.characters[0].chatConfig.generatedImages[0].url, source[0].chatConfig.generatedImages[0].url);
+    const backup = await h.context.buildByndBackupData();
+    assert.deepEqual(clone(backup.my_characters_data[0].chatConfig), source[0].chatConfig);
+    const reloaded = storageHarness({ local, meta: JSON.parse(h.localStorage.getItem('my_characters_data_meta')), record: h.state.record });
+    await reloaded.context.loadCharactersFromStorage();
+    assert.deepEqual(clone(reloaded.context.window.myCharacters[0].chatConfig), source[0].chatConfig);
+});
+
 test('loading promotes a newer full local snapshot into IndexedDB', async () => {
     const h = storageHarness({ local: latest, meta: { mode: 'full', updatedAt: 200 }, record: { characters: old, updatedAt: 100 } });
     await h.context.loadCharactersFromStorage();
