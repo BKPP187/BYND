@@ -5,7 +5,7 @@
     const downloads = new Map();
     let selectedId = '';
     let tab = 'look';
-    let styleImage = '';
+    let roleTrigger = 'top';
     const escape = value => wcEscapeHtml(String(value ?? ''));
     const chars = () => (window.myCharacters || []).filter(char => char?.id && !char.isGroupChat);
     const current = () => chars().find(char => char.id === selectedId);
@@ -92,21 +92,6 @@
         target.drawImage(canvas, left, top, width, height, (1024 - width * ratio) / 2, 922 - height * ratio, width * ratio, height * ratio);
         return { url: output.toDataURL('image/png'), width: 1024, height: 1024, transparent: true, coverage: alpha.coverage, kind: 'candidate' };
     }
-    async function getStyleImage() {
-        if (styleImage) return styleImage;
-        // Image loading also works for Android's bundled file:// assets, where fetch can fail.
-        const image = await new Promise((resolve, reject) => {
-            const node = new Image();
-            node.onload = () => resolve(node);
-            node.onerror = () => reject(new Error('风格参考图未能加载，请刷新后重试。'));
-            node.src = 'assets/monitor/pet-style-reference.png';
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-        canvas.getContext('2d').drawImage(image, 0, 0);
-        styleImage = canvas.toDataURL('image/png');
-        return styleImage;
-    }
     async function generateImage(char, id = 'idle', removeBackground = false) {
         const config = C.profile(char);
         const state = id === 'idle' ? null : config.states.find(item => item.id === id);
@@ -119,7 +104,6 @@
         const prompt = C.imagePrompt(char, state, removeBackground);
         const result = await callWechatImageGenerationApi(prompt, {
             referenceImage: reference.url,
-            additionalReferences: !state && !removeBackground ? [await getStyleImage()] : [],
             requireReference: true, editOnly: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024'
         });
         if (!result?.ok || !result.url) throw new Error(result?.error || '没有收到生成图。');
@@ -187,6 +171,66 @@
         return `<div class="pet-image ${small ? 'small' : ''}">${image?.url ? `<img src="${escape(image.url)}" alt="${escape(label)}">` : '<i class="ri-user-smile-line" aria-hidden="true"></i>'}<span>${escape(label)}</span></div>`;
     }
     const field = (key, label, value, placeholder, busy, rows = 3) => `<label class="pet-field"><span>${label}</span><textarea rows="${rows}" maxlength="${key === 'relationship' ? 2000 : key === 'boundaries' ? 3000 : 4000}" data-pet-field="${key}" oninput="ByndPetStudio.field(this.dataset.petField,this.value)" placeholder="${placeholder}" ${busy ? 'disabled' : ''}>${escape(value)}</textarea></label>`;
+    function roleAvatar(char) {
+        const avatar = typeof getWechatCharAvatarSource === 'function' ? getWechatCharAvatarSource(char) : char?.avatar;
+        const source = avatar === window.DEFAULT_AVATAR ? '' : avatar;
+        const initial = Array.from(C.name(char) || '角')[0];
+        return `<span class="pet-role-avatar" aria-hidden="true"><span>${escape(initial)}</span>${source ? `<img src="${escape(source)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
+    }
+    const roleSummary = char => C.clean([char.description, char.personality, char.setting, char.prompt].find(value => String(value || '').trim()) || '尚未填写角色人设', 140).replace(/\s+/g, ' ');
+    function roleButton(char, position = 'top') {
+        const expanded = !!document.getElementById('pet-role-picker');
+        return `<button type="button" class="pet-role-button" data-pet-role-trigger="${position}" aria-label="${position === 'top' ? '选择桌宠角色' : '从角色列表选择人设'}" aria-haspopup="dialog" aria-controls="pet-role-picker" aria-expanded="${expanded}" onclick="ByndPetStudio.openRoles(this.dataset.petRoleTrigger)">${roleAvatar(char)}<span class="pet-role-copy"><small>${position === 'top' ? '当前角色' : '使用这个角色的人设'}</small><strong>${escape(C.name(char))}</strong></span><span class="pet-role-change">切换<i class="ri-arrow-right-s-line" aria-hidden="true"></i></span></button>`;
+    }
+    function filterRoles(value = '') {
+        const picker = document.getElementById('pet-role-picker');
+        if (!picker) return;
+        const query = value.trim().toLocaleLowerCase();
+        const list = chars().filter(char => [C.name(char), char.name].join(' ').toLocaleLowerCase().includes(query));
+        picker.querySelector('.pet-role-count').textContent = query ? `找到 ${list.length} 位角色` : `${list.length} 位角色`;
+        picker.querySelector('.pet-role-options').innerHTML = list.length ? list.map(char => `<li><button type="button" class="pet-role-option ${char.id === selectedId ? 'selected' : ''}" data-pet-role-id="${escape(char.id)}" aria-pressed="${char.id === selectedId}" onclick="ByndPetStudio.select(this.dataset.petRoleId)">${roleAvatar(char)}<span class="pet-role-copy"><strong>${escape(C.name(char))}</strong><small>${escape(roleSummary(char))}</small></span><span class="pet-role-check" aria-hidden="true">${char.id === selectedId ? '✓' : ''}</span><span class="pet-sr-only">${char.id === selectedId ? '当前已选' : '选择此角色'}</span></button></li>`).join('') : '<li class="pet-empty">没有找到这个角色<br>试试其他名字</li>';
+    }
+    function focusRoleTrigger() {
+        const root = document.getElementById('bynd-pet-studio');
+        const button = Array.from(root?.querySelectorAll('[data-pet-role-trigger]') || []).find(item => item.dataset.petRoleTrigger === roleTrigger);
+        button?.focus({ preventScroll: true });
+    }
+    function closeRoles(restoreFocus = true) {
+        document.getElementById('pet-role-picker')?.remove();
+        const root = document.getElementById('bynd-pet-studio');
+        const panel = root?.querySelector('.pet-studio-panel');
+        if (panel) panel.inert = false;
+        root?.querySelectorAll('[data-pet-role-trigger]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+        if (restoreFocus) focusRoleTrigger();
+    }
+    function openRoles(position = 'top') {
+        const root = document.getElementById('bynd-pet-studio');
+        if (!root || document.getElementById('pet-role-picker')) return;
+        roleTrigger = position;
+        const picker = document.createElement('div');
+        picker.id = 'pet-role-picker'; picker.className = 'pet-role-picker';
+        picker.innerHTML = `<section class="pet-role-sheet" role="dialog" aria-modal="true" aria-labelledby="pet-role-title"><div class="pet-role-handle" aria-hidden="true"></div><header><div><h2 id="pet-role-title">选择角色</h2><p>沿用 TA 的角色卡与世界书</p></div><button type="button" class="pet-role-close" aria-label="关闭角色列表" onclick="ByndPetStudio.closeRoles()">×</button></header><label class="pet-role-search"><i class="ri-search-line" aria-hidden="true"></i><input type="search" aria-label="搜索角色" placeholder="搜索角色名字" autocomplete="off" maxlength="100" oninput="ByndPetStudio.filterRoles(this.value)"></label><p class="pet-role-count" role="status" aria-live="polite"></p><ul class="pet-role-options" aria-label="已有角色"></ul></section>`;
+        picker.addEventListener('click', event => { if (event.target === picker) closeRoles(); });
+        picker.addEventListener('keydown', event => {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeRoles(); return; }
+            if (event.key === 'Tab') {
+                const focusable = Array.from(picker.querySelectorAll('button, input'));
+                const edge = event.shiftKey ? focusable[0] : focusable[focusable.length - 1];
+                if (document.activeElement === edge) { event.preventDefault(); (event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus(); }
+            }
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && event.target.closest('[data-pet-role-id]')) {
+                const options = Array.from(picker.querySelectorAll('[data-pet-role-id]'));
+                const index = options.indexOf(event.target.closest('[data-pet-role-id]'));
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault(); options[next]?.focus();
+            }
+        });
+        root.appendChild(picker);
+        root.querySelector('.pet-studio-panel').inert = true;
+        root.querySelectorAll('[data-pet-role-trigger]').forEach(button => button.setAttribute('aria-expanded', 'true'));
+        filterRoles();
+        picker.querySelector('.pet-role-close').focus({ preventScroll: true });
+    }
     function render() {
         const root = document.getElementById('bynd-pet-studio');
         if (!root) return;
@@ -196,20 +240,26 @@
         const config = char && C.profile(char);
         const off = state?.busy ? 'disabled' : '';
         const api = typeof getDefaultImageApi === 'function' ? getDefaultImageApi() : null;
-        root.innerHTML = `<section class="bynd-agent-panel pet-studio-panel"><header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">‹</button><span><strong>角色专属桌宠</strong><small>保持 TA 的样子，也保持 TA 的性格</small></span><i class="ri-emotion-line" aria-hidden="true"></i></header><main class="pet-studio-main">
-            <label class="pet-role"><span>当前角色</span><select aria-label="选择桌宠角色" onchange="ByndPetStudio.select(this.value)">${chars().map(item => `<option value="${escape(item.id)}" ${char?.id === item.id ? 'selected' : ''}>${escape(C.name(item))}</option>`).join('')}</select></label>
-            ${!char ? '<div class="pet-empty">先在微信添加一个角色，再为 TA 制作桌宠。</div>' : `<nav class="pet-tabs" aria-label="桌宠设置">${[['look', '角色形象'], ['persona', '人设边界'], ['reactions', '专属表情'], ['test', '试互动']].map(([id, label]) => `<button type="button" class="${tab === id ? 'active' : ''}" onclick="ByndPetStudio.tab('${id}')">${label}</button>`).join('')}</nav>
+        const focusedTrigger = document.activeElement?.dataset?.petRoleTrigger;
+        const extraOpen = root.querySelector('.pet-persona-extra')?.open;
+        let panel = root.querySelector('.pet-studio-panel');
+        if (!panel) { panel = document.createElement('section'); panel.className = 'bynd-agent-panel pet-studio-panel'; root.prepend(panel); }
+        panel.innerHTML = `<header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">‹</button><span><strong>角色专属桌宠</strong><small>保持 TA 的样子，也保持 TA 的性格</small></span><i class="ri-emotion-line" aria-hidden="true"></i></header><main class="pet-studio-main">
+            ${char ? roleButton(char) : ''}
+            ${!char ? '<div class="pet-empty">先在微信添加一个角色，再为 TA 制作桌宠。</div>' : `<nav class="pet-tabs" aria-label="桌宠设置">${[['look', '角色形象'], ['persona', '角色列表'], ['reactions', '专属表情'], ['test', '试互动']].map(([id, label]) => `<button type="button" class="${tab === id ? 'active' : ''}" onclick="ByndPetStudio.tab('${id}')">${label}</button>`).join('')}</nav>
             <div class="pet-api"><i class="ri-palette-line"></i><span>沿用现有生图设置 · ${escape(api?.imageModel || '尚未选择生图模型')}</span><button type="button" onclick="ByndPetStudio.api()">设置</button></div>
             <div class="pet-progress" role="status" aria-live="polite">${state.busy ? `<i class="ri-loader-4-line"></i> ${escape(state.busy)}` : escape(state.notice)}</div>
             ${state.error ? `<p class="pet-error" role="alert">${escape(state.error)}</p>` : ''}
             ${tab === 'look' ? renderLook(char, config, state, off) : tab === 'persona' ? renderPersona(char, config, state, off) : tab === 'reactions' ? renderReactions(char, config, state, off) : renderTest(char, config, state, off)}`}
-        </main><input type="file" id="pet-studio-file" accept="image/png,image/jpeg,image/webp" hidden onchange="ByndPetStudio.upload(this)"></section>`;
+        </main><input type="file" id="pet-studio-file" accept="image/png,image/jpeg,image/webp" hidden onchange="ByndPetStudio.upload(this)">`;
         const main = root.querySelector('.pet-studio-main');
         if (main) main.scrollTop = scrollTop;
+        if (extraOpen && root.querySelector('.pet-persona-extra')) root.querySelector('.pet-persona-extra').open = true;
+        if (focusedTrigger) { roleTrigger = focusedTrigger; focusRoleTrigger(); }
     }
     function renderLook(char, config, state, off) {
         const draft = C.cached(config.draftBaseKey);
-        return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>长相跟随你上传的图片，材质与比例参考右侧风格。</p></div></div><div class="pet-reference-pair">${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<div class="pet-image small"><img src="assets/monitor/pet-style-reference.png" alt="3D 手办风格示例"><span>仅参考造型与材质</span></div></div>
+        return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留你上传的角色长相，转为柔光、哑光材质的 Q 版 3D 手办。</p></div></div>${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<p class="pet-style-note">大头小身 · 完整全身 · 透明 PNG</p>
             <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div>
             ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
             <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>选定母版后，专属表情都从这一张派生。</p></div></div>
@@ -220,12 +270,13 @@
             <p class="pet-hint">新图片确认后才替换母版；换母版后，原表情需要重新派生。图片保存在本机，也包含在完整备份里。</p></section>`;
     }
     function renderPersona(char, config, state, off) {
-        return `<section class="pet-card"><div class="pet-section-title"><b>♥</b><div><h3>外形变小，人设不变</h3><p>角色卡和世界书始终参与判断。这里补充更具体的外在表现与边界。</p></div></div><details class="pet-details"><summary>查看当前角色卡与世界书</summary><pre>${escape(C.persona(char))}</pre></details>
+        return `<section class="pet-card"><div class="pet-section-title"><b>♥</b><div><h3>选择陪伴你的角色</h3><p>直接读取已有的角色卡与世界书，互动和情绪都以 TA 的人设为准。</p></div></div>${roleButton(char, 'persona')}<p class="pet-persona-summary">${escape(roleSummary(char))}</p><details class="pet-details"><summary>查看当前角色卡与世界书</summary><pre>${escape(C.persona(char))}</pre></details>
+            <label class="pet-toggle"><span><strong>跟随实时互动</strong><small>根据聊天及应用内场景选择已确认的表情</small></span><input type="checkbox" ${state.form.autoReact ? 'checked' : ''} ${off} onchange="ByndPetStudio.field('autoReact',this.checked)"></label>
+            <details class="pet-details pet-persona-extra"><summary>补充表现与边界 <small>可选</small></summary><p class="pet-hint">有更细的要求时再填写；留空时沿用角色原设定。</p>
             ${field('rules', 'TA 会怎样表达情绪', state.form.rules, '例如：开心只会嘴角轻扬；被夸时沉稳回应，不跳跃、不冒爱心。', state.busy, 4)}
             ${field('relationship', '你们目前的关系', state.form.relationship, '例如：刚认识的同事，尚未建立亲密关系。留空时按原设定与聊天判断。', state.busy)}
             ${field('boundaries', '禁止的表现 · OOC 边界', state.form.boundaries, '例如：不能幼儿化；不喜欢摸头；不会无缘无故脸红或撒娇。', state.busy, 4)}
-            <label class="pet-toggle"><span><strong>跟随实时互动</strong><small>根据聊天及应用内场景选择已确认的表情</small></span><input type="checkbox" ${state.form.autoReact ? 'checked' : ''} ${off} onchange="ByndPetStudio.field('autoReact',this.checked)"></label>
-            <button type="button" class="pet-primary" ${off} onclick="ByndPetStudio.save()">保存人设边界</button><p class="pet-hint">发言和表情会再检查一次是否符合人设。未通过检查、素材缺失或判断不确定时保持待机。</p></section>`;
+            </details><button type="button" class="pet-primary" ${off} onclick="ByndPetStudio.save()">保存人设设置</button><p class="pet-hint">发言和表情会再检查一次是否符合人设。未通过检查、素材缺失或判断不确定时保持待机。</p></section>`;
     }
     function renderReactions(char, config, state, off) {
         return `<section class="pet-card"><div class="pet-section-title"><b>03</b><div><h3>只属于 TA 的反应</h3><p>先确定表现和适用条件，再生成图片。图片需要逐张确认。</p></div></div>
@@ -251,7 +302,9 @@
     }
     async function open(charId = '') {
         if (window._wechatCharactersLoadPromise) await window._wechatCharactersLoadPromise;
-        selectedId = chars().find(char => char.id === charId)?.id || (typeof getMonitorPetBoundChar === 'function' ? getMonitorPetBoundChar()?.id : '') || chars()[0]?.id || '';
+        const boundId = typeof getMonitorPetBoundChar === 'function' ? getMonitorPetBoundChar()?.id : '';
+        selectedId = chars().find(char => char.id === charId)?.id || chars().find(char => char.id === boundId)?.id || chars()[0]?.id || '';
+        closeRoles(false);
         let root = document.getElementById('bynd-pet-studio');
         if (!root) { root = document.createElement('div'); root.id = 'bynd-pet-studio'; root.className = 'bynd-agent-overlay'; getWechatModalRoot().appendChild(root); }
         render();
@@ -263,9 +316,16 @@
     }
     window.openMonitorPetStudio = open;
     window.ByndPetStudio = {
-        render, inspectImage, generateImage, confirmImage, saveForm,
-        close: () => document.getElementById('bynd-pet-studio')?.remove(),
-        select: async id => { selectedId = id; render(); const char = current(); if (char) { try { await C.preload(char); } catch (error) { session(char).error = error.message; } render(); } },
+        render, inspectImage, generateImage, confirmImage, saveForm, openRoles, closeRoles, filterRoles,
+        close: () => { closeRoles(false); document.getElementById('bynd-pet-studio')?.remove(); },
+        select: async id => {
+            const char = chars().find(item => item.id === id);
+            if (!char) return false;
+            closeRoles(false); selectedId = id; render(); focusRoleTrigger();
+            try { await C.preload(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
+            if (current() === char) render();
+            return true;
+        },
         tab: id => { tab = ['look', 'persona', 'reactions', 'test'].includes(id) ? id : 'look'; render(); const main = document.querySelector('#bynd-pet-studio .pet-studio-main'); if (main) main.scrollTop = 0; },
         field: (key, value) => { const char = current(); if (char && ['appearance', 'rules', 'boundaries', 'relationship', 'autoReact'].includes(key)) session(char).form[key] = value; },
         stateField: (id, key, value) => { const state = current() && session(current()).form.states.find(item => item.id === id); if (state && ['label', 'emotion', 'description', 'when'].includes(key)) state[key] = value; },

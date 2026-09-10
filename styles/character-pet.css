@@ -1,11 +1,40 @@
 #bynd-pet-studio { background: #f6f8f4; color: #304139; }
 .pet-studio-main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px)); }
-.pet-studio-main button, .pet-studio-main input, .pet-studio-main textarea, .pet-studio-main select { font: inherit; }
+.pet-studio-main button, .pet-studio-main input, .pet-studio-main textarea { font: inherit; }
 .pet-studio-main button { border: 0; border-radius: 11px; padding: 11px 14px; background: #638772; color: white; font-size: 12px; font-weight: 600; min-height: 40px; }
 .pet-studio-main button.secondary { background: #edf2ed; color: #627669; }
 .pet-studio-main button:disabled { opacity: .45; cursor: default; }
-.pet-role { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #7b8b80; }
-.pet-role select { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid #dde6dc; color: #344a3b; background: white; }
+.pet-studio-main .pet-role-button { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 12px; border: 1px solid #e0e8dc; border-radius: 17px; background: #fff; color: #344a3b; text-align: left; box-shadow: 0 3px 12px #3d573708; }
+.pet-role-avatar { position: relative; display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; border-radius: 13px; background: #eaf1e4; color: #789271; font-size: 17px; font-weight: 600; }
+.pet-role-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pet-role-copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.pet-role-copy strong { display: block; color: #354e3f; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; }
+.pet-role-copy small { display: block; font-size: 10px; color: #8a9a88; font-weight: 400; line-height: 1.6; }
+.pet-role-change { display: flex; align-items: center; gap: 3px; flex-shrink: 0; color: #7e9579; font-size: 11px; font-weight: 400; }
+.pet-role-change i { font-size: 19px; }
+.pet-role-picker { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end; padding-top: calc(16px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); background: #233d3052; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.pet-role-sheet { display: flex; flex-direction: column; width: 100%; max-height: 100%; min-height: 0; overflow: hidden; padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px)); border-radius: 26px 26px 0 0; background: #f9fbf6; box-shadow: 0 -8px 40px #1b392a12; }
+.pet-role-handle { flex-shrink: 0; width: 32px; height: 4px; margin: 0 auto 17px; border-radius: 4px; background: #dbe3d4; }
+.pet-role-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.pet-role-sheet h2 { margin: 0; color: #344d3c; font-size: 19px; font-weight: 650; }
+.pet-role-sheet header p { margin: 6px 0 0; color: #8b9a86; font-size: 11px; line-height: 1.7; }
+.pet-role-close { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: #edf2e8; color: #7c9176; font-size: 23px; font-weight: 400; }
+.pet-role-search { display: flex; align-items: center; gap: 9px; flex-shrink: 0; margin-top: 20px; padding: 0 13px; min-height: 46px; border: 1px solid #e1e8da; border-radius: 14px; background: #fff; color: #93a68b; }
+.pet-role-search:focus-within { border-color: #87a47e; box-shadow: 0 0 0 3px #8ca47d18; }
+.pet-role-search input { width: 100%; min-width: 0; padding: 12px 0; border: 0; outline: 0; background: transparent; color: #39513d; font: inherit; font-size: 16px; line-height: 1.4; }
+.pet-role-search input::placeholder { color: #a0ad97; }
+.pet-role-count { margin: 18px 2px 10px; color: #93a18b; font-size: 10px; flex-shrink: 0; }
+.pet-role-options { display: grid; gap: 9px; margin: 0; padding: 3px; list-style: none; min-height: 0; max-height: 48vh; overflow-y: auto; overscroll-behavior: contain; }
+.pet-role-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 78px; padding: 13px; border: 1px solid #e7ecdf; border-radius: 17px; background: #fff; text-align: left; color: #3a523e; font: inherit; }
+.pet-role-option.selected { border-color: #a5be93; background: #eff5e9; }
+.pet-role-option .pet-role-copy small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 11px; }
+.pet-role-check { display: grid; place-items: center; flex-shrink: 0; width: 21px; height: 21px; border: 1px solid #dce5d4; border-radius: 50%; color: #fff; font-size: 12px; }
+.pet-role-option.selected .pet-role-check { background: #82a070; border-color: #82a070; }
+.pet-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.pet-persona-summary { color: #829079; font-size: 11px; line-height: 1.8; margin: 14px 2px; overflow-wrap: anywhere; }
+.pet-persona-extra summary small { margin-left: 6px; color: #a0ab96; }
+.pet-style-note { text-align: center; color: #87997c; font-size: 11px; line-height: 1.8; }
+@media (hover: hover) { .pet-role-option:hover, .pet-studio-main .pet-role-button:hover { border-color: #abc19b; background: #f3f7ee; } }
 .pet-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; background: #eaf0e8; padding: 4px; border-radius: 14px; margin: 16px 0 12px; }
 .pet-tabs button { color: #879687; background: transparent; padding: 10px 0; font-size: 11px; white-space: nowrap; }
 .pet-tabs button.active { background: white; color: #45674d; box-shadow: 0 2px 7px #263d190a; }
@@ -21,7 +50,6 @@
 .pet-section-title > b { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; background: #eff3e8; color: #87a073; border-radius: 11px; font-size: 12px; }
 .pet-section-title h3 { font-size: 15px; font-weight: 650; margin: 2px 0 6px; }
 .pet-section-title p { font-size: 11px; line-height: 1.7; color: #8b9589; margin: 0; }
-.pet-reference-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .pet-image { position: relative; display: flex; justify-content: center; align-items: center; aspect-ratio: 1; width: min(100%, 330px); margin: 6px auto 14px; border-radius: 15px; overflow: hidden; background-color: #fff; background-image: linear-gradient(45deg, #eef0ed 25%, transparent 25%), linear-gradient(-45deg, #eef0ed 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #eef0ed 75%), linear-gradient(-45deg, transparent 75%, #eef0ed 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
 .pet-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .pet-image > i { color: #bbc9b9; font-size: 42px; }
@@ -31,7 +59,7 @@
 .pet-field > span { color: #536a58; font-size: 12px; }
 .pet-field textarea, .pet-field input { display: block; width: 100%; min-width: 0; resize: vertical; border: 1px solid #e1e8dd; background: #fbfcf8; border-radius: 11px; padding: 11px 12px; font-size: 12px; line-height: 1.8; color: #425849; }
 .pet-field textarea::placeholder, .pet-field input::placeholder { color: #a5afa2; }
-.pet-field textarea:focus, .pet-field input:focus, .pet-role select:focus { outline: 2px solid #a0b59c; outline-offset: 1px; }
+.pet-field textarea:focus, .pet-field input:focus { outline: 2px solid #a0b59c; outline-offset: 1px; }
 .pet-actions, .pet-apply { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 .pet-apply { border-top: 1px solid #e9ede6; padding-top: 14px; }
 .pet-primary { width: 100%; margin-top: 12px; }

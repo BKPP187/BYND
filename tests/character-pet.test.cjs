@@ -177,11 +177,12 @@ test('image storage failures do not produce usable asset keys', async () => {
     assert.equal(data.size, before);
 });
 
-test('image prompts distinguish the identity image from the style example and keep variants anchored to the mother', () => {
+test('image prompts use only the user identity reference and keep variants anchored to the mother', () => {
     const { C, char } = harness();
     const initial = C.imagePrompt(char);
     assert.match(initial, /第一张图片锁定角色身份/);
-    assert.match(initial, /第二张图片仅参考/);
+    assert.match(initial, /唯一的图片参考/);
+    assert.doesNotMatch(initial, /第二张|风格示例人物/);
     assert.match(initial, /Alpha/);
     assert.match(initial, /禁止幼儿化/);
     assert.doesNotMatch(initial, /必须保持同类画风/);
