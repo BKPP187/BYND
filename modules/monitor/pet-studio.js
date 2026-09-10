@@ -294,11 +294,11 @@
     function renderLook(char, config, state, off) {
         const draft = C.cached(config.draftBaseKey);
         const imageLabel = state.imageTaskId === 'idle' && state.busy ? state.busy : state.imageTaskId === 'idle' && state.error ? '本次操作未完成 · 查看下方原因' : '等待生成基础形象';
-        return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留你上传的角色长相，转为柔光、哑光材质的 Q 版 3D 手办。</p></div></div>${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<p class="pet-style-note">大头小身 · 完整全身 · 透明 PNG</p>
+        return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留角色的辨识特征，做成圆脸短身、柔光哑光的呆萌 3D 小玩偶。</p></div></div>${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<p class="pet-style-note">约 2 头身 · 圆润呆萌 · 透明 PNG</p>
             <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div>
             ${imageFeedback(char, 'reference')}
             ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
-            <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>先按参考图制作自然待机形象，确认后再制作专属表情。</p></div></div>
+            <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>先按参考图制作呆萌的待机形象，确认后再制作专属表情。</p></div></div>
             ${imageBox(config.draftBaseKey || config.baseKey, draft ? (draft.transparent ? '透明背景已检查 · 待你确认' : '背景未透明 · 暂不可应用') : config.baseKey ? '已确认的基础形象' : imageLabel)}
             ${controls(char, 'idle', config.draftBaseKey, config.baseKey)}
             ${config.baseKey ? `<div class="pet-apply"><button type="button" ${off} onclick="ByndPetStudio.apply()">${C.active(char) ? '当前正在使用' : '绑定并使用桌宠'}</button>${C.active(char) ? `<button type="button" class="secondary" ${off} onclick="ByndPetStudio.hide()">隐藏桌宠</button>` : ''}</div>` : ''}
