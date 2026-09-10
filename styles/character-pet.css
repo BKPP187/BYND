@@ -45,6 +45,14 @@
 .pet-progress:not(:empty) { padding: 12px 4px; }
 .pet-progress .ri-loader-4-line { display: inline-block; animation: pet-loading 1s linear infinite; }
 .pet-error { padding: 12px; border: 1px solid #ebd2c5; border-radius: 12px; color: #9b6758; background: #fff6f0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.pet-image-feedback { margin: 12px 0; padding: 12px 14px; border: 1px solid #dce7d5; border-radius: 13px; background: #f3f8ef; color: #55734d; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.pet-image-feedback p { margin: 0; }
+.pet-image-feedback small { display: block; margin-top: 5px; color: #83957a; font-size: 10px; }
+.pet-image-feedback.error { border-color: #ebd2c5; background: #fff6f0; color: #985e4f; }
+.pet-image-feedback details { margin-top: 9px; padding-top: 8px; border-top: 1px solid #ecdccd; font-size: 11px; }
+.pet-image-feedback summary { cursor: pointer; }
+.pet-image-feedback pre { max-height: 220px; overflow-y: auto; white-space: pre-wrap; font: inherit; }
+.pet-inline-loader { display: inline-block; animation: pet-loading 1s linear infinite; }
 .pet-card { margin: 12px 0; padding: 17px 15px; background: #fff; border: 1px solid #e5eade; border-radius: 20px; box-shadow: 0 4px 16px #364b2e04; }
 .pet-section-title { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
 .pet-section-title > b { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; background: #eff3e8; color: #87a073; border-radius: 11px; font-size: 12px; }
@@ -98,5 +106,5 @@
 .monitor-pet-floating.character-pet .monitor-pet-floating-bubble::after { background: #fffef8 !important; }
 @keyframes pet-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes pet-loading { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .monitor-pet-floating.character-pet .monitor-pet-floating-body { animation: none !important; } .pet-progress .ri-loader-4-line { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .monitor-pet-floating.character-pet .monitor-pet-floating-body { animation: none !important; } .pet-progress .ri-loader-4-line, .pet-inline-loader { animation: none; } }
 @media (min-width: 700px) { .pet-studio-main { padding-left: 20px; padding-right: 20px; } }

@@ -192,12 +192,12 @@ test('image prompts use only the user identity reference and keep variants ancho
     assert.doesNotMatch(variant, /第二张图片仅参考/);
 });
 
-function imageApiHarness() {
+function imageApiHarness(config = {}) {
     const calls = [];
     let response = () => new Response('{"data":[{"b64_json":"aGVsbG8="}]}', { status: 200 });
     const context = vm.createContext({
         Blob, FormData, Response, URL, AbortSignal,
-        getDefaultImageApi: () => ({ baseUrl: 'https://images.test/v1', imageModel: 'custom-image', apiKey: 'test-only' }),
+        getDefaultImageApi: () => ({ baseUrl: 'https://images.test/v1', imageModel: 'custom-image', apiKey: 'test-only', ...config }),
         parseWechatApiJsonResponseText: JSON.parse,
         fetch: async (url, options) => {
             if (url.startsWith('data:')) return new Response(new Blob(['test'], { type: 'image/png' }));
@@ -243,4 +243,118 @@ test('ordinary chat image generation retains its prior style and compatibility p
     assert.match(body.prompt, /必须保持同类画风/);
     assert.equal(body.background, undefined);
     assert.equal(body.reference_image, png);
+});
+
+const petImageOptions = { referenceImage: png, requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024' };
+const imageSuccess = () => new Response('{"data":[{"b64_json":"aGVsbG8="}]}', { status: 200 });
+const imageFailure = (status, message, param = '', code = 'invalid_request_error') => new Response(JSON.stringify({ error: { message, param, code } }), { status, headers: { 'x-request-id': 'req-test-123' } });
+
+test('GPT Image 2 keeps transparency when the configured provider accepts it', async () => {
+    const { context, calls } = imageApiHarness({ imageModel: 'gpt-image-2' });
+    assert.equal((await context.callWechatImageGenerationApi('character', petImageOptions)).ok, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.body.get('background'), 'transparent');
+    assert.equal(calls[0].options.body.get('model'), 'gpt-image-2');
+});
+
+test('explicit transparent-parameter rejection retries with the same reference and model', async () => {
+    const { context, calls, respond } = imageApiHarness({ imageModel: 'gpt-image-2' });
+    const progress = [];
+    respond(count => count === 1 ? imageFailure(400, 'gpt-image-2 does not support background=transparent', 'background') : imageSuccess());
+    const result = await context.callWechatImageGenerationApi('character on transparent background', { ...petImageOptions, onProgress: text => progress.push(text) });
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every(call => call.url.endsWith('/images/edits') && call.options.body.get('image') instanceof Blob));
+    assert.equal(calls[1].options.body.get('model'), 'gpt-image-2');
+    assert.equal(calls[1].options.body.get('background'), null);
+    assert.equal(calls[1].options.body.get('output_format'), 'png');
+    assert.match(calls[1].options.body.get('prompt'), /transparent background/);
+    assert.equal(calls[0].options.signal, calls[1].options.signal);
+    assert.match(progress[0], /透明背景参数/);
+});
+
+test('multipart rejection can use the official JSON edits schema with every reference intact', async () => {
+    const { context, calls, respond } = imageApiHarness();
+    const other = 'data:image/png;base64,dHdv';
+    respond(count => count === 1 ? imageFailure(415, 'Content-Type must be application/json') : imageSuccess());
+    assert.equal((await context.callWechatImageGenerationApi('character', { ...petImageOptions, additionalReferences: [other] })).ok, true);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].url, calls[0].url);
+    assert.equal(calls[1].options.headers['Content-Type'], 'application/json');
+    const body = JSON.parse(calls[1].options.body);
+    assert.deepEqual(body.images, [{ image_url: png }, { image_url: other }]);
+    assert.equal(body.model, 'custom-image');
+    assert.equal(body.background, 'transparent');
+    assert.equal(body.output_format, 'png');
+    assert.equal(body.response_format, undefined);
+});
+
+test('compatibility attempts are bounded and preserve a single total timeout', async () => {
+    const { context, calls, respond } = imageApiHarness();
+    respond(count => count === 1 ? imageFailure(400, 'Unsupported background', 'background')
+        : count === 2 ? imageFailure(422, 'Unknown output_format', 'output_format')
+        : imageFailure(415, 'Use application/json'));
+    assert.equal((await context.callWechatImageGenerationApi('character', petImageOptions)).ok, false);
+    assert.equal(calls.length, 4);
+    assert.ok(calls.every(call => call.options.signal === calls[0].options.signal && call.url.endsWith('/images/edits')));
+    const last = JSON.parse(calls[3].options.body);
+    assert.equal(last.images[0].image_url, png);
+    assert.equal(last.background, undefined);
+    assert.equal(last.output_format, undefined);
+});
+
+test('JSON validation arrays preserve missing-image details for compatible edit requests', async () => {
+    const { context, calls, respond } = imageApiHarness();
+    respond(count => count === 1 ? new Response(JSON.stringify({ detail: [{ loc: ['body', 'images'], msg: 'Field required', type: 'missing' }] }), { status: 422 }) : imageSuccess());
+    const result = await context.callWechatImageGenerationApi('character', petImageOptions);
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 2);
+    assert.equal(JSON.parse(calls[1].options.body).images[0].image_url, png);
+});
+
+for (const status of [401, 403, 404, 429, 500, 503]) {
+    test(`HTTP ${status} never starts another possibly billable pet image request`, async () => {
+        const { context, calls, respond } = imageApiHarness();
+        respond(() => imageFailure(status, 'background unsupported; multipart image request failed'));
+        const result = await context.callWechatImageGenerationApi('character', petImageOptions);
+        assert.equal(result.ok, false);
+        assert.equal(calls.length, 1);
+        assert.equal(result.details.status, status);
+        assert.equal(result.details.path, '/images/edits');
+        assert.equal(result.details.requestId, 'req-test-123');
+    });
+}
+
+test('network failures, refusals and empty successful responses never trigger compatibility retries', async () => {
+    for (const reply of [() => { throw new Error('Failed to fetch'); }, () => imageFailure(400, 'Image background blocked by safety policy', '', 'content_policy_violation'), () => new Response('{}', { status: 200 })]) {
+        const { context, calls, respond } = imageApiHarness();
+        respond(reply);
+        assert.equal((await context.callWechatImageGenerationApi('character', petImageOptions)).ok, false);
+        assert.equal(calls.length, 1);
+    }
+});
+
+test('provider diagnostics keep the real reason while removing credentials', async () => {
+    const secret = 'private-test-credential-123';
+    const { context, calls, respond } = imageApiHarness({ apiKey: secret });
+    respond(() => imageFailure(400, 'Unsupported background for account ' + secret, 'background'));
+    const result = await context.callWechatImageGenerationApi('character', { ...petImageOptions, allowEditCompatibility: false });
+    assert.equal(calls.length, 1);
+    assert.match(result.error, /输出设置/);
+    assert.match(result.details.message, /Unsupported background/);
+    assert.equal(result.details.param, 'background');
+    assert.equal(JSON.stringify(result).includes(secret), false);
+    assert.doesNotMatch(result.error, /请重新上传/);
+});
+
+test('image results normalize raw base64, existing data URLs and output MIME correctly', async () => {
+    for (const [body, expected] of [
+        [{ output: [{ type: 'image_generation_call', result: 'aGVsbG8=' }] }, png],
+        [{ data: [{ b64_json: png }] }, png],
+        [{ output_format: 'webp', b64_json: 'aGVsbG8=' }, 'data:image/webp;base64,aGVsbG8=']
+    ]) {
+        const { context, respond } = imageApiHarness();
+        respond(() => new Response(JSON.stringify(body), { status: 200 }));
+        assert.equal((await context.callWechatImageGenerationApi('character', petImageOptions)).url, expected);
+    }
 });
