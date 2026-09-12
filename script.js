@@ -569,6 +569,7 @@ function closeApp(appName) {
     if (win) {
         restoreDesktopPageAfterApp(appName);
         win.classList.remove('active');
+        if (appName === 'monitor') window.ByndMonitor?.close();
         if (appName === 'manual') resetManualSearchState();
         setTimeout(() => win.classList.add('hidden'), 300);
 
@@ -6219,7 +6220,12 @@ function isMonitorPetEnabled() {
 
 function setMonitorPetEnabled(value) {
     const enabled = !!value;
-    localStorage.setItem(MONITOR_PET_ENABLED_KEY, enabled ? '1' : '0');
+    try { localStorage.setItem(MONITOR_PET_ENABLED_KEY, enabled ? '1' : '0'); }
+    catch (error) {
+        renderMonitorCharacters();
+        if (typeof showWechatToast === 'function') showWechatToast('桌宠开关未能保存，请重试。');
+        return false;
+    }
     monitorPetFloatMessage = '';
     if (!enabled) {
         stopMonitorPetAutoObserve();
@@ -6264,6 +6270,7 @@ function updateMonitorScreenStatus(text) {
     monitorScreenStatus = String(text || '');
     const el = document.getElementById('monitor-screen-status');
     if (el) el.textContent = monitorScreenStatus;
+    window.ByndMonitor?.screenChanged();
 }
 
 function ensureMonitorScreenVideo() {
@@ -6287,7 +6294,7 @@ async function startMonitorScreenShare() {
     if (bridge && typeof bridge.startScreenCapture === 'function') {
         try {
             bridge.startScreenCapture();
-            updateMonitorScreenStatus('已请求安卓屏幕录制授权，请在系统弹窗中确认。');
+            updateMonitorScreenStatus(isMonitorScreenSharingActive() ? '已开启屏幕共享，可以随时停止。' : '请在系统弹窗中选择要共享的画面。');
             renderMonitorCharacters();
             startMonitorPetAutoObserve();
         } catch (e) {
@@ -6296,7 +6303,7 @@ async function startMonitorScreenShare() {
         return false;
     }
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
-        updateMonitorScreenStatus('当前浏览器不支持屏幕共享；APK 版需要接 Android MediaProjection。');
+        updateMonitorScreenStatus('当前浏览器暂不支持共享屏幕，请使用安卓版或支持屏幕共享的桌面浏览器。');
         if (typeof showWechatToast === 'function') showWechatToast('当前浏览器不支持屏幕共享');
         return false;
     }
@@ -6331,15 +6338,20 @@ function stopMonitorScreenShare(render = true) {
     if (bridge && typeof bridge.stopScreenCapture === 'function') {
         try {
             bridge.stopScreenCapture();
-        } catch (e) {}
+        } catch (e) {
+            updateMonitorScreenStatus(`未能停止共享：${e && e.message ? e.message : '请重试'}`);
+            if (render) renderMonitorCharacters();
+            return false;
+        }
     }
     if (monitorScreenStream) {
         monitorScreenStream.getTracks().forEach(track => track.stop());
     }
     monitorScreenStream = null;
     monitorScreenFrameDataUrl = '';
+    monitorScreenLastCaptureAt = 0;
     if (monitorScreenVideo) monitorScreenVideo.srcObject = null;
-    updateMonitorScreenStatus('屏幕共享已停止');
+    updateMonitorScreenStatus(bridge && isMonitorScreenSharingActive() ? '已请求停止共享，正在等待系统结束。' : '屏幕共享已停止');
     if (render) renderMonitorCharacters();
     return false;
 }
@@ -6357,16 +6369,21 @@ function getMonitorPetAutoObserveIntervalMs() {
 
 function setMonitorPetObserveInterval(value) {
     const seconds = Math.max(0, Number(value) || 0);
-    localStorage.setItem('bynd_monitor_pet_observe_interval_v1', String(seconds === 0 ? 0 : Math.max(30, seconds)));
+    try { localStorage.setItem('bynd_monitor_pet_observe_interval_v1', String(seconds === 0 ? 0 : Math.max(30, seconds))); }
+    catch (error) {
+        renderMonitorCharacters();
+        if (typeof showWechatToast === 'function') showWechatToast('观察频率未能保存，请重试。');
+        return false;
+    }
     if (seconds === 0) {
         stopMonitorPetAutoObserve();
-        updateMonitorScreenStatus('已切换为仅点击桌宠时观察屏幕。');
+        updateMonitorScreenStatus('已设为手动：点击桌宠时才观察共享画面。');
     } else {
         if (isMonitorScreenSharingActive()) startMonitorPetAutoObserve();
-        updateMonitorScreenStatus(`桌宠会每 ${seconds >= 60 ? `${Math.round(seconds / 60)} 分钟` : `${seconds} 秒`}左右自动观察一次屏幕。`);
+        updateMonitorScreenStatus(`已保存：共享开启后，每 ${seconds >= 60 ? `${Math.round(seconds / 60)} 分钟` : `${seconds} 秒`}左右观察一次。`);
     }
     renderMonitorCharacters();
-    return false;
+    return true;
 }
 window.setMonitorPetObserveInterval = setMonitorPetObserveInterval;
 
@@ -6491,165 +6508,17 @@ function getMonitorStats(chars) {
     };
 }
 
-function renderMonitorOverview(chars) {
-    const box = document.getElementById('monitor-overview');
-    const toolbar = document.getElementById('monitor-toolbar');
-    const stats = getMonitorStats(chars);
-    if (!['internal', 'island', 'pet', 'phone'].includes(monitorActiveTool)) monitorActiveTool = 'internal';
-    if (box) {
-        box.innerHTML = `
-            <article>
-                <span>接入角色</span>
-                <strong>${stats.enabled}<em>/${stats.total}</em></strong>
-                <small>${stats.enabled ? '正在监听 BYND 内部聊天' : '等待选择监控者'}</small>
-            </article>
-            <article>
-                <span>吐槽视角</span>
-                <strong>${stats.observer}</strong>
-                <small>${stats.persona ? `${stats.persona} 位角色本人视角` : '第三方弹幕更适合吃瓜'}</small>
-            </article>
-            <article>
-                <span>异常</span>
-                <strong>${stats.errors}</strong>
-                <small>${stats.errors ? '有角色需要刷新状态' : '当前状态干净'}</small>
-            </article>
-        `;
-    }
-    if (toolbar) {
-        const tools = [
-            { id: 'internal', icon: 'ri-radar-line', title: '内部剧情', text: stats.enabled ? '已启用' : '未接入' },
-            { id: 'island', icon: 'ri-notification-4-line', title: '后台提示', text: stats.enabled ? '跟随角色' : '待角色接入' },
-            { id: 'pet', icon: 'ri-bubble-chart-line', title: '桌宠气泡', text: isMonitorPetEnabled() ? (stats.enabled ? '跟随角色' : '待角色接入') : '已关闭' },
-            { id: 'phone', icon: 'ri-smartphone-line', title: '真实手机', text: isMonitorScreenSharingActive() ? '已授权' : '需授权' }
-        ];
-        toolbar.innerHTML = tools.map(item => `
-            <button type="button" class="${monitorActiveTool === item.id ? 'active' : ''}" onclick="handleMonitorTool('${item.id}')">
-                <i class="${item.icon}"></i>
-                <b>${item.title}</b>
-                <span>${item.text}</span>
-            </button>
-        `).join('');
-    }
-    renderMonitorToolPanel(chars, stats);
-}
-
-function renderMonitorToolPanel(chars, stats = getMonitorStats(chars)) {
-    const panel = document.getElementById('monitor-tool-panel');
-    if (!panel) return;
-    const enabled = chars.filter(char => !!(char.chatConfig && char.chatConfig.monitorEnabled));
-    const names = enabled.map(char => getMonitorCharName(char)).slice(0, 3).join('、');
-    const summary = names ? `${names}${enabled.length > 3 ? ` 等 ${enabled.length} 位` : ''}` : '还没有角色接入';
-    const configs = {
-        internal: {
-            icon: 'ri-radar-line',
-            title: '内部剧情监控',
-            desc: stats.enabled ? `当前由 ${summary} 观察 BYND 内部聊天。` : '选择角色接入后，会根据角色人设、记忆和聊天气氛输出反应。',
-            status: stats.enabled ? '运行中' : '未接入',
-            action: '管理角色',
-            onclick: "document.getElementById('monitor-char-list')?.scrollIntoView({behavior:'smooth',block:'start'})"
-        },
-        island: {
-            icon: 'ri-notification-4-line',
-            title: '后台提示输出',
-            desc: stats.enabled ? '角色返回 island / warning 时，会走后台提示和灵动岛提示。' : '先接入至少一位角色，后台提示才会跟随监控结果出现。',
-            status: stats.enabled ? '跟随监控' : '等待角色',
-            action: '刷新状态',
-            onclick: 'refreshMonitorApp()'
-        },
-        pet: {
-            icon: 'ri-bubble-chart-line',
-            title: '桌宠气泡',
-            desc: isMonitorPetEnabled()
-                ? (stats.enabled ? '桌宠会绑定已接入的角色；授权屏幕共享后，点击桌宠会把当前真实屏幕的一帧交给视觉模型。' : '先接入至少一位角色，桌宠才会按人设和世界书说话。')
-                : '桌宠已关闭，素材、位置和绑定角色都会保留，重新开启后继续使用。',
-            status: isMonitorPetEnabled() ? (stats.enabled ? '跟随角色' : '等待角色') : '已关闭',
-            action: '查看角色',
-            onclick: "document.getElementById('monitor-char-list')?.scrollIntoView({behavior:'smooth',block:'start'})"
-        },
-        phone: {
-            icon: 'ri-smartphone-line',
-            title: '真实手机陪看',
-            desc: isMonitorScreenSharingActive()
-                ? '浏览器屏幕共享已开启。桌宠每次生成气泡前会读取一帧画面，发送给支持视觉的聊天模型。'
-                : '网页端只能通过系统弹窗授权屏幕共享；稳定 APK 版需要 Android MediaProjection。',
-            status: isMonitorScreenSharingActive() ? '屏幕共享中' : '需要授权',
-            action: isMonitorScreenSharingActive() ? '停止共享' : '授权屏幕',
-            onclick: isMonitorScreenSharingActive() ? 'stopMonitorScreenShare()' : 'startMonitorScreenShare()'
-        }
-    };
-    const item = configs[monitorActiveTool] || configs.internal;
-    const petLibrary = monitorActiveTool === 'pet' ? renderMonitorPetLibrary() : '';
-    const screenPanel = (monitorActiveTool === 'pet' || monitorActiveTool === 'phone') ? renderMonitorScreenSharePanel() : '';
-    const actionControl = monitorActiveTool === 'pet'
-        ? `
-            <label class="monitor-tool-switch ${isMonitorPetEnabled() ? 'active' : ''}" title="${musicEscapeAttr(isMonitorPetEnabled() ? '关闭桌宠' : '开启桌宠')}">
-                <input type="checkbox" ${isMonitorPetEnabled() ? 'checked' : ''} onchange="setMonitorPetEnabled(this.checked)">
-                <span aria-hidden="true"></span>
-                <b>${isMonitorPetEnabled() ? '已开' : '已关'}</b>
-            </label>
-        `
-        : `<button type="button" onclick="${item.onclick}">${musicEscapeHtml(item.action)}</button>`;
-    panel.dataset.tool = monitorActiveTool;
-    panel.innerHTML = `
-        <div class="monitor-tool-card">
-            <div class="monitor-tool-icon"><i class="${item.icon}"></i></div>
-            <div class="monitor-tool-copy">
-                <span>${musicEscapeHtml(item.status)}</span>
-                <strong>${musicEscapeHtml(item.title)}</strong>
-                <p>${musicEscapeHtml(item.desc)}</p>
-            </div>
-            ${actionControl}
-        </div>
-        ${screenPanel}
-        ${petLibrary}
-    `;
-    syncMonitorPetFloating();
-}
-
-function renderMonitorScreenSharePanel() {
-    const active = isMonitorScreenSharingActive();
-    const supported = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
-    const intervalMs = getMonitorPetAutoObserveIntervalMs();
-    const intervalSeconds = Math.round(intervalMs / 1000);
-    const observeOptions = [
-        { value: 0, label: '仅点击时观察' },
-        { value: 60, label: '每 1 分钟' },
-        { value: 120, label: '每 2 分钟（推荐）' },
-        { value: 300, label: '每 5 分钟' },
-        { value: 600, label: '每 10 分钟' }
-    ];
-    return `
-        <div class="monitor-screen-panel ${active ? 'active' : ''}">
-            <div class="monitor-screen-copy">
-                <span>${active ? 'SCREEN LIVE' : (supported ? 'SCREEN PERMISSION' : 'WEB LIMITED')}</span>
-                <strong>${active ? '真实屏幕已接入桌宠' : '授权后桌宠才能看见真实屏幕'}</strong>
-                <p id="monitor-screen-status">${musicEscapeHtml(monitorScreenStatus)}</p>
-            </div>
-            <div class="monitor-screen-actions">
-                <button type="button" onclick="${active ? 'captureMonitorScreenFrame()' : 'startMonitorScreenShare()'}">
-                    <i class="${active ? 'ri-camera-lens-line' : 'ri-screen-share-line'}"></i>
-                    <span>${active ? '读一帧' : '授权屏幕'}</span>
-                </button>
-                ${active ? '<button type="button" class="ghost" onclick="stopMonitorScreenShare()"><i class="ri-stop-circle-line"></i><span>停止</span></button>' : ''}
-            </div>
-            <div class="monitor-screen-observe">
-                <label for="monitor-observe-interval"><i class="ri-timer-line"></i> 自动观察频率</label>
-                <select id="monitor-observe-interval" onchange="setMonitorPetObserveInterval(this.value)">
-                    ${observeOptions.map(opt => `<option value="${opt.value}" ${opt.value === intervalSeconds ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                </select>
-                <small>${intervalSeconds > 0 ? '授权屏幕后，桌宠会按这个频率自己看一眼屏幕并搭话。' : '桌宠只在你点击它时才看一眼屏幕。'}</small>
-            </div>
-        </div>
-    `;
-}
+// The workspace owns presentation; these entry points also serve existing integrations.
+function renderMonitorOverview() { window.ByndMonitor?.render(); }
+function renderMonitorToolPanel() { window.ByndMonitor?.render(); }
+function renderMonitorScreenSharePanel() { return window.ByndMonitor?.screenView() || ''; }
 
 function handleMonitorTool(tool) {
     monitorActiveTool = ['internal', 'island', 'pet', 'phone'].includes(tool) ? tool : 'internal';
-    localStorage.setItem(MONITOR_ACTIVE_TOOL_KEY, monitorActiveTool);
+    try { localStorage.setItem(MONITOR_ACTIVE_TOOL_KEY, monitorActiveTool); }
+    catch (error) { console.warn('监控页面位置未保存', error); }
+    window.ByndMonitor?.navigate();
     renderMonitorCharacters();
-    if (monitorActiveTool === 'pet' && !monitorPetResults.length && !monitorPetLoading) {
-        searchMonitorPets();
-    }
     return false;
 }
 window.handleMonitorTool = handleMonitorTool;
@@ -6721,50 +6590,27 @@ function getActiveMonitorPetId() {
     return localStorage.getItem(MONITOR_ACTIVE_PET_KEY) || '';
 }
 
-function renderMonitorPetLibrary() {
+function renderMonitorPetLibrary(online = false) {
     const saved = getMonitorPetLibrary();
     const activeId = getActiveMonitorPetId();
-    const savedCards = saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('');
-    const boundChar = getMonitorPetBoundChar();
-    const activePet = (boundChar && window.ByndCharacterPet?.material(boundChar)) || saved.find(pet => pet.id === activeId);
-    const petEnabled = isMonitorPetEnabled();
-    const boundText = boundChar ? ` · 绑定 ${getMonitorCharName(boundChar)}` : ' · 未接入角色';
     const onlineContent = monitorPetLoading
-        ? '<div class="monitor-pet-empty">正在加载素材...</div>'
+        ? '<div class="monitor-pet-empty" role="status">正在加载素材…</div>'
         : renderMonitorPetOnlineContent(saved, activeId);
-    return `
-        <div class="monitor-pet-library">
-            <button type="button" class="monitor-pet-studio-entry" onclick="openMonitorPetStudio()"><i class="ri-sparkling-2-line"></i><span><strong>制作角色专属桌宠</strong><small>上传角色图 · 生成透明 3D 形象 · 按人设互动</small></span><i class="ri-arrow-right-s-line"></i></button>
-            <div class="monitor-pet-active">
-                <div class="monitor-pet-preview">${activePet ? `<img src="${musicEscapeAttr(getMonitorPetDisplayImage(activePet))}" alt="${musicEscapeAttr(activePet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
-                <div>
-                    <span>当前桌宠素材</span>
-                    <strong>${musicEscapeHtml(activePet ? activePet.displayName : '还没有应用素材')}</strong>
-                    <p>${musicEscapeHtml(activePet ? (petEnabled ? `来自 ${activePet.source}${boundText}` : '桌宠已关闭，开启后会重新浮到页面上。') : '先搜索、下载，再应用到项目中。')}</p>
-                </div>
-                <label class="monitor-pet-enable ${petEnabled ? 'active' : ''}" title="${musicEscapeAttr(petEnabled ? '关闭桌宠' : '开启桌宠')}">
-                    <input type="checkbox" ${petEnabled ? 'checked' : ''} onchange="setMonitorPetEnabled(this.checked)">
-                    <span aria-hidden="true"></span>
-                    <b>${petEnabled ? '已开' : '已关'}</b>
-                </label>
-            </div>
-            <div class="monitor-pet-search">
-                <input id="monitor-pet-search-input" type="search" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value, 1)">
-                <button type="button" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value, 1)">${monitorPetLoading ? '<i class="ri-loader-4-line"></i>' : '<i class="ri-search-line"></i>'}</button>
-            </div>
-            <div class="monitor-pet-status">${musicEscapeHtml(monitorPetStatus || '可在项目内查看、下载并应用素材。')}</div>
-            <div class="monitor-pet-gallery-head">
-                <div class="monitor-pet-gallery-brand"><i class="ri-terminal-box-line"></i><strong>codex-pets</strong></div>
-                ${renderMonitorPetTabButton('gallery', 'Gallery')}
-                ${renderMonitorPetTabButton('collections', 'Collections')}
-                ${renderMonitorPetTabButton('creators', 'Creators')}
-            </div>
-            <div class="monitor-pet-grid">${onlineContent}</div>
-            ${renderMonitorPetPager()}
-            <div class="monitor-pet-section-head"><strong>已下载</strong><span>${saved.length} 个</span></div>
-            <div class="monitor-pet-grid">${savedCards || '<div class="monitor-pet-empty">下载后的素材会出现在这里。</div>'}</div>
+    return `<div class="mh-library-content">
+        ${online ? `<div class="monitor-pet-search">
+            <input id="monitor-pet-search-input" type="search" aria-label="搜索在线桌宠素材" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材、主题或创作者" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value, 1)">
+            <button type="button" aria-label="搜索" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value, 1)" ${monitorPetLoading ? 'disabled' : ''}><i class="${monitorPetLoading ? 'ri-loader-4-line' : 'ri-search-line'}"></i></button>
         </div>
-    `;
+        <p class="mh-library-source">来自 codex-pets 的社区素材</p>
+        <div class="monitor-pet-gallery-head">
+            ${renderMonitorPetTabButton('gallery', '全部素材')}
+            ${renderMonitorPetTabButton('collections', '主题合集')}
+            ${renderMonitorPetTabButton('creators', '创作者')}
+        </div>` : ''}
+        <p class="monitor-pet-status" role="status">${musicEscapeHtml(monitorPetStatus)}</p>
+        <div class="monitor-pet-grid">${online ? onlineContent : saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('') || '<div class="monitor-pet-empty">还没有下载素材。可以制作专属桌宠，也可以浏览在线素材。</div>'}</div>
+        ${online ? renderMonitorPetPager() : ''}
+    </div>`;
 }
 
 function renderMonitorPetTabButton(view, label) {
@@ -6796,7 +6642,7 @@ function renderMonitorPetCollections() {
     const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
     if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有可聚合的合集。</div>';
     return rows.map(item => `
-        <button type="button" class="monitor-pet-filter-card" onclick="openMonitorPetFilter(decodeURIComponent('${musicEscapeAttr(encodeURIComponent(item.label))}'))">
+        <button type="button" class="monitor-pet-filter-card" data-monitor-pet-filter="${musicEscapeAttr(item.label)}" onclick="openMonitorPetFilter(this.dataset.monitorPetFilter)">
             <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-price-tag-3-line"></i>'}</span>
             <strong>${musicEscapeHtml(item.label)}</strong>
             <em>${item.count} 个素材 · ${item.views} 浏览</em>
@@ -6819,7 +6665,7 @@ function renderMonitorPetCreators() {
     const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
     if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有创作者信息。</div>';
     return rows.map(item => `
-        <button type="button" class="monitor-pet-filter-card creator" onclick="openMonitorPetFilter(decodeURIComponent('${musicEscapeAttr(encodeURIComponent(item.label))}'))">
+        <button type="button" class="monitor-pet-filter-card creator" data-monitor-pet-filter="${musicEscapeAttr(item.label)}" onclick="openMonitorPetFilter(this.dataset.monitorPetFilter)">
             <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-user-smile-line"></i>'}</span>
             <strong>${musicEscapeHtml(item.label)}</strong>
             <em>${item.count} 个素材 · ${item.likes} 喜欢 · ${item.comments} 评论</em>
@@ -6856,8 +6702,8 @@ function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
                 ${pet.tags.length ? `<div>${pet.tags.map(tag => `<em>${musicEscapeHtml(tag)}</em>`).join('')}</div>` : ''}
             </div>
             <div class="monitor-pet-card-actions">
-                ${localOnly ? '' : `<button type="button" class="monitor-pet-action-btn" onclick="previewMonitorPet('${musicEscapeAttr(pet.id)}', this)">预览</button>`}
-                <button type="button" class="monitor-pet-action-btn" onclick="${saved ? `applyMonitorPet('${musicEscapeAttr(pet.id)}', this)` : `downloadMonitorPet('${musicEscapeAttr(pet.id)}', this)`}">${activeId === pet.id ? '已应用' : (saved ? '应用' : '下载')}</button>
+                ${localOnly ? '' : `<button type="button" class="monitor-pet-action-btn" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview" onclick="previewMonitorPet(this.dataset.monitorPetId, this)">预览</button>`}
+                <button type="button" class="monitor-pet-action-btn" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="${saved ? 'apply' : 'download'}" onclick="${saved ? 'applyMonitorPet(this.dataset.monitorPetId, this)' : 'downloadMonitorPet(this.dataset.monitorPetId, this)'}">${activeId === pet.id ? '已应用' : (saved ? '应用' : '下载')}</button>
             </div>
         </article>
     `;
@@ -6867,6 +6713,7 @@ function updateMonitorPetStatus(text) {
     monitorPetStatus = String(text || '');
     const el = document.querySelector('.monitor-pet-status');
     if (el) el.textContent = monitorPetStatus;
+    window.ByndMonitor?.petChanged();
 }
 
 function setMonitorPetActionButton(button, state, text) {
@@ -7379,6 +7226,7 @@ function previewMonitorPet(petId, button) {
     if (!pet) return false;
     updateMonitorPetStatus(`正在预览：${pet.displayName}`);
     setMonitorPetActionButton(button, 'done', '已预览');
+    if (window.ByndMonitor?.previewPet(pet)) return false;
     monitorPetFloatMessage = `预览 ${pet.displayName}`;
     renderMonitorPetFloat(pet, 'preview');
     const preview = document.querySelector('.monitor-pet-active');
@@ -7474,15 +7322,30 @@ async function applyMonitorPet(petId, button) {
     const pet = getMonitorPetLibrary().find(item => item.id === petId);
     if (!pet) return false;
     const char = getMonitorPetBoundChar();
-    if (char && window.ByndCharacterPet?.profile(char).active) {
-        try { await window.ByndCharacterPet.update(char, next => { next.active = false; }); }
-        catch (error) { updateMonitorPetStatus(error.message || '桌宠切换未能保存'); return false; }
-    }
+    const previousId = localStorage.getItem(MONITOR_ACTIVE_PET_KEY);
+    const previousEnabled = localStorage.getItem(MONITOR_PET_ENABLED_KEY);
     setMonitorPetActionButton(button, 'loading', '应用中');
-    localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
-    localStorage.setItem(MONITOR_PET_ENABLED_KEY, '1');
+    try {
+        localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
+        localStorage.setItem(MONITOR_PET_ENABLED_KEY, '1');
+        if (char && window.ByndCharacterPet?.profile(char).active) {
+            await window.ByndCharacterPet.update(char, next => { next.active = false; });
+        }
+    } catch (error) {
+        let restored = true;
+        try {
+            if (previousId == null) localStorage.removeItem(MONITOR_ACTIVE_PET_KEY);
+            else localStorage.setItem(MONITOR_ACTIVE_PET_KEY, previousId);
+            if (previousEnabled == null) localStorage.removeItem(MONITOR_PET_ENABLED_KEY);
+            else localStorage.setItem(MONITOR_PET_ENABLED_KEY, previousEnabled);
+        } catch (_) { restored = false; }
+        updateMonitorPetStatus(restored ? `桌宠切换未能保存：${error.message || error}` : '桌宠切换和设置恢复均未完成，请检查储存空间后重试。');
+        if (button) { button.disabled = false; button.classList.remove('loading'); button.textContent = button.dataset.originalText || '应用'; }
+        renderMonitorCharacters();
+        return false;
+    }
     monitorPetFloatMessage = '';
-    updateMonitorPetStatus(`已应用 ${pet.displayName}，桌宠已浮到页面上。`);
+    updateMonitorPetStatus(`已应用 ${pet.displayName}，返回其他页面即可与桌宠互动。`);
     renderMonitorPetFloat(pet, 'apply');
     setMonitorPetActionButton(button, 'done', '已应用');
     setTimeout(() => {
@@ -7503,151 +7366,86 @@ function updateMonitorSpeedPreview(input) {
 window.updateMonitorSpeedPreview = updateMonitorSpeedPreview;
 
 function renderMonitorCharacters() {
-    const list = document.getElementById('monitor-char-list');
-    const status = document.getElementById('monitor-status');
-    if (!list) return;
-    const chars = getMonitorCharacters();
-    renderMonitorOverview(chars);
-    if (status) status.textContent = getMonitorStatusText(chars);
-    if (!chars.length) {
-        list.innerHTML = `
-            <div class="monitor-empty">
-                <i class="ri-user-search-line"></i>
-                <strong>还没有角色</strong>
-                <span>先在微信里导入角色卡，再回来选择谁接入监控剧情。</span>
-            </div>
-        `;
-        return;
-    }
-    list.innerHTML = chars.map(char => {
-        const enabled = !!(char.chatConfig && char.chatConfig.monitorEnabled);
-        const mode = getMonitorMode(char);
-        const speed = normalizeMonitorBarrageSpeed(char.chatConfig && char.chatConfig.monitorBarrageSpeed);
-        const state = (char.chatConfig && char.chatConfig.monitorState) || {};
-        const lastLevel = state.lastLevel ? `上次强度：${state.lastLevel}` : '等待下一条 BYND 内部消息';
-        const modeLabel = mode === 'observer' ? '第三方吐槽' : '角色本人';
-        const lastError = state.lastError ? `<small class="monitor-error">${musicEscapeHtml(state.lastError)}</small>` : '';
-        return `
-            <article class="monitor-char-card ${enabled ? 'active' : ''}" data-mode="${mode}">
-                <div class="monitor-char-avatar">
-                    <img src="${musicEscapeAttr(char.avatar || window.DEFAULT_AVATAR || '')}" alt="${musicEscapeAttr(getMonitorCharName(char))}" onerror="this.src=window.DEFAULT_AVATAR || ''">
-                </div>
-                <div class="monitor-char-main">
-                    <div class="monitor-char-title">
-                        <strong>${musicEscapeHtml(getMonitorCharName(char))}</strong>
-                        <span>${enabled ? 'ON AIR' : 'STANDBY'}</span>
-                    </div>
-                    <p>${musicEscapeHtml(getMonitorRecentSummary(char))}</p>
-                    <em>${musicEscapeHtml(modeLabel)} · ${musicEscapeHtml(lastLevel)}</em>
-                    <div class="monitor-char-config">
-                        <select onchange="setMonitorWatcherMode('${musicEscapeAttr(char.id)}', this.value)">
-                            <option value="persona" ${mode === 'persona' ? 'selected' : ''}>角色本人</option>
-                            <option value="observer" ${mode === 'observer' ? 'selected' : ''}>第三方吐槽</option>
-                        </select>
-                        <label>
-                            <span>弹幕 ${musicEscapeHtml(getMonitorSpeedText(speed))}</span>
-                            <input type="range" min="0.7" max="1.6" step="0.1" value="${speed}" oninput="updateMonitorSpeedPreview(this)" onchange="setMonitorWatcherSpeed('${musicEscapeAttr(char.id)}', this.value)">
-                        </label>
-                    </div>
-                    ${lastError}
-                </div>
-                <div class="monitor-char-actions">
-                    <button type="button" class="${enabled ? 'danger' : ''}" onclick="toggleMonitorWatcher('${musicEscapeAttr(char.id)}')">
-                        <i class="${enabled ? 'ri-link-unlink-m' : 'ri-link-m'}"></i><span>${enabled ? '解除' : '接入'}</span>
-                    </button>
-                    <button type="button" class="ghost" onclick="refreshMonitorWatcher('${musicEscapeAttr(char.id)}')">
-                        <i class="ri-refresh-line"></i><span>更新</span>
-                    </button>
-                </div>
-            </article>
-        `;
-    }).join('');
+    window.ByndMonitor?.render();
 }
 
 function initMonitorApp() {
     renderMonitorCharacters();
-    if (monitorActiveTool === 'pet' && !monitorPetResults.length && !monitorPetLoading) {
-        searchMonitorPets();
-    }
 }
 window.initMonitorApp = initMonitorApp;
 
 function refreshMonitorApp() {
-    getMonitorCharacters().forEach(char => {
-        char.chatConfig = char.chatConfig || {};
-        if (char.chatConfig.monitorMode === 'god' || char.chatConfig.monitorMode === 'cp') {
-            char.chatConfig.monitorMode = 'observer';
-        }
-        char.chatConfig.monitorState = char.chatConfig.monitorState || {};
-        char.chatConfig.monitorState.lastError = '';
-        char.chatConfig.monitorState.lastRefreshedAt = Date.now();
-    });
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
+    // Refreshing the view must not erase a real provider error or create a new request.
     renderMonitorCharacters();
-    if (typeof showWechatToast === 'function') showWechatToast('监控状态已更新');
+    if (typeof showWechatToast === 'function') showWechatToast('已刷新当前状态');
 }
 window.refreshMonitorApp = refreshMonitorApp;
 
-function refreshMonitorWatcher(charId) {
-    const char = getMonitorCharacters().find(item => item.id === charId);
-    if (!char) return;
-    char.chatConfig = char.chatConfig || {};
-    if (char.chatConfig.monitorMode === 'god' || char.chatConfig.monitorMode === 'cp') {
-        char.chatConfig.monitorMode = 'observer';
-    }
-    char.chatConfig.monitorState = char.chatConfig.monitorState || {};
-    char.chatConfig.monitorState.lastError = '';
-    char.chatConfig.monitorState.lastRefreshedAt = Date.now();
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    renderMonitorCharacters();
-    if (typeof showWechatToast === 'function') showWechatToast(`${getMonitorCharName(char)} 的监控状态已更新`);
-}
+function refreshMonitorWatcher() { refreshMonitorApp(); }
 window.refreshMonitorWatcher = refreshMonitorWatcher;
 
-function setMonitorWatcherMode(charId, mode) {
+let monitorConfigSaving = false;
+async function saveMonitorWatcherSetting(charId, field, value, message) {
     const char = getMonitorCharacters().find(item => item.id === charId);
-    if (!char) return;
-    char.chatConfig = char.chatConfig || {};
-    char.chatConfig.monitorMode = mode === 'observer' ? 'observer' : 'persona';
-    char.chatConfig.monitorState = char.chatConfig.monitorState || {};
-    char.chatConfig.monitorState.lastError = '';
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    renderMonitorCharacters();
-    if (typeof showWechatToast === 'function') showWechatToast(`${getMonitorCharName(char)} 已切换监控视角`);
+    if (!char || monitorConfigSaving) return false;
+    const config = char.chatConfig || (char.chatConfig = {});
+    const hadValue = Object.prototype.hasOwnProperty.call(config, field);
+    const previous = config[field];
+    monitorConfigSaving = true;
+    config[field] = value;
+    window.ByndMonitor?.setBusy(true);
+    try {
+        if (typeof saveCharactersToStorage !== 'function' || await saveCharactersToStorage() === false) {
+            throw new Error('设置未能保存，请重试。');
+        }
+    } catch (error) {
+        // Restore only our field, keeping any concurrent chat history or unrelated settings.
+        if (config[field] === value) {
+            if (hadValue) config[field] = previous;
+            else delete config[field];
+        }
+        if (typeof showWechatToast === 'function') showWechatToast(error.message || '设置未能保存，请重试。');
+        return false;
+    } finally {
+        monitorConfigSaving = false;
+        window.ByndMonitor?.setBusy(false);
+        renderMonitorCharacters();
+    }
+    if (message && typeof showWechatToast === 'function') showWechatToast(message);
+    return true;
+}
+
+function setMonitorWatcherMode(charId, mode) {
+    return saveMonitorWatcherSetting(charId, 'monitorMode', mode === 'observer' ? 'observer' : 'persona', '陪伴视角已保存');
 }
 window.setMonitorWatcherMode = setMonitorWatcherMode;
 
 function setMonitorWatcherSpeed(charId, value) {
-    const char = getMonitorCharacters().find(item => item.id === charId);
-    if (!char) return;
-    char.chatConfig = char.chatConfig || {};
-    char.chatConfig.monitorBarrageSpeed = normalizeMonitorBarrageSpeed(value);
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    renderMonitorCharacters();
+    return saveMonitorWatcherSetting(charId, 'monitorBarrageSpeed', normalizeMonitorBarrageSpeed(value), '弹幕速度已保存');
 }
 window.setMonitorWatcherSpeed = setMonitorWatcherSpeed;
 
-function toggleMonitorWatcher(charId) {
+async function toggleMonitorWatcher(charId) {
     const char = getMonitorCharacters().find(item => item.id === charId);
-    if (!char) return;
-    char.chatConfig = char.chatConfig || {};
-    char.chatConfig.monitorEnabled = !char.chatConfig.monitorEnabled;
-    char.chatConfig.monitorState = char.chatConfig.monitorState || {};
-    char.chatConfig.monitorState.lastError = '';
-    if (char.chatConfig.monitorEnabled) {
-        setMonitorPetBoundChar(char.id);
-    } else if (localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) === char.id) {
-        const next = getMonitorCharacters().find(item => item.id !== char.id && item.chatConfig && item.chatConfig.monitorEnabled);
-        setMonitorPetBoundChar(next ? next.id : '');
+    if (!char || monitorConfigSaving) return false;
+    const enabled = !char.chatConfig?.monitorEnabled;
+    if (!await saveMonitorWatcherSetting(charId, 'monitorEnabled', enabled)) return false;
+    try {
+        if (enabled) setMonitorPetBoundChar(char.id);
+        else if (localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) === char.id && !char.chatConfig?.characterPet?.active) {
+            const next = getMonitorCharacters().find(item => item.id !== char.id && item.chatConfig?.monitorEnabled);
+            setMonitorPetBoundChar(next ? next.id : '');
+        }
+    } catch (error) {
+        renderMonitorCharacters();
+        syncMonitorPetFloating();
+        if (typeof showWechatToast === 'function') showWechatToast('陪伴设置已保存，但桌宠角色切换失败，请重试。');
+        return false;
     }
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
     renderMonitorCharacters();
     syncMonitorPetFloating();
-    const name = getMonitorCharName(char);
-    const text = char.chatConfig.monitorEnabled
-        ? `${name} 已接入 BYND 内部监控剧情`
-        : `已解除 ${name} 的监控剧情`;
-    if (typeof showWechatToast === 'function') showWechatToast(text);
+    if (typeof showWechatToast === 'function') showWechatToast(enabled ? `${getMonitorCharName(char)} 已开启陪伴` : `${getMonitorCharName(char)} 的陪伴已暂停`);
+    return true;
 }
 window.toggleMonitorWatcher = toggleMonitorWatcher;
 

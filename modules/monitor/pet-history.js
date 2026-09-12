@@ -11,11 +11,12 @@
     const source = row => ({ generated: 'AI 生成', 'generated-animation': 'AI 动作序列合成', 'animation-source': '动作序列原图', 'background-removal': '去背景', upload: '上传图片' }[row.source]);
     const transparency = row => (row.transparent === true ? '透明 ' : row.transparent === false ? '带背景 ' : '') + row.format + (row.transparent == null ? ' · 透明度未记录' : '');
     function close(restoreFocus = true) {
+        const previous = view;
         view = null;
         root()?.remove();
-        const panel = document.querySelector('#bynd-pet-studio .pet-studio-panel');
+        const panel = previous?.panel || document.querySelector('#bynd-pet-studio .pet-studio-panel');
         if (panel && !document.getElementById('pet-role-picker')) panel.inert = false;
-        if (restoreFocus) document.querySelector('.pet-history-entry')?.focus({ preventScroll: true });
+        if (restoreFocus) (previous?.focusTarget?.isConnected ? previous.focusTarget : document.getElementById(previous?.focusTarget?.id || '') || document.querySelector('.pet-history-entry'))?.focus({ preventScroll: true });
     }
     function focusFirst() { root()?.querySelector('.bynd-agent-header button')?.focus({ preventScroll: true }); }
     function trap(event) {
@@ -26,16 +27,18 @@
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }
-    async function open(char) {
-        if (!char || !document.getElementById('bynd-pet-studio')) return;
+    async function open(char, options = {}) {
+        const host = options.host || document.getElementById('bynd-pet-studio');
+        const panel = options.panel || document.querySelector('#bynd-pet-studio .pet-studio-panel');
+        if (!char || !host || !panel) return;
         close(false);
         const overlay = document.createElement('section');
         overlay.id = 'pet-history'; overlay.className = 'pet-history';
         overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-labelledby', 'pet-history-title');
         overlay.addEventListener('keydown', trap);
-        document.getElementById('bynd-pet-studio').appendChild(overlay);
-        document.querySelector('#bynd-pet-studio .pet-studio-panel').inert = true;
-        view = { char, rows: [], limit: 12, key: '', image: null, error: '', notice: '', loading: false, busy: false, confirm: false, listScroll: 0, revision: 0 };
+        host.appendChild(overlay);
+        panel.inert = true;
+        view = { char, panel, focusTarget: options.focusTarget, returnLabel: options.returnLabel || '返回桌宠设置', rows: [], limit: 12, key: '', image: null, error: '', notice: '', loading: false, busy: false, confirm: false, listScroll: 0, revision: 0 };
         await reload();
     }
     async function reload() {
@@ -67,7 +70,7 @@
         const scroll = overlay.querySelector('main')?.scrollTop || 0;
         const shown = state.rows.slice(0, state.limit);
         state.revision++;
-        overlay.innerHTML = `<header class="bynd-agent-header"><button type="button" aria-label="${state.key ? '返回图片历史' : '返回桌宠设置'}" onclick="ByndPetHistory.back()">‹</button><span><strong id="pet-history-title">${state.key ? '图片详情' : '桌宠图片历史'}</strong><small>${escape(C.name(state.char))}${state.loading ? '' : ' · ' + state.rows.length + ' 张'}</small></span><button type="button" aria-label="关闭图片历史" onclick="ByndPetHistory.close()">×</button></header><main class="pet-studio-main pet-history-main" aria-busy="${state.loading || state.busy}"><div class="pet-history-feedback" aria-live="polite">${state.error ? `<p class="pet-error" role="alert">${escape(state.error)}</p>` : ''}${state.notice ? `<p class="pet-progress" role="status">${escape(state.notice)}</p>` : ''}</div>${state.key ? detailContent(state) : `<div class="pet-history-toolbar"><p>生成与上传的 PNG / GIF 都在这里</p><button type="button" class="secondary" ${state.loading || state.busy ? 'disabled' : ''} onclick="ByndPetHistory.reload()">刷新</button></div>${state.loading ? '<p class="pet-empty" role="status">正在读取图片历史…</p>' : shown.length ? `<ul class="pet-history-grid">${shown.map(card).join('')}</ul>${shown.length < state.rows.length ? '<button type="button" class="pet-primary secondary" onclick="ByndPetHistory.more()">查看更多图片</button>' : ''}` : `<div class="pet-empty">${state.error ? '暂时无法读取历史，请点击刷新重试。' : '还没有桌宠图片<br>生成或上传后，会自动出现在这里。'}</div>`}`}</main>`;
+        overlay.innerHTML = `<header class="bynd-agent-header"><button type="button" aria-label="${state.key ? '返回图片历史' : escape(state.returnLabel)}" onclick="ByndPetHistory.back()">‹</button><span><strong id="pet-history-title">${state.key ? '图片详情' : '桌宠图片历史'}</strong><small>${escape(C.name(state.char))}${state.loading ? '' : ' · ' + state.rows.length + ' 张'}</small></span><button type="button" aria-label="关闭图片历史" onclick="ByndPetHistory.close()">×</button></header><main class="pet-studio-main pet-history-main" aria-busy="${state.loading || state.busy}"><div class="pet-history-feedback" aria-live="polite">${state.error ? `<p class="pet-error" role="alert">${escape(state.error)}</p>` : ''}${state.notice ? `<p class="pet-progress" role="status">${escape(state.notice)}</p>` : ''}</div>${state.key ? detailContent(state) : `<div class="pet-history-toolbar"><p>生成与上传的 PNG / GIF 都在这里</p><button type="button" class="secondary" ${state.loading || state.busy ? 'disabled' : ''} onclick="ByndPetHistory.reload()">刷新</button></div>${state.loading ? '<p class="pet-empty" role="status">正在读取图片历史…</p>' : shown.length ? `<ul class="pet-history-grid">${shown.map(card).join('')}</ul>${shown.length < state.rows.length ? '<button type="button" class="pet-primary secondary" onclick="ByndPetHistory.more()">查看更多图片</button>' : ''}` : `<div class="pet-empty">${state.error ? '暂时无法读取历史，请点击刷新重试。' : '还没有桌宠图片<br>生成或上传后，会自动出现在这里。'}</div>`}`}</main>`;
         overlay.querySelector('main').scrollTop = scroll;
         loadThumbnails(state, state.revision);
     }

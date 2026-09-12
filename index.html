@@ -50,10 +50,11 @@
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.610-pet-actions" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.611-pet-actions" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.603-agent-features-20260910" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.610" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.611" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.611" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -572,41 +573,21 @@
             </div>
         </div>
 
-        <div id="app-monitor-window" class="app-window hidden monitor-window">
-            <div class="monitor-shell">
-                <div class="monitor-topbar">
-                    <button type="button" onclick="closeApp('monitor')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
-                    <div>
-                        <span>BYND INTERNAL</span>
-                        <strong>监控</strong>
-                    </div>
-                    <button type="button" onclick="refreshMonitorApp()" aria-label="更新"><i class="ri-refresh-line"></i></button>
-                </div>
-                <div class="monitor-content">
-                    <section class="monitor-hero">
-                        <div class="monitor-scope">
-                            <span></span><span></span><span></span>
-                        </div>
-                        <div class="monitor-hero-copy">
-                            <span>PRIVATE OBSERVER</span>
-                            <strong>选择一个角色，把 BYND 内部聊天接入他的观察视野。</strong>
-                        </div>
-                    </section>
-                    <section class="monitor-overview" id="monitor-overview"></section>
-                    <section class="monitor-toolbar" id="monitor-toolbar" aria-label="监控工具栏"></section>
-                    <section class="monitor-tool-panel" id="monitor-tool-panel"></section>
-                    <section class="monitor-panel">
-                        <div class="monitor-panel-head">
-                            <div>
-                                <span>WATCHER LIST</span>
-                                <strong>选择监控者</strong>
-                            </div>
-                            <em id="monitor-status">等待接入</em>
-                        </div>
-                        <div class="monitor-char-list" id="monitor-char-list"></div>
-                    </section>
-                </div>
+        <div id="app-monitor-window" class="app-window hidden monitor-workspace">
+            <div class="mh-shell">
+                <header class="mh-topbar">
+                    <button type="button" class="mh-icon-button" data-mh-action="back" aria-label="返回桌面"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+                    <div class="mh-brand"><span class="mh-brand-mark" aria-hidden="true">b.</span><strong>监控<span>陪伴空间</span></strong></div>
+                    <div id="monitor-overview" class="mh-overview"></div>
+                    <button type="button" class="mh-icon-button" data-mh-action="roles" aria-label="管理陪伴角色"><i class="ri-user-settings-line" aria-hidden="true"></i></button>
+                </header>
+                <div id="monitor-feedback" class="mh-feedback" role="status" aria-live="polite" hidden></div>
+                <main class="mh-content" id="monitor-content">
+                    <section class="mh-view" id="monitor-tool-panel" role="tabpanel" tabindex="-1"></section>
+                </main>
+                <nav class="mh-nav" id="monitor-toolbar" role="tablist" aria-label="陪伴功能"></nav>
             </div>
+            <div id="monitor-layer-host"></div>
         </div>
 
         <div id="app-outing-window" class="app-window hidden outing-window">
@@ -1680,7 +1661,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.610
+                    Beyond Screen v1.1.611
                 </div>
             </div>
         </div>
@@ -2853,25 +2834,26 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.610-pet-requests"></script>
+    <script src="chat-api.js?v=1.1.611-pet-requests"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.610-character-pet-20260910"></script>
+    <script src="wechat.js?v=1.1.611-character-pet-20260910"></script>
     <script src="theme.js?v=1.1.593-remove-web-splash-20260907"></script>
-    <script src="settings.js?v=1.1.610-character-pet-20260910"></script>
-    <script src="script.js?v=1.1.610-character-pet-20260910"></script>
+    <script src="settings.js?v=1.1.611-character-pet-20260910"></script>
+    <script src="script.js?v=1.1.611-character-pet-20260910"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.610-character-pet-20260910"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.611-character-pet-20260910"></script>
     <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.610"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.611"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>
-    <script src="modules/monitor/pet-animation.js?v=1.1.610"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.610"></script>
-    <script src="modules/monitor/pet-history.js?v=1.1.610"></script>
+    <script src="modules/monitor/pet-animation.js?v=1.1.611"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.611"></script>
+    <script src="modules/monitor/pet-history.js?v=1.1.611"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.611"></script>
 </body>
 </html>
