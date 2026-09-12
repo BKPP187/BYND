@@ -27370,6 +27370,13 @@ button.wc-ai-phone-sync {
     border-color: rgba(255,255,255,0.22) !important;
     color: #fff !important;
 }
+.monitor-screen-observe select {
+    color-scheme: light;
+}
+.monitor-screen-observe select option {
+    color: #17251e !important;
+    background: #fff !important;
+}
 .monitor-screen-observe small {
     grid-column: 1 / -1 !important;
     color: rgba(17,17,17,0.46) !important;

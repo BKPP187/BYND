@@ -1559,6 +1559,10 @@ function buildMessages(char, history, maxMessages) {
 
 // 3. 调用 AI API
 async function callChatApi(messages, options = {}) {
+    // Recheck queued work at dispatch time, before touching the selected provider.
+    if (typeof options.canSend === 'function' && !options.canSend()) {
+        return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };
+    }
     if (options.background && !options._backgroundQueueBypass) {
         return enqueueChatApiBackgroundTask(
             () => callChatApi(messages, { ...options, _backgroundQueueBypass: true }),

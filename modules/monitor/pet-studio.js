@@ -13,16 +13,16 @@
         if (!sessions.has(char.id)) sessions.set(char.id, { form: formFrom(C.profile(char)), busy: '', error: '', errorDetails: '', imageTaskId: '', notice: '', test: null, testText: '', cancel: false });
         return sessions.get(char.id);
     }
-    const formFrom = config => ({ appearance: config.appearance, rules: config.rules, boundaries: config.boundaries, relationship: config.relationship, autoReact: config.autoReact, states: config.states.map(state => ({ ...state })) });
+    const formFrom = config => ({ appearance: config.appearance, formMode: config.formMode, pose: config.pose, motifs: config.motifs, rules: config.rules, boundaries: config.boundaries, relationship: config.relationship, autoReact: config.autoReact, states: config.states.map(state => ({ ...state })) });
     function reloadForm(char) { session(char).form = formFrom(C.profile(char)); }
     async function saveForm(char) {
         const form = session(char).form;
         if (form.states.some(state => !state.label.trim() || !state.description.trim() || !state.when.trim())) throw new Error('请填好表情名称、外在表现和适用条件，再保存。');
         const saved = C.profile(char);
-        const fields = ['appearance', 'rules', 'boundaries', 'relationship', 'autoReact'];
+        const fields = ['appearance', 'formMode', 'pose', 'motifs', 'rules', 'boundaries', 'relationship', 'autoReact'];
         if (fields.every(key => form[key] === saved[key]) && JSON.stringify(form.states) === JSON.stringify(saved.states)) return;
         await C.update(char, next => {
-            for (const key of fields) next[key] = key === 'autoReact' ? form[key] : C.clean(form[key], { appearance: 4000, rules: 4000, boundaries: 3000, relationship: 2000 }[key]);
+            for (const key of fields) next[key] = key === 'autoReact' ? form[key] : key === 'formMode' ? form[key] === 'symbol' ? 'symbol' : 'character' : C.clean(form[key], { appearance: 4000, pose: 1200, motifs: 1600, rules: 4000, boundaries: 3000, relationship: 2000 }[key]);
             next.states = C.normalizeStates(form.states).map(state => {
                 const before = next.states.find(item => item.id === state.id);
                 return { ...state, assetKey: before && before.description === state.description && before.emotion === state.emotion ? before.assetKey : '', draftKey: before && before.description === state.description && before.emotion === state.emotion ? before.draftKey : '' };
@@ -112,18 +112,21 @@
         target.drawImage(canvas, left, top, width, height, (1024 - width * ratio) / 2, 922 - height * ratio, width * ratio, height * ratio);
         return { url: output.toDataURL('image/png'), width: 1024, height: 1024, transparent: true, coverage: alpha.coverage, kind: 'candidate' };
     }
-    async function generateImage(char, id = 'idle', removeBackground = false) {
+    async function generateImage(char, id = 'idle', removeBackground = false, animation = false) {
         const config = C.profile(char);
         const state = id === 'idle' ? null : config.states.find(item => item.id === id);
         if (id !== 'idle' && !state) throw new Error('该表情已移除。');
-        const sourceKey = removeBackground ? (state ? state.draftKey : config.draftBaseKey) : state ? config.baseKey : config.referenceKey;
+        if (!state && !removeBackground && !animation && config.formMode === 'symbol' && !config.motifs) throw new Error('请先填写这个角色的代表元素，明确要生成哪种代表形态。');
+        if (animation && !config.baseKey) throw new Error('请先确认基础形象，再制作属于 TA 的动作 GIF。');
+        const sourceKey = animation ? (state?.assetKey || config.baseKey) : removeBackground ? (state ? state.draftKey : config.draftBaseKey) : state ? config.baseKey : config.referenceKey;
         if (!sourceKey) throw new Error(removeBackground ? '请先生成或上传需要去背景的图片。' : state ? '请先确认基础形象，再生成对应表情。' : '请先上传角色参考图。');
         const reference = await C.readAsset(sourceKey);
         if (!reference?.url) throw new Error('参考图未能读取，请重新上传。');
-        const prompt = C.imagePrompt(char, state, removeBackground);
+        const target = animation && !state ? { description: config.pose || '保持已确认母版的待机姿态，轻缓地眨眼或做一个符合人设的小动作，不能默认撒娇。', emotion: '中性待机', when: '安静等待互动时' } : state;
+        const prompt = C.imagePrompt(char, target, removeBackground, animation);
         const progress = message => { if (session(char).busy) { session(char).busy = message; render(); } };
         const result = await callWechatImageGenerationApi(prompt, {
-            referenceImage: reference.url,
+            referenceImage: reference.posterUrl || reference.url,
             requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024', onProgress: progress
         });
         if (!result?.ok || !result.url) {
@@ -132,20 +135,21 @@
             if (details) error.imageDetails = [details.model && '模型：' + details.model, details.path && '接口：' + details.path, details.status && 'HTTP：' + details.status, details.code && '错误码：' + details.code, details.param && '参数：' + details.param, details.requestId && '请求编号：' + details.requestId, details.message && '服务返回：' + details.message].filter(Boolean).join('\n');
             throw error;
         }
-        progress('图片已返回，正在读取并检查透明背景…');
-        const image = await inspectImage(result.url);
+        progress(animation ? '动作序列已返回，正在检查每一帧并制作透明 GIF…' : '图片已返回，正在读取并检查透明背景…');
+        const image = animation ? await window.ByndPetAnimation.fromSpriteSheet(result.url) : await inspectImage(result.url);
         progress('正在保存生成图…');
-        const key = await C.storeAsset(char, { ...image, prompt, baseKey: config.baseKey, referenceKey: config.referenceKey });
+        const key = await C.storeAsset(char, { ...image, prompt, baseKey: config.baseKey, referenceKey: config.referenceKey, stateId: id, stateLabel: state?.label || (animation ? '待机动作' : '基础形象'), source: animation ? 'generated-animation' : removeBackground ? 'background-removal' : 'generated' });
         await C.update(char, next => {
             if (next.referenceKey !== config.referenceKey || next.baseKey !== config.baseKey) throw new Error('生成期间参考图或母版已改变，本次结果未替换已有形象。');
             if (state) {
                 const target = next.states.find(item => item.id === id);
                 if (!target || target.description !== state.description || target.emotion !== state.emotion) throw new Error('表情设定已改变，本次结果未应用。');
                 target.draftKey = key;
-            } else next.draftBaseKey = key;
+            } else if (animation) next.draftIdleKey = key;
+            else next.draftBaseKey = key;
         });
         reloadForm(char);
-        session(char).notice = image.transparent ? '图片已生成。检查长相和表现后，点击确认使用。' : '生成图带有背景，已保留预览。可点击“去背景重试”，通过透明检查后才能使用。';
+        session(char).notice = animation ? '4 帧动作 GIF 已生成。检查动作衔接、角色长相和人设表现后，再确认使用。' : image.transparent ? '图片已生成。检查长相和表现后，点击确认使用。' : '生成图带有背景，已保留预览。可点击“去背景重试”，通过透明检查后才能使用。';
         render();
         return image.transparent;
     }
@@ -163,6 +167,7 @@
             } else {
                 if (next.draftBaseKey !== key) throw new Error('候选图已改变，请重新确认。');
                 next.baseKey = key; next.draftBaseKey = '';
+                next.idleKey = ''; next.draftIdleKey = '';
                 next.states = next.states.map(state => ({ ...state, assetKey: '', draftKey: '' }));
             }
         });
@@ -187,12 +192,38 @@
         C.repaint(char);
         session(char).notice = '已绑定 ' + C.name(char) + '。点击桌宠或与这个角色聊天，即可互动。';
     }
+    async function confirmIdle(char) {
+        const key = C.profile(char).draftIdleKey;
+        const image = await C.readAsset(key);
+        if (!image?.transparent || image.format !== 'gif') throw new Error('请先生成或上传透明的待机 GIF。');
+        await C.update(char, next => {
+            if (next.draftIdleKey !== key || image.baseKey !== next.baseKey) throw new Error('待机动作不属于当前母版，请重新生成。');
+            next.idleKey = key; next.draftIdleKey = '';
+        });
+        session(char).notice = '待机 GIF 已确认，已有动作与表情会继续保留。';
+    }
+    async function discardPreview(char, id) {
+        const config = C.profile(char);
+        const key = id === '__idle_motion' ? config.draftIdleKey : id === 'idle' ? config.draftBaseKey : config.states.find(item => item.id === id)?.draftKey;
+        if (!key) throw new Error('当前没有待放弃的预览。');
+        await C.update(char, next => {
+            const target = id === '__idle_motion' || id === 'idle' ? next : next.states.find(item => item.id === id);
+            const field = id === '__idle_motion' ? 'draftIdleKey' : id === 'idle' ? 'draftBaseKey' : 'draftKey';
+            if (!target || target[field] !== key) throw new Error('预览已改变，请重新查看。');
+            target[field] = '';
+        });
+        const formState = session(char).form.states.find(item => item.id === id);
+        if (formState?.draftKey === key) formState.draftKey = '';
+        session(char).notice = '已放弃预览，原图保留在图片历史中，可在那里删除。';
+    }
     function controls(char, id, draftKey, assetKey) {
         const draft = C.cached(draftKey);
         const taskState = session(char);
         const busy = !!taskState.busy;
         const off = busy ? 'disabled' : '';
-        return `${imageFeedback(char, id)}<div class="pet-actions"><button type="button" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成' : id === 'idle' ? '生成 3D 基础形象' : '生成这张表情'}</button><button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">上传透明 PNG</button>${draft ? `<button type="button" class="${draft.transparent ? '' : 'secondary'}" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? '确认这张形象' : '去背景重试'}</button>` : ''}${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 PNG</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
+        const chosen = draft || C.cached(assetKey);
+        const format = chosen?.format === 'gif' ? 'GIF' : 'PNG';
+        return `${imageFeedback(char, id)}<div class="pet-actions">${C.profile(char).baseKey ? `<button type="button" ${off} data-pet-animate="${id}" onclick="ByndPetStudio.animate(this.dataset.petAnimate)">${id === 'idle' ? '制作待机 GIF' : '生成动作 GIF'}</button>` : ''}<button type="button" class="${id === 'idle' ? '' : 'secondary'}" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成 PNG' : id === 'idle' ? '生成 3D 基础形象' : '生成静态 PNG'}</button><button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">上传 PNG / GIF</button>${draft ? `<button type="button" class="${draft.transparent ? '' : 'secondary'}" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? format === 'GIF' ? '确认这段动作' : '确认这张形象' : '去背景重试'}</button>` : ''}${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 ${format}</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
     }
     function imageFeedback(char, id) {
         const state = session(char);
@@ -203,7 +234,7 @@
         const image = C.cached(key);
         return `<div class="pet-image ${small ? 'small' : ''}">${image?.url ? `<img src="${escape(image.url)}" alt="${escape(label)}">` : '<i class="ri-user-smile-line" aria-hidden="true"></i>'}<span>${escape(label)}</span></div>`;
     }
-    const field = (key, label, value, placeholder, busy, rows = 3) => `<label class="pet-field"><span>${label}</span><textarea rows="${rows}" maxlength="${key === 'relationship' ? 2000 : key === 'boundaries' ? 3000 : 4000}" data-pet-field="${key}" oninput="ByndPetStudio.field(this.dataset.petField,this.value)" placeholder="${placeholder}" ${busy ? 'disabled' : ''}>${escape(value)}</textarea></label>`;
+    const field = (key, label, value, placeholder, busy, rows = 3) => `<label class="pet-field"><span>${label}</span><textarea rows="${rows}" maxlength="${{ relationship: 2000, boundaries: 3000, pose: 1200, motifs: 1600 }[key] || 4000}" data-pet-field="${key}" oninput="ByndPetStudio.field(this.dataset.petField,this.value)" placeholder="${placeholder}" ${busy ? 'disabled' : ''}>${escape(value)}</textarea></label>`;
     function roleAvatar(char) {
         const avatar = typeof getWechatCharAvatarSource === 'function' ? getWechatCharAvatarSource(char) : char?.avatar;
         const source = avatar === window.DEFAULT_AVATAR ? '' : avatar;
@@ -276,9 +307,10 @@
         const inlineFeedback = state?.imageTaskId && ((tab === 'look' && ['idle', 'reference'].includes(state.imageTaskId)) || (tab === 'reactions' && !['idle', 'reference'].includes(state.imageTaskId)));
         const focusedTrigger = document.activeElement?.dataset?.petRoleTrigger;
         const extraOpen = root.querySelector('.pet-persona-extra')?.open;
+        const poseOpen = root.querySelector('.pet-pose-extra')?.open;
         let panel = root.querySelector('.pet-studio-panel');
         if (!panel) { panel = document.createElement('section'); panel.className = 'bynd-agent-panel pet-studio-panel'; root.prepend(panel); }
-        panel.innerHTML = `<header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">‹</button><span><strong>角色专属桌宠</strong><small>保持 TA 的样子，也保持 TA 的性格</small></span><i class="ri-emotion-line" aria-hidden="true"></i></header><main class="pet-studio-main">
+        panel.innerHTML = `<header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">‹</button><span><strong>角色专属桌宠</strong><small>保持 TA 的样子，也保持 TA 的性格</small></span><button type="button" class="pet-history-entry" aria-label="桌宠图片历史" aria-haspopup="dialog" ${!char || state?.busy ? 'disabled' : ''} onclick="ByndPetStudio.history()"><i class="ri-image-2-line" aria-hidden="true"></i></button></header><main class="pet-studio-main">
             ${char ? roleButton(char) : ''}
             ${!char ? '<div class="pet-empty">先在微信添加一个角色，再为 TA 制作桌宠。</div>' : `<nav class="pet-tabs" aria-label="桌宠设置">${[['look', '角色形象'], ['persona', '角色列表'], ['reactions', '专属表情'], ['test', '试互动']].map(([id, label]) => `<button type="button" class="${tab === id ? 'active' : ''}" onclick="ByndPetStudio.tab('${id}')">${label}</button>`).join('')}</nav>
             <div class="pet-api"><i class="ri-palette-line"></i><span>沿用现有生图设置 · ${escape(api?.imageModel || '尚未选择生图模型')}</span><button type="button" onclick="ByndPetStudio.api()">设置</button></div>
@@ -289,6 +321,7 @@
         const main = root.querySelector('.pet-studio-main');
         if (main) main.scrollTop = scrollTop;
         if (extraOpen && root.querySelector('.pet-persona-extra')) root.querySelector('.pet-persona-extra').open = true;
+        if (poseOpen && root.querySelector('.pet-pose-extra')) root.querySelector('.pet-pose-extra').open = true;
         if (focusedTrigger) { roleTrigger = focusedTrigger; focusRoleTrigger(); }
     }
     function renderLook(char, config, state, off) {
@@ -297,10 +330,13 @@
         return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留角色的辨识特征，做成圆脸短身、柔光哑光的呆萌 3D 小玩偶。</p></div></div>${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<p class="pet-style-note">约 2 头身 · 圆润呆萌 · 透明 PNG</p>
             <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div>
             ${imageFeedback(char, 'reference')}
-            ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
+            ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}
+            <details class="pet-details pet-pose-extra"><summary>姿态与角色代表元素</summary><p class="pet-hint">可以坐着、趴着、躺着，也可以与属于 TA 的物品互动。留空时按人设选择自然姿态。</p><div class="pet-form-modes" role="group" aria-label="桌宠形态">${[['character', '人物形态'], ['symbol', '代表形态']].map(([id, label]) => `<button type="button" class="${state.form.formMode === id ? 'active' : 'secondary'}" aria-pressed="${state.form.formMode === id}" ${off} onclick="ByndPetStudio.formMode('${id}')">${label}</button>`).join('')}</div>${field('pose', '姿态与动作', state.form.pose, '例如：盘腿坐着、趴着翻书、侧躺休息，或坐在贝壳上。', state.busy, 2)}${field('motifs', '角色标志物 / 代表元素', state.form.motifs, '填写人设中真实存在或你确认的元素。例如机械乌鸦；说明是陪伴物，还是用于代表角色的形态。', state.busy, 3)}<p class="pet-hint">人物形态可带陪伴物；代表形态会把指定元素做成桌宠。新基础图确认后才替换当前形象，已有表情继续以母版为准。</p></details><button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
             <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>先按参考图制作呆萌的待机形象，确认后再制作专属表情。</p></div></div>
             ${imageBox(config.draftBaseKey || config.baseKey, draft ? (draft.transparent ? '透明背景已检查 · 待你确认' : '背景未透明 · 暂不可应用') : config.baseKey ? '已确认的基础形象' : imageLabel)}
             ${controls(char, 'idle', config.draftBaseKey, config.baseKey)}
+            ${config.draftBaseKey ? '<button type="button" class="pet-text-button" ' + off + ' onclick="ByndPetStudio.discard(\'idle\')">放弃这张预览</button>' : ''}
+            ${config.idleKey || config.draftIdleKey ? `<div class="pet-idle-motion"><h3>待机动作 GIF</h3>${imageBox(config.draftIdleKey || config.idleKey, config.draftIdleKey ? '待确认的待机动作' : '已确认的待机动作', true)}<div class="pet-actions">${config.draftIdleKey ? `<button type="button" ${off} onclick="ByndPetStudio.confirmIdle()">确认待机动作</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.discard('__idle_motion')">放弃待机预览</button>` : ''}<button type="button" class="secondary" ${off} data-pet-download="${escape(config.draftIdleKey || config.idleKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 GIF</button></div><p class="pet-hint">待机动作与母版分别保存，更换待机 GIF 不需要重做已有表情。</p></div>` : ''}
             ${config.baseKey ? `<div class="pet-apply"><button type="button" ${off} onclick="ByndPetStudio.apply()">${C.active(char) ? '当前正在使用' : '绑定并使用桌宠'}</button>${C.active(char) ? `<button type="button" class="secondary" ${off} onclick="ByndPetStudio.hide()">隐藏桌宠</button>` : ''}</div>` : ''}
             <details class="pet-details"><summary>查看基础形象提示词</summary><pre>${escape(C.imagePrompt(char))}</pre></details>
             <p class="pet-hint">新图片确认后才替换母版；换母版后，原表情需要重新派生。图片保存在本机，也包含在完整备份里。</p></section>`;
@@ -315,17 +351,17 @@
             </details><button type="button" class="pet-primary" ${off} onclick="ByndPetStudio.save()">保存人设设置</button><p class="pet-hint">发言和表情会再检查一次是否符合人设。未通过检查、素材缺失或判断不确定时保持待机。</p></section>`;
     }
     function renderReactions(char, config, state, off) {
-        return `<section class="pet-card"><div class="pet-section-title"><b>03</b><div><h3>只属于 TA 的反应</h3><p>先确定表现和适用条件，再生成图片。图片需要逐张确认。</p></div></div>
+        return `<section class="pet-card"><div class="pet-section-title"><b>03</b><div><h3>只属于 TA 的动作与表情</h3><p>结合人设选择坐、趴、躺等姿态和标志物互动，再逐张确认图片。</p></div></div>
             <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.plan()">按人设推荐表情</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.add()">手动添加</button></div>
             ${config.planDraft.length ? `<div class="pet-plan"><strong>待采用的建议</strong>${config.planDraft.map(item => `<p><b>${escape(item.label)}</b> · ${escape(item.description)}<small>适用：${escape(item.when)}</small></p>`).join('')}<button type="button" ${off} onclick="ByndPetStudio.adoptPlan()">采用这组建议</button></div>` : ''}
-            ${!state.form.states.length ? '<div class="pet-empty">还没有专属表情。先让 AI 根据人设推荐，或自行填写。</div>' : `<div class="pet-actions"><button type="button" ${off || (!config.baseKey ? 'disabled' : '')} onclick="ByndPetStudio.batch()">生成缺少的表情图</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.save()">保存表情规则</button>${state.busy && state.batchRunning ? '<button type="button" class="secondary" onclick="ByndPetStudio.stopBatch()">停止后续生成</button>' : ''}</div>`}
-            <p class="pet-hint">最多 8 个专属状态。关闭某一项后，角色就不能自动使用它。</p></section>
+            ${!state.form.states.length ? '<div class="pet-empty">还没有专属动作。先让 AI 根据人设推荐，或自行填写。</div>' : `<div class="pet-actions"><button type="button" ${off || (!config.baseKey ? 'disabled' : '')} onclick="ByndPetStudio.batch(true)">生成缺少的动作 GIF</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.save()">保存表情规则</button>${state.busy && state.batchRunning ? '<button type="button" class="secondary" onclick="ByndPetStudio.stopBatch()">停止后续生成</button>' : ''}</div>`}
+            <p class="pet-hint">最多 8 个专属状态，可各用不同的 PNG 或 GIF。GIF 会沿用生图设置，生成 4 帧连续小动作后合成；逐张确认后，聊天按发言和人设切换。关闭某一项后不会自动使用它。</p></section>
             ${state.form.states.map(item => `<section class="pet-card pet-state-card" data-state-id="${item.id}"><div class="pet-state-heading"><input aria-label="表情名称" maxlength="24" value="${escape(item.label)}" ${off} oninput="ByndPetStudio.stateField('${item.id}','label',this.value)"><label><input type="checkbox" ${item.enabled ? 'checked' : ''} ${off} onchange="ByndPetStudio.toggleState('${item.id}',this.checked)">启用</label></div>
                 ${imageBox(item.draftKey || item.assetKey, item.draftKey ? (C.cached(item.draftKey)?.transparent ? '待确认' : '背景未透明') : item.assetKey ? '已确认' : '尚未生成', true)}
                 <label class="pet-field"><span>内在情绪</span><input value="${escape(item.emotion)}" maxlength="60" ${off} oninput="ByndPetStudio.stateField('${item.id}','emotion',this.value)" placeholder="例如：高兴但克制"></label>
                 <label class="pet-field"><span>外在表现</span><textarea rows="2" maxlength="800" ${off} oninput="ByndPetStudio.stateField('${item.id}','description',this.value)" placeholder="描述表情、姿势和幅度">${escape(item.description)}</textarea></label>
                 <label class="pet-field"><span>适用条件与关系要求</span><textarea rows="2" maxlength="600" ${off} oninput="ByndPetStudio.stateField('${item.id}','when',this.value)" placeholder="什么情况下才允许出现这种表现">${escape(item.when)}</textarea></label>
-                ${controls(char, item.id, item.draftKey, item.assetKey)}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.remove('${item.id}')">移除此状态</button></section>`).join('')}`;
+                ${controls(char, item.id, item.draftKey, item.assetKey)}${item.draftKey ? `<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.discard('${item.id}')">放弃这张预览</button>` : ''}<button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.remove('${item.id}')">移除此状态</button></section>`).join('')}`;
     }
     function renderTest(char, config, state, off) {
         const last = state.test;
@@ -341,6 +377,7 @@
         const boundId = typeof getMonitorPetBoundChar === 'function' ? getMonitorPetBoundChar()?.id : '';
         selectedId = chars().find(char => char.id === charId)?.id || chars().find(char => char.id === boundId)?.id || chars()[0]?.id || '';
         closeRoles(false);
+        window.ByndPetHistory?.close(false);
         let root = document.getElementById('bynd-pet-studio');
         if (!root) { root = document.createElement('div'); root.id = 'bynd-pet-studio'; root.className = 'bynd-agent-overlay'; getWechatModalRoot().appendChild(root); }
         render();
@@ -352,37 +389,45 @@
     }
     window.openMonitorPetStudio = open;
     window.ByndPetStudio = {
-        render, inspectImage, generateImage, confirmImage, saveForm, openRoles, closeRoles, filterRoles,
-        close: () => { closeRoles(false); document.getElementById('bynd-pet-studio')?.remove(); },
+        render, sourceData, inspectImage, generateImage, confirmImage, discardPreview, saveForm, openRoles, closeRoles, filterRoles,
+        close: () => { closeRoles(false); window.ByndPetHistory?.close(false); document.getElementById('bynd-pet-studio')?.remove(); },
+        history: () => { const char = current(); if (char && !session(char).busy) return window.ByndPetHistory?.open(char); },
         select: async id => {
             const char = chars().find(item => item.id === id);
             if (!char) return false;
-            closeRoles(false); selectedId = id; render(); focusRoleTrigger();
+            closeRoles(false); window.ByndPetHistory?.close(false); selectedId = id; render(); focusRoleTrigger();
             try { await C.preload(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
             if (current() === char) render();
             return true;
         },
         tab: id => { tab = ['look', 'persona', 'reactions', 'test'].includes(id) ? id : 'look'; render(); const main = document.querySelector('#bynd-pet-studio .pet-studio-main'); if (main) main.scrollTop = 0; },
-        field: (key, value) => { const char = current(); if (char && ['appearance', 'rules', 'boundaries', 'relationship', 'autoReact'].includes(key)) session(char).form[key] = value; },
+        field: (key, value) => { const char = current(); if (char && ['appearance', 'pose', 'motifs', 'rules', 'boundaries', 'relationship', 'autoReact'].includes(key)) session(char).form[key] = value; },
+        formMode: value => { const char = current(); if (!char || session(char).busy) return; session(char).form.formMode = value === 'symbol' ? 'symbol' : 'character'; render(); },
         stateField: (id, key, value) => { const state = current() && session(current()).form.states.find(item => item.id === id); if (state && ['label', 'emotion', 'description', 'when'].includes(key)) state[key] = value; },
         save: () => task('正在保存设定…', async (char, state) => { state.notice = '设定已保存。'; }),
         generate: id => task(id === 'idle' ? '正在生成 3D 基础形象…' : '正在生成表情图…', char => generateImage(char, id), true, id),
+        animate: id => task('正在沿用生图设置制作 4 帧动作 GIF…', char => generateImage(char, id, false, true), true, id),
         removeBackground: id => task('正在保留角色并移除背景…', char => generateImage(char, id, true), true, id),
         confirm: id => task('正在确认图片…', char => confirmImage(char, id), true, id),
+        confirmIdle: () => task('正在确认待机动作…', confirmIdle, true, 'idle'),
+        discard: id => task('正在放弃预览…', char => discardPreview(char, id), false, id === '__idle_motion' ? 'idle' : id),
         apply: () => task('正在绑定桌宠…', apply, true, 'idle'),
         hide: () => task('正在隐藏桌宠…', (char, state) => { setMonitorPetEnabled(false); state.notice = '桌宠已隐藏，角色素材已保留。'; }),
         api: () => { window.ByndPetStudio.close(); openApp('settings'); },
-        pick: target => { const input = document.getElementById('pet-studio-file'); if (!input || session(current()).busy) return; input.dataset.target = target; input.accept = target === 'reference' ? 'image/png,image/jpeg,image/webp' : 'image/png'; input.click(); },
+        pick: target => { const input = document.getElementById('pet-studio-file'); if (!input || session(current()).busy) return; input.dataset.target = target; input.accept = target === 'reference' ? 'image/png,image/jpeg,image/webp' : 'image/png,image/gif'; input.click(); },
         upload: async input => {
             const file = input.files?.[0]; const target = input.dataset.target; input.value = '';
             if (!file) return false;
             return task('正在读取并保存图片…', async (char, state) => {
                 const config = C.profile(char);
                 if (target !== 'reference' && target !== 'idle' && !config.baseKey) throw new Error('先确认基础形象，再添加对应表情。');
-                const value = await inspectImage(file, target === 'reference');
-                const key = await C.storeAsset(char, { ...value, baseKey: config.baseKey, referenceKey: config.referenceKey });
+                const header = new Uint8Array(await file.slice(0, 6).arrayBuffer());
+                const gif = header[0] === 71 && header[1] === 73 && header[2] === 70;
+                const value = gif && target !== 'reference' ? await window.ByndPetAnimation.inspectGif(file) : await inspectImage(file, target === 'reference');
+                const key = await C.storeAsset(char, { ...value, baseKey: config.baseKey, referenceKey: config.referenceKey, source: 'upload', stateId: target, stateLabel: target === 'idle' ? '基础形象' : config.states.find(item => item.id === target)?.label || '角色参考图' });
                 await C.update(char, next => {
                     if (target === 'reference') { next.referenceKey = key; next.referenceName = C.clean(file.name, 100); next.draftBaseKey = ''; }
+                    else if (target === 'idle' && value.format === 'gif' && next.baseKey) next.draftIdleKey = key;
                     else if (target === 'idle') next.draftBaseKey = key;
                     else { const item = next.states.find(row => row.id === target); if (!item) throw new Error('表情已移除。'); item.draftKey = key; }
                 });
@@ -413,7 +458,7 @@
             if (!C.hasPersona(char)) throw new Error('推荐互动表情需要性格与关系设定，请在「角色列表」补充角色卡或世界书。基础形象可直接按参考图生成。');
             const result = await callChatApi([
                 { role: 'system', content: '为指定角色设计 4-6 个可用于桌宠的专属外在表现。人设、禁区和关系优先，不能套用被夸就脸红、摸头就开心等通用规则。内在情绪与外在表现分开：克制角色可以开心但只轻微微笑。可结合倾听、共读、听歌、困倦等场景，动作仍需符合角色。每项明确适用条件、关系门槛和动作幅度，不生成关系升级。避免与已有状态重复。只输出 JSON {"states":[{"label":"短名称","emotion":"内在情绪","description":"可画出的面部表情和肢体姿势，保持角色服装与辨识特征","when":"有依据时才允许触发的具体条件"}]}。不要生成图片。' },
-                { role: 'user', content: C.persona(char) + '\n\n【最近互动】\n' + C.recent(char) + '\n\n【已有状态】\n' + JSON.stringify(C.profile(char).states) }
+                { role: 'user', content: C.persona(char) + '\n\n【姿态与物品设计要求】\n推荐中包含两到三种适合该角色的姿态变化，例如坐着、趴卧、侧躺、倚靠，结合共读、休息或倾听等真实场景；不要整组只有站立换表情，也不强行凑齐每种姿态。使用角色卡、世界书和已确认代表元素里确实存在的标志物或陪伴物，明确角色与物品的动作和位置。无依据不编造，不仅凭姓名联想。代表形态不会改变人格或说话方式，变体必须沿用已确认母版的形态，不擅自在人与动物之间变换。每项适用条件仍服从性格、禁区与关系。\n用户姿态偏好：' + (C.profile(char).pose || '按人设选择') + '\n\n【最近互动】\n' + C.recent(char) + '\n\n【已有状态】\n' + JSON.stringify(C.profile(char).states) }
             ], { max_tokens: 2500, temperature: 0.5, skipLengthContinuation: true, skipStatusValidationRetry: true });
             const states = result?.ok && C.normalizeStates(C.parse(result.content)?.states);
             if (!states?.length) throw new Error(result?.error || '没有收到完整的表情建议，请重试。');
@@ -431,38 +476,42 @@
         add: () => { const char = current(); if (!char || session(char).busy) return; const state = session(char); state.imageTaskId = ''; state.errorDetails = ''; if (state.form.states.length >= 8) { state.error = '最多添加 8 个状态。'; render(); return; } state.form.states.push({ id: 's_' + C.uid(), label: '自定义表情', emotion: '', description: '', when: '', enabled: true, assetKey: '', draftKey: '' }); render(); },
         remove: id => task('正在移除状态…', async char => { const form = session(char).form; const before = form.states; form.states = form.states.filter(item => item.id !== id); try { await saveForm(char); } catch (error) { form.states = before; throw error; } }, false),
         toggleState: (id, enabled) => task('正在保存状态开关…', async char => { const target = session(char).form.states.find(item => item.id === id); if (target) { const before = target.enabled; target.enabled = enabled; try { await saveForm(char); } catch (error) { target.enabled = before; throw error; } } }, false),
-        batch: () => task('正在生成表情图…', async (char, state) => {
+        batch: (animation = false) => task(animation ? '正在生成动作 GIF…' : '正在生成表情图…', async (char, state) => {
             state.batchRunning = true;
-            const pending = C.profile(char).states.filter(item => item.enabled && !item.assetKey && !item.draftKey);
+            const pending = C.profile(char).states.filter(item => item.enabled && (animation ? C.cached(item.draftKey || item.assetKey)?.format !== 'gif' : !item.assetKey && !item.draftKey));
             if (!pending.length) { state.notice = '没有缺少的表情图，可以逐张确认或重生成。'; return; }
             let count = 0;
             for (const item of pending) {
                 if (state.cancel) break;
                 state.imageTaskId = item.id;
                 state.busy = `正在生成表情 ${++count}/${pending.length} · ${item.label}…`; render();
-                if (!await generateImage(char, item.id)) break;
+                if (!await generateImage(char, item.id, false, animation)) break;
             }
             if (state.cancel) state.notice = '已停止后续生成；已生成的图片已保留。';
         }),
         stopBatch: () => { if (current()) { session(current()).cancel = true; session(current()).notice = '当前这张完成后停止后续生成。'; render(); } },
-        download: key => task('正在准备 PNG…', async (char, state) => {
+        exportImage: async (char, key) => {
             const asset = await C.readAsset(key);
             if (!asset?.url) throw new Error('图片未能读取。');
-            const filename = (C.name(char).replace(/[\\/:*?"<>|]/g, '_') || 'char') + '-pet.png';
+            const gif = /^data:image\/gif;/i.test(asset.url);
+            const format = gif ? 'GIF' : 'PNG';
+            const filename = (C.name(char).replace(/[\\/:*?"<>|]/g, '_') || 'char') + '-pet.' + format.toLowerCase();
             if (typeof window.ByndAndroid?.exportPng === 'function') {
+                if (gif && typeof window.ByndAndroid.exportPetImage !== 'function') throw new Error('请更新 APK 后保存 GIF。');
                 const id = C.uid();
-                state.busy = '请选择 PNG 的保存位置…'; render();
                 const result = await new Promise((resolve, reject) => {
                     downloads.set(id, { resolve, reject });
-                    try { window.ByndAndroid.exportPng(id, filename, asset.url); }
+                    try { if (gif) window.ByndAndroid.exportPetImage(id, filename, asset.url); else window.ByndAndroid.exportPng(id, filename, asset.url); }
                     catch (error) { downloads.delete(id); reject(error); }
                 });
-                if (!result.ok) throw new Error(result.message || 'PNG 未能保存。');
-                state.notice = result.message || 'PNG 已保存。';
+                if (!result.ok) throw new Error(result.message || format + ' 未能保存。');
+                return result.message || format + ' 已保存。';
             } else {
                 const link = document.createElement('a'); link.href = asset.url; link.download = filename; link.click();
+                return '已开始下载 ' + format + '。';
             }
-        }, false),
+        },
+        download: key => task('正在准备 PNG…', async (char, state) => { state.notice = await window.ByndPetStudio.exportImage(char, key); }, false),
         album: key => task('正在存入相册…', async (char, state) => { const asset = await C.readAsset(key); if (!asset?.url) throw new Error('图片未能读取。'); await recordWechatGeneratedImageToAlbum(char, { type: 'image', isMe: false, content: asset.url, timestamp: asset.createdAt, description: C.name(char) + ' · 专属桌宠', imagePrompt: asset.prompt || '' }); state.notice = '已存入这个角色的相册。'; }, false),
         testText: value => { if (current()) session(current()).testText = value; },
         test: () => task('正在检查角色反应…', async (char, state) => { state.test = await C.testReaction(char, state.testText); })

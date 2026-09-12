@@ -7055,12 +7055,23 @@ function renderMonitorPetFloat(pet, mode = '') {
     node.className = `monitor-pet-floating ${custom ? 'character-pet' : ''} ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} pop`;
     node.dataset.boundChar = boundChar ? boundChar.id : '';
     node.dataset.petState = visual?.state || 'idle';
-    node.innerHTML = `
-        ${hasBubble ? `<div class="monitor-pet-floating-bubble">${pending ? '<span class="monitor-pet-thinking-text">...</span>' : musicEscapeHtml(message)}</div>` : ''}
-        <button type="button" class="monitor-pet-floating-body" aria-label="${musicEscapeAttr(boundName ? `点击让 ${boundName} 说话` : '先接入角色再让桌宠说话')}" title="${musicEscapeAttr(boundName ? `绑定：${boundName}` : '未绑定角色')}">
-            ${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}
-        </button>
-    `;
+    let bubble = node.querySelector('.monitor-pet-floating-bubble');
+    if (hasBubble) {
+        if (!bubble) { bubble = document.createElement('div'); bubble.className = 'monitor-pet-floating-bubble'; node.prepend(bubble); }
+        if (pending) bubble.innerHTML = '<span class="monitor-pet-thinking-text">...</span>';
+        else bubble.textContent = message;
+    } else bubble?.remove();
+    let body = node.querySelector('.monitor-pet-floating-body');
+    if (!body) { body = document.createElement('button'); body.type = 'button'; body.className = 'monitor-pet-floating-body'; node.appendChild(body); }
+    body.setAttribute('aria-label', boundName ? `点击让 ${boundName} 说话` : '先接入角色再让桌宠说话');
+    body.title = boundName ? `绑定：${boundName}` : '未绑定角色';
+    if (image) {
+        let picture = body.querySelector('img');
+        if (!picture) { picture = document.createElement('img'); picture.onerror = () => picture.remove(); body.replaceChildren(picture); }
+        // Keep the same image node and source so ordinary repaints do not restart GIFs.
+        if (picture.getAttribute('src') !== image) picture.src = image;
+        picture.alt = pet.displayName || '';
+    } else if (!body.querySelector('i')) body.innerHTML = '<i class="ri-bubble-chart-line"></i>';
     bindMonitorPetFloatEvents(node);
     applyMonitorPetFloatPosition(host, node, readMonitorPetFloatPosition());
     clearTimeout(renderMonitorPetFloat._timer);
@@ -7229,44 +7240,62 @@ async function requestMonitorPetReaction(reason = 'tap') {
     }
     const now = Date.now();
     if (monitorPetAiBusy || now - monitorPetLastReactionAt < 2200) return false;
+    const requests = window.ByndPetRequests;
+    const access = requests?.acquire(reason, char.id);
+    if (access && !access.lease) {
+        updateMonitorPetStatus(access.message);
+        if (reason === 'tap' && typeof showWechatToast === 'function') showWechatToast(access.message);
+        return false;
+    }
     monitorPetAiBusy = true;
     monitorPetLastReactionAt = now;
     const state = ensureMonitorPetState(char);
+    const beforeBubble = { bubbleText: state.bubbleText, bubbleAt: state.bubbleAt };
     state.pending = true;
     state.lastError = '';
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    syncMonitorPetFloating();
     try {
+        syncMonitorPetFloating();
         const screenImage = isMonitorScreenSharingActive()
             ? await captureMonitorScreenFrame().catch(() => '')
             : '';
         if (reason === 'observe' && !/^data:image\//i.test(String(screenImage || ''))) {
             return false;
         }
-        const result = await callChatApi(buildMonitorPetReactionMessages(char, reason, screenImage), {
+        const messages = buildMonitorPetReactionMessages(char, reason, screenImage);
+        const options = {
             max_tokens: screenImage ? 220 : 160,
             temperature: 0.82,
             background: true,
-            backgroundPriority: 1
-        });
+            backgroundPriority: 1,
+            skipLengthContinuation: true,
+            skipStatusValidationRetry: true,
+            skipEmptyLengthRetry: true,
+            canSend: () => isMonitorPetEnabled() && getMonitorPetBoundChar() === char && !window.ByndCharacterPet?.active(char)
+        };
+        const result = requests ? await requests.call(access.lease, messages, options) : await callChatApi(messages, options);
+        if (!options.canSend()) return false;
         const text = normalizeMonitorPetReactionText(result && result.ok ? result.content : '');
         if (!text) {
-            state.lastError = (result && result.error) || 'AI 返回了空内容';
+            state.lastError = result?.ok ? 'AI 返回了空内容' : requests ? requests.message(result) : result?.error || '互动未完成';
             updateMonitorPetStatus(`${getMonitorCharName(char)} 暂时没有生成桌宠气泡：${state.lastError}`);
+            if (reason === 'tap' && typeof showWechatToast === 'function') showWechatToast(state.lastError);
             return false;
         }
         state.bubbleText = text;
         state.bubbleAt = Date.now();
         state.lastError = '';
+        state.pending = false;
+        if (typeof saveCharactersToStorage === 'function' && await saveCharactersToStorage() === false) throw new Error('桌宠互动未能保存，请重试。');
         monitorPetFloatMessage = '';
         updateMonitorPetStatus(`${getMonitorCharName(char)} 已更新桌宠气泡。`);
     } catch (e) {
+        Object.assign(state, beforeBubble);
         state.lastError = e && e.message ? e.message : String(e || '生成失败');
         updateMonitorPetStatus(`${getMonitorCharName(char)} 的桌宠气泡生成失败：${state.lastError}`);
     } finally {
+        if (access?.lease) requests.release(access.lease);
         state.pending = false;
         monitorPetAiBusy = false;
-        if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
         syncMonitorPetFloating();
     }
     return false;

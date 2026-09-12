@@ -174,7 +174,7 @@ public class MainActivity extends Activity {
             pendingPngId = null;
             if (id == null) return;
             if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-                notifyPngExport(id, false, "已取消保存 PNG");
+                notifyPngExport(id, false, "已取消保存图片");
             } else {
                 final Uri destination = data.getData();
                 new Thread(() -> {
@@ -183,10 +183,10 @@ public class MainActivity extends Activity {
                         stream.write(bytes);
                         stream.flush();
                     } catch (Exception error) {
-                        runOnUiThread(() -> notifyPngExport(id, false, "PNG 未能保存，请重新选择位置后重试"));
+                        runOnUiThread(() -> notifyPngExport(id, false, "图片未能保存，请重新选择位置后重试"));
                         return;
                     }
-                    runOnUiThread(() -> notifyPngExport(id, true, "PNG 已保存到所选位置"));
+                    runOnUiThread(() -> notifyPngExport(id, true, "图片已保存到所选位置"));
                 }, "BYND-PNG-export").start();
             }
             applyFullscreenSystemBars();
@@ -313,18 +313,24 @@ public class MainActivity extends Activity {
         }
         if (pendingPngId != null) { notifyPngExport(id, false, "请先完成当前图片的保存"); return; }
         try {
-            if (dataUrl == null || dataUrl.length() > 28 * 1024 * 1024 || !dataUrl.startsWith("data:image/png;base64,")) throw new IllegalArgumentException();
-            byte[] bytes = Base64.decode(dataUrl.substring("data:image/png;base64,".length()), Base64.DEFAULT);
-            byte[] signature = new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+            if (dataUrl == null || dataUrl.length() > 28 * 1024 * 1024) throw new IllegalArgumentException();
+            boolean gif = dataUrl.startsWith("data:image/gif;base64,");
+            String mime = gif ? "image/gif" : "image/png";
+            String extension = gif ? ".gif" : ".png";
+            String prefix = "data:" + mime + ";base64,";
+            if (!dataUrl.startsWith(prefix)) throw new IllegalArgumentException();
+            byte[] bytes = Base64.decode(dataUrl.substring(prefix.length()), Base64.DEFAULT);
+            byte[] signature = gif ? new byte[] {71, 73, 70, 56} : new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
             if (bytes.length < signature.length) throw new IllegalArgumentException();
             for (int i = 0; i < signature.length; i++) if (bytes[i] != signature[i]) throw new IllegalArgumentException();
-            String filename = name == null ? "BYND-char-pet.png" : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
+            if (gif && (bytes.length < 13 || (bytes[4] != 55 && bytes[4] != 57) || bytes[5] != 97)) throw new IllegalArgumentException();
+            String filename = name == null ? "BYND-char-pet" + extension : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
             if (filename.length() > 100) filename = filename.substring(0, 100);
-            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".png")) filename += ".png";
+            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(extension)) filename += extension;
             // Storage Access Framework grants access only to the user-selected document.
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("image/png");
+            intent.setType(mime);
             intent.putExtra(Intent.EXTRA_TITLE, filename);
             pendingPngBytes = bytes;
             pendingPngId = id;
@@ -332,11 +338,16 @@ public class MainActivity extends Activity {
         } catch (Exception error) {
             pendingPngBytes = null;
             pendingPngId = null;
-            notifyPngExport(id, false, "无法导出 PNG，请检查图片或系统文件管理器");
+            notifyPngExport(id, false, "无法导出图片，请检查图片或系统文件管理器");
         }
     }
 
     public class ByndAndroidBridge {
+        @JavascriptInterface
+        public void exportPetImage(String id, String name, String dataUrl) {
+            runOnUiThread(() -> requestPngExport(id, name, dataUrl));
+        }
+
         @JavascriptInterface
         public void exportPng(String id, String name, String dataUrl) {
             runOnUiThread(() -> requestPngExport(id, name, dataUrl));

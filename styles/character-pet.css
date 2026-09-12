@@ -4,6 +4,41 @@
 .pet-studio-main button { border: 0; border-radius: 11px; padding: 11px 14px; background: #638772; color: white; font-size: 12px; font-weight: 600; min-height: 40px; }
 .pet-studio-main button.secondary { background: #edf2ed; color: #627669; }
 .pet-studio-main button:disabled { opacity: .45; cursor: default; }
+.pet-history-entry i { font-size: 21px; }
+.pet-history-entry:disabled { opacity: .4; }
+.pet-form-modes { display: flex; gap: 8px; margin-top: 14px; }
+.pet-form-modes button { flex: 1; min-width: 0; }
+.pet-pose-extra > summary { color: #536e54; font-size: 12px; }
+.pet-idle-motion { margin-top: 18px; padding-top: 14px; border-top: 1px solid #e6ecdf; }
+.pet-idle-motion h3 { font-size: 13px; color: #536e54; }
+.pet-history { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #f6f8f4; color: #304139; }
+.pet-history .bynd-agent-header { flex-shrink: 0; }
+.pet-history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+.pet-history-toolbar p { margin: 0; color: #788778; font-size: 11px; line-height: 1.7; }
+.pet-history-toolbar button { flex-shrink: 0; min-height: 34px; padding: 6px 12px; }
+.pet-history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 0; }
+.pet-history-card { min-width: 0; overflow: hidden; border: 1px solid #e0e8dc; border-radius: 17px; background: #fff; }
+.pet-history-main .pet-history-view { display: block; width: 100%; padding: 0; border-radius: 16px; text-align: left; color: #405947; background: #fff; font-weight: 400; }
+.pet-history-view .pet-image { width: 100%; max-width: none; margin: 0; border-radius: 0; }
+.pet-history-caption { display: block; padding: 12px 10px; overflow-wrap: anywhere; line-height: 1.7; }
+.pet-history-caption strong { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; }
+.pet-history-caption small { display: block; font-size: 10px; color: #79887a; font-weight: 400; }
+.pet-history-tag, .pet-history-used { display: inline-block; margin: 8px 4px 0 0; padding: 2px 6px; border-radius: 6px; background: #edf3e9; color: #607c55; font-size: 9px; }
+.pet-history-used { background: #f7f2e5; color: #86743f; }
+.pet-history-detail { padding: 14px; border: 1px solid #e0e8dc; border-radius: 20px; background: #fff; }
+.pet-history-detail > .pet-image { width: 100%; max-width: 620px; }
+.pet-history-detail h3 { margin: 18px 0 12px; font-size: 16px; }
+.pet-history-detail dl { display: grid; gap: 10px; margin: 0; font-size: 12px; line-height: 1.7; }
+.pet-history-detail dl > div { display: flex; gap: 15px; }
+.pet-history-detail dt { flex: 0 0 30px; color: #8a9887; }
+.pet-history-detail dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: #526951; }
+.pet-history-protected { padding: 12px; margin: 16px 0 6px; border-radius: 11px; background: #f5f6ef; color: #798269; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.pet-history-confirm { padding: 13px; margin-top: 16px; border: 1px solid #eddbd1; border-radius: 13px; background: #fff8f3; }
+.pet-history-confirm p { margin: 0; font-size: 12px; color: #876257; line-height: 1.8; }
+.pet-history-main button.pet-history-delete { color: #946b5d; background: #f8eee7; }
+.pet-history-missing { padding: 16px; color: #899784; font-size: 11px; text-align: center; }
+.pet-history button:focus-visible { outline: 2px solid #6c9166; outline-offset: 3px; }
+@media (min-width: 700px) { .pet-history-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .pet-studio-main .pet-role-button { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 12px; border: 1px solid #e0e8dc; border-radius: 17px; background: #fff; color: #344a3b; text-align: left; box-shadow: 0 3px 12px #3d573708; }
 .pet-role-avatar { position: relative; display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; border-radius: 13px; background: #eaf1e4; color: #789271; font-size: 17px; font-weight: 600; }
 .pet-role-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

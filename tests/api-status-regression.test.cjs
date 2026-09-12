@@ -74,6 +74,20 @@ function harness() {
     return { context, state, char, modal };
 }
 
+test('queued work rechecks its dispatch guard and cancels before selecting or calling the API', async () => {
+    const { context, state } = harness();
+    const held = deferred(); state.respond = () => held.promise;
+    const first = context.callChatApi([], { background: true });
+    let valid = true;
+    const second = context.callChatApi([], { background: true, canSend: () => valid });
+    valid = false; held.resolve(successResponse(validSnapshot()));
+    await first;
+    const cancelled = await second;
+    assert.equal(cancelled.cancelled, true);
+    assert.equal(cancelled.errorSource, 'client');
+    assert.equal(state.requests.length, 1);
+});
+
 test('status requests carry the current time and the contact gap after a long absence', async () => {
     const h = harness();
     h.char.history = [

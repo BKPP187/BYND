@@ -6,15 +6,60 @@ const vm = require('node:vm');
 const { root, sourceSection, deferred } = require('./helpers/harness.cjs');
 
 const png = 'data:image/png;base64,aGVsbG8=';
+function assetDatabase(data, state) {
+    return { close() {}, transaction() {
+        const tx = {};
+        let ended = false, scheduled = false;
+        const deletes = [];
+        const finish = () => {
+            if (scheduled) return;
+            scheduled = true;
+            setImmediate(() => {
+                if (ended) return;
+                ended = true;
+                if (deletes.length && state.failDelete) { tx.error = new Error('delete transaction aborted'); tx.onabort?.(); return; }
+                deletes.forEach(key => data.delete(key));
+                tx.oncomplete?.();
+            });
+        };
+        tx.abort = () => { ended = true; queueMicrotask(() => tx.onabort?.()); };
+        tx.objectStore = () => ({
+            get(key) {
+                const request = {};
+                queueMicrotask(() => { request.result = data.get(key); request.onsuccess?.(); finish(); });
+                return request;
+            },
+            delete(key) { deletes.push(key); finish(); return {}; },
+            openCursor(range) {
+                const request = {};
+                const keys = [...data.keys()].filter(key => key >= range.lower && key <= range.upper).sort();
+                let index = 0;
+                const next = () => queueMicrotask(() => {
+                    if (state.failRead) { tx.error = request.error = new Error('read transaction aborted'); request.onerror?.(); tx.onabort?.(); return; }
+                    const key = keys[index++];
+                    request.result = key == null ? null : { key, value: data.get(key), continue: next };
+                    request.onsuccess?.();
+                    if (key == null) finish();
+                });
+                next(); return request;
+            }
+        });
+        return tx;
+    } };
+}
 function harness() {
     const char = { id: 'pet-a', name: '沈清', description: '成年研究员，冷静克制，不喜欢被当成小孩。', worldBook: [{ content: '与用户是刚认识的同事。' }], history: [{ isMe: true, content: '今天辛苦了。', timestamp: 1 }], chatConfig: { characterPet: { active: true, autoReact: true, revision: 'initial', referenceKey: 'reference', baseKey: 'base', rules: '高兴也只轻微微笑。', boundaries: '禁止幼儿化和无依据亲昵。', relationship: '初识同事', states: [{ id: 'quiet_smile', label: '浅笑', emotion: '克制的愉悦', description: '仅嘴角轻微上扬，保持站姿。', when: '受到真诚的感谢且态度愉悦时', enabled: true, assetKey: 'smile', draftKey: '' }] } } };
     const other = { id: 'pet-b', name: '乔乐', description: '活泼直率。', history: [], chatConfig: {} };
     const data = new Map([['reference', { url: png }], ['base', { url: png, transparent: true }], ['smile', { url: png, transparent: true, baseKey: 'base' }]]);
     const timers = new Map();
-    const state = { enabled: true, bound: char, saves: [], failSave: false, failAsset: false, calls: [], answer: { ok: true, content: '{"allow":true,"note":"符合克制的表现。"}' } };
+    const state = { now: 1800000000000, api: { baseUrl: 'https://pet.test/v1', model: 'test', apiKey: 'test-only' }, sharedUntil: 0, enabled: true, bound: char, saves: [], failSave: false, failAsset: false, calls: [], answer: { ok: true, content: '{"allow":true,"note":"符合克制的表现。"}' } };
+    class Clock extends Date { static now() { return state.now; } }
     let timerId = 0;
     const context = vm.createContext({
-        console: { warn() {}, log() {} }, Blob, FormData, Response, URL, AbortSignal,
+        console: { warn() {}, log() {} }, Blob, FormData, Response, URL, AbortSignal, Date: Clock,
+        IDBKeyRange: { bound: (lower, upper) => ({ lower, upper }) },
+        getChatApiRateLimitScope: () => JSON.stringify([state.api.baseUrl.replace(/\/+$/, ''), state.api.model, state.api.apiKey]),
+        getChatApiRateLimitPauseRemainingMs: () => Math.max(0, state.sharedUntil - state.now),
         window: { myCharacters: [char, other], dispatchEvent() {}, addEventListener() {} },
         document: { hidden: false, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} },
         CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
@@ -23,7 +68,7 @@ function harness() {
         getMonitorPetCurrentSceneText: () => '用户在 BYND 桌面。', syncMonitorPetFloating() {},
         saveCharactersToStorage: async () => { if (state.failSave) return false; state.saves.push(JSON.parse(JSON.stringify(context.window.myCharacters))); return true; },
         saveMonitorPetAsset: async (key, value) => { if (state.failAsset) throw new Error('database full'); data.set(key, value); },
-        openMonitorPetDb: async () => ({ close() {}, transaction: () => ({ objectStore: () => ({ get(key) { const request = {}; queueMicrotask(() => { request.result = data.get(key); request.onsuccess(); }); return request; } }) }) }),
+        openMonitorPetDb: async () => assetDatabase(data, state),
         callChatApi: async (messages, options) => { state.calls.push({ messages, options }); return typeof state.answer === 'function' ? state.answer(messages) : state.answer; },
         stripWechatPromptText: (value, limit) => String(value || '').replace(/<[^>]*>/g, '').trim().slice(0, limit),
         getWechatPromptWorldBookSelection: c => c.chatConfig?.promptWorldBookIds || null,
@@ -35,6 +80,315 @@ function harness() {
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), context);
     return { context, C: context.window.ByndCharacterPet, studio: context.window.ByndPetStudio, char, other, data, state, timers };
 }
+
+const petReply = { ok: true, content: '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}' };
+const reviewReply = { ok: true, content: '{"allow":true,"note":"符合人设"}' };
+const answerPet = messages => messages[0].content.includes('审校器') ? reviewReply : petReply;
+
+test('pose and motif preferences persist per character and preserve the old settings on save failure', async () => {
+    const { C, char, other, studio, state } = harness();
+    await studio.select(char.id);
+    studio.field('pose', '坐在贝壳上，安静倾听');
+    studio.field('motifs', '贝壳是已确认的座椅，不是背景');
+    studio.formMode('symbol');
+    state.failSave = true;
+    await assert.rejects(studio.saveForm(char), /保存/);
+    assert.equal(C.profile(char).pose, '');
+    state.failSave = false; await studio.saveForm(char);
+    assert.equal(C.profile(char).pose, '坐在贝壳上，安静倾听');
+    assert.equal(C.profile(char).formMode, 'symbol');
+    assert.match(C.profile(char).motifs, /贝壳/);
+    assert.equal(C.profile(other).motifs, '');
+});
+
+test('image prompts support sitting, resting, role motifs and explicit symbolic forms without inventing associations', async () => {
+    const { C, char, other, studio, context } = harness();
+    Object.assign(char.chatConfig.characterPet, { pose: '坐着和机械乌鸦互动', motifs: '用户确认：机械乌鸦是这个角色的代表元素' });
+    const person = C.imagePrompt(char);
+    assert.match(person, /坐着和机械乌鸦互动/);
+    assert.match(person, /人物模式.*不能擅自变成/);
+    assert.doesNotMatch(C.imagePrompt(other), /机械乌鸦/);
+    char.chatConfig.characterPet.formMode = 'symbol';
+    const symbol = C.imagePrompt(char);
+    assert.match(symbol, /只绘制该代表形态/);
+    assert.doesNotMatch(symbol, /约 1.8 至 2 头身/);
+    assert.match(C.imagePrompt(char, C.profile(char).states[0]), /不把人物母版变成动物/);
+    assert.match(C.imagePrompt(char, null, true), /保留图中已有的角色代表物.*正坐着或倚靠/);
+    char.chatConfig.characterPet.motifs = '';
+    let calls = 0; context.callWechatImageGenerationApi = async () => { calls++; };
+    await assert.rejects(studio.generateImage(char), /代表元素/);
+    assert.equal(calls, 0);
+});
+
+test('animation uses the same image provider and approved identity while failed requests keep existing expressions', async () => {
+    const { C, char, studio, context } = harness();
+    const before = JSON.stringify(C.profile(char)); const calls = [];
+    context.callWechatImageGenerationApi = async (prompt, options) => { calls.push({ prompt, options }); return { ok: false, error: 'rate limit exceeded' }; };
+    await assert.rejects(studio.generateImage(char, 'quiet_smile', false, true), /rate limit/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.referenceImage, png);
+    assert.match(calls[0].prompt, /2×2.*4 帧/);
+    assert.match(calls[0].prompt, /不能复制四张相同静帧/);
+    assert.match(calls[0].prompt, /禁止幼儿化/);
+    assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+test('confirmed animated states follow the reviewed reply and use a still poster for reduced motion', async () => {
+    const { C, char, state, data, context } = harness();
+    const gif = 'data:image/gif;base64,R0lGODlh';
+    data.set('smile', { url: gif, posterUrl: png, transparent: true, format: 'gif', baseKey: 'base' });
+    await C.preload(char);
+    state.answer = reviewReply;
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢。'), true);
+    assert.equal(C.visual(char).image, gif);
+    context.window.matchMedia = () => ({ matches: true });
+    assert.equal(C.visual(char).image, png);
+    state.answer = { ok: true, content: '{"allow":false,"note":"违背人设"}' };
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '撒娇'), false);
+    assert.equal(C.visual(char).state, 'idle');
+});
+
+test('confirmed idle GIFs retain the mother and all existing reaction assets', async () => {
+    const { C, studio, char, data, state } = harness();
+    const gif = { url: 'data:image/gif;base64,R0lGODlh', posterUrl: png, format: 'gif', transparent: true, baseKey: 'base' };
+    data.set('idle-gif', gif); char.chatConfig.characterPet.draftIdleKey = 'idle-gif';
+    await studio.select(char.id);
+    state.failSave = true;
+    assert.equal(await studio.confirmIdle(), false);
+    assert.equal(C.profile(char).idleKey, ''); assert.equal(C.profile(char).draftIdleKey, 'idle-gif');
+    state.failSave = false;
+    assert.equal(await studio.confirmIdle(), true);
+    assert.equal(C.profile(char).baseKey, 'base');
+    assert.equal(C.profile(char).states[0].assetKey, 'smile');
+    assert.equal(C.visual(char).image, gif.url);
+});
+
+test('discarding a candidate preserves active assets and the history file, including save failures', async () => {
+    const { C, studio, char, data, state } = harness();
+    const key = 'character-pet:pet-a:draft'; data.set(key, { url: png }); char.chatConfig.characterPet.draftBaseKey = key;
+    state.failSave = true;
+    await assert.rejects(studio.discardPreview(char, 'idle'), /保存/);
+    assert.equal(C.profile(char).draftBaseKey, key);
+    state.failSave = false; await studio.discardPreview(char, 'idle');
+    assert.equal(C.profile(char).draftBaseKey, ''); assert.equal(C.profile(char).baseKey, 'base');
+    assert.equal(data.has(key), true);
+    await C.deleteAsset(char, key); assert.equal(data.has(key), false);
+});
+
+test('a pet interaction lease survives scene resets and role changes without queuing extra requests', async () => {
+    const { C, char, other, state, context, timers } = harness();
+    const pending = deferred(); state.answer = () => pending.promise;
+    C.observeScene();
+    const running = C.request(char, 'tap');
+    assert.equal(state.calls.length, 1);
+    context.getMonitorPetCurrentSceneText = () => '用户进入阅读页。';
+    C.observeScene();
+    state.now += 4000;
+    [...timers.values()].find(timer => timer.delay === 2500).fn();
+    C.reset(char);
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢。'), false);
+    await assert.rejects(C.testReaction(char, '谢谢'), /正在回应/);
+    other.chatConfig.characterPet = JSON.parse(JSON.stringify(char.chatConfig.characterPet));
+    state.bound = other;
+    assert.equal(await C.request(other, 'tap'), false);
+    assert.equal(state.calls.length, 1);
+    pending.resolve(petReply);
+    assert.equal(await running, false);
+    assert.equal(C.runtime(char).busy, false);
+    state.now += 3000; state.answer = answerPet;
+    assert.equal(await C.request(other, 'tap'), true);
+    assert.equal(state.calls.length, 3);
+});
+
+test('the lease covers the independent review and no review result survives a reset', async () => {
+    const { C, char, state } = harness(); const pending = deferred();
+    state.answer = messages => messages[0].content.includes('审校器') ? pending.promise : petReply;
+    const running = C.request(char);
+    while (state.calls.length < 2) await new Promise(resolve => setImmediate(resolve));
+    C.beginReply(char); C.endReply(char); state.now += 4000;
+    assert.equal(await C.request(char), false);
+    assert.equal(state.calls.length, 2);
+    pending.resolve(reviewReply); assert.equal(await running, false);
+    assert.equal(C.runtime(char).bubble, '');
+    assert.equal(C.runtime(char).busy, false);
+    assert.ok(state.calls.every(call => call.options.skipLengthContinuation && call.options.skipStatusValidationRetry && call.options.skipEmptyLengthRetry));
+});
+
+for (const duringReview of [false, true]) test(`real 429 ${duringReview ? 'during review' : 'during generation'} pauses automatic reactions until a manual recovery`, async () => {
+    const { C, char, state } = harness();
+    state.answer = messages => duringReview && !messages[0].content.includes('审校器') ? petReply : { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, error: 'rate limit exceeded' };
+    assert.equal(await C.request(char), false);
+    assert.match(C.runtime(char).note, /已暂停.*稍后轻点/);
+    assert.doesNotMatch(C.runtime(char).note, /\d+\s*(秒|分钟)/);
+    assert.equal(C.runtime(char).bubble, '');
+    const calls = state.calls.length;
+    state.now += 60000;
+    assert.equal(await C.request(char, 'scene'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
+    assert.equal(state.calls.length, calls);
+    state.answer = answerPet;
+    assert.equal(await C.request(char), true);
+    assert.equal(state.calls.length, calls + 2);
+    assert.equal(await C.request(char, 'scene'), false);
+    state.now += 30000;
+    assert.equal(await C.request(char, 'scene'), true);
+    assert.equal(state.calls.length, calls + 4);
+});
+
+test('provider Retry-After is honored without extending it on blocked interactions', async () => {
+    const { C, char, state } = harness();
+    state.answer = { ok: false, rateLimited: true, httpStatus: 429, retryAfterMs: 123000 };
+    await C.request(char);
+    state.now += 23000;
+    await C.request(char);
+    assert.match(C.runtime(char).note, /100 秒/);
+    assert.equal(state.calls.length, 1);
+    state.now += 99999;
+    assert.equal(await C.request(char, 'scene'), false);
+    state.now += 1; state.answer = answerPet;
+    assert.equal(await C.request(char, 'scene'), true);
+    assert.equal(state.calls.length, 3);
+});
+
+test('quota failures stay distinct from temporary limits and permit manual recovery', async () => {
+    const { C, char, state } = harness();
+    state.answer = { ok: false, httpStatus: 429, quotaExceeded: true, rateLimited: false, retryAfterMs: 0 };
+    await C.request(char); assert.match(C.runtime(char).note, /额度不足/);
+    state.now += 3600000;
+    assert.equal(await C.request(char, 'scene'), false);
+    assert.equal(state.calls.length, 1);
+    state.answer = answerPet;
+    assert.equal(await C.request(char), true);
+    assert.equal(state.calls.length, 3);
+});
+
+test('an ordinary error mentioning 429 never creates a pet API pause', async () => {
+    const { C, char, state } = harness();
+    state.answer = { ok: false, httpStatus: 500, error: 'upstream detail: 429', rateLimited: false };
+    await C.request(char);
+    state.now += 30000; state.answer = answerPet;
+    assert.equal(await C.request(char, 'scene'), true);
+    assert.equal(state.calls.length, 3);
+});
+
+for (const key of ['baseUrl', 'model', 'apiKey']) test('pet automatic pause is isolated by ' + key, async () => {
+    const { C, char, state } = harness();
+    state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };
+    await C.request(char);
+    const before = state.api[key]; state.api[key] += '-other'; state.answer = answerPet;
+    assert.equal(await C.request(char), true);
+    state.api[key] = before; state.now += 60000;
+    assert.equal(await C.request(char, 'scene'), false);
+    assert.equal(state.calls.length, 3);
+});
+
+test('a shared provider pause prevents pet generation and review without sending another request', async () => {
+    const { C, char, state } = harness();
+    state.sharedUntil = state.now + 20000;
+    assert.equal(await C.request(char), false);
+    assert.match(C.runtime(char).note, /20 秒/);
+    await assert.rejects(C.testReaction(char, '谢谢'), /20 秒/);
+    assert.equal(state.calls.length, 0);
+    state.now += 20000; state.answer = answerPet;
+    assert.equal(await C.request(char), true);
+});
+
+test('legacy pet requests share the rate gate and preserve the old bubble when saving fails', async () => {
+    const { C, char, state, context } = harness();
+    char.chatConfig.characterPet.active = false;
+    const bubble = { bubbleText: '原来的气泡', bubbleAt: 123 };
+    const statuses = [];
+    Object.assign(context, {
+        monitorPetAiBusy: false, monitorPetLastReactionAt: 0, monitorPetFloatMessage: '',
+        ensureMonitorPetState: () => bubble, updateMonitorPetStatus: text => statuses.push(text),
+        isMonitorScreenSharingActive: () => false, buildMonitorPetReactionMessages: () => [], normalizeMonitorPetReactionText: text => text
+    });
+    vm.runInContext(sourceSection('script.js', 'async function requestMonitorPetReaction(', 'window.requestMonitorPetReaction'), context);
+    state.answer = { ok: false, rateLimited: true, httpStatus: 429, retryAfterMs: 0 };
+    await context.requestMonitorPetReaction();
+    state.now += 60000;
+    await context.requestMonitorPetReaction('observe');
+    assert.equal(state.calls.length, 1);
+    assert.equal(bubble.bubbleText, '原来的气泡');
+    state.answer = { ok: true, content: '新的气泡' }; state.failSave = true;
+    await context.requestMonitorPetReaction();
+    assert.equal(bubble.bubbleText, '原来的气泡'); assert.equal(bubble.bubbleAt, 123);
+    assert.match(statuses.at(-1), /未能保存/);
+    assert.equal(context.monitorPetAiBusy, false);
+    state.now += 3000; state.failSave = false;
+    await context.requestMonitorPetReaction();
+    assert.equal(bubble.bubbleText, '新的气泡');
+    assert.ok(state.calls.every(call => call.options.skipEmptyLengthRetry));
+});
+
+test('old PNG history remains visible, role-scoped and newest first without retaining full images', async () => {
+    const { C, char, other, data, state } = harness();
+    data.set('character-pet:pet-a:old', { url: png, kind: 'candidate', createdAt: 10, width: 1024, height: 1024, transparent: false, prompt: 'old prompt' });
+    data.set('character-pet:pet-a:new', { url: png, kind: 'candidate', createdAt: 20, transparent: true });
+    data.set('character-pet:pet-a:ref', { url: png, kind: 'reference' });
+    data.set('character-pet:pet-a:zip', { blob: 'zip' });
+    data.set('character-pet:pet-b:other', { url: png, createdAt: 30 });
+    data.set('character-pet:pet-a%3Ax:foreign', { url: png, createdAt: 40 });
+    const rows = await C.listAssets(char);
+    assert.equal(rows.length, 2);
+    assert.match(rows[0].key, /:new$/);
+    assert.equal(rows[1].width, 1024);
+    assert.equal(rows[1].bytes, 5);
+    assert.equal(rows[1].source, 'generated');
+    assert.equal(rows.some(row => row.url || row.prompt), false);
+    assert.equal((await C.listAssets(other)).length, 1);
+    assert.equal(state.saves.length, 0);
+    state.failRead = true;
+    await assert.rejects(C.listAssets(char), /read transaction aborted/);
+});
+
+test('PNG deletion changes storage and cache only after the transaction commits; aborts remain retryable', async () => {
+    const { C, char, data, state } = harness();
+    const key = 'character-pet:pet-a:unused'; data.set(key, { url: png, kind: 'candidate' });
+    await C.readAsset(key);
+    state.failDelete = true;
+    await assert.rejects(C.deleteAsset(char, key), /delete transaction aborted/);
+    assert.ok(data.has(key)); assert.equal(C.cached(key).url, png);
+    assert.equal((await C.listAssets(char)).length, 1);
+    state.failDelete = false;
+    await C.deleteAsset(char, key);
+    assert.equal(data.has(key), false);
+    assert.equal(C.cached(key), null);
+    assert.equal(await C.readAsset(key), null);
+    assert.equal((await C.listAssets(char)).length, 0);
+});
+
+test('current mother, draft, expressions, other role usage and references cannot be deleted as history', async () => {
+    const { C, char, other, data } = harness();
+    const key = 'character-pet:pet-a:protected'; data.set(key, { url: png, kind: 'candidate' });
+    for (const field of ['baseKey', 'draftBaseKey']) {
+        const before = char.chatConfig.characterPet[field]; char.chatConfig.characterPet[field] = key;
+        await assert.rejects(C.deleteAsset(char, key), /仍用于/);
+        char.chatConfig.characterPet[field] = before;
+    }
+    char.chatConfig.characterPet.states[0].assetKey = key;
+    await assert.rejects(C.deleteAsset(char, key), /表情/);
+    char.chatConfig.characterPet.states[0].assetKey = 'smile';
+    other.chatConfig.characterPet = { baseKey: key };
+    await assert.rejects(C.deleteAsset(char, key), /乔乐/);
+    other.chatConfig.characterPet = {};
+    await assert.rejects(C.deleteAsset(other, key), /当前角色/);
+    data.set(key, { url: png, kind: 'reference' });
+    await assert.rejects(C.deleteAsset(char, key), /不是.*可删除/);
+    assert.ok(data.has(key));
+});
+
+test('PNG deletion rechecks usage after an earlier queued configuration write completes', async () => {
+    const { C, char, data } = harness();
+    const key = 'character-pet:pet-a:becoming-active'; data.set(key, { url: png, kind: 'candidate' });
+    const pending = deferred();
+    const update = C.update(char, async next => { await pending.promise; next.baseKey = key; });
+    const deletion = C.deleteAsset(char, key);
+    pending.resolve(); await update;
+    await assert.rejects(deletion, /仍用于/);
+    assert.ok(data.has(key));
+});
 
 test('pet state choices are limited to enabled, confirmed assets with sufficient confidence', () => {
     const { C, char } = harness();
