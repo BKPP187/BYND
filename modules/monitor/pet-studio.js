@@ -34,7 +34,7 @@
         const char = current();
         if (!char || session(char).busy) return false;
         const state = session(char);
-        Object.assign(state, { busy: save ? '正在保存设定…' : label, error: '', errorDetails: '', imageTaskId, notice: '', cancel: false, batchRunning: false });
+        Object.assign(state, { busy: save ? '正在保存设定…' : label, error: '', errorDetails: '', imageTaskId, imageSourceKey: '', notice: '', cancel: false, batchRunning: false });
         try {
             render();
             if (save) await saveForm(char);
@@ -112,6 +112,45 @@
         target.drawImage(canvas, left, top, width, height, (1024 - width * ratio) / 2, 922 - height * ratio, width * ratio, height * ratio);
         return { url: output.toDataURL('image/png'), width: 1024, height: 1024, transparent: true, coverage: alpha.coverage, kind: 'candidate' };
     }
+    async function requestImage(prompt, options) {
+        const result = await callWechatImageGenerationApi(prompt, options);
+        if (result?.ok && result.url) return result;
+        const error = new Error(result?.error || '没有收到生成图。');
+        const details = result?.details;
+        if (details) error.imageDetails = [details.model && '模型：' + details.model, details.path && '接口：' + details.path, details.status && 'HTTP：' + details.status, details.code && '错误码：' + details.code, details.param && '参数：' + details.param, details.requestId && '请求编号：' + details.requestId, details.message && '服务返回：' + details.message].filter(Boolean).join('\n');
+        throw error;
+    }
+    async function generateAnimation(char, id, config, state, reference, prompt, progress) {
+        const A = window.ByndPetAnimation;
+        progress('正在用已确认形象准备四格动作模板…');
+        const template = await A.prepareReference(reference.posterUrl || reference.url);
+        const background = '【四格模板与背景约定】第一张图已把同一角色母版排在四格中。保留四个完整主体的大小和位置，只在各格绘制指定动作进展，不能合成一个大角色，不能原样复制四张静帧。' + (template.color
+            ? `背景统一为纯色 ${template.color}，没有纹理、渐变、阴影、格线或棋盘格。该纯色仅用于背景，不能染到角色、头发、服饰或物品上。人物和道具保持原色。程序会移除这种背景并输出透明 GIF；不要画透明棋盘格。`
+            : '本次角色色彩丰富，不使用纯色抠图。四格四周留白必须为真实 Alpha 透明背景，输出 RGBA PNG，不能画棋盘格。');
+        for (let attempt = 0; attempt < 2; attempt++) {
+            if (!chars().includes(char) || C.profile(char).revision !== config.revision) throw new Error('制作期间角色设定已改变，请重新制作动作。');
+            if (session(char).cancel) throw new Error('已停止后续动作制作，现有素材已保留。');
+            const sentPrompt = prompt + '\n\n' + background + (attempt ? '\n\n【本次纠正】上次结果未能通过分帧检查。本次重新编辑提供的四格模板，确保四格都有完整主体、四周留白和可见的小动作进展；尤其不要返回单张人物图、棋盘格背景或四张完全相同的静帧。' : '');
+            progress(attempt ? '首份动作图未通过检查，正在按固定模板纠正一次…' : '正在按四格模板生成连续动作…');
+            // Image API failures (including 429), downloads and storage errors never trigger a retry.
+            const result = await requestImage(sentPrompt, {
+                referenceImage: template.url, requireReference: true, editOnly: true, allowEditCompatibility: true,
+                referenceStyle: 'identity', background: template.color ? undefined : 'transparent', outputFormat: 'png', size: '1024x1024', onProgress: progress
+            });
+            const sheet = await A.inspectSheet(result.url);
+            const key = await C.storeAsset(char, { ...sheet, prompt: sentPrompt, baseKey: config.baseKey, referenceKey: config.referenceKey,
+                stateId: id, stateLabel: (state?.label || '待机动作') + ' · 序列原图', source: 'animation-source', matteColor: template.matteColor });
+            session(char).imageSourceKey = key;
+            progress('动作原图已保存，正在处理背景并合成透明 GIF…');
+            try { return await A.fromSpriteSheet(sheet.url, { matteColor: template.matteColor }); }
+            catch (error) {
+                if (!error.animationCode || attempt) {
+                    error.message += ' 已确认的形象保持不变，本次原图已存入图片历史。';
+                    throw error;
+                }
+            }
+        }
+    }
     async function generateImage(char, id = 'idle', removeBackground = false, animation = false) {
         const config = C.profile(char);
         const state = id === 'idle' ? null : config.states.find(item => item.id === id);
@@ -125,21 +164,20 @@
         const target = animation && !state ? { description: config.pose || '保持已确认母版的待机姿态，轻缓地眨眼或做一个符合人设的小动作，不能默认撒娇。', emotion: '中性待机', when: '安静等待互动时' } : state;
         const prompt = C.imagePrompt(char, target, removeBackground, animation);
         const progress = message => { if (session(char).busy) { session(char).busy = message; render(); } };
-        const result = await callWechatImageGenerationApi(prompt, {
-            referenceImage: reference.posterUrl || reference.url,
-            requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024', onProgress: progress
-        });
-        if (!result?.ok || !result.url) {
-            const error = new Error(result?.error || '没有收到生成图。');
-            const details = result?.details;
-            if (details) error.imageDetails = [details.model && '模型：' + details.model, details.path && '接口：' + details.path, details.status && 'HTTP：' + details.status, details.code && '错误码：' + details.code, details.param && '参数：' + details.param, details.requestId && '请求编号：' + details.requestId, details.message && '服务返回：' + details.message].filter(Boolean).join('\n');
-            throw error;
+        let image;
+        if (animation) image = await generateAnimation(char, id, config, state, reference, prompt, progress);
+        else {
+            const result = await requestImage(prompt, {
+                referenceImage: reference.posterUrl || reference.url,
+                requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024', onProgress: progress
+            });
+            progress('图片已返回，正在读取并检查透明背景…');
+            image = await inspectImage(result.url);
         }
-        progress(animation ? '动作序列已返回，正在检查每一帧并制作透明 GIF…' : '图片已返回，正在读取并检查透明背景…');
-        const image = animation ? await window.ByndPetAnimation.fromSpriteSheet(result.url) : await inspectImage(result.url);
         progress('正在保存生成图…');
         const key = await C.storeAsset(char, { ...image, prompt, baseKey: config.baseKey, referenceKey: config.referenceKey, stateId: id, stateLabel: state?.label || (animation ? '待机动作' : '基础形象'), source: animation ? 'generated-animation' : removeBackground ? 'background-removal' : 'generated' });
         await C.update(char, next => {
+            if (animation && next.revision !== config.revision) throw new Error('制作期间角色设定已改变，本次动作未替换已有形象。');
             if (next.referenceKey !== config.referenceKey || next.baseKey !== config.baseKey) throw new Error('生成期间参考图或母版已改变，本次结果未替换已有形象。');
             if (state) {
                 const target = next.states.find(item => item.id === id);
@@ -158,7 +196,7 @@
         const selected = id === 'idle' ? null : config.states.find(state => state.id === id);
         const key = selected ? selected.draftKey : config.draftBaseKey;
         const image = await C.readAsset(key);
-        if (!image?.transparent) throw new Error('这张图尚未通过透明背景检查，不能应用为桌宠。');
+        if (!image?.transparent || image.kind === 'animation-source') throw new Error('这张图尚未通过透明背景检查，不能应用为桌宠。');
         await C.update(char, next => {
             if (selected) {
                 const state = next.states.find(item => item.id === id);
@@ -228,7 +266,7 @@
     function imageFeedback(char, id) {
         const state = session(char);
         if (state.imageTaskId !== id || !(state.busy || state.error || state.notice)) return '';
-        return `<div class="pet-image-feedback ${state.error ? 'error' : ''}" data-pet-feedback="${escape(id)}" role="${state.error ? 'alert' : 'status'}" aria-live="${state.error ? 'assertive' : 'polite'}" aria-atomic="true"><p>${state.busy ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> ' : ''}${escape(state.busy || state.error || state.notice)}</p>${state.busy ? '<small>请保持页面打开，完成后会更新这里的预览。</small>' : ''}${state.errorDetails ? `<details><summary>查看错误详情</summary><pre>${escape(state.errorDetails)}</pre></details>` : ''}</div>`;
+        return `<div class="pet-image-feedback ${state.error ? 'error' : ''}" data-pet-feedback="${escape(id)}" role="${state.error ? 'alert' : 'status'}" aria-live="${state.error ? 'assertive' : 'polite'}" aria-atomic="true"><p>${state.busy ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> ' : ''}${escape(state.busy || state.error || state.notice)}</p>${state.busy ? '<small>请保持页面打开，完成后会更新这里的预览。</small>' : ''}${state.errorDetails ? `<details><summary>查看错误详情</summary><pre>${escape(state.errorDetails)}</pre></details>` : ''}${state.error && !state.busy && state.imageSourceKey ? '<div class="pet-actions"><button type="button" class="secondary" onclick="ByndPetStudio.previewSource()">查看本次动作原图</button></div>' : ''}</div>`;
     }
     function imageBox(key, label, small = false) {
         const image = C.cached(key);
@@ -392,6 +430,12 @@
         render, sourceData, inspectImage, generateImage, confirmImage, discardPreview, saveForm, openRoles, closeRoles, filterRoles,
         close: () => { closeRoles(false); window.ByndPetHistory?.close(false); document.getElementById('bynd-pet-studio')?.remove(); },
         history: () => { const char = current(); if (char && !session(char).busy) return window.ByndPetHistory?.open(char); },
+        previewSource: async () => {
+            const char = current(), key = char && session(char).imageSourceKey;
+            if (!key || session(char).busy) return;
+            await window.ByndPetHistory.open(char);
+            if (current() === char) await window.ByndPetHistory.detail(key);
+        },
         select: async id => {
             const char = chars().find(item => item.id === id);
             if (!char) return false;

@@ -8,7 +8,7 @@
     const date = value => value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '时间未记录';
     const size = value => value >= 1024 * 1024 ? (value / 1024 / 1024).toFixed(1) + ' MB' : value >= 1024 ? (value / 1024).toFixed(1) + ' KB' : value + ' B';
     const dimensions = row => row.width && row.height ? `${row.width} × ${row.height}` : '尺寸未记录';
-    const source = row => ({ generated: 'AI 生成', 'generated-animation': 'AI 动作序列合成', 'background-removal': '去背景', upload: '上传图片' }[row.source]);
+    const source = row => ({ generated: 'AI 生成', 'generated-animation': 'AI 动作序列合成', 'animation-source': '动作序列原图', 'background-removal': '去背景', upload: '上传图片' }[row.source]);
     const transparency = row => (row.transparent === true ? '透明 ' : row.transparent === false ? '带背景 ' : '') + row.format + (row.transparent == null ? ' · 透明度未记录' : '');
     function close(restoreFocus = true) {
         view = null;

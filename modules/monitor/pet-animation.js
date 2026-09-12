@@ -67,23 +67,146 @@
         const decoded = decodeGif(bytes);
         return { url: await dataUrl(new Blob([bytes], { type: 'image/gif' })), posterUrl: poster(decoded), width: decoded.width, height: decoded.height, frames: decoded.frames, durationMs: decoded.durationMs, format: 'gif', transparent: true, kind: 'candidate' };
     }
-    async function fromSpriteSheet(source) {
+    const distance = (pixels, at, color) => Math.max(Math.abs(pixels[at] - color[0]), Math.abs(pixels[at + 1] - color[1]), Math.abs(pixels[at + 2] - color[2]));
+    function chooseMatte(data) {
+        // Avoid colors already present in the approved character, including hair and props.
+        const choices = [[0, 255, 0], [255, 0, 255], [0, 255, 255], [255, 255, 0], [0, 0, 255], [255, 0, 0]];
+        const ranked = choices.map(color => {
+            let nearby = 0, nearest = 255;
+            for (let at = 0; at < data.length; at += 4) {
+                if (data[at + 3] < 128) continue;
+                const delta = distance(data, at, color);
+                nearest = Math.min(nearest, delta);
+                if (delta < 96) nearby++;
+            }
+            return { color, nearby, nearest };
+        }).sort((a, b) => a.nearby - b.nearby || b.nearest - a.nearest);
+        return ranked[0].nearby === 0 ? ranked[0].color : null;
+    }
+    function clearMatte(data, width, height, color) {
+        const pixels = new Uint8ClampedArray(data);
+        if (!Array.isArray(color) || color.length !== 3 || color.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return pixels;
+        const count = width * height, mask = new Uint8Array(count), queue = new Int32Array(count);
+        let start = 0, end = 0, border = 0, matching = 0;
+        const matches = index => pixels[index * 4 + 3] <= 8 || distance(pixels, index * 4, color) <= 48;
+        const add = index => { if (!mask[index] && matches(index)) { mask[index] = 1; queue[end++] = index; } };
+        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+            if (x && y && x !== width - 1 && y !== height - 1) continue;
+            border++; if (matches(y * width + x)) matching++;
+        }
+        // Never guess a background from the character's own colors or a painted checkerboard.
+        if (matching / border < 0.9) return pixels;
+        for (let x = 0; x < width; x++) { add(x); add((height - 1) * width + x); }
+        for (let y = 1; y < height - 1; y++) { add(y * width); add(y * width + width - 1); }
+        // The matte is selected from colors absent from the reference. Include enclosed gaps
+        // (between a hand and its prop, for example), which cannot be reached from the border.
+        for (let index = 0; index < count; index++) if (distance(pixels, index * 4, color) <= 16) add(index);
+        while (start < end) {
+            const at = queue[start++], x = at % width, y = Math.floor(at / width);
+            if (x) add(at - 1); if (x < width - 1) add(at + 1);
+            if (y) add(at - width); if (y < height - 1) add(at + width);
+        }
+        for (let index = 0; index < count; index++) {
+            const at = index * 4;
+            if (mask[index]) { pixels.fill(0, at, at + 4); continue; }
+            const x = index % width, y = Math.floor(index / width);
+            let nearBackground = false;
+            for (let dy = -2; dy <= 2 && !nearBackground; dy++) for (let dx = -2; dx <= 2; dx++) {
+                if (x + dx >= 0 && x + dx < width && y + dy >= 0 && y + dy < height && mask[(y + dy) * width + x + dx]) { nearBackground = true; break; }
+            }
+            if (!nearBackground) continue;
+            const delta = distance(data, at, color);
+            let best = null;
+            // Estimate an edge only if a nearby opaque foreground color explains it as a
+            // mixture with the matte. Gray hair/clothes alone are not evidence of transparency.
+            for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+                if ((!dx && !dy) || x + dx < 0 || x + dx >= width || y + dy < 0 || y + dy >= height) continue;
+                const neighbor = (y + dy) * width + x + dx, offset = neighbor * 4;
+                if (mask[neighbor] || data[offset + 3] < 248 || distance(data, offset, color) < delta + 8) continue;
+                let dot = 0, length = 0;
+                for (let channel = 0; channel < 3; channel++) {
+                    const direction = data[offset + channel] - color[channel];
+                    dot += (data[at + channel] - color[channel]) * direction; length += direction * direction;
+                }
+                const alpha = dot / length;
+                if (alpha < 0.2 || alpha > 0.99) continue;
+                let residual = 0;
+                for (let channel = 0; channel < 3; channel++) residual = Math.max(residual, Math.abs(data[at + channel] - (alpha * data[offset + channel] + (1 - alpha) * color[channel])));
+                const proximity = dx * dx + dy * dy;
+                const foregroundDistance = distance(data, offset, color);
+                if (residual <= 6 && (!best || foregroundDistance > best.foregroundDistance || foregroundDistance === best.foregroundDistance && proximity < best.proximity)) best = { alpha, proximity, foregroundDistance };
+            }
+            if (!best) continue;
+            for (let channel = 0; channel < 3; channel++) pixels[at + channel] = Math.max(0, Math.min(255, (data[at + channel] - color[channel] * (1 - best.alpha)) / best.alpha));
+            pixels[at + 3] = Math.round(data[at + 3] * best.alpha);
+        }
+        return pixels;
+    }
+    function sheetError(code, message) {
+        const error = new Error(message); error.animationCode = code; return error;
+    }
+    async function loadImage(source) {
         const url = await window.ByndPetStudio.sourceData(source);
         const image = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('动画序列图无法读取。')); img.src = url; });
-        const side = image.naturalWidth;
-        if (side !== image.naturalHeight || side < 512 || side > 3072 || side % 2) throw new Error('动画需要一张正方形的 2×2 序列图，生图接口返回的尺寸不符合要求。');
-        const cell = side / 2;
+        if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 16e6) throw new Error('动画图片尺寸过大或内容为空。');
+        return image;
+    }
+    async function inspectSheet(source) {
+        const image = await loadImage(source);
+        const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0);
+        const alpha = C.analyzeAlpha(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+        return { url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, transparent: alpha.transparent, format: 'png', kind: 'animation-source' };
+    }
+    async function prepareReference(source) {
+        const image = await loadImage(source);
+        const input = document.createElement('canvas'); input.width = image.naturalWidth; input.height = image.naturalHeight;
+        const context = input.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, input.width, input.height).data;
+        const alpha = C.analyzeAlpha(pixels, input.width, input.height);
+        if (!alpha.transparent) throw new Error('已确认的角色图没有可用的透明主体，请先检查基础形象。');
+        const matteColor = chooseMatte(pixels);
+        const color = matteColor ? '#' + matteColor.map(value => value.toString(16).padStart(2, '0')).join('') : '';
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1024;
+        const target = canvas.getContext('2d');
+        if (color) { target.fillStyle = color; target.fillRect(0, 0, 1024, 1024); }
+        const { left, top, right, bottom } = alpha.bounds, width = right - left + 1, height = bottom - top + 1;
+        const scale = Math.min(400 / width, 410 / height);
+        for (let index = 0; index < 4; index++) target.drawImage(input, left, top, width, height,
+            index % 2 * 512 + (512 - width * scale) / 2, Math.floor(index / 2) * 512 + 454 - height * scale, width * scale, height * scale);
+        return { url: canvas.toDataURL('image/png'), color, matteColor };
+    }
+    function framePixels(data, width, height, color, index) {
+        let pixels = new Uint8ClampedArray(data);
+        if (!C.analyzeAlpha(pixels, width, height).transparent) pixels = clearMatte(pixels, width, height, color);
+        for (let at = 3; at < pixels.length; at += 4) if (pixels[at] <= 8) pixels[at] = 0;
+        const alpha = C.analyzeAlpha(pixels, width, height);
+        if (alpha.empty) throw sheetError('empty', `动作原图的第 ${index + 1} 格没有可用主体。`);
+        if (!alpha.transparent) throw sheetError('background', `动作原图的第 ${index + 1} 格背景未能分离，请查看本次原图。`);
+        let edge = 0;
+        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+            if ((!x || !y || x === width - 1 || y === height - 1) && pixels[(y * width + x) * 4 + 3] >= 96) edge++;
+        }
+        if (edge > 2) throw sheetError('layout', `动作原图的第 ${index + 1} 格主体跨过边界，不能直接裁成动画。`);
+        return { pixels, alpha };
+    }
+    async function fromSpriteSheet(source, options = {}) {
+        const image = await loadImage(source);
+        const cellWidth = image.naturalWidth / 2, cellHeight = image.naturalHeight / 2;
+        if (cellWidth < 256 || cellHeight < 256 || cellWidth > 1536 || cellHeight > 1536 || !Number.isInteger(cellWidth) || !Number.isInteger(cellHeight)) throw sheetError('layout', '动画需要 2×2 四格序列图，本次返回的尺寸无法分帧。');
         const frames = [];
-        const union = { left: cell, top: cell, right: -1, bottom: -1 };
+        const union = { left: cellWidth, top: cellHeight, right: -1, bottom: -1 };
         for (let index = 0; index < 4; index++) {
-            const canvas = document.createElement('canvas'); canvas.width = canvas.height = cell;
+            const canvas = document.createElement('canvas'); canvas.width = cellWidth; canvas.height = cellHeight;
             const context = canvas.getContext('2d', { willReadFrequently: true });
-            context.drawImage(image, (index % 2) * cell, Math.floor(index / 2) * cell, cell, cell, 0, 0, cell, cell);
-            const alpha = C.analyzeAlpha(context.getImageData(0, 0, cell, cell).data, cell, cell);
-            if (!alpha.transparent) throw new Error(`生图返回的第 ${index + 1} 格没有完整主体和透明留白，暂不能制成 GIF。请重试或上传透明 GIF；当前素材已保留。`);
+            context.drawImage(image, (index % 2) * cellWidth, Math.floor(index / 2) * cellHeight, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
+            const frame = context.getImageData(0, 0, cellWidth, cellHeight);
+            const { pixels, alpha } = framePixels(frame.data, cellWidth, cellHeight, options.matteColor, index);
+            frame.data.set(pixels); context.putImageData(frame, 0, 0);
             for (const key of ['left', 'top']) union[key] = Math.min(union[key], alpha.bounds[key]);
             for (const key of ['right', 'bottom']) union[key] = Math.max(union[key], alpha.bounds[key]);
             frames.push(canvas);
+            await pause();
         }
         const width = union.right - union.left + 1, height = union.bottom - union.top + 1;
         const scale = Math.min(410 / width, 420 / height);
@@ -96,8 +219,10 @@
             pixels.push(context.getImageData(0, 0, 512, 512).data);
             await pause();
         }
-        const bytes = encodeFrames(pixels, 512, 512);
+        let bytes;
+        try { bytes = encodeFrames(pixels, 512, 512); }
+        catch (error) { if (error.message.includes('完全相同')) error.animationCode = 'static'; throw error; }
         return inspectGif(new Blob([bytes], { type: 'image/gif' }));
     }
-    window.ByndPetAnimation = { decodeGif, encodeFrames, inspectGif, fromSpriteSheet };
+    window.ByndPetAnimation = { decodeGif, encodeFrames, inspectGif, prepareReference, inspectSheet, chooseMatte, clearMatte, framePixels, fromSpriteSheet };
 })();

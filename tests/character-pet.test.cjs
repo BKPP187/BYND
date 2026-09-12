@@ -123,14 +123,94 @@ test('image prompts support sitting, resting, role motifs and explicit symbolic 
 test('animation uses the same image provider and approved identity while failed requests keep existing expressions', async () => {
     const { C, char, studio, context } = harness();
     const before = JSON.stringify(C.profile(char)); const calls = [];
+    context.window.ByndPetAnimation = { prepareReference: async source => { assert.equal(source, png); return { url: 'data:image/png;base64,dGVtcGxhdGU=', color: '#00ff00', matteColor: [0, 255, 0] }; } };
     context.callWechatImageGenerationApi = async (prompt, options) => { calls.push({ prompt, options }); return { ok: false, error: 'rate limit exceeded' }; };
     await assert.rejects(studio.generateImage(char, 'quiet_smile', false, true), /rate limit/);
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].options.referenceImage, png);
+    assert.equal(calls[0].options.referenceImage, 'data:image/png;base64,dGVtcGxhdGU=');
+    assert.equal(calls[0].options.background, undefined);
     assert.match(calls[0].prompt, /2×2.*4 帧/);
+    assert.match(calls[0].prompt, /背景统一为纯色 #00ff00/);
+    assert.doesNotMatch(calls[0].prompt, /制作一张动作与表情变体透明 PNG/);
     assert.match(calls[0].prompt, /不能复制四张相同静帧/);
     assert.match(calls[0].prompt, /禁止幼儿化/);
     assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+function animationHarness() {
+    const result = harness(), { context, state } = result;
+    state.imageCalls = []; state.frameCalls = 0;
+    context.callWechatImageGenerationApi = async (prompt, options) => {
+        state.imageCalls.push({ prompt, options });
+        return state.imageAnswer ? state.imageAnswer() : { ok: true, url: png };
+    };
+    const gif = { url: 'data:image/gif;base64,R0lGODlh', posterUrl: png, transparent: true, format: 'gif', frames: 4, width: 512, height: 512, kind: 'candidate' };
+    context.window.ByndPetAnimation = {
+        prepareReference: async () => ({ url: png, color: '#00ff00', matteColor: [0, 255, 0] }),
+        inspectSheet: async url => ({ url, width: 1024, height: 1024, transparent: false, format: 'png', kind: 'animation-source' }),
+        fromSpriteSheet: async () => { state.frameCalls++; return state.frameAnswer ? state.frameAnswer() : gif; }
+    };
+    return result;
+}
+const badSheet = () => { const error = new Error('第 1 格背景未能分离'); error.animationCode = 'background'; throw error; };
+
+test('animation stores source sheets before conversion and corrects a malformed result only once', async () => {
+    const { C, char, studio, data, state } = animationHarness();
+    state.frameAnswer = () => state.frameCalls === 1 ? badSheet() : { url: 'data:image/gif;base64,R0lGODlh', transparent: true, format: 'gif' };
+    assert.equal(await studio.generateImage(char, 'quiet_smile', false, true), true);
+    assert.equal(state.imageCalls.length, 2);
+    assert.match(state.imageCalls[1].prompt, /本次纠正/);
+    const sheets = [...data.values()].filter(asset => asset.kind === 'animation-source');
+    assert.equal(sheets.length, 2);
+    assert.equal(sheets[0].baseKey, 'base');
+    assert.equal(sheets[0].source, 'animation-source');
+    assert.match(sheets[0].stateLabel, /序列原图/);
+    assert.equal(C.profile(char).states[0].assetKey, 'smile');
+    assert.equal(C.cached(C.profile(char).states[0].draftKey).format, 'gif');
+});
+
+test('two malformed sheets stop with their original images saved and all confirmed assets intact', async () => {
+    const { C, char, studio, data, state } = animationHarness();
+    const before = JSON.stringify(C.profile(char)); state.frameAnswer = badSheet;
+    await assert.rejects(studio.generateImage(char, 'idle', false, true), /原图已存入图片历史/);
+    assert.equal(state.imageCalls.length, 2);
+    assert.equal([...data.values()].filter(asset => asset.kind === 'animation-source').length, 2);
+    assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+test('a rate limit on the correction stops immediately and keeps the failed source for inspection', async () => {
+    const { C, char, studio, data, state } = animationHarness();
+    const before = JSON.stringify(C.profile(char)); state.frameAnswer = badSheet;
+    state.imageAnswer = () => state.imageCalls.length === 1 ? { ok: true, url: png } : { ok: false, error: 'HTTP 429 quota exceeded', details: { status: 429, code: 'quota' } };
+    await assert.rejects(studio.generateImage(char, 'idle', false, true), error => /429/.test(error.message) && /quota/.test(error.imageDetails));
+    assert.equal(state.imageCalls.length, 2); assert.equal(state.frameCalls, 1);
+    assert.equal([...data.values()].filter(asset => asset.kind === 'animation-source').length, 1);
+    assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+test('failed source persistence never retries generation or claims that the source was saved', async () => {
+    const { C, char, studio, data, state } = animationHarness();
+    const before = JSON.stringify(C.profile(char)); state.failAsset = true;
+    await assert.rejects(studio.generateImage(char, 'idle', false, true), error => /database full/.test(error.message) && !/原图已存入/.test(error.message));
+    assert.equal(state.imageCalls.length, 1); assert.equal(state.frameCalls, 0);
+    assert.equal([...data.values()].filter(asset => asset.kind === 'animation-source').length, 0);
+    assert.equal(JSON.stringify(C.profile(char)), before);
+});
+
+test('settings changed during conversion cancel the correction before another provider request', async () => {
+    const { C, char, studio, state } = animationHarness();
+    state.frameAnswer = () => { char.chatConfig.characterPet.revision = 'changed'; return badSheet(); };
+    await assert.rejects(studio.generateImage(char, 'idle', false, true), /设定已改变/);
+    assert.equal(state.imageCalls.length, 1);
+    assert.equal(C.profile(char).baseKey, 'base'); assert.equal(C.profile(char).draftIdleKey, '');
+});
+
+test('a completed animation cannot become a candidate after its character settings change', async () => {
+    const { C, char, studio, state } = animationHarness();
+    state.frameAnswer = () => { char.chatConfig.characterPet.revision = 'changed'; return { url: 'data:image/gif;base64,R0lGODlh', format: 'gif', transparent: true }; };
+    await assert.rejects(studio.generateImage(char, 'idle', false, true), /设定已改变/);
+    assert.equal(state.imageCalls.length, 1);
+    assert.equal(C.profile(char).baseKey, 'base'); assert.equal(C.profile(char).draftIdleKey, '');
 });
 
 test('confirmed animated states follow the reviewed reply and use a still poster for reduced motion', async () => {
