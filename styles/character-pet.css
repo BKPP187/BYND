@@ -26,7 +26,8 @@
 .pet-history-tag, .pet-history-used { display: inline-block; margin: 8px 4px 0 0; padding: 2px 6px; border-radius: 6px; background: #edf3e9; color: #607c55; font-size: 9px; }
 .pet-history-used { background: #f7f2e5; color: #86743f; }
 .pet-history-detail { padding: 14px; border: 1px solid #e0e8dc; border-radius: 20px; background: #fff; }
-.pet-history-detail > .pet-image { width: 100%; max-width: 620px; }
+.pet-history-detail > .pet-image { display: block; aspect-ratio: auto; width: 100%; max-width: 620px; }
+.pet-history-detail > .pet-image img { width: 100%; height: auto; }
 .pet-history-detail h3 { margin: 18px 0 12px; font-size: 16px; }
 .pet-history-detail dl { display: grid; gap: 10px; margin: 0; font-size: 12px; line-height: 1.7; }
 .pet-history-detail dl > div { display: flex; gap: 15px; }
@@ -95,6 +96,12 @@
 .pet-section-title p { font-size: 11px; line-height: 1.7; color: #8b9589; margin: 0; }
 .pet-image { position: relative; display: flex; justify-content: center; align-items: center; aspect-ratio: 1; width: min(100%, 330px); margin: 6px auto 14px; border-radius: 15px; overflow: hidden; background-color: #fff; background-image: linear-gradient(45deg, #eef0ed 25%, transparent 25%), linear-gradient(-45deg, #eef0ed 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #eef0ed 75%), linear-gradient(-45deg, transparent 75%, #eef0ed 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
 .pet-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.pet-image.has-image { display: block; aspect-ratio: auto; }
+.pet-image.has-image img { width: 100%; height: auto; max-height: none; object-fit: contain; }
+.pet-preview { width: min(100%, 330px); margin: 6px auto 14px; }
+.pet-preview.small { max-width: 190px; }
+.pet-preview .pet-image { width: 100%; margin: 0; }
+.pet-preview figcaption { padding: 8px 2px 0; color: #697b6b; font-size: 10px; line-height: 1.6; text-align: center; overflow-wrap: anywhere; }
 .pet-image > i { color: #bbc9b9; font-size: 42px; }
 .pet-image > span { position: absolute; left: 8px; right: 8px; bottom: 8px; width: fit-content; max-width: calc(100% - 16px); padding: 5px 9px; border-radius: 8px; color: #697b6b; background: #fffffff0; font-size: 10px; line-height: 1.5; }
 .pet-image.small { max-width: 190px; }

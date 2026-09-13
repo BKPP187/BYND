@@ -50,7 +50,7 @@ test('rejected speed saves roll back and pending saves cannot interleave monitor
     assert.equal(h.chars[0].chatConfig.monitorMode, 'observer');
 });
 
-test('role toggles keep existing monitor errors and bind only after successful persistence', async () => {
+test('role toggles keep existing monitor errors without changing the independent pet binding', async () => {
     const h = harness();
     h.chars[1].chatConfig.monitorState = { lastError: 'provider unavailable' };
     const gate = deferred(); h.context.saveCharactersToStorage = () => gate.promise;
@@ -58,9 +58,61 @@ test('role toggles keep existing monitor errors and bind only after successful p
     assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'a');
     gate.resolve(true);
     assert.equal(await pending, true);
-    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'b');
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'a');
     assert.equal(h.chars[1].chatConfig.monitorState.lastError, 'provider unavailable');
-    assert.equal(h.notices.at(-1), 'B 已开启陪伴');
+    assert.equal(h.notices.at(-1), 'B 已接入监控');
+    assert.equal(await h.context.toggleMonitorWatcher('a'), true);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'a');
+    assert.equal(h.context.getMonitorPetBoundChar(), h.chars[0]);
+    assert.equal(h.context.isMonitorPetEnabled(), true);
+});
+
+test('pets bind any existing role without requiring monitoring and never fall back to a watcher', () => {
+    const h = harness();
+    h.context.setMonitorPetBoundChar('b');
+    assert.equal(h.context.getMonitorPetBoundChar(), h.chars[1]);
+    assert.equal(h.chars[1].chatConfig.monitorEnabled, undefined);
+    h.context.setMonitorPetBoundChar('');
+    assert.equal(h.context.getMonitorPetBoundChar(), null);
+    assert.equal(h.chars[0].chatConfig.monitorEnabled, true);
+    h.context.setMonitorPetBoundChar('deleted-role');
+    assert.equal(h.context.getMonitorPetBoundChar(), null);
+});
+
+test('closing and reopening a desktop pet leaves watcher configuration unchanged', () => {
+    const h = harness(), before = JSON.stringify(h.chars);
+    assert.equal(h.context.setMonitorPetEnabled(false), true);
+    assert.equal(h.context.isMonitorPetEnabled(), false);
+    assert.equal(JSON.stringify(h.chars), before);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'a');
+    assert.equal(h.context.setMonitorPetEnabled(true), true);
+    assert.equal(JSON.stringify(h.chars), before);
+    assert.equal(h.writes.length, 0);
+});
+
+test('chat monitoring still schedules watchers and presents barrage while the desktop pet is off', () => {
+    const h = harness(), requests = [], shown = [];
+    h.context.setMonitorPetEnabled(false);
+    Object.assign(h.context, {
+        WECHAT_MONITOR_MAX_WATCHERS: 3,
+        getWechatMonitorMode: char => char.chatConfig?.monitorMode || 'persona',
+        isWechatMonitorableUserMessage: () => true,
+        getWechatMonitorEventId: () => 'message-1',
+        requestWechatMonitorReaction: async (watcher, target) => requests.push([watcher.id,target.id]),
+        showWechatMonitorIsland: () => shown.push('island'),
+        showWechatMonitorWarning: () => shown.push('warning'),
+        showWechatMonitorBarrage: (_, phrases) => shown.push(phrases),
+        buildWechatMonitorBarrageBurst: phrases => phrases
+    });
+    vm.runInContext(sourceSection('wechat.js','function getWechatMonitorWatchers(', 'function buildWechatMonitorMessages('), h.context);
+    vm.runInContext(sourceSection('wechat.js','function presentWechatMonitorReaction(', 'function showWechatMonitorIsland('), h.context);
+    h.context.notifyWechatMonitors(h.chars[1], {type:'text',content:'今天一起看电影'});
+    h.timers.forEach(run => run());
+    assert.deepEqual(requests,[['a','b']]);
+    const phrases = ['观众甲：这个转折有意思'];
+    h.context.presentWechatMonitorReaction(h.chars[0],h.chars[1],{island:'新的监控反应',barrage:phrases},'barrage');
+    assert.deepEqual(shown,['island',phrases]);
+    assert.equal(h.context.isMonitorPetEnabled(),false);
 });
 
 test('refresh and view navigation do not clear errors, save characters, search online or call a model', () => {
@@ -134,7 +186,7 @@ test('a manual screen preview only reads one frame and a successful stop clears 
     assert.equal(h.read('monitorScreenStatus'), '屏幕共享已停止');
 });
 
-test('activity shows actual monitor and pet records in time order without inventing idle messages', () => {
+test('monitor records and desktop-pet records are separate and keep their original timestamps', () => {
     const h = harness();
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
     assert.equal(h.context.ByndMonitor.activity().length, 0);
@@ -143,9 +195,10 @@ test('activity shows actual monitor and pet records in time order without invent
     h.chars[1].chatConfig.monitorState = { lastAt: 200, lastBarrage: ['one', 'two'] };
     h.chars[0].chatConfig.monitorPetState = { bubbleText: 'pet', bubbleAt: 300, pending: true };
     const records = h.context.ByndMonitor.activity();
-    assert.deepEqual(Array.from(records, item => [item.text, item.kind, item.at]), [['pet','pet',300],['one\ntwo','barrage',200],['hello','island',100]]);
+    assert.deepEqual(Array.from(records, item => [item.text, item.kind, item.at]), [['one\ntwo','barrage',200],['hello','island',100]]);
+    assert.deepEqual(Array.from(h.context.ByndPetWorkspace.activity(), item => [item.text, item.kind, item.at]), [['pet','pet',300]]);
     h.context.refreshMonitorApp();
-    assert.equal(h.context.ByndMonitor.activity().length, 3);
+    assert.equal(h.context.ByndMonitor.activity().length, 2);
 });
 
 test('workspace image sources reject executable schemes and keep supported local images', () => {
@@ -154,6 +207,65 @@ test('workspace image sources reject executable schemes and keep supported local
     const source = h.context.ByndMonitor.imageSource;
     for (const value of ['javascript:alert(1)', 'vbscript:test', 'data:text/html,<script>', '//untrusted.example/a']) assert.equal(source(value), '');
     for (const value of ['data:image/png;base64,AA==', 'blob:https://bynd.ccwu.cc/1', 'assets/avatar.png', 'https://example.test/a.png']) assert.equal(source(value), value);
+});
+
+test('monitor and pet navigation persist separate tabs and do not affect either role binding', () => {
+    const h = harness();
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    h.context.ByndPetWorkspace.navigate('phone');
+    h.context.ByndMonitor.navigate('island');
+    assert.equal(h.storage.getItem('bynd_pet_active_tool_v1'), 'phone');
+    assert.equal(h.storage.getItem('bynd_monitor_active_tool_v1'), 'island');
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), 'a');
+    assert.equal(h.writes.length, 0);
+});
+
+function desktopHarness(saved, { fail = false, folder = false } = {}) {
+    const storage = memoryStorage({ desktop_layout_v2: JSON.stringify(saved) });
+    const nodes = [], writes = [];
+    const context = vm.createContext({ localStorage: storage, DESKTOP_LAYOUT_KEY: 'desktop_layout_v2',
+        DESKTOP_APPS: [{id:'pet'}], _desktopLayoutNeedsVisiblePersist: false,
+        window: { _folders: folder ? [{apps:[{id:'pet'}]}] : [] },
+        document: { querySelectorAll: () => nodes },
+        collectDesktopDockLayout: () => saved.dock || [],
+        getDesktopAppIdFromElement: node => node.id,
+        ensureDesktopPage: () => ({ querySelector: () => ({classList:{contains:() => true}}) }),
+        hasDesktopMeasurableLayoutCanvas: () => true,
+        addDesktopAppAfterFolderPage: app => { nodes.push(app); return app; },
+        persistDesktopLayoutRepair: previous => {
+            if (fail) return false;
+            const next = {...previous, items:[...(previous.items || []), ...nodes.map(node=>({id:'app-'+node.id}))]};
+            storage.setItem('desktop_layout_v2',JSON.stringify(next)); writes.push(JSON.parse(JSON.stringify(next))); return true;
+        }
+    });
+    vm.runInContext(sourceSection('script.js','function migrateDesktopPetApp()', 'function cleanupRemovedWatchTogetherData()'), context);
+    return { context, storage, nodes, writes };
+}
+
+test('adding the pet desktop entry preserves the saved layout and does not re-add a removed icon', () => {
+    const existing = {id:'app-monitor',page:2,x:58,y:120};
+    const h = desktopHarness({items:[existing],dock:['wechat'],custom:'keep'});
+    assert.equal(h.context.migrateDesktopPetApp(), true);
+    assert.deepEqual(h.writes[0].items[0],existing);
+    assert.equal(h.writes[0].custom,'keep');
+    assert.deepEqual(h.writes[0].dock,['wechat']);
+    h.nodes.length = 0;
+    h.storage.setItem('desktop_layout_v2',JSON.stringify({items:[existing],dock:['wechat']}));
+    assert.equal(h.context.migrateDesktopPetApp(), false);
+    assert.equal(h.nodes.length,0);
+});
+
+test('pet entry migration recognizes folders and retains retry state after a failed layout save', () => {
+    const folder = desktopHarness({items:[]}, {folder:true});
+    assert.equal(folder.context.migrateDesktopPetApp(), false);
+    assert.equal(folder.nodes.length,0);
+    const failed = desktopHarness({items:[{id:'app-monitor'}]}, {fail:true});
+    assert.equal(failed.context.migrateDesktopPetApp(), true);
+    assert.equal(failed.storage.getItem('bynd_desktop_pet_entry_v1'),null);
+    assert.equal(failed.context._desktopLayoutNeedsVisiblePersist,true);
+    assert.equal(failed.context.migrateDesktopPetApp(), false);
+    assert.equal(failed.storage.getItem('bynd_desktop_pet_entry_v1'),null);
+    assert.equal(failed.nodes.length,1);
 });
 
 test('switching to a library pet restores selection when the character profile cannot be saved', async () => {

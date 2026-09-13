@@ -275,8 +275,14 @@ function openApp(appName) {
         const win = document.getElementById('app-monitor-window');
         if (win) {
             win.classList.remove('hidden');
-            setTimeout(() => win.classList.add('active'), 10);
-            initMonitorApp();
+            setTimeout(() => { win.classList.add('active'); initMonitorApp(); }, 10);
+        }
+    }
+    else if (appName === 'pet') {
+        const win = document.getElementById('app-pet-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => { win.classList.add('active'); window.ByndPetWorkspace?.render(); }, 10);
         }
     }
     // 13. 一起出门
@@ -560,6 +566,7 @@ function closeApp(appName) {
     else if (appName === 'money') winId = 'app-money-window';
     else if (appName === 'dream') winId = 'app-dream-window';
     else if (appName === 'monitor') winId = 'app-monitor-window';
+    else if (appName === 'pet') winId = 'app-pet-window';
     else if (appName === 'outing') winId = 'app-outing-window';
     else if (appName === 'coread') winId = 'app-coread-window';
     else if (appName === 'album') winId = 'app-album-window';
@@ -570,6 +577,7 @@ function closeApp(appName) {
         restoreDesktopPageAfterApp(appName);
         win.classList.remove('active');
         if (appName === 'monitor') window.ByndMonitor?.close();
+        if (appName === 'pet') window.ByndPetWorkspace?.close();
         if (appName === 'manual') resetManualSearchState();
         setTimeout(() => win.classList.add('hidden'), 300);
 
@@ -6193,11 +6201,8 @@ function getMonitorCharName(char) {
 function getMonitorPetBoundChar() {
     const chars = getMonitorCharacters();
     const boundId = localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) || '';
-    const custom = chars.find(char => char.id === boundId && char.chatConfig?.characterPet?.active);
-    if (custom) return custom;
-    const enabled = chars.filter(char => !!(char.chatConfig && char.chatConfig.monitorEnabled));
-    if (!enabled.length) return null;
-    return enabled.find(char => char.id === boundId) || enabled[0] || null;
+    // Desktop pets have their own binding. Enabling a chat watcher must never select a pet.
+    return chars.find(char => char.id === boundId) || null;
 }
 
 function setMonitorPetBoundChar(charId) {
@@ -6239,7 +6244,7 @@ function setMonitorPetEnabled(value) {
     syncMonitorPetFloating();
     renderMonitorCharacters();
     if (typeof showWechatToast === 'function') showWechatToast(enabled ? '桌宠已开启' : '桌宠已关闭');
-    return false;
+    return true;
 }
 window.setMonitorPetEnabled = setMonitorPetEnabled;
 
@@ -6270,7 +6275,7 @@ function updateMonitorScreenStatus(text) {
     monitorScreenStatus = String(text || '');
     const el = document.getElementById('monitor-screen-status');
     if (el) el.textContent = monitorScreenStatus;
-    window.ByndMonitor?.screenChanged();
+    window.ByndPetWorkspace?.screenChanged();
 }
 
 function ensureMonitorScreenVideo() {
@@ -6511,13 +6516,20 @@ function getMonitorStats(chars) {
 // The workspace owns presentation; these entry points also serve existing integrations.
 function renderMonitorOverview() { window.ByndMonitor?.render(); }
 function renderMonitorToolPanel() { window.ByndMonitor?.render(); }
-function renderMonitorScreenSharePanel() { return window.ByndMonitor?.screenView() || ''; }
+function renderMonitorScreenSharePanel() { return window.ByndPetWorkspace?.screenView() || ''; }
 
 function handleMonitorTool(tool) {
-    monitorActiveTool = ['internal', 'island', 'pet', 'phone'].includes(tool) ? tool : 'internal';
+    // Keep old shortcuts working, while pet controls live in their own application.
+    if (tool === 'pet' || tool === 'phone') {
+        if (typeof closeApp === 'function') closeApp('monitor');
+        if (typeof openApp === 'function') openApp('pet');
+        window.ByndPetWorkspace?.navigate(tool);
+        return false;
+    }
+    monitorActiveTool = tool === 'island' ? 'island' : 'internal';
     try { localStorage.setItem(MONITOR_ACTIVE_TOOL_KEY, monitorActiveTool); }
     catch (error) { console.warn('监控页面位置未保存', error); }
-    window.ByndMonitor?.navigate();
+    window.ByndMonitor?.navigate(monitorActiveTool);
     renderMonitorCharacters();
     return false;
 }
@@ -6713,7 +6725,7 @@ function updateMonitorPetStatus(text) {
     monitorPetStatus = String(text || '');
     const el = document.querySelector('.monitor-pet-status');
     if (el) el.textContent = monitorPetStatus;
-    window.ByndMonitor?.petChanged();
+    window.ByndPetWorkspace?.petChanged();
 }
 
 function setMonitorPetActionButton(button, state, text) {
@@ -6966,6 +6978,7 @@ function getMonitorPetCurrentSceneText() {
         wechat: '微信聊天页',
         music: '音乐页',
         monitor: '监控页',
+        pet: '桌宠页',
         coread: 'PageMate 阅读页',
         dream: '盗梦空间',
         theme: '美化页',
@@ -7226,7 +7239,7 @@ function previewMonitorPet(petId, button) {
     if (!pet) return false;
     updateMonitorPetStatus(`正在预览：${pet.displayName}`);
     setMonitorPetActionButton(button, 'done', '已预览');
-    if (window.ByndMonitor?.previewPet(pet)) return false;
+    if (window.ByndPetWorkspace?.previewPet(pet)) return false;
     monitorPetFloatMessage = `预览 ${pet.displayName}`;
     renderMonitorPetFloat(pet, 'preview');
     const preview = document.querySelector('.monitor-pet-active');
@@ -7367,6 +7380,7 @@ window.updateMonitorSpeedPreview = updateMonitorSpeedPreview;
 
 function renderMonitorCharacters() {
     window.ByndMonitor?.render();
+    window.ByndPetWorkspace?.render();
 }
 
 function initMonitorApp() {
@@ -7416,7 +7430,7 @@ async function saveMonitorWatcherSetting(charId, field, value, message) {
 }
 
 function setMonitorWatcherMode(charId, mode) {
-    return saveMonitorWatcherSetting(charId, 'monitorMode', mode === 'observer' ? 'observer' : 'persona', '陪伴视角已保存');
+    return saveMonitorWatcherSetting(charId, 'monitorMode', mode === 'observer' ? 'observer' : 'persona', '监控视角已保存');
 }
 window.setMonitorWatcherMode = setMonitorWatcherMode;
 
@@ -7430,21 +7444,8 @@ async function toggleMonitorWatcher(charId) {
     if (!char || monitorConfigSaving) return false;
     const enabled = !char.chatConfig?.monitorEnabled;
     if (!await saveMonitorWatcherSetting(charId, 'monitorEnabled', enabled)) return false;
-    try {
-        if (enabled) setMonitorPetBoundChar(char.id);
-        else if (localStorage.getItem(MONITOR_PET_BOUND_CHAR_KEY) === char.id && !char.chatConfig?.characterPet?.active) {
-            const next = getMonitorCharacters().find(item => item.id !== char.id && item.chatConfig?.monitorEnabled);
-            setMonitorPetBoundChar(next ? next.id : '');
-        }
-    } catch (error) {
-        renderMonitorCharacters();
-        syncMonitorPetFloating();
-        if (typeof showWechatToast === 'function') showWechatToast('陪伴设置已保存，但桌宠角色切换失败，请重试。');
-        return false;
-    }
     renderMonitorCharacters();
-    syncMonitorPetFloating();
-    if (typeof showWechatToast === 'function') showWechatToast(enabled ? `${getMonitorCharName(char)} 已开启陪伴` : `${getMonitorCharName(char)} 的陪伴已暂停`);
+    if (typeof showWechatToast === 'function') showWechatToast(enabled ? `${getMonitorCharName(char)} 已接入监控` : `${getMonitorCharName(char)} 已解除监控`);
     return true;
 }
 window.toggleMonitorWatcher = toggleMonitorWatcher;
@@ -18298,6 +18299,7 @@ const DESKTOP_APPS = [
     { id: 'game', name: 'Game', icon: 'ri-gamepad-line' },
     { id: 'dream', name: '盗梦空间', icon: 'ri-moon-cloudy-line' },
     { id: 'monitor', name: '监控', icon: 'ri-eye-line' },
+    { id: 'pet', name: '桌宠', icon: 'ri-bear-smile-line' },
     { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' },
     { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' },
@@ -23090,6 +23092,36 @@ function migrateDesktopMcpApp() {
     return true;
 }
 
+function migrateDesktopPetApp() {
+    const migrationKey = 'bynd_desktop_pet_entry_v1';
+    let saved;
+    try {
+        if (localStorage.getItem(migrationKey) === '1') return false;
+        saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {};
+    }
+    catch (_) { return false; }
+    const remember = () => { try { localStorage.setItem(migrationKey, '1'); } catch (_) {} };
+    if (!Array.isArray(saved.items) && !Array.isArray(saved.dock) && !Array.isArray(saved.deletedBuiltins)) { remember(); return false; }
+    // Respect custom folders, dock placement and a user's explicit removal of this entry.
+    if (Array.isArray(saved.deletedBuiltins) && saved.deletedBuiltins.some(id => id === 'app-pet' || id === 'pet')) { remember(); return false; }
+    const inFolder = (Array.isArray(window._folders) ? window._folders : []).some(folder => (Array.isArray(folder?.apps) ? folder.apps : []).some(app => String(app?.id || app) === 'pet'));
+    const inSaved = (Array.isArray(saved.items) ? saved.items : []).some(item => item?.id === 'app-pet') || (Array.isArray(saved.dock) ? saved.dock : []).includes('pet');
+    const onDesktop = Array.from(document.querySelectorAll('#pages-container .desktop-layout-item.layout-app')).some(item => getDesktopAppIdFromElement(item) === 'pet');
+    if (inFolder || inSaved) { remember(); return false; }
+    if (onDesktop || collectDesktopDockLayout().includes('pet')) {
+        if (hasDesktopMeasurableLayoutCanvas() && persistDesktopLayoutRepair(saved)) remember();
+        else _desktopLayoutNeedsVisiblePersist = true;
+        return false;
+    }
+    const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+    const app = DESKTOP_APPS.find(item => item.id === 'pet');
+    if (!area?.classList.contains('layout-canvas') || !app) return false;
+    if (!addDesktopAppAfterFolderPage(app, area, 1)) return false;
+    if (hasDesktopMeasurableLayoutCanvas() && persistDesktopLayoutRepair(saved)) remember();
+    else _desktopLayoutNeedsVisiblePersist = true;
+    return true;
+}
+
 function cleanupRemovedWatchTogetherData() {
     let saved = null;
     try {
@@ -23162,7 +23194,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor', 'outing', 'coread', 'album', 'manual', 'mcp'].forEach(appId => {
+    ['dream', 'monitor', 'pet', 'outing', 'coread', 'album', 'manual', 'mcp'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -23219,6 +23251,7 @@ function initEditMode() {
         applySavedDesktopLayout();
         migrateDesktopManualApp();
         migrateDesktopMcpApp();
+        migrateDesktopPetApp();
         ensureMonitorDesktopEntry();
         ensureDesktopLovelyWidget();
         setupDesktopDockEditing();

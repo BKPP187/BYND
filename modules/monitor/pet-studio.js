@@ -102,15 +102,16 @@
         if (reference) return { url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, kind: 'reference' };
         const alpha = C.analyzeAlpha(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
         if (alpha.empty) throw new Error('图片里没有可用的角色主体，请重新生成或上传。');
-        if (!alpha.transparent) return { url: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, transparent: false, coverage: alpha.coverage, kind: 'candidate' };
-        const output = document.createElement('canvas');
-        output.width = output.height = 1024;
-        const target = output.getContext('2d');
-        const { left, top, right, bottom } = alpha.bounds;
-        const width = right - left + 1, height = bottom - top + 1;
-        const ratio = Math.min(820 / width, 840 / height);
-        target.drawImage(canvas, left, top, width, height, (1024 - width * ratio) / 2, 922 - height * ratio, width * ratio, height * ratio);
-        return { url: output.toDataURL('image/png'), width: 1024, height: 1024, transparent: true, coverage: alpha.coverage, kind: 'candidate' };
+        // Inspect a small copy, but retain the original canvas, proportions and transparent margins.
+        // PNGs are kept byte-for-byte; only other supported formats need conversion for export.
+        let png = url;
+        if (!/^data:image\/png;base64,/i.test(url)) {
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            ctx.drawImage(image, 0, 0);
+            png = canvas.toDataURL('image/png');
+        }
+        return { url: png, width: image.naturalWidth, height: image.naturalHeight, transparent: alpha.transparent, coverage: alpha.coverage, kind: 'candidate' };
     }
     async function requestImage(prompt, options) {
         const result = await callWechatImageGenerationApi(prompt, options);
@@ -270,7 +271,7 @@
     }
     function imageBox(key, label, small = false) {
         const image = C.cached(key);
-        return `<div class="pet-image ${small ? 'small' : ''}">${image?.url ? `<img src="${escape(image.url)}" alt="${escape(label)}">` : '<i class="ri-user-smile-line" aria-hidden="true"></i>'}<span>${escape(label)}</span></div>`;
+        return `<figure class="pet-preview ${small ? 'small' : ''}"><div class="pet-image ${image?.url ? 'has-image' : ''}">${image?.url ? `<img src="${escape(image.url)}" alt="${escape(label)}">` : '<i class="ri-user-smile-line" aria-hidden="true"></i>'}</div><figcaption>${escape(label)}${image?.width && image?.height ? ` · ${escape(image.width)} × ${escape(image.height)}` : ''}</figcaption></figure>`;
     }
     const field = (key, label, value, placeholder, busy, rows = 3) => `<label class="pet-field"><span>${label}</span><textarea rows="${rows}" maxlength="${{ relationship: 2000, boundaries: 3000, pose: 1200, motifs: 1600 }[key] || 4000}" data-pet-field="${key}" oninput="ByndPetStudio.field(this.dataset.petField,this.value)" placeholder="${placeholder}" ${busy ? 'disabled' : ''}>${escape(value)}</textarea></label>`;
     function roleAvatar(char) {
@@ -456,7 +457,7 @@
         confirmIdle: () => task('正在确认待机动作…', confirmIdle, true, 'idle'),
         discard: id => task('正在放弃预览…', char => discardPreview(char, id), false, id === '__idle_motion' ? 'idle' : id),
         apply: () => task('正在绑定桌宠…', apply, true, 'idle'),
-        hide: () => task('正在隐藏桌宠…', (char, state) => { setMonitorPetEnabled(false); state.notice = '桌宠已隐藏，角色素材已保留。'; }),
+        hide: () => task('正在隐藏桌宠…', (char, state) => { if (!setMonitorPetEnabled(false)) throw new Error('桌宠开关未能保存，请重试。'); state.notice = '桌宠已隐藏，角色素材已保留。'; }),
         api: () => { window.ByndPetStudio.close(); openApp('settings'); },
         pick: target => { const input = document.getElementById('pet-studio-file'); if (!input || session(current()).busy) return; input.dataset.target = target; input.accept = target === 'reference' ? 'image/png,image/jpeg,image/webp' : 'image/png,image/gif'; input.click(); },
         upload: async input => {
