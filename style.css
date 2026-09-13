@@ -32629,6 +32629,13 @@ body:has(#home-screen.dark-mode) .manual-window {
 .mcp-desktop-icon::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(184,243,106,.14); border-radius: 11px; }
 .mcp-desktop-icon > i { color: #f3f7f4; }
 .mcp-desktop-icon > b { background: var(--mcp-accent, #b8f36a); }
+.mcp-desktop-icon:has(> img) {
+    background: transparent !important;
+    border: 0;
+    box-shadow: none !important;
+}
+.mcp-desktop-icon:has(> img)::after,
+.mcp-desktop-icon:has(> img) > b { display: none; }
 
 @keyframes mcpEnter {
     from { opacity: 0; transform: translateY(8px); }
