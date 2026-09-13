@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { root, sourceSection, deferred } = require('./helpers/harness.cjs');
+const { root, sourceSection, deferred, memoryStorage } = require('./helpers/harness.cjs');
 
 const png = 'data:image/png;base64,aGVsbG8=';
 function assetDatabase(data, state) {
@@ -84,6 +84,128 @@ function harness() {
 const petReply = { ok: true, content: '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}' };
 const reviewReply = { ok: true, content: '{"allow":true,"note":"符合人设"}' };
 const answerPet = messages => messages[0].content.includes('审校器') ? reviewReply : petReply;
+
+function activationHarness() {
+    const h = harness();
+    h.char.chatConfig.characterPet.active = false;
+    h.char.chatConfig.monitorEnabled = true;
+    const storage = memoryStorage({ bynd_monitor_pet_bound_char_v1: h.other.id, bynd_monitor_pet_enabled_v1: '1', bynd_monitor_active_pet_v1: 'community-pet' });
+    h.context.localStorage = storage;
+    h.context.setMonitorPetBoundChar = id => storage.setItem('bynd_monitor_pet_bound_char_v1', id);
+    h.context.getMonitorPetBoundChar = () => [h.char, h.other].find(char => char.id === storage.getItem('bynd_monitor_pet_bound_char_v1'));
+    h.context.isMonitorPetEnabled = () => storage.getItem('bynd_monitor_pet_enabled_v1') !== '0';
+    return { ...h, storage };
+}
+
+test('role pet switch enables the approved role, then hides it without changing community selection or monitoring', async () => {
+    const h = activationHarness();
+    const states = JSON.stringify(h.C.profile(h.char).states);
+    assert.equal(await h.C.setEnabled(h.char, true), true);
+    assert.equal(h.C.active(h.char), true);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.char.id);
+    assert.equal(h.storage.getItem('bynd_monitor_active_pet_v1'), 'community-pet');
+    assert.equal(await h.C.setEnabled(h.char, false), false);
+    assert.equal(h.C.active(h.char), false);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_enabled_v1'), '0');
+    assert.equal(h.C.profile(h.char).baseKey, 'base');
+    assert.equal(JSON.stringify(h.C.profile(h.char).states), states);
+    assert.equal(h.char.chatConfig.monitorEnabled, true);
+    assert.equal(h.storage.getItem('bynd_monitor_active_pet_v1'), 'community-pet');
+});
+
+test('an unconfirmed character image cannot be activated', async () => {
+    const h = activationHarness();
+    h.char.chatConfig.characterPet.baseKey = '';
+    h.char.chatConfig.characterPet.draftBaseKey = 'base';
+    await assert.rejects(h.C.setEnabled(h.char, true), /确认基础形象/);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.other.id);
+    assert.equal(h.state.saves.length, 0);
+});
+
+test('an opaque base cannot be activated even if imported as confirmed', async () => {
+    const h = activationHarness();
+    h.data.get('base').transparent = false;
+    await assert.rejects(h.C.setEnabled(h.char, true), /确认基础形象/);
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.other.id);
+    assert.equal(h.state.saves.length, 0);
+});
+
+for (const failure of ['settings', 'binding', 'enabled']) {
+    test(`failed role activation restores the previous display and binding (${failure})`, async () => {
+        const h = activationHarness(), before = JSON.stringify(h.C.profile(h.char));
+        if (failure === 'settings') h.state.failSave = true;
+        else {
+            const set = h.storage.setItem;
+            let rejected = false;
+            h.storage.setItem = (key, value) => {
+                if (!rejected && key === (failure === 'binding' ? 'bynd_monitor_pet_bound_char_v1' : 'bynd_monitor_pet_enabled_v1')) { rejected = true; throw new Error('storage unavailable'); }
+                set(key, value);
+            };
+        }
+        await assert.rejects(h.C.setEnabled(h.char, true), /保存|storage/);
+        assert.equal(JSON.stringify(h.C.profile(h.char)), before);
+        assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.other.id);
+        assert.equal(h.storage.getItem('bynd_monitor_pet_enabled_v1'), '1');
+        assert.equal(h.storage.getItem('bynd_monitor_active_pet_v1'), 'community-pet');
+    });
+}
+
+function legacyHarness() {
+    const h = harness();
+    const old = { url: png, width: 1024, height: 1024, transparent: false, source: 'generated', prompt: 'legacy', createdAt: 10 };
+    h.data.set('legacy', old); h.char.chatConfig.characterPet.draftBaseKey = 'legacy';
+    h.context.window.ByndPetProportions = { correct: async () => ({ url: 'data:image/png;base64,Y29ycmVjdGVk', width: 1024, height: 1365, proportionRepair: { ratio: .75 } }) };
+    return { ...h, old };
+}
+
+test('opening an old draft corrects its detected proportions once and preserves its original in history', async () => {
+    const h = legacyHarness();
+    await h.studio.select(h.char.id);
+    const config = h.C.profile(h.char), image = h.data.get(config.draftBaseKey);
+    assert.notEqual(config.draftBaseKey, 'legacy');
+    assert.equal(config.baseKey, 'base');
+    assert.equal(image.width, 1024); assert.equal(image.height, 1365);
+    assert.equal(image.source, 'proportion-repair'); assert.equal(image.originalKey, 'legacy');
+    assert.equal((await h.C.listAssets(h.char)).find(item => item.key === config.draftBaseKey).source, 'proportion-repair');
+    assert.equal(h.data.get('legacy'), h.old);
+    assert.equal(await h.studio.repairLegacyDrafts(h.char), 0);
+});
+
+test('home and studio share one pending legacy correction without creating duplicate assets', async () => {
+    const h = legacyHarness(), gate = deferred();
+    let calls = 0;
+    const corrected = { url: 'data:image/png;base64,Y29ycmVjdGVk', width: 1024, height: 1365 };
+    h.context.window.ByndPetProportions.correct = async () => { calls++; return gate.promise; };
+    const home = h.studio.repairLegacyDrafts(h.char);
+    const studio = h.studio.repairLegacyDrafts(h.char);
+    gate.resolve(corrected);
+    assert.deepEqual(await Promise.all([home, studio]), [1, 1]);
+    assert.equal(calls, 1);
+    assert.equal((await h.C.listAssets(h.char)).filter(item => item.source === 'proportion-repair').length, 1);
+});
+
+for (const failure of ['failAsset', 'failSave']) {
+    test(`legacy correction keeps the original preview if ${failure}`, async () => {
+        const h = legacyHarness();
+        h.state[failure] = true;
+        await assert.rejects(h.studio.repairLegacyDrafts(h.char), /database full|保存/);
+        assert.equal(h.C.profile(h.char).draftBaseKey, 'legacy');
+        assert.equal(h.data.get('legacy'), h.old);
+        assert.equal(h.C.profile(h.char).baseKey, 'base');
+    });
+}
+
+test('new generations, uploaded images, transparent assets and uncertain legacy images are not rewritten', async () => {
+    for (const properties of [{ geometryVersion: 1 }, { source: 'upload' }, { transparent: true }, { width: 768 }]) {
+        const h = legacyHarness(); Object.assign(h.old, properties);
+        h.context.window.ByndPetProportions.correct = async () => { throw new Error('must not inspect this asset'); };
+        assert.equal(await h.studio.repairLegacyDrafts(h.char), 0);
+    }
+    const h = legacyHarness();
+    h.context.window.ByndPetProportions.correct = async () => null;
+    assert.equal(await h.studio.repairLegacyDrafts(h.char), 0);
+    assert.equal(h.C.profile(h.char).draftBaseKey, 'legacy');
+});
 
 test('pose and motif preferences persist per character and preserve the old settings on save failure', async () => {
     const { C, char, other, studio, state } = harness();

@@ -62,6 +62,7 @@
     const assets = new Map();
     const assetLoads = new Map();
     const writes = new Map();
+    let activationWrite = Promise.resolve();
     let cacheEpoch = 0;
     const runtimes = new Map();
     const clean = (value, limit = 1000) => String(value ?? '').replace(/<[^>]*>/g, '').trim().slice(0, limit);
@@ -142,6 +143,44 @@
             return profile(char);
         });
     }
+    function setEnabled(char, enabled) {
+        const operation = activationWrite.catch(() => {}).then(async () => {
+            if (!characterExists(char)) throw new Error('请先选择角色。');
+            const config = profile(char);
+            if (enabled && !(await readAsset(config.baseKey))?.transparent) throw new Error('请先在角色工作室确认基础形象，再启用角色桌宠。');
+            const bindingKey = 'bynd_monitor_pet_bound_char_v1', enabledKey = 'bynd_monitor_pet_enabled_v1';
+            const before = new Map([[bindingKey, localStorage.getItem(bindingKey)], [enabledKey, localStorage.getItem(enabledKey)]]);
+            const changed = new Set();
+            try {
+                if (enabled) {
+                    changed.add(bindingKey); setMonitorPetBoundChar(char.id);
+                    changed.add(enabledKey); localStorage.setItem(enabledKey, '1');
+                } else if (before.get(bindingKey) === char.id && config.active) {
+                    changed.add(enabledKey); localStorage.setItem(enabledKey, '0');
+                }
+                await update(char, next => {
+                    if (enabled && next.baseKey !== config.baseKey) throw new Error('基础形象已变化，请重新启用。');
+                    next.active = !!enabled;
+                });
+            } catch (error) {
+                let restored = true;
+                for (const key of changed) {
+                    try { if (before.get(key) == null) localStorage.removeItem(key); else localStorage.setItem(key, before.get(key)); }
+                    catch (_) { restored = false; }
+                }
+                repaint(char);
+                if (!restored) throw new Error('桌宠开关未能保存，部分设置未能恢复，请检查储存空间。');
+                throw error;
+            }
+            if (!isMonitorPetEnabled()) {
+                if (typeof stopMonitorPetAutoObserve === 'function') stopMonitorPetAutoObserve();
+            } else if (typeof isMonitorScreenSharingActive === 'function' && isMonitorScreenSharingActive() && typeof startMonitorPetAutoObserve === 'function') startMonitorPetAutoObserve();
+            repaint(char);
+            return !!enabled;
+        });
+        activationWrite = operation;
+        return operation;
+    }
     async function readAsset(key) {
         if (!key) return null;
         if (assets.has(key)) return assets.get(key);
@@ -203,7 +242,7 @@
             transparent: typeof value.transparent === 'boolean' ? value.transparent : null,
             format: /^data:image\/gif;/i.test(value.url) ? 'GIF' : 'PNG', frames: positive(value.frames), durationMs: positive(value.durationMs),
             label: clean(value.stateLabel, 40) || '桌宠图片',
-            source: ['generated', 'generated-animation', 'animation-source', 'background-removal', 'upload'].includes(value.source) ? value.source : value.prompt ? 'generated' : 'upload'
+            source: ['generated', 'generated-animation', 'animation-source', 'background-removal', 'proportion-repair', 'upload'].includes(value.source) ? value.source : value.prompt ? 'generated' : 'upload'
         };
     }
     async function listAssets(char) {
@@ -541,7 +580,7 @@
     }
     function beginReply(char) { if (active(char, true)) { reset(char); runtime(char).pending = 'reply'; repaint(char); } }
     function endReply(char) { if (char?.id && runtimes.has(char.id)) { runtime(char).pending = ''; repaint(char); } }
-    window.ByndCharacterPet = { clean, uid, name, parse, normalizeStates, profile, runtime, reset, update, readAsset, storeAsset, listAssets, deleteAsset, assetUsage, cached, preload, active, available, material, visual, personaSource, hasPersona, persona, recent, stateMenu, chatInstructions, extract, normalizeReaction, applyChatReaction, repaint, request, testReaction, observeScene, analyzeAlpha, imagePrompt, beginReply, endReply,
+    window.ByndCharacterPet = { clean, uid, name, parse, normalizeStates, profile, runtime, reset, update, setEnabled, readAsset, storeAsset, listAssets, deleteAsset, assetUsage, cached, preload, active, available, material, visual, personaSource, hasPersona, persona, recent, stateMenu, chatInstructions, extract, normalizeReaction, applyChatReaction, repaint, request, testReaction, observeScene, analyzeAlpha, imagePrompt, beginReply, endReply,
         clearCache: () => { cacheEpoch++; assets.clear(); assetLoads.clear(); for (const char of window.myCharacters || []) reset(char); } };
     document.addEventListener('play', observeScene, true);
     document.addEventListener('pause', observeScene, true);

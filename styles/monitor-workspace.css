@@ -325,6 +325,12 @@
 .mh-pet-tools { padding: 16px; border: 1px solid var(--mh-line); border-radius: 23px; background: var(--mh-surface); }
 .mh-pet-tools .mh-character-picker { max-width: 58%; border-color: var(--mh-line); }
 .mh-pet-tools .mh-studio-entry { margin: 0 0 14px; background: var(--mh-soft); color: var(--mh-accent); }
+.mh-character-pet-card { border-color: var(--mh-line-strong); }
+.mh-character-toggle { margin: 6px 0 16px; padding: 13px 0; border-top: 1px solid var(--mh-line); border-bottom: 1px solid var(--mh-line); }
+.mh-character-toggle .mh-switch:disabled { opacity: .45; cursor: not-allowed; }
+.mh-character-preview { display: grid; justify-items: center; gap: 10px; margin: 0 0 16px; padding: 14px; border-radius: 17px; background: var(--mh-soft); }
+.mh-character-preview img { display: block; width: auto; height: auto; max-width: 100%; max-height: 180px; object-fit: contain; }
+.mh-character-preview > span { color: var(--mh-muted); font-size: 10px; }
 .mh-history-link { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 44px; margin-top: 10px; padding: 8px 0; border: 0; background: transparent; color: var(--mh-ink); font-size: 12px; text-align: left; }
 .mh-history-link > i { color: var(--mh-accent); font-size: 17px; }
 .mh-history-link > span { margin-left: auto; color: var(--mh-muted); font-size: 10px; }

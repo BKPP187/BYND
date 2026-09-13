@@ -3,6 +3,8 @@
     const C = window.ByndCharacterPet;
     const sessions = new Map();
     const downloads = new Map();
+    const legacyRepairs = new Map();
+    const legacyChecked = new Set();
     let selectedId = '';
     let tab = 'look';
     let roleTrigger = 'top';
@@ -121,6 +123,39 @@
         if (details) error.imageDetails = [details.model && '模型：' + details.model, details.path && '接口：' + details.path, details.status && 'HTTP：' + details.status, details.code && '错误码：' + details.code, details.param && '参数：' + details.param, details.requestId && '请求编号：' + details.requestId, details.message && '服务返回：' + details.message].filter(Boolean).join('\n');
         throw error;
     }
+    function repairLegacyDrafts(char) {
+        if (!window.ByndPetProportions || !char?.id) return Promise.resolve(0);
+        if (legacyRepairs.has(char)) return legacyRepairs.get(char);
+        const pending = correctLegacyDrafts(char);
+        legacyRepairs.set(char, pending);
+        pending.finally(() => { if (legacyRepairs.get(char) === pending) legacyRepairs.delete(char); }).catch(() => {});
+        return pending;
+    }
+    async function correctLegacyDrafts(char) {
+        const config = C.profile(char);
+        const drafts = [['idle', config.draftBaseKey], ...config.states.map(item => [item.id, item.draftKey])];
+        let repaired = 0;
+        for (const [id, oldKey] of drafts) {
+            if (legacyChecked.has(oldKey)) continue;
+            const original = await C.readAsset(oldKey);
+            if (!original || original.geometryVersion || original.transparent || original.width !== original.height
+                || !['generated', 'background-removal'].includes(original.source) || !/^data:image\/png;base64,/i.test(original.url)) continue;
+            const corrected = await window.ByndPetProportions.correct(original.url);
+            if (!corrected) { legacyChecked.add(oldKey); continue; }
+            const key = await C.storeAsset(char, { ...original, ...corrected, geometryVersion: 1, originalKey: oldKey, source: 'proportion-repair' });
+            await C.update(char, next => {
+                const target = id === 'idle' ? next : next.states.find(item => item.id === id);
+                const field = id === 'idle' ? 'draftBaseKey' : 'draftKey';
+                if (!target || target[field] !== oldKey) throw new Error('预览已变化，未替换当前图片。');
+                target[field] = key;
+            });
+            const formState = sessions.get(char.id)?.form.states.find(item => item.id === id);
+            if (formState?.draftKey === oldKey) formState.draftKey = key;
+            repaired++;
+        }
+        if (repaired) session(char).notice = '已校正旧预览的压缩比例，原文件保留在图片历史中。';
+        return repaired;
+    }
     async function generateAnimation(char, id, config, state, reference, prompt, progress) {
         const A = window.ByndPetAnimation;
         progress('正在用已确认形象准备四格动作模板…');
@@ -178,7 +213,7 @@
             image = await inspectImage(result.url);
         }
         progress('正在保存生成图…');
-        const key = await C.storeAsset(char, { ...image, prompt, baseKey: config.baseKey, referenceKey: config.referenceKey, stateId: id, stateLabel: state?.label || (animation ? '待机动作' : '基础形象'), source: animation ? 'generated-animation' : removeBackground ? 'background-removal' : 'generated' });
+        const key = await C.storeAsset(char, { ...image, geometryVersion: 1, prompt, baseKey: config.baseKey, referenceKey: config.referenceKey, stateId: id, stateLabel: state?.label || (animation ? '待机动作' : '基础形象'), source: animation ? 'generated-animation' : removeBackground ? 'background-removal' : 'generated' });
         await C.update(char, next => {
             if (animation && next.revision !== config.revision) throw new Error('制作期间角色设定已改变，本次动作未替换已有形象。');
             if (next.referenceKey !== config.referenceKey || next.baseKey !== config.baseKey) throw new Error('生成期间参考图或母版已改变，本次结果未替换已有形象。');
@@ -216,19 +251,7 @@
         session(char).notice = selected ? '表情已确认，符合适用条件时可自动使用。' : '基础形象已确认，可以绑定桌宠并生成专属表情。';
     }
     async function apply(char) {
-        const config = C.profile(char);
-        if (!(await C.readAsset(config.baseKey))?.transparent) throw new Error('请先确认一张透明的基础形象。');
-        const boundBefore = localStorage.getItem('bynd_monitor_pet_bound_char_v1');
-        const enabledBefore = localStorage.getItem('bynd_monitor_pet_enabled_v1');
-        try {
-            setMonitorPetBoundChar(char.id);
-            localStorage.setItem('bynd_monitor_pet_enabled_v1', '1');
-            await C.update(char, next => { next.active = true; });
-        } catch (error) {
-            if (boundBefore === null) localStorage.removeItem('bynd_monitor_pet_bound_char_v1'); else localStorage.setItem('bynd_monitor_pet_bound_char_v1', boundBefore);
-            if (enabledBefore === null) localStorage.removeItem('bynd_monitor_pet_enabled_v1'); else localStorage.setItem('bynd_monitor_pet_enabled_v1', enabledBefore);
-            throw error;
-        }
+        await C.setEnabled(char, true);
         reloadForm(char);
         C.repaint(char);
         session(char).notice = '已绑定 ' + C.name(char) + '。点击桌宠或与这个角色聊天，即可互动。';
@@ -423,13 +446,13 @@
         render();
         const char = current();
         if (char) {
-            try { await C.preload(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
+            try { await C.preload(char); await repairLegacyDrafts(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
             render();
         }
     }
     window.openMonitorPetStudio = open;
     window.ByndPetStudio = {
-        render, sourceData, inspectImage, generateImage, confirmImage, discardPreview, saveForm, openRoles, closeRoles, filterRoles,
+        render, sourceData, inspectImage, generateImage, confirmImage, discardPreview, saveForm, repairLegacyDrafts, openRoles, closeRoles, filterRoles,
         close: () => { closeRoles(false); window.ByndPetHistory?.close(false); document.getElementById('bynd-pet-studio')?.remove(); },
         history: () => { const char = current(); if (char && !session(char).busy) return window.ByndPetHistory?.open(char); },
         previewSource: async () => {
@@ -442,7 +465,7 @@
             const char = chars().find(item => item.id === id);
             if (!char) return false;
             closeRoles(false); window.ByndPetHistory?.close(false); selectedId = id; render(); focusRoleTrigger();
-            try { await C.preload(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
+            try { await C.preload(char); await repairLegacyDrafts(char); } catch (error) { session(char).error = '素材读取失败：' + error.message; }
             if (current() === char) render();
             return true;
         },
@@ -458,7 +481,7 @@
         confirmIdle: () => task('正在确认待机动作…', confirmIdle, true, 'idle'),
         discard: id => task('正在放弃预览…', char => discardPreview(char, id), false, id === '__idle_motion' ? 'idle' : id),
         apply: () => task('正在绑定桌宠…', apply, true, 'idle'),
-        hide: () => task('正在隐藏桌宠…', (char, state) => { if (!setMonitorPetEnabled(false)) throw new Error('桌宠开关未能保存，请重试。'); state.notice = '桌宠已隐藏，角色素材已保留。'; }),
+        hide: () => task('正在关闭角色桌宠…', async (char, state) => { await C.setEnabled(char, false); state.notice = '角色桌宠已关闭，形象与互动设定已保留。'; }),
         api: () => { window.ByndPetStudio.close(); openApp('settings'); },
         pick: target => { const input = document.getElementById('pet-studio-file'); if (!input || session(current()).busy) return; input.dataset.target = target; input.accept = target === 'reference' ? 'image/png,image/jpeg,image/webp' : 'image/png,image/gif'; input.click(); },
         upload: async input => {

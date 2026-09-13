@@ -220,6 +220,69 @@ test('monitor and pet navigation persist separate tabs and do not affect either 
     assert.equal(h.writes.length, 0);
 });
 
+async function rolePetWorkspace() {
+    const h = harness();
+    h.context.document.addEventListener = () => {};
+    h.context.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options?.detail; } };
+    h.context.dispatchEvent = () => {};
+    h.context.saveMonitorPetAsset = async () => {};
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), h.context);
+    const C = h.context.ByndCharacterPet;
+    const key = await C.storeAsset(h.chars[0], { url: 'data:image/png;base64,dGVzdA==', width: 3, height: 4, transparent: true });
+    h.chars[0].chatConfig.characterPet = { active: false, baseKey: key, states: [] };
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    return { ...h, C, workspace: h.context.ByndPetWorkspace };
+}
+
+test('pet home presents the role switch first and routes it to the same persisted activation used by the studio', async () => {
+    const h = await rolePetWorkspace();
+    const html = h.workspace.petView();
+    assert.ok(html.indexOf('启用角色桌宠') < html.indexOf('当前展示'));
+    assert.match(html, /aria-label="启用角色桌宠"[^>]+aria-checked="false"/);
+    assert.match(html, /已收藏的社区桌宠/);
+    assert.doesNotMatch(html, /小伙伴|hello, friend/);
+    assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), true);
+    assert.equal(h.C.active(h.chars[0]), true);
+    assert.match(h.workspace.petView(), /aria-label="启用角色桌宠"[^>]+aria-checked="true"/);
+    assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), true);
+    assert.equal(h.C.active(h.chars[0]), false);
+    assert.equal(h.chars[0].chatConfig.monitorEnabled, true);
+});
+
+test('pet home keeps an unavailable switch visible and explains that a draft must be confirmed', async () => {
+    const h = await rolePetWorkspace();
+    const config = h.chars[0].chatConfig.characterPet;
+    config.draftBaseKey = config.baseKey; config.baseKey = '';
+    const html = h.workspace.petView();
+    assert.match(html, /基础形象待确认/);
+    assert.match(html, /data-mh-action="toggle-character-pet" disabled/);
+    assert.match(html, /制作角色桌宠/);
+    assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), false);
+    assert.match(h.notices.at(-1), /确认基础形象/);
+});
+
+test('pet home checks legacy drafts even when the preview is already cached', async () => {
+    const h = await rolePetWorkspace(), called = [];
+    h.context.ByndPetStudio = { repairLegacyDrafts: async char => called.push(char.id) };
+    h.workspace.petView();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(called, ['a']);
+    h.workspace.petView();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(called, ['a']);
+});
+
+test('role switch failure never announces activation or moves the previous binding', async () => {
+    const h = await rolePetWorkspace();
+    h.context.setMonitorPetBoundChar('b');
+    h.context.saveCharactersToStorage = async () => false;
+    assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), false);
+    assert.equal(h.context.getMonitorPetBoundChar(), h.chars[1]);
+    assert.equal(h.C.profile(h.chars[0]).active, false);
+    assert.ok(h.notices.every(value => !/桌宠已开启/.test(value)));
+    assert.match(h.notices.at(-1), /保存/);
+});
+
 function desktopHarness(saved, { fail = false, folder = false } = {}) {
     const storage = memoryStorage({ desktop_layout_v2: JSON.stringify(saved) });
     const nodes = [], writes = [];

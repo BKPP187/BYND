@@ -28,6 +28,7 @@
         let watcherQuery = '', watcherFilter = 'all';
         let layer = null, roleQuery = '', activityFilter = 'all', busy = false, libraryOpened = false;
         const scrollPositions = new Map();
+        const previewLoads = new Set();
         let previousFocus = null, busyFocus = null, screenTimer = null, lastScreenActive = null, renderQueued = false;
         const root = () => document.getElementById(`app-${appName}-window`);
         const escape = value => musicEscapeHtml(String(value ?? ''));
@@ -72,8 +73,8 @@
             const hasPet = !!(material || saved);
             const displayed = hasPet && isMonitorPetEnabled();
             return `<section class="mh-stage mh-stage-pet" aria-label="当前桌宠">
-                <div class="mh-stage-top">${chooseButton(char, 'screen-role')}${badge(displayed ? '显示中' : hasPet ? '已暂停' : '等待小伙伴', displayed ? 'is-on' : '')}</div>
-                <div class="mh-scene"><span class="mh-scene-word" aria-hidden="true">hello, friend</span>${petVisual(char)}</div>
+                <div class="mh-stage-top">${chooseButton(char, 'screen-role')}${badge(displayed ? '显示中' : hasPet ? '已暂停' : '等待相遇', displayed ? 'is-on' : '')}</div>
+                <div class="mh-scene"><span class="mh-scene-word" aria-hidden="true">在你身边</span>${petVisual(char)}</div>
                 <div class="mh-stage-bottom"><div><span>${material ? '角色专属 · ' + escape(window.ByndCharacterPet?.visual(char)?.label || '待机') : saved ? '社区桌宠' : '从喜欢的形象开始'}</span><strong>${escape(material?.displayName || saved?.displayName || '挑选你的第一只桌宠')}</strong></div>
                     <button type="button" class="mh-round-button" data-mh-tab="library" aria-label="挑选在线桌宠">${icon('ri-add-line')}</button>
                 </div>
@@ -171,27 +172,40 @@
                 </div></div>`;
         }
         function libraryView() {
-            return `${heading('遇见下一只小伙伴。', '先预览，喜欢就导入并使用。')}
+            return `${heading('发现喜欢的桌宠。', '先预览，喜欢就导入并使用。')}
                 <div class="mh-library-intro"><span>${icon('ri-compass-3-line')}codex-pets 社区素材</span><a href="${MONITOR_PET_ORIGIN}" target="_blank" rel="noopener noreferrer">访问网站${icon('ri-external-link-line')}</a></div>
                 ${renderMonitorPetLibrary(true)}`;
         }
         function petView() {
             const char = character();
-            const config = char && window.ByndCharacterPet?.profile(char);
+            const C = window.ByndCharacterPet;
+            const config = char && C?.profile(char);
             const states = (config?.states || []).filter(item => item.enabled && item.assetKey);
             const bound = getMonitorPetBoundChar();
             const enabled = isMonitorPetEnabled();
             const saved = getMonitorPetLibrary();
-            return `${heading('小小一只，陪在身边。', '挑选社区桌宠，或制作角色的专属形象。')}
-                <div class="mh-pet-layout"><div>${stage(bound)}<div class="mh-pet-toggle-row"><span><strong>显示桌宠</strong><small>${bound ? `互动角色 · ${escape(name(bound))}` : '可直接展示，绑定角色后还能对话'}</small></span><button type="button" class="mh-switch" role="switch" aria-label="显示桌宠" aria-checked="${enabled}" data-mh-action="toggle-pet"><span></span></button></div>
-                    <button type="button" class="mh-browse-entry" data-mh-tab="library">${icon('ri-compass-3-line')}逛逛在线素材${icon('ri-arrow-right-line')}</button></div>
-                    <div class="mh-pet-tools"><div class="mh-section-heading"><h2>角色工作室</h2>${chooseButton(char)}</div>
+            const previewKey = config?.baseKey || config?.draftBaseKey;
+            const preview = C?.cached(previewKey);
+            const on = !!char && !!C?.active(char);
+            const loadKey = char && `${char.id}:${config?.revision}`;
+            if (previewKey && !previewLoads.has(loadKey)) {
+                previewLoads.add(loadKey);
+                C.preload(char).then(() => window.ByndPetStudio?.repairLegacyDrafts(char)).then(queueRender).catch(notifyError);
+            }
+            const status = !char ? '先选择陪伴你的角色' : on ? `${name(char)} 已来到你的桌面` : config?.baseKey ? '开启后，TA 会沿用角色人设与你互动' : config?.draftBaseKey ? (preview && !preview.transparent ? '基础形象还有背景，请先到工作室处理并确认' : '基础形象待确认，确认后即可开启') : '先制作并确认 TA 的基础形象';
+            const previewSource = imageSource(preview?.posterUrl || preview?.url);
+            return `${heading('让 TA，来到你身边。', '从对话到陪伴，延续你们的故事与默契。')}
+                <div class="mh-pet-layout"><section class="mh-pet-tools mh-character-pet-card" aria-label="角色桌宠"><div class="mh-section-heading"><h2>角色桌宠</h2>${chooseButton(char)}</div>
+                        <div class="mh-pet-toggle-row mh-character-toggle"><span><strong>启用角色桌宠</strong><small id="pet-character-status">${escape(status)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="启用角色桌宠" aria-describedby="pet-character-status" aria-checked="${on}" data-mh-action="toggle-character-pet" ${busy || !char || (!config?.baseKey && !on) ? 'disabled' : ''}><span></span></button></div>
+                        ${previewSource ? `<div class="mh-character-preview"><img src="${attr(previewSource)}" alt="${attr(name(char))}的${config?.baseKey ? '已确认形象' : '待确认形象'}"><span>${config?.baseKey ? on ? '正在陪伴你' : '已确认 · 随时开启' : '待确认的形象'}</span></div>` : ''}
                         <button type="button" class="mh-studio-entry" data-mh-action="studio">${icon('ri-magic-line')}<span><strong>${config?.baseKey ? '编辑角色桌宠' : '制作角色桌宠'}</strong><small>上传角色图，生成形象、姿势与表情</small></span>${icon('ri-arrow-right-s-line')}</button>
                         <div class="mh-state-strip">${states.length ? states.map(item => { const asset = window.ByndCharacterPet.cached(item.assetKey); const source = imageSource(asset?.posterUrl || asset?.url); return `<div class="mh-state-tile">${source ? `<img src="${attr(source)}" alt="${attr(item.label)}">` : icon('ri-emotion-line')}<span>${escape(item.label)}</span></div>`; }).join('') : '<div class="mh-state-empty">' + icon('ri-emotion-line') + '<span>从基础形象开始，慢慢添上坐姿、动作和表情。</span></div>'}</div>
                         <button type="button" class="mh-history-link" id="mh-pet-history" data-mh-action="history" ${!char ? 'disabled' : ''}>${icon('ri-history-line')}生成历史<span>PNG / GIF</span>${icon('ri-arrow-right-s-line')}</button>
-                        <p class="mh-caption">动作沿用已确认素材，互动遵循角色人设。</p></div></div>
-                <section class="mh-saved-pets"><div class="mh-section-heading"><h2>已导入桌宠</h2><span>${saved.length} 只小伙伴</span></div>
-                    ${saved.length ? renderMonitorPetLibrary(false) : '<div class="mh-saved-empty"><span>' + icon('ri-bear-smile-line') + '</span><div><strong>收藏喜欢的小伙伴</strong><p>在线素材可直接使用，随时回来切换。</p></div><button type="button" class="mh-text-button" data-mh-tab="library">去挑选' + icon('ri-arrow-right-s-line') + '</button></div>'}
+                        <p class="mh-caption">回应沿着 TA 的性格，也承接你们的关系与故事。</p></section>
+                    <div><div class="mh-section-heading"><h2>当前展示</h2></div>${stage(bound)}<div class="mh-pet-toggle-row"><span><strong>桌面显示</strong><small>${bound ? `互动角色 · ${escape(name(bound))}` : '选择形象后，可绑定角色开启互动'}</small></span><button type="button" class="mh-switch" role="switch" aria-label="显示当前桌宠" aria-checked="${enabled}" data-mh-action="toggle-pet"><span></span></button></div>
+                    <button type="button" class="mh-browse-entry" data-mh-tab="library">${icon('ri-compass-3-line')}浏览社区桌宠${icon('ri-arrow-right-line')}</button></div></div>
+                <section class="mh-saved-pets"><div class="mh-section-heading"><h2>已收藏的社区桌宠</h2><span>${saved.length} 个形象</span></div>
+                    ${saved.length ? renderMonitorPetLibrary(false) : '<div class="mh-saved-empty"><span>' + icon('ri-bear-smile-line') + '</span><div><strong>收藏喜欢的形象</strong><p>在线素材可直接使用，随时回来切换。</p></div><button type="button" class="mh-text-button" data-mh-tab="library">去挑选' + icon('ri-arrow-right-s-line') + '</button></div>'}
                 </section>${!saved.length ? `<p class="mh-inline-note" data-mh-pet-status role="status">${escape(monitorPetStatus)}</p>` : ''}`;
         }
         function activityView() {
@@ -231,7 +245,8 @@
             // Reuse the same image node when only a control changed, preserving a GIF loop.
             const pictures = new Map(Array.from(panel.querySelectorAll('[data-mh-visual]')).map(img => [img.dataset.mhVisual + ':' + img.dataset.mediaSource, img]));
             const stats = getMonitorStats(getMonitorCharacters());
-            host.querySelector('.mh-overview').innerHTML = `<span class="mh-presence ${(isPet ? isMonitorPetEnabled() : stats.enabled) ? 'is-on' : ''}"><span aria-hidden="true"></span>${isPet ? (isMonitorPetEnabled() ? '已开启' : '已关闭') : `${stats.enabled} 位接入`}</span>`;
+            const petRunning = isPet && isMonitorPetEnabled() && (window.ByndCharacterPet?.active(getMonitorPetBoundChar()) || getMonitorPetLibrary().some(item => item.id === getActiveMonitorPetId()));
+            host.querySelector('.mh-overview').innerHTML = `<span class="mh-presence ${(isPet ? petRunning : stats.enabled) ? 'is-on' : ''}"><span aria-hidden="true"></span>${isPet ? (petRunning ? '陪伴中' : '未开启') : `${stats.enabled} 位接入`}</span>`;
             host.querySelector('.mh-nav').innerHTML = tabs.map(tab => `<button type="button" id="${appName}-tab-${tab.id}" role="tab" aria-selected="${activeTab === tab.id}" aria-controls="${appName}-tool-panel" tabindex="${activeTab === tab.id ? 0 : -1}" data-mh-tab="${tab.id}">${icon(tab.icon)}<span>${tab.label}</span>${tab.id === 'phone' && isMonitorScreenSharingActive() ? '<b class="mh-nav-dot" aria-label="正在共享"></b>' : ''}</button>`).join('');
             panel.dataset.tool = activeTab;
             panel.setAttribute('aria-labelledby', appName + '-tab-' + activeTab);
@@ -247,7 +262,8 @@
             restoreFocus(token, position);
             if (isPet) {
                 watchScreen();
-                host.querySelectorAll('[data-mh-action="roles"], [data-mh-action="screen-role"], [data-mh-action="toggle-pet"], [data-mh-action="studio"], [data-mh-action="unbind-pet"]').forEach(button => { button.disabled = !!monitorPetLibraryAction; });
+                host.querySelectorAll('[data-mh-action="roles"], [data-mh-action="screen-role"], [data-mh-action="toggle-pet"], [data-mh-action="studio"], [data-mh-action="unbind-pet"]').forEach(button => { button.disabled = busy || !!monitorPetLibraryAction; });
+                if (busy || monitorPetLibraryAction) host.querySelectorAll('[data-mh-action="toggle-character-pet"], [data-monitor-pet-operation]').forEach(button => { button.disabled = true; });
                 if (activeTab === 'library' && !libraryOpened) {
                     libraryOpened = true;
                     if (!monitorPetResults.length && !monitorPetLoading) searchMonitorPets(monitorPetQuery, monitorPetPage);
@@ -322,6 +338,18 @@
             const message = error?.message || '操作未完成，请重试。';
             if (typeof showWechatToast === 'function') showWechatToast(message);
         }
+        async function toggleCharacterPet(char = character()) {
+            if (busy || monitorPetLibraryAction) return false;
+            api.setBusy(true);
+            try {
+                if (!char || !window.ByndCharacterPet) throw new Error('请先选择角色并确认基础形象。');
+                const enabled = !window.ByndCharacterPet.active(char);
+                await window.ByndCharacterPet.setEnabled(char, enabled);
+                showWechatToast(enabled ? name(char) + '的角色桌宠已开启' : '角色桌宠已关闭，形象与设定已保留。');
+                return true;
+            } catch (error) { notifyError(error); return false; }
+            finally { api.setBusy(false); render(); }
+        }
         async function act(button) {
             if (button.disabled) return;
             const char = activeChar(button);
@@ -353,6 +381,7 @@
                 case 'close-layer': closeLayer(); break;
                 case 'toggle-watcher': if (char) await toggleMonitorWatcher(char.id); break;
                 case 'toggle-pet': setMonitorPetEnabled(!isMonitorPetEnabled()); break;
+                case 'toggle-character-pet': await toggleCharacterPet(char); break;
                 case 'bind-pet': if (char) { setMonitorPetBoundChar(char.id); syncMonitorPetFloating(); render(); showWechatToast('已绑定桌宠角色：' + name(char)); } break;
                 case 'chat': if (char) { closeLayer(false); closeApp(appName); openApp('wechat'); openChat(char.id); } break;
                 case 'contacts': closeLayer(false); closeApp(appName); openApp('wechat'); break;
@@ -459,11 +488,12 @@
             if (content) content.scrollTo({ top: scrollPositions.get(activeTab) || 0, behavior: 'instant' });
         }
         const api = {
-            render, screenView, screenChanged, petChanged, activity, imageSource,
+            render, petView, screenView, screenChanged, petChanged, activity, imageSource, toggleCharacterPet,
             previewPet(pet) { if (!root()?.classList.contains('active')) return false; openLayer('pet-preview', pet.id); return true; },
             setBusy(value) {
                 if (value) busyFocus = focusToken(document.activeElement);
                 busy = !!value;
+                if (isPet) render();
                 if (layer) renderLayer();
                 root()?.querySelectorAll('[data-mh-action="toggle-watcher"], [data-mh-mode], [data-mh-speed]').forEach(button => { button.disabled = busy; });
                 if (!value) {
