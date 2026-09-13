@@ -128,6 +128,7 @@ test('animation uses the same image provider and approved identity while failed 
     await assert.rejects(studio.generateImage(char, 'quiet_smile', false, true), /rate limit/);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].options.referenceImage, 'data:image/png;base64,dGVtcGxhdGU=');
+    assert.equal(calls[0].options.size, '1024x1024', 'four-frame animation sheets keep their square layout');
     assert.equal(calls[0].options.background, undefined);
     assert.match(calls[0].prompt, /2×2.*4 帧/);
     assert.match(calls[0].prompt, /背景统一为纯色 #00ff00/);
@@ -753,6 +754,152 @@ function imageApiHarness(config = {}) {
     });
     vm.runInContext(sourceSection('wechat.js', 'async function callWechatImageGenerationApi(', 'function getWechatImageReferenceForChar('), context);
     return { context, calls, respond: fn => { response = fn; } };
+}
+
+// Real PNG headers make the pipeline derive dimensions from the returned image,
+// independently of the requested size and any saved metadata.
+const ratioPngs = {
+    portrait: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAICAYAAADaxo44AAAAI0lEQVR4nGOU1HX8H187kQEdMFasuvQfQ5SBgYEJm+CASwAAQloF9VYQ5dEAAAAASUVORK5CYII=',
+    landscape: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAYAAAD+Bd/7AAAAI0lEQVR4nGOU1HX8H187kQEXYKxYdek/TlkGBgYmfJJ0UgAAHWIF8fnucbQAAAAASUVORK5CYII=',
+    square: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAI0lEQVR4nGOU1HX8H187kQEXYKxYdek/TlkGBgYmfJJDRgEAplkF9csLR1sAAAAASUVORK5CYII='
+};
+
+function imagePipelineHarness(shape = 'portrait', viaUrl = false) {
+    const h = harness();
+    const requests = [], exported = [];
+    const bytes = url => Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
+    for (const [key, asset] of h.data) h.data.set(key, { ...asset, url: ratioPngs.portrait });
+    h.data.set('candidate', { url: ratioPngs[shape], transparent: false });
+    h.char.chatConfig.characterPet.draftBaseKey = 'candidate';
+    h.char.chatConfig.characterPet.states[0].draftKey = 'candidate';
+    h.context.Image = class {
+        set src(url) {
+            const pngBytes = bytes(url);
+            this.naturalWidth = pngBytes.readUInt32BE(16);
+            this.naturalHeight = pngBytes.readUInt32BE(20);
+            queueMicrotask(() => this.onload());
+        }
+    };
+    h.context.FileReader = class {
+        readAsDataURL(blob) {
+            blob.arrayBuffer().then(buffer => {
+                this.result = `data:${blob.type};base64,${Buffer.from(buffer).toString('base64')}`;
+                this.onload();
+            }, error => { this.error = error; this.onerror(); });
+        }
+    };
+    h.context.document.createElement = tag => {
+        if (tag === 'a') {
+            const link = { click() { exported.push({ url: link.href, filename: link.download }); } };
+            return link;
+        }
+        assert.equal(tag, 'canvas');
+        const canvas = {
+            width: 0, height: 0,
+            getContext: () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(canvas.width * canvas.height * 4).fill(255) }) }),
+            toDataURL() { throw new Error('PNG candidates must not be re-encoded or resized'); }
+        };
+        return canvas;
+    };
+    h.context.getDefaultImageApi = () => ({ baseUrl: 'https://images.test/v1', imageModel: 'configured-image-model' });
+    h.context.parseWechatApiJsonResponseText = JSON.parse;
+    h.context.fetch = async (url, options) => {
+        if (url.startsWith('data:')) return new Response(bytes(url), { headers: { 'content-type': 'image/png' } });
+        if (url === 'https://images.test/original.png') return new Response(bytes(ratioPngs[shape]), { headers: { 'content-type': 'image/png' } });
+        const body = options.body instanceof FormData ? Object.fromEntries(options.body) : JSON.parse(options.body);
+        requests.push({ url, body });
+        if (h.state.rejectMultipart && requests.length === 1) return new Response('Content-Type must be application/json', { status: 415 });
+        // Model a provider honoring a forced square. The old caller must fail
+        // the ratio assertion even though storage and CSS preserve its output.
+        const result = body.size === 'auto' ? ratioPngs[shape] : ratioPngs.square;
+        return new Response(JSON.stringify({ data: [viaUrl ? { url: 'https://images.test/original.png' } : { b64_json: result.split(',')[1] }] }));
+    };
+    vm.runInContext(sourceSection('wechat.js', 'async function callWechatImageGenerationApi(', 'function getWechatImageReferenceForChar('), h.context);
+    const reload = () => {
+        vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), h.context);
+        vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), h.context);
+        return { C: h.context.window.ByndCharacterPet, studio: h.context.window.ByndPetStudio };
+    };
+    return { ...h, requests, exported, reload, original: ratioPngs[shape], file: () => new Blob([bytes(ratioPngs[shape])], { type: 'image/png' }) };
+}
+
+for (const [id, removeBackground, shape, viaUrl, referenceKey] of [
+    ['idle', false, 'portrait', false, 'reference'],
+    ['quiet_smile', false, 'landscape', true, 'base'],
+    ['idle', true, 'portrait', true, 'candidate'],
+    ['quiet_smile', true, 'landscape', false, 'candidate']
+]) {
+    test(`static pet pipeline preserves ${shape} from edits through reload and export (${id}, removeBackground=${removeBackground})`, async () => {
+        const h = imagePipelineHarness(shape, viaUrl);
+        await h.studio.select(h.char.id);
+        const action = removeBackground ? h.studio.removeBackground : h.studio.generate;
+        assert.equal(await action(id), true);
+        const config = h.C.profile(h.char);
+        const key = id === 'idle' ? config.draftBaseKey : config.states[0].draftKey;
+        const [width, height] = shape === 'portrait' ? [6, 8] : [8, 6];
+        const saved = h.data.get(key);
+        assert.equal(saved.width / saved.height, width / height, 'a static request must not force the provider into a square');
+        assert.equal(h.requests.length, 1);
+        assert.equal(h.requests[0].url, 'https://images.test/v1/images/edits');
+        assert.equal(h.requests[0].body.size, 'auto');
+        assert.equal(h.requests[0].body.model, 'configured-image-model');
+        assert.equal(h.requests[0].body.background, 'transparent');
+        assert.equal(h.requests[0].body.output_format, 'png');
+        assert.deepEqual(Buffer.from(await h.requests[0].body.image.arrayBuffer()), Buffer.from(h.data.get(referenceKey).url.split(',')[1], 'base64'));
+        assert.equal(saved.url, h.original);
+        assert.equal(saved.width, width); assert.equal(saved.height, height);
+        assert.equal(config.baseKey, 'base', 'generation must not replace the confirmed base');
+        const reloaded = h.reload();
+        assert.equal(reloaded.C.cached(key), null);
+        assert.equal((await reloaded.C.readAsset(key)).url, h.original);
+        assert.equal((await reloaded.C.readAsset(key)).width, width);
+        assert.equal((await reloaded.C.readAsset(key)).height, height);
+        await reloaded.studio.exportImage(h.char, key);
+        assert.deepEqual(h.exported, [{ url: h.original, filename: '沈清-pet.png' }]);
+    });
+}
+
+test('automatic static sizing survives the supported JSON edits compatibility path', async () => {
+    const h = imagePipelineHarness();
+    h.state.rejectMultipart = true;
+    await h.studio.generateImage(h.char);
+    assert.equal(h.requests.length, 2);
+    assert.ok(h.requests.every(request => request.body.size === 'auto'));
+    assert.equal(h.requests[1].body.images[0].image_url, h.data.get('reference').url);
+    assert.equal(h.data.get(h.C.profile(h.char).draftBaseKey).url, h.original);
+});
+
+test('uploading an original replaces only the preview and preserves its PNG bytes through reload and download', async () => {
+    const h = imagePipelineHarness();
+    await h.studio.select(h.char.id);
+    assert.equal(await h.studio.upload({ files: [h.file()], dataset: { target: 'idle' }, value: 'original.png' }), true);
+    const config = h.C.profile(h.char);
+    assert.equal(config.baseKey, 'base');
+    assert.equal(config.states[0].assetKey, 'smile');
+    assert.notEqual(config.draftBaseKey, 'candidate');
+    assert.equal(h.data.get('candidate').url, h.original, 'keep the old preview in history');
+    const reloaded = h.reload();
+    const saved = await reloaded.C.readAsset(config.draftBaseKey);
+    assert.equal(saved.url, h.original);
+    assert.equal(saved.width, 6); assert.equal(saved.height, 8);
+    await reloaded.studio.exportImage(h.char, config.draftBaseKey);
+    assert.equal(h.exported[0].url, h.original);
+    assert.equal(h.requests.length, 0, 'replacing an original must not make a paid generation request');
+});
+
+for (const operation of ['generate', 'upload']) for (const failure of ['failAsset', 'failSave']) {
+    test(`${operation}: ${failure} reports failure and keeps the previous preview and confirmed base`, async () => {
+        const h = imagePipelineHarness();
+        await h.studio.select(h.char.id);
+        const before = JSON.stringify(h.C.profile(h.char));
+        h.state[failure] = true;
+        const ok = operation === 'upload'
+            ? await h.studio.upload({ files: [h.file()], dataset: { target: 'idle' }, value: 'original.png' })
+            : await h.studio.generate('idle');
+        assert.equal(ok, false);
+        assert.equal(JSON.stringify(h.C.profile(h.char)), before);
+        assert.equal(h.data.get('candidate').url, h.original);
+    });
 }
 
 test('pet generation reuses the existing API route and sends identity plus style as multipart edits with transparency', async () => {

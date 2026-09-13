@@ -168,9 +168,11 @@
         let image;
         if (animation) image = await generateAnimation(char, id, config, state, reference, prompt, progress);
         else {
+            // Only animation sheets need a square. Let static edits keep a
+            // natural canvas instead of forcing portrait/landscape art into one.
             const result = await requestImage(prompt, {
                 referenceImage: reference.posterUrl || reference.url,
-                requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: '1024x1024', onProgress: progress
+                requireReference: true, editOnly: true, allowEditCompatibility: true, referenceStyle: 'identity', background: 'transparent', outputFormat: 'png', size: 'auto', onProgress: progress
             });
             progress('图片已返回，正在读取并检查透明背景…');
             image = await inspectImage(result.url);
@@ -262,7 +264,7 @@
         const off = busy ? 'disabled' : '';
         const chosen = draft || C.cached(assetKey);
         const format = chosen?.format === 'gif' ? 'GIF' : 'PNG';
-        return `${imageFeedback(char, id)}<div class="pet-actions">${C.profile(char).baseKey ? `<button type="button" ${off} data-pet-animate="${id}" onclick="ByndPetStudio.animate(this.dataset.petAnimate)">${id === 'idle' ? '制作待机 GIF' : '生成动作 GIF'}</button>` : ''}<button type="button" class="${id === 'idle' ? '' : 'secondary'}" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成 PNG' : id === 'idle' ? '生成 3D 基础形象' : '生成静态 PNG'}</button><button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">上传 PNG / GIF</button>${draft ? `<button type="button" class="${draft.transparent ? '' : 'secondary'}" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? format === 'GIF' ? '确认这段动作' : '确认这张形象' : '去背景重试'}</button>` : ''}${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 ${format}</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
+        return `${imageFeedback(char, id)}<div class="pet-actions">${C.profile(char).baseKey ? `<button type="button" ${off} data-pet-animate="${id}" onclick="ByndPetStudio.animate(this.dataset.petAnimate)">${id === 'idle' ? '制作待机 GIF' : '生成动作 GIF'}</button>` : ''}<button type="button" class="${id === 'idle' ? '' : 'secondary'}" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成 PNG' : id === 'idle' ? '生成 3D 基础形象' : '生成静态 PNG'}</button><button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">${assetKey || draftKey ? '替换原图' : '上传 PNG / GIF'}</button>${draft ? `<button type="button" class="${draft.transparent ? '' : 'secondary'}" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? format === 'GIF' ? '确认这段动作' : '确认这张形象' : '去背景重试'}</button>` : ''}${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 ${format}</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
     }
     function imageFeedback(char, id) {
         const state = session(char);
