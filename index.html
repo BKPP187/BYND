@@ -50,11 +50,11 @@
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.613-pet-actions" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.614-pet-actions" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.603-agent-features-20260910" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.613" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.613" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.614" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.614" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -176,6 +176,10 @@
                             <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')">
                                 <div class="app-icon icon-black"><i class="ri-eye-line"></i></div>
                                 <span>监控</span>
+                            </div>
+                            <div class="app-item" data-app-id="pet" data-layout-id="app-pet" onclick="openApp('pet')">
+                                <div class="app-icon icon-black"><i class="ri-bear-smile-line"></i></div>
+                                <span>桌宠</span>
                             </div>
                             <div class="app-item" data-app-id="outing" data-layout-id="app-outing" onclick="openApp('outing')">
                                 <div class="app-icon icon-black"><i class="ri-map-pin-user-line"></i></div>
@@ -577,7 +581,7 @@
             <div class="mh-shell">
                 <header class="mh-topbar">
                     <button type="button" class="mh-icon-button" data-mh-action="back" aria-label="返回桌面"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-                    <div class="mh-brand"><span class="mh-brand-mark" aria-hidden="true">b.</span><strong>监控<span>弹幕与剧情</span></strong></div>
+                    <div class="mh-brand"><span class="mh-brand-mark" aria-hidden="true"><i class="ri-eye-line"></i></span><strong>监控<span>弹幕与剧情</span></strong></div>
                     <div id="monitor-overview" class="mh-overview"></div>
                     <button type="button" class="mh-icon-button" data-mh-action="roles" aria-label="管理监控角色"><i class="ri-user-settings-line" aria-hidden="true"></i></button>
                 </header>
@@ -594,9 +598,9 @@
             <div class="mh-shell">
                 <header class="mh-topbar">
                     <button type="button" class="mh-icon-button" data-mh-action="back" aria-label="返回桌面"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
-                    <div class="mh-brand"><span class="mh-brand-mark" aria-hidden="true">b.</span><strong>桌宠<span>我的小伙伴</span></strong></div>
+                    <div class="mh-brand"><span class="mh-brand-mark" aria-hidden="true"><i class="ri-bear-smile-line"></i></span><strong>桌宠<span>我的小伙伴</span></strong></div>
                     <div id="pet-overview" class="mh-overview"></div>
-                    <button type="button" class="mh-icon-button" data-mh-action="roles" aria-label="选择桌宠角色"><i class="ri-user-heart-line" aria-hidden="true"></i></button>
+                    <button type="button" class="mh-icon-button" data-mh-action="studio" aria-label="打开角色工作室"><i class="ri-magic-line" aria-hidden="true"></i></button>
                 </header>
                 <main class="mh-content" id="pet-content">
                     <section class="mh-view" id="pet-tool-panel" role="tabpanel" tabindex="-1"></section>
@@ -1129,8 +1133,8 @@
                             <summary><span class="manual-section-icon"><i class="ri-eye-line"></i></span><span><strong>监控、桌宠与屏幕陪伴</strong><em>让角色参与更多屏幕内场景</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
                             <div class="manual-section-body">
                                 <ol>
-                                    <li>在“监控”中选择监控者接入 BYND 内部聊天，可查看剧情、后台提示和桌宠气泡，并按喜好调整视角与弹幕速度。</li>
-                                    <li>想用桌宠时，在监控工具里开启桌宠并绑定已接入角色。点击桌宠可以触发一次观察。</li>
+                                    <li>在“监控”中选择监控者接入 BYND 内部聊天，可查看剧情、弹幕和提醒，并按喜好调整视角与弹幕速度。</li>
+                                    <li>在独立的“桌宠”App 中，打开“在线素材”即可预览、导入并使用社区桌宠，也可制作专属 PNG / GIF。桌宠与监控分别管理开关和角色；绑定互动角色后，点击桌宠可以触发一次观察。</li>
                                     <li>开启屏幕观察时，浏览器会弹出共享选择。只选自己愿意展示的窗口或标签页，用完点系统的“停止共享”即可。</li>
                                 </ol>
                                 <p class="manual-note"><strong>隐私小提醒：</strong>共享画面里可能带有聊天通知、账号、文件名或工作内容。更安心的做法是先关掉无关窗口和通知，再只共享需要的单个标签页。</p>
@@ -1677,7 +1681,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.613
+                    Beyond Screen v1.1.614
                 </div>
             </div>
         </div>
@@ -2850,26 +2854,26 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.613-pet-requests"></script>
+    <script src="chat-api.js?v=1.1.614-pet-requests"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.613-character-pet-20260910"></script>
+    <script src="wechat.js?v=1.1.614-character-pet-20260910"></script>
     <script src="theme.js?v=1.1.593-remove-web-splash-20260907"></script>
-    <script src="settings.js?v=1.1.613-character-pet-20260910"></script>
-    <script src="script.js?v=1.1.613-character-pet-20260910"></script>
+    <script src="settings.js?v=1.1.614-character-pet-20260910"></script>
+    <script src="script.js?v=1.1.614-character-pet-20260910"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.613-character-pet-20260910"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.614-character-pet-20260910"></script>
     <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.613"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.614"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>
-    <script src="modules/monitor/pet-animation.js?v=1.1.613"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.613"></script>
-    <script src="modules/monitor/pet-history.js?v=1.1.613"></script>
-    <script src="modules/monitor/workspace.js?v=1.1.613"></script>
+    <script src="modules/monitor/pet-animation.js?v=1.1.614"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.614"></script>
+    <script src="modules/monitor/pet-history.js?v=1.1.614"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.614"></script>
 </body>
 </html>

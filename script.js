@@ -6170,6 +6170,7 @@ let monitorActiveTool = localStorage.getItem(MONITOR_ACTIVE_TOOL_KEY) || 'intern
 let monitorPetQuery = '';
 let monitorPetResults = [];
 let monitorPetLoading = false;
+let monitorPetLibraryAction = null;
 let monitorPetStatus = '';
 let monitorPetResolvedBase = '';
 let monitorPetPage = 1;
@@ -6595,7 +6596,7 @@ function getMonitorPetLibrary() {
 }
 
 function saveMonitorPetLibrary(list) {
-    localStorage.setItem(MONITOR_PET_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).map(normalizeMonitorPet).filter(Boolean).slice(0, 80)));
+    localStorage.setItem(MONITOR_PET_LIBRARY_KEY, JSON.stringify((Array.isArray(list) ? list : []).map(normalizeMonitorPet).filter(Boolean)));
 }
 
 function getActiveMonitorPetId() {
@@ -6604,7 +6605,7 @@ function getActiveMonitorPetId() {
 
 function renderMonitorPetLibrary(online = false) {
     const saved = getMonitorPetLibrary();
-    const activeId = getActiveMonitorPetId();
+    const activeId = getMonitorPetActiveLibraryId();
     const onlineContent = monitorPetLoading
         ? '<div class="monitor-pet-empty" role="status">正在加载素材…</div>'
         : renderMonitorPetOnlineContent(saved, activeId);
@@ -6613,14 +6614,13 @@ function renderMonitorPetLibrary(online = false) {
             <input id="monitor-pet-search-input" type="search" aria-label="搜索在线桌宠素材" value="${musicEscapeAttr(monitorPetQuery)}" placeholder="搜索素材、主题或创作者" onkeydown="if(event.key==='Enter') searchMonitorPets(this.value, 1)">
             <button type="button" aria-label="搜索" onclick="searchMonitorPets(document.getElementById('monitor-pet-search-input')?.value, 1)" ${monitorPetLoading ? 'disabled' : ''}><i class="${monitorPetLoading ? 'ri-loader-4-line' : 'ri-search-line'}"></i></button>
         </div>
-        <p class="mh-library-source">来自 codex-pets 的社区素材</p>
         <div class="monitor-pet-gallery-head">
             ${renderMonitorPetTabButton('gallery', '全部素材')}
             ${renderMonitorPetTabButton('collections', '主题合集')}
             ${renderMonitorPetTabButton('creators', '创作者')}
         </div>` : ''}
-        <p class="monitor-pet-status" role="status">${musicEscapeHtml(monitorPetStatus)}</p>
-        <div class="monitor-pet-grid">${online ? onlineContent : saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('') || '<div class="monitor-pet-empty">还没有下载素材。可以制作专属桌宠，也可以浏览在线素材。</div>'}</div>
+        <p class="monitor-pet-status" data-mh-pet-status role="status">${musicEscapeHtml(monitorPetStatus)}</p>
+        <div class="monitor-pet-grid">${online ? onlineContent : saved.map(pet => renderMonitorPetCard(pet, true, activeId, true)).join('') || '<div class="monitor-pet-empty">还没有导入桌宠，到在线素材里挑一只吧。</div>'}</div>
         ${online ? renderMonitorPetPager() : ''}
     </div>`;
 }
@@ -6697,11 +6697,25 @@ function renderMonitorPetPager() {
     `;
 }
 
+function getMonitorPetActiveLibraryId() {
+    if (!isMonitorPetEnabled()) return '';
+    const char = getMonitorPetBoundChar();
+    const profile = char && window.ByndCharacterPet?.profile?.(char);
+    return profile?.active && profile.baseKey ? '' : getActiveMonitorPetId();
+}
+
+function renderMonitorPetUseButton(pet, saved) {
+    const current = getMonitorPetActiveLibraryId() === pet.id;
+    const pending = monitorPetLibraryAction?.id === pet.id;
+    const label = pending ? (monitorPetLibraryAction.use ? '启用中…' : '导入中…') : current ? '正在使用' : saved ? '使用桌宠' : '导入并使用';
+    return `<button type="button" class="mh-primary monitor-pet-action-btn ${pending ? 'loading' : ''}" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="${saved ? 'apply' : 'import'}" onclick="${saved ? 'applyMonitorPet' : 'importAndUseMonitorPet'}(this.dataset.monitorPetId, this)" ${monitorPetLibraryAction || current ? 'disabled' : ''}>${musicEscapeHtml(label)}</button>`;
+}
+
 function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
     const image = getMonitorPetDisplayImage(pet);
     return `
         <article class="monitor-pet-card ${activeId === pet.id ? 'active' : ''}">
-            <div class="monitor-pet-card-image">${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" loading="lazy" onerror="this.remove()">` : '<i class="ri-image-line"></i>'}</div>
+            <button type="button" class="monitor-pet-card-image" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview-image" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="预览 ${musicEscapeAttr(pet.displayName)}">${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" loading="lazy" onerror="this.remove()">` : '<i class="ri-image-line"></i>'}</button>
             <div class="monitor-pet-card-stats">
                 <span><i class="ri-eye-line"></i>${Number(pet.viewCount || 0) || 0}</span>
                 <span><i class="ri-heart-line"></i>${Number(pet.likeCount || 0) || 0}</span>
@@ -6714,8 +6728,8 @@ function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
                 ${pet.tags.length ? `<div>${pet.tags.map(tag => `<em>${musicEscapeHtml(tag)}</em>`).join('')}</div>` : ''}
             </div>
             <div class="monitor-pet-card-actions">
-                ${localOnly ? '' : `<button type="button" class="monitor-pet-action-btn" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview" onclick="previewMonitorPet(this.dataset.monitorPetId, this)">预览</button>`}
-                <button type="button" class="monitor-pet-action-btn" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="${saved ? 'apply' : 'download'}" onclick="${saved ? 'applyMonitorPet(this.dataset.monitorPetId, this)' : 'downloadMonitorPet(this.dataset.monitorPetId, this)'}">${activeId === pet.id ? '已应用' : (saved ? '应用' : '下载')}</button>
+                <button type="button" class="monitor-pet-action-btn" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview" onclick="previewMonitorPet(this.dataset.monitorPetId, this)">预览</button>
+                ${renderMonitorPetUseButton(pet, saved)}
             </div>
         </article>
     `;
@@ -6776,6 +6790,11 @@ function clampMonitorPetFloatPosition(host, node, x, y) {
     const height = Math.max(76, node.offsetHeight || 96);
     const maxX = Math.max(8, host.clientWidth - width - 8);
     let maxY = Math.max(8, host.clientHeight - height - 8);
+    const navigation = document.querySelector('.monitor-workspace.active:not(.hidden) .mh-nav');
+    if (navigation && navigation.getClientRects().length) {
+        const top = navigation.getBoundingClientRect().top - host.getBoundingClientRect().top;
+        if (top > 0) maxY = Math.max(8, Math.min(maxY, top - height - 12));
+    }
     if (node.classList.contains('character-pet')) {
         const footer = document.querySelector('#app-wechat-window.active .wc-room-footer');
         if (footer && footer.getClientRects().length) {
@@ -6922,7 +6941,7 @@ function renderMonitorPetFloat(pet, mode = '') {
     } else bubble?.remove();
     let body = node.querySelector('.monitor-pet-floating-body');
     if (!body) { body = document.createElement('button'); body.type = 'button'; body.className = 'monitor-pet-floating-body'; node.appendChild(body); }
-    body.setAttribute('aria-label', boundName ? `点击让 ${boundName} 说话` : '先接入角色再让桌宠说话');
+    body.setAttribute('aria-label', boundName ? `点击让 ${boundName} 说话` : '绑定互动角色后可让桌宠说话');
     body.title = boundName ? `绑定：${boundName}` : '未绑定角色';
     if (image) {
         let picture = body.querySelector('img');
@@ -7090,8 +7109,8 @@ async function requestMonitorPetReaction(reason = 'tap') {
     const char = getMonitorPetBoundChar();
     if (char && window.ByndCharacterPet?.active(char)) return window.ByndCharacterPet.request(char, reason);
     if (!char) {
-        updateMonitorPetStatus('先接入一个角色，桌宠才会按角色人设说话。');
-        if (typeof showWechatToast === 'function') showWechatToast('先接入一个角色');
+        updateMonitorPetStatus('在桌宠 App 中绑定互动角色，就能按人设对话。');
+        if (typeof showWechatToast === 'function') showWechatToast('到桌宠 App 绑定互动角色');
         return false;
     }
     if (typeof callChatApi !== 'function') {
@@ -7164,7 +7183,7 @@ window.requestMonitorPetReaction = requestMonitorPetReaction;
 
 function getMonitorPetDisplayImage(pet) {
     if (!pet) return '';
-    return pet.posterDataUrl || pet.posterUrl || pet.shareImageUrl || pet.previewUrl || '';
+    return pet.posterDataUrl || pet.previewUrl || pet.posterUrl || pet.shareImageUrl || '';
 }
 
 function setMonitorPetView(view) {
@@ -7235,10 +7254,10 @@ async function fetchMonitorPetJson(path) {
 }
 
 function previewMonitorPet(petId, button) {
-    const pet = monitorPetResults.find(item => item.id === petId) || getMonitorPetLibrary().find(item => item.id === petId);
+    const pet = getMonitorPetLibrary().find(item => item.id === petId) || monitorPetResults.find(item => item.id === petId);
     if (!pet) return false;
     updateMonitorPetStatus(`正在预览：${pet.displayName}`);
-    setMonitorPetActionButton(button, 'done', '已预览');
+    if (button?.dataset.monitorPetOperation !== 'preview-image') setMonitorPetActionButton(button, 'done', '已预览');
     if (window.ByndPetWorkspace?.previewPet(pet)) return false;
     monitorPetFloatMessage = `预览 ${pet.displayName}`;
     renderMonitorPetFloat(pet, 'preview');
@@ -7291,53 +7310,20 @@ function monitorBlobToDataUrl(blob) {
     });
 }
 
-async function fetchMonitorPetDataUrl(url) {
+async function fetchMonitorPetDataUrl(url, expectedType = '') {
     const resp = await fetch(toMonitorPetFetchUrl(url), { cache: 'no-store' });
     if (!resp.ok) throw new Error(`下载失败 ${resp.status}`);
-    return monitorBlobToDataUrl(await resp.blob());
-}
-
-async function downloadMonitorPet(petId, button) {
-    const pet = monitorPetResults.find(item => item.id === petId);
-    if (!pet) return false;
-    updateMonitorPetStatus(`正在下载 ${pet.displayName}...`);
-    setMonitorPetActionButton(button, 'loading', '下载中');
-    try {
-        const posterSource = pet.posterUrl || pet.shareImageUrl || pet.previewUrl;
-        const posterDataUrl = posterSource ? await fetchMonitorPetDataUrl(posterSource) : '';
-        const zipDataUrl = pet.downloadUrl ? await fetchMonitorPetDataUrl(pet.downloadUrl) : '';
-        await saveMonitorPetAsset(`${pet.id}:zip`, zipDataUrl);
-        const library = getMonitorPetLibrary().filter(item => item.id !== pet.id);
-        library.unshift({ ...pet, posterDataUrl, savedAt: Date.now() });
-        saveMonitorPetLibrary(library);
-        monitorPetFloatMessage = `下载完成`;
-        renderMonitorPetFloat({ ...pet, posterDataUrl }, 'preview');
-        updateMonitorPetStatus(`已下载 ${pet.displayName}，可以应用到项目中。`);
-        setMonitorPetActionButton(button, 'done', '已下载');
-    } catch (e) {
-        updateMonitorPetStatus(`下载失败：${e.message || e}`);
-        if (button) {
-            button.disabled = false;
-            button.classList.remove('loading');
-            button.textContent = button.dataset.originalText || '下载';
-        }
-    } finally {
-        setTimeout(() => {
-            monitorPetFloatMessage = '';
-            renderMonitorCharacters();
-        }, 420);
+    const blob = await resp.blob();
+    if (!blob.size || (expectedType && !blob.type.toLowerCase().startsWith(expectedType))) {
+        throw new Error(expectedType ? '素材没有返回有效图片，请稍后重试。' : '素材包为空，请稍后重试。');
     }
-    return false;
+    return monitorBlobToDataUrl(blob);
 }
-window.downloadMonitorPet = downloadMonitorPet;
 
-async function applyMonitorPet(petId, button) {
-    const pet = getMonitorPetLibrary().find(item => item.id === petId);
-    if (!pet) return false;
+async function saveMonitorPetSelection(pet) {
     const char = getMonitorPetBoundChar();
     const previousId = localStorage.getItem(MONITOR_ACTIVE_PET_KEY);
     const previousEnabled = localStorage.getItem(MONITOR_PET_ENABLED_KEY);
-    setMonitorPetActionButton(button, 'loading', '应用中');
     try {
         localStorage.setItem(MONITOR_ACTIVE_PET_KEY, pet.id);
         localStorage.setItem(MONITOR_PET_ENABLED_KEY, '1');
@@ -7352,22 +7338,74 @@ async function applyMonitorPet(petId, button) {
             if (previousEnabled == null) localStorage.removeItem(MONITOR_PET_ENABLED_KEY);
             else localStorage.setItem(MONITOR_PET_ENABLED_KEY, previousEnabled);
         } catch (_) { restored = false; }
-        updateMonitorPetStatus(restored ? `桌宠切换未能保存：${error.message || error}` : '桌宠切换和设置恢复均未完成，请检查储存空间后重试。');
-        if (button) { button.disabled = false; button.classList.remove('loading'); button.textContent = button.dataset.originalText || '应用'; }
-        renderMonitorCharacters();
-        return false;
+        throw new Error(restored ? `桌宠切换未能保存：${error.message || error}` : '桌宠切换和设置恢复均未完成，请检查储存空间后重试。');
     }
-    monitorPetFloatMessage = '';
-    updateMonitorPetStatus(`已应用 ${pet.displayName}，返回其他页面即可与桌宠互动。`);
-    renderMonitorPetFloat(pet, 'apply');
-    setMonitorPetActionButton(button, 'done', '已应用');
-    setTimeout(() => {
-        monitorPetFloatMessage = '';
+}
+
+async function runMonitorPetLibraryAction(petId, use, button) {
+    if (monitorPetLibraryAction) return false;
+    let pet = getMonitorPetLibrary().find(item => item.id === petId);
+    const alreadySaved = !!pet;
+    pet = pet || monitorPetResults.find(item => item.id === petId);
+    if (!pet) { updateMonitorPetStatus('找不到这只桌宠，请刷新素材列表后重试。'); return false; }
+    monitorPetLibraryAction = { id: petId, use };
+    window.ByndPetWorkspace?.setBusy(true);
+    updateMonitorPetStatus(`${alreadySaved ? '正在启用' : '正在导入'} ${pet.displayName}…`);
+    setMonitorPetActionButton(button, 'loading', alreadySaved ? '启用中' : '导入中');
+    renderMonitorCharacters();
+    let savedNow = false;
+    try {
+        if (!alreadySaved) {
+            // Keep the animated preview when available; the stored image remains usable offline.
+            const sources = [...new Set([pet.previewUrl, pet.posterUrl, pet.shareImageUrl].filter(Boolean))];
+            let posterDataUrl = '', imageError;
+            for (const source of sources) {
+                try { posterDataUrl = await fetchMonitorPetDataUrl(source, 'image/'); break; }
+                catch (error) { imageError = error; }
+            }
+            if (!posterDataUrl) throw imageError || new Error('这份素材没有可用图片。');
+            const zipDataUrl = pet.downloadUrl ? await fetchMonitorPetDataUrl(pet.downloadUrl) : '';
+            if (zipDataUrl) await saveMonitorPetAsset(`${pet.id}:zip`, zipDataUrl);
+            pet = { ...pet, posterDataUrl, savedAt: Date.now() };
+            saveMonitorPetLibrary([pet, ...getMonitorPetLibrary().filter(item => item.id !== pet.id)]);
+            savedNow = true;
+        }
+        if (use) {
+            await saveMonitorPetSelection(pet);
+            monitorPetFloatMessage = '';
+            syncMonitorPetFloating();
+        }
+        const message = use ? `已启用 ${pet.displayName}${getMonitorPetBoundChar() ? '，返回其他页面即可互动。' : '，可随时绑定角色开启对话。'}` : `已导入 ${pet.displayName}，可在“我的桌宠”中使用。`;
+        updateMonitorPetStatus(message);
+        if (typeof showWechatToast === 'function') showWechatToast(message);
+        return true;
+    } catch (error) {
+        updateMonitorPetStatus(`${savedNow ? '素材已导入，但未能启用：' : alreadySaved ? '' : '导入失败：'}${error.message || error}`);
+        return false;
+    } finally {
+        monitorPetLibraryAction = null;
+        if (button) { button.disabled = false; button.classList.remove('loading'); button.textContent = button.dataset.originalText || '重试'; }
         renderMonitorCharacters();
-    }, 520);
-    setTimeout(() => requestMonitorPetReaction('apply'), 80);
-    if (typeof showWechatToast === 'function') showWechatToast(`已应用桌宠素材：${pet.displayName}`);
-    return false;
+        window.ByndPetWorkspace?.setBusy(false);
+    }
+}
+
+function downloadMonitorPet(petId, button) {
+    return runMonitorPetLibraryAction(petId, false, button);
+}
+window.downloadMonitorPet = downloadMonitorPet;
+
+function importAndUseMonitorPet(petId, button) {
+    return runMonitorPetLibraryAction(petId, true, button);
+}
+window.importAndUseMonitorPet = importAndUseMonitorPet;
+
+function applyMonitorPet(petId, button) {
+    if (!getMonitorPetLibrary().some(item => item.id === petId)) {
+        updateMonitorPetStatus('这只桌宠尚未导入，请先导入素材。');
+        return Promise.resolve(false);
+    }
+    return runMonitorPetLibraryAction(petId, true, button);
 }
 window.applyMonitorPet = applyMonitorPet;
 
