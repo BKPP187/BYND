@@ -377,7 +377,6 @@
             ${config.draftBaseKey ? '<button type="button" class="pet-text-button" ' + off + ' onclick="ByndPetStudio.discard(\'idle\')">放弃这张预览</button>' : ''}
             ${config.idleKey || config.draftIdleKey ? `<div class="pet-idle-motion"><h3>待机动作 GIF</h3>${imageBox(config.draftIdleKey || config.idleKey, config.draftIdleKey ? '待确认的待机动作' : '已确认的待机动作', true)}<div class="pet-actions">${config.draftIdleKey ? `<button type="button" ${off} onclick="ByndPetStudio.confirmIdle()">确认待机动作</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.discard('__idle_motion')">放弃待机预览</button>` : ''}<button type="button" class="secondary" ${off} data-pet-download="${escape(config.draftIdleKey || config.idleKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 GIF</button></div><p class="pet-hint">待机动作与母版分别保存，更换待机 GIF 不需要重做已有表情。</p></div>` : ''}
             ${config.baseKey ? `<div class="pet-apply"><button type="button" ${off} onclick="ByndPetStudio.apply()">${C.active(char) ? '当前正在使用' : '绑定并使用桌宠'}</button>${C.active(char) ? `<button type="button" class="secondary" ${off} onclick="ByndPetStudio.hide()">隐藏桌宠</button>` : ''}</div>` : ''}
-            <details class="pet-details"><summary>查看基础形象提示词</summary><pre>${escape(C.imagePrompt(char))}</pre></details>
             <p class="pet-hint">新图片确认后才替换母版；换母版后，原表情需要重新派生。图片保存在本机，也包含在完整备份里。</p></section>`;
     }
     function renderPersona(char, config, state, off) {
