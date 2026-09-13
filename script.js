@@ -5435,12 +5435,122 @@ window.clearMoneyRecords = clearMoneyRecords;
 
 // --- Dream Vault / 盗梦空间 ---
 const DREAM_RECORDS_KEY = 'bynd_dream_records_v1';
+const DREAM_WRITING_KEY = 'bynd_dream_writing_v1';
+const DREAM_WRITING_DEFAULTS = { style: 'prose', viewpoint: 'character' };
+const DREAM_WRITING_LEGACY = { style: 'fiction', viewpoint: 'second' };
+const DREAM_WRITING_STYLES = [
+    { value: 'prose', label: '散文', hint: '景物、感官与心绪交织', icon: 'ri-quill-pen-line' },
+    { value: 'fiction', label: '细腻情感小说', hint: '对白、细节与情绪拉扯', icon: 'ri-book-open-line' }
+];
+const DREAM_WRITING_VIEWPOINTS = [
+    { value: 'character', label: '角色主视角', hint: '用「我」讲述心事' },
+    { value: 'second', label: '第二人称', hint: '以「你」入梦 · 全景' },
+    { value: 'forum', label: '第三人称', hint: '旁观者见闻 · 论坛体' }
+];
 let dreamGenerating = false;
 let dreamEntering = false;
 let dreamAdvancing = false;
 let dreamSelectedCharId = '';
 let dreamPreviewRecordId = '';
 let dreamActiveRecordId = '';
+
+function normalizeDreamWritingSettings(value, fallback = DREAM_WRITING_DEFAULTS) {
+    const input = value && typeof value === 'object' ? value : {};
+    return {
+        style: DREAM_WRITING_STYLES.some(item => item.value === input.style) ? input.style : fallback.style,
+        viewpoint: DREAM_WRITING_VIEWPOINTS.some(item => item.value === input.viewpoint) ? input.viewpoint : fallback.viewpoint
+    };
+}
+
+function getDreamWritingPreferences() {
+    try {
+        return normalizeDreamWritingSettings(JSON.parse(localStorage.getItem(DREAM_WRITING_KEY) || 'null'));
+    } catch (_) {
+        return normalizeDreamWritingSettings(null);
+    }
+}
+
+function saveDreamWritingPreferences(value) {
+    const writing = normalizeDreamWritingSettings(value);
+    localStorage.setItem(DREAM_WRITING_KEY, JSON.stringify(writing));
+    return writing;
+}
+
+function getDreamRecordWriting(record) {
+    return normalizeDreamWritingSettings(record && record.writing, DREAM_WRITING_LEGACY);
+}
+
+function syncDreamWritingControls() {
+    const writing = getDreamWritingPreferences();
+    document.querySelectorAll('#dream-writing-controls input[data-dream-writing]').forEach(input => {
+        input.checked = writing[input.dataset.dreamWriting] === input.value;
+        input.disabled = dreamGenerating;
+    });
+}
+
+function renderDreamWritingControls() {
+    const container = document.getElementById('dream-writing-controls');
+    if (!container) return;
+    container.innerHTML = [
+        { key: 'style', label: '文风', options: DREAM_WRITING_STYLES },
+        { key: 'viewpoint', label: '叙述视角', options: DREAM_WRITING_VIEWPOINTS }
+    ].map(group => `<fieldset class="dream-writing-group">
+        <legend>${group.label}</legend>
+        <div class="dream-writing-options dream-writing-${group.key}">${group.options.map(option => `<label class="dream-writing-option">
+            <input type="radio" name="dream-writing-${group.key}" value="${option.value}" data-dream-writing="${group.key}" onchange="setDreamWritingPreference('${group.key}', this.value)">
+            <span>${option.icon ? `<i class="${option.icon}" aria-hidden="true"></i>` : ''}<strong>${option.label}</strong><small>${option.hint}</small></span>
+        </label>`).join('')}</div>
+    </fieldset>`).join('');
+    syncDreamWritingControls();
+}
+
+function setDreamWritingPreference(key, value) {
+    const options = key === 'style' ? DREAM_WRITING_STYLES : key === 'viewpoint' ? DREAM_WRITING_VIEWPOINTS : [];
+    if (dreamGenerating || !options.some(item => item.value === value)) {
+        syncDreamWritingControls();
+        return false;
+    }
+    try {
+        saveDreamWritingPreferences({ ...getDreamWritingPreferences(), [key]: value });
+        setDreamStatus('');
+        syncDreamWritingControls();
+        return true;
+    } catch (e) {
+        syncDreamWritingControls();
+        setDreamStatus(`选择未保存：${e.message || e}`, 'error');
+        return false;
+    }
+}
+window.setDreamWritingPreference = setDreamWritingPreference;
+
+function renderDreamWritingCaption(record) {
+    if (!record || !record.writing) return '';
+    const writing = getDreamRecordWriting(record);
+    const style = DREAM_WRITING_STYLES.find(item => item.value === writing.style);
+    const viewpoint = DREAM_WRITING_VIEWPOINTS.find(item => item.value === writing.viewpoint);
+    return `<p class="dream-writing-caption"><i class="${style.icon}" aria-hidden="true"></i>${style.label}<span aria-hidden="true">·</span>${viewpoint.label}${writing.viewpoint === 'forum' ? ' · 论坛体' : ''}</p>`;
+}
+
+function buildDreamWritingPrompt(value) {
+    const writing = normalizeDreamWritingSettings(value);
+    const style = writing.style === 'prose'
+        ? '【文风：散文】从一两件具体景物、声音、气味或触感进入，让景物的变化承接心绪。长短句有呼吸，叙事与抒情自然交织，保留情节中的动作与对白。比喻少而准确，不堆砌月光、星海、温柔等抽象意象，不写成散文诗排句或景点说明。'
+        : '【文风：细腻情感小说】用短而有变化的自然段、贴合人物的对白、停顿、小动作和有限心理描写推进关系。一句话没有说完、一个动作收住，都应有前因后果；情绪通过细节让读者感到，不逐句解释，不滥用脸红、心跳、咬唇等固定反应。回忆只在眼前细节触发时短暂进入，随后回到当前场景。';
+    const viewpoint = {
+        character: '【视角：角色第一人称】openingScene、scene 与 charAction 中的「我」始终是做梦的角色，用户以名字或「你」出现。让读者读到角色没说出口的心事、自我掩饰和判断；只能推测用户心意，不能把推测写成已知。不要切到用户的第一人称或全知旁白。',
+        second: '【视角：第二人称全景】openingScene、scene 与 charAction 以「你」称呼用户，角色用姓名或他／她。叙述镜头可以展开环境与角色未说出口的心理，保持第二人称的临场感；不要替用户认定爱意、答应邀约或作出尚未选择的回应。',
+        forum: '【视角：第三人称旁观者论坛体】叙述者是梦中的旁观者，角色与用户用姓名或第三人称。像自然的论坛见闻帖，带一点「我在场看见」「后来听人说」「这只是我的猜测」的转述口吻，靠目击、传闻与一两句评论拼出关系。明确区分亲眼所见、听来的事和猜测，不全知读取两人的私下心理。charAction 也写成旁观者看到或听到的动作对白，不突然换回角色独白；不输出用户名表、Markdown 楼层或额外 JSON 字段。'
+    }[writing.viewpoint];
+    return [
+        '【共同叙事原则】角色卡、世界书和现实关系阶段优先于文风。梦可以放大情绪、改变场景与时间，不能抹掉角色的脾气、价值观、惯用表达和矛盾。保留他原本的克制、锋芒、嘴硬或直白，不把所有角色都写成体贴的恋人。',
+        '从白天一件未说出口、未能完成的具体事长出梦境。按已有关系呈现求而不得、试探、吃醋、担忧或热恋时更直接的思念与情绪；不强行安排恋爱，也不一遇矛盾就互相告白。角色单方面喜欢时，可以梦到被回应，也可以梦到落空，但这些是角色的愿望与梦中经历，不代表现实中的用户已经动心。',
+        '梦中进展不等于现实关系升级，梦中事件不写成现实共同记忆。进入互动后，用户是否回应、靠近或退开由用户选项决定；不要把拒绝当作同意。亲密感通过心理、对白、拥抱、亲吻和留白表现，不描写露骨性行为、性器官或未成年人性内容。',
+        style,
+        viewpoint,
+        '所有视角下，choices 都描述用户本人的下一步反应，不替角色作决定，也不变成论坛旁观者的操作。每个选项要有实际不同的态度或行动，不能全都导向同一种亲密回应。',
+        '正文按场景与情绪变化自然分段，段间用 JSON 字符串中的 \\n\\n；对白可独立成段，不把整段文字挤成一个长段落。charAction 承接场景，不能重复正文。不要照抄任何范文的句子或人物，不使用「卸下所有枷锁」「给你最确定的答案」一类通用安慰套话，不在正文输出这些写作规则、模式介绍或说教总结。'
+    ].join('\n');
+}
 
 function getDreamRecords() {
     try {
@@ -5568,7 +5678,7 @@ function getDreamPromptContext(char) {
     return { userProfile, identity, persona, memory, recent };
 }
 
-function buildDreamGenerationMessages(char) {
+function buildDreamGenerationMessages(char, writing = getDreamWritingPreferences()) {
     const context = getDreamPromptContext(char);
     const charName = getDreamCharName(char);
     const userName = context.userProfile.name || '用户';
@@ -5581,8 +5691,8 @@ function buildDreamGenerationMessages(char) {
                 'title 是简短梦名；summary 是梦境梗概；intent 是角色在白日未完成、想在梦里对用户继续做的事；openingScene 是用户刚进入梦境时看见的场景叙述；charAction 是角色入梦后的第一个主动动作或对白；choices 是由 2 到 4 个非空字符串组成的数组，每项都是用户对该动作的反应；imagePrompt 是梦境主视觉生成提示。',
                 `梦境的主导者是 ${charName}，${charName} 的愿望、犹豫与行动推动情节；用户只能选择自己的反应，不能替 ${charName} 做决定。`,
                 '必须忠于角色卡、世界书、关系记忆和聊天上下文。只有资料中明确发生过的事才能写成既成事实；推断出的未完成念头必须写成角色的梦中愿望、担忧或假设，不能伪造共同经历。',
-                '不要复述提示词，不要解释数据来源，不要使用通用恋爱模板。',
-                '允许亲密、暧昧和潜意识表达，但不得包含露骨性行为、未成年人性内容、胁迫或伤害引导。'
+                'title 用简短而具体的梦名；summary 约 50 到 100 字；openingScene 用 4 到 7 个自然段、约 260 到 480 字；charAction 约 40 到 100 字；imagePrompt 只描写适合展示的梦境环境与角色形象。',
+                buildDreamWritingPrompt(writing)
             ].join('\n')
         },
         {
@@ -5766,6 +5876,7 @@ function showDreamEntry() {
     dreamPreviewRecordId = '';
     showDreamView('dream-entry-view');
     renderDreamCharacterStrip();
+    renderDreamWritingControls();
 }
 window.showDreamEntry = showDreamEntry;
 
@@ -5803,13 +5914,15 @@ function renderDreamPreview(record) {
             <time>${musicEscapeHtml(getDreamTimeText(record.createdAt))}</time>
         </div>
         ${record.title ? `<h2>${musicEscapeHtml(record.title)}</h2>` : '<p class="dream-incomplete">这条旧记录缺少标题，需要由 AI 重建入梦入口。</p>'}
+        ${renderDreamWritingCaption(record)}
         ${previewText ? `<section class="dream-preview-section"><span>THE DREAM</span><p>${musicEscapeHtml(previewText)}</p></section>` : ''}
         ${record.openingScene ? `<section class="dream-preview-section"><span>OPENING SCENE</span><p>${musicEscapeHtml(record.openingScene)}</p></section>` : ''}
         ${record.imageError ? `<p class="dream-image-error">梦境图生成失败：${musicEscapeHtml(record.imageError)}</p>` : ''}
         <p class="dream-preview-status" id="dream-preview-status" role="status"></p>
         <div class="dream-preview-actions">
             <button type="button" class="dream-primary-button" id="dream-enter-button" onclick="enterDreamRecord('${musicEscapeAttr(record.id)}')"><i class="ri-footprint-line"></i><span>${musicEscapeHtml(actionLabel)}</span></button>
-            ${char ? `<button type="button" class="dream-secondary-button" onclick="selectDreamChar('${musicEscapeAttr(char.id)}'); showDreamEntry(); generateDreamRecord()"><i class="ri-refresh-line"></i><span>重新生成</span></button>` : ''}
+            ${char ? `<button type="button" class="dream-secondary-button" onclick="prepareDreamRegeneration('${musicEscapeAttr(record.id)}', true)"><i class="ri-refresh-line"></i><span>重新生成</span></button>
+            <button type="button" class="dream-writing-edit" onclick="prepareDreamRegeneration('${musicEscapeAttr(record.id)}')"><i class="ri-quill-pen-line"></i><span>调整文风与视角</span></button>` : ''}
         </div>`;
 }
 
@@ -5822,6 +5935,24 @@ function openDreamPreview(id) {
 }
 window.openDreamPreview = openDreamPreview;
 
+function prepareDreamRegeneration(id, generateNow = false) {
+    if (dreamGenerating) return false;
+    const record = getDreamRecordById(id);
+    if (!record || !getDreamCharacters().some(char => char.id === record.charId)) return false;
+    try {
+        saveDreamWritingPreferences(getDreamRecordWriting(record));
+    } catch (e) {
+        setDreamPreviewStatus(`选择未保存：${e.message || e}`, 'error');
+        return false;
+    }
+    dreamSelectedCharId = record.charId;
+    showDreamEntry();
+    setDreamStatus('');
+    if (generateNow) generateDreamRecord();
+    return true;
+}
+window.prepareDreamRegeneration = prepareDreamRegeneration;
+
 async function generateDreamRecord() {
     if (dreamGenerating) return;
     const char = getDreamSelectedCharacter();
@@ -5833,11 +5964,13 @@ async function generateDreamRecord() {
         setDreamStatus('聊天 API 模块没有加载，无法生成梦境文字。', 'error');
         return;
     }
+    const writing = getDreamWritingPreferences();
     dreamGenerating = true;
     renderDreamCharacterStrip();
+    syncDreamWritingControls();
     setDreamStatus('正在读取角色记忆与最近聊天...', 'busy');
     try {
-        const result = await callChatApi(buildDreamGenerationMessages(char), { temperature: 0.86, max_tokens: 2200 });
+        const result = await callChatApi(buildDreamGenerationMessages(char, writing), { temperature: 0.86, max_tokens: 2600 });
         if (!result.ok) throw new Error(result.error || '梦境文字生成失败');
         const payload = validateDreamGenerationPayload(extractDreamJsonPayload(result.content));
 
@@ -5864,6 +5997,7 @@ async function generateDreamRecord() {
             createdAt: Date.now(),
             updatedAt: Date.now(),
             ...payload,
+            writing,
             imageUrl,
             imageError,
             session: null
@@ -5878,6 +6012,7 @@ async function generateDreamRecord() {
     } finally {
         dreamGenerating = false;
         renderDreamCharacterStrip();
+        syncDreamWritingControls();
     }
 }
 window.generateDreamRecord = generateDreamRecord;
@@ -5912,7 +6047,8 @@ function buildDreamInteractionMessages(char, record, session, selectedChoice = '
                 'scene 是新的场景叙述；charAction 是角色主动完成的动作、对白或情绪推进；choices 是由 2 到 4 个非空字符串组成的数组，每项都是用户可以选择的反应；isEnding 是布尔值；只有 isEnding=true 时 endingTitle 才能是非空结局名。',
                 `情节必须由 ${getDreamCharName(char)} 的未完成意图推动。选项描述用户如何回应当前角色行动，不能替角色选择、说话或行动。`,
                 '严格延续原梦境和已发生的互动，不跳出角色，不把资料里不存在的现实往事写成事实，不复述提示词。',
-                '不要无限拖延：在合适的情节节点可以自然结束梦境。'
+                'scene 用 3 到 6 个自然段、约 180 到 360 字推进当前一幕；charAction 保留一个清晰的回应节点。不要无限拖延：在合适的情节节点可以自然结束梦境。',
+                buildDreamWritingPrompt(getDreamRecordWriting(record))
             ].join('\n')
         },
         {
@@ -5984,10 +6120,14 @@ async function enterDreamRecord(id) {
     }
     const complete = !!(record.openingScene && record.charAction && normalizeDreamChoices(record.choices).length >= 2);
     if (complete) {
-        record = updateDreamRecord(id, current => ({ ...current, updatedAt: Date.now(), session: createDreamSessionFromRecord(current) }));
-        renderDreamSession(record);
-        showDreamView('dream-session-view');
-        renderDreamList();
+        try {
+            record = updateDreamRecord(id, current => ({ ...current, updatedAt: Date.now(), session: createDreamSessionFromRecord(current) }));
+            renderDreamSession(record);
+            showDreamView('dream-session-view');
+            renderDreamList();
+        } catch (e) {
+            setDreamPreviewStatus(`入梦未保存：${e.message || e}`, 'error');
+        }
         return;
     }
     if (!(record.summary || record.text)) {
@@ -6046,6 +6186,7 @@ function renderDreamSession(record) {
             <span><em>DREAMER</em><strong>${musicEscapeHtml(charName || '角色已移除')}</strong></span>
             <small>${Array.isArray(session.turns) ? session.turns.length + 1 : 1}</small>
         </div>
+        ${renderDreamWritingCaption(record)}
         <article class="dream-scene">
             <span>SCENE</span>
             ${ended && session.endingTitle ? `<h2>${musicEscapeHtml(session.endingTitle)}</h2>` : ''}
@@ -6644,18 +6785,18 @@ function renderMonitorPetCollections() {
             .filter(Boolean);
         keys.forEach(key => {
             const id = key.toLowerCase();
-            if (!map.has(id)) map.set(id, { label: key, count: 0, cover: getMonitorPetDisplayImage(pet), views: 0 });
+            if (!map.has(id)) map.set(id, { label: key, count: 0, cover: getMonitorPetDisplayImage(pet) ? pet : null, views: 0 });
             const item = map.get(id);
             item.count += 1;
             item.views += Number(pet.viewCount || 0) || 0;
-            if (!item.cover) item.cover = getMonitorPetDisplayImage(pet);
+            if (!item.cover && getMonitorPetDisplayImage(pet)) item.cover = pet;
         });
     });
     const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
     if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有可聚合的合集。</div>';
     return rows.map(item => `
         <button type="button" class="monitor-pet-filter-card" data-monitor-pet-filter="${musicEscapeAttr(item.label)}" onclick="openMonitorPetFilter(this.dataset.monitorPetFilter)">
-            <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-price-tag-3-line"></i>'}</span>
+            <span>${item.cover ? renderMonitorPetMedia(item.cover) : '<i class="ri-price-tag-3-line"></i>'}</span>
             <strong>${musicEscapeHtml(item.label)}</strong>
             <em>${item.count} 个素材 · ${item.views} 浏览</em>
         </button>
@@ -6667,18 +6808,18 @@ function renderMonitorPetCreators() {
     monitorPetResults.forEach(pet => {
         const name = String(pet.ownerName || pet.ownerHandle || 'unknown').trim() || 'unknown';
         const id = name.toLowerCase();
-        if (!map.has(id)) map.set(id, { label: name, count: 0, cover: getMonitorPetDisplayImage(pet), likes: 0, comments: 0 });
+        if (!map.has(id)) map.set(id, { label: name, count: 0, cover: getMonitorPetDisplayImage(pet) ? pet : null, likes: 0, comments: 0 });
         const item = map.get(id);
         item.count += 1;
         item.likes += Number(pet.likeCount || 0) || 0;
         item.comments += Number(pet.commentCount || 0) || 0;
-        if (!item.cover) item.cover = getMonitorPetDisplayImage(pet);
+        if (!item.cover && getMonitorPetDisplayImage(pet)) item.cover = pet;
     });
     const rows = Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 18);
     if (!rows.length) return '<div class="monitor-pet-empty">当前页还没有创作者信息。</div>';
     return rows.map(item => `
         <button type="button" class="monitor-pet-filter-card creator" data-monitor-pet-filter="${musicEscapeAttr(item.label)}" onclick="openMonitorPetFilter(this.dataset.monitorPetFilter)">
-            <span>${item.cover ? `<img src="${musicEscapeAttr(item.cover)}" alt="${musicEscapeAttr(item.label)}" onerror="this.remove()">` : '<i class="ri-user-smile-line"></i>'}</span>
+            <span>${item.cover ? renderMonitorPetMedia(item.cover) : '<i class="ri-user-smile-line"></i>'}</span>
             <strong>${musicEscapeHtml(item.label)}</strong>
             <em>${item.count} 个素材 · ${item.likes} 喜欢 · ${item.comments} 评论</em>
         </button>
@@ -6712,10 +6853,9 @@ function renderMonitorPetUseButton(pet, saved) {
 }
 
 function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
-    const image = getMonitorPetDisplayImage(pet);
     return `
         <article class="monitor-pet-card ${activeId === pet.id ? 'active' : ''}">
-            <button type="button" class="monitor-pet-card-image" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview-image" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="预览 ${musicEscapeAttr(pet.displayName)}">${image ? `<img src="${musicEscapeAttr(image)}" alt="${musicEscapeAttr(pet.displayName)}" loading="lazy" onerror="this.remove()">` : '<i class="ri-image-line"></i>'}</button>
+            <button type="button" class="monitor-pet-card-image" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview-image" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="预览 ${musicEscapeAttr(pet.displayName)}">${renderMonitorPetMedia(pet)}</button>
             <div class="monitor-pet-card-stats">
                 <span><i class="ri-eye-line"></i>${Number(pet.viewCount || 0) || 0}</span>
                 <span><i class="ri-heart-line"></i>${Number(pet.likeCount || 0) || 0}</span>
@@ -6943,8 +7083,11 @@ function renderMonitorPetFloat(pet, mode = '') {
     if (!body) { body = document.createElement('button'); body.type = 'button'; body.className = 'monitor-pet-floating-body'; node.appendChild(body); }
     body.setAttribute('aria-label', boundName ? `点击让 ${boundName} 说话` : '绑定互动角色后可让桌宠说话');
     body.title = boundName ? `绑定：${boundName}` : '未绑定角色';
-    if (image) {
-        let picture = body.querySelector('img');
+    if (image && !custom) {
+        const media = body.querySelector('.monitor-pet-media');
+        if (!media || media.dataset.mediaSource !== image) body.innerHTML = renderMonitorPetMedia(pet);
+    } else if (image) {
+        let picture = body.querySelector(':scope > img');
         if (!picture) { picture = document.createElement('img'); picture.onerror = () => picture.remove(); body.replaceChildren(picture); }
         // Keep the same image node and source so ordinary repaints do not restart GIFs.
         if (picture.getAttribute('src') !== image) picture.src = image;
@@ -7186,6 +7329,72 @@ function getMonitorPetDisplayImage(pet) {
     return pet.posterDataUrl || pet.previewUrl || pet.posterUrl || pet.shareImageUrl || '';
 }
 
+function getMonitorPetStripLayout(width, height, source) {
+    // codex-pets preview.webp is a horizontal strip of 96x104 cells, not an animated WebP.
+    // Inspect the decoded dimensions as well so ordinary GIFs and individual posters stay intact.
+    const candidate = /(?:\/preview\.webp(?:[?#]|$)|^data:image\/webp[;,])/i.test(String(source || ''));
+    const frames = width / 96;
+    return candidate && height === 104 && Number.isInteger(frames) && frames > 1 && frames <= 170
+        ? { width: 96, height: 104, frames } : null;
+}
+
+function renderMonitorPetMedia(pet, extraClass = '', visualId = '') {
+    const sources = [...new Set([pet?.posterDataUrl, pet?.previewUrl, pet?.posterUrl, pet?.shareImageUrl].filter(value =>
+        typeof value === 'string' && /^(?:https?:\/\/|blob:|data:image\/)/i.test(value)))];
+    const source = sources[0] || '';
+    return `<span class="monitor-pet-media ${musicEscapeAttr(extraClass)}" role="img" aria-label="${musicEscapeAttr(pet?.displayName || '桌宠预览')}" data-media-source="${musicEscapeAttr(source)}" data-media-fallbacks="${musicEscapeAttr(JSON.stringify(sources.slice(1)))}" ${visualId ? `data-mh-visual="${musicEscapeAttr(visualId)}"` : ''}>
+        ${source ? `<img src="${musicEscapeAttr(source)}" alt="" aria-hidden="true" loading="lazy" draggable="false" onload="monitorPetMediaLoaded(this)" onerror="monitorPetMediaFailed(this)">` : ''}
+        <span class="monitor-pet-media-status">${source ? '加载预览…' : '暂无预览'}</span>
+    </span>`;
+}
+
+function monitorPetMediaLoaded(image) {
+    const media = image.closest('.monitor-pet-media');
+    if (!media) return;
+    media.querySelector('svg')?.remove();
+    const source = image.currentSrc || image.getAttribute('src') || '';
+    const layout = getMonitorPetStripLayout(image.naturalWidth, image.naturalHeight, source);
+    media.classList.toggle('is-strip', !!layout);
+    media.classList.remove('is-error');
+    if (layout) {
+        const create = name => document.createElementNS('http://www.w3.org/2000/svg', name);
+        const svg = create('svg'), viewport = create('svg'), track = create('image');
+        svg.setAttribute('viewBox', `0 0 ${layout.width} ${layout.height}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svg.setAttribute('aria-hidden', 'true');
+        // The inner viewport clips neighboring frames even when the outer SVG is letterboxed.
+        viewport.setAttribute('width', layout.width);
+        viewport.setAttribute('height', layout.height);
+        viewport.setAttribute('overflow', 'hidden');
+        track.setAttribute('href', source);
+        track.setAttribute('width', image.naturalWidth);
+        track.setAttribute('height', layout.height);
+        track.setAttribute('class', 'monitor-pet-strip-track');
+        track.style.setProperty('--pet-strip-end', `-${image.naturalWidth}px`);
+        track.style.setProperty('--pet-strip-frames', String(layout.frames));
+        track.style.setProperty('--pet-strip-duration', `${layout.frames * 0.2}s`);
+        viewport.appendChild(track);
+        svg.appendChild(viewport);
+        media.appendChild(svg);
+        media.dataset.mediaFrames = String(layout.frames);
+    } else delete media.dataset.mediaFrames;
+    media.classList.add('is-ready');
+}
+
+function monitorPetMediaFailed(image) {
+    const media = image.closest('.monitor-pet-media');
+    if (!media) return;
+    let fallbacks = [];
+    try { fallbacks = JSON.parse(media.dataset.mediaFallbacks || '[]'); } catch (_) {}
+    const next = fallbacks.shift();
+    media.dataset.mediaFallbacks = JSON.stringify(fallbacks);
+    media.classList.remove('is-ready', 'is-strip');
+    media.querySelector('svg')?.remove();
+    if (next) { image.src = next; return; }
+    media.classList.add('is-error');
+    media.querySelector('.monitor-pet-media-status').textContent = '预览加载失败';
+}
+
 function setMonitorPetView(view) {
     monitorPetView = ['gallery', 'collections', 'creators'].includes(view) ? view : 'gallery';
     renderMonitorCharacters();
@@ -7267,7 +7476,7 @@ function previewMonitorPet(petId, button) {
         void preview.offsetWidth;
         preview.classList.add('is-previewing');
         preview.innerHTML = `
-            <div class="monitor-pet-preview">${getMonitorPetDisplayImage(pet) ? `<img src="${musicEscapeAttr(getMonitorPetDisplayImage(pet))}" alt="${musicEscapeAttr(pet.displayName)}" onerror="this.remove()">` : '<i class="ri-bubble-chart-line"></i>'}</div>
+            <div class="monitor-pet-preview">${renderMonitorPetMedia(pet)}</div>
             <div>
                 <span>预览素材</span>
                 <strong>${musicEscapeHtml(pet.displayName)}</strong>
@@ -12709,7 +12918,8 @@ function getDesktopThemeIconUrl(appId, source) {
         camera: 14,
         preset: 15,
         manual: 16,
-        mcp: 17
+        mcp: 17,
+        pet: 18
     }[appId];
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);

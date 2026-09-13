@@ -2463,7 +2463,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.614';
+const APP_VERSION = 'v1.1.615';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const ALL_DATA_KEYS = [
@@ -2481,6 +2481,7 @@ const ALL_DATA_KEYS = [
     'wechat_memory_store',
     'bynd_money_records_v1',
     'bynd_dream_records_v1',
+    'bynd_dream_writing_v1',
     'desktop_layout_v2',
     'desktop_folders',
     'desktop_sticky_notes_v1',

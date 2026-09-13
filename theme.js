@@ -9,8 +9,10 @@ const THEME_ICON_TARGETS = [
     {i:'ri-map-pin-user-line', n:'一起出门'},
     {i:'ri-book-open-line', n:'PageMate'}, {i:'ri-image-2-line', n:'相册'},
     {i:'ri-music-2-fill', n:'音乐'}, {i:'ri-camera-lens-line', n:'相机'},
-    {i:'ri-equalizer-line', n:'预设'}, {i:'ri-file-text-line', n:'说明书'}
+    {i:'ri-equalizer-line', n:'预设'}, {i:'ri-file-text-line', n:'说明书'},
+    {i:'ri-github-fill', n:'MCP'}, {i:'ri-bear-smile-line', n:'桌宠'}
 ];
+// 已保存的图标按槽位存储；新增 App 追加到末尾，保留旧版 Dock 的位置。
 const THEME_DESKTOP_ICON_COUNT = 13;
 const THEME_DOCK_ICON_START = THEME_DESKTOP_ICON_COUNT;
 const THEME_LIBRARY_KEY = 'bynd_theme_library_v1';
@@ -1561,12 +1563,10 @@ function saveTheme() {
         widget1: { type: widgetType1, cdTitle: widgetCdTitle1, cdDate: widgetCdDate1, quote: widgetQuote1, style: widgetStyle1, accent: widgetAccent1 },
         widget2: { type: widgetType2, cdTitle: widgetCdTitle2, cdDate: widgetCdDate2, quote: widgetQuote2, style: widgetStyle2, accent: widgetAccent2 }
     };
-    if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons(themeData);
-    applyGlobalTapEffectSettings(tapEffect);
-    
     try {
-        localStorage.removeItem('my_theme_data');
         localStorage.setItem('my_theme_data', JSON.stringify(themeData));
+        if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons(themeData);
+        applyGlobalTapEffectSettings(tapEffect);
         applyLsShortcuts(lsLeft, lsRight);
 
         alert("✅ 保存成功！文字颜色已自动适配");

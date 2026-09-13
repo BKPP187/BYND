@@ -63,7 +63,7 @@
             const saved = getMonitorPetLibrary().find(pet => pet.id === getActiveMonitorPetId());
             const stock = imageSource(getMonitorPetDisplayImage(saved));
             const source = custom || stock;
-            if (source) return `<img class="mh-pet-art" data-mh-visual="${attr(char?.id || 'pet')}" src="${attr(source)}" alt="${attr(material?.displayName || saved?.displayName || name(char))}">`;
+            if (source) return renderMonitorPetMedia(custom ? { posterDataUrl: custom, displayName: material?.displayName || name(char) } : saved, 'mh-pet-art', char?.id || 'pet');
             return `<div class="mh-portrait-art">${avatar(char, 'mh-portrait')}<span class="mh-orbit mh-orbit-one" aria-hidden="true">✦</span><span class="mh-orbit mh-orbit-two" aria-hidden="true">✧</span><span class="mh-orbit-dot" aria-hidden="true"></span></div>`;
         }
         function stage(char) {
@@ -229,7 +229,7 @@
             const content = host.querySelector('.mh-content'), scroll = content.scrollTop;
             const panel = host.querySelector('.mh-view');
             // Reuse the same image node when only a control changed, preserving a GIF loop.
-            const pictures = new Map(Array.from(panel.querySelectorAll('[data-mh-visual]')).map(img => [img.dataset.mhVisual + ':' + img.getAttribute('src'), img]));
+            const pictures = new Map(Array.from(panel.querySelectorAll('[data-mh-visual]')).map(img => [img.dataset.mhVisual + ':' + img.dataset.mediaSource, img]));
             const stats = getMonitorStats(getMonitorCharacters());
             host.querySelector('.mh-overview').innerHTML = `<span class="mh-presence ${(isPet ? isMonitorPetEnabled() : stats.enabled) ? 'is-on' : ''}"><span aria-hidden="true"></span>${isPet ? (isMonitorPetEnabled() ? '已开启' : '已关闭') : `${stats.enabled} 位接入`}</span>`;
             host.querySelector('.mh-nav').innerHTML = tabs.map(tab => `<button type="button" id="${appName}-tab-${tab.id}" role="tab" aria-selected="${activeTab === tab.id}" aria-controls="${appName}-tool-panel" tabindex="${activeTab === tab.id ? 0 : -1}" data-mh-tab="${tab.id}">${icon(tab.icon)}<span>${tab.label}</span>${tab.id === 'phone' && isMonitorScreenSharingActive() ? '<b class="mh-nav-dot" aria-label="正在共享"></b>' : ''}</button>`).join('');
@@ -237,7 +237,7 @@
             panel.setAttribute('aria-labelledby', appName + '-tab-' + activeTab);
             panel.innerHTML = activeTab === 'phone' ? screenView() : activeTab === 'library' ? libraryView() : activeTab === 'pet' ? petView() : activeTab === 'island' ? activityView() : homeView();
             for (const img of panel.querySelectorAll('[data-mh-visual]')) {
-                const previous = pictures.get(img.dataset.mhVisual + ':' + img.getAttribute('src'));
+                const previous = pictures.get(img.dataset.mhVisual + ':' + img.dataset.mediaSource);
                 if (previous) img.replaceWith(previous);
             }
             content.scrollTo({ top: scroll, behavior: 'instant' });
@@ -287,9 +287,8 @@
             } else if (layer.type === 'pet-preview') {
                 const saved = getMonitorPetLibrary().find(item => item.id === layer.charId);
                 const pet = saved || monitorPetResults.find(item => item.id === layer.charId);
-                const image = imageSource(getMonitorPetDisplayImage(pet));
                 title = pet?.displayName || '素材预览';
-                body = `<div class="mh-asset-preview"><span class="mh-image-fallback" ${image ? 'hidden' : ''}>图片暂时无法读取</span>${image ? `<img src="${attr(image)}" alt="${attr(title)}">` : ''}</div><p class="mh-asset-description">${escape(pet?.description || '暂无素材介绍')}</p><p class="mh-library-source">${escape(pet?.ownerName ? `创作者：${pet.ownerName}` : '社区桌宠素材')}</p>`;
+                body = `<div class="mh-asset-preview">${renderMonitorPetMedia(pet)}</div><p class="mh-asset-description">${escape(pet?.description || '暂无素材介绍')}</p><p class="mh-library-source">${escape(pet?.ownerName ? `创作者：${pet.ownerName}` : '社区桌宠素材')}</p>`;
                 footer = `${pet ? `<div class="mh-preview-actions">${renderMonitorPetUseButton(pet, !!saved)}${!saved ? `<button type="button" class="mh-secondary" data-monitor-pet-id="${attr(pet.id)}" data-monitor-pet-operation="download" onclick="downloadMonitorPet(this.dataset.monitorPetId, this)" ${monitorPetLibraryAction ? 'disabled' : ''}>仅导入，稍后使用</button>` : ''}</div>` : ''}<p class="mh-inline-note" data-mh-pet-status role="status">${escape(monitorPetStatus)}</p>`;
             } else {
                 title = '监控设置';
@@ -418,6 +417,8 @@
             host.addEventListener('keydown', keydown);
             host.addEventListener('error', event => {
                 if (event.target.tagName !== 'IMG') return;
+                // Shared pet media owns its fallback chain and visible loading/error state.
+                if (event.target.closest('.monitor-pet-media')) return;
                 const fallback = event.target.parentElement?.querySelector('.mh-image-fallback');
                 if (fallback) fallback.hidden = false;
                 event.target.remove();

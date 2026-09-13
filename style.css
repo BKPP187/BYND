@@ -15216,25 +15216,27 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     font-size: 13px;
 }
 .dream-selected {
-    min-height: 274px;
-    padding: 22px 0 24px;
+    min-height: 138px;
+    padding: 20px 0;
     border-top: 1px solid #d8d8d8;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    column-gap: 18px;
     align-items: center;
-    justify-content: center;
-    text-align: center;
+    text-align: left;
 }
 .dream-selected > img {
-    width: 132px;
-    height: 132px;
+    grid-row: 1 / 4;
+    width: 84px;
+    height: 84px;
     border: 1px solid #d8d8d8;
     border-radius: 50%;
     object-fit: cover;
     background: #f3f3f0;
 }
 .dream-selected > span {
-    margin-top: 18px;
+    grid-column: 2;
+    align-self: end;
     color: #707070;
     font-size: 9px;
     line-height: 1.2;
@@ -15242,6 +15244,7 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     letter-spacing: 0;
 }
 .dream-selected h2 {
+    grid-column: 2;
     max-width: 100%;
     margin: 6px 0 0;
     overflow-wrap: anywhere;
@@ -15252,12 +15255,126 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     letter-spacing: 0;
 }
 .dream-selected p {
+    grid-column: 2;
+    align-self: start;
     max-width: 370px;
-    margin: 13px 0 0;
+    margin: 8px 0 0;
     color: #626262;
     font-size: 13px;
     line-height: 1.65;
     letter-spacing: 0;
+}
+.dream-writing-controls {
+    display: grid;
+    gap: 18px;
+    margin: 2px 0 22px;
+    padding-top: 18px;
+    border-top: 1px solid #e8e7e3;
+}
+.dream-writing-group {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.dream-writing-group legend {
+    margin-bottom: 9px;
+    padding: 0;
+    color: #64605a;
+    font-size: 12px;
+    font-weight: 700;
+}
+.dream-writing-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.dream-writing-viewpoint {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.dream-writing-option {
+    position: relative;
+    min-width: 0;
+    cursor: pointer;
+}
+.dream-writing-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.dream-writing-option > span {
+    min-height: 82px;
+    height: 100%;
+    padding: 12px;
+    border: 1px solid #e3e0da;
+    border-radius: 14px;
+    background: #faf9f6;
+    color: #605c55;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    gap: 7px;
+    transition: background .16s, border-color .16s;
+}
+.dream-writing-option i {
+    font-size: 17px;
+}
+.dream-writing-option strong {
+    font-size: 13px;
+    line-height: 1.4;
+}
+.dream-writing-option small {
+    flex-basis: 100%;
+    color: #767169;
+    font-size: 11px;
+    line-height: 1.5;
+}
+.dream-writing-viewpoint .dream-writing-option > span {
+    min-height: 77px;
+    padding: 11px 9px;
+}
+.dream-writing-option input:checked + span {
+    border-color: #536a5c;
+    background: #edf2eb;
+    color: #304f3d;
+    box-shadow: inset 0 0 0 1px #536a5c;
+}
+.dream-writing-option input:checked + span small {
+    color: #4e6555;
+}
+.dream-writing-option input:focus-visible + span {
+    outline: 2px solid #536a5c;
+    outline-offset: 3px;
+}
+.dream-writing-option input:disabled + span {
+    opacity: .55;
+    cursor: wait;
+}
+.dream-writing-caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 20px;
+    color: #627063;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.dream-writing-edit {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    background: transparent;
+    color: #526958;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 4px;
 }
 .dream-primary-button,
 .dream-secondary-button {
@@ -15346,6 +15463,13 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .dream-preview-status[data-tone="error"],
 .dream-session-status[data-tone="error"] {
     color: #b42318;
+}
+.dream-entry-content > .dream-status {
+    margin: 0 0 14px;
+    text-align: left;
+}
+.dream-status:empty {
+    display: none;
 }
 .dream-status[data-tone="busy"],
 .dream-preview-status[data-tone="busy"],
@@ -15687,11 +15811,11 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
         padding-left: 16px;
     }
     .dream-selected {
-        min-height: 256px;
+        min-height: 130px;
     }
     .dream-selected > img {
-        width: 120px;
-        height: 120px;
+        width: 84px;
+        height: 84px;
     }
     .dream-preview-content,
     .dream-session-content {
@@ -29481,7 +29605,7 @@ button.wc-ai-phone-sync {
     box-shadow: 0 10px 22px rgba(0,0,0,0.055) !important;
 }
 
-.monitor-pet-filter-card span {
+.monitor-pet-filter-card > span {
     grid-row: 1 / 3 !important;
     width: 54px !important;
     height: 54px !important;
