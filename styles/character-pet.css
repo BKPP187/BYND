@@ -97,10 +97,10 @@
 .pet-image { position: relative; display: flex; justify-content: center; align-items: center; aspect-ratio: 1; width: min(100%, 330px); margin: 6px auto 14px; border-radius: 15px; overflow: hidden; background-color: #fff; background-image: linear-gradient(45deg, var(--mh-soft) 25%, transparent 25%), linear-gradient(-45deg, var(--mh-soft) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--mh-soft) 75%), linear-gradient(-45deg, transparent 75%, var(--mh-soft) 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
 .pet-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .pet-image.has-image { display: block; aspect-ratio: auto; }
-/* Keep the original canvas ratio and leave room around the whole preview. */
-.pet-image.has-image img { width: 100%; height: auto; max-height: none; object-fit: contain; transform: scale(.8); transform-origin: center; }
-.pet-preview { width: min(100%, 330px); margin: 6px auto 14px; }
-.pet-preview.small { max-width: 190px; }
+.pet-image.has-image img { width: 100%; height: auto; max-height: none; object-fit: contain; }
+/* Size the image and its preview frame together, preserving natural proportions. */
+.pet-preview { width: min(80%, 264px); margin: 6px auto 14px; }
+.pet-preview.small { max-width: 152px; }
 .pet-preview .pet-image { width: 100%; margin: 0; }
 .pet-preview figcaption { padding: 8px 2px 0; color: var(--mh-muted); font-size: 10px; line-height: 1.6; text-align: center; overflow-wrap: anywhere; }
 .pet-image > i { color: var(--mh-muted); font-size: 42px; }
