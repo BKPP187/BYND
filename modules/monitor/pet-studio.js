@@ -188,6 +188,7 @@
         }
     }
     async function generateImage(char, id = 'idle', removeBackground = false, animation = false) {
+        if (removeBackground) return !!(await removeImageBackground(char, id));
         const config = C.profile(char);
         const state = id === 'idle' ? null : config.states.find(item => item.id === id);
         if (id !== 'idle' && !state) throw new Error('该表情已移除。');
@@ -225,9 +226,48 @@
             else next.draftBaseKey = key;
         });
         reloadForm(char);
-        session(char).notice = animation ? '4 帧动作 GIF 已生成。检查动作衔接、角色长相和人设表现后，再确认使用。' : image.transparent ? '图片已生成。检查长相和表现后，点击确认使用。' : '生成图带有背景，已保留预览。可点击“去背景重试”，通过透明检查后才能使用。';
+        if (!animation && !image.transparent) {
+            await removeImageBackground(char, id, progress);
+            const updated = C.profile(char);
+            image = await C.readAsset(id === 'idle' ? updated.draftBaseKey : updated.states.find(item => item.id === id)?.draftKey);
+        }
+        session(char).notice = animation ? '4 帧动作 GIF 已生成。检查动作衔接、角色长相和人设表现后，再确认使用。' : '图片已生成，透明背景已处理。检查形象后即可确认使用。';
         render();
         return image.transparent;
+    }
+    async function removeImageBackground(char, id = 'idle', progress = message => {
+        if (session(char).busy) { session(char).busy = message; render(); }
+    }) {
+        const config = C.profile(char);
+        const key = id === 'idle' ? config.draftBaseKey : config.states.find(item => item.id === id)?.draftKey;
+        const original = await C.readAsset(key);
+        if (!original?.url) throw new Error('请先生成或上传要使用的形象。');
+        if (original.transparent) return key;
+        if (!window.ByndPetBackground) throw new Error('去背景工具尚未加载，请刷新页面后重试。');
+        const image = await window.ByndPetBackground.remove(original.url, progress);
+        if (!image.transparent || (original.width && image.width !== original.width) || (original.height && image.height !== original.height)) throw new Error('去背景结果未通过检查，原图已保留。');
+        const corrected = await C.storeAsset(char, { ...original, ...image, geometryVersion: 1, originalKey: key, source: 'background-removal' });
+        await C.update(char, next => {
+            const target = id === 'idle' ? next : next.states.find(item => item.id === id);
+            const field = id === 'idle' ? 'draftBaseKey' : 'draftKey';
+            if (!target || target[field] !== key) throw new Error('待确认形象已变化，本次处理没有替换当前图片。');
+            target[field] = corrected;
+        });
+        const formState = sessions.get(char.id)?.form.states.find(item => item.id === id);
+        if (formState?.draftKey === key) formState.draftKey = corrected;
+        session(char).notice = '背景已处理，人物和原始比例已保留。';
+        return corrected;
+    }
+    async function enableCharacter(char, progress = () => {}, useDraft = !C.profile(char).baseKey) {
+        if (useDraft) {
+            const key = await removeImageBackground(char, 'idle', progress);
+            progress('正在保存并启用角色桌宠…');
+            await C.setEnabled(char, true, key);
+        } else await C.setEnabled(char, true);
+        reloadForm(char);
+        session(char).notice = C.name(char) + '的角色桌宠已开启。';
+        render();
+        return true;
     }
     async function confirmImage(char, id) {
         const config = C.profile(char);
@@ -241,10 +281,7 @@
                 if (!state || state.draftKey !== key || image.baseKey !== next.baseKey) throw new Error('这张表情不属于当前母版，请重新生成。');
                 state.assetKey = key; state.draftKey = '';
             } else {
-                if (next.draftBaseKey !== key) throw new Error('候选图已改变，请重新确认。');
-                next.baseKey = key; next.draftBaseKey = '';
-                next.idleKey = ''; next.draftIdleKey = '';
-                next.states = next.states.map(state => ({ ...state, assetKey: '', draftKey: '' }));
+                C.acceptBase(next, key);
             }
         });
         reloadForm(char);
@@ -287,7 +324,14 @@
         const off = busy ? 'disabled' : '';
         const chosen = draft || C.cached(assetKey);
         const format = chosen?.format === 'gif' ? 'GIF' : 'PNG';
-        return `${imageFeedback(char, id)}<div class="pet-actions">${C.profile(char).baseKey ? `<button type="button" ${off} data-pet-animate="${id}" onclick="ByndPetStudio.animate(this.dataset.petAnimate)">${id === 'idle' ? '制作待机 GIF' : '生成动作 GIF'}</button>` : ''}<button type="button" class="${id === 'idle' ? '' : 'secondary'}" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成 PNG' : id === 'idle' ? '生成 3D 基础形象' : '生成静态 PNG'}</button><button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">${assetKey || draftKey ? '替换原图' : '上传 PNG / GIF'}</button>${draft ? `<button type="button" class="${draft.transparent ? '' : 'secondary'}" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? format === 'GIF' ? '确认这段动作' : '确认这张形象' : '去背景重试'}</button>` : ''}${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 ${format}</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
+        const confirmation = !draft ? '' : id === 'idle'
+            ? `<button type="button" ${off} onclick="ByndPetStudio.confirmAndEnable()">${draft.transparent ? '确认并启用' : '去背景并启用'}</button>`
+            : `<button type="button" ${off} data-pet-confirm="${id}" onclick="ByndPetStudio.${draft.transparent ? 'confirm' : 'removeBackground'}(this.dataset.petConfirm)">${draft.transparent ? format === 'GIF' ? '确认这段动作' : '确认这张形象' : '处理透明背景'}</button>`;
+        return `${imageFeedback(char, id)}<div class="pet-actions">${confirmation}
+            ${C.profile(char).baseKey ? `<button type="button" class="secondary" ${off} data-pet-animate="${id}" onclick="ByndPetStudio.animate(this.dataset.petAnimate)">${id === 'idle' ? '制作待机 GIF' : '生成动作 GIF'}</button>` : ''}
+            <button type="button" class="${id === 'idle' && !draft ? '' : 'secondary'}" ${off} data-pet-generate="${id}" onclick="ByndPetStudio.generate(this.dataset.petGenerate)">${busy && taskState.imageTaskId === id ? '<i class="ri-loader-4-line pet-inline-loader" aria-hidden="true"></i> 正在处理…' : assetKey || draftKey ? '重新生成 PNG' : id === 'idle' ? '生成 3D 基础形象' : '生成静态 PNG'}</button>
+            <button type="button" class="secondary" ${off} data-pet-upload="${id}" onclick="ByndPetStudio.pick(this.dataset.petUpload)">${assetKey || draftKey ? '替换原图' : '上传 PNG / GIF'}</button>
+            ${assetKey || draftKey ? `<button type="button" class="secondary" ${off} data-pet-download="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 ${format}</button><button type="button" class="secondary" ${off} data-pet-album="${escape(draftKey || assetKey)}" onclick="ByndPetStudio.album(this.dataset.petAlbum)">存入相册</button>` : ''}</div>`;
     }
     function imageFeedback(char, id) {
         const state = session(char);
@@ -397,7 +441,7 @@
             ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}
             <details class="pet-details pet-pose-extra"><summary>姿态与角色代表元素</summary><p class="pet-hint">可以坐着、趴着、躺着，也可以与属于 TA 的物品互动。留空时按人设选择自然姿态。</p><div class="pet-form-modes" role="group" aria-label="桌宠形态">${[['character', '人物形态'], ['symbol', '代表形态']].map(([id, label]) => `<button type="button" class="${state.form.formMode === id ? 'active' : 'secondary'}" aria-pressed="${state.form.formMode === id}" ${off} onclick="ByndPetStudio.formMode('${id}')">${label}</button>`).join('')}</div>${field('pose', '姿态与动作', state.form.pose, '例如：坐着阅读、趴着休息、侧躺放松，或与身边的物品互动。', state.busy, 2)}${field('motifs', '角色标志物 / 代表元素', state.form.motifs, '填写符合角色设定的动物、植物、物品或符号，并注明是陪伴物，还是角色的代表形态。', state.busy, 3)}<p class="pet-hint">人物形态可带陪伴物；代表形态会把指定元素做成桌宠。新基础图确认后才替换当前形象，已有表情继续以母版为准。</p></details><button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>
             <section class="pet-card"><div class="pet-section-title"><b>02</b><div><h3>确认基础形象</h3><p>先按参考图制作呆萌的待机形象，确认后再制作专属表情。</p></div></div>
-            ${imageBox(config.draftBaseKey || config.baseKey, draft ? (draft.transparent ? '透明背景已检查 · 待你确认' : '背景未透明 · 暂不可应用') : config.baseKey ? '已确认的基础形象' : imageLabel)}
+            ${imageBox(config.draftBaseKey || config.baseKey, draft ? (draft.transparent ? '透明背景已就绪 · 可确认并启用' : '背景待处理 · 可点击下方去背景并启用') : config.baseKey ? '已确认的基础形象' : imageLabel)}
             ${controls(char, 'idle', config.draftBaseKey, config.baseKey)}
             ${config.draftBaseKey ? '<button type="button" class="pet-text-button" ' + off + ' onclick="ByndPetStudio.discard(\'idle\')">放弃这张预览</button>' : ''}
             ${config.idleKey || config.draftIdleKey ? `<div class="pet-idle-motion"><h3>待机动作 GIF</h3>${imageBox(config.draftIdleKey || config.idleKey, config.draftIdleKey ? '待确认的待机动作' : '已确认的待机动作', true)}<div class="pet-actions">${config.draftIdleKey ? `<button type="button" ${off} onclick="ByndPetStudio.confirmIdle()">确认待机动作</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.discard('__idle_motion')">放弃待机预览</button>` : ''}<button type="button" class="secondary" ${off} data-pet-download="${escape(config.draftIdleKey || config.idleKey)}" onclick="ByndPetStudio.download(this.dataset.petDownload)">下载 GIF</button></div><p class="pet-hint">待机动作与母版分别保存，更换待机 GIF 不需要重做已有表情。</p></div>` : ''}
@@ -452,7 +496,8 @@
     }
     window.openMonitorPetStudio = open;
     window.ByndPetStudio = {
-        render, sourceData, inspectImage, generateImage, confirmImage, discardPreview, saveForm, repairLegacyDrafts, openRoles, closeRoles, filterRoles,
+        render, sourceData, inspectImage, generateImage, removeImageBackground, enableCharacter, confirmImage, discardPreview, saveForm, repairLegacyDrafts, openRoles, closeRoles, filterRoles,
+        busy: char => !!sessions.get(char?.id)?.busy,
         close: () => { closeRoles(false); window.ByndPetHistory?.close(false); document.getElementById('bynd-pet-studio')?.remove(); },
         history: () => { const char = current(); if (char && !session(char).busy) return window.ByndPetHistory?.open(char); },
         previewSource: async () => {
@@ -476,7 +521,8 @@
         save: () => task('正在保存设定…', async (char, state) => { state.notice = '设定已保存。'; }),
         generate: id => task(id === 'idle' ? '正在生成 3D 基础形象…' : '正在生成表情图…', char => generateImage(char, id), true, id),
         animate: id => task('正在沿用生图设置制作 4 帧动作 GIF…', char => generateImage(char, id, false, true), true, id),
-        removeBackground: id => task('正在保留角色并移除背景…', char => generateImage(char, id, true), true, id),
+        removeBackground: id => task('正在保留角色并移除背景…', char => removeImageBackground(char, id), true, id),
+        confirmAndEnable: () => task('正在准备角色桌宠…', char => enableCharacter(char, message => { session(char).busy = message; render(); }, true), true, 'idle'),
         confirm: id => task('正在确认图片…', char => confirmImage(char, id), true, id),
         confirmIdle: () => task('正在确认待机动作…', confirmIdle, true, 'idle'),
         discard: id => task('正在放弃预览…', char => discardPreview(char, id), false, id === '__idle_motion' ? 'idle' : id),
@@ -501,7 +547,8 @@
                     else { const item = next.states.find(row => row.id === target); if (!item) throw new Error('表情已移除。'); item.draftKey = key; }
                 });
                 reloadForm(char);
-                state.notice = target === 'reference' ? '角色参考图已保存。核对外观后即可生成基础形象。' : value.transparent ? '图片已通过透明检查，请预览后确认。' : '图片带有背景，暂不可应用。请上传透明 PNG 或点击去背景重试。';
+                if (target !== 'reference' && !value.transparent) await removeImageBackground(char, target);
+                state.notice = target === 'reference' ? '角色参考图已保存。核对外观后即可生成基础形象。' : '透明背景已处理，请预览后确认使用。';
             }, true, target);
         },
         useChatReference: () => task('正在读取现有生图参考…', async (char, state) => {

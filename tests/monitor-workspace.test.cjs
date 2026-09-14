@@ -227,9 +227,11 @@ async function rolePetWorkspace() {
     h.context.dispatchEvent = () => {};
     h.context.saveMonitorPetAsset = async () => {};
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), h.context);
     const C = h.context.ByndCharacterPet;
     const key = await C.storeAsset(h.chars[0], { url: 'data:image/png;base64,dGVzdA==', width: 3, height: 4, transparent: true });
     h.chars[0].chatConfig.characterPet = { active: false, baseKey: key, states: [] };
+    h.storage.setItem('bynd_pet_selected_char_v1', h.chars[0].id);
     vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
     return { ...h, C, workspace: h.context.ByndPetWorkspace };
 }
@@ -249,16 +251,90 @@ test('pet home presents the role switch first and routes it to the same persiste
     assert.equal(h.chars[0].chatConfig.monitorEnabled, true);
 });
 
-test('pet home keeps an unavailable switch visible and explains that a draft must be confirmed', async () => {
+test('pet home enables an already transparent draft through the studio without a disabled dead end', async () => {
     const h = await rolePetWorkspace();
     const config = h.chars[0].chatConfig.characterPet;
     config.draftBaseKey = config.baseKey; config.baseKey = '';
     const html = h.workspace.petView();
-    assert.match(html, /基础形象待确认/);
-    assert.match(html, /data-mh-action="toggle-character-pet" disabled/);
+    assert.match(html, /开启后即可使用这张形象/);
+    assert.doesNotMatch(html, /data-mh-action="toggle-character-pet"[^>]*disabled/);
     assert.match(html, /制作角色桌宠/);
+    const key = config.draftBaseKey;
+    assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), true);
+    assert.equal(h.C.profile(h.chars[0]).baseKey, key);
+    assert.equal(h.C.profile(h.chars[0]).draftBaseKey, '');
+    assert.equal(h.C.active(h.chars[0]), true);
+});
+
+test('pet home processes an opaque draft once, blocks duplicate clicks, then activates it', async () => {
+    const h = await rolePetWorkspace(), started = deferred(), gate = deferred();
+    const char = h.chars[0], config = char.chatConfig.characterPet;
+    config.draftBaseKey = config.baseKey; config.baseKey = '';
+    h.C.cached(config.draftBaseKey).transparent = false;
+    let calls = 0;
+    h.context.ByndPetBackground = { remove: async (_, progress) => {
+        calls++; progress('正在保留人物…'); started.resolve(); return gate.promise;
+    } };
+    assert.match(h.workspace.petView(), /开启时会自动去背景/);
+    const pending = h.workspace.toggleCharacterPet(char);
+    await started.promise;
+    assert.match(h.workspace.petView(), /aria-busy="true"[^>]*disabled/);
+    assert.equal(await h.workspace.toggleCharacterPet(char), false);
+    gate.resolve({url:'data:image/png;base64,Y2xlYXI=',width:3,height:4,transparent:true});
+    assert.equal(await pending, true);
+    assert.equal(calls, 1);
+    assert.equal(h.C.active(char), true);
+    assert.equal(h.C.cached(h.C.profile(char).baseKey).transparent, true);
+    assert.equal(h.C.cached(config.draftBaseKey).transparent, false);
+    assert.match(h.workspace.petView(), /aria-busy="false"/);
+});
+
+test('pet home retains a useful failure message and allows local processing to be retried', async () => {
+    const h = await rolePetWorkspace(), char = h.chars[0], config = char.chatConfig.characterPet;
+    config.draftBaseKey = config.baseKey; config.baseKey = '';
+    h.C.cached(config.draftBaseKey).transparent = false;
+    h.context.setMonitorPetBoundChar('b');
+    h.context.ByndPetBackground = { remove: async () => { throw new Error('本地去背景暂未完成，请重试。'); } };
+    assert.equal(await h.workspace.toggleCharacterPet(char), false);
+    assert.match(h.workspace.petView(), /本地去背景暂未完成/);
+    assert.doesNotMatch(h.workspace.petView(), /data-mh-action="toggle-character-pet"[^>]*disabled/);
+    assert.equal(h.C.profile(char).baseKey, '');
+    assert.equal(h.context.getMonitorPetBoundChar().id, 'b');
+    assert.ok(h.notices.every(value => !/桌宠已开启/.test(value)));
+    h.context.ByndPetBackground.remove = async () => ({url:'data:image/png;base64,Y2xlYXI=',width:3,height:4,transparent:true});
+    assert.equal(await h.workspace.toggleCharacterPet(char), true);
+    assert.doesNotMatch(h.workspace.petView(), /本地去背景暂未完成/);
+});
+
+test('a role without any pet image can open its studio from the switch', async () => {
+    const h = await rolePetWorkspace(), opened = [];
+    h.chars[0].chatConfig.characterPet.baseKey = '';
+    h.context.openMonitorPetStudio = async id => opened.push(id);
+    assert.doesNotMatch(h.workspace.petView(), /data-mh-action="toggle-character-pet"[^>]*disabled/);
     assert.equal(await h.workspace.toggleCharacterPet(h.chars[0]), false);
-    assert.match(h.notices.at(-1), /确认基础形象/);
+    assert.deepEqual(opened, ['a']);
+    assert.equal(h.C.active(h.chars[0]), false);
+    assert.equal(h.notices.length, 0);
+});
+
+test('successful activation in the studio clears an earlier home-switch failure message', async () => {
+    const h = await rolePetWorkspace(), char = h.chars[0];
+    h.context.saveCharactersToStorage = async () => false;
+    assert.equal(await h.workspace.toggleCharacterPet(char), false);
+    assert.match(h.workspace.petView(), /桌宠设定未能保存/);
+    h.context.saveCharactersToStorage = async () => true;
+    await h.context.ByndPetStudio.enableCharacter(char);
+    assert.equal(h.C.active(char), true);
+    assert.doesNotMatch(h.workspace.petView(), /桌宠设定未能保存/);
+    assert.match(h.workspace.petView(), /A 已来到你的桌面/);
+});
+
+test('pet home still renders its role picker when no characters exist', async () => {
+    const h = await rolePetWorkspace();
+    h.chars.length = 0;
+    const html = h.workspace.petView();
+    assert.match(html, /先选择陪伴你的角色/);
+    assert.match(html, /data-mh-action="toggle-character-pet"[^>]*disabled/);
 });
 
 test('pet home checks legacy drafts even when the preview is already cached', async () => {

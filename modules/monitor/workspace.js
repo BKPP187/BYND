@@ -27,6 +27,7 @@
         try { selectedId = localStorage.getItem(selectionKey) || ''; } catch (_) {}
         let watcherQuery = '', watcherFilter = 'all';
         let layer = null, roleQuery = '', activityFilter = 'all', busy = false, libraryOpened = false;
+        let petProgress = '', petFailure = null;
         const scrollPositions = new Map();
         const previewLoads = new Set();
         let previousFocus = null, busyFocus = null, screenTimer = null, lastScreenActive = null, renderQueued = false;
@@ -192,11 +193,11 @@
                 previewLoads.add(loadKey);
                 C.preload(char).then(() => window.ByndPetStudio?.repairLegacyDrafts(char)).then(queueRender).catch(notifyError);
             }
-            const status = !char ? '先选择陪伴你的角色' : on ? `${name(char)} 已来到你的桌面` : config?.baseKey ? '开启后，TA 会沿用角色人设与你互动' : config?.draftBaseKey ? (preview && !preview.transparent ? '基础形象还有背景，请先到工作室处理并确认' : '基础形象待确认，确认后即可开启') : '先制作并确认 TA 的基础形象';
+            const status = petProgress || (petFailure && petFailure.id === char?.id && petFailure.revision === config?.revision ? petFailure.text : '') || (!char ? '先选择陪伴你的角色' : on ? `${name(char)} 已来到你的桌面` : config?.baseKey ? '开启后，TA 会沿用角色人设与你互动' : config?.draftBaseKey ? (preview && !preview.transparent ? '开启时会自动去背景，并使用这张形象' : '开启后即可使用这张形象') : '点击开启，前往制作 TA 的基础形象');
             const previewSource = imageSource(preview?.posterUrl || preview?.url);
             return `${heading('让 TA，来到你身边。', '从对话到陪伴，延续你们的故事与默契。')}
                 <div class="mh-pet-layout"><section class="mh-pet-tools mh-character-pet-card" aria-label="角色桌宠"><div class="mh-section-heading"><h2>角色桌宠</h2>${chooseButton(char)}</div>
-                        <div class="mh-pet-toggle-row mh-character-toggle"><span><strong>启用角色桌宠</strong><small id="pet-character-status">${escape(status)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="启用角色桌宠" aria-describedby="pet-character-status" aria-checked="${on}" data-mh-action="toggle-character-pet" ${busy || !char || (!config?.baseKey && !on) ? 'disabled' : ''}><span></span></button></div>
+                        <div class="mh-pet-toggle-row mh-character-toggle"><span><strong>启用角色桌宠</strong><small id="pet-character-status" role="status" aria-live="polite">${escape(status)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="启用角色桌宠" aria-describedby="pet-character-status" aria-checked="${on}" aria-busy="${busy}" data-mh-action="toggle-character-pet" ${busy || !char ? 'disabled' : ''}><span></span></button></div>
                         ${previewSource ? `<div class="mh-character-preview"><img src="${attr(previewSource)}" alt="${attr(name(char))}的${config?.baseKey ? '已确认形象' : '待确认形象'}"><span>${config?.baseKey ? on ? '正在陪伴你' : '已确认 · 随时开启' : '待确认的形象'}</span></div>` : ''}
                         <button type="button" class="mh-studio-entry" data-mh-action="studio">${icon('ri-magic-line')}<span><strong>${config?.baseKey ? '编辑角色桌宠' : '制作角色桌宠'}</strong><small>上传角色图，生成形象、姿势与表情</small></span>${icon('ri-arrow-right-s-line')}</button>
                         <div class="mh-state-strip">${states.length ? states.map(item => { const asset = window.ByndCharacterPet.cached(item.assetKey); const source = imageSource(asset?.posterUrl || asset?.url); return `<div class="mh-state-tile">${source ? `<img src="${attr(source)}" alt="${attr(item.label)}">` : icon('ri-emotion-line')}<span>${escape(item.label)}</span></div>`; }).join('') : '<div class="mh-state-empty">' + icon('ri-emotion-line') + '<span>从基础形象开始，慢慢添上坐姿、动作和表情。</span></div>'}</div>
@@ -340,15 +341,22 @@
         }
         async function toggleCharacterPet(char = character()) {
             if (busy || monitorPetLibraryAction) return false;
+            petFailure = null; petProgress = '正在准备角色桌宠…';
             api.setBusy(true);
             try {
                 if (!char || !window.ByndCharacterPet) throw new Error('请先选择角色并确认基础形象。');
                 const enabled = !window.ByndCharacterPet.active(char);
-                await window.ByndCharacterPet.setEnabled(char, enabled);
+                const config = window.ByndCharacterPet.profile(char);
+                if (enabled && !config.baseKey) {
+                    if (!config.draftBaseKey) { await openMonitorPetStudio(char.id); return false; }
+                    if (window.ByndPetStudio?.busy(char)) throw new Error('这张形象正在处理，请稍等片刻。');
+                    if (!window.ByndPetStudio?.enableCharacter) throw new Error('桌宠工具尚未加载，请刷新页面后重试。');
+                    await window.ByndPetStudio.enableCharacter(char, message => { petProgress = message; render(); });
+                } else await window.ByndCharacterPet.setEnabled(char, enabled);
                 showWechatToast(enabled ? name(char) + '的角色桌宠已开启' : '角色桌宠已关闭，形象与设定已保留。');
                 return true;
-            } catch (error) { notifyError(error); return false; }
-            finally { api.setBusy(false); render(); }
+            } catch (error) { petFailure = { id: char?.id, revision: window.ByndCharacterPet?.profile(char).revision, text: error?.message || '启用未完成，请重试。' }; notifyError(error); return false; }
+            finally { petProgress = ''; api.setBusy(false); render(); }
         }
         async function act(button) {
             if (button.disabled) return;

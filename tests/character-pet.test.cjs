@@ -150,6 +150,47 @@ for (const failure of ['settings', 'binding', 'enabled']) {
     });
 }
 
+for (const failure of ['settings', 'binding', 'enabled']) {
+    test(`confirm-and-enable rolls back base, derived states and binding together (${failure})`, async () => {
+        const h = activationHarness();
+        h.data.set('candidate', { url: png, transparent: true });
+        Object.assign(h.char.chatConfig.characterPet, { draftBaseKey:'candidate', idleKey:'old-idle', draftIdleKey:'old-idle-draft' });
+        const before = JSON.stringify(h.C.profile(h.char));
+        if (failure === 'settings') h.state.failSave = true;
+        else {
+            const set = h.storage.setItem;
+            let rejected = false;
+            h.storage.setItem = (key, value) => {
+                if (!rejected && key === (failure === 'binding' ? 'bynd_monitor_pet_bound_char_v1' : 'bynd_monitor_pet_enabled_v1')) { rejected = true; throw new Error('storage unavailable'); }
+                set(key, value);
+            };
+        }
+        await assert.rejects(h.C.setEnabled(h.char, true, 'candidate'), /保存|storage/);
+        assert.equal(JSON.stringify(h.C.profile(h.char)), before);
+        assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.other.id);
+        assert.equal(h.storage.getItem('bynd_monitor_pet_enabled_v1'), '1');
+        assert.equal(h.storage.getItem('bynd_monitor_active_pet_v1'), 'community-pet');
+        h.state.failSave = false;
+        assert.equal(await h.C.setEnabled(h.char, true, 'candidate'), true);
+        assert.equal(h.C.profile(h.char).baseKey, 'candidate');
+        assert.equal(h.C.profile(h.char).draftBaseKey, '');
+        assert.equal(h.C.profile(h.char).idleKey, '');
+        assert.equal(h.C.profile(h.char).states[0].assetKey, '');
+        assert.equal(h.C.profile(h.char).states[0].label, '浅笑');
+        assert.equal(h.C.active(h.char), true);
+    });
+}
+
+test('a replaced candidate cannot be adopted by a queued activation', async () => {
+    const h = activationHarness();
+    h.data.set('candidate', { url: png, transparent: true });
+    h.char.chatConfig.characterPet.draftBaseKey = 'newer-candidate';
+    await assert.rejects(h.C.setEnabled(h.char, true, 'candidate'), /候选图已改变/);
+    assert.equal(h.C.profile(h.char).baseKey, 'base');
+    assert.equal(h.C.profile(h.char).draftBaseKey, 'newer-candidate');
+    assert.equal(h.storage.getItem('bynd_monitor_pet_bound_char_v1'), h.other.id);
+});
+
 function legacyHarness() {
     const h = harness();
     const old = { url: png, width: 1024, height: 1024, transparent: false, source: 'generated', prompt: 'legacy', createdAt: 10 };
@@ -756,7 +797,6 @@ test('image prompts use only the user identity reference and keep variants ancho
 
 for (const [label, id, removeBackground, sourceKey] of [
     ['base image', 'idle', false, 'reference'],
-    ['background removal', 'idle', true, 'candidate'],
     ['explicit expression', 'quiet_smile', false, 'base']
 ]) test('a reference and appearance can reach image generation without a persona: ' + label, async () => {
     const { studio, C, char, context, data } = harness();
@@ -776,12 +816,9 @@ for (const [label, id, removeBackground, sourceKey] of [
     assert.equal(calls[0].options.requireReference, true);
     assert.equal(calls[0].options.editOnly, true);
     assert.equal(calls[0].options.background, 'transparent');
-    if (removeBackground) assert.match(calls[0].prompt, /只移除/);
-    else {
-        assert.match(calls[0].prompt, /银灰短发/);
-        assert.match(calls[0].prompt, /不从外观推断性格/);
-        assert.match(calls[0].prompt, id === 'idle' ? /中性.*自然待机/ : /仅嘴角轻微上扬/);
-    }
+    assert.match(calls[0].prompt, /银灰短发/);
+    assert.match(calls[0].prompt, /不从外观推断性格/);
+    assert.match(calls[0].prompt, id === 'idle' ? /中性.*自然待机/ : /仅嘴角轻微上扬/);
     assert.equal(JSON.stringify(C.profile(char)), before);
 });
 
@@ -880,23 +917,30 @@ function imageApiHarness(config = {}) {
 
 // Real PNG headers make the pipeline derive dimensions from the returned image,
 // independently of the requested size and any saved metadata.
-const ratioPngs = {
+const opaqueRatioPngs = {
     portrait: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAICAYAAADaxo44AAAAI0lEQVR4nGOU1HX8H187kQEdMFasuvQfQ5SBgYEJm+CASwAAQloF9VYQ5dEAAAAASUVORK5CYII=',
     landscape: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAYAAAD+Bd/7AAAAI0lEQVR4nGOU1HX8H187kQEXYKxYdek/TlkGBgYmfJJ0UgAAHWIF8fnucbQAAAAASUVORK5CYII=',
     square: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAI0lEQVR4nGOU1HX8H187kQEXYKxYdek/TlkGBgYmfJJDRgEAplkF9csLR1sAAAAASUVORK5CYII='
 };
+const ratioPngs = {
+    portrait: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAICAYAAADaxo44AAAANElEQVR4nGOUMwpgwAZYQATr8yP/kQV/S9owMmFVzsDAQLoE2I47z16jCMobB+LWwYjLuQD52wijQe7XnwAAAABJRU5ErkJggg==',
+    landscape: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAYAAAD+Bd/7AAAAM0lEQVR4nGOUMwpgwAdYQATr8yP/sUn+lrRhZMKrnYGBgaACsBV3nr3GKilvHMjASMiRAKZfCJ8vivKSAAAAAElFTkSuQmCC',
+    square: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAANUlEQVR4nGOUMwpgwAdYQATr8yP/sUn+lrRhZMKrnYGBgXIFYDfcefYaq6S8cSBhExgJeRMASbEIo3Yj1fIAAAAASUVORK5CYII='
+};
 
-function imagePipelineHarness(shape = 'portrait', viaUrl = false) {
+function imagePipelineHarness(shape = 'portrait', viaUrl = false, opaque = false) {
     const h = harness();
-    const requests = [], exported = [];
+    const requests = [], exported = [], removals = [];
+    const original = (opaque ? opaqueRatioPngs : ratioPngs)[shape];
     const bytes = url => Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
     for (const [key, asset] of h.data) h.data.set(key, { ...asset, url: ratioPngs.portrait });
-    h.data.set('candidate', { url: ratioPngs[shape], transparent: false });
+    h.data.set('candidate', { url: original, transparent: !opaque });
     h.char.chatConfig.characterPet.draftBaseKey = 'candidate';
     h.char.chatConfig.characterPet.states[0].draftKey = 'candidate';
     h.context.Image = class {
         set src(url) {
             const pngBytes = bytes(url);
+            this.opaque = Object.values(opaqueRatioPngs).includes(url);
             this.naturalWidth = pngBytes.readUInt32BE(16);
             this.naturalHeight = pngBytes.readUInt32BE(20);
             queueMicrotask(() => this.onload());
@@ -916,24 +960,37 @@ function imagePipelineHarness(shape = 'portrait', viaUrl = false) {
             return link;
         }
         assert.equal(tag, 'canvas');
+        let source;
         const canvas = {
             width: 0, height: 0,
-            getContext: () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(canvas.width * canvas.height * 4).fill(255) }) }),
+            getContext: () => ({ drawImage(image) { source = image; }, getImageData: () => {
+                const data = new Uint8ClampedArray(canvas.width * canvas.height * 4).fill(255);
+                if (!source.opaque) for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+                    if (!x || !y || x === canvas.width - 1 || y === canvas.height - 1) data[(y * canvas.width + x) * 4 + 3] = 0;
+                }
+                return { data };
+            } }),
             toDataURL() { throw new Error('PNG candidates must not be re-encoded or resized'); }
         };
         return canvas;
     };
     h.context.getDefaultImageApi = () => ({ baseUrl: 'https://images.test/v1', imageModel: 'configured-image-model' });
     h.context.parseWechatApiJsonResponseText = JSON.parse;
+    h.context.window.ByndPetBackground = { remove: async source => {
+        removals.push(source);
+        if (h.state.failRemoval) throw new Error('local mask failed');
+        const header = bytes(source);
+        return { url: ratioPngs[shape], width: header.readUInt32BE(16), height: header.readUInt32BE(20), transparent: true, kind: 'candidate', backgroundRemoval: 'test-local-mask' };
+    } };
     h.context.fetch = async (url, options) => {
         if (url.startsWith('data:')) return new Response(bytes(url), { headers: { 'content-type': 'image/png' } });
-        if (url === 'https://images.test/original.png') return new Response(bytes(ratioPngs[shape]), { headers: { 'content-type': 'image/png' } });
+        if (url === 'https://images.test/original.png') return new Response(bytes(original), { headers: { 'content-type': 'image/png' } });
         const body = options.body instanceof FormData ? Object.fromEntries(options.body) : JSON.parse(options.body);
         requests.push({ url, body });
         if (h.state.rejectMultipart && requests.length === 1) return new Response('Content-Type must be application/json', { status: 415 });
         // Model a provider honoring a forced square. The old caller must fail
         // the ratio assertion even though storage and CSS preserve its output.
-        const result = body.size === 'auto' ? ratioPngs[shape] : ratioPngs.square;
+        const result = body.size === 'auto' ? original : ratioPngs.square;
         return new Response(JSON.stringify({ data: [viaUrl ? { url: 'https://images.test/original.png' } : { b64_json: result.split(',')[1] }] }));
     };
     vm.runInContext(sourceSection('wechat.js', 'async function callWechatImageGenerationApi(', 'function getWechatImageReferenceForChar('), h.context);
@@ -942,20 +999,17 @@ function imagePipelineHarness(shape = 'portrait', viaUrl = false) {
         vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), h.context);
         return { C: h.context.window.ByndCharacterPet, studio: h.context.window.ByndPetStudio };
     };
-    return { ...h, requests, exported, reload, original: ratioPngs[shape], file: () => new Blob([bytes(ratioPngs[shape])], { type: 'image/png' }) };
+    return { ...h, requests, exported, removals, reload, original, file: () => new Blob([bytes(original)], { type: 'image/png' }) };
 }
 
-for (const [id, removeBackground, shape, viaUrl, referenceKey] of [
-    ['idle', false, 'portrait', false, 'reference'],
-    ['quiet_smile', false, 'landscape', true, 'base'],
-    ['idle', true, 'portrait', true, 'candidate'],
-    ['quiet_smile', true, 'landscape', false, 'candidate']
+for (const [id, shape, viaUrl, referenceKey] of [
+    ['idle', 'portrait', false, 'reference'],
+    ['quiet_smile', 'landscape', true, 'base']
 ]) {
-    test(`static pet pipeline preserves ${shape} from edits through reload and export (${id}, removeBackground=${removeBackground})`, async () => {
+    test(`transparent pet pipeline preserves ${shape} from edits through reload and export (${id})`, async () => {
         const h = imagePipelineHarness(shape, viaUrl);
         await h.studio.select(h.char.id);
-        const action = removeBackground ? h.studio.removeBackground : h.studio.generate;
-        assert.equal(await action(id), true);
+        assert.equal(await h.studio.generate(id), true);
         const config = h.C.profile(h.char);
         const key = id === 'idle' ? config.draftBaseKey : config.states[0].draftKey;
         const [width, height] = shape === 'portrait' ? [6, 8] : [8, 6];
@@ -969,6 +1023,7 @@ for (const [id, removeBackground, shape, viaUrl, referenceKey] of [
         assert.equal(h.requests[0].body.output_format, 'png');
         assert.deepEqual(Buffer.from(await h.requests[0].body.image.arrayBuffer()), Buffer.from(h.data.get(referenceKey).url.split(',')[1], 'base64'));
         assert.equal(saved.url, h.original);
+        assert.equal(h.removals.length, 0, 'a genuine transparent PNG needs no background processing');
         assert.equal(saved.width, width); assert.equal(saved.height, height);
         assert.equal(config.baseKey, 'base', 'generation must not replace the confirmed base');
         const reloaded = h.reload();
@@ -980,6 +1035,117 @@ for (const [id, removeBackground, shape, viaUrl, referenceKey] of [
         assert.deepEqual(h.exported, [{ url: h.original, filename: '沈清-pet.png' }]);
     });
 }
+
+for (const [id, shape] of [['idle', 'portrait'], ['quiet_smile', 'landscape']]) {
+    test(`local background removal preserves the original and dimensions without image API calls (${id})`, async () => {
+        const h = imagePipelineHarness(shape, false, true);
+        delete h.char.description; h.char.worldBook = [];
+        await h.studio.select(h.char.id);
+        assert.equal(await h.studio.removeBackground(id), true);
+        const config = h.C.profile(h.char), key = id === 'idle' ? config.draftBaseKey : config.states[0].draftKey;
+        const saved = h.data.get(key), before = h.data.get('candidate');
+        assert.equal(saved.url, ratioPngs[shape]);
+        assert.equal(saved.transparent, true);
+        assert.equal(saved.width / saved.height, shape === 'portrait' ? .75 : 4 / 3);
+        assert.equal(saved.originalKey, 'candidate');
+        assert.equal(saved.source, 'background-removal');
+        assert.equal(before.url, h.original);
+        assert.equal(before.transparent, false);
+        assert.equal(config.baseKey, 'base');
+        assert.equal(config.states[0].assetKey, 'smile');
+        assert.deepEqual(h.removals, [h.original]);
+        assert.equal(h.requests.length, 0);
+        const reloaded = h.reload();
+        assert.equal((await reloaded.C.readAsset(key)).url, saved.url);
+        await reloaded.studio.exportImage(h.char, key);
+        assert.equal(h.exported[0].url, saved.url);
+    });
+}
+
+for (const operation of ['generate', 'upload']) {
+    test(`opaque ${operation} automatically prepares a transparent candidate and retains the source`, async () => {
+        const h = imagePipelineHarness('portrait', false, true);
+        await h.studio.select(h.char.id);
+        assert.equal(await (operation === 'generate' ? h.studio.generate('idle')
+            : h.studio.upload({ files: [h.file()], dataset: { target: 'idle' }, value: 'original.png' })), true);
+        const config = h.C.profile(h.char), saved = h.data.get(config.draftBaseKey), raw = h.data.get(saved.originalKey);
+        assert.equal(saved.transparent, true);
+        assert.equal(saved.width, 6); assert.equal(saved.height, 8);
+        assert.equal(raw.url, h.original);
+        assert.equal(raw.source, operation === 'generate' ? 'generated' : 'upload');
+        assert.equal(raw.transparent, false);
+        assert.equal(config.baseKey, 'base');
+        assert.equal(config.states[0].assetKey, 'smile');
+        assert.equal(h.requests.length, operation === 'generate' ? 1 : 0);
+        assert.equal(h.removals.length, 1);
+    });
+}
+
+for (const failure of ['failRemoval', 'failAsset', 'failSave']) {
+    test(`local removal failure preserves the preview/base and can be retried (${failure})`, async () => {
+        const h = imagePipelineHarness('portrait', false, true);
+        await h.studio.select(h.char.id);
+        const before = JSON.stringify(h.C.profile(h.char));
+        h.state[failure] = true;
+        assert.equal(await h.studio.removeBackground('idle'), false);
+        assert.equal(h.studio.busy(h.char), false);
+        assert.equal(JSON.stringify(h.C.profile(h.char)), before);
+        assert.equal(h.data.get('candidate').url, h.original);
+        h.state[failure] = false;
+        assert.equal(await h.studio.removeBackground('idle'), true);
+        assert.equal(h.data.get(h.C.profile(h.char).draftBaseKey).transparent, true);
+        assert.equal(h.requests.length, 0);
+    });
+}
+
+test('failed automatic matting retains the generated source for retry without another paid request', async () => {
+    const h = imagePipelineHarness('portrait', false, true);
+    await h.studio.select(h.char.id);
+    h.state.failRemoval = true;
+    assert.equal(await h.studio.generate('idle'), false);
+    const rawKey = h.C.profile(h.char).draftBaseKey;
+    assert.equal(h.data.get(rawKey).url, h.original);
+    assert.equal(h.data.get(rawKey).source, 'generated');
+    assert.equal(h.C.profile(h.char).baseKey, 'base');
+    h.state.failRemoval = false;
+    assert.equal(await h.studio.removeBackground('idle'), true);
+    assert.equal(h.data.get(h.C.profile(h.char).draftBaseKey).originalKey, rawKey);
+    assert.equal(h.requests.length, 1);
+});
+
+test('a draft changed during local processing is never overwritten', async () => {
+    const h = imagePipelineHarness('portrait', false, true), started = deferred(), gate = deferred();
+    h.context.window.ByndPetBackground.remove = async () => { started.resolve(); return gate.promise; };
+    const pending = h.studio.removeImageBackground(h.char);
+    await started.promise;
+    await h.C.update(h.char, next => { next.draftBaseKey = 'base'; });
+    gate.resolve({ url: ratioPngs.portrait, width: 6, height: 8, transparent: true });
+    await assert.rejects(pending, /待确认形象已变化/);
+    assert.equal(h.C.profile(h.char).draftBaseKey, 'base');
+    assert.equal(h.C.profile(h.char).baseKey, 'base');
+    assert.equal(h.data.get('candidate').url, h.original);
+});
+
+for (const result of [{transparent:false,width:6,height:8}, {transparent:true,width:8,height:6}]) {
+    test(`local result validation rejects incorrect transparency or size: ${JSON.stringify(result)}`, async () => {
+        const h = imagePipelineHarness('portrait', false, true);
+        Object.assign(h.data.get('candidate'), { width:6, height:8 });
+        h.context.window.ByndPetBackground.remove = async () => ({url:ratioPngs.portrait,...result});
+        const before = h.data.size;
+        await assert.rejects(h.studio.removeImageBackground(h.char), /未通过检查/);
+        assert.equal(h.C.profile(h.char).draftBaseKey, 'candidate');
+        assert.equal(h.data.size, before);
+    });
+}
+
+test('processing a draft preserves unsaved appearance text in the studio', async () => {
+    const h = imagePipelineHarness('portrait', false, true);
+    await h.studio.select(h.char.id);
+    h.studio.field('appearance', '保留尚未提交的外观修改');
+    await h.studio.removeImageBackground(h.char);
+    assert.equal(await h.studio.save(), true);
+    assert.equal(h.C.profile(h.char).appearance, '保留尚未提交的外观修改');
+});
 
 test('automatic static sizing survives the supported JSON edits compatibility path', async () => {
     const h = imagePipelineHarness();
