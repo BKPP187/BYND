@@ -13,3 +13,5 @@ The model is the ONNX conversion distributed by rembg. Its checksum matches the 
 The runtime files are unchanged files from the same npm distribution. Its archive was checked against npm's SHA-512 integrity before extracting the WASM bundle and matching binary. Keep those two files at the same version when updating.
 
 U2NETP normalization follows the upstream implementation: RGB resized to 320 × 320, divided by its maximum value, normalized with ImageNet means/deviations, then arranged as NCHW. Only the resulting alpha mask is applied to the original image. Inference runs in a temporary local worker; images are not sent to a background-removal service. The worker is terminated after each image to free its model memory.
+
+Tool files are resolved relative to the application's script directory. Android uses its packaged files first; if a packaged file or a mirrored web copy cannot be read, the loader may download the corresponding public tool file from https://bynd.ccwu.cc/. Ordinary desktop file previews use these public copies directly. Downloads omit credentials and contain no image payload. Image processing remains in the local browser worker.

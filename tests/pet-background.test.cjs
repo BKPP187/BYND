@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { root, sourceSection, deferred } = require('./helpers/harness.cjs');
 
 const originalUrl = 'data:image/png;base64,b3JpZ2luYWw=';
-function harness({ transparent = false, protocol = 'https:', mode = 'success' } = {}) {
+function harness({ transparent = false, protocol = 'https:', mode = 'success', android = true, scriptSource, baseURI } = {}) {
     const width = 24, height = 32, pixels = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
         const offset = (y * width + x) * 4;
@@ -73,12 +73,13 @@ function harness({ transparent = false, protocol = 'https:', mode = 'success' } 
         Blob, URL: AssetUrl, AbortSignal, Worker: LocalWorker, XMLHttpRequest: FileRequest,
         console: { warn() {} },
         Image: class { set src(url) { this.url = url; this.naturalWidth = width; this.naturalHeight = height; this.pixels = pixels; queueMicrotask(() => this.onload()); } },
-        document: { baseURI: protocol === 'file:' ? 'file:///android_asset/www/index.html' : 'https://bynd.test/index.html', createElement: tag => { assert.equal(tag,'canvas'); return canvas(); } },
-        fetch: async url => { state.requests.push({url,transport:'fetch'}); return { ok: !state.resourceFailure, arrayBuffer: async () => new ArrayBuffer(8) }; },
+        document: { baseURI: baseURI || (protocol === 'file:' ? 'file:///android_asset/www/index.html' : 'https://bynd.test/index.html'), currentScript: scriptSource ? {src:scriptSource} : null, createElement: tag => { assert.equal(tag,'canvas'); return canvas(); } },
+        fetch: async (url, options) => { state.requests.push({url,transport:'fetch',credentials:options.credentials}); return { ok: !state.resourceFailure && !(state.primaryFailure && new URL(url).origin !== 'https://bynd.ccwu.cc'), status: 503, arrayBuffer: async () => new ArrayBuffer(state.emptyWeb ? 0 : 8) }; },
         setTimeout: (fn, delay) => { state.timers.set(++timerId,{fn,delay}); return timerId; },
         clearTimeout: id => state.timers.delete(id)
     });
     context.window = context;
+    if (protocol === 'file:' && android) context.ByndAndroid = {};
     vm.runInContext(sourceSection('modules/monitor/character-pet.js', 'function analyzeAlpha(', 'function imagePrompt('), context);
     context.ByndCharacterPet = { analyzeAlpha: context.analyzeAlpha };
     context.ByndPetStudio = { sourceData: async source => source };
@@ -159,13 +160,56 @@ test('packaged Android resources use file XHR with status 0 and no web requests'
 });
 
 for (const settings of [{status:404},{emptyFile:true},{fileError:true}]) {
-    test(`missing or unreadable packaged assets fail without producing a PNG: ${JSON.stringify(settings)}`, async () => {
+    test(`missing packaged assets can use public tool files: ${JSON.stringify(settings)}`, async () => {
         const h = harness({protocol:'file:'}); Object.assign(h.state,settings);
-        await assert.rejects(h.B.remove(originalUrl), /去背景资源读取失败/);
-        assert.equal(h.state.exports.length, 0);
-        assert.equal(h.state.workers.length, 0);
+        assert.equal((await h.B.remove(originalUrl)).transparent, true);
+        const downloads = h.state.requests.filter(request=>request.transport==='fetch');
+        assert.equal(downloads.length, 4);
+        assert.ok(downloads.every(request=>request.url.startsWith('https://bynd.ccwu.cc/')));
     });
 }
+
+test('normal file previews skip blocked file XHR and fetch only public tool files', async () => {
+    const h = harness({protocol:'file:',android:false});
+    assert.equal((await h.B.remove(originalUrl)).transparent, true);
+    assert.equal(h.state.requests.length,4);
+    assert.ok(h.state.requests.every(request=>request.transport==='fetch' && request.url.startsWith('https://bynd.ccwu.cc/') && request.credentials==='omit'));
+    assert.ok(h.state.requests.every(request=>!request.url.includes(originalUrl)));
+});
+
+test('an HTTPS script uses its own app directory even when the embedding page has a file base URI', async () => {
+    const h = harness({protocol:'file:',android:false,scriptSource:'https://bynd.test/BYND/modules/monitor/pet-background.js?v=1.1.622'});
+    assert.equal((await h.B.remove(originalUrl)).transparent,true);
+    assert.equal(h.state.requests.length,4);
+    assert.ok(h.state.requests.every(request=>request.url.startsWith('https://bynd.test/BYND/') && request.transport==='fetch'));
+});
+
+test('nested preview pages cannot redirect resource paths away from the executing script', async () => {
+    const h = harness({baseURI:'https://preview.test/wrapper/session/',scriptSource:'https://bynd.test/modules/monitor/pet-background.js?v=1.1.622'});
+    assert.equal((await h.B.remove(originalUrl)).transparent,true);
+    assert.ok(h.state.requests.every(request=>request.url.startsWith('https://bynd.test/') && !request.url.includes('/wrapper/')));
+});
+
+test('failed mirror resources use the published copies once and remain retryable', async () => {
+    const h = harness(); h.state.primaryFailure=true;
+    assert.equal((await h.B.remove(originalUrl)).transparent,true);
+    assert.equal(h.state.requests.length,8);
+    assert.equal(h.state.requests.filter(request=>request.url.startsWith('https://bynd.ccwu.cc/')).length,4);
+});
+
+test('failed file and web loads identify the failed resource without saving a false result', async () => {
+    const h = harness({protocol:'file:'}); Object.assign(h.state,{fileError:true,resourceFailure:true});
+    await assert.rejects(h.B.remove(originalUrl), /去背景资源加载失败（.+HTTP 503）/);
+    assert.equal(h.state.exports.length,0);
+    assert.equal(h.state.workers.length,0);
+});
+
+test('empty HTTP files and unknown resource paths are rejected', async () => {
+    const h = harness(); h.state.emptyWeb=true;
+    await assert.rejects(h.B.remove(originalUrl), /去背景资源加载失败/);
+    await assert.rejects(h.B.readResource('../private-file'), /未知的去背景资源/);
+    assert.equal(h.state.workers.length,0);
+});
 
 test('failed HTTP resources leave the source intact and can be loaded on retry', async () => {
     const h = harness(); h.state.resourceFailure = true;

@@ -1,23 +1,61 @@
 // Preserve the original canvas/RGB pixels; infer only the missing alpha channel.
 (() => {
     const assetRoot = 'assets/vendor/pet-background/';
+    // A preview host or <base> can change document.baseURI. Resources belong to
+    // this script's application directory, not to the document embedding it.
+    const scriptSource = document.currentScript?.src;
+    const appRoot = scriptSource && /^(https?|file):/i.test(scriptSource)
+        ? new URL('../../', scriptSource) : new URL('./', document.baseURI);
+    const publishedRoot = 'https://bynd.ccwu.cc/';
+    const resourceNames = {
+        'modules/monitor/pet-background-worker.js': '处理程序',
+        [assetRoot + 'ort.wasm.bundle.min.mjs']: '运行组件',
+        [assetRoot + 'ort-wasm-simd-threaded.wasm']: '运算组件',
+        [assetRoot + 'u2netp.onnx']: '人物识别模型'
+    };
     let pending = Promise.resolve();
-    function readResource(path) {
-        const url = new URL(path, document.baseURI);
-        // Android's packaged file:// assets are readable with XHR, not Fetch.
-        if (url.protocol === 'file:') return new Promise((resolve, reject) => {
+    function readFile(url) {
+        return new Promise((resolve, reject) => {
             const request = new XMLHttpRequest();
-            request.open('GET', url.href); request.responseType = 'arraybuffer'; request.timeout = 45000;
+            request.open('GET', url.href); request.responseType = 'arraybuffer'; request.timeout = 5000;
             request.onload = () => request.response?.byteLength && (request.status === 0 || request.status === 200)
-                ? resolve(request.response) : reject(new Error('去背景资源读取失败，请重新打开应用后重试。'));
-            request.onerror = request.ontimeout = () => reject(new Error('去背景资源读取失败，请重试。'));
+                ? resolve(request.response) : reject(new Error('本地文件未能读取'));
+            request.onerror = request.ontimeout = () => reject(new Error('本地文件读取被阻止或超时'));
             request.send();
         });
-        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.621');
-        return fetch(url.href, { signal: AbortSignal.timeout(45000) }).then(response => {
-            if (!response.ok) throw new Error('去背景资源加载失败，请检查网络后重试。');
-            return response.arrayBuffer();
-        });
+    }
+    async function readWeb(url, path) {
+        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.622');
+        const response = await fetch(url.href, { credentials: 'omit', signal: AbortSignal.timeout(45000) });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const bytes = await response.arrayBuffer();
+        if (!bytes.byteLength) throw new Error('文件为空');
+        return bytes;
+    }
+    async function readResource(path) {
+        if (!Object.hasOwn(resourceNames, path)) throw new Error('未知的去背景资源。');
+        const url = new URL(path, appRoot), fallback = new URL(path, publishedRoot);
+        try {
+            if (url.protocol === 'file:') {
+                // Normal desktop browsers block file XHR even when the app's
+                // scripts load. APKs can use their packaged assets offline.
+                if (window.ByndAndroid) {
+                    try { return await readFile(url); }
+                    catch (error) { console.warn('桌宠本地资源读取失败，将获取官网工具文件', path, error); }
+                }
+                return await readWeb(fallback, path);
+            }
+            try { return await readWeb(url, path); }
+            catch (error) {
+                if (url.origin === fallback.origin && url.pathname === fallback.pathname) throw error;
+                console.warn('桌宠资源地址不可用，将获取官网工具文件', path, error);
+                return await readWeb(fallback, path);
+            }
+        } catch (error) {
+            console.warn('桌宠去背景资源加载失败', { resource: path, source: appRoot.href, error: String(error) });
+            const reason = /^HTTP \d+$/.test(error?.message || '') ? '，' + error.message : /timeout|超时/i.test(error?.name + ' ' + error?.message) ? '，下载超时' : '';
+            throw new Error('去背景资源加载失败（' + resourceNames[path] + reason + '），请检查网络后重试。');
+        }
     }
     function inputPixels(pixels) {
         const count = 320 * 320, values = new Float32Array(count * 3);
