@@ -588,6 +588,31 @@ test('a reset during the backoff wait cancels the retry without another provider
     assert.equal(C.runtime(char).note, '');
 });
 
+test('throttle and provider failures name the stage, HTTP status and upstream reason', async () => {
+    const { C, char, state, context, timers } = harness();
+    const warnings = []; context.console.warn = (...args) => warnings.push(args);
+    const toasts = []; context.showWechatToast = text => toasts.push(text);
+    const limited = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, errorCode: 'rate_limit_exceeded', error: 'API 错误 (429): Too many concurrent requests for this key' };
+    state.answer = messages => messages[0].content.includes('审校器') ? limited : petReply;
+    assert.equal(await settle(C.request(char, 'tap'), timers), false);
+    const note = C.runtime(char).note;
+    assert.match(note, /请求过于频繁（一致性审校，HTTP 429，Too many concurrent requests for this key）/);
+    assert.match(note, /稍后轻点桌宠重试/);
+    assert.deepEqual(toasts, [note]);
+    const logged = warnings.filter(args => args[0] === '桌宠聊天请求失败').map(args => args[1]);
+    assert.equal(logged.length, 3, 'each throttled review attempt is logged for the console');
+    assert.deepEqual(JSON.parse(JSON.stringify(logged[0])), { stage: '一致性审校', httpStatus: 429, errorCode: 'rate_limit_exceeded', rateLimited: true, quotaExceeded: false, deferred: false, retryAfterMs: 0, cancelled: false, error: limited.error });
+    assert.ok(state.calls.every(call => !('stage' in call.options)), 'the stage label never reaches the chat API options');
+    state.now += 3000; state.answer = { ok: false, httpStatus: 500, error: 'API 错误 (500): upstream model unavailable' };
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(C.runtime(char).note, '生成反应：API 错误 (500): upstream model unavailable');
+    state.now += 3000; state.answer = { ok: false, httpStatus: 429, quotaExceeded: true, rateLimited: false, retryAfterMs: 0, error: 'API 额度不足 (429): insufficient_quota' };
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.match(C.runtime(char).note, /额度不足（生成反应，HTTP 429，insufficient_quota）/);
+    state.now += 3000; state.answer = messages => messages[0].content.includes('审校器') ? { ok: false, error: 'API 错误 (502): bad gateway' } : petReply;
+    await assert.rejects(C.testReaction(char, '谢谢'), /^Error: 一致性审校：API 错误 \(502\): bad gateway$/);
+});
+
 test('the test panel also rides out a transient 429 and still surfaces a persistent one', async () => {
     const { C, char, state, timers } = harness();
     const limited = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };

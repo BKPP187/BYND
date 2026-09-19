@@ -6,13 +6,20 @@
     const scope = () => typeof getChatApiRateLimitScope === 'function' ? getChatApiRateLimitScope() : '';
     const automatic = reason => ['scene', 'observe', 'chat'].includes(reason);
     const waitMessage = ms => `当前接口要求等待约 ${Math.max(1, Math.ceil(ms / 1000))} 秒，桌宠稍后再互动。`;
-    function message(result) {
-        if (result?.quotaExceeded) return '当前聊天接口额度不足，已暂停桌宠自动互动。请检查接口额度，处理后轻点桌宠重试。';
+    // Keep the provider's own words: a bare "too many requests" hides which stage and which upstream rule failed.
+    const providerDetail = result => String(result?.error || '').replace(/^API\s*(?:错误|额度不足)\s*\(\d+\)\s*[:：]\s*/, '').trim().slice(0, 140);
+    const diagnosis = (result, stage) => {
+        const parts = [stage, result?.httpStatus ? 'HTTP ' + result.httpStatus : '', providerDetail(result)].filter(Boolean);
+        return parts.length ? '（' + parts.join('，') + '）' : '';
+    };
+    function message(result, stage = '') {
+        if (result?.quotaExceeded) return '当前聊天接口额度不足' + diagnosis(result, stage) + '，已暂停桌宠自动互动。请检查接口额度，处理后轻点桌宠重试。';
         if (result?.rateLimited || result?.deferred) {
             if (result.retryAfterMs > 0) return waitMessage(result.retryAfterMs);
-            return '聊天接口请求过于频繁，已暂停桌宠自动互动。请稍后轻点桌宠重试。';
+            return '聊天接口请求过于频繁' + diagnosis(result, stage) + '，已暂停桌宠自动互动。请稍后轻点桌宠重试。';
         }
-        return result?.error || '互动未完成，请稍后重试。';
+        const text = result?.error || '互动未完成，请稍后重试。';
+        return stage ? stage + '：' + text : text;
     }
     function acquire(reason, characterId = '') {
         const key = scope();
@@ -34,10 +41,13 @@
     async function call(lease, messages, options = {}) {
         const canSend = () => inFlight === lease && scope() === lease.key && (!options.canSend || options.canSend());
         if (!canSend()) return { ok: false, cancelled: true, error: '本次互动已取消。' };
+        const { stage, ...forwarded } = options;
         const result = await callChatApi(messages, {
-            background: true, backgroundPriority: 1, ...options,
+            background: true, backgroundPriority: 1, ...forwarded,
             skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true, canSend
         });
+        if (result?.ok) pauses.delete(lease.key);
+        else console.warn('桌宠聊天请求失败', { stage: options.stage || '', httpStatus: result?.httpStatus || 0, errorCode: result?.errorCode || '', rateLimited: result?.rateLimited === true, quotaExceeded: result?.quotaExceeded === true, deferred: result?.deferred === true, retryAfterMs: result?.retryAfterMs || 0, cancelled: result?.cancelled === true, error: String(result?.error || '').slice(0, 300) });
         if (result?.ok) pauses.delete(lease.key);
         else if (result?.quotaExceeded || result?.rateLimited || (result?.deferred && result.retryAfterMs > 0)) {
             const delay = Number(result.retryAfterMs);
@@ -90,7 +100,7 @@
         return null;
     };
     const truncated = result => /length|max[_ -]?(?:output[_ -]?)?tokens?|token[_ -]?limit|output[_ -]?limit|truncat/i.test(String(result?.finishReason || ''));
-    const reactionFailure = result => !result?.ok ? requests.message(result) : truncated(result) ? '角色反应被模型输出上限截断，请稍后再试或换用输出更稳定的聊天模型。' : '本轮没有返回可用的角色反应：模型输出不是要求的 JSON。';
+    const reactionFailure = (result, stage = '生成反应') => !result?.ok ? requests.message(result, stage) : truncated(result) ? '角色反应被模型输出上限截断，请稍后再试或换用输出更稳定的聊天模型。' : '本轮没有返回可用的角色反应：模型输出不是要求的 JSON。';
     // Browsers rarely expose Retry-After, so a manual interaction retries a bare 429 briefly instead of failing at once.
     const rateLimitBackoffMs = [3000, 8000];
     const throttled = result => result?.ok === false && result.rateLimited === true && !result.quotaExceeded && !(result.retryAfterMs > 0);
@@ -106,14 +116,16 @@
         return result;
     }
     async function requestReaction(char, lease, messages, options, manual) {
-        let result = await callWithBackoff(char, lease, messages, options, manual);
+        let stage = '生成反应';
+        let result = await callWithBackoff(char, lease, messages, { ...options, stage }, manual);
         let raw = result?.ok ? parse(result.content) : null;
         if (!raw && truncated(result)) {
             // Reasoning models can spend the small budget before the JSON; one larger attempt beats a lost interaction.
-            result = await callWithBackoff(char, lease, messages, { ...options, max_tokens: Math.max(1200, (Number(options.max_tokens) || 0) * 3) }, manual);
+            stage = '截断后重试';
+            result = await callWithBackoff(char, lease, messages, { ...options, stage, max_tokens: Math.max(1200, (Number(options.max_tokens) || 0) * 3) }, manual);
             raw = result?.ok ? parse(result.content) : null;
         }
-        return { result, raw };
+        return { result, raw, stage };
     }
     const normalizeStates = values => {
         const seen = new Set(['idle']);
@@ -454,8 +466,8 @@
             { role: 'user', content: persona(char) + '\n\n【最近互动】\n' + recent(char) + '\n\n【本轮事实】\n' + context + '\n\n【可选表现】\n' + stateMenu(char) + '\n\n【待审候选】\n' + JSON.stringify({ speech: clean(speech, 5000), state: reaction.state }) }
         ];
         if (screen) messages[1].content = [{ type: 'text', text: messages[1].content }, { type: 'image_url', image_url: { url: screen } }];
-        const response = await callWithBackoff(char, lease, messages, { max_tokens: 250, temperature: 0.1, canSend }, manual);
-        if (!response?.ok) throw new Error(requests.message(response));
+        const response = await callWithBackoff(char, lease, messages, { max_tokens: 250, temperature: 0.1, canSend, stage: '一致性审校' }, manual);
+        if (!response?.ok) throw new Error(requests.message(response, '一致性审校'));
         const result = response?.ok && parse(response.content);
         return { allow: result?.allow === true, note: clean(result?.note, 160) || '本轮一致性检查未通过，保持待机。' };
     }
@@ -485,7 +497,7 @@
             display(char, reaction, check.note);
             return true;
         } catch (error) {
-            if (checkpoint(char, epoch, stamp, true)) { reset(char, clean(error.message, 200) || '检查未完成，保持待机。'); repaint(char); }
+            if (checkpoint(char, epoch, stamp, true)) { reset(char, clean(error.message, 320) || '检查未完成，保持待机。'); repaint(char); }
             return false;
         } finally {
             requests.release(access.lease);
@@ -530,9 +542,9 @@
             if (typeof isMonitorScreenSharingActive === 'function' && isMonitorScreenSharingActive() && reason !== 'scene') screen = await captureMonitorScreenFrame();
             if (reason === 'observe' && !/^data:image\//i.test(screen)) return false;
             const canSend = () => checkpoint(char, epoch, stamp, automatic);
-            const { result, raw } = await requestReaction(char, access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 350, temperature: 0.55, canSend }, !automatic);
+            const { result, raw, stage } = await requestReaction(char, access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 350, temperature: 0.55, canSend }, !automatic);
             if (!checkpoint(char, epoch, stamp, automatic)) return false;
-            if (!raw) throw new Error(reactionFailure(result));
+            if (!raw) throw new Error(reactionFailure(result, stage));
             const reaction = normalizeReaction(char, raw);
             const check = await checkPersona(char, reaction, reaction.text, scene + '\n触发：' + reason + (screen ? '\n发言只可基于本轮已共享的屏幕；不能推断屏幕外事实。' : '\n没有外部屏幕图像。'), screen, access.lease, canSend, !automatic);
             if (!checkpoint(char, epoch, stamp, automatic)) return false;
@@ -541,7 +553,7 @@
             return true;
         } catch (error) {
             if (checkpoint(char, epoch, stamp, automatic)) {
-                reset(char, clean(error.message, 200) || '互动未完成，保持待机。');
+                reset(char, clean(error.message, 320) || '互动未完成，保持待机。');
                 if (reason === 'tap' && typeof showWechatToast === 'function') showWechatToast(runtime(char).note);
             }
             return false;
@@ -560,8 +572,8 @@
         const stamp = fingerprint(char);
         const canSend = () => characterExists(char) && fingerprint(char) === stamp;
         try {
-            const { result, raw } = await requestReaction(null, access.lease, reactionMessages(char, 'test', '本次是独立预览，不会写入聊天、记忆或关系。', '', prompt), { max_tokens: 400, temperature: 0.55, background: false, canSend }, true);
-            if (!raw) throw new Error(reactionFailure(result));
+            const { result, raw, stage } = await requestReaction(null, access.lease, reactionMessages(char, 'test', '本次是独立预览，不会写入聊天、记忆或关系。', '', prompt), { max_tokens: 400, temperature: 0.55, background: false, canSend }, true);
+            if (!raw) throw new Error(reactionFailure(result, stage));
             const reaction = normalizeReaction(char, raw);
             const check = await checkPersona(char, reaction, reaction.text, '本轮测试输入：' + prompt, '', access.lease, canSend, true);
             if (!canSend()) throw new Error('互动期间人设或聊天已变化，请重新测试。');
