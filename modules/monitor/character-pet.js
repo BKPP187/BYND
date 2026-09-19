@@ -5,7 +5,8 @@
     const finishedAt = new Map();
     const scope = () => typeof getChatApiRateLimitScope === 'function' ? getChatApiRateLimitScope() : '';
     const automatic = reason => ['scene', 'observe', 'chat'].includes(reason);
-    const waitMessage = ms => `当前接口要求等待约 ${Math.max(1, Math.ceil(ms / 1000))} 秒，桌宠稍后再互动。`;
+    const seconds = ms => Math.max(1, Math.ceil(ms / 1000));
+    const waitMessage = (ms, learned = false) => learned ? `聊天接口刚刚限流，桌宠约 ${seconds(ms)} 秒后可再互动。` : `当前接口要求等待约 ${seconds(ms)} 秒，桌宠稍后再互动。`;
     // Keep the provider's own words: a bare "too many requests" hides which stage and which upstream rule failed.
     const providerDetail = result => String(result?.error || '').replace(/^API\s*(?:错误|额度不足)\s*\(\d+\)\s*[:：]\s*/, '').trim().slice(0, 140);
     const diagnosis = (result, stage) => {
@@ -25,10 +26,11 @@
         const key = scope();
         const now = Date.now();
         let pause = pauses.get(key);
-        if (pause?.until && pause.until <= now) { pauses.delete(key); pause = null; }
+        // A learned cooldown keeps automatic reactions paused after it expires; an honoured Retry-After simply ends.
+        if (pause?.until && pause.until <= now) { if (pause.cooldownMs) pause.until = 0; else { pauses.delete(key); pause = null; } }
         const sharedWait = typeof getChatApiRateLimitPauseRemainingMs === 'function' ? getChatApiRateLimitPauseRemainingMs() : 0;
         const remaining = Math.max(sharedWait, (pause?.until || 0) - now);
-        if (remaining > 0) return { message: waitMessage(remaining) };
+        if (remaining > 0) return { message: waitMessage(remaining, !!pause?.cooldownMs && (pause.until - now) >= sharedWait) };
         if (pause && automatic(reason)) return { message: message(pause) };
         if (inFlight) return { message: '桌宠正在回应，请稍等。' };
         // This is a local interaction interval, never an invented provider Retry-After.
@@ -51,9 +53,12 @@
         if (result?.ok) pauses.delete(lease.key);
         else if (result?.quotaExceeded || result?.rateLimited || (result?.deferred && result.retryAfterMs > 0)) {
             const delay = Number(result.retryAfterMs);
+            const previous = pauses.get(lease.key);
+            // Without Retry-After the client learns a cooldown: relays usually count requests per minute.
+            const learned = !result.quotaExceeded && !(Number.isFinite(delay) && delay > 0) ? Math.min(60000, (previous?.cooldownMs || 0) * 2 || 15000) : 0;
             pauses.set(lease.key, {
-                quotaExceeded: result.quotaExceeded === true, rateLimited: !result.quotaExceeded,
-                until: !result.quotaExceeded && Number.isFinite(delay) && delay > 0 ? Date.now() + delay : 0
+                quotaExceeded: result.quotaExceeded === true, rateLimited: !result.quotaExceeded, cooldownMs: learned,
+                until: result.quotaExceeded ? 0 : Number.isFinite(delay) && delay > 0 ? Date.now() + delay : Date.now() + learned
             });
         }
         return result;
@@ -63,7 +68,8 @@
         finishedAt.set(lease.key, Date.now());
         inFlight = null;
     }
-    window.ByndPetRequests = { acquire, call, release, message, busy: characterId => !!inFlight && inFlight.characterId === characterId };
+    const cooldown = () => { const pause = pauses.get(scope()); return Math.max(0, (pause?.until || 0) - Date.now()); };
+    window.ByndPetRequests = { acquire, call, release, message, cooldown, busy: characterId => !!inFlight && inFlight.characterId === characterId };
 })();
 
 // Persona-driven pet state and immutable, backed-up image assets.
@@ -100,19 +106,22 @@
         return null;
     };
     const truncated = result => /length|max[_ -]?(?:output[_ -]?)?tokens?|token[_ -]?limit|output[_ -]?limit|truncat/i.test(String(result?.finishReason || ''));
+    const reviewNote = raw => clean(raw?.note, 160) || '本轮一致性检查未通过，保持待机。';
     const reactionFailure = (result, stage = '生成反应') => !result?.ok ? requests.message(result, stage) : truncated(result) ? '角色反应被模型输出上限截断，请稍后再试或换用输出更稳定的聊天模型。' : '本轮没有返回可用的角色反应：模型输出不是要求的 JSON。';
-    // Browsers rarely expose Retry-After, so a manual interaction retries a bare 429 briefly instead of failing at once.
-    const rateLimitBackoffMs = [3000, 8000];
+    // Browsers rarely expose Retry-After, so a manual interaction waits out the learned cooldown and retries instead of failing at once.
+    const maxBackoffRetries = 2;
     const throttled = result => result?.ok === false && result.rateLimited === true && !result.quotaExceeded && !(result.retryAfterMs > 0);
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const waitingNote = ms => '聊天接口限流，' + Math.max(1, Math.ceil(ms / 1000)) + ' 秒后自动重试…';
     async function callWithBackoff(char, lease, messages, options, manual) {
         let result = await requests.call(lease, messages, options);
-        for (let attempt = 0; manual && throttled(result) && attempt < rateLimitBackoffMs.length; attempt++) {
-            if (char) { runtime(char).note = '聊天接口繁忙，几秒后自动重试…'; repaint(char); }
-            await wait(rateLimitBackoffMs[attempt]);
+        for (let attempt = 0; manual && throttled(result) && attempt < maxBackoffRetries; attempt++) {
+            const pause = requests.cooldown();
+            if (char) { runtime(char).note = waitingNote(pause); repaint(char); }
+            await wait(pause);
             result = await requests.call(lease, messages, options);
         }
-        if (char && runtime(char).note.startsWith('聊天接口繁忙')) runtime(char).note = '';
+        if (char && runtime(char).note.startsWith('聊天接口限流')) runtime(char).note = '';
         return result;
     }
     async function requestReaction(char, lease, messages, options, manual) {
@@ -514,7 +523,7 @@
     function reactionMessages(char, reason, scene, screen = '', testText = '') {
         const trigger = { tap: '用户轻点了桌宠。动作不代表用户允许亲昵，也不预设角色喜欢被碰。', scene: '用户切换了应用内活动。无必要时保持安静。', observe: '观察到一帧用户主动共享的屏幕。', test: '用户在测试面板输入的互动：' + testText }[reason] || '桌宠状态更新。';
         return [
-            { role: 'system', content: '你是桌宠所绑定的角色本人。先依人设、关系与真实互动决定态度，再选择符合态度的外在表现。只输出 JSON {"text":"0-40 字角色发言，可为空","state":"可用 id 或 idle","confidence":0.0到1.0,"durationSeconds":15到60}。text 与表情必须一致，不能输出解释、旁白或内部思维链。没有相符的已确认素材就选择 idle。' },
+            { role: 'system', content: '你是桌宠所绑定的角色本人。先依人设、关系与真实互动决定态度，再选择符合态度的外在表现。text 与表情必须一致，不能输出解释、旁白或内部思维链。没有相符的已确认素材就选择 idle。输出前切换为角色一致性复核视角检查这份候选：候选发言和表情必须同时符合角色卡、世界书、禁区、已确认关系以及本轮可见互动；任何过度亲昵、幼儿化、态度相反、无依据脑补、违反表情适用条件或禁区，或把握不足，都判 allow:false，并把 state 改为 idle、text 留空。只输出 JSON {"text":"0-40 字角色发言，可为空","state":"可用 id 或 idle","confidence":0.0到1.0,"durationSeconds":15到60,"allow":true或false,"note":"一句简短公开结论，不包含内部推理"}。' },
             { role: 'user', content: [persona(char), '【最近互动】\n' + recent(char), '【触发】\n' + trigger, '【已知场景】\n' + scene, screen ? '附图是这一次用户共享的一帧屏幕，仅依据确实可见的内容。' : '没有外部屏幕画面，不得假装看见其它应用、摄像头或用户身边的人。', '【可用外在表现】\n' + stateMenu(char)].join('\n\n') }
         ].map((message, index) => index === 1 && screen ? { ...message, content: [{ type: 'text', text: message.content }, { type: 'image_url', image_url: { url: screen } }] } : message);
     }
@@ -542,14 +551,13 @@
             if (typeof isMonitorScreenSharingActive === 'function' && isMonitorScreenSharingActive() && reason !== 'scene') screen = await captureMonitorScreenFrame();
             if (reason === 'observe' && !/^data:image\//i.test(screen)) return false;
             const canSend = () => checkpoint(char, epoch, stamp, automatic);
-            const { result, raw, stage } = await requestReaction(char, access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 350, temperature: 0.55, canSend }, !automatic);
+            const { result, raw, stage } = await requestReaction(char, access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 400, temperature: 0.55, canSend }, !automatic);
             if (!checkpoint(char, epoch, stamp, automatic)) return false;
             if (!raw) throw new Error(reactionFailure(result, stage));
             const reaction = normalizeReaction(char, raw);
-            const check = await checkPersona(char, reaction, reaction.text, scene + '\n触发：' + reason + (screen ? '\n发言只可基于本轮已共享的屏幕；不能推断屏幕外事实。' : '\n没有外部屏幕图像。'), screen, access.lease, canSend, !automatic);
-            if (!checkpoint(char, epoch, stamp, automatic)) return false;
-            if (!check.allow) { reset(char, check.note); repaint(char); return false; }
-            display(char, reaction, check.note);
+            // The self-check rides in the same reply: relays that count requests per minute reject a second call.
+            if (raw.allow !== true) { reset(char, reviewNote(raw)); repaint(char); return false; }
+            display(char, reaction, clean(raw.note, 160));
             return true;
         } catch (error) {
             if (checkpoint(char, epoch, stamp, automatic)) {
@@ -575,9 +583,9 @@
             const { result, raw, stage } = await requestReaction(null, access.lease, reactionMessages(char, 'test', '本次是独立预览，不会写入聊天、记忆或关系。', '', prompt), { max_tokens: 400, temperature: 0.55, background: false, canSend }, true);
             if (!raw) throw new Error(reactionFailure(result, stage));
             const reaction = normalizeReaction(char, raw);
-            const check = await checkPersona(char, reaction, reaction.text, '本轮测试输入：' + prompt, '', access.lease, canSend, true);
             if (!canSend()) throw new Error('互动期间人设或聊天已变化，请重新测试。');
-            return { reaction: check.allow ? reaction : { ...reaction, state: 'idle', text: '' }, ...check };
+            const allow = raw.allow === true;
+            return { reaction: allow ? reaction : { ...reaction, state: 'idle', text: '' }, allow, note: allow ? clean(raw.note, 160) : reviewNote(raw) };
         } finally { requests.release(access.lease); }
     }
     function observeScene() {

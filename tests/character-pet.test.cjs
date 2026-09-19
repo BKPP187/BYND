@@ -81,15 +81,16 @@ function harness() {
     return { context, C: context.window.ByndCharacterPet, studio: context.window.ByndPetStudio, char, other, data, state, timers };
 }
 
-const petReply = { ok: true, content: '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}' };
+const petReply = { ok: true, content: '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。","allow":true,"note":"符合人设"}' };
 const reviewReply = { ok: true, content: '{"allow":true,"note":"符合人设"}' };
 const answerPet = messages => messages[0].content.includes('审校器') ? reviewReply : petReply;
-const backoffDelays = [3000, 8000];
+const backoffDelays = [15000, 30000, 60000];
 // Manual interactions wait on mocked timers between 429 retries; fire those timers until the interaction settles.
 async function settle(promise, timers, fired = []) {
     let done = false; promise.then(() => { done = true; }, () => { done = true; });
     while (!done) {
         await new Promise(resolve => setImmediate(resolve));
+        if (done) break;
         for (const [id, timer] of [...timers]) if (backoffDelays.includes(timer.delay)) { timers.delete(id); fired.push(timer.delay); timer.fn(); }
     }
     return promise;
@@ -452,45 +453,81 @@ test('a pet interaction lease survives scene resets and role changes without que
     assert.equal(C.runtime(char).busy, false);
     state.now += 3000; state.answer = answerPet;
     assert.equal(await C.request(other, 'tap'), true);
-    assert.equal(state.calls.length, 3);
+    assert.equal(state.calls.length, 2, 'one interaction is exactly one chat request');
 });
 
-test('the lease covers the independent review and no review result survives a reset', async () => {
+test('a tap sends one request carrying the self-check, and no result survives a reset', async () => {
     const { C, char, state } = harness(); const pending = deferred();
-    state.answer = messages => messages[0].content.includes('审校器') ? pending.promise : petReply;
+    state.answer = () => pending.promise;
     const running = C.request(char);
-    while (state.calls.length < 2) await new Promise(resolve => setImmediate(resolve));
+    while (state.calls.length < 1) await new Promise(resolve => setImmediate(resolve));
+    assert.match(state.calls[0].messages[0].content, /allow.*note/);
+    assert.match(state.calls[0].messages[0].content, /过度亲昵、幼儿化、态度相反/);
     C.beginReply(char); C.endReply(char); state.now += 4000;
     assert.equal(await C.request(char), false);
-    assert.equal(state.calls.length, 2);
-    pending.resolve(reviewReply); assert.equal(await running, false);
+    assert.equal(state.calls.length, 1);
+    pending.resolve(petReply); assert.equal(await running, false);
     assert.equal(C.runtime(char).bubble, '');
     assert.equal(C.runtime(char).busy, false);
     assert.ok(state.calls.every(call => call.options.skipLengthContinuation && call.options.skipStatusValidationRetry && call.options.skipEmptyLengthRetry));
 });
 
-for (const duringReview of [false, true]) test(`real 429 ${duringReview ? 'during review' : 'during generation'} pauses automatic reactions until a manual recovery`, async () => {
+test('a reply whose self-check fails keeps the pet idle without a second request', async () => {
+    const { C, char, state } = harness();
+    state.answer = { ok: true, content: '{"state":"quiet_smile","confidence":0.95,"text":"抱抱。","allow":false,"note":"初识同事不会主动亲昵。"}' };
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(state.calls.length, 1);
+    assert.equal(C.runtime(char).state, 'idle');
+    assert.equal(C.runtime(char).bubble, '');
+    assert.equal(C.runtime(char).note, '初识同事不会主动亲昵。');
+    state.now += 3000;
+    state.answer = { ok: true, content: '{"state":"quiet_smile","confidence":0.95,"text":"谢谢。"}' };
+    assert.equal(await C.request(char, 'tap'), false, 'a reply that skips the self-check is not trusted');
+    assert.match(C.runtime(char).note, /一致性检查未通过/);
+    state.now += 3000;
+    const preview = await C.testReaction(char, '谢谢');
+    assert.equal(preview.allow, false);
+    assert.equal(preview.reaction.state, 'idle');
+    assert.equal(preview.reaction.text, '');
+});
+
+test('a persistent bare 429 waits out learned cooldowns, then pauses automatic reactions until a manual recovery', async () => {
     const { C, char, state, timers } = harness();
-    state.answer = messages => duringReview && !messages[0].content.includes('审校器') ? petReply : { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, error: 'rate limit exceeded' };
+    state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, error: 'rate limit exceeded' };
     const fired = [];
     assert.equal(await settle(C.request(char), timers, fired), false);
-    assert.deepEqual(fired, backoffDelays, 'a manual tap retries a bare 429 twice before giving up');
-    assert.equal(state.calls.length, duringReview ? 4 : 3);
-    assert.match(C.runtime(char).note, /已暂停.*稍后轻点/);
-    assert.doesNotMatch(C.runtime(char).note, /\d+\s*(秒|分钟)/);
+    assert.deepEqual(fired, [15000, 30000], 'the cooldown doubles after each rejected retry');
+    assert.equal(state.calls.length, 3);
+    assert.match(C.runtime(char).note, /请求过于频繁.*已暂停.*稍后轻点/);
     assert.equal(C.runtime(char).bubble, '');
-    const calls = state.calls.length;
+    assert.equal(await C.request(char, 'scene'), false);
+    assert.equal(state.calls.length, 3, 'automatic reactions never send during the cooldown');
     state.now += 60000;
     assert.equal(await C.request(char, 'scene'), false);
     assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
-    assert.equal(state.calls.length, calls);
+    assert.equal(state.calls.length, 3, 'an expired cooldown still keeps automatic reactions paused');
     state.answer = answerPet;
     assert.equal(await C.request(char), true);
-    assert.equal(state.calls.length, calls + 2);
+    assert.equal(state.calls.length, 4);
     assert.equal(await C.request(char, 'scene'), false);
     state.now += 30000;
     assert.equal(await C.request(char, 'scene'), true);
-    assert.equal(state.calls.length, calls + 4);
+    assert.equal(state.calls.length, 5);
+});
+
+test('a tap during a learned cooldown reports the remaining seconds without sending', async () => {
+    const { C, char, state, timers, context } = harness();
+    const toasts = []; context.showWechatToast = text => toasts.push(text);
+    state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };
+    await settle(C.request(char, 'tap'), timers);
+    assert.equal(state.calls.length, 3);
+    state.now += 10000;
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(state.calls.length, 3);
+    assert.match(C.runtime(char).note, /刚刚限流.*50 秒/);
+    assert.equal(toasts.at(-1), C.runtime(char).note);
+    state.now += 50000; state.answer = answerPet;
+    assert.equal(await C.request(char, 'tap'), true);
 });
 
 test('provider Retry-After is honored without extending it on blocked interactions', async () => {
@@ -505,7 +542,7 @@ test('provider Retry-After is honored without extending it on blocked interactio
     assert.equal(await C.request(char, 'scene'), false);
     state.now += 1; state.answer = answerPet;
     assert.equal(await C.request(char, 'scene'), true);
-    assert.equal(state.calls.length, 3);
+    assert.equal(state.calls.length, 2);
 });
 
 test('quota failures stay distinct from temporary limits and permit manual recovery', async () => {
@@ -517,7 +554,7 @@ test('quota failures stay distinct from temporary limits and permit manual recov
     assert.equal(state.calls.length, 1);
     state.answer = answerPet;
     assert.equal(await C.request(char), true);
-    assert.equal(state.calls.length, 3);
+    assert.equal(state.calls.length, 2);
 });
 
 test('an ordinary error mentioning 429 never creates a pet API pause', async () => {
@@ -526,7 +563,7 @@ test('an ordinary error mentioning 429 never creates a pet API pause', async () 
     await C.request(char);
     state.now += 30000; state.answer = answerPet;
     assert.equal(await C.request(char, 'scene'), true);
-    assert.equal(state.calls.length, 3);
+    assert.equal(state.calls.length, 2);
 });
 
 for (const key of ['baseUrl', 'model', 'apiKey']) test('pet automatic pause is isolated by ' + key, async () => {
@@ -538,22 +575,23 @@ for (const key of ['baseUrl', 'model', 'apiKey']) test('pet automatic pause is i
     assert.equal(await C.request(char), true);
     state.api[key] = before; state.now += 60000;
     assert.equal(await C.request(char, 'scene'), false);
-    assert.equal(state.calls.length, 5);
+    assert.equal(state.calls.length, 4);
 });
 
 test('a manual tap survives transient 429 responses by waiting and retrying inside the same lease', async () => {
     const { C, char, state, context, timers } = harness();
     const toasts = []; context.showWechatToast = text => toasts.push(text);
     const limited = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, error: 'rate limit exceeded' };
-    state.answer = messages => messages[0].content.includes('审校器') ? (state.calls.length === 4 ? limited : reviewReply) : (state.calls.length <= 2 ? limited : petReply);
+    state.answer = () => state.calls.length <= 2 ? limited : petReply;
     const fired = []; const notes = [];
     context.syncMonitorPetFloating = () => notes.push(C.runtime(char).note);
     assert.equal(await settle(C.request(char, 'tap'), timers, fired), true);
-    assert.equal(state.calls.length, 5, 'two throttled reactions, one accepted, one throttled review, one accepted review');
-    assert.deepEqual(fired, [3000, 8000, 3000]);
-    assert.ok(notes.some(note => /繁忙.*自动重试/.test(note)), 'the pet explains the wait while it retries');
+    assert.equal(state.calls.length, 3, 'two throttled attempts, then one accepted');
+    assert.deepEqual(fired, [15000, 30000]);
+    assert.ok(notes.some(note => /限流，15 秒后自动重试/.test(note)), 'the pet shows the learned wait while it retries');
+    assert.ok(notes.some(note => /限流，30 秒后自动重试/.test(note)));
     assert.equal(C.runtime(char).state, 'quiet_smile');
-    assert.doesNotMatch(C.runtime(char).note, /繁忙/);
+    assert.doesNotMatch(C.runtime(char).note, /限流/);
     assert.deepEqual(toasts, []);
     assert.equal(state.calls.length && await C.request(char, 'scene'), false, 'the earlier 429 pause no longer applies after a success');
 });
@@ -565,10 +603,11 @@ test('automatic reactions and honoured Retry-After limits never spend backoff re
     assert.equal(state.calls.length, 1);
     assert.equal([...timers.values()].some(timer => backoffDelays.includes(timer.delay)), false);
     state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 45000 };
-    state.now += 3000;
+    state.now += 15000;
     assert.equal(await C.request(char, 'tap'), false);
     assert.equal(state.calls.length, 2);
     assert.match(C.runtime(char).note, /45 秒/);
+    assert.equal([...timers.values()].some(timer => backoffDelays.includes(timer.delay)), false, 'an honoured Retry-After is never retried inside the tap');
     state.answer = { ok: false, httpStatus: 429, quotaExceeded: true, rateLimited: false, retryAfterMs: 0 };
     state.now += 50000;
     assert.equal(await C.request(char, 'tap'), false);
@@ -580,7 +619,7 @@ test('a reset during the backoff wait cancels the retry without another provider
     const { C, char, state, timers } = harness();
     state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };
     const running = C.request(char, 'tap');
-    while (![...timers.values()].some(timer => timer.delay === 3000)) await new Promise(resolve => setImmediate(resolve));
+    while (![...timers.values()].some(timer => timer.delay === 15000)) await new Promise(resolve => setImmediate(resolve));
     C.reset(char);
     assert.equal(await settle(running, timers), false);
     assert.equal(state.calls.length, 1);
@@ -593,36 +632,42 @@ test('throttle and provider failures name the stage, HTTP status and upstream re
     const warnings = []; context.console.warn = (...args) => warnings.push(args);
     const toasts = []; context.showWechatToast = text => toasts.push(text);
     const limited = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, errorCode: 'rate_limit_exceeded', error: 'API 错误 (429): Too many concurrent requests for this key' };
-    state.answer = messages => messages[0].content.includes('审校器') ? limited : petReply;
+    state.answer = limited;
     assert.equal(await settle(C.request(char, 'tap'), timers), false);
     const note = C.runtime(char).note;
-    assert.match(note, /请求过于频繁（一致性审校，HTTP 429，Too many concurrent requests for this key）/);
+    assert.match(note, /请求过于频繁（生成反应，HTTP 429，Too many concurrent requests for this key）/);
     assert.match(note, /稍后轻点桌宠重试/);
     assert.deepEqual(toasts, [note]);
     const logged = warnings.filter(args => args[0] === '桌宠聊天请求失败').map(args => args[1]);
-    assert.equal(logged.length, 3, 'each throttled review attempt is logged for the console');
-    assert.deepEqual(JSON.parse(JSON.stringify(logged[0])), { stage: '一致性审校', httpStatus: 429, errorCode: 'rate_limit_exceeded', rateLimited: true, quotaExceeded: false, deferred: false, retryAfterMs: 0, cancelled: false, error: limited.error });
+    assert.equal(logged.length, 3, 'each throttled attempt is logged for the console');
+    assert.deepEqual(JSON.parse(JSON.stringify(logged[0])), { stage: '生成反应', httpStatus: 429, errorCode: 'rate_limit_exceeded', rateLimited: true, quotaExceeded: false, deferred: false, retryAfterMs: 0, cancelled: false, error: limited.error });
     assert.ok(state.calls.every(call => !('stage' in call.options)), 'the stage label never reaches the chat API options');
-    state.now += 3000; state.answer = { ok: false, httpStatus: 500, error: 'API 错误 (500): upstream model unavailable' };
+    state.now += 60000; state.answer = { ok: false, httpStatus: 500, error: 'API 错误 (500): upstream model unavailable' };
     assert.equal(await C.request(char, 'tap'), false);
     assert.equal(C.runtime(char).note, '生成反应：API 错误 (500): upstream model unavailable');
     state.now += 3000; state.answer = { ok: false, httpStatus: 429, quotaExceeded: true, rateLimited: false, retryAfterMs: 0, error: 'API 额度不足 (429): insufficient_quota' };
     assert.equal(await C.request(char, 'tap'), false);
     assert.match(C.runtime(char).note, /额度不足（生成反应，HTTP 429，insufficient_quota）/);
-    state.now += 3000; state.answer = messages => messages[0].content.includes('审校器') ? { ok: false, error: 'API 错误 (502): bad gateway' } : petReply;
-    await assert.rejects(C.testReaction(char, '谢谢'), /^Error: 一致性审校：API 错误 \(502\): bad gateway$/);
+    state.now += 3000; state.answer = { ok: false, error: 'API 错误 (502): bad gateway' };
+    await assert.rejects(C.testReaction(char, '谢谢'), /^Error: 生成反应：API 错误 \(502\): bad gateway$/);
+    state.now += 3000; state.answer = petReply;
+    assert.equal(await C.request(char, 'tap'), true, 'a manual success clears the quota pause');
+    state.now += 3000; C.reset(char); state.answer = { ok: false, error: 'API 错误 (502): bad gateway' };
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
+    assert.equal(C.runtime(char).note, '一致性审校：API 错误 (502): bad gateway', 'the chat-side review still names its stage');
 });
 
 test('the test panel also rides out a transient 429 and still surfaces a persistent one', async () => {
     const { C, char, state, timers } = harness();
     const limited = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };
-    state.answer = messages => messages[0].content.includes('审校器') ? reviewReply : (state.calls.length === 1 ? limited : petReply);
+    state.answer = () => state.calls.length === 1 ? limited : petReply;
     const result = await settle(C.testReaction(char, '谢谢'), timers);
     assert.equal(result.reaction.state, 'quiet_smile');
-    assert.equal(state.calls.length, 3);
+    assert.equal(result.allow, true);
+    assert.equal(state.calls.length, 2);
     state.answer = limited;
     await assert.rejects(settle(C.testReaction(char, '谢谢'), timers), /请求过于频繁/);
-    assert.equal(state.calls.length, 6);
+    assert.equal(state.calls.length, 5);
 });
 
 test('a shared provider pause prevents pet generation and review without sending another request', async () => {
@@ -1015,11 +1060,11 @@ test('reaction JSON is recovered from prose, fences and tags but never from malf
     for (const content of ['', '好的。', '{"state":"quiet_smile","confidence":0.9,"text":"谢', '```json\n{"state":\n```', '[1, 2]']) assert.equal(C.parse(content), null, content);
 });
 
-test('prose-wrapped reactions still display and are reviewed once', async () => {
+test('prose-wrapped reactions still display from a single request', async () => {
     const { C, char, state } = harness();
-    state.answer = messages => messages[0].content.includes('审校器') ? reviewReply : { ok: true, content: '好的，反应如下：\n```json\n{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}\n```' };
+    state.answer = { ok: true, content: '好的，反应如下：\n```json\n{"state":"quiet_smile","confidence":0.9,"text":"谢谢。","allow":true,"note":"符合人设"}\n```' };
     assert.equal(await C.request(char, 'tap'), true);
-    assert.equal(state.calls.length, 2);
+    assert.equal(state.calls.length, 1);
     assert.equal(C.runtime(char).state, 'quiet_smile');
     assert.equal(C.runtime(char).bubble, '谢谢。');
 });
@@ -1027,18 +1072,17 @@ test('prose-wrapped reactions still display and are reviewed once', async () => 
 test('a reaction cut off by the output limit is retried once with a larger budget before giving up', async () => {
     const { C, char, state, context } = harness();
     const toasts = []; context.showWechatToast = text => toasts.push(text);
-    state.answer = messages => messages[0].content.includes('审校器') ? reviewReply
-        : state.calls.length === 1 ? { ok: true, content: '{"state":"quiet_sm', finishReason: 'length' } : petReply;
+    state.answer = () => state.calls.length === 1 ? { ok: true, content: '{"state":"quiet_sm', finishReason: 'length' } : petReply;
     assert.equal(await C.request(char, 'tap'), true);
-    assert.equal(state.calls.length, 3);
-    assert.equal(state.calls[0].options.max_tokens, 350);
+    assert.equal(state.calls.length, 2);
+    assert.equal(state.calls[0].options.max_tokens, 400);
     assert.equal(state.calls[1].options.max_tokens, 1200);
     assert.equal(C.runtime(char).state, 'quiet_smile');
     assert.deepEqual(toasts, []);
     state.now += 3000; C.reset(char);
     state.answer = () => ({ ok: true, content: '{"state":"quiet_sm', finishReason: 'max_tokens' });
     assert.equal(await C.request(char, 'tap'), false);
-    assert.equal(state.calls.length, 5, 'exactly one larger retry, never a loop');
+    assert.equal(state.calls.length, 4, 'exactly one larger retry, never a loop');
     assert.match(C.runtime(char).note, /输出上限截断/);
     assert.deepEqual(toasts, [C.runtime(char).note]);
     assert.equal(C.runtime(char).state, 'idle');
