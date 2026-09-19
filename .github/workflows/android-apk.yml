@@ -42,6 +42,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The runner's sdkmanager no longer offers the retired 'tools' package; Gradle fetches the rest.
+          packages: platform-tools
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
