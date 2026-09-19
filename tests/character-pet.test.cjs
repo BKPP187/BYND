@@ -899,6 +899,74 @@ test('a pet with only an image stays neutral until personality evidence is avail
     assert.equal(C.runtime(char).bubble, '');
 });
 
+test('reaction JSON is recovered from prose, fences and tags but never from malformed output', () => {
+    const { C } = harness();
+    const expected = { state: 'quiet_smile', confidence: 0.9, text: '谢谢。' };
+    const plain = value => JSON.parse(JSON.stringify(value));
+    for (const content of [
+        '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}',
+        '```json\n{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}\n```',
+        '好的，这是本轮反应：\n```json\n{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}\n```\n以上。',
+        '<reaction>{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}</reaction>',
+        '角色反应如下 {"state":"quiet_smile","confidence":0.9,"text":"谢谢。"} 完毕',
+        '{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}\n{"state":"idle"}'
+    ]) assert.deepEqual(plain(C.parse(content)), expected, content);
+    assert.deepEqual(plain(C.parse('说明 {"state":"quiet_smile","confidence":0.9,"text":"括号 } 和 \\" 引号 { 都在字符串里"}')), { state: 'quiet_smile', confidence: 0.9, text: '括号 } 和 " 引号 { 都在字符串里' });
+    assert.deepEqual(plain(C.parse('{invalid} {"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}')), expected);
+    assert.deepEqual(plain(C.parse('[{"state":"quiet_smile"}]')), { state: 'quiet_smile' }, 'a single array-wrapped object is still usable');
+    for (const content of ['', '好的。', '{"state":"quiet_smile","confidence":0.9,"text":"谢', '```json\n{"state":\n```', '[1, 2]']) assert.equal(C.parse(content), null, content);
+});
+
+test('prose-wrapped reactions still display and are reviewed once', async () => {
+    const { C, char, state } = harness();
+    state.answer = messages => messages[0].content.includes('审校器') ? reviewReply : { ok: true, content: '好的，反应如下：\n```json\n{"state":"quiet_smile","confidence":0.9,"text":"谢谢。"}\n```' };
+    assert.equal(await C.request(char, 'tap'), true);
+    assert.equal(state.calls.length, 2);
+    assert.equal(C.runtime(char).state, 'quiet_smile');
+    assert.equal(C.runtime(char).bubble, '谢谢。');
+});
+
+test('a reaction cut off by the output limit is retried once with a larger budget before giving up', async () => {
+    const { C, char, state, context } = harness();
+    const toasts = []; context.showWechatToast = text => toasts.push(text);
+    state.answer = messages => messages[0].content.includes('审校器') ? reviewReply
+        : state.calls.length === 1 ? { ok: true, content: '{"state":"quiet_sm', finishReason: 'length' } : petReply;
+    assert.equal(await C.request(char, 'tap'), true);
+    assert.equal(state.calls.length, 3);
+    assert.equal(state.calls[0].options.max_tokens, 350);
+    assert.equal(state.calls[1].options.max_tokens, 1200);
+    assert.equal(C.runtime(char).state, 'quiet_smile');
+    assert.deepEqual(toasts, []);
+    state.now += 3000; C.reset(char);
+    state.answer = () => ({ ok: true, content: '{"state":"quiet_sm', finishReason: 'max_tokens' });
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(state.calls.length, 5, 'exactly one larger retry, never a loop');
+    assert.match(C.runtime(char).note, /输出上限截断/);
+    assert.deepEqual(toasts, [C.runtime(char).note]);
+    assert.equal(C.runtime(char).state, 'idle');
+});
+
+test('non-JSON reactions explain the cause without retrying and the test panel reports the same reason', async () => {
+    const { C, char, state, context } = harness();
+    const toasts = []; context.showWechatToast = text => toasts.push(text);
+    state.answer = () => ({ ok: true, content: '她只是安静地看了你一眼。', finishReason: 'stop' });
+    assert.equal(await C.request(char, 'tap'), false);
+    assert.equal(state.calls.length, 1);
+    assert.match(C.runtime(char).note, /不是要求的 JSON/);
+    assert.deepEqual(toasts, [C.runtime(char).note]);
+    assert.equal(C.runtime(char).state, 'idle');
+    state.now += 3000;
+    await assert.rejects(C.testReaction(char, '谢谢'), /不是要求的 JSON/);
+    state.now += 3000;
+    state.answer = () => ({ ok: true, content: '', finishReason: 'length' });
+    await assert.rejects(C.testReaction(char, '谢谢'), /输出上限截断/);
+    assert.equal(state.calls.length, 4);
+    state.now += 3000;
+    state.answer = () => ({ ok: false, error: 'API 错误 (500): boom' });
+    await assert.rejects(C.testReaction(char, '谢谢'), /API 错误 \(500\)/);
+    assert.equal(state.calls.length, 5);
+});
+
 function imageApiHarness(config = {}) {
     const calls = [];
     let response = () => new Response('{"data":[{"b64_json":"aGVsbG8="}]}', { status: 200 });

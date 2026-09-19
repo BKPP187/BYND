@@ -69,14 +69,38 @@
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
     const characterExists = char => !!char?.id && (window.myCharacters || []).includes(char) && !char.isGroupChat;
     const name = char => typeof getMonitorCharName === 'function' ? getMonitorCharName(char) : clean(char?.name, 80);
+    const parseObject = raw => { try { const result = JSON.parse(raw); return result && typeof result === 'object' && !Array.isArray(result) ? result : null; } catch (_) { return null; } };
     const parse = value => {
         if (value && typeof value === 'object' && !Array.isArray(value)) return value;
-        try {
-            const raw = String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-            const result = JSON.parse(raw);
-            return result && typeof result === 'object' && !Array.isArray(result) ? result : null;
-        } catch (_) { return null; }
+        const text = String(value || '');
+        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        const direct = parseObject(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')) || (fenced && parseObject(fenced[1].trim()));
+        if (direct) return direct;
+        // Models wrap the JSON in prose, tags or several fences; take the first balanced object that parses.
+        for (let start = text.indexOf('{'); start >= 0; start = text.indexOf('{', start + 1)) {
+            let depth = 0, quoted = false;
+            for (let index = start; index < text.length; index++) {
+                const char = text[index];
+                if (quoted) { if (char === '\\') index++; else if (char === '"') quoted = false; continue; }
+                if (char === '"') quoted = true;
+                else if (char === '{') depth++;
+                else if (char === '}' && --depth === 0) { const found = parseObject(text.slice(start, index + 1)); if (found) return found; break; }
+            }
+        }
+        return null;
     };
+    const truncated = result => /length|max[_ -]?(?:output[_ -]?)?tokens?|token[_ -]?limit|output[_ -]?limit|truncat/i.test(String(result?.finishReason || ''));
+    const reactionFailure = result => !result?.ok ? requests.message(result) : truncated(result) ? '角色反应被模型输出上限截断，请稍后再试或换用输出更稳定的聊天模型。' : '本轮没有返回可用的角色反应：模型输出不是要求的 JSON。';
+    async function requestReaction(lease, messages, options) {
+        let result = await requests.call(lease, messages, options);
+        let raw = result?.ok ? parse(result.content) : null;
+        if (!raw && truncated(result)) {
+            // Reasoning models can spend the small budget before the JSON; one larger attempt beats a lost interaction.
+            result = await requests.call(lease, messages, { ...options, max_tokens: Math.max(1200, (Number(options.max_tokens) || 0) * 3) });
+            raw = result?.ok ? parse(result.content) : null;
+        }
+        return { result, raw };
+    }
     const normalizeStates = values => {
         const seen = new Set(['idle']);
         return (Array.isArray(values) ? values : []).filter(value => value && typeof value === 'object').slice(0, 8).map((value, index) => {
@@ -492,10 +516,9 @@
             if (typeof isMonitorScreenSharingActive === 'function' && isMonitorScreenSharingActive() && reason !== 'scene') screen = await captureMonitorScreenFrame();
             if (reason === 'observe' && !/^data:image\//i.test(screen)) return false;
             const canSend = () => checkpoint(char, epoch, stamp, automatic);
-            const result = await requests.call(access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 350, temperature: 0.55, canSend });
+            const { result, raw } = await requestReaction(access.lease, reactionMessages(char, reason, scene, screen), { max_tokens: 350, temperature: 0.55, canSend });
             if (!checkpoint(char, epoch, stamp, automatic)) return false;
-            const raw = result?.ok && parse(result.content);
-            if (!raw) throw new Error(result?.ok ? '本轮没有返回可用的角色反应。' : requests.message(result));
+            if (!raw) throw new Error(reactionFailure(result));
             const reaction = normalizeReaction(char, raw);
             const check = await checkPersona(char, reaction, reaction.text, scene + '\n触发：' + reason + (screen ? '\n发言只可基于本轮已共享的屏幕；不能推断屏幕外事实。' : '\n没有外部屏幕图像。'), screen, access.lease, canSend);
             if (!checkpoint(char, epoch, stamp, automatic)) return false;
@@ -523,9 +546,9 @@
         const stamp = fingerprint(char);
         const canSend = () => characterExists(char) && fingerprint(char) === stamp;
         try {
-            const result = await requests.call(access.lease, reactionMessages(char, 'test', '本次是独立预览，不会写入聊天、记忆或关系。', '', prompt), { max_tokens: 400, temperature: 0.55, background: false, canSend });
-            if (!result?.ok || !parse(result.content)) throw new Error(result?.ok ? '未收到可用的反应。' : requests.message(result));
-            const reaction = normalizeReaction(char, parse(result.content));
+            const { result, raw } = await requestReaction(access.lease, reactionMessages(char, 'test', '本次是独立预览，不会写入聊天、记忆或关系。', '', prompt), { max_tokens: 400, temperature: 0.55, background: false, canSend });
+            if (!raw) throw new Error(reactionFailure(result));
+            const reaction = normalizeReaction(char, raw);
             const check = await checkPersona(char, reaction, reaction.text, '本轮测试输入：' + prompt, '', access.lease, canSend);
             if (!canSend()) throw new Error('互动期间人设或聊天已变化，请重新测试。');
             return { reaction: check.allow ? reaction : { ...reaction, state: 'idle', text: '' }, ...check };

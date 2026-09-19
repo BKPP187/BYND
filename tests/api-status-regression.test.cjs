@@ -103,6 +103,20 @@ test('status requests carry the current time and the contact gap after a long ab
     assert.match(messages[0].content, /旧场景/);
 });
 
+test('successful replies carry the provider finish reason so callers can detect truncated output', async () => {
+    const h = harness();
+    h.state.respond = () => response(200, { choices: [{ message: { content: '{"state":"quiet_sm' }, finish_reason: 'length' }] });
+    const cut = await h.context.callChatApi([{ role: 'user', content: 'test' }], { skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
+    assert.equal(cut.ok, true);
+    assert.equal(cut.content, '{"state":"quiet_sm');
+    assert.equal(cut.finishReason, 'length');
+    assert.equal(h.state.requests.length, 1);
+    h.state.respond = () => successResponse(validSnapshot());
+    const complete = await h.context.callChatApi([{ role: 'user', content: 'test' }], { skipStatusValidationRetry: true });
+    assert.equal(complete.ok, true);
+    assert.equal(complete.finishReason, 'stop');
+});
+
 test('billing failures are distinct from temporary limits, including HTTP 429 insufficient_quota', async () => {
     const h = harness();
     for (const text of ['insufficient_quota', 'API 额度不足 (429)', '余额不足', 'billing_hard_limit_reached']) {

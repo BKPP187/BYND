@@ -1724,7 +1724,7 @@ async function callChatApi(messages, options = {}) {
             }
         }
 
-        return { ok: true, content: content };
+        return { ok: true, content: content, finishReason: finishReason || '' };
 
     } catch (e) {
         const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
