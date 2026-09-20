@@ -50,7 +50,8 @@
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.627-dream-images" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.629-study-app" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.629" media="all">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.603-agent-features-20260910" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/character-pet.css?v=1.1.618" data-bynd-core-style media="all">
@@ -420,41 +421,14 @@
         </div>
 
         <div id="app-study-window" class="app-window hidden study-window">
-            <div class="study-header">
-                <button type="button" onclick="closeApp('study')" aria-label="关闭学习"><i class="ri-arrow-left-s-line"></i></button>
-                <div>
-                    <span>BYND Study</span>
-                    <strong>语言训练</strong>
-                </div>
-                <button type="button" onclick="askStudySupervisor()" aria-label="AI监督"><i class="ri-sparkling-2-line"></i></button>
-            </div>
-            <div class="study-content">
-                <section class="study-hero-card">
-                    <div class="study-hero-copy">
-                        <span id="study-supervisor-label">AI Supervisor</span>
-                        <strong id="study-hero-title">中文 / 日本語 / ไทย</strong>
-                        <p id="study-supervisor-text">自定义要学的语言，把同一句话拆成多语言行，再让当前聊天角色监督你。</p>
-                    </div>
-                    <div class="study-hero-mark"><i class="ri-graduation-cap-line"></i></div>
-                </section>
-                <section class="study-language-card">
-                    <div class="study-section-head">
-                        <div><span>Languages</span><strong>学习语言</strong></div>
-                        <button type="button" onclick="addStudyLanguage()"><i class="ri-add-line"></i> 添加</button>
-                    </div>
-                    <div class="study-language-list" id="study-language-list"></div>
-                </section>
-                <section class="study-editor-card">
-                    <input type="hidden" id="study-edit-id">
-                    <div class="study-editor-fields" id="study-editor-fields"></div>
-                    <label class="study-editor-wide"><span>解释 / 例句</span><textarea id="study-note" rows="3" placeholder="解释语气、常用场景、易错点，或者再写一个例句。"></textarea></label>
-                    <div class="study-editor-actions">
-                        <button type="button" onclick="clearStudyEditor()">清空</button>
-                        <button type="button" onclick="saveStudyCard()">保存学习卡</button>
-                    </div>
-                </section>
-                <section class="study-check-card" id="study-check-card"></section>
-                <section class="study-card-list" id="study-card-list"></section>
+            <div class="study-shell" id="study-shell" data-tab="chat">
+                <header class="study-topbar">
+                    <button type="button" onclick="closeApp('study')" aria-label="关闭学习"><i class="ri-arrow-left-s-line"></i></button>
+                    <div id="study-topbar-title"><span>BYND STUDY</span><strong>学习</strong></div>
+                    <span class="study-topbar-spacer" aria-hidden="true"></span>
+                </header>
+                <div class="study-content" id="study-content"></div>
+                <nav class="study-tabbar" id="study-tabbar" aria-label="学习导航"></nav>
             </div>
         </div>
 
@@ -1115,11 +1089,11 @@
                             </div>
                         </details>
 
-                        <details id="manual-tools" class="manual-section" data-manual-keywords="学习 学习卡 语言翻牌 记账 游戏 小游戏 狼人杀 肥鸡 跳一跳 2048 五子棋 倒水 排序 盗梦 监控 桌宠 出门 共读 相册 相机 通知">
+                        <details id="manual-tools" class="manual-section" data-manual-keywords="学习 学语言 词本 翻译 纠错 内置角色 学习卡 语言翻牌 记账 游戏 小游戏 狼人杀 肥鸡 跳一跳 2048 五子棋 倒水 排序 盗梦 监控 桌宠 出门 共读 相册 相机 通知">
                             <summary><span class="manual-section-icon"><i class="ri-apps-2-line"></i></span><span><strong>学习、记账、游戏与其他 App</strong><em>从实用小工具到陪伴玩法</em></span><i class="ri-arrow-down-s-line manual-chevron"></i></summary>
                             <div class="manual-section-body">
                                 <div class="manual-feature-grid">
-                                    <div><strong>学习</strong><span>填写学习内容、解释和例句，点“保存学习卡”；已有卡片可以复习或用于语言翻牌。</span></div>
+                                    <div><strong>学习</strong><span>选一位角色陪你学语言：在「对话」里用学习语言聊天，回复自带翻译和纠正，可以随手收藏进「词本」；「复习」里由角色出题批改并记录打卡；「我」里设置母语、学习语言和水平。</span></div>
                                     <div><strong>记账</strong><span>填写收支后点“+ 记一笔”，在月度区域看汇总。这里适合个人记录，金额仍以实际账单为准。</span></div>
                                     <div><strong>Game</strong><span>可体验狼人杀、肥鸡大冒险、跳一跳、倒水排序、2048、五子棋等。角色玩法通常需要角色与聊天 API。</span></div>
                                     <div><strong>盗梦空间</strong><span>选择入梦角色，点“生成梦境”。梦境文字由 AI 生成，因此会使用 API。</span></div>
@@ -1682,7 +1656,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.628
+                    Beyond Screen v1.1.629
                 </div>
             </div>
         </div>
@@ -2859,16 +2833,19 @@
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=20260530-local-stickers5"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.616-character-pet-20260910"></script>
+    <script src="wechat.js?v=1.1.629-builtin-characters"></script>
     <script src="theme.js?v=1.1.616-dream-icons"></script>
     <script src="settings.js?v=1.1.627-dream-images"></script>
-    <script src="script.js?v=1.1.628-dream-viewpoint"></script>
+    <script src="script.js?v=1.1.629-study-app"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=20260529-outing-desktop41"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
     <script src="modules/wechat/agent-tools.js?v=1.1.616-character-pet-20260910"></script>
     <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.629"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.629"></script>
+    <script src="modules/study/study-app.js?v=1.1.629"></script>
     <script src="modules/monitor/character-pet.js?v=1.1.626"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>

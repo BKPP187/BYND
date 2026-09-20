@@ -365,6 +365,7 @@ function renderChatList() {
                 <i class="ri-chat-smile-2-line" style="font-size:48px; margin-bottom:10px;"></i>
                 <span style="font-size:14px;">暂无消息</span>
                 <span style="font-size:12px; margin-top:5px;">点击右上角 + 导入角色卡</span>
+                <button type="button" onclick="ByndBuiltinLibrary?.open()" style="margin-top:16px; border:none; border-radius:14px; padding:10px 18px; background:#14171d; color:#fff; font-size:13px; font-weight:800;">从内置角色开始</button>
             </div>
         `;
         syncThemeChrome();
@@ -769,6 +770,7 @@ function openWechatPlusMenu(event) {
     menu.className = `wc-plus-menu${fromXFab ? ' wc-plus-menu-x-fab' : ''}`;
     menu.innerHTML = `
         <button type="button" onclick="closeWechatPlusMenu();testAddCharacter()"><i class="ri-user-add-line"></i><span>导入角色</span></button>
+        <button type="button" class="is-builtin" onclick="closeWechatPlusMenu();ByndBuiltinLibrary?.open()"><i class="ri-star-smile-line"></i><span>内置角色</span></button>
         <button type="button" onclick="openWechatCharacterGenerator()"><i class="ri-sparkling-2-line"></i><span>角色卡生成器</span></button>
         <button type="button" onclick="openWechatGroupCreator()"><i class="ri-group-line"></i><span>发起群聊</span></button>
         <button type="button" onclick="startWechatScreenShare()"><i class="ri-cast-line"></i><span>共享屏幕</span></button>
@@ -12378,6 +12380,7 @@ function testAddCharacter() {
     showWechatActionSheet(`
         <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
         <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
+        <div class="wc-sheet-item" onclick="hideActionSheet();ByndBuiltinLibrary?.open()"><i class="ri-star-smile-line" style="color: #e0a800;"></i><span>内置角色库</span></div>
     `);
 }
 
@@ -13162,6 +13165,8 @@ function loadCharactersFromStorage() {
         window._wechatCharactersStorageState = { status: 'ready' };
         window._wechatCharactersLatestSnapshot = JSON.parse(JSON.stringify(snapshot));
         applyLoadedWechatCharacters(snapshot.characters, `(${snapshot.source})`);
+        // First launch without any character: offer the bundled originals so the app works out of the box.
+        if (typeof setTimeout === 'function') setTimeout(() => { try { window.ByndBuiltinLibrary?.maybePrompt(); } catch (_) {} }, 400);
         return snapshot;
     }, error => {
         error.characterStorageUnavailable = true;
@@ -14268,7 +14273,7 @@ function renderContacts(query = '') {
         </div>
     `;
     if (chars.length === 0) {
-        list.innerHTML = searchHtml + '<div class="wc-contacts-empty">还没有联系人<br>导入角色卡添加好友吧~</div>';
+        list.innerHTML = searchHtml + '<div class="wc-contacts-empty">还没有联系人<br>导入角色卡添加好友吧~<br><button type="button" onclick="ByndBuiltinLibrary?.open()" style="margin-top:14px; border:none; border-radius:14px; padding:10px 18px; background:#14171d; color:#fff; font-size:13px; font-weight:800;">从内置角色开始</button></div>';
         return;
     }
     if (filtered.length === 0) {
