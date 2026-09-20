@@ -49,8 +49,14 @@ test('the bundled library ships two complete original characters', () => {
     }
     assert.match(list[0].description, /乖宝/);
     assert.match(list[1].description, /法医/);
+    for (const item of list) {
+        assert.doesNotMatch(item.description + JSON.stringify(item.worldBook), /演员|片场|毕业|十五岁|当红/, `${item.name}: user identity must stay out of the character card`);
+        assert.match(item.description, /以聊天设置里用户自己填写的资料为准/);
+        assert.equal(item.cover, `assets/characters/builtin/${item.id}-cover.jpg`);
+        assert.equal(item.reference, `assets/characters/builtin/${item.id}-reference.jpg`);
+    }
     assert.deepEqual(JSON.parse(JSON.stringify(list[0].avatars)), ['assets/characters/builtin/wenjinbei-alt.jpg']);
-    assert.equal(list[1].avatars, undefined, 'no artwork yet for the second character');
+    assert.deepEqual(JSON.parse(JSON.stringify(list[1].avatars)), ['assets/characters/builtin/shanghuan-alt.jpg']);
 });
 
 test('bundled alternate avatars land in the character gallery and a missing file is skipped', async () => {
@@ -58,7 +64,9 @@ test('bundled alternate avatars land in the character gallery and a missing file
     let calls = 0;
     h.context.fetch = async url => { calls += 1; if (/alt\.jpg$/.test(url)) return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
     const char = await h.L.add('wenjinbei');
-    assert.equal(calls, 2, 'main avatar and one alternate are fetched');
+    assert.equal(calls, 4, 'main avatar, one alternate, cover and reference are fetched');
+    assert.equal(char.coverImage, 'data:image/png;base64,QVZBVEFS');
+    assert.equal(char.chatConfig.imageReference, 'data:image/png;base64,QVZBVEFS');
     assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), ['data:image/png;base64,QVZBVEFS'], 'identical inline data is not duplicated');
     const partial = harness();
     let n = 0;
@@ -66,10 +74,15 @@ test('bundled alternate avatars land in the character gallery and a missing file
     partial.context.FileReader = class { readAsDataURL() { this.result = 'data:image/png;base64,' + (n === 1 ? 'MAIN' : 'ALT'); this.onload?.(); } };
     const one = await partial.L.add('wenjinbei');
     assert.equal(one.avatar, 'data:image/png;base64,MAIN');
+    assert.equal(one.coverImage, '', 'a missing cover leaves the field empty');
+    assert.deepEqual(JSON.parse(JSON.stringify(one.chatConfig)), {});
     assert.deepEqual(JSON.parse(JSON.stringify(one.avatarGallery)), ['data:image/png;base64,MAIN'], 'a missing alternate never blocks adding');
     const plain = harness();
+    let fetched = 0;
+    plain.context.fetch = async () => { fetched += 1; return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; };
+    plain.context.FileReader = class { readAsDataURL() { this.result = 'data:image/jpeg;base64,IMG' + fetched; this.onload?.(); } };
     const second = await plain.L.add('shanghuan');
-    assert.deepEqual(JSON.parse(JSON.stringify(second.avatarGallery)), [second.avatar]);
+    assert.deepEqual(JSON.parse(JSON.stringify(second.avatarGallery)), ['data:image/jpeg;base64,IMG1', 'data:image/jpeg;base64,IMG2'], 'both characters carry their alternate avatar');
 });
 
 test('adding a built-in character produces a normal roster entry with an inline avatar and persists it', async () => {

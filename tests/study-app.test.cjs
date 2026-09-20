@@ -8,7 +8,7 @@ const { root, memoryStorage, deferred } = require('./helpers/harness.cjs');
 const source = fs.readFileSync(path.join(root, 'modules/study/study-app.js'), 'utf8');
 const KEYS = { cards: 'bynd_study_cards_v1', languages: 'bynd_study_languages_v1', settings: 'bynd_study_settings_v1', chats: 'bynd_study_chats_v1', checkins: 'bynd_study_checkins_v1' };
 const plain = value => JSON.parse(JSON.stringify(value));
-const turn = (reply, extra = {}) => ({ ok: true, content: JSON.stringify({ reply, translation: '翻译：' + reply, correction: null, words: [], ...extra }) });
+const turn = (reply, extra = {}) => ({ ok: true, content: JSON.stringify({ reply, versions: {}, translation: '翻译：' + reply, correction: null, words: [], ...extra }) });
 
 function element(id) {
     const classes = new Set();
@@ -93,6 +93,9 @@ test('a turn sends persona first, study rules second, and stores reply, translat
     assert.match(messages[1].content, /你就是温今北本人，不是语言老师/);
     assert.match(messages[1].content, /母语是中文/);
     assert.match(messages[1].content, /正在学：日本語、ไทย/);
+    assert.match(messages[1].content, /versions 里再给出同一段话的其它学习语言版本.*"th" 为 ไทย/);
+    assert.match(messages[1].content, /【读音标注】.*日语汉字.*\{漢字\|かんじ\}/);
+    assert.match(messages[1].content, /"versions":\{\}/);
     assert.equal(messages.at(-1).content, '今日疲れるだ');
     assert.equal(h.state.calls[0].options.skipLengthContinuation, true);
     const chat = h.S.getChat('a');
@@ -301,4 +304,37 @@ test('without any character the chat explains what to do and never calls the API
     assert.match(h.content(), /还没有角色/);
     assert.equal(await h.S.send('hi', 'chat'), false);
     assert.equal(h.state.calls.length, 0);
+});
+
+test('readings render as ruby, every selected language appears, and storage and speech drop the markup', async () => {
+    const h = harness();
+    h.S.init();
+    assert.equal(h.S.rubyHtml('{今日|きょう}は{疲|つか}れた。<b>'), '<ruby>今日<rt>きょう</rt></ruby>は<ruby>疲<rt>つか</rt></ruby>れた。&lt;b&gt;');
+    assert.equal(h.S.plainText('{今日|きょう}は{疲|つか}れた。'), '今日は疲れた。');
+    assert.equal(h.S.rubyHtml('普通の文 {未闭合'), '普通の文 {未闭合', 'unbalanced braces stay literal');
+    h.state.answer = turn('{乖宝|guāi bǎo}、{泣|な}かないで。', { versions: { th: 'อย่าร้องไห้นะ', zz: 'ignored' }, words: [{ term: '{泣|な}く', reading: 'なく', meaning: '哭' }], correction: { original: '泣かないだ', better: '{泣|な}かないで', note: '否定的て形。' } });
+    await h.S.send('泣かないだ', 'chat');
+    const reply = h.S.getChat('a').messages[1];
+    assert.deepEqual(plain(reply.versions), { th: 'อย่าร้องไห้นะ' }, 'only selected extra languages are kept');
+    const html = h.content();
+    assert.match(html, /<ruby>泣<rt>な<\/rt><\/ruby>かないで。/);
+    assert.match(html, /study-version"><b>泰<\/b><p>อย่าร้องไห้นะ<\/p>/);
+    assert.match(html, /is-better"><ruby>泣<rt>な<\/rt><\/ruby>かないで/);
+    assert.match(html, /<b><ruby>泣<rt>な<\/rt><\/ruby>く<\/b><i>なく<\/i>/);
+    assert.equal(h.state.spoken[0].text, '乖宝、泣かないで。');
+    h.S.saveSentence(reply.id);
+    h.S.saveWord(reply.id, 0);
+    h.S.saveCorrection(reply.id);
+    const cards = h.context.getStudyCards();
+    assert.equal(cards[2].lines.ja, '乖宝、泣かないで。');
+    assert.equal(cards[2].lines.th, 'อย่าร้องไห้นะ', 'the Thai version is saved on the same card');
+    assert.equal(cards[1].lines.ja, '泣く');
+    assert.equal(cards[0].lines.ja, '泣かないで');
+    assert.equal(cards[0].lines.cn, '改错：泣かないだ');
+    const replay = h.S.buildTurnMessages(h.S.tutor(), h.S.getSettings(), h.S.getChat('a'), 'next', 'chat');
+    assert.match(replay.at(-2).content, /"versions":\{"th":"อย่าร้องไห้นะ"\}/, 'history replay keeps the extra languages');
+    h.S.toggleTarget('th');
+    const rules = h.S.buildTurnMessages(h.S.tutor(), h.S.getSettings(), { messages: [] }, 'hi', 'chat')[1].content;
+    assert.match(rules, /versions 留空对象/);
+    assert.doesNotMatch(rules, /缺一不可/);
 });

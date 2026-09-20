@@ -61,6 +61,11 @@
     };
     const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
     const byId = id => document.getElementById(id);
+    // Readings ride inside the text as {漢字|かんじ}; rendering turns them into <ruby>, storage and speech drop them.
+    const RUBY = /\{([^{}|\n]{1,40})\|([^{}|\n]{1,80})\}/g;
+    const plainText = value => String(value ?? '').replace(RUBY, '$1');
+    const rubyHtml = value => escapeHtml(value).replace(/\{([^{}|\n]{1,40})\|([^{}|\n]{1,80})\}/g, '<ruby>$1<rt>$2</rt></ruby>');
+    const scriptNeedsReadings = lang => !!lang && ['ja', 'cn'].includes(lang.id);
     const dateKey = (date = new Date()) => {
         const safe = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
         return `${safe.getFullYear()}-${String(safe.getMonth() + 1).padStart(2, '0')}-${String(safe.getDate()).padStart(2, '0')}`;
@@ -296,12 +301,13 @@
         const name = charName(char);
         return [
             `【你是谁】你就是${name}本人，不是语言老师，也不是 AI 助手。保持你的性格、口吻、与用户的关系和边界；帮用户学语言只是你们相处的一部分，用你自己的方式教，不要变成教科书语气。`,
-            `【语言安排】用户的母语是${native?.label || '中文'}；正在学：${targets.map(item => item.label).join('、') || target?.label}（水平：${level.label}，${level.hint}）。你的 reply 主体用${target?.label}写；用户如果明确用另一种正在学的语言写，就跟着用那种。可以夹一两句${native?.label || '中文'}帮 ta 理解，但不要整段翻译自己。`,
+            `【语言安排】用户的母语是${native?.label || '中文'}；正在学：${targets.map(item => item.label).join('、') || target?.label}（水平：${level.label}，${level.hint}）。reply 用${target?.label}写。${targets.length > 1 ? 'versions 里再给出同一段话的其它学习语言版本，键用语言代码：' + targets.slice(1).map(item => `"${item.id}" 为 ${item.label}`).join('，') + '；每种语言都要出现，缺一不可。' : 'versions 留空对象。'}不要在 reply 里逐句附${native?.label || '中文'}翻译，翻译只放 translation；需要解释时才夹一句${native?.label || '中文'}。`,
+            targets.some(scriptNeedsReadings) || scriptNeedsReadings(native) ? `【读音标注】reply、versions、correction.better 和 words.term 里凡是${targets.filter(scriptNeedsReadings).map(item => item.id === 'ja' ? '日语汉字' : '汉字').join('、') || '汉字'}都要标读音，格式 {漢字|かんじ}（日语用平假名，中文用拼音），按词标注，假名、拉丁字母和标点不标。` : '',
             `【纠错】严格度：${strict.label}，${strict.hint}。用户这条消息若用学习语言写，检查有没有错误或不地道之处：有则填 correction（original 用户原句、better 更自然的说法、note 一句${native?.label || '中文'}说明，语气要像你本人），没有则 correction 为 null。用户用母语写时 correction 为 null，但你可以顺手在 reply 里教 ta 那句话用${target?.label}怎么说。`,
             `【生词】words 里放 0 到 3 个 reply 中值得记的词或短语：term 原文、reading 读音（假名、罗马音、音标或拼音，没有就留空）、meaning 用${native?.label || '中文'}解释。`,
             `【翻译】translation 是 reply 的完整${native?.label || '中文'}翻译，自然通顺，不加解释。`,
-            '【输出】只输出一个 JSON 对象：{"reply":"","translation":"","correction":{"original":"","better":"","note":""} 或 null,"words":[{"term":"","reading":"","meaning":""}]}。reply 可以带括号里的动作神态，但不要输出 JSON 之外的任何文字。'
-        ].join('\n');
+            '【输出】只输出一个 JSON 对象：{"reply":"","versions":{},"translation":"","correction":{"original":"","better":"","note":""} 或 null,"words":[{"term":"","reading":"","meaning":""}]}。reply 可以带括号里的动作神态，但不要输出 JSON 之外的任何文字。'
+        ].filter(Boolean).join('\n');
     }
     function buildTurnMessages(char, settings, chat, userText, kind) {
         const messages = [
@@ -310,7 +316,7 @@
         ];
         chat.messages.slice(-12).forEach(message => {
             if (message.role === 'user') messages.push({ role: 'user', content: message.text });
-            else messages.push({ role: 'assistant', content: JSON.stringify({ reply: message.text, translation: message.translation || '', correction: message.correction || null, words: message.words || [] }) });
+            else messages.push({ role: 'assistant', content: JSON.stringify({ reply: message.text, versions: message.versions || {}, translation: message.translation || '', correction: message.correction || null, words: message.words || [] }) });
         });
         if (kind === 'opening') {
             messages.push({ role: 'user', content: '（用户刚打开和你的语言练习对话。请你先按自己的性格用学习语言打个招呼，接一句和你们近况有关的话，再问一个简单的问题开始今天的练习。这条不是用户说的话，不要纠错。）' });
@@ -319,14 +325,18 @@
         }
         return messages;
     }
-    function normalizeTurn(raw) {
+    function normalizeTurn(raw, settings = getSettings()) {
         if (!raw || typeof raw !== 'object') return null;
         const reply = clean(raw.reply ?? raw.text ?? raw.message, 2000);
         if (!reply) return null;
+        const versions = {};
+        const extra = settings.targetIds.slice(1);
+        const rawVersions = raw.versions && typeof raw.versions === 'object' && !Array.isArray(raw.versions) ? raw.versions : {};
+        extra.forEach(id => { const text = clean(rawVersions[id], 2000); if (text) versions[id] = text; });
         const correctionRaw = raw.correction && typeof raw.correction === 'object' ? raw.correction : null;
         const correction = correctionRaw && clean(correctionRaw.better, 600) ? { original: clean(correctionRaw.original, 600), better: clean(correctionRaw.better, 600), note: clean(correctionRaw.note, 400) } : null;
         const words = (Array.isArray(raw.words) ? raw.words : []).map(item => item && typeof item === 'object' ? { term: clean(item.term, 80), reading: clean(item.reading, 80), meaning: clean(item.meaning, 160) } : null).filter(item => item && item.term).slice(0, 3);
-        return { reply, translation: clean(raw.translation, 2000), correction, words };
+        return { reply, versions, translation: clean(raw.translation, 2000), correction, words };
     }
     function failureText(result) {
         if (!result) return '没有收到回复。';
@@ -340,7 +350,7 @@
         if (typeof callChatApi !== 'function') throw new Error('聊天 API 模块没有加载。');
         const result = await callChatApi(buildTurnMessages(char, settings, chat, userText, kind), { temperature: 0.8, max_tokens: 1400, skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
         if (!result || !result.ok) throw new Error(failureText(result));
-        const turn = normalizeTurn(parseJson(result.content));
+        const turn = normalizeTurn(parseJson(result.content), settings);
         if (!turn) throw new Error('这次回复不是要求的格式，请再发一次。');
         return turn;
     }
@@ -361,12 +371,12 @@
         render();
         try {
             const turn = await requestTurn(char, settings, getChat(char.id), message, kind);
-            const reply = appendMessage(char.id, { id: uid('c'), role: 'char', text: turn.reply, translation: turn.translation, correction: turn.correction, words: turn.words, createdAt: Date.now(), inReplyTo: userMessage?.id || '' });
+            const reply = appendMessage(char.id, { id: uid('c'), role: 'char', text: turn.reply, versions: turn.versions, translation: turn.translation, correction: turn.correction, words: turn.words, createdAt: Date.now(), inReplyTo: userMessage?.id || '' });
             if (turn.correction && userMessage) patchMessage(char.id, userMessage.id, { corrected: true });
             setStatus('');
             state.busy = false;
             render();
-            if (settings.voice) speak(turn.reply, primaryTarget()?.code);
+            if (settings.voice) speak(plainText(turn.reply), primaryTarget()?.code);
             return reply;
         } catch (error) {
             state.busy = false;
@@ -384,7 +394,7 @@
         if (!canSpeak() || !text) return false;
         try {
             speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(String(text).replace(/（[^）]*）|\([^)]*\)/g, ' ').trim() || String(text));
+            const utterance = new SpeechSynthesisUtterance(plainText(text).replace(/（[^）]*）|\([^)]*\)/g, ' ').trim() || plainText(text));
             if (code) utterance.lang = code;
             const voice = speechSynthesis.getVoices?.().find(item => code && item.lang && item.lang.toLowerCase().startsWith(code.toLowerCase().slice(0, 2)));
             if (voice) utterance.voice = voice;
@@ -403,7 +413,9 @@
         const settings = getSettings();
         const target = primaryTarget();
         const lines = {};
-        if (target) lines[target.id] = message.text.replace(/（[^）]*）|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+        const sentence = value => plainText(value).replace(/（[^）]*）|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+        if (target) lines[target.id] = sentence(message.text);
+        Object.entries(message.versions || {}).forEach(([id, text]) => { if (language(id) && sentence(text)) lines[id] = sentence(text); });
         if (message.translation) lines[settings.nativeId] = message.translation;
         if (!Object.keys(lines).length) return;
         const card = addCard({ lines, note: `来自和${charName(char)}的对话`, source: 'chat', charId: char.id });
@@ -420,9 +432,9 @@
         const settings = getSettings();
         const target = primaryTarget();
         const lines = {};
-        if (target) lines[target.id] = word.term;
+        if (target) lines[target.id] = plainText(word.term);
         if (word.meaning) lines[settings.nativeId] = word.meaning;
-        const card = addCard({ lines, note: [word.reading ? `读音：${word.reading}` : '', `出自：${clean(message.text, 120)}`].filter(Boolean).join('\n'), source: 'chat', charId: char.id });
+        const card = addCard({ lines, note: [word.reading ? `读音：${word.reading}` : '', `出自：${clean(plainText(message.text), 120)}`].filter(Boolean).join('\n'), source: 'chat', charId: char.id });
         const savedWords = Array.isArray(message.savedWords) ? message.savedWords.slice() : [];
         savedWords[Number(index)] = card.id;
         patchMessage(char.id, messageId, { savedWords });
@@ -438,8 +450,8 @@
         const target = primaryTarget();
         // A correction becomes an error-fixing drill: the prompt shows what was written, the answer is the natural form.
         const lines = {};
-        if (target) lines[target.id] = message.correction.better;
-        lines[settings.nativeId] = message.correction.original ? `改错：${message.correction.original}` : (message.correction.note || '改错');
+        if (target) lines[target.id] = plainText(message.correction.better);
+        lines[settings.nativeId] = message.correction.original ? `改错：${plainText(message.correction.original)}` : (message.correction.note || '改错');
         const card = addCard({ lines, note: message.correction.note || '', source: 'correction', charId: char.id });
         patchMessage(char.id, messageId, { savedCorrectionId: card.id });
         toast('已把纠正存入词本');
@@ -641,20 +653,21 @@
             <div class="study-correction">
                 <span><i class="ri-pencil-ruler-2-line"></i>纠正</span>
                 ${message.correction.original ? `<p class="is-original">${escapeHtml(message.correction.original)}</p>` : ''}
-                <p class="is-better">${escapeHtml(message.correction.better)}</p>
+                <p class="is-better">${rubyHtml(message.correction.better)}</p>
                 ${message.correction.note ? `<p class="is-note">${escapeHtml(message.correction.note)}</p>` : ''}
                 <button type="button" ${message.savedCorrectionId ? 'disabled' : ''} onclick="ByndStudy.saveCorrection('${escapeAttr(message.id)}')">${message.savedCorrectionId ? '已存入词本' : '存入词本'}</button>
             </div>` : '';
         const words = message.words && message.words.length ? `
             <div class="study-words">
-                ${message.words.map((word, index) => `<button type="button" class="${message.savedWords?.[index] ? 'is-saved' : ''}" onclick="ByndStudy.saveWord('${escapeAttr(message.id)}', ${index})"><b>${escapeHtml(word.term)}</b>${word.reading ? `<i>${escapeHtml(word.reading)}</i>` : ''}<span>${escapeHtml(word.meaning)}</span><em>${message.savedWords?.[index] ? '已收藏' : '+ 收藏'}</em></button>`).join('')}
+                ${message.words.map((word, index) => `<button type="button" class="${message.savedWords?.[index] ? 'is-saved' : ''}" onclick="ByndStudy.saveWord('${escapeAttr(message.id)}', ${index})"><b>${rubyHtml(word.term)}</b>${word.reading ? `<i>${escapeHtml(word.reading)}</i>` : ''}<span>${escapeHtml(word.meaning)}</span><em>${message.savedWords?.[index] ? '已收藏' : '+ 收藏'}</em></button>`).join('')}
             </div>` : '';
         return `
             <div class="study-msg is-char">
                 <img src="${escapeAttr(charAvatar(char))}" alt="">
                 <div class="study-msg-body">
                     ${correction}
-                    <div class="study-bubble">${escapeHtml(message.text)}</div>
+                    <div class="study-bubble">${rubyHtml(message.text)}</div>
+                    ${Object.entries(message.versions || {}).filter(([id]) => language(id)).map(([id, text]) => `<div class="study-version"><b>${escapeHtml(language(id).short)}</b><p>${rubyHtml(text)}</p></div>`).join('')}
                     ${message.translation ? `<div class="study-translation${open ? ' is-open' : ''}"><button type="button" onclick="ByndStudy.toggleTranslation('${escapeAttr(message.id)}')"><i class="ri-translate-2"></i>${open ? '收起翻译' : '看翻译'}</button>${open ? `<p>${escapeHtml(message.translation)}</p>` : ''}</div>` : ''}
                     ${words}
                     <div class="study-msg-actions">
@@ -935,6 +948,6 @@
         setLevel, setStrictness, setAutoTranslate, setVoice, searchWords, editCard, cancelEdit, saveCardForm, deleteCard,
         startQuiz, revealQuiz, markQuiz, gradeQuiz, setMood, saveCheckin, previewProgress,
         // exposed for tests
-        getSettings, saveSettings, getChat, buildTurnMessages, normalizeTurn, parseJson, tutor, characters, primaryTarget, allLanguages, language, PRESET_LANGUAGES, LEVELS, STRICTNESS
+        getSettings, saveSettings, getChat, buildTurnMessages, normalizeTurn, parseJson, tutor, characters, primaryTarget, allLanguages, language, plainText, rubyHtml, PRESET_LANGUAGES, LEVELS, STRICTNESS
     };
 })();

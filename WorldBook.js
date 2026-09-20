@@ -123,7 +123,7 @@ function renderBookshelf(container) {
                             <button type="button" class="wb-book" data-char-index="${index}" style="--book-color:${color}; --wb-scale:1; --wb-y:0px; --wb-rotate:0deg;">
                                 <div class="wb-cover">
                                     <div class="wb-spine"></div>
-                                    <img class="wb-cover-image" src="${wbEscapeAttr(char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.classList.add('is-missing')">
+                                    <img class="wb-cover-image" src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.classList.add('is-missing')">
                                     <div class="wb-cover-shine"></div>
                                     <span>${entries.length}</span>
                                 </div>
@@ -270,7 +270,7 @@ function openWorldBookWithAnimation(index, bookEl) {
                 <span></span><span></span><span></span>
             </div>
             <div class="wb-transition-cover">
-                <img src="${wbEscapeAttr(char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.style.opacity='0.18'">
+                <img src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.style.opacity='0.18'">
             </div>
         </div>
     `;
@@ -308,7 +308,7 @@ function renderBookDetail(char) {
             </div>
             <div class="wb-open-book">
                 <div class="wb-open-cover" style="--book-color:${stringToColor(char.name || '角色')}">
-                    <img src="${wbEscapeAttr(char.avatar || '')}" onerror="this.style.opacity='0.25'">
+                    <img src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" onerror="this.style.opacity='0.25'">
                 </div>
                 <div class="wb-open-meta">
                     <strong>${wbEscapeHtml(char.name || '未命名角色')}</strong>

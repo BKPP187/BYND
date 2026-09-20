@@ -62,7 +62,7 @@
             });
         }
     }
-    function build(item, avatar, gallery = []) {
+    function build(item, avatar, gallery = [], extras = {}) {
         const main = avatar || monogram(item.name, item.accent);
         return {
             id: 'char_' + Date.now() + '_' + Math.random().toString(16).slice(2, 8),
@@ -71,6 +71,7 @@
             description: item.description || '',
             avatar: main,
             avatarGallery: [main, ...gallery].filter((url, index, all) => url && all.indexOf(url) === index),
+            coverImage: extras.cover || '',
             lastMsg: '',
             worldBook: Array.isArray(item.worldBook) ? item.worldBook.map(entry => ({ ...entry })) : [],
             regex: [],
@@ -78,9 +79,19 @@
             first_mes_original: item.first_mes || '',
             currentGreetingIndex: 0,
             first_mes: item.first_mes || '',
-            chatConfig: {},
+            chatConfig: extras.reference ? { imageReference: extras.reference } : {},
             history: []
         };
+    }
+    // Optional artwork: the 9:16 world-book cover and the image-generation reference. Missing files are skipped.
+    async function readExtras(item) {
+        const extras = {};
+        for (const [key, url] of [['cover', item.cover], ['reference', item.reference]]) {
+            if (!url) continue;
+            try { extras[key] = await readDataUrl(url); }
+            catch (error) { console.warn('内置角色附图未能读取', url, error); }
+        }
+        return extras;
     }
     async function add(id) {
         const item = library().find(entry => entry.id === id);
@@ -89,7 +100,8 @@
         if (isAdded(id)) return roster().find(char => char.builtinId === id);
         const avatar = await readAvatar(item);
         const gallery = await readGallery(item);
-        const char = build(item, avatar, gallery);
+        const extras = await readExtras(item);
+        const char = build(item, avatar, gallery, extras);
         roster().push(char);
         let saved = true;
         try {
