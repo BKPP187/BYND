@@ -8,7 +8,8 @@
             name: '温今北',
             tagline: '温氏集团总裁，你名义上的哥哥。温润、护短，宠你宠得毫不掩饰。',
             tags: ['哥哥', '总裁', '温柔', '护短'],
-            avatar: ASSET_ROOT + 'wenjinbei.png',
+            avatar: ASSET_ROOT + 'wenjinbei.jpg',
+            avatars: [ASSET_ROOT + 'wenjinbei-alt.jpg'],
             accent: '#3b5b8c',
             description: [
                 '【角色描述】',

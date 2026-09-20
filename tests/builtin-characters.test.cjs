@@ -45,10 +45,31 @@ test('the bundled library ships two complete original characters', () => {
         assert.ok(item.first_mes.length > 40, `${item.name} needs an opening`);
         assert.ok(item.alternates.length >= 1);
         assert.ok(item.worldBook.length >= 3 && item.worldBook.every(entry => entry.name && entry.content));
-        assert.match(item.avatar, /^assets\/characters\/builtin\/.+\.png$/);
+        assert.match(item.avatar, /^assets\/characters\/builtin\/.+\.(png|jpg)$/);
     }
     assert.match(list[0].description, /乖宝/);
     assert.match(list[1].description, /法医/);
+    assert.deepEqual(JSON.parse(JSON.stringify(list[0].avatars)), ['assets/characters/builtin/wenjinbei-alt.jpg']);
+    assert.equal(list[1].avatars, undefined, 'no artwork yet for the second character');
+});
+
+test('bundled alternate avatars land in the character gallery and a missing file is skipped', async () => {
+    const h = harness();
+    let calls = 0;
+    h.context.fetch = async url => { calls += 1; if (/alt\.jpg$/.test(url)) return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
+    const char = await h.L.add('wenjinbei');
+    assert.equal(calls, 2, 'main avatar and one alternate are fetched');
+    assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), ['data:image/png;base64,QVZBVEFS'], 'identical inline data is not duplicated');
+    const partial = harness();
+    let n = 0;
+    partial.context.fetch = async () => { n += 1; return n === 1 ? { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) } : { ok: false, status: 404 }; };
+    partial.context.FileReader = class { readAsDataURL() { this.result = 'data:image/png;base64,' + (n === 1 ? 'MAIN' : 'ALT'); this.onload?.(); } };
+    const one = await partial.L.add('wenjinbei');
+    assert.equal(one.avatar, 'data:image/png;base64,MAIN');
+    assert.deepEqual(JSON.parse(JSON.stringify(one.avatarGallery)), ['data:image/png;base64,MAIN'], 'a missing alternate never blocks adding');
+    const plain = harness();
+    const second = await plain.L.add('shanghuan');
+    assert.deepEqual(JSON.parse(JSON.stringify(second.avatarGallery)), [second.avatar]);
 });
 
 test('adding a built-in character produces a normal roster entry with an inline avatar and persists it', async () => {
@@ -78,6 +99,7 @@ test('a missing avatar file falls back to a monogram and a failed save removes t
     const char = await ok.L.add('wenjinbei');
     assert.match(char.avatar, /^data:image\/svg\+xml,/);
     assert.match(decodeURIComponent(char.avatar), />温</);
+    assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), [char.avatar]);
 });
 
 test('the library refuses to add while character storage is still loading', async () => {

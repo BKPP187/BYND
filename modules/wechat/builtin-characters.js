@@ -17,6 +17,28 @@
         const state = window._wechatCharactersStorageState;
         return !state || state.status === 'ready';
     }
+    async function readDataUrl(url) {
+        const response = await fetch(url, { cache: 'force-cache' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const blob = await response.blob();
+        if (!blob.size || !/^image\//i.test(blob.type || '')) throw new Error('not an image');
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+        });
+    }
+    // Alternate avatars ship inline too; the character settings gallery lets the user switch between them.
+    async function readGallery(item) {
+        const list = Array.isArray(item.avatars) ? item.avatars : [];
+        const out = [];
+        for (const url of list) {
+            try { out.push(await readDataUrl(url)); }
+            catch (error) { console.warn('内置角色备用头像未能读取', url, error); }
+        }
+        return out;
+    }
     async function readAvatar(item) {
         // Prefer an inline copy so the avatar survives backups and offline packaging changes.
         try {
@@ -40,13 +62,15 @@
             });
         }
     }
-    function build(item, avatar) {
+    function build(item, avatar, gallery = []) {
+        const main = avatar || monogram(item.name, item.accent);
         return {
             id: 'char_' + Date.now() + '_' + Math.random().toString(16).slice(2, 8),
             builtinId: item.id,
             name: item.name,
             description: item.description || '',
-            avatar: avatar || monogram(item.name, item.accent),
+            avatar: main,
+            avatarGallery: [main, ...gallery].filter((url, index, all) => url && all.indexOf(url) === index),
             lastMsg: '',
             worldBook: Array.isArray(item.worldBook) ? item.worldBook.map(entry => ({ ...entry })) : [],
             regex: [],
@@ -64,7 +88,8 @@
         if (!ready()) throw new Error('角色数据还在加载，请稍后再试。');
         if (isAdded(id)) return roster().find(char => char.builtinId === id);
         const avatar = await readAvatar(item);
-        const char = build(item, avatar);
+        const gallery = await readGallery(item);
+        const char = build(item, avatar, gallery);
         roster().push(char);
         let saved = true;
         try {
