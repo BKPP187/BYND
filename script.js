@@ -5445,7 +5445,7 @@ const DREAM_WRITING_STYLES = [
 const DREAM_WRITING_VIEWPOINTS = [
     { value: 'character', label: '角色主视角', hint: '用「我」讲述心事' },
     { value: 'second', label: '第二人称', hint: '以「你」入梦 · 全景' },
-    { value: 'forum', label: '第三人称', hint: '旁观者见闻 · 论坛体' }
+    { value: 'forum', label: '第三人称', hint: '旁观者见闻' }
 ];
 let dreamGenerating = false;
 let dreamEntering = false;
@@ -5528,7 +5528,7 @@ function renderDreamWritingCaption(record) {
     const writing = getDreamRecordWriting(record);
     const style = DREAM_WRITING_STYLES.find(item => item.value === writing.style);
     const viewpoint = DREAM_WRITING_VIEWPOINTS.find(item => item.value === writing.viewpoint);
-    return `<p class="dream-writing-caption"><i class="${style.icon}" aria-hidden="true"></i>${style.label}<span aria-hidden="true">·</span>${viewpoint.label}${writing.viewpoint === 'forum' ? ' · 论坛体' : ''}</p>`;
+    return `<p class="dream-writing-caption"><i class="${style.icon}" aria-hidden="true"></i>${style.label}<span aria-hidden="true">·</span>${viewpoint.label}</p>`;
 }
 
 function buildDreamWritingPrompt(value) {
