@@ -5561,8 +5561,144 @@ function getDreamRecords() {
     }
 }
 
+// Generated dream images are megabyte-sized data URLs; keeping them in localStorage
+// exhausted its quota after a few dreams. They live in IndexedDB, records keep a key.
+const DREAM_IMAGE_DB_NAME = 'bynd_dream_images_v1';
+const DREAM_IMAGE_DB_STORE = 'images';
+const DREAM_RECORD_LIMIT = 80;
+const dreamImageCache = new Map();
+let dreamImageMigration = null;
+
+function isDreamQuotaError(error) {
+    return !!error && (error.name === 'QuotaExceededError'
+        || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+        || error.code === 22
+        || error.code === 1014
+        || /exceeded the quota|quota/i.test(String(error.message || '')));
+}
+
+function openDreamImageDb() {
+    return new Promise((resolve, reject) => {
+        if (typeof indexedDB === 'undefined') { reject(new Error('当前环境不支持 IndexedDB')); return; }
+        const req = indexedDB.open(DREAM_IMAGE_DB_NAME, 1);
+        req.onupgradeneeded = () => {
+            if (!req.result.objectStoreNames.contains(DREAM_IMAGE_DB_STORE)) req.result.createObjectStore(DREAM_IMAGE_DB_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('梦境图片库打开失败'));
+    });
+}
+
+async function runDreamImageTransaction(mode, action) {
+    const db = await openDreamImageDb();
+    try {
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(DREAM_IMAGE_DB_STORE, mode);
+            const request = action(tx.objectStore(DREAM_IMAGE_DB_STORE));
+            let value;
+            if (request) request.onsuccess = () => { value = request.result; };
+            tx.oncomplete = () => resolve(value);
+            tx.onerror = () => reject(tx.error || new Error('梦境图片读写失败'));
+            tx.onabort = () => reject(tx.error || new Error('梦境图片读写中断'));
+        });
+    } finally {
+        db.close();
+    }
+}
+
+async function saveDreamImage(key, dataUrl) {
+    await runDreamImageTransaction('readwrite', store => store.put(dataUrl, key));
+    dreamImageCache.set(key, dataUrl);
+    return key;
+}
+
+async function loadDreamImage(key) {
+    if (!key) return '';
+    if (dreamImageCache.has(key)) return dreamImageCache.get(key);
+    const value = await runDreamImageTransaction('readonly', store => store.get(key));
+    const url = typeof value === 'string' ? value : '';
+    if (url) dreamImageCache.set(key, url);
+    return url;
+}
+
+async function deleteDreamImage(key) {
+    if (!key) return;
+    dreamImageCache.delete(key);
+    await runDreamImageTransaction('readwrite', store => store.delete(key));
+}
+
+// Records of removed characters no longer carry a copied avatar; draw an initial instead.
+function getDreamRecordAvatar(record) {
+    if (record && isDreamAvatarSourceUsable(record.avatar)) return record.avatar;
+    return getDreamCharFallbackAvatar({ name: (record && record.charName) || '' });
+}
+
+function getDreamRecordImageKey(record) {
+    return record && typeof record.imageKey === 'string' ? record.imageKey : '';
+}
+
+function isDreamInlineImage(value) {
+    return /^data:image\//i.test(String(value || ''));
+}
+
+// Records keep only what the archive needs. Avatars are re-read from the character;
+// a data-URL avatar copied into every record is the other quota sink.
+function compactDreamRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    const next = { ...record };
+    if (isDreamInlineImage(next.avatar)) delete next.avatar;
+    return next;
+}
+
 function saveDreamRecords(records) {
-    localStorage.setItem(DREAM_RECORDS_KEY, JSON.stringify((Array.isArray(records) ? records : []).slice(0, 80)));
+    const list = (Array.isArray(records) ? records : []).filter(Boolean);
+    const kept = list.slice(0, DREAM_RECORD_LIMIT).map(compactDreamRecord);
+    localStorage.setItem(DREAM_RECORDS_KEY, JSON.stringify(kept));
+    list.slice(DREAM_RECORD_LIMIT).forEach(record => {
+        const key = getDreamRecordImageKey(record);
+        if (key) deleteDreamImage(key).catch(error => console.warn('旧梦境图片清理失败', error));
+    });
+}
+
+// Move legacy inline images out of localStorage. Each image is stripped only after
+// IndexedDB has confirmed the write, so a failed move never loses a picture.
+async function migrateDreamImagesToDb() {
+    if (dreamImageMigration) return dreamImageMigration;
+    dreamImageMigration = (async () => {
+        const records = getDreamRecords();
+        let moved = 0;
+        let failed = 0;
+        for (const record of records) {
+            if (!isDreamInlineImage(record.imageUrl)) continue;
+            const key = getDreamRecordImageKey(record) || `dream_img_${record.id || Date.now()}`;
+            try {
+                await saveDreamImage(key, record.imageUrl);
+                record.imageKey = key;
+                delete record.imageUrl;
+                moved += 1;
+            } catch (error) {
+                failed += 1;
+                console.warn('梦境图片迁移失败', error);
+            }
+        }
+        const stripped = records.some(record => isDreamInlineImage(record.avatar));
+        if (moved || stripped) saveDreamRecords(records);
+        return { moved, failed };
+    })().finally(() => { dreamImageMigration = null; });
+    return dreamImageMigration;
+}
+
+async function resolveDreamRecordImage(record) {
+    if (!record) return '';
+    if (isDreamInlineImage(record.imageUrl)) return record.imageUrl;
+    const key = getDreamRecordImageKey(record);
+    if (!key) return '';
+    try {
+        return await loadDreamImage(key);
+    } catch (error) {
+        console.warn('梦境图片读取失败', error);
+        return '';
+    }
 }
 
 function getDreamCharacters() {
@@ -5780,7 +5916,7 @@ function renderDreamList() {
     list.innerHTML = records.map(record => {
         const char = getDreamCharacters().find(item => item.id === record.charId);
         const charName = char ? getDreamCharName(char) : record.charName;
-        const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+        const avatar = char ? getDreamCharAvatar(char) : getDreamRecordAvatar(record);
         return `
         <article class="dream-record">
             <img class="dream-record-avatar" src="${musicEscapeAttr(avatar || '')}" alt="">
@@ -5869,6 +6005,11 @@ function initDreamApp() {
     setDreamStatus(chars.length ? '' : '小手机里还没有可生成梦境的角色。', chars.length ? '' : 'warn');
     showDreamEntry();
     renderDreamList();
+    if (getDreamRecords().some(record => isDreamInlineImage(record.imageUrl) || isDreamInlineImage(record.avatar))) {
+        migrateDreamImagesToDb().then(result => {
+            if (result.moved) renderDreamList();
+        }).catch(error => console.warn('梦境图片迁移失败', error));
+    }
 }
 window.initDreamApp = initDreamApp;
 
@@ -5899,14 +6040,17 @@ function renderDreamPreview(record) {
     if (!content || !record) return;
     const char = getDreamCharacters().find(item => item.id === record.charId);
     const charName = char ? getDreamCharName(char) : record.charName;
-    const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+    const avatar = char ? getDreamCharAvatar(char) : getDreamRecordAvatar(record);
     const complete = !!(record.title && record.summary && record.intent && record.openingScene && record.charAction && normalizeDreamChoices(record.choices).length >= 2);
     const session = record.session && typeof record.session === 'object' ? record.session : null;
     const actionLabel = session ? (session.status === 'ended' ? '查看结局' : '继续入梦') : (complete ? '进入梦境' : '由 AI 重建入口并入梦');
     const previewText = record.summary || record.text || '';
+    const inlineImage = isDreamInlineImage(record.imageUrl) ? record.imageUrl : '';
+    const cachedImage = inlineImage || dreamImageCache.get(getDreamRecordImageKey(record)) || '';
+    const pendingImage = !cachedImage && !!getDreamRecordImageKey(record);
     content.innerHTML = `
-        <div class="dream-preview-media${record.imageUrl ? '' : ' avatar-only'}">
-            <img src="${musicEscapeAttr(record.imageUrl || avatar || '')}" alt="">
+        <div class="dream-preview-media${cachedImage ? '' : ' avatar-only'}${pendingImage ? ' loading' : ''}" id="dream-preview-media">
+            <img src="${musicEscapeAttr(cachedImage || avatar || '')}" alt="">
         </div>
         <div class="dream-preview-identity">
             <img src="${musicEscapeAttr(avatar || '')}" alt="">
@@ -5932,6 +6076,19 @@ function openDreamPreview(id) {
     dreamPreviewRecordId = id;
     renderDreamPreview(record);
     showDreamView('dream-preview-view');
+    const key = getDreamRecordImageKey(record);
+    if (key && !dreamImageCache.has(key) && !isDreamInlineImage(record.imageUrl)) {
+        resolveDreamRecordImage(record).then(url => {
+            if (dreamPreviewRecordId !== id) return;
+            const media = document.getElementById('dream-preview-media');
+            const img = media && media.querySelector('img');
+            if (!media || !img) return;
+            media.classList.remove('loading');
+            if (!url) return;
+            media.classList.remove('avatar-only');
+            img.src = url;
+        });
+    }
 }
 window.openDreamPreview = openDreamPreview;
 
@@ -5988,27 +6145,40 @@ async function generateDreamRecord() {
             imageError = '未找到生图 API 函数';
         }
 
-        const records = getDreamRecords();
+        const id = `dream_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+        let imageKey = '';
+        if (imageUrl) {
+            setDreamStatus('正在保存梦境图...', 'busy');
+            try {
+                imageKey = await saveDreamImage(`dream_img_${id}`, imageUrl);
+            } catch (error) {
+                imageError = `梦境图未能保存到本机：${error.message || error}`;
+                console.warn('梦境图片保存失败', error);
+            }
+        }
         const record = {
-            id: `dream_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            id,
             charId: char.id,
             charName: getDreamCharName(char),
-            avatar: getDreamCharAvatar(char),
             createdAt: Date.now(),
             updatedAt: Date.now(),
             ...payload,
             writing,
-            imageUrl,
+            imageKey,
             imageError,
             session: null
         };
-        records.unshift(record);
-        saveDreamRecords(records);
+        try {
+            await saveDreamRecordWithRecovery(record);
+        } catch (error) {
+            if (imageKey) await deleteDreamImage(imageKey).catch(() => {});
+            throw error;
+        }
         renderDreamList();
         setDreamStatus('');
         openDreamPreview(record.id);
     } catch (e) {
-        setDreamStatus(`生成失败：${e.message || e}`, 'error');
+        setDreamStatus(`生成失败：${describeDreamSaveError(e)}`, 'error');
     } finally {
         dreamGenerating = false;
         renderDreamCharacterStrip();
@@ -6016,6 +6186,25 @@ async function generateDreamRecord() {
     }
 }
 window.generateDreamRecord = generateDreamRecord;
+
+function describeDreamSaveError(error) {
+    if (isDreamQuotaError(error)) return '本机存储空间不足，梦境没有保存。请删除一些旧梦境或清理其它数据后重试。';
+    return error && error.message ? error.message : String(error);
+}
+
+// Prepend the new record; if localStorage is full, first move legacy inline images
+// out of it and try once more. The record is never reported saved unless setItem succeeded.
+async function saveDreamRecordWithRecovery(record) {
+    try {
+        saveDreamRecords([record, ...getDreamRecords()]);
+        return;
+    } catch (error) {
+        if (!isDreamQuotaError(error)) throw error;
+        const result = await migrateDreamImagesToDb().catch(() => ({ moved: 0, failed: 1 }));
+        if (!result.moved && !getDreamRecords().some(item => isDreamInlineImage(item.avatar))) throw error;
+    }
+    saveDreamRecords([record, ...getDreamRecords()]);
+}
 
 function buildDreamInteractionMessages(char, record, session, selectedChoice = '', bootstrap = false) {
     const context = getDreamPromptContext(char);
@@ -6176,7 +6365,7 @@ function renderDreamSession(record) {
     if (!content || !record || !record.session) return;
     const char = getDreamCharacters().find(item => item.id === record.charId);
     const charName = char ? getDreamCharName(char) : record.charName;
-    const avatar = char ? getDreamCharAvatar(char) : record.avatar;
+    const avatar = char ? getDreamCharAvatar(char) : getDreamRecordAvatar(record);
     const session = record.session;
     const ended = session.status === 'ended';
     if (title) title.textContent = record.title || '入梦';
@@ -6282,6 +6471,8 @@ function deleteDreamRecord(id) {
     if (!record) return;
     if (!confirm(`删除「${record.title || '这条梦境'}」？`)) return;
     saveDreamRecords(getDreamRecords().filter(item => item.id !== id));
+    const imageKey = getDreamRecordImageKey(record);
+    if (imageKey) deleteDreamImage(imageKey).catch(error => console.warn('梦境图片删除失败', error));
     if (dreamPreviewRecordId === id || dreamActiveRecordId === id) {
         dreamPreviewRecordId = '';
         dreamActiveRecordId = '';

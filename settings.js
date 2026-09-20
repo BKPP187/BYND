@@ -2463,9 +2463,11 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.626';
+const APP_VERSION = 'v1.1.627';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
+const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
+const DREAM_IMAGE_BACKUP_DB_STORE = 'images';
 const ALL_DATA_KEYS = [
     'my_characters_data',
     'my_characters_data_meta',
@@ -2611,8 +2613,9 @@ function openBackupObjectStore(dbName, storeName, mode = 'readonly') {
     });
 }
 
-async function exportMonitorPetAssetsForBackup() {
-    const { db, tx, store } = await openBackupObjectStore(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE, 'readonly');
+async function exportBackupObjectStoreEntries(dbName, storeName) {
+    if (typeof indexedDB === 'undefined') return {};
+    const { db, tx, store } = await openBackupObjectStore(dbName, storeName, 'readonly');
     try {
         const keysReq = store.getAllKeys();
         const valuesReq = store.getAll();
@@ -2640,9 +2643,9 @@ async function exportMonitorPetAssetsForBackup() {
     }
 }
 
-async function importMonitorPetAssetsFromBackup(entries) {
+async function importBackupObjectStoreEntries(dbName, storeName, entries) {
     if (!entries || typeof entries !== 'object') return;
-    const { db, tx, store } = await openBackupObjectStore(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE, 'readwrite');
+    const { db, tx, store } = await openBackupObjectStore(dbName, storeName, 'readwrite');
     try {
         store.clear();
         for (const [key, value] of Object.entries(entries)) {
@@ -2653,10 +2656,27 @@ async function importMonitorPetAssetsFromBackup(entries) {
             tx.onerror = () => reject(tx.error);
             tx.onabort = () => reject(tx.error);
         });
-        window.ByndCharacterPet?.clearCache();
     } finally {
         db.close();
     }
+}
+
+function exportMonitorPetAssetsForBackup() {
+    return exportBackupObjectStoreEntries(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE);
+}
+
+async function importMonitorPetAssetsFromBackup(entries) {
+    if (!entries || typeof entries !== 'object') return;
+    await importBackupObjectStoreEntries(MONITOR_PET_BACKUP_DB_NAME, MONITOR_PET_BACKUP_DB_STORE, entries);
+    window.ByndCharacterPet?.clearCache();
+}
+
+function exportDreamImagesForBackup() {
+    return exportBackupObjectStoreEntries(DREAM_IMAGE_BACKUP_DB_NAME, DREAM_IMAGE_BACKUP_DB_STORE);
+}
+
+function importDreamImagesFromBackup(entries) {
+    return importBackupObjectStoreEntries(DREAM_IMAGE_BACKUP_DB_NAME, DREAM_IMAGE_BACKUP_DB_STORE, entries);
 }
 
 async function buildByndBackupData() {
@@ -2705,6 +2725,14 @@ async function buildByndBackupData() {
             exportData._monitorPetAssets = monitorPetAssets;
         }
     } catch (e) { warnings.push('桌宠素材未能读取'); console.warn('导出桌宠素材失败', e); }
+
+    // IndexedDB 梦境图片
+    try {
+        const dreamImages = await exportDreamImagesForBackup();
+        if (dreamImages && Object.keys(dreamImages).length) {
+            exportData._dreamImages = dreamImages;
+        }
+    } catch (e) { warnings.push('梦境图片未能读取'); console.warn('导出梦境图片失败', e); }
     if (warnings.length) exportData._backupWarnings = warnings;
     return exportData;
 }
@@ -2778,6 +2806,11 @@ async function importAllData(input) {
         // 恢复 IndexedDB 桌宠素材包
         if (data._monitorPetAssets) {
             await importMonitorPetAssetsFromBackup(data._monitorPetAssets);
+        }
+
+        // 恢复 IndexedDB 梦境图片
+        if (data._dreamImages) {
+            await importDreamImagesFromBackup(data._dreamImages);
         }
 
         alert('导入成功！页面即将刷新...');

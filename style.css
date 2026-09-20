@@ -15504,6 +15504,10 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     height: 156px;
     border-radius: 50%;
 }
+.dream-preview-media.loading img {
+    opacity: 0.55;
+    transition: opacity 0.25s ease;
+}
 .dream-preview-identity,
 .dream-session-identity {
     min-height: 68px;
