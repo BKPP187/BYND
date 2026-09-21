@@ -27,7 +27,8 @@ function harness({ characters = [], ready = 'ready', fetchOk = true, saveResult 
         Image: class { set src(value) { (fetchOk ? this.onload : this.onerror)?.(); } },
         saveCharactersToStorage: async () => { state.saves += 1; return saveResult; },
         renderChatList: () => { state.renders += 1; },
-        showWechatToast: text => state.toasts.push(text)
+        showWechatToast: text => state.toasts.push(text),
+        Blob: class { constructor(parts, options = {}) { this.parts = parts; this.size = 10; this.type = options.type || ''; } }
     });
     vm.runInContext(librarySource, context);
     vm.runInContext(moduleSource, context);
@@ -147,4 +148,53 @@ test('the picker marks added characters and adds the rest in one go', async () =
     assert.deepEqual(h.state.toasts, ['已添加 商桓']);
     await h.L.pickAll();
     assert.match(h.nodes.get('bynd-builtin-library').innerHTML, /没有需要添加的角色/);
+});
+
+test('packaged files are read through XHR first so the Android file bundle works, with fetch as the fallback', async () => {
+    const h = harness();
+    const requested = [];
+    let fetched = 0;
+    h.context.fetch = async () => { fetched += 1; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
+    h.context.XMLHttpRequest = class {
+        open(method, url) { this.url = url; requested.push(url); }
+        send() { this.status = 0; this.response = { size: 10, type: '' }; this.onload?.(); }
+    };
+    h.context.FileReader = class { readAsDataURL(blob) { this.result = 'data:' + blob.type + ';base64,X'; this.onload?.(); } };
+    const char = await h.L.add('wenjinbei');
+    assert.equal(fetched, 0, 'XHR served every file');
+    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['assets/characters/builtin/wenjinbei.jpg', 'assets/characters/builtin/wenjinbei-alt.jpg', 'assets/characters/builtin/wenjinbei-cover.jpg', 'assets/characters/builtin/wenjinbei-reference.jpg']);
+    assert.equal(char.avatar, 'data:image/jpeg;base64,X', 'a typeless file:// blob is typed from its extension');
+    assert.equal(char.avatarGallery.length, 1, 'identical inline results collapse to one entry');
+    assert.equal(char.coverImage, 'data:image/jpeg;base64,X');
+    assert.equal(char.chatConfig.imageReference, 'data:image/jpeg;base64,X');
+    const broken = harness();
+    broken.context.XMLHttpRequest = class { open() {} send() { this.onerror?.(); } };
+    const viaFetch = await broken.L.add('shanghuan');
+    assert.equal(viaFetch.avatar, 'data:image/png;base64,QVZBVEFS', 'fetch still works when XHR is blocked');
+});
+
+test('repair fills missing gallery, cover and reference for characters added earlier and never overwrites user data', async () => {
+    const legacy = { id: 'old', name: '商桓', description: '【角色描述】\n商桓，男，28 岁……', avatar: 'assets/characters/builtin/shanghuan.jpg', avatarGallery: ['assets/characters/builtin/shanghuan.jpg'], chatConfig: {}, history: [{ isMe: true, content: '嗨' }] };
+    const custom = { id: 'mine', name: '商桓', description: '我自己写的商桓', avatar: 'data:image/png;base64,MINE', avatarGallery: ['data:image/png;base64,MINE'], chatConfig: { imageReference: 'data:image/png;base64,REF' } };
+    const h = harness({ characters: [legacy, custom] });
+    let n = 0;
+    h.context.FileReader = class { readAsDataURL() { n += 1; this.result = 'data:image/jpeg;base64,FILE' + n; this.onload?.(); } };
+    assert.equal(h.L.isAdded('shanghuan'), true, 'a legacy add without builtinId is still recognised by its card header');
+    assert.equal(h.L.isAdded('wenjinbei'), false);
+    const result = await h.L.repair();
+    assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['商桓']);
+    assert.equal(legacy.builtinId, 'shanghuan');
+    assert.match(legacy.avatar, /^data:image\/jpeg;base64,FILE/, 'a path avatar is inlined');
+    assert.equal(legacy.avatarGallery.length, 2, 'main plus the chibi alternate');
+    assert.match(legacy.coverImage, /^data:image\/jpeg;base64,FILE/);
+    assert.match(legacy.chatConfig.imageReference, /^data:image\/jpeg;base64,FILE/);
+    assert.equal(legacy.history.length, 1, 'chat history untouched');
+    assert.equal(custom.builtinId, undefined, 'a user-made character with the same name is not treated as built-in');
+    assert.equal(custom.chatConfig.imageReference, 'data:image/png;base64,REF');
+    assert.equal(h.state.saves, 1);
+    const again = await h.L.repair();
+    assert.deepEqual(JSON.parse(JSON.stringify(again.repaired)), [], 'a complete character is left alone');
+    assert.equal(h.state.saves, 1);
+    const existing = await h.L.add('shanghuan');
+    assert.equal(existing, legacy, 'adding again returns the repaired legacy character instead of a duplicate');
 });

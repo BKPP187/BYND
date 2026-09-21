@@ -10,18 +10,48 @@
     function list() {
         return library().map(item => ({ ...item, added: isAdded(item.id) }));
     }
+    // Characters added before builtinId was persisted are recognised by their untouched card header.
+    function matches(item, char) {
+        if (!char || !item) return false;
+        if (char.builtinId) return char.builtinId === item.id;
+        return char.name === item.name && String(char.description || '').startsWith('【角色描述】') && String(char.description || '').includes(item.name);
+    }
+    function findAdded(id) {
+        const item = library().find(entry => entry.id === id);
+        return item ? roster().find(char => matches(item, char)) || null : null;
+    }
     function isAdded(id) {
-        return roster().some(char => char && char.builtinId === id);
+        return !!findAdded(id);
     }
     function ready() {
         const state = window._wechatCharactersStorageState;
         return !state || state.status === 'ready';
     }
+    // Inside the Android app the page is a file:// document; fetch cannot read packaged files there but XHR can.
+    function readBlobViaXhr(url) {
+        return new Promise((resolve, reject) => {
+            if (typeof XMLHttpRequest !== 'function') { reject(new Error('no XMLHttpRequest')); return; }
+            const request = new XMLHttpRequest();
+            request.open('GET', url);
+            request.responseType = 'blob';
+            request.timeout = 15000;
+            request.onload = () => (request.status === 200 || request.status === 0) && request.response && request.response.size ? resolve(request.response) : reject(new Error('HTTP ' + request.status));
+            request.onerror = request.ontimeout = () => reject(new Error('本地文件读取失败'));
+            request.send();
+        });
+    }
     async function readDataUrl(url) {
-        const response = await fetch(url, { cache: 'force-cache' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const blob = await response.blob();
-        if (!blob.size || !/^image\//i.test(blob.type || '')) throw new Error('not an image');
+        let blob;
+        try {
+            blob = await readBlobViaXhr(url);
+        } catch (_) {
+            const response = await fetch(url, { cache: 'force-cache' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            blob = await response.blob();
+        }
+        if (!blob || !blob.size) throw new Error('empty file');
+        const type = /^image\//i.test(blob.type || '') ? blob.type : (/\.png(\?|$)/i.test(url) ? 'image/png' : 'image/jpeg');
+        if (blob.type !== type) blob = new Blob([blob], { type });
         return await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result || ''));
@@ -42,16 +72,7 @@
     async function readAvatar(item) {
         // Prefer an inline copy so the avatar survives backups and offline packaging changes.
         try {
-            const response = await fetch(item.avatar, { cache: 'force-cache' });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            const blob = await response.blob();
-            if (!blob.size || !/^image\//i.test(blob.type || '')) throw new Error('not an image');
-            return await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(String(reader.result || ''));
-                reader.onerror = () => reject(reader.error);
-                reader.readAsDataURL(blob);
-            });
+            return await readDataUrl(item.avatar);
         } catch (_) {
             return await new Promise(resolve => {
                 if (typeof Image !== 'function') { resolve(''); return; }
@@ -97,7 +118,8 @@
         const item = library().find(entry => entry.id === id);
         if (!item) throw new Error('没有这个内置角色。');
         if (!ready()) throw new Error('角色数据还在加载，请稍后再试。');
-        if (isAdded(id)) return roster().find(char => char.builtinId === id);
+        const existing = findAdded(id);
+        if (existing) return existing;
         const avatar = await readAvatar(item);
         const gallery = await readGallery(item);
         const extras = await readExtras(item);
@@ -116,6 +138,50 @@
         }
         if (typeof renderChatList === 'function') renderChatList();
         return char;
+    }
+    // Fill artwork that an earlier add could not read (file:// fetch, offline); never touch what the user changed.
+    async function repair() {
+        if (!ready()) return { repaired: [] };
+        const repaired = [];
+        for (const item of library()) {
+            const char = roster().find(entry => matches(item, entry));
+            if (!char) continue;
+            let changed = false;
+            if (!char.builtinId) { char.builtinId = item.id; changed = true; }
+            const gallery = Array.isArray(char.avatarGallery) ? char.avatarGallery : [];
+            const main = char.avatar || '';
+            if (!/^data:image\//i.test(main) || !gallery.includes(main)) {
+                try {
+                    const inline = /^data:image\//i.test(main) ? main : await readDataUrl(item.avatar);
+                    if (main && main !== inline && !/^data:image\//i.test(main)) { char.avatar = inline; changed = true; }
+                    if (!gallery.includes(inline)) { gallery.unshift(inline); changed = true; }
+                } catch (_) {}
+            }
+            const wanted = Array.isArray(item.avatars) ? item.avatars.length : 0;
+            if (wanted && gallery.length < 1 + wanted) {
+                for (const url of item.avatars) {
+                    try {
+                        const inline = await readDataUrl(url);
+                        if (!gallery.includes(inline)) { gallery.push(inline); changed = true; }
+                    } catch (_) {}
+                }
+            }
+            if (changed) char.avatarGallery = gallery;
+            if (!char.coverImage && item.cover) {
+                try { char.coverImage = await readDataUrl(item.cover); changed = true; } catch (_) {}
+            }
+            char.chatConfig = char.chatConfig || {};
+            if (!char.chatConfig.imageReference && item.reference) {
+                try { char.chatConfig.imageReference = await readDataUrl(item.reference); changed = true; } catch (_) {}
+            }
+            if (changed) repaired.push(char.name);
+        }
+        if (repaired.length) {
+            let saved = true;
+            try { saved = typeof saveCharactersToStorage === 'function' ? await saveCharactersToStorage() : true; } catch (_) { saved = false; }
+            if (saved === false) console.warn('内置角色素材已补齐，但角色数据未能保存');
+        }
+        return { repaired };
     }
     function open() {
         if (typeof document === 'undefined') return;
@@ -196,5 +262,5 @@
         open();
         return true;
     }
-    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, maybePrompt, monogram };
+    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, maybePrompt, repair, monogram };
 })();

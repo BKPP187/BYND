@@ -256,3 +256,18 @@ test('backup and import preserve dynamically added app keys and raw string value
         assert.equal(target.localStorage.getItem(key), key === 'unrelated_site' ? null : value, key);
     }
 });
+
+test('built-in identity and the world-book cover survive a save and reload', async () => {
+    const h = storageHarness({ local: [] });
+    await h.context.loadCharactersFromStorage();
+    h.context.window.myCharacters = [{ id: 'b1', name: '温今北', builtinId: 'wenjinbei', coverImage: 'data:image/jpeg;base64,COVER', avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A', 'data:image/png;base64,B'], chatConfig: { imageReference: 'data:image/png;base64,R' }, history: [] }];
+    assert.equal(await h.context.saveCharactersToStorage(), true);
+    const stored = h.state.record.characters[0];
+    assert.equal(stored.builtinId, 'wenjinbei');
+    assert.equal(stored.coverImage, 'data:image/jpeg;base64,COVER');
+    assert.deepEqual(JSON.parse(JSON.stringify(stored.avatarGallery)), ['data:image/png;base64,A', 'data:image/png;base64,B']);
+    assert.equal(stored.chatConfig.imageReference, 'data:image/png;base64,R');
+    const compact = h.context.compactWechatCharacterForLocal(stored, Date.now());
+    assert.equal(compact.builtinId, 'wenjinbei', 'the compact index keeps the identity so the library never offers a duplicate');
+    assert.equal(compact.coverImage, undefined, 'large artwork stays out of the compact index');
+});

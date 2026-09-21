@@ -12832,6 +12832,8 @@ function serializeWechatCharacterForStorage(char) {
         avatar: getWechatCharAvatarSource(char, ''),
         _smallAvatar: char._smallAvatar || '',
         avatarGallery: Array.isArray(char.avatarGallery) ? char.avatarGallery.filter(isWechatRealAvatarSource) : [],
+        coverImage: char.coverImage || '',
+        builtinId: char.builtinId || '',
         lastMsg: char.lastMsg,
         worldBook: char.worldBook || [],
         regex: char.regex || [],
@@ -12870,6 +12872,7 @@ function compactWechatCharacterForLocal(char, updatedAt) {
         avatar,
         _smallAvatar: char._smallAvatar || '',
         avatarGallery: avatar ? [avatar] : [],
+        builtinId: char.builtinId || '',
         lastMsg: char.lastMsg || '',
         isGroupNpc: !!char.isGroupNpc,
         groupNpc: !!char.groupNpc,
@@ -13166,7 +13169,7 @@ function loadCharactersFromStorage() {
         window._wechatCharactersLatestSnapshot = JSON.parse(JSON.stringify(snapshot));
         applyLoadedWechatCharacters(snapshot.characters, `(${snapshot.source})`);
         // First launch without any character: offer the bundled originals so the app works out of the box.
-        if (typeof setTimeout === 'function') setTimeout(() => { try { window.ByndBuiltinLibrary?.maybePrompt(); } catch (_) {} }, 400);
+        if (typeof setTimeout === 'function') setTimeout(() => { try { if (!window.ByndBuiltinLibrary?.maybePrompt()) window.ByndBuiltinLibrary?.repair?.(); } catch (_) {} }, 400);
         return snapshot;
     }, error => {
         error.characterStorageUnavailable = true;
