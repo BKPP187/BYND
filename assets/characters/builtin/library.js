@@ -14,8 +14,8 @@
             avatarLabels: ["日常肖像", "伸爪撒娇", "乖乖陪伴", "惊讶疑惑", "害羞委屈", "脸红期待"],
             cover: ASSET_ROOT + 'wenjinbei-cover.jpg',
             reference: ASSET_ROOT + 'wenjinbei-reference.jpg',
-            backgrounds: [ASSET_ROOT + 'wenjinbei-bg-01.jpg'],
-            backgroundLabels: ['书房里的温今北'],
+            backgrounds: [ASSET_ROOT + 'wenjinbei-bg-01.jpg', ASSET_ROOT + 'wenjinbei-bg-02.jpg'],
+            backgroundLabels: ['书房里的温今北', '温今北肖像'],
             userPersona: {
                 title: '温今北的妹妹',
                 bio: '温今北名义上的妹妹。十五岁那年随母亲走进温家，几年后父母在一场车祸中双双离世，温今北成了唯一的依靠。长大后进了娱乐圈当演员，拍戏、上综艺；刚出道时收到过黑粉寄来的可怕礼物，录综艺时牛奶被人换成油漆进过医院洗胃，从那以后哥哥护得更紧。',
@@ -68,8 +68,8 @@
             avatarLabels: ["日常肖像", "乖巧陪伴", "闷闷不乐", "求抱抱", "气鼓鼓"],
             cover: ASSET_ROOT + 'shanghuan-cover.jpg',
             reference: ASSET_ROOT + 'shanghuan-reference.jpg',
-            backgrounds: [ASSET_ROOT + 'shanghuan-bg-01.jpg', ASSET_ROOT + 'shanghuan-bg-02.jpg'],
-            backgroundLabels: ['正装商桓', '居家商桓'],
+            backgrounds: [ASSET_ROOT + 'shanghuan-bg-01.jpg', ASSET_ROOT + 'shanghuan-bg-02.jpg', ASSET_ROOT + 'shanghuan-bg-03.jpg'],
+            backgroundLabels: ['正装商桓', '居家商桓', '商桓肖像'],
             userPersona: {
                 title: '商桓的前女友',
                 bio: '商桓的前女友。当年是对抗路情侣，因为他嘴碎、吵架时夹枪带棒而分手。毕业后看到合租信息没多想就拖着行李搬进了别墅，进门才发现室友是商桓。现在两人各住一层，共用厨房客厅，谁都没提复合。',

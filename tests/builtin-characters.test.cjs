@@ -104,9 +104,9 @@ test('bundled alternate avatars land in the character gallery and a missing file
     let calls = 0;
     h.context.fetch = async url => { calls += 1; if (/alt\.jpg$/.test(url)) return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
     const char = await h.L.add('wenjinbei');
-    assert.equal(calls, 9, 'main avatar, five alternates, cover, reference and one chat background are fetched');
+    assert.equal(calls, 10, 'main avatar, five alternates, cover, reference and two chat backgrounds are fetched');
     assert.equal(char.chatConfig.chatBgImage, 'data:image/png;base64,QVZBVEFS', 'the first shipped background is the default chat background');
-    assert.equal(char.chatConfig.chatBgGallery.length, 1, 'shipped backgrounds land in the chat background gallery');
+    assert.equal(char.chatConfig.chatBgGallery.length, 1, 'identical inline results collapse to one gallery entry');
     assert.equal(char.coverImage, 'data:image/png;base64,QVZBVEFS');
     assert.equal(char.chatConfig.imageReference, 'data:image/png;base64,QVZBVEFS');
     assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), ['data:image/png;base64,QVZBVEFS'], 'identical inline data is not duplicated');
@@ -211,7 +211,7 @@ test('packaged files are read through XHR first so the Android file bundle works
     h.context.FileReader = class { readAsDataURL(blob) { this.result = 'data:' + blob.type + ';base64,X'; this.onload?.(); } };
     const char = await h.L.add('wenjinbei');
     assert.equal(fetched, 0, 'XHR served every file');
-    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['wenjinbei.jpg', 'wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg', 'wenjinbei-cover.jpg', 'wenjinbei-reference.jpg', 'wenjinbei-bg-01.jpg'].map(name => 'assets/characters/builtin/' + name));
+    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['wenjinbei.jpg', 'wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg', 'wenjinbei-cover.jpg', 'wenjinbei-reference.jpg', 'wenjinbei-bg-01.jpg', 'wenjinbei-bg-02.jpg'].map(name => 'assets/characters/builtin/' + name));
     assert.equal(char.avatar, 'data:image/jpeg;base64,X', 'a typeless file:// blob is typed from its extension');
     assert.equal(char.avatarGallery.length, 1, 'identical inline results collapse to one entry');
     assert.equal(char.coverImage, 'data:image/jpeg;base64,X');
@@ -286,7 +286,7 @@ test('repair strips retired card text and installs the shipped chat background',
     const result = await h.L.repair();
     assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['温今北']);
     assert.equal(old.description, '【角色描述】\n温今北，男。\n\n【场景】\n都市。');
-    assert.equal(old.chatConfig.chatBgGallery.length, 1, 'the shipped background is back-filled');
+    assert.equal(old.chatConfig.chatBgGallery.length, 2, 'the shipped backgrounds are back-filled');
     assert.equal(old.chatConfig.chatBgImage, old.chatConfig.chatBgGallery[0], 'the shipped background replaces the cover stand-in');
     assert.notEqual(old.chatConfig.chatBgImage, 'data:image/jpeg;base64,COVER');
     const kept = { id: 'kept', builtinId: 'wenjinbei', name: '温今北', description: '【角色描述】\n温今北，男。', avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R', chatBgImage: 'data:image/png;base64,MINE' } };
@@ -317,6 +317,6 @@ test('adding a built-in character seeds its user persona once and applies it onl
     assert.equal(mine.chatConfig.userProfile.bio, '猎人', 'a bio the user wrote is never overwritten');
     assert.equal(mine.chatConfig.userProfile.personaId, undefined);
     assert.equal(JSON.parse(k.context.localStorage.getItem('wechat_user_persona_library_v1')).length, 1, 'the persona is still offered in the library');
-    assert.equal(mine.chatConfig.chatBgGallery.length, 2, '商桓 ships two chat backgrounds');
-    assert.match(k.L.backgroundOptions(mine).join(';'), /1：正装商桓（当前）;2：居家商桓/);
+    assert.equal(mine.chatConfig.chatBgGallery.length, 3, '商桓 ships three chat backgrounds');
+    assert.match(k.L.backgroundOptions(mine).join(';'), /1：正装商桓（当前）;2：居家商桓;3：商桓肖像/);
 });

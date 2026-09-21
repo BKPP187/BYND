@@ -19272,32 +19272,6 @@ function clearCurrentWechatChatHistory() {
     if (typeof showWechatToast === 'function') showWechatToast('已删除聊天记录、记忆和状态缓存');
 }
 
-// Sample the top band of the background so the floating back/more icons stay visible on dark images.
-function syncWechatChatBackgroundTone(roomEl, src) {
-    if (!roomEl || !src || typeof Image !== 'function') return;
-    const token = String(src).slice(0, 96) + String(src).length;
-    if (roomEl.dataset.chatBgToneToken === token) return;
-    roomEl.dataset.chatBgToneToken = token;
-    const image = new Image();
-    image.onload = () => {
-        if (roomEl.dataset.chatBgToneToken !== token) return;
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 16; canvas.height = 16;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(image, 0, 0, image.width, Math.max(1, Math.round(image.height * 0.18)), 0, 0, 16, 16);
-            const pixels = ctx.getImageData(0, 0, 16, 16).data;
-            let sum = 0;
-            for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114;
-            roomEl.classList.toggle('has-dark-chat-bg', sum / (pixels.length / 4) < 140);
-        } catch (_) {
-            roomEl.classList.add('has-dark-chat-bg');
-        }
-    };
-    image.onerror = () => { if (roomEl.dataset.chatBgToneToken === token) roomEl.classList.remove('has-dark-chat-bg'); };
-    image.src = src;
-}
-
 function applyChatConfig(char) {
     const config = char.chatConfig || {};
     const contentEl = document.getElementById('chat-room-content');
@@ -19308,7 +19282,7 @@ function applyChatConfig(char) {
     const roomEl = contentEl.closest ? contentEl.closest('.wc-chat-room') : null;
     if (config.chatBgImage) {
         contentEl.classList.add('has-custom-chat-bg');
-        if (roomEl) { roomEl.classList.add('has-custom-chat-bg'); syncWechatChatBackgroundTone(roomEl, config.chatBgImage); }
+        if (roomEl) roomEl.classList.add('has-custom-chat-bg');
         contentEl.style.setProperty('--custom-chat-bg-image', `url(${config.chatBgImage})`);
         contentEl.style.backgroundImage = `url(${config.chatBgImage})`;
         contentEl.style.backgroundSize = 'cover';
@@ -19317,7 +19291,7 @@ function applyChatConfig(char) {
         contentEl.style.backgroundColor = '';
     } else {
         contentEl.classList.remove('has-custom-chat-bg');
-        if (roomEl) roomEl.classList.remove('has-custom-chat-bg', 'has-dark-chat-bg');
+        if (roomEl) roomEl.classList.remove('has-custom-chat-bg');
         contentEl.style.removeProperty('--custom-chat-bg-image');
         contentEl.style.backgroundImage = '';
         contentEl.style.backgroundSize = '';

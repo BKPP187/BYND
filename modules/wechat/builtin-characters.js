@@ -166,7 +166,7 @@
             first_mes: item.first_mes || '',
             chatConfig: {
                 ...(extras.reference ? { imageReference: extras.reference } : {}),
-                ...(extras.backgrounds?.length ? { chatBgGallery: extras.backgrounds.slice() } : {}),
+                ...(extras.backgrounds?.length ? { chatBgGallery: extras.backgrounds.filter((url, index, all) => url && all.indexOf(url) === index) } : {}),
                 ...(extras.backgrounds?.[0] || extras.cover ? { chatBgImage: extras.backgrounds?.[0] || extras.cover } : {})
             },
             history: []
