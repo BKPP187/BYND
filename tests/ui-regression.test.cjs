@@ -26,7 +26,10 @@ assert.match(style, /\.dream-topbar\s*\{[^}]*padding:\s*calc\(12px\s*\+\s*var\(-
 assert.match(style, /html\.mobile-runtime \.phone-container\s*\{\s*--bynd-header-safe-top:\s*0px;/, 'headers must not duplicate the safe area already reserved by the mobile body');
 assert.match(html, /id="wcs-char-voice-provider"/, 'character settings must expose a credential-free voice binding selector');
 assert.doesNotMatch(html.match(/<div class="wcs-section-title">角色专属音色[\s\S]*?<div class="wcs-section-title">角色头像集/)?.[0] || '', /api[-_ ]?key/i, 'character voice controls must never ask for an API key');
-assert.match(wechat, /class="wcs-avatar-gallery-delete"/, 'avatar gallery must have a visible touch delete control');
+assert.match(html, /id="wcs-avatar-manage-btn"/, 'avatar gallery must expose a separate management action beside add');
+assert.match(wechat, /class="wcs-avatar-selection-mark"/, 'avatar management must use a selection state instead of permanent delete badges');
+assert.match(wechat, /class="wcs-avatar-delete-sheet"/, 'avatar deletion must use an in-product confirmation sheet');
+assert.doesNotMatch(wechat, /confirm\('删除这张角色头像/, 'avatar deletion must not use the browser confirmation dialog');
 assert.match(wechat, /Chat character audio may only use the character's paid\/custom binding\. Never fall back to system TTS here\./, 'chat character voice must explicitly forbid system TTS fallback');
 
 console.log('ui regression tests passed');

@@ -14540,21 +14540,9 @@ function getWechatMomentCoverStyle(src, seed = '') {
 }
 
 function getWechatProfileBio(char) {
-    const config = (char && char.chatConfig) || {};
     const aiProfile = getWechatAiContactProfile(char);
-    if (aiProfile && aiProfile.bio) return aiProfile.bio;
-    const name = (config.nickname || (char && char.name) || '对方');
-    const raw = String(config.profileBio || char.description || '')
-        .replace(/<info[\s\S]*?<\/info>/gi, ' ')
-        .replace(/<character[\s\S]*?<\/character>/gi, ' ')
-        .replace(/<writing_rule[\s\S]*?<\/writing_rule>/gi, ' ')
-        .replace(/```[\s\S]*?```/g, ' ')
-        .replace(/```[\s\S]*$/g, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    const looksLikeCard = /\b(char_name|appearance|personality|background_story|NSFW|writing_rule)\b/i.test(raw.slice(0, 300));
-    const text = (!raw || looksLikeCard) ? (config.signature || `${name}还没有填写公开资料。`) : raw;
+    if (!aiProfile) return '微信资料待 AI 生成';
+    const text = String(aiProfile.bio || aiProfile.signature || '暂无朋友资料').replace(/\s+/g, ' ').trim();
     return text.length > 180 ? `${text.slice(0, 180)}...` : text;
 }
 
@@ -18757,6 +18745,8 @@ function openChatSettings() {
     }
 
     const config = char.chatConfig || {};
+    window._wechatAvatarManageState = null;
+    closeWechatAvatarDeleteDialog();
     const profile = getWechatChatUserProfile(char);
     closeWechatQQGroupSettings();
     syncWechatQQGroupSettingsEntry(char);
@@ -18852,6 +18842,8 @@ function openChatSettings() {
 function closeChatSettings(event) {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+    window._wechatAvatarManageState = null;
+    closeWechatAvatarDeleteDialog();
     const panel = document.getElementById('wc-chat-settings-panel');
     closeWechatQQGroupSettings();
     const room = document.getElementById('wechat-chat-room');
@@ -19128,21 +19120,162 @@ function handleWechatCharacterVoiceProviderChange() {
 }
 window.handleWechatCharacterVoiceProviderChange = handleWechatCharacterVoiceProviderChange;
 
+function getWechatAvatarManagementState(char) {
+    const state = window._wechatAvatarManageState;
+    if (!state || !char || state.charId !== char.id || !(state.selected instanceof Set)) return null;
+    return state;
+}
+
+function renderWechatAvatarManagementControls(char) {
+    const state = getWechatAvatarManagementState(char);
+    const managing = !!state;
+    const count = state?.selected.size || 0;
+    document.getElementById('wcs-avatar-add-btn')?.classList.toggle('hidden', managing);
+    document.getElementById('wcs-avatar-manage-btn')?.classList.toggle('hidden', managing);
+    document.getElementById('wcs-avatar-cancel-btn')?.classList.toggle('hidden', !managing);
+    const removeButton = document.getElementById('wcs-avatar-delete-selected-btn');
+    if (removeButton) {
+        removeButton.classList.toggle('hidden', !managing);
+        removeButton.disabled = count === 0;
+        removeButton.textContent = count ? `删除 (${count})` : '删除';
+    }
+}
+
 function renderAvatarGallery(char) {
     const gallery = document.getElementById('wcs-avatar-gallery');
     if (!gallery) return;
     const avatars = Array.from(new Set((Array.isArray(char.avatarGallery) ? char.avatarGallery : []).filter(Boolean)));
     if (char.avatar && !avatars.includes(char.avatar)) avatars.unshift(char.avatar);
     char.avatarGallery = avatars;
+    const manageState = getWechatAvatarManagementState(char);
+    const managing = !!manageState;
+    if (manageState) {
+        manageState.selected = new Set(Array.from(manageState.selected).filter(url => avatars.includes(url)));
+    }
+    gallery.classList.toggle('is-managing', managing);
     gallery.innerHTML = avatars.map((url, i) => `
-        <div class="wcs-avatar-gallery-tile">
+        <div class="wcs-avatar-gallery-tile ${manageState?.selected.has(url) ? 'selected' : ''}" role="button" tabindex="0"
+             aria-label="${managing ? '选择头像' : '切换头像'} ${i + 1}" aria-selected="${manageState?.selected.has(url) ? 'true' : 'false'}"
+             onclick="handleWechatAvatarGalleryTap(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleWechatAvatarGalleryTap(${i})}">
             <img class="wcs-avatar-gallery-item ${url === char.avatar ? 'active' : ''}"
-                 src="${wcEscapeAttr(url)}" alt="角色头像 ${i + 1}" onclick="selectCharAvatar(${i})">
-            <button type="button" class="wcs-avatar-gallery-delete" aria-label="删除这张头像"
-                    onclick="event.stopPropagation();removeGalleryAvatar(${i})"><i class="ri-close-line"></i></button>
+                 src="${wcEscapeAttr(url)}" alt="角色头像 ${i + 1}">
+            ${managing ? `<span class="wcs-avatar-selection-mark"><i class="ri-check-line"></i></span>` : ''}
         </div>
     `).join('') || '<span style="font-size:12px;color:#bbb;">暂无头像</span>';
+    renderWechatAvatarManagementControls(char);
 }
+
+function handleWechatAvatarGalleryTap(idx) {
+    const char = getCurrentChatChar();
+    if (!char || !Array.isArray(char.avatarGallery) || !char.avatarGallery[idx]) return;
+    const state = getWechatAvatarManagementState(char);
+    if (!state) {
+        selectCharAvatar(idx);
+        return;
+    }
+    const url = char.avatarGallery[idx];
+    if (state.selected.has(url)) state.selected.delete(url);
+    else state.selected.add(url);
+    renderAvatarGallery(char);
+}
+
+function beginWechatAvatarManagement() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    const avatars = Array.isArray(char.avatarGallery) ? char.avatarGallery.filter(Boolean) : [];
+    if (!avatars.length) {
+        if (typeof showWechatToast === 'function') showWechatToast('还没有可删除的头像');
+        return;
+    }
+    window._wechatAvatarManageState = { charId: char.id, selected: new Set() };
+    renderAvatarGallery(char);
+}
+
+function cancelWechatAvatarManagement() {
+    const char = getCurrentChatChar();
+    window._wechatAvatarManageState = null;
+    closeWechatAvatarDeleteDialog();
+    if (char) renderAvatarGallery(char);
+}
+
+function requestDeleteSelectedWechatAvatars() {
+    const char = getCurrentChatChar();
+    const state = getWechatAvatarManagementState(char);
+    if (!char || !state || !state.selected.size) return;
+    const selected = char.avatarGallery.filter(url => state.selected.has(url));
+    if (!selected.length) return;
+    const host = getWechatModalRoot();
+    let modal = document.getElementById('wc-avatar-delete-dialog');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wc-avatar-delete-dialog';
+        modal.className = 'wc-modal-overlay wcs-avatar-delete-dialog hidden';
+        host.appendChild(modal);
+    }
+    const preview = selected.slice(0, 4).map(url => `<img src="${wcEscapeAttr(url)}" alt="" onerror="this.style.visibility='hidden'">`).join('');
+    modal.innerHTML = `
+        <div class="wcs-avatar-delete-sheet" role="dialog" aria-modal="true" aria-labelledby="wcs-avatar-delete-title">
+            <div class="wcs-avatar-delete-grabber"></div>
+            <div class="wcs-avatar-delete-icon"><i class="ri-delete-bin-6-line"></i></div>
+            <h3 id="wcs-avatar-delete-title">删除${selected.length}张头像？</h3>
+            <p>${selected.includes(char.avatar) ? '其中包含当前头像，删除后将自动换成剩余头像。' : '删除后无法恢复，角色将不再使用这些头像。'}</p>
+            <div class="wcs-avatar-delete-preview">${preview}${selected.length > 4 ? `<span>+${selected.length - 4}</span>` : ''}</div>
+            <div class="wcs-avatar-delete-error" id="wcs-avatar-delete-error"></div>
+            <div class="wcs-avatar-delete-dialog-actions">
+                <button type="button" onclick="closeWechatAvatarDeleteDialog()">取消</button>
+                <button type="button" class="danger" id="wcs-avatar-delete-confirm" onclick="confirmDeleteSelectedWechatAvatars()">删除</button>
+            </div>
+        </div>
+    `;
+    modal.onclick = event => { if (event.target === modal) closeWechatAvatarDeleteDialog(); };
+    modal.classList.remove('hidden');
+}
+
+function closeWechatAvatarDeleteDialog() {
+    document.getElementById('wc-avatar-delete-dialog')?.classList.add('hidden');
+}
+
+async function confirmDeleteSelectedWechatAvatars() {
+    const char = getCurrentChatChar();
+    const state = getWechatAvatarManagementState(char);
+    if (!char || !state || !state.selected.size) return;
+    const previousGallery = char.avatarGallery.slice();
+    const previousAvatar = char.avatar || '';
+    const selected = new Set(state.selected);
+    const remaining = char.avatarGallery.filter(url => !selected.has(url));
+    const button = document.getElementById('wcs-avatar-delete-confirm');
+    const errorEl = document.getElementById('wcs-avatar-delete-error');
+    if (button) { button.disabled = true; button.textContent = '正在删除…'; }
+    if (errorEl) errorEl.textContent = '';
+    char.avatarGallery = remaining;
+    if (selected.has(char.avatar)) char.avatar = remaining[0] || '';
+    const preview = document.getElementById('wcs-char-avatar');
+    if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
+    try {
+        const saved = await saveCharactersToStorage();
+        if (saved === false) throw new Error('角色头像未能保存');
+        window._wechatAvatarManageState = null;
+        closeWechatAvatarDeleteDialog();
+        renderAvatarGallery(char);
+        refreshChatView(char);
+        renderChatList();
+        if (typeof showWechatToast === 'function') showWechatToast(`已删除 ${selected.size} 张头像`);
+    } catch (error) {
+        char.avatarGallery = previousGallery;
+        char.avatar = previousAvatar;
+        if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
+        renderAvatarGallery(char);
+        if (button) { button.disabled = false; button.textContent = '重试删除'; }
+        if (errorEl) errorEl.textContent = '保存失败，头像已恢复，请检查存储空间后重试。';
+        console.error('角色头像批量删除失败:', error);
+    }
+}
+window.beginWechatAvatarManagement = beginWechatAvatarManagement;
+window.cancelWechatAvatarManagement = cancelWechatAvatarManagement;
+window.requestDeleteSelectedWechatAvatars = requestDeleteSelectedWechatAvatars;
+window.closeWechatAvatarDeleteDialog = closeWechatAvatarDeleteDialog;
+window.confirmDeleteSelectedWechatAvatars = confirmDeleteSelectedWechatAvatars;
+window.handleWechatAvatarGalleryTap = handleWechatAvatarGalleryTap;
 
 function selectCharAvatar(idx) {
     const charId = window.currentChatCharId;
@@ -19156,34 +19289,6 @@ function selectCharAvatar(idx) {
         document.getElementById('wcs-char-avatar').src = avatars[idx];
         saveCharactersToStorage();
         renderAvatarGallery(char);
-    }
-}
-
-async function removeGalleryAvatar(idx) {
-    const charId = window.currentChatCharId;
-    if (!charId) return;
-    const char = window.myCharacters.find(c => c.id === charId);
-    if (!char || !Array.isArray(char.avatarGallery) || !char.avatarGallery[idx]) return;
-    if (typeof confirm === 'function' && !confirm('删除这张角色头像？')) return;
-    const previousGallery = char.avatarGallery.slice();
-    const previousAvatar = char.avatar || '';
-    const removed = char.avatarGallery.splice(idx, 1)[0];
-    if (removed === char.avatar) char.avatar = char.avatarGallery[0] || '';
-    const preview = document.getElementById('wcs-char-avatar');
-    if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
-    renderAvatarGallery(char);
-    try {
-        const saved = await saveCharactersToStorage();
-        if (saved === false) throw new Error('角色头像未能保存');
-        refreshChatView(char);
-        renderChatList();
-    } catch (error) {
-        char.avatarGallery = previousGallery;
-        char.avatar = previousAvatar;
-        if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
-        renderAvatarGallery(char);
-        if (typeof showWechatToast === 'function') showWechatToast('头像删除失败，原数据已恢复');
-        console.error('角色头像删除失败:', error);
     }
 }
 

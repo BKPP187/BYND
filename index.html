@@ -50,8 +50,8 @@
     <link rel="manifest" href="manifest.webmanifest?v=1.1.590">
     <link rel="icon" href="bynd-icon.svg?v=1.1.590" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.639" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/study.css?v=1.1.639" media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.640" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.640" media="all">
     <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.603-agent-features-20260910" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/character-pet.css?v=1.1.618" data-bynd-core-style media="all">
@@ -1656,7 +1656,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.639
+                    Beyond Screen v1.1.640
                 </div>
             </div>
         </div>
@@ -2551,8 +2551,13 @@
                         <div class="wcs-section">
                             <div class="wcs-full-row">
                                 <div class="wcs-avatar-gallery" id="wcs-avatar-gallery"></div>
-                                <div style="padding:8px 0;">
-                                    <span class="font-reset-btn" onclick="document.getElementById('wcs-add-avatar-file').click()">+ 添加头像</span>
+                                <div class="wcs-avatar-actions">
+                                    <button type="button" class="wcs-avatar-add" id="wcs-avatar-add-btn" onclick="document.getElementById('wcs-add-avatar-file').click()"><i class="ri-add-line"></i>添加头像</button>
+                                    <div class="wcs-avatar-manage-actions">
+                                        <button type="button" class="wcs-avatar-manage" id="wcs-avatar-manage-btn" onclick="beginWechatAvatarManagement()"><i class="ri-delete-bin-6-line"></i>删除</button>
+                                        <button type="button" class="wcs-avatar-cancel hidden" id="wcs-avatar-cancel-btn" onclick="cancelWechatAvatarManagement()">取消</button>
+                                        <button type="button" class="wcs-avatar-delete-selected hidden" id="wcs-avatar-delete-selected-btn" onclick="requestDeleteSelectedWechatAvatars()" disabled>删除</button>
+                                    </div>
                                     <input type="file" id="wcs-add-avatar-file" accept="image/*" style="display:none" onchange="addCharAvatarToGallery(this)">
                                 </div>
                                 <div style="font-size:11px;color:#999;">AI 可根据情绪自行切换头像</div>
@@ -2862,24 +2867,24 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.639"></script>
+    <script src="chat-api.js?v=1.1.640"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
-    <script src="stickers-local-share.js?v=1.1.639"></script>
+    <script src="stickers-local-share.js?v=1.1.640"></script>
     <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.639"></script>
+    <script src="wechat.js?v=1.1.640"></script>
     <script src="theme.js?v=1.1.616-dream-icons"></script>
-    <script src="settings.js?v=1.1.639"></script>
-    <script src="script.js?v=1.1.639"></script>
+    <script src="settings.js?v=1.1.640"></script>
+    <script src="script.js?v=1.1.640"></script>
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
     <script src="WorldBook.js?v=1.1.631-cover-image"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
     <script src="modules/wechat/agent-tools.js?v=1.1.616-character-pet-20260910"></script>
     <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.639"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.639"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.639"></script>
-    <script src="modules/study/study-app.js?v=1.1.639"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.640"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.640"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.640"></script>
+    <script src="modules/study/study-app.js?v=1.1.640"></script>
     <script src="modules/monitor/character-pet.js?v=1.1.626"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>
