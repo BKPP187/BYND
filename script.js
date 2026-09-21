@@ -126,7 +126,7 @@ function unlockPhone() {
     
     // 触发变色检查
     const statusBar = document.querySelector('.status-bar');
-    if (typeof window.homeIsDark !== 'undefined') {
+    if (statusBar && typeof window.homeIsDark !== 'undefined') {
         if (window.homeIsDark) statusBar.classList.add('white-text');
         else statusBar.classList.remove('white-text');
     }
@@ -18963,7 +18963,9 @@ function normalizeDesktopLayoutRect(item, pageArea) {
 function prepareDesktopLayoutItem(item, pageArea, rect) {
     if (!item || !pageArea) return;
     const id = getDesktopItemId(item);
-    const safeRect = clampDesktopLayoutRect(rect, pageArea);
+    const safeRect = clampDesktopLayoutRect(projectDesktopLayoutRect(rect, pageArea.clientWidth), pageArea);
+    if (pageArea.clientWidth > 0) pageArea._byndLayoutWidth = pageArea.clientWidth;
+    else if (rect.canvasWidth > 0) pageArea._byndLayoutWidth = rect.canvasWidth;
     item.dataset.layoutId = id;
     item.dataset.layoutType = item.dataset.layoutType || (id.startsWith('app-') ? 'app' : 'builtin');
     item.classList.add('desktop-layout-item');
@@ -18978,6 +18980,24 @@ function prepareDesktopLayoutItem(item, pageArea, rect) {
     item.style.width = `${Math.round(safeRect.width)}px`;
     item.style.height = `${Math.round(safeRect.height)}px`;
     setupDesktopLayoutItem(item);
+}
+
+function projectDesktopLayoutRect(rect, canvasWidth) {
+    const oldWidth = Number(rect.canvasWidth);
+    if (!(oldWidth > 0 && canvasWidth > 0) || Math.abs(oldWidth - canvasWidth) < 1) return rect;
+    const ratio = canvasWidth / oldWidth;
+    const isApp = rect.type === 'app' || String(rect.id || '').startsWith('app-');
+    const width = isApp ? rect.width : rect.width * ratio;
+    return { ...rect, left: (rect.left + rect.width / 2) * ratio - width / 2, width, canvasWidth };
+}
+
+function inferDesktopLegacyCanvasWidth(records, currentWidth) {
+    // Older layouts saved only pixel coordinates. A broad, symmetrically placed
+    // widget is evidence of the original canvas; leave sparse layouts untouched.
+    const anchor = records.find(record => /^widget-(calendar|photo-\d+)$/.test(String(record.id || '')) && record.width >= 260 && record.left >= 8 && record.left <= 40);
+    if (!anchor) return currentWidth;
+    const width = anchor.width + anchor.left * 2;
+    return records.every(record => record.left + record.width <= width) ? width : currentWidth;
 }
 
 function clampDesktopLayoutRect(rect, pageArea) {
@@ -22636,7 +22656,8 @@ function collectDesktopLayout() {
             left: Math.round(rect.left),
             top: Math.round(rect.top),
             width: Math.round(rect.width),
-            height: Math.round(rect.height)
+            height: Math.round(rect.height),
+            canvasWidth: area.clientWidth
         };
     });
 }
@@ -22801,10 +22822,15 @@ function clampDesktopVisibleLayoutItems() {
     let changed = false;
     document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(pageArea => {
         if (!hasDesktopUsableLayoutBounds(pageArea)) return;
+        const oldWidth = pageArea._byndLayoutWidth || pageArea.clientWidth;
         pageArea.querySelectorAll(':scope > .desktop-layout-item').forEach(item => {
-            const safeRect = clampDesktopLayoutRect(getDesktopRawStyleRect(item), pageArea);
+            const raw = { ...getDesktopRawStyleRect(item), id: item.dataset.layoutId, canvasWidth: oldWidth };
+            if (!item._byndResponsiveBase || desktopRectsDiffer(raw, item._byndResponsiveApplied, 0.1)) item._byndResponsiveBase = raw;
+            const safeRect = clampDesktopLayoutRect(projectDesktopLayoutRect(item._byndResponsiveBase, pageArea.clientWidth), pageArea);
             if (setDesktopLayoutItemRect(item, safeRect)) changed = true;
+            item._byndResponsiveApplied = getDesktopRawStyleRect(item);
         });
+        pageArea._byndLayoutWidth = pageArea.clientWidth;
     });
     return changed;
 }
@@ -22924,7 +22950,9 @@ function applySavedDesktopLayout() {
             : findDesktopBuiltinElement(record.id);
         if (!item) return;
         area.appendChild(item);
-        prepareDesktopLayoutItem(item, area, record);
+        const canvasWidth = record.canvasWidth || inferDesktopLegacyCanvasWidth(savedItems.filter(entry => entry.page === record.page), area.clientWidth);
+        prepareDesktopLayoutItem(item, area, { ...record, canvasWidth });
+        if (canvasWidth !== area.clientWidth || !record.canvasWidth) _desktopLayoutNeedsVisiblePersist = true;
         area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
         page.querySelectorAll('.bento-box').forEach(el => el.classList.add('layout-source-hidden'));
     });
@@ -23214,6 +23242,7 @@ function initEditMode() {
     const dock = document.querySelector('#home-screen .dock-bar');
     if (dock && !_desktopDefaultDockHtml) _desktopDefaultDockHtml = dock.innerHTML;
     home.dataset.editInit = '1';
+    window.addEventListener('resize', () => scheduleDesktopVisibleLayoutRepair());
     ['contextmenu', 'dragstart', 'selectstart'].forEach(type => {
         home.addEventListener(type, suppressDesktopNativeLongPress, true);
     });

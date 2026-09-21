@@ -150,6 +150,9 @@
         const settings = getSettings();
         return language(settings.targetIds[0]) || allLanguages().find(lang => lang.id !== settings.nativeId) || null;
     }
+    function targetLabel(settings = getSettings()) {
+        return settings.targetIds.map(language).filter(Boolean).map(lang => lang.label).join('、') || '学习语言';
+    }
 
     // ---------- cards ----------
     function normalizeCard(card) {
@@ -348,7 +351,7 @@
     // ---------- API turn ----------
     async function requestTurn(char, settings, chat, userText, kind = 'chat') {
         if (typeof callChatApi !== 'function') throw new Error('聊天 API 模块没有加载。');
-        const result = await callChatApi(buildTurnMessages(char, settings, chat, userText, kind), { temperature: 0.8, max_tokens: 1400, skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
+        const result = await callChatApi(buildTurnMessages(char, settings, chat, userText, kind), { temperature: 0.8, max_tokens: Math.min(5000, 1400 + 600 * Math.max(0, settings.targetIds.length - 1)), skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
         if (!result || !result.ok) throw new Error(failureText(result));
         const turn = normalizeTurn(parseJson(result.content), settings);
         if (!turn) throw new Error('这次回复不是要求的格式，请再发一次。');
@@ -373,7 +376,8 @@
             const turn = await requestTurn(char, settings, getChat(char.id), message, kind);
             const reply = appendMessage(char.id, { id: uid('c'), role: 'char', text: turn.reply, versions: turn.versions, translation: turn.translation, correction: turn.correction, words: turn.words, createdAt: Date.now(), inReplyTo: userMessage?.id || '' });
             if (turn.correction && userMessage) patchMessage(char.id, userMessage.id, { corrected: true });
-            setStatus('');
+            const missing = settings.targetIds.slice(1).filter(id => !turn.versions[id]).map(id => language(id)?.label || id);
+            setStatus(missing.length ? `这次回复缺少${missing.join('、')}版本，可以请 TA 补充。` : '', 'warn');
             state.busy = false;
             render();
             if (settings.voice) speak(plainText(turn.reply), primaryTarget()?.code);
@@ -599,7 +603,7 @@
         const settings = getSettings();
         const target = primaryTarget();
         const title = byId('study-topbar-title');
-        if (title) title.innerHTML = `<span>BYND STUDY</span><strong>${escapeHtml(char ? `${charName(char)} · ${target?.label || '学习'}` : '学习')}</strong>`;
+        if (title) title.innerHTML = `<span>BYND STUDY</span><strong>${escapeHtml(char ? `${charName(char)} · ${targetLabel(settings)}` : '学习')}</strong>`;
         tabbar.innerHTML = TABS.map(tab => `<button type="button" class="${tab.id === state.tab ? 'active' : ''}" onclick="ByndStudy.setTab('${tab.id}')" aria-pressed="${tab.id === state.tab}"><i class="${tab.icon}"></i><span>${tab.label}</span></button>`).join('');
         const statusHtml = state.status ? `<p class="study-status" data-tone="${escapeAttr(state.status.tone)}" role="status">${escapeHtml(state.status.text)}</p>` : '';
         if (state.tab === 'chat') content.innerHTML = renderChat(char, settings, statusHtml);
@@ -622,7 +626,7 @@
             <div class="study-chat-empty">
                 <img src="${escapeAttr(charAvatar(char))}" alt="">
                 <strong>${escapeHtml(charName(char))}</strong>
-                <p>用 ${escapeHtml(target?.label || '学习语言')} 和 TA 聊天，${escapeHtml(native?.label || '中文')} 翻译会自动附在下面；写错了 TA 会顺手纠正。</p>
+                <p>用 ${escapeHtml(targetLabel(settings))} 和 TA 聊天${settings.targetIds.length > 1 ? '，每种语言的回复会一起显示' : ''}，${escapeHtml(native?.label || '中文')} 翻译会自动附在下面；写错了 TA 会顺手纠正。</p>
                 <button type="button" class="study-primary" ${state.busy ? 'disabled' : ''} onclick="ByndStudy.start()"><i class="ri-chat-smile-3-line"></i><span>让 ${escapeHtml(charName(char))} 先开口</span></button>
             </div>` : '';
         return `
@@ -638,7 +642,7 @@
                     <button type="button" onclick="ByndStudy.quick('说简单一点，我没跟上。')"><i class="ri-speed-down-line"></i>简单一点</button>
                 </div>
                 <div class="study-composer-row">
-                    <textarea id="study-input" rows="1" placeholder="用 ${escapeAttr(target?.label || '学习语言')} 或${escapeAttr(native?.label || '中文')}都可以" ${state.busy ? 'disabled' : ''} onkeydown="ByndStudy.onKey(event)"></textarea>
+                    <textarea id="study-input" rows="1" placeholder="用 ${escapeAttr(targetLabel(settings))} 或${escapeAttr(native?.label || '中文')}都可以" ${state.busy ? 'disabled' : ''} onkeydown="ByndStudy.onKey(event)"></textarea>
                     <button type="button" class="study-send" ${state.busy ? 'disabled' : ''} onclick="ByndStudy.submit()" aria-label="发送"><i class="ri-send-plane-2-fill"></i></button>
                 </div>
             </div>`;
@@ -807,11 +811,11 @@
     }
     function quick(text) { send(text, 'chat'); }
     function askHowToSay() {
-        const target = primaryTarget();
-        const sentence = typeof prompt === 'function' ? prompt(`想用${target?.label || '学习语言'}说什么？`) : '';
+        const label = targetLabel();
+        const sentence = typeof prompt === 'function' ? prompt(`想用${label}说什么？`) : '';
         const text = clean(sentence, 400);
         if (!text) return;
-        send(`「${text}」用${target?.label || '学习语言'}怎么说？`, 'chat');
+        send(`「${text}」用${label}分别怎么说？`, 'chat');
     }
     function start() { return send('', 'opening'); }
     function toggleTranslation(id) {

@@ -1329,6 +1329,8 @@ function buildSystemPrompt(char) {
     const avatarCount = (char.avatarGallery || []).length;
     if (avatarCount > 1) {
         prompt += `- 你有${avatarCount}个头像可以切换。如果你想换头像，在消息末尾加上 [换头像:序号]（序号从1开始）。只在情绪变化或特殊场景时切换\n`;
+        const options = typeof window !== 'undefined' ? window.ByndBuiltinLibrary?.avatarOptions(char) : null;
+        if (options?.length) prompt += `- 头像状态：${options.join('；')}。按你此刻的心情自主选择合适的头像，不需要等待用户要求；没有变化则保持当前头像。\n`;
     }
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;

@@ -9846,6 +9846,16 @@ function isWechatBackgroundApiPaused() {
     return getWechatChatApiPauseRemainingMs() > 0;
 }
 
+function consumeWechatAvatarDirective(char, content) {
+    let changed = false;
+    const text = String(content || '').replace(/\[换头像\s*[：:]\s*(\d+)\s*\]/g, (_, number) => {
+        const avatar = char.avatarGallery?.[Number(number) - 1];
+        if (avatar && char.avatar !== avatar) { char.avatar = avatar; changed = true; }
+        return '';
+    }).trim();
+    return { content: text, changed };
+}
+
 async function triggerAiAfterMessage(char, contentEl, options = {}) {
     if (!char || !Array.isArray(char.history)) return;
     if (window._wechatAiBusy) return;
@@ -9867,6 +9877,8 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 : { content: rawContent, summary: '', toolCount: 0 };
             const petResponse = window.ByndCharacterPet?.extract(consumed.content);
             if (petResponse) consumed.content = petResponse.content;
+            const avatarAction = consumeWechatAvatarDirective(char, consumed.content);
+            consumed.content = avatarAction.content;
             const start = char.history.length;
             const parts = splitWechatAiResponseSegments(consumed.content, char)
                 .filter(part => !isWechatAiMetaLeakContent(part));
@@ -9874,12 +9886,6 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             for (let i = 0; i < parts.length; i++) {
                 if (i > 0) await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
                 let text = parts[i];
-                const avatarMatch = text.match(/\[换头像[：:](\d+)\]/);
-                if (avatarMatch && char.avatarGallery && char.avatarGallery.length > 1) {
-                    const idx = parseInt(avatarMatch[1], 10) - 1;
-                    if (idx >= 0 && idx < char.avatarGallery.length) char.avatar = char.avatarGallery[idx];
-                    text = text.replace(/\[换头像[：:]\d+\]/, '').trim();
-                }
                 if (!text || isWechatAiMetaLeakContent(text)) continue;
                 count += appendWechatAiMessageParts(char, contentEl, text, {
                     groupFallbackStartIndex: count,
@@ -9891,9 +9897,9 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             const first = char.history.slice(start).find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
             if (first && consumed.summary) first.thinkingSummary = consumed.summary;
             if (count > 0 && petResponse) window.ByndCharacterPet.applyChatReaction(char, petResponse.reaction, char.history.slice(start).filter(msg => !msg.isMe).map(msg => msg.content || msg.description || '').join('\n')).catch(() => {});
-            if ((consumed.summary || consumed.toolCount) && shouldTouchChatUi) refreshChatView(char);
+            if ((consumed.summary || consumed.toolCount || avatarAction.changed) && shouldTouchChatUi) refreshChatView(char);
             // A tool-only response was handled; retrying it could repeat an action.
-            return count + consumed.toolCount;
+            return count + consumed.toolCount + (avatarAction.changed ? 1 : 0);
         };
 
         // 构建消息并调用API
@@ -25814,6 +25820,7 @@ function getAllWechatStickers() {
         return stickers.map(sticker => ({
             id: sticker.id || '',
             name: sticker.name || '贴纸',
+            aliases: Array.isArray(sticker.aliases) ? sticker.aliases : [],
             url: sticker.url || '',
             packName: pack.name || '贴纸包',
             source: 'pack'
@@ -25999,14 +26006,28 @@ function findWechatStickerForAi(char, query, explicitUrl) {
 }
 
 function buildWechatStickerPrompt(char) {
-    const stickers = getWechatAvailableStickers(char).slice(0, 40);
+    const all = getWechatAvailableStickers(char);
+    // Sample every pack, then rank by the current conversation. A fixed first-40
+    // slice starved later packs and never told the model what they contained.
+    const recent = (char?.history || []).slice(-4).map(msg => String(msg.stickerName || msg.content || '').slice(0, 160)).join(' ');
+    const ranked = all.map((item, index) => ({ item, index, score: scoreWechatStickerMatch(item, recent) }))
+        .sort((a, b) => b.score - a.score || a.index - b.index);
+    const stickers = [];
+    const add = item => { if (item && stickers.length < 40 && !stickers.includes(item)) stickers.push(item); };
+    ranked.filter(entry => entry.score >= 14).slice(0, 16).forEach(entry => add(entry.item));
+    const packs = new Map();
+    all.forEach(item => { const key = item.packName || item.source || '贴纸'; if (!packs.has(key)) packs.set(key, []); packs.get(key).push(item); });
+    const offset = hashWechatStickerQuery(`${char?.id || ''}:${recent}`);
+    for (let round = 0; round < 40 && stickers.length < Math.min(40, all.length); round++) {
+        packs.forEach(items => { if (round < items.length) add(items[(offset + round) % items.length]); });
+    }
     if (!stickers.length) return '';
     const lines = stickers.map(item => {
         const source = item.source === 'worldBook' ? '世界书' : item.packName;
-        return `- ${item.name}（${source}）`;
+        return `- ${item.name}${item.aliases?.length ? ' / ' + item.aliases.slice(0, 3).join('、') : ''}（${source}）`;
     });
-    const omitted = getWechatAvailableStickers(char).length > stickers.length ? `\n- 另有更多贴纸未展开。` : '';
-    return `【微信贴纸上下文】你可以发送这些用户贴纸包/世界书贴纸。需要发贴纸时，把它作为单独一段输出：[微信表情:贴纸名或情绪]；如果世界书给了 postimg 链接，也可以输出 [微信表情:贴纸名|图片URL]。\n${lines.join('\n')}${omitted}`;
+    const omitted = all.length > stickers.length ? `\n- 另有更多贴纸未展开，可以按情绪选择。` : '';
+    return `【微信贴纸上下文】以下是可实际发送的内置、用户贴纸包和世界书贴纸。请按自己的人设和当前心情主动使用：接梗、撒娇、吃醋、安慰、回应用户表情时，可以配一张贴切的表情，不必等用户要求；严肃对话以文字为主，不强制每轮发送或连续刷同一张。发贴纸时作为独立消息段输出，例如：好，抱一下。|||[微信表情:抱抱]。使用格式 [微信表情:贴纸名或情绪]；不要只用文字描述“发了一个表情包”。如果世界书给了 postimg 链接，也可以输出 [微信表情:贴纸名|图片URL]。\n${lines.join('\n')}${omitted}`;
 }
 
 function buildBoltpStickerList() {
@@ -26026,6 +26047,7 @@ function buildLocalStickerList() {
     return stickers.map(item => ({
         id: 'stk_local_' + item.id,
         name: item.name || '本地表情',
+        aliases: item.aliases || [],
         url: item.url
     })).filter(item => item.url);
 }
@@ -26077,7 +26099,7 @@ function mergeStickerSharePack(data, options) {
     let changed = false;
     pack.stickers = pack.stickers.map(item => {
         const next = stickerById.get(String(item.id || '')) || stickerByName.get(String(item.name || ''));
-        if (next && (item.url !== next.url || item.name !== next.name || item.id !== next.id)) {
+        if (next && (item.url !== next.url || item.name !== next.name || item.id !== next.id || JSON.stringify(item.aliases || []) !== JSON.stringify(next.aliases || []))) {
             changed = true;
             return { ...item, ...next };
         }

@@ -10,6 +10,24 @@ const KEYS = { cards: 'bynd_study_cards_v1', languages: 'bynd_study_languages_v1
 const plain = value => JSON.parse(JSON.stringify(value));
 const turn = (reply, extra = {}) => ({ ok: true, content: JSON.stringify({ reply, versions: {}, translation: '翻译：' + reply, correction: null, words: [], ...extra }) });
 
+test('all selected languages drive the heading, composer and request; missing versions are visible', async () => {
+    const h = harness();
+    h.S.saveSettings({targetIds:['ja','th']});
+    h.S.init();
+    assert.match(h.elements.get('study-topbar-title').innerHTML, /日本語、ไทย/);
+    assert.match(h.content(), /用 日本語、ไทย/);
+    h.state.answer = turn('こんにちは', {versions:{th:'สวัสดี'}});
+    await h.S.start();
+    assert.match(h.state.calls[0].messages.map(m=>m.content).join('\n'), /"th" 为 ไทย/);
+    assert.match(h.content(), /สวัสดี/);
+    h.state.answer = turn('こんにちは');
+    await h.S.send('继续');
+    assert.match(h.content(), /缺少ไทย版本/);
+    h.S.toggleTarget('ja');
+    assert.match(h.elements.get('study-topbar-title').innerHTML, /温今北 · ไทย/);
+    assert.doesNotMatch(h.elements.get('study-topbar-title').innerHTML, /日本語/);
+});
+
 function element(id) {
     const classes = new Set();
     const el = {

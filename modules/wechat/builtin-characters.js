@@ -65,6 +65,9 @@
         });
     }
     async function readDataUrl(url) {
+        // A classic-script bundle avoids file:// CORS restrictions in desktop browsers.
+        const bundled = window.ByndBuiltinArtwork?.[url];
+        if (inline(bundled)) return bundled;
         let blob;
         try {
             blob = await readBlobViaXhr(url);
@@ -179,8 +182,14 @@
         if (!inline(char.avatar)) await attempt('主头像', item.avatar, data => { char.avatar = data; });
         if (inline(char.avatar) && !gallery.includes(char.avatar)) { gallery.unshift(char.avatar); changed = true; }
         const status = artwork(item, char);
-        if (status.gallery < status.galleryWanted) {
-            for (const url of item.avatars || []) await attempt('备用头像', url, data => { if (!gallery.includes(data)) gallery.push(data); });
+        for (const url of item.avatars || []) {
+            const bundled = window.ByndBuiltinArtwork?.[url];
+            if (bundled && gallery.includes(bundled)) continue;
+            if (!bundled && status.gallery >= status.galleryWanted) continue;
+            try {
+                const data = await readDataUrl(url);
+                if (!gallery.includes(data)) { gallery.push(data); changed = true; }
+            } catch (error) { errors.push(`备用头像：${error.message || error}`); }
         }
         char.avatarGallery = gallery;
         if (status.coverWanted && !status.cover) await attempt('世界书封面', item.cover, data => { char.coverImage = data; });
@@ -189,14 +198,18 @@
         if (errors.length) repairErrors.set(item.id, errors.join('；')); else repairErrors.delete(item.id);
         return { changed, errors };
     }
-    async function repair(onlyId = '') {
+    async function runRepair(onlyId = '') {
         if (!ready()) return { repaired: [], errors: {} };
         const repaired = [];
         const errors = {};
+        const snapshots = [];
         for (const item of library()) {
             if (onlyId && item.id !== onlyId) continue;
             const char = findAdded(item.id);
             if (!char) continue;
+            const keys = ['builtinId', 'avatar', 'avatarGallery', 'coverImage', 'chatConfig'];
+            snapshots.push({ char, values: Object.fromEntries(keys.map(key => [key, char[key]])) });
+            char.chatConfig = { ...(char.chatConfig || {}) };
             const result = await repairOne(item, char);
             if (result.changed) repaired.push(char.name);
             if (result.errors.length) errors[item.id] = result.errors;
@@ -204,10 +217,30 @@
         let saved = true;
         if (repaired.length) {
             try { saved = typeof saveCharactersToStorage === 'function' ? await saveCharactersToStorage() : true; } catch (_) { saved = false; }
-            if (saved === false) console.warn('内置角色素材已补齐，但角色数据未能保存');
+            if (saved === false) {
+                snapshots.forEach(({ char, values }) => Object.entries(values).forEach(([key, value]) => {
+                    if (value === undefined) delete char[key]; else char[key] = value;
+                }));
+                repaired.length = 0;
+                console.warn('内置角色素材未能保存，已恢复原数据');
+            }
         }
         console.info('内置角色素材检查', { repaired, errors, saved });
         return { repaired, errors, saved };
+    }
+    let repairQueue = Promise.resolve();
+    function repair(onlyId = '') {
+        const pending = repairQueue.then(() => runRepair(onlyId));
+        repairQueue = pending.catch(() => {});
+        return pending;
+    }
+    function avatarOptions(char) {
+        const item = library().find(entry => matches(entry, char));
+        const paths = item ? [item.avatar, ...(item.avatars || [])] : [];
+        return (char.avatarGallery || []).map((src, index) => {
+            const position = paths.findIndex(url => src === url || src === window.ByndBuiltinArtwork?.[url]);
+            return `${index + 1}：${position >= 0 ? item.avatarLabels?.[position] || '备用头像' : '自定义头像'}${src === char.avatar ? '（当前）' : ''}`;
+        });
     }
     function lastError(id) {
         return repairErrors.get(id) || '';
@@ -279,7 +312,7 @@
         try {
             const result = await repair(id);
             const failed = result.errors[id];
-            render(failed ? `有素材没能读取：${failed.join('；')}` : result.saved === false ? '素材已补齐，但角色数据没有保存成功。' : (result.repaired.length ? '素材已补齐。' : '素材本来就是完整的。'));
+            render(result.saved === false ? '素材没有保存成功，已恢复原数据，请重试。' : failed ? `有素材没能读取：${failed.join('；')}` : (result.repaired.length ? '素材已补齐。' : '素材本来就是完整的。'));
         } finally {
             busy = false;
         }
@@ -306,5 +339,5 @@
         open();
         return true;
     }
-    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram };
+    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram, avatarOptions };
 })();

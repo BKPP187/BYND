@@ -7,6 +7,7 @@ const { root, memoryStorage } = require('./helpers/harness.cjs');
 
 const librarySource = fs.readFileSync(path.join(root, 'assets/characters/builtin/library.js'), 'utf8');
 const moduleSource = fs.readFileSync(path.join(root, 'modules/wechat/builtin-characters.js'), 'utf8');
+const artworkSource = fs.readFileSync(path.join(root, 'assets/characters/builtin/artwork.js'), 'utf8');
 
 function harness({ characters = [], ready = 'ready', fetchOk = true, saveResult = true, prompted = false } = {}) {
     const storage = memoryStorage(prompted ? { bynd_builtin_library_prompted_v1: '1' } : {});
@@ -35,6 +36,44 @@ function harness({ characters = [], ready = 'ready', fetchOk = true, saveResult 
     return { context, L: context.window.ByndBuiltinLibrary, storage, state, nodes, characters };
 }
 
+test('bundled bytes survive blocked file requests, repair old contacts idempotently, and expose mood indices', async () => {
+    const old = { id: 'old', builtinId: 'wenjinbei', name: '温今北', avatar: 'assets/characters/builtin/wenjinbei.jpg', avatarGallery: [], history: [{content:'保留聊天'}], description: '保留修改' };
+    const h = harness({ characters: [old] });
+    vm.runInContext(artworkSource, h.context);
+    h.context.fetch = () => { throw new Error('file CORS'); };
+    h.context.XMLHttpRequest = class { open() {} send() { this.onerror(); } };
+    const assets = h.context.window.ByndBuiltinArtwork;
+    for (const [name, data] of Object.entries(assets)) {
+        assert.deepEqual(Buffer.from(data.split(',')[1], 'base64'), fs.readFileSync(path.join(root, name)), name);
+    }
+    await Promise.all([h.L.repair(), h.L.repair()]);
+    assert.equal(h.state.saves, 1);
+    assert.equal(old.avatarGallery.length, 6);
+    assert.equal(old.history[0].content, '保留聊天');
+    assert.equal(old.description, '保留修改');
+    assert.ok(h.L.list()[0].complete);
+    assert.match(h.L.avatarOptions(old).join(';'), /6：脸红期待/);
+    const second = await h.L.add('shanghuan');
+    assert.equal(second.avatarGallery.length, 5);
+    assert.ok(h.L.list()[1].complete);
+});
+
+test('repair rolls back on a rejected save and can be retried without losing custom artwork', async () => {
+    const old = { id: 'old', builtinId: 'shanghuan', name: '商桓', avatar: 'data:image/png;base64,CUSTOM', avatarGallery: ['data:image/png;base64,CUSTOM'], chatConfig: {nickname:'备注'} };
+    const before = JSON.stringify(old);
+    const h = harness({ characters: [old], saveResult: false });
+    vm.runInContext(artworkSource, h.context);
+    const result = await h.L.repair();
+    assert.equal(result.saved, false);
+    assert.equal(result.repaired.length, 0);
+    assert.equal(JSON.stringify(old), before);
+    h.context.saveCharactersToStorage = async () => true;
+    await h.L.repair();
+    assert.equal(old.avatar, 'data:image/png;base64,CUSTOM');
+    assert.equal(old.chatConfig.nickname, '备注');
+    assert.equal(old.avatarGallery.length, 5);
+});
+
 test('the bundled library ships two complete original characters', () => {
     const { context } = harness();
     const list = context.window.ByndBuiltinCharacters.characters;
@@ -56,8 +95,8 @@ test('the bundled library ships two complete original characters', () => {
         assert.equal(item.cover, `assets/characters/builtin/${item.id}-cover.jpg`);
         assert.equal(item.reference, `assets/characters/builtin/${item.id}-reference.jpg`);
     }
-    assert.deepEqual(JSON.parse(JSON.stringify(list[0].avatars)), ['assets/characters/builtin/wenjinbei-alt.jpg']);
-    assert.deepEqual(JSON.parse(JSON.stringify(list[1].avatars)), ['assets/characters/builtin/shanghuan-alt.jpg']);
+    assert.deepEqual(JSON.parse(JSON.stringify(list[0].avatars)), ['wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg'].map(name => 'assets/characters/builtin/' + name));
+    assert.deepEqual(JSON.parse(JSON.stringify(list[1].avatars)), ['shanghuan-alt.jpg', 'shanghuan-alt-02.jpg', 'shanghuan-alt-03.jpg', 'shanghuan-alt-04.jpg'].map(name => 'assets/characters/builtin/' + name));
 });
 
 test('bundled alternate avatars land in the character gallery and a missing file is skipped', async () => {
@@ -65,7 +104,7 @@ test('bundled alternate avatars land in the character gallery and a missing file
     let calls = 0;
     h.context.fetch = async url => { calls += 1; if (/alt\.jpg$/.test(url)) return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
     const char = await h.L.add('wenjinbei');
-    assert.equal(calls, 4, 'main avatar, one alternate, cover and reference are fetched');
+    assert.equal(calls, 8, 'main avatar, five alternates, cover and reference are fetched');
     assert.equal(char.coverImage, 'data:image/png;base64,QVZBVEFS');
     assert.equal(char.chatConfig.imageReference, 'data:image/png;base64,QVZBVEFS');
     assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), ['data:image/png;base64,QVZBVEFS'], 'identical inline data is not duplicated');
@@ -83,7 +122,7 @@ test('bundled alternate avatars land in the character gallery and a missing file
     plain.context.fetch = async () => { fetched += 1; return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; };
     plain.context.FileReader = class { readAsDataURL() { this.result = 'data:image/jpeg;base64,IMG' + fetched; this.onload?.(); } };
     const second = await plain.L.add('shanghuan');
-    assert.deepEqual(JSON.parse(JSON.stringify(second.avatarGallery)), ['data:image/jpeg;base64,IMG1', 'data:image/jpeg;base64,IMG2'], 'both characters carry their alternate avatar');
+    assert.deepEqual(JSON.parse(JSON.stringify(second.avatarGallery)), [1, 2, 3, 4, 5].map(n => 'data:image/jpeg;base64,IMG' + n), 'both characters carry their alternate avatar');
 });
 
 test('adding a built-in character produces a normal roster entry with an inline avatar and persists it', async () => {
@@ -150,7 +189,7 @@ test('the picker marks added characters and adds the rest in one go', async () =
     for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
     const finalHtml = h.nodes.get('bynd-builtin-library').innerHTML;
     assert.doesNotMatch(finalHtml, /补齐素材/, 'the background repair completed and the add was not blocked by it');
-    assert.equal((finalHtml.match(/头像 2\/2 · 封面 ✓ · 参考图 ✓/g) || []).length, 2);
+    assert.equal((finalHtml.match(/头像 (?:6\/6|5\/5) · 封面 ✓ · 参考图 ✓/g) || []).length, 2);
     assert.equal(h.characters.length, 2);
     assert.equal(h.characters[1].builtinId, 'shanghuan');
     assert.deepEqual(JSON.parse(JSON.stringify(h.state.toasts)), ['已添加 商桓'], 'the add itself reported success; the later repair re-render replaced the status line');
@@ -170,7 +209,7 @@ test('packaged files are read through XHR first so the Android file bundle works
     h.context.FileReader = class { readAsDataURL(blob) { this.result = 'data:' + blob.type + ';base64,X'; this.onload?.(); } };
     const char = await h.L.add('wenjinbei');
     assert.equal(fetched, 0, 'XHR served every file');
-    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['assets/characters/builtin/wenjinbei.jpg', 'assets/characters/builtin/wenjinbei-alt.jpg', 'assets/characters/builtin/wenjinbei-cover.jpg', 'assets/characters/builtin/wenjinbei-reference.jpg']);
+    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['wenjinbei.jpg', 'wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg', 'wenjinbei-cover.jpg', 'wenjinbei-reference.jpg'].map(name => 'assets/characters/builtin/' + name));
     assert.equal(char.avatar, 'data:image/jpeg;base64,X', 'a typeless file:// blob is typed from its extension');
     assert.equal(char.avatarGallery.length, 1, 'identical inline results collapse to one entry');
     assert.equal(char.coverImage, 'data:image/jpeg;base64,X');
@@ -198,7 +237,7 @@ test('repair fills missing gallery, cover and reference for characters added ear
     assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['商桓']);
     assert.equal(legacy.builtinId, 'shanghuan');
     assert.match(legacy.avatar, /^data:image\/jpeg;base64,FILE/, 'a path avatar is inlined');
-    assert.equal(legacy.avatarGallery.length, 2, 'main plus the chibi alternate');
+    assert.equal(legacy.avatarGallery.length, 5, 'main plus four chibi alternates');
     assert.match(legacy.coverImage, /^data:image\/jpeg;base64,FILE/);
     assert.match(legacy.chatConfig.imageReference, /^data:image\/jpeg;base64,FILE/);
     assert.equal(legacy.history.length, 1, 'chat history untouched');
@@ -215,12 +254,13 @@ test('repair fills missing gallery, cover and reference for characters added ear
 test('the picker reports missing artwork per character and a manual repair surfaces the read error', async () => {
     const legacy = { id: 'old', name: '温今北', description: '【角色描述】\n温今北', avatar: 'data:image/png;base64,MAIN', avatarGallery: ['data:image/png;base64,MAIN'], chatConfig: {}, history: [] };
     const h = harness({ characters: [legacy] });
+    vm.runInContext(fs.readFileSync(path.join(root, 'assets/characters/builtin/artwork.js'), 'utf8'), h.context);
     h.L.open();
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     const overlay = () => h.nodes.get('bynd-builtin-library').innerHTML;
-    assert.match(overlay(), /头像 2\/2 · 封面 ✓ · 参考图 ✓/, 'opening the picker repairs a reachable character first');
-    assert.equal(legacy.avatarGallery.length, 2);
+    assert.match(overlay(), /头像 6\/6 · 封面 ✓ · 参考图 ✓/, 'opening the picker repairs a reachable character first');
+    assert.equal(legacy.avatarGallery.length, 6);
     const broken = harness({ characters: [{ id: 'old2', name: '商桓', description: '【角色描述】\n商桓', avatar: 'data:image/png;base64,MAIN', avatarGallery: ['data:image/png;base64,MAIN'], chatConfig: {}, history: [] }] });
     broken.context.fetch = async () => ({ ok: false, status: 404 });
     broken.context.XMLHttpRequest = class { open() {} send() { this.status = 404; this.onload?.(); } };
@@ -228,7 +268,7 @@ test('the picker reports missing artwork per character and a manual repair surfa
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     const html = broken.nodes.get('bynd-builtin-library').innerHTML;
-    assert.match(html, /头像 1\/2 · 封面 缺 · 参考图 缺/);
+    assert.match(html, /头像 1\/5 · 封面 缺 · 参考图 缺/);
     assert.match(html, /备用头像：HTTP 404/);
     assert.match(html, /补齐素材/);
     await broken.L.fix('shanghuan');
