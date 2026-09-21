@@ -19272,6 +19272,100 @@ function clearCurrentWechatChatHistory() {
     if (typeof showWechatToast === 'function') showWechatToast('已删除聊天记录、记忆和状态缓存');
 }
 
+function getWechatChatForegroundTone(pixels) {
+    let brightness = 0;
+    let weight = 0;
+    for (let i = 0; i + 3 < pixels.length; i += 4) {
+        const alpha = pixels[i + 3] / 255;
+        if (alpha <= 0) continue;
+        brightness += (pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114) * alpha;
+        weight += alpha;
+    }
+    const isLightBackground = weight > 0 && brightness / weight >= 150;
+    return isLightBackground
+        ? { color: '#111827', shadow: 'drop-shadow(0 1px 2px rgba(255,255,255,0.92))' }
+        : { color: '#ffffff', shadow: 'drop-shadow(0 1px 3px rgba(0,0,0,0.88))' };
+}
+
+function getWechatChatBackgroundSamplePoint(target, contentRect, fallbackX) {
+    const rect = target?.getBoundingClientRect?.();
+    if (!rect || !rect.width || !rect.height || !contentRect.width || !contentRect.height) {
+        return { x: fallbackX, y: 0.085 };
+    }
+    return {
+        x: Math.max(0, Math.min(1, (rect.left + rect.width / 2 - contentRect.left) / contentRect.width)),
+        y: Math.max(0, Math.min(1, (rect.top + rect.height / 2 - contentRect.top) / contentRect.height))
+    };
+}
+
+// The left and right controls can sit over very different parts of a portrait.
+// Sample each control's actual background instead of assigning one colour to the whole header.
+function syncWechatChatBackgroundTones(roomEl, contentEl, src) {
+    if (!roomEl || !contentEl || !src || typeof Image !== 'function' || typeof document === 'undefined') return;
+    const token = String(src).slice(0, 96) + ':' + String(src).length;
+    if (roomEl.dataset.chatBgToneToken === token) return;
+    roomEl.dataset.chatBgToneToken = token;
+
+    const image = new Image();
+    if (/^https?:/i.test(src)) image.crossOrigin = 'anonymous';
+    image.onload = () => {
+        let layoutRetries = 0;
+        const applySampledTones = () => {
+            if (roomEl.dataset.chatBgToneToken !== token) return;
+            try {
+                let contentRect = contentEl.getBoundingClientRect?.() || {};
+                if ((!contentRect.width || !contentRect.height) && layoutRetries < 4 && typeof requestAnimationFrame === 'function') {
+                    layoutRetries++;
+                    requestAnimationFrame(applySampledTones);
+                    return;
+                }
+                if (!contentRect.width || !contentRect.height) {
+                    const roomRect = roomEl.getBoundingClientRect?.() || {};
+                    contentRect = roomRect.width && roomRect.height
+                        ? roomRect
+                        : { left: 0, top: 0, width: 390, height: 780 };
+                }
+                const aspect = contentRect.width && contentRect.height ? contentRect.height / contentRect.width : 2;
+                const canvas = document.createElement('canvas');
+                canvas.width = 96;
+                canvas.height = Math.max(96, Math.min(240, Math.round(canvas.width * aspect)));
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+                const drawWidth = image.naturalWidth * scale;
+                const drawHeight = image.naturalHeight * scale;
+                ctx.drawImage(image, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+
+                const header = roomEl.querySelector('.wc-room-header');
+                const targets = [
+                    ['back', roomEl.querySelector('.wc-float-back') || header?.querySelector('i:first-child'), 0.075],
+                    ['title', roomEl.querySelector('.wc-floating-avatar') || header?.querySelector('.wc-room-title-wrap'), 0.5],
+                    ['more', roomEl.querySelector('.wc-float-more') || header?.querySelector('i:last-child'), 0.925]
+                ];
+                targets.forEach(([name, target, fallbackX]) => {
+                    const point = getWechatChatBackgroundSamplePoint(target, contentRect, fallbackX);
+                    const radius = 6;
+                    const x = Math.max(radius, Math.min(canvas.width - radius, Math.round(point.x * canvas.width)));
+                    const y = Math.max(radius, Math.min(canvas.height - radius, Math.round(point.y * canvas.height)));
+                    const pixels = ctx.getImageData(x - radius, y - radius, radius * 2, radius * 2).data;
+                    const tone = getWechatChatForegroundTone(pixels);
+                    roomEl.style.setProperty(`--wc-chat-${name}-color`, tone.color);
+                    roomEl.style.setProperty(`--wc-chat-${name}-shadow`, tone.shadow);
+                });
+            } catch (_) {
+                roomEl.style.setProperty('--wc-chat-back-color', '#ffffff');
+                roomEl.style.setProperty('--wc-chat-title-color', '#ffffff');
+                roomEl.style.setProperty('--wc-chat-more-color', '#ffffff');
+            }
+        };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(applySampledTones);
+        else applySampledTones();
+    };
+    image.onerror = () => {
+        if (roomEl.dataset.chatBgToneToken === token) delete roomEl.dataset.chatBgToneToken;
+    };
+    image.src = src;
+}
+
 function applyChatConfig(char) {
     const config = char.chatConfig || {};
     const contentEl = document.getElementById('chat-room-content');
@@ -19282,7 +19376,10 @@ function applyChatConfig(char) {
     const roomEl = contentEl.closest ? contentEl.closest('.wc-chat-room') : null;
     if (config.chatBgImage) {
         contentEl.classList.add('has-custom-chat-bg');
-        if (roomEl) roomEl.classList.add('has-custom-chat-bg');
+        if (roomEl) {
+            roomEl.classList.add('has-custom-chat-bg');
+            syncWechatChatBackgroundTones(roomEl, contentEl, config.chatBgImage);
+        }
         contentEl.style.setProperty('--custom-chat-bg-image', `url(${config.chatBgImage})`);
         contentEl.style.backgroundImage = `url(${config.chatBgImage})`;
         contentEl.style.backgroundSize = 'cover';
@@ -19291,7 +19388,14 @@ function applyChatConfig(char) {
         contentEl.style.backgroundColor = '';
     } else {
         contentEl.classList.remove('has-custom-chat-bg');
-        if (roomEl) roomEl.classList.remove('has-custom-chat-bg');
+        if (roomEl) {
+            roomEl.classList.remove('has-custom-chat-bg');
+            delete roomEl.dataset.chatBgToneToken;
+            ['back', 'title', 'more'].forEach(name => {
+                roomEl.style.removeProperty(`--wc-chat-${name}-color`);
+                roomEl.style.removeProperty(`--wc-chat-${name}-shadow`);
+            });
+        }
         contentEl.style.removeProperty('--custom-chat-bg-image');
         contentEl.style.backgroundImage = '';
         contentEl.style.backgroundSize = '';
