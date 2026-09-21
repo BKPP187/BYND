@@ -1332,6 +1332,12 @@ function buildSystemPrompt(char) {
         const options = typeof window !== 'undefined' ? window.ByndBuiltinLibrary?.avatarOptions(char) : null;
         if (options?.length) prompt += `- 头像状态：${options.join('；')}。按你此刻的心情自主选择合适的头像，不需要等待用户要求；没有变化则保持当前头像。\n`;
     }
+    const backgroundCount = (char.chatConfig?.chatBgGallery || []).length;
+    if (backgroundCount > 1) {
+        prompt += `- 这段聊天有${backgroundCount}张聊天背景可以切换。想换背景时在消息末尾加上 [换背景:序号]（序号从1开始），只在场景、时间或心情明显变化时切换\n`;
+        const bgOptions = typeof window !== 'undefined' ? window.ByndBuiltinLibrary?.backgroundOptions(char) : null;
+        if (bgOptions?.length) prompt += `- 背景列表：${bgOptions.join('；')}。\n`;
+    }
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
     prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息（固定恰好三根竖线，不要两根、不要更多、不要单独成段）。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;

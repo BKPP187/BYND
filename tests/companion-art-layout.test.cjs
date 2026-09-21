@@ -29,6 +29,20 @@ test('avatar instructions accept whitespace and never leak invalid indices to ch
     assert.equal(char.avatar,'C');
 });
 
+test('background instructions switch the chat background from the gallery and never leak to chat', () => {
+    const c=vm.createContext({});
+    vm.runInContext(sourceSection('wechat.js','function consumeWechatAvatarDirective(', 'async function triggerAiAfterMessage('),c);
+    const char={avatar:'A',avatarGallery:['A'],chatConfig:{chatBgImage:'X',chatBgGallery:['X','Y']}};
+    const result=c.consumeWechatAvatarDirective(char,'到家了。|||[换背景： 2 ]');
+    assert.equal(char.chatConfig.chatBgImage,'Y');
+    assert.equal(result.backgroundChanged,true);
+    assert.equal(result.changed,true);
+    assert.equal(result.content,'到家了。|||');
+    assert.equal(c.consumeWechatAvatarDirective(char,'[换背景:9]').content,'');
+    assert.equal(char.chatConfig.chatBgImage,'Y');
+    assert.equal(c.consumeWechatAvatarDirective({avatar:'A',avatarGallery:['A']},'嗯 [换背景:1]').content,'嗯');
+});
+
 test('sticker prompt includes late packs and contextual matches within a bounded candidate list', () => {
     const all=Array.from({length:70},(_,i)=>({name:'贴纸'+i,packName:'第一包',url:'a'+i,source:'pack'}));
     all.push({name:'抱抱',packName:'后面的包',url:'hug',source:'pack',aliases:['安慰']});

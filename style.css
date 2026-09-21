@@ -4329,6 +4329,28 @@ body.bynd-statusbar-hidden .status-bar,
 }
 .wc-float-back { position: absolute; top: 52px; left: 12px; z-index: 30; font-size: 22px; color: #666; cursor: pointer; padding: 4px; }
 .wc-float-more { position: absolute; top: 52px; right: 12px; z-index: 30; font-size: 20px; color: #666; cursor: pointer; padding: 4px; }
+/* Custom photo backgrounds: no pill, just recolour the floating icons so they read on the image. */
+.wc-chat-room.has-custom-chat-bg .wc-float-back,
+.wc-chat-room.has-custom-chat-bg .wc-float-more {
+    color: #1f2937;
+    filter: drop-shadow(0 1px 2px rgba(255,255,255,0.9));
+}
+.wc-chat-room.has-custom-chat-bg .wc-floating-avatar .wc-float-name {
+    text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,0.9);
+}
+.wc-chat-room.has-dark-chat-bg .wc-float-back,
+.wc-chat-room.has-dark-chat-bg .wc-float-more {
+    color: #fff;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85));
+}
+.wc-chat-room.has-dark-chat-bg .wc-floating-avatar .wc-float-name {
+    color: #fff !important;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);
+}
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room.has-dark-chat-bg .wc-room-header i,
+#app-wechat-window.wc-ui-theme-wechat .wc-chat-room.has-dark-chat-bg .wc-room-title {
+    color: #fff;
+}
 .wc-room-content { flex: 1; overflow-y: auto; padding: 90px 10px 98px; display: flex; flex-direction: column; gap: 7px; background: #ffffff; position: relative; }
 .msg-row { display: flex; align-items: flex-end; gap: 6px; width: 100%; padding: 1px 0; }
 .msg-row.right { flex-direction: row-reverse; }
@@ -5214,6 +5236,12 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wcs-avatar-gallery-item { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; }
 .wcs-avatar-gallery-item.active { border-color: #111; }
 .wcs-avatar-gallery-item:hover { border-color: #999; }
+.wcs-bg-gallery { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0 8px; }
+.wcs-bg-gallery-item { width: 54px; height: 96px; border-radius: 10px; object-fit: cover; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; background: #eee; }
+.wcs-bg-gallery-item.active { border-color: #111; }
+.wcs-bg-gallery-item:hover { border-color: #999; }
+.wcs-persona-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700; background: rgba(224,168,0,0.18); color: #9a6b00; vertical-align: 1px; }
+.wcs-user-persona-list button.active .wcs-persona-tag { background: rgba(255,255,255,0.22); color: #fff; }
 
 /* Raise modal layers above all app windows. */
 .wc-action-sheet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 3000 !important; display: flex; flex-direction: column; justify-content: flex-end; }

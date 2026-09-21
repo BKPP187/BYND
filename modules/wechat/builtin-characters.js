@@ -35,11 +35,37 @@
             coverWanted: !!item.cover,
             reference: inline(char?.chatConfig?.imageReference),
             referenceWanted: !!item.reference,
-            background: inline(char?.chatConfig?.chatBgImage)
+            background: inline(char?.chatConfig?.chatBgImage),
+            backgrounds: (Array.isArray(char?.chatConfig?.chatBgGallery) ? char.chatConfig.chatBgGallery : []).filter(inline).length,
+            backgroundsWanted: Array.isArray(item.backgrounds) ? item.backgrounds.length : 0
         };
     }
     function complete(status) {
-        return status.gallery >= status.galleryWanted && (!status.coverWanted || status.cover) && (!status.referenceWanted || status.reference) && (!status.coverWanted || status.background);
+        return status.gallery >= status.galleryWanted && (!status.coverWanted || status.cover) && (!status.referenceWanted || status.reference)
+            && status.backgrounds >= status.backgroundsWanted && (!(status.coverWanted || status.backgroundsWanted) || status.background);
+    }
+    // The user-side persona that pairs with a shipped character lives in the user persona library, not in the card.
+    const USER_PERSONA_KEY = 'wechat_user_persona_library_v1';
+    function personaId(item) { return 'persona_builtin_' + item.id; }
+    function readPersonas() {
+        try { const parsed = JSON.parse(localStorage.getItem(USER_PERSONA_KEY) || '[]'); return Array.isArray(parsed) ? parsed : []; }
+        catch (_) { return []; }
+    }
+    function ensureUserPersona(item) {
+        if (!item.userPersona || typeof localStorage === 'undefined') return false;
+        const personas = readPersonas();
+        if (personas.some(entry => entry && entry.id === personaId(item))) return false;
+        personas.push({ id: personaId(item), builtinId: item.id, name: '', title: item.userPersona.title || item.name, bio: item.userPersona.bio || '', signature: item.userPersona.signature || '', updatedAt: Date.now() });
+        try { localStorage.setItem(USER_PERSONA_KEY, JSON.stringify(personas.slice(0, 30))); } catch (_) { return false; }
+        return true;
+    }
+    // Apply the shipped persona to this chat only while the user has not written their own bio or signature.
+    function applyUserPersona(item, char) {
+        if (!item.userPersona) return false;
+        const current = char.chatConfig?.userProfile || {};
+        if (current.bio || current.signature || current.personaId) return false;
+        char.chatConfig = { ...(char.chatConfig || {}), userProfile: { ...current, bio: item.userPersona.bio || '', signature: item.userPersona.signature || '', personaId: personaId(item) } };
+        return true;
     }
     // Text that used to live in the shipped cards and has since been removed from the library; stripped from added copies too.
     const RETIRED_CARD_TEXT = [
@@ -140,7 +166,8 @@
             first_mes: item.first_mes || '',
             chatConfig: {
                 ...(extras.reference ? { imageReference: extras.reference } : {}),
-                ...(extras.cover ? { chatBgImage: extras.cover } : {})
+                ...(extras.backgrounds?.length ? { chatBgGallery: extras.backgrounds.slice() } : {}),
+                ...(extras.backgrounds?.[0] || extras.cover ? { chatBgImage: extras.backgrounds?.[0] || extras.cover } : {})
             },
             history: []
         };
@@ -152,6 +179,11 @@
             if (!url) continue;
             try { extras[key] = await readDataUrl(url); }
             catch (error) { console.warn('内置角色附图未能读取', url, error); }
+        }
+        extras.backgrounds = [];
+        for (const url of item.backgrounds || []) {
+            try { extras.backgrounds.push(await readDataUrl(url)); }
+            catch (error) { console.warn('内置角色聊天背景未能读取', url, error); }
         }
         return extras;
     }
@@ -165,6 +197,8 @@
         const gallery = await readGallery(item);
         const extras = await readExtras(item);
         const char = build(item, avatar, gallery, extras);
+        ensureUserPersona(item);
+        applyUserPersona(item, char);
         roster().push(char);
         let saved = true;
         try {
@@ -211,8 +245,23 @@
         if (status.coverWanted && !status.cover) await attempt('世界书封面', item.cover, data => { char.coverImage = data; });
         char.chatConfig = char.chatConfig || {};
         if (status.referenceWanted && !status.reference) await attempt('自画像参考图', item.reference, data => { char.chatConfig.imageReference = data; });
-        // The shipped cover doubles as the default chat background; a background the user picked is kept.
-        if (status.coverWanted && !status.background && inline(char.coverImage)) { char.chatConfig.chatBgImage = char.coverImage; changed = true; }
+        // Shipped chat backgrounds: fill the gallery, then default the background to the first one. A background the user picked is kept;
+        // the cover that an earlier release used as a stand-in is replaced.
+        const bgGallery = Array.isArray(char.chatConfig.chatBgGallery) ? char.chatConfig.chatBgGallery.slice() : [];
+        for (const url of item.backgrounds || []) {
+            const bundled = window.ByndBuiltinArtwork?.[url];
+            if (bundled && bgGallery.includes(bundled)) continue;
+            if (!bundled && status.backgrounds >= status.backgroundsWanted) continue;
+            try { const data = await readDataUrl(url); if (!bgGallery.includes(data)) { bgGallery.push(data); changed = true; } }
+            catch (error) { errors.push(`聊天背景：${error.message || error}`); }
+        }
+        if (bgGallery.length) char.chatConfig.chatBgGallery = bgGallery;
+        const current = char.chatConfig.chatBgImage;
+        const standIn = !inline(current) || (inline(char.coverImage) && current === char.coverImage);
+        if (standIn && bgGallery[0]) { char.chatConfig.chatBgImage = bgGallery[0]; changed = true; }
+        else if (!inline(current) && inline(char.coverImage)) { char.chatConfig.chatBgImage = char.coverImage; changed = true; }
+        if (ensureUserPersona(item)) changed = true;
+        if (applyUserPersona(item, char)) changed = true;
         if (errors.length) repairErrors.set(item.id, errors.join('；')); else repairErrors.delete(item.id);
         return { changed, errors };
     }
@@ -260,6 +309,15 @@
             return `${index + 1}：${position >= 0 ? item.avatarLabels?.[position] || '备用头像' : '自定义头像'}${src === char.avatar ? '（当前）' : ''}`;
         });
     }
+    function backgroundOptions(char) {
+        const item = library().find(entry => matches(entry, char));
+        const paths = item ? (item.backgrounds || []) : [];
+        const current = char.chatConfig?.chatBgImage;
+        return (char.chatConfig?.chatBgGallery || []).map((src, index) => {
+            const position = paths.findIndex(url => src === url || src === window.ByndBuiltinArtwork?.[url]);
+            return `${index + 1}：${position >= 0 ? item.backgroundLabels?.[position] || '内置背景' : '自定义背景'}${src === current ? '（当前）' : ''}`;
+        });
+    }
     function lastError(id) {
         return repairErrors.get(id) || '';
     }
@@ -297,7 +355,7 @@
                                 <div class="bynd-builtin-tags">${(item.tags || []).map(tag => `<span>${escape(tag)}</span>`).join('')}</div>
                             </div>
                             ${item.added ? `<button type="button" class="is-repair" ${item.complete ? 'disabled' : ''} onclick="ByndBuiltinLibrary.fix('${escape(item.id)}')">${item.complete ? '已添加' : '补齐素材'}</button>` : `<button type="button" onclick="ByndBuiltinLibrary.pick('${escape(item.id)}')">添加</button>`}
-                            ${item.added ? `<p class="bynd-builtin-state${item.complete ? ' is-ok' : ''}">头像 ${item.status.gallery}/${item.status.galleryWanted} · 封面 ${item.status.cover ? '✓' : '缺'} · 参考图 ${item.status.reference ? '✓' : '缺'}${lastError(item.id) ? `<br>${escape(lastError(item.id))}` : ''}</p>` : ''}
+                            ${item.added ? `<p class="bynd-builtin-state${item.complete ? ' is-ok' : ''}">头像 ${item.status.gallery}/${item.status.galleryWanted} · 封面 ${item.status.cover ? '✓' : '缺'} · 参考图 ${item.status.reference ? '✓' : '缺'}${item.status.backgroundsWanted ? ` · 背景 ${item.status.backgrounds}/${item.status.backgroundsWanted}` : ''}${lastError(item.id) ? `<br>${escape(lastError(item.id))}` : ''}</p>` : ''}
                         </article>`).join('')}
                     ${items.length ? '' : '<p class="bynd-builtin-empty">内置角色文件没有加载，请刷新后重试。</p>'}
                     <p class="bynd-builtin-status" role="status">${escape(status)}</p>
@@ -357,5 +415,5 @@
         open();
         return true;
     }
-    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram, avatarOptions };
+    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram, avatarOptions, backgroundOptions };
 })();

@@ -9848,12 +9848,17 @@ function isWechatBackgroundApiPaused() {
 
 function consumeWechatAvatarDirective(char, content) {
     let changed = false;
+    let backgroundChanged = false;
     const text = String(content || '').replace(/\[换头像\s*[：:]\s*(\d+)\s*\]/g, (_, number) => {
         const avatar = char.avatarGallery?.[Number(number) - 1];
         if (avatar && char.avatar !== avatar) { char.avatar = avatar; changed = true; }
         return '';
+    }).replace(/\[换背景\s*[：:]\s*(\d+)\s*\]/g, (_, number) => {
+        const background = char.chatConfig?.chatBgGallery?.[Number(number) - 1];
+        if (background && char.chatConfig.chatBgImage !== background) { char.chatConfig.chatBgImage = background; changed = true; backgroundChanged = true; }
+        return '';
     }).trim();
-    return { content: text, changed };
+    return { content: text, changed, backgroundChanged };
 }
 
 async function triggerAiAfterMessage(char, contentEl, options = {}) {
@@ -9897,6 +9902,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             const first = char.history.slice(start).find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
             if (first && consumed.summary) first.thinkingSummary = consumed.summary;
             if (count > 0 && petResponse) window.ByndCharacterPet.applyChatReaction(char, petResponse.reaction, char.history.slice(start).filter(msg => !msg.isMe).map(msg => msg.content || msg.description || '').join('\n')).catch(() => {});
+            if (avatarAction.backgroundChanged && shouldTouchChatUi && typeof applyChatConfig === 'function') applyChatConfig(char);
             if ((consumed.summary || consumed.toolCount || avatarAction.changed) && shouldTouchChatUi) refreshChatView(char);
             // A tool-only response was handled; retrying it could repeat an action.
             return count + consumed.toolCount + (avatarAction.changed ? 1 : 0);
@@ -11768,7 +11774,7 @@ function parseWechatCallDecision(content) {
 
 function cleanWechatCallEndText(text) {
     return cleanWechatCallVisibleReply(text)
-        .replace(/\[换头像[：:]\d+\]/g, '')
+        .replace(/\[换(?:头像|背景)[：:]\d+\]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
@@ -12814,6 +12820,7 @@ function compactWechatChatConfigForLocal(config = {}) {
     const compact = { ...config };
     [
         'chatBgImage',
+        'chatBgGallery',
         'imageReference',
         'videoCallBg',
         'momentCovers',
@@ -18316,7 +18323,7 @@ function renderWechatUserPersonaLibrary(activeId = '') {
     const personas = getWechatUserPersonaLibrary();
     list.innerHTML = personas.length ? personas.map(item => `
         <button type="button" class="${item.id === activeId ? 'active' : ''}" onclick="applyWechatUserPersona(${quoteWechatJsString(item.id)})">
-            <strong>${wcEscapeHtml(item.name || '未命名人设')}</strong>
+            <strong>${wcEscapeHtml(item.title || item.name || '未命名人设')}${item.builtinId ? '<em class="wcs-persona-tag">内置</em>' : ''}</strong>
             <span>${wcEscapeHtml((item.bio || item.signature || '').slice(0, 42) || '点击套用到当前聊天')}</span>
         </button>
     `).join('') : '<div class="wcs-persona-empty">还没有保存过 user 人设</div>';
@@ -18362,7 +18369,7 @@ function applyWechatUserPersona(personaId) {
     const nameEl = document.getElementById('wcs-user-name');
     const bioEl = document.getElementById('wcs-user-bio');
     const signatureEl = document.getElementById('wcs-user-signature');
-    if (nameEl) nameEl.value = item.name || '我';
+    if (nameEl && item.name) nameEl.value = item.name;
     if (bioEl) bioEl.value = item.bio || '';
     if (signatureEl) signatureEl.value = item.signature || '';
     const char = getCurrentChatChar();
@@ -18370,7 +18377,7 @@ function applyWechatUserPersona(personaId) {
         char.chatConfig = char.chatConfig || {};
         char.chatConfig.userProfile = {
             ...(char.chatConfig.userProfile || {}),
-            name: item.name || '我',
+            name: item.name || char.chatConfig.userProfile?.name || getUserProfile().name || '我',
             bio: item.bio || '',
             signature: item.signature || '',
             personaId
@@ -18682,6 +18689,7 @@ function openChatSettings() {
 
     // 填充外观设置
     document.getElementById('wcs-bg-img-hint').textContent = config.chatBgImage ? '已设置' : '未设置';
+    renderWechatChatBgGallery(char);
 
     const fontSize = config.fontSize || 15;
     document.getElementById('wcs-font-size').value = fontSize;
@@ -18800,6 +18808,56 @@ function closeChatSettings(event) {
     }
 }
 
+// --- 聊天背景集：内置角色自带几张，用户上传的也进这里，char 可用 [换背景:序号] 切换 ---
+function renderWechatChatBgGallery(char) {
+    const box = document.getElementById('wcs-bg-gallery');
+    if (!box || !char) return;
+    const config = char.chatConfig || {};
+    const list = Array.isArray(config.chatBgGallery) ? config.chatBgGallery : [];
+    const pending = window._tempChatBgImage || '';
+    const current = pending || config.chatBgImage || '';
+    box.innerHTML = list.map((url, i) => `
+        <img class="wcs-bg-gallery-item ${url === current ? 'active' : ''}" src="${wcEscapeAttr(url)}" alt="聊天背景 ${i + 1}"
+             onclick="selectWechatChatBg(${i})" oncontextmenu="event.preventDefault();removeWechatChatBg(${i})">
+    `).join('') + (current && !list.includes(current) ? `<img class="wcs-bg-gallery-item active" src="${wcEscapeAttr(current)}" alt="当前背景">` : '');
+    box.style.display = box.innerHTML.trim() ? '' : 'none';
+    const clear = document.getElementById('wcs-bg-clear');
+    if (clear) clear.style.display = current ? '' : 'none';
+}
+
+function selectWechatChatBg(index) {
+    const char = getCurrentChatChar();
+    const list = char?.chatConfig?.chatBgGallery;
+    if (!char || !Array.isArray(list) || !list[index]) return;
+    window._tempChatBgImage = list[index];
+    document.getElementById('wcs-bg-img-hint').textContent = '已选择';
+    renderWechatChatBgGallery(char);
+}
+
+function removeWechatChatBg(index) {
+    const char = getCurrentChatChar();
+    const list = char?.chatConfig?.chatBgGallery;
+    if (!char || !Array.isArray(list) || !list[index]) return;
+    const removed = list.splice(index, 1)[0];
+    if (window._tempChatBgImage === removed) window._tempChatBgImage = null;
+    if (char.chatConfig.chatBgImage === removed) { char.chatConfig.chatBgImage = list[0] || ''; applyChatConfig(char); }
+    document.getElementById('wcs-bg-img-hint').textContent = (window._tempChatBgImage || char.chatConfig.chatBgImage) ? '已设置' : '未设置';
+    saveCharactersToStorage();
+    renderWechatChatBgGallery(char);
+}
+
+function clearWechatChatBg() {
+    const char = getCurrentChatChar();
+    if (!char) return;
+    char.chatConfig = char.chatConfig || {};
+    window._tempChatBgImage = null;
+    char.chatConfig.chatBgImage = '';
+    applyChatConfig(char);
+    saveCharactersToStorage();
+    document.getElementById('wcs-bg-img-hint').textContent = '未设置';
+    renderWechatChatBgGallery(char);
+}
+
 function uploadChatBgImage(input) {
     if (!input.files || !input.files[0]) return;
     const reader = new FileReader();
@@ -18817,6 +18875,13 @@ function uploadChatBgImage(input) {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             window._tempChatBgImage = canvas.toDataURL('image/jpeg', 0.9);
             document.getElementById('wcs-bg-img-hint').textContent = '已选择';
+            const char = getCurrentChatChar();
+            if (char) {
+                char.chatConfig = char.chatConfig || {};
+                if (!Array.isArray(char.chatConfig.chatBgGallery)) char.chatConfig.chatBgGallery = [];
+                if (!char.chatConfig.chatBgGallery.includes(window._tempChatBgImage)) char.chatConfig.chatBgGallery.push(window._tempChatBgImage);
+                renderWechatChatBgGallery(char);
+            }
         };
         img.src = e.target.result;
     };
@@ -19207,6 +19272,32 @@ function clearCurrentWechatChatHistory() {
     if (typeof showWechatToast === 'function') showWechatToast('已删除聊天记录、记忆和状态缓存');
 }
 
+// Sample the top band of the background so the floating back/more icons stay visible on dark images.
+function syncWechatChatBackgroundTone(roomEl, src) {
+    if (!roomEl || !src || typeof Image !== 'function') return;
+    const token = String(src).slice(0, 96) + String(src).length;
+    if (roomEl.dataset.chatBgToneToken === token) return;
+    roomEl.dataset.chatBgToneToken = token;
+    const image = new Image();
+    image.onload = () => {
+        if (roomEl.dataset.chatBgToneToken !== token) return;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 16; canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0, image.width, Math.max(1, Math.round(image.height * 0.18)), 0, 0, 16, 16);
+            const pixels = ctx.getImageData(0, 0, 16, 16).data;
+            let sum = 0;
+            for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114;
+            roomEl.classList.toggle('has-dark-chat-bg', sum / (pixels.length / 4) < 140);
+        } catch (_) {
+            roomEl.classList.add('has-dark-chat-bg');
+        }
+    };
+    image.onerror = () => { if (roomEl.dataset.chatBgToneToken === token) roomEl.classList.remove('has-dark-chat-bg'); };
+    image.src = src;
+}
+
 function applyChatConfig(char) {
     const config = char.chatConfig || {};
     const contentEl = document.getElementById('chat-room-content');
@@ -19214,8 +19305,10 @@ function applyChatConfig(char) {
     syncWechatQQGroupShortcutBar(char);
 
     // 背景
+    const roomEl = contentEl.closest ? contentEl.closest('.wc-chat-room') : null;
     if (config.chatBgImage) {
         contentEl.classList.add('has-custom-chat-bg');
+        if (roomEl) { roomEl.classList.add('has-custom-chat-bg'); syncWechatChatBackgroundTone(roomEl, config.chatBgImage); }
         contentEl.style.setProperty('--custom-chat-bg-image', `url(${config.chatBgImage})`);
         contentEl.style.backgroundImage = `url(${config.chatBgImage})`;
         contentEl.style.backgroundSize = 'cover';
@@ -19224,6 +19317,7 @@ function applyChatConfig(char) {
         contentEl.style.backgroundColor = '';
     } else {
         contentEl.classList.remove('has-custom-chat-bg');
+        if (roomEl) roomEl.classList.remove('has-custom-chat-bg', 'has-dark-chat-bg');
         contentEl.style.removeProperty('--custom-chat-bg-image');
         contentEl.style.backgroundImage = '';
         contentEl.style.backgroundSize = '';

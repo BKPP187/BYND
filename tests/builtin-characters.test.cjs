@@ -104,7 +104,9 @@ test('bundled alternate avatars land in the character gallery and a missing file
     let calls = 0;
     h.context.fetch = async url => { calls += 1; if (/alt\.jpg$/.test(url)) return { ok: true, blob: async () => ({ size: 10, type: 'image/jpeg' }) }; return { ok: true, blob: async () => ({ size: 10, type: 'image/png' }) }; };
     const char = await h.L.add('wenjinbei');
-    assert.equal(calls, 8, 'main avatar, five alternates, cover and reference are fetched');
+    assert.equal(calls, 9, 'main avatar, five alternates, cover, reference and one chat background are fetched');
+    assert.equal(char.chatConfig.chatBgImage, 'data:image/png;base64,QVZBVEFS', 'the first shipped background is the default chat background');
+    assert.equal(char.chatConfig.chatBgGallery.length, 1, 'shipped backgrounds land in the chat background gallery');
     assert.equal(char.coverImage, 'data:image/png;base64,QVZBVEFS');
     assert.equal(char.chatConfig.imageReference, 'data:image/png;base64,QVZBVEFS');
     assert.deepEqual(JSON.parse(JSON.stringify(char.avatarGallery)), ['data:image/png;base64,QVZBVEFS'], 'identical inline data is not duplicated');
@@ -115,7 +117,7 @@ test('bundled alternate avatars land in the character gallery and a missing file
     const one = await partial.L.add('wenjinbei');
     assert.equal(one.avatar, 'data:image/png;base64,MAIN');
     assert.equal(one.coverImage, '', 'a missing cover leaves the field empty');
-    assert.deepEqual(JSON.parse(JSON.stringify(one.chatConfig)), {});
+    assert.deepEqual(JSON.parse(JSON.stringify({ ...one.chatConfig, userProfile: undefined })), {}, 'no artwork keys are written when the files are missing');
     assert.deepEqual(JSON.parse(JSON.stringify(one.avatarGallery)), ['data:image/png;base64,MAIN'], 'a missing alternate never blocks adding');
     const plain = harness();
     let fetched = 0;
@@ -209,7 +211,7 @@ test('packaged files are read through XHR first so the Android file bundle works
     h.context.FileReader = class { readAsDataURL(blob) { this.result = 'data:' + blob.type + ';base64,X'; this.onload?.(); } };
     const char = await h.L.add('wenjinbei');
     assert.equal(fetched, 0, 'XHR served every file');
-    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['wenjinbei.jpg', 'wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg', 'wenjinbei-cover.jpg', 'wenjinbei-reference.jpg'].map(name => 'assets/characters/builtin/' + name));
+    assert.deepEqual(JSON.parse(JSON.stringify(requested)), ['wenjinbei.jpg', 'wenjinbei-alt.jpg', 'wenjinbei-alt-02.jpg', 'wenjinbei-alt-03.jpg', 'wenjinbei-alt-04.jpg', 'wenjinbei-alt-05.jpg', 'wenjinbei-cover.jpg', 'wenjinbei-reference.jpg', 'wenjinbei-bg-01.jpg'].map(name => 'assets/characters/builtin/' + name));
     assert.equal(char.avatar, 'data:image/jpeg;base64,X', 'a typeless file:// blob is typed from its extension');
     assert.equal(char.avatarGallery.length, 1, 'identical inline results collapse to one entry');
     assert.equal(char.coverImage, 'data:image/jpeg;base64,X');
@@ -276,7 +278,7 @@ test('the picker reports missing artwork per character and a manual repair surfa
     assert.equal(broken.state.saves, 1, 'builtinId was still written once');
 });
 
-test('repair strips retired card text and promotes the cover to the chat background', async () => {
+test('repair strips retired card text and installs the shipped chat background', async () => {
     const description = '【角色描述】\n温今北，男。\n关于用户本人的身份、外貌与经历，以聊天设置里用户自己填写的资料为准，不要替用户设定。\n\n【场景】\n都市。\n\n【对话样例】\n<START>\n{{user}}：你好\n{{char}}：嗯。';
     const old = { id: 'old', builtinId: 'wenjinbei', name: '温今北', description, avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R' } };
     const h = harness({ characters: [old] });
@@ -284,10 +286,37 @@ test('repair strips retired card text and promotes the cover to the chat backgro
     const result = await h.L.repair();
     assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['温今北']);
     assert.equal(old.description, '【角色描述】\n温今北，男。\n\n【场景】\n都市。');
-    assert.equal(old.chatConfig.chatBgImage, 'data:image/jpeg;base64,COVER');
+    assert.equal(old.chatConfig.chatBgGallery.length, 1, 'the shipped background is back-filled');
+    assert.equal(old.chatConfig.chatBgImage, old.chatConfig.chatBgGallery[0], 'the shipped background replaces the cover stand-in');
+    assert.notEqual(old.chatConfig.chatBgImage, 'data:image/jpeg;base64,COVER');
     const kept = { id: 'kept', builtinId: 'wenjinbei', name: '温今北', description: '【角色描述】\n温今北，男。', avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R', chatBgImage: 'data:image/png;base64,MINE' } };
     const k = harness({ characters: [kept] });
     vm.runInContext(artworkSource, k.context);
     await k.L.repair();
     assert.equal(kept.chatConfig.chatBgImage, 'data:image/png;base64,MINE', 'a background the user picked is never replaced');
+});
+
+test('adding a built-in character seeds its user persona once and applies it only to an untouched chat', async () => {
+    const h = harness();
+    const char = await h.L.add('wenjinbei');
+    const personas = JSON.parse(h.context.localStorage.getItem('wechat_user_persona_library_v1'));
+    assert.equal(personas.length, 1);
+    assert.equal(personas[0].id, 'persona_builtin_wenjinbei');
+    assert.equal(personas[0].builtinId, 'wenjinbei');
+    assert.match(personas[0].bio, /演员/);
+    assert.equal(personas[0].name, '', 'the user keeps their own name');
+    assert.equal(char.chatConfig.userProfile.personaId, 'persona_builtin_wenjinbei');
+    assert.match(char.chatConfig.userProfile.bio, /温今北名义上的妹妹/);
+    await h.L.add('shanghuan');
+    const again = JSON.parse(h.context.localStorage.getItem('wechat_user_persona_library_v1'));
+    assert.deepEqual(JSON.parse(JSON.stringify(again.map(p => p.id))), ['persona_builtin_wenjinbei', 'persona_builtin_shanghuan']);
+    const mine = { id: 'mine', builtinId: 'shanghuan', name: '商桓', description: '【角色描述】商桓', avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R', userProfile: { name: '上官落', bio: '猎人' } } };
+    const k = harness({ characters: [mine] });
+    vm.runInContext(artworkSource, k.context);
+    await k.L.repair();
+    assert.equal(mine.chatConfig.userProfile.bio, '猎人', 'a bio the user wrote is never overwritten');
+    assert.equal(mine.chatConfig.userProfile.personaId, undefined);
+    assert.equal(JSON.parse(k.context.localStorage.getItem('wechat_user_persona_library_v1')).length, 1, 'the persona is still offered in the library');
+    assert.equal(mine.chatConfig.chatBgGallery.length, 2, '商桓 ships two chat backgrounds');
+    assert.match(k.L.backgroundOptions(mine).join(';'), /1：正装商桓（当前）;2：居家商桓/);
 });
