@@ -81,7 +81,7 @@ test('the bundled library ships two complete original characters', () => {
     for (const item of list) {
         assert.match(item.description, /【角色描述】/);
         assert.match(item.description, /【性格】/);
-        assert.match(item.description, /【对话样例】/);
+        assert.doesNotMatch(item.description, /【对话样例】|<START>/, `${item.name}: no scripted dialogue samples`);
         assert.ok(item.first_mes.length > 40, `${item.name} needs an opening`);
         assert.ok(item.alternates.length >= 1);
         assert.ok(item.worldBook.length >= 3 && item.worldBook.every(entry => entry.name && entry.content));
@@ -91,7 +91,7 @@ test('the bundled library ships two complete original characters', () => {
     assert.match(list[1].description, /法医/);
     for (const item of list) {
         assert.doesNotMatch(item.description + JSON.stringify(item.worldBook), /演员|片场|毕业|十五岁|当红/, `${item.name}: user identity must stay out of the character card`);
-        assert.match(item.description, /以聊天设置里用户自己填写的资料为准/);
+        assert.doesNotMatch(item.description, /以聊天设置里用户自己填写的资料为准/, `${item.name}: the user-identity rule lives in the prompt, not the card`);
         assert.equal(item.cover, `assets/characters/builtin/${item.id}-cover.jpg`);
         assert.equal(item.reference, `assets/characters/builtin/${item.id}-reference.jpg`);
     }
@@ -274,4 +274,20 @@ test('the picker reports missing artwork per character and a manual repair surfa
     await broken.L.fix('shanghuan');
     assert.match(broken.nodes.get('bynd-builtin-library').innerHTML, /有素材没能读取：备用头像：HTTP 404/);
     assert.equal(broken.state.saves, 1, 'builtinId was still written once');
+});
+
+test('repair strips retired card text and promotes the cover to the chat background', async () => {
+    const description = '【角色描述】\n温今北，男。\n关于用户本人的身份、外貌与经历，以聊天设置里用户自己填写的资料为准，不要替用户设定。\n\n【场景】\n都市。\n\n【对话样例】\n<START>\n{{user}}：你好\n{{char}}：嗯。';
+    const old = { id: 'old', builtinId: 'wenjinbei', name: '温今北', description, avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R' } };
+    const h = harness({ characters: [old] });
+    vm.runInContext(artworkSource, h.context);
+    const result = await h.L.repair();
+    assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['温今北']);
+    assert.equal(old.description, '【角色描述】\n温今北，男。\n\n【场景】\n都市。');
+    assert.equal(old.chatConfig.chatBgImage, 'data:image/jpeg;base64,COVER');
+    const kept = { id: 'kept', builtinId: 'wenjinbei', name: '温今北', description: '【角色描述】\n温今北，男。', avatar: 'data:image/png;base64,A', avatarGallery: ['data:image/png;base64,A'], coverImage: 'data:image/jpeg;base64,COVER', chatConfig: { imageReference: 'data:image/png;base64,R', chatBgImage: 'data:image/png;base64,MINE' } };
+    const k = harness({ characters: [kept] });
+    vm.runInContext(artworkSource, k.context);
+    await k.L.repair();
+    assert.equal(kept.chatConfig.chatBgImage, 'data:image/png;base64,MINE', 'a background the user picked is never replaced');
 });

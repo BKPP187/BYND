@@ -34,11 +34,22 @@
             cover: inline(char?.coverImage),
             coverWanted: !!item.cover,
             reference: inline(char?.chatConfig?.imageReference),
-            referenceWanted: !!item.reference
+            referenceWanted: !!item.reference,
+            background: inline(char?.chatConfig?.chatBgImage)
         };
     }
     function complete(status) {
-        return status.gallery >= status.galleryWanted && (!status.coverWanted || status.cover) && (!status.referenceWanted || status.reference);
+        return status.gallery >= status.galleryWanted && (!status.coverWanted || status.cover) && (!status.referenceWanted || status.reference) && (!status.coverWanted || status.background);
+    }
+    // Text that used to live in the shipped cards and has since been removed from the library; stripped from added copies too.
+    const RETIRED_CARD_TEXT = [
+        /\r?\n?关于用户本人的身份、外貌与经历，以聊天设置里用户自己填写的资料为准，不要替用户设定。/g,
+        /(?:\r?\n)*\r?\n【对话样例】\r?\n<START>[\s\S]*?(?=\r?\n【|$)/g
+    ];
+    function cleanDescription(text) {
+        let out = String(text || '');
+        RETIRED_CARD_TEXT.forEach(pattern => { out = out.replace(pattern, ''); });
+        return out.replace(/\s+$/, '');
     }
     function findAdded(id) {
         const item = library().find(entry => entry.id === id);
@@ -127,7 +138,10 @@
             first_mes_original: item.first_mes || '',
             currentGreetingIndex: 0,
             first_mes: item.first_mes || '',
-            chatConfig: extras.reference ? { imageReference: extras.reference } : {},
+            chatConfig: {
+                ...(extras.reference ? { imageReference: extras.reference } : {}),
+                ...(extras.cover ? { chatBgImage: extras.cover } : {})
+            },
             history: []
         };
     }
@@ -176,6 +190,8 @@
             catch (error) { errors.push(`${label}：${error && error.message ? error.message : error}`); }
         };
         if (!char.builtinId) { char.builtinId = item.id; changed = true; }
+        const cleaned = cleanDescription(char.description);
+        if (cleaned !== String(char.description || '')) { char.description = cleaned; changed = true; }
         const paths = [item.avatar, ...(Array.isArray(item.avatars) ? item.avatars : [])].filter(Boolean);
         const gallery = (Array.isArray(char.avatarGallery) ? char.avatarGallery : []).filter(entry => !paths.includes(entry));
         if (gallery.length !== (Array.isArray(char.avatarGallery) ? char.avatarGallery.length : 0)) changed = true;
@@ -195,6 +211,8 @@
         if (status.coverWanted && !status.cover) await attempt('世界书封面', item.cover, data => { char.coverImage = data; });
         char.chatConfig = char.chatConfig || {};
         if (status.referenceWanted && !status.reference) await attempt('自画像参考图', item.reference, data => { char.chatConfig.imageReference = data; });
+        // The shipped cover doubles as the default chat background; a background the user picked is kept.
+        if (status.coverWanted && !status.background && inline(char.coverImage)) { char.chatConfig.chatBgImage = char.coverImage; changed = true; }
         if (errors.length) repairErrors.set(item.id, errors.join('；')); else repairErrors.delete(item.id);
         return { changed, errors };
     }
@@ -207,7 +225,7 @@
             if (onlyId && item.id !== onlyId) continue;
             const char = findAdded(item.id);
             if (!char) continue;
-            const keys = ['builtinId', 'avatar', 'avatarGallery', 'coverImage', 'chatConfig'];
+            const keys = ['builtinId', 'avatar', 'avatarGallery', 'coverImage', 'chatConfig', 'description'];
             snapshots.push({ char, values: Object.fromEntries(keys.map(key => [key, char[key]])) });
             char.chatConfig = { ...(char.chatConfig || {}) };
             const result = await repairOne(item, char);

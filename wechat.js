@@ -20314,7 +20314,8 @@ function buildWechatIdentityContextPrompt(char, userProfile = null) {
         `- 用户名字：${userName}`,
         `- 角色对用户的称呼/备注：${userTitle}`,
         profile && profile.bio ? `- 用户简介：${stripWechatPromptText(profile.bio, 260)}` : '',
-        profile && profile.signature ? `- 用户个性签名/当前人设：${stripWechatPromptText(profile.signature, 260)}` : ''
+        profile && profile.signature ? `- 用户个性签名/当前人设：${stripWechatPromptText(profile.signature, 260)}` : '',
+        '- 用户本人的身份、外貌与经历以上面用户自己填写的资料为准；角色卡里没写的用户信息不要替用户设定'
     ].filter(Boolean);
     return `【身份与称呼上下文】\n${rows.join('\n')}`;
 }
