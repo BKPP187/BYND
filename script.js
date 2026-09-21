@@ -187,6 +187,8 @@ function openApp(appName) {
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10);
             if (typeof renderChatList === 'function') renderChatList(); 
+            // Built-in characters added before their artwork shipped get it filled in here too.
+            setTimeout(() => { try { window.ByndBuiltinLibrary?.repair?.().then(result => { if (result && result.repaired.length && typeof renderChatList === 'function') renderChatList(); }); } catch (_) {} }, 300);
         }
     } 
     // 3. 📖 世界书 App (新增)

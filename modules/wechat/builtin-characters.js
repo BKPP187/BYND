@@ -8,13 +8,37 @@
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="100" fill="${accent || '#2b2b2b'}"/><text x="100" y="120" text-anchor="middle" font-family="serif" font-size="88" font-weight="700" fill="#fff">${escape(Array.from(String(name || '')).slice(0, 1).join(''))}</text></svg>`
     );
     function list() {
-        return library().map(item => ({ ...item, added: isAdded(item.id) }));
+        return library().map(item => {
+            const char = findAdded(item.id);
+            const status = char ? artwork(item, char) : null;
+            return { ...item, added: !!char, status, complete: status ? complete(status) : false };
+        });
     }
-    // Characters added before builtinId was persisted are recognised by their untouched card header.
+    // Characters added before builtinId was persisted are recognised by name plus a signature phrase of the card,
+    // so an edited description still matches while a user's own character of the same name does not.
     function matches(item, char) {
-        if (!char || !item) return false;
+        if (!char || !item || char.isGroupChat) return false;
         if (char.builtinId) return char.builtinId === item.id;
-        return char.name === item.name && String(char.description || '').startsWith('【角色描述】') && String(char.description || '').includes(item.name);
+        if (char.name !== item.name) return false;
+        const text = String(char.description || '');
+        return text.startsWith('【角色描述】') || (Array.isArray(item.signature) && item.signature.some(phrase => phrase && text.includes(phrase)));
+    }
+    const inline = value => /^data:image\//i.test(String(value || ''));
+    // What is still missing for an added character; drives the picker status and the repair.
+    function artwork(item, char) {
+        const gallery = Array.isArray(char?.avatarGallery) ? char.avatarGallery : [];
+        const wanted = 1 + (Array.isArray(item.avatars) ? item.avatars.length : 0);
+        return {
+            gallery: gallery.filter(inline).length,
+            galleryWanted: wanted,
+            cover: inline(char?.coverImage),
+            coverWanted: !!item.cover,
+            reference: inline(char?.chatConfig?.imageReference),
+            referenceWanted: !!item.reference
+        };
+    }
+    function complete(status) {
+        return status.gallery >= status.galleryWanted && (!status.coverWanted || status.cover) && (!status.referenceWanted || status.reference);
     }
     function findAdded(id) {
         const item = library().find(entry => entry.id === id);
@@ -140,48 +164,53 @@
         return char;
     }
     // Fill artwork that an earlier add could not read (file:// fetch, offline); never touch what the user changed.
-    async function repair() {
-        if (!ready()) return { repaired: [] };
-        const repaired = [];
-        for (const item of library()) {
-            const char = roster().find(entry => matches(item, entry));
-            if (!char) continue;
-            let changed = false;
-            if (!char.builtinId) { char.builtinId = item.id; changed = true; }
-            const gallery = Array.isArray(char.avatarGallery) ? char.avatarGallery : [];
-            const main = char.avatar || '';
-            if (!/^data:image\//i.test(main) || !gallery.includes(main)) {
-                try {
-                    const inline = /^data:image\//i.test(main) ? main : await readDataUrl(item.avatar);
-                    if (main && main !== inline && !/^data:image\//i.test(main)) { char.avatar = inline; changed = true; }
-                    if (!gallery.includes(inline)) { gallery.unshift(inline); changed = true; }
-                } catch (_) {}
-            }
-            const wanted = Array.isArray(item.avatars) ? item.avatars.length : 0;
-            if (wanted && gallery.length < 1 + wanted) {
-                for (const url of item.avatars) {
-                    try {
-                        const inline = await readDataUrl(url);
-                        if (!gallery.includes(inline)) { gallery.push(inline); changed = true; }
-                    } catch (_) {}
-                }
-            }
-            if (changed) char.avatarGallery = gallery;
-            if (!char.coverImage && item.cover) {
-                try { char.coverImage = await readDataUrl(item.cover); changed = true; } catch (_) {}
-            }
-            char.chatConfig = char.chatConfig || {};
-            if (!char.chatConfig.imageReference && item.reference) {
-                try { char.chatConfig.imageReference = await readDataUrl(item.reference); changed = true; } catch (_) {}
-            }
-            if (changed) repaired.push(char.name);
+    const repairErrors = new Map();
+    async function repairOne(item, char) {
+        let changed = false;
+        const errors = [];
+        const attempt = async (label, url, apply) => {
+            try { apply(await readDataUrl(url)); changed = true; }
+            catch (error) { errors.push(`${label}：${error && error.message ? error.message : error}`); }
+        };
+        if (!char.builtinId) { char.builtinId = item.id; changed = true; }
+        const paths = [item.avatar, ...(Array.isArray(item.avatars) ? item.avatars : [])].filter(Boolean);
+        const gallery = (Array.isArray(char.avatarGallery) ? char.avatarGallery : []).filter(entry => !paths.includes(entry));
+        if (gallery.length !== (Array.isArray(char.avatarGallery) ? char.avatarGallery.length : 0)) changed = true;
+        if (!inline(char.avatar)) await attempt('主头像', item.avatar, data => { char.avatar = data; });
+        if (inline(char.avatar) && !gallery.includes(char.avatar)) { gallery.unshift(char.avatar); changed = true; }
+        const status = artwork(item, char);
+        if (status.gallery < status.galleryWanted) {
+            for (const url of item.avatars || []) await attempt('备用头像', url, data => { if (!gallery.includes(data)) gallery.push(data); });
         }
+        char.avatarGallery = gallery;
+        if (status.coverWanted && !status.cover) await attempt('世界书封面', item.cover, data => { char.coverImage = data; });
+        char.chatConfig = char.chatConfig || {};
+        if (status.referenceWanted && !status.reference) await attempt('自画像参考图', item.reference, data => { char.chatConfig.imageReference = data; });
+        if (errors.length) repairErrors.set(item.id, errors.join('；')); else repairErrors.delete(item.id);
+        return { changed, errors };
+    }
+    async function repair(onlyId = '') {
+        if (!ready()) return { repaired: [], errors: {} };
+        const repaired = [];
+        const errors = {};
+        for (const item of library()) {
+            if (onlyId && item.id !== onlyId) continue;
+            const char = findAdded(item.id);
+            if (!char) continue;
+            const result = await repairOne(item, char);
+            if (result.changed) repaired.push(char.name);
+            if (result.errors.length) errors[item.id] = result.errors;
+        }
+        let saved = true;
         if (repaired.length) {
-            let saved = true;
             try { saved = typeof saveCharactersToStorage === 'function' ? await saveCharactersToStorage() : true; } catch (_) { saved = false; }
             if (saved === false) console.warn('内置角色素材已补齐，但角色数据未能保存');
         }
-        return { repaired };
+        console.info('内置角色素材检查', { repaired, errors, saved });
+        return { repaired, errors, saved };
+    }
+    function lastError(id) {
+        return repairErrors.get(id) || '';
     }
     function open() {
         if (typeof document === 'undefined') return;
@@ -194,6 +223,7 @@
         root.appendChild(overlay);
         render();
         try { localStorage.setItem(PROMPTED_KEY, '1'); } catch (_) {}
+        if (roster().length && !repairing) { repairing = true; repair().then(() => { repairing = false; render(); }, () => { repairing = false; render(); }); }
     }
     function close() {
         document.getElementById('bynd-builtin-library')?.remove();
@@ -215,7 +245,8 @@
                                 <p>${escape(item.tagline)}</p>
                                 <div class="bynd-builtin-tags">${(item.tags || []).map(tag => `<span>${escape(tag)}</span>`).join('')}</div>
                             </div>
-                            <button type="button" ${item.added ? 'disabled' : ''} onclick="ByndBuiltinLibrary.pick('${escape(item.id)}')">${item.added ? '已添加' : '添加'}</button>
+                            ${item.added ? `<button type="button" class="is-repair" ${item.complete ? 'disabled' : ''} onclick="ByndBuiltinLibrary.fix('${escape(item.id)}')">${item.complete ? '已添加' : '补齐素材'}</button>` : `<button type="button" onclick="ByndBuiltinLibrary.pick('${escape(item.id)}')">添加</button>`}
+                            ${item.added ? `<p class="bynd-builtin-state${item.complete ? ' is-ok' : ''}">头像 ${item.status.gallery}/${item.status.galleryWanted} · 封面 ${item.status.cover ? '✓' : '缺'} · 参考图 ${item.status.reference ? '✓' : '缺'}${lastError(item.id) ? `<br>${escape(lastError(item.id))}` : ''}</p>` : ''}
                         </article>`).join('')}
                     ${items.length ? '' : '<p class="bynd-builtin-empty">内置角色文件没有加载，请刷新后重试。</p>'}
                     <p class="bynd-builtin-status" role="status">${escape(status)}</p>
@@ -226,6 +257,7 @@
             </div>`;
     }
     let busy = false;
+    let repairing = false;
     async function pick(id) {
         if (busy) return;
         busy = true;
@@ -236,6 +268,18 @@
             if (typeof showWechatToast === 'function') showWechatToast(`已添加 ${char.name}`);
         } catch (error) {
             render(error.message || '添加失败，请重试。');
+        } finally {
+            busy = false;
+        }
+    }
+    async function fix(id) {
+        if (busy) return;
+        busy = true;
+        render('正在补齐素材…');
+        try {
+            const result = await repair(id);
+            const failed = result.errors[id];
+            render(failed ? `有素材没能读取：${failed.join('；')}` : result.saved === false ? '素材已补齐，但角色数据没有保存成功。' : (result.repaired.length ? '素材已补齐。' : '素材本来就是完整的。'));
         } finally {
             busy = false;
         }
@@ -262,5 +306,5 @@
         open();
         return true;
     }
-    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, maybePrompt, repair, monogram };
+    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram };
 })();

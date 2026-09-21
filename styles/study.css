@@ -192,14 +192,17 @@
 .bynd-builtin-card { display: flex; flex-direction: column; max-height: 82%; }
 .bynd-builtin-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
 .bynd-builtin-intro { margin: 0; color: #6b7280; font-size: 12px; line-height: 1.6; }
-.bynd-builtin-item { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: 18px; background: #f7f8fa; }
+.bynd-builtin-item { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 12px; border-radius: 18px; background: #f7f8fa; }
 .bynd-builtin-item img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #e9ecf2; }
 .bynd-builtin-item strong { display: block; font-size: 15px; color: #14171d; }
 .bynd-builtin-item p { margin: 3px 0 6px; color: #5d6470; font-size: 12px; line-height: 1.5; }
 .bynd-builtin-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .bynd-builtin-tags span { padding: 2px 7px; border-radius: 999px; background: #fff; color: #6b7280; font-size: 10px; font-weight: 800; }
 .bynd-builtin-item button { border: none; border-radius: 12px; min-height: 36px; padding: 0 14px; background: #14171d; color: #fff; font-size: 12px; font-weight: 850; white-space: nowrap; }
-.bynd-builtin-item.is-added button { background: #e9ecf2; color: #8a919c; }
+.bynd-builtin-item.is-added button:disabled { background: #e9ecf2; color: #8a919c; }
+.bynd-builtin-item button.is-repair:not(:disabled) { background: #b45309; }
+.bynd-builtin-state { grid-column: 2 / -1; margin: 0; color: #b45309; font-size: 11px; line-height: 1.5; }
+.bynd-builtin-state.is-ok { color: #1f8a4c; }
 .bynd-builtin-empty, .bynd-builtin-status { margin: 0; color: #6b7280; font-size: 12px; line-height: 1.5; min-height: 18px; }
 .bynd-builtin-footer .btn-confirm:disabled { background: #d7dbe2; }
 .wc-plus-menu button.is-builtin i { color: #ffd166; }

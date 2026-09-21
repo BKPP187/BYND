@@ -18,7 +18,7 @@ function harness({ characters = [], ready = 'ready', fetchOk = true, saveResult 
     };
     const wechatWindow = makeNode();
     const context = vm.createContext({
-        console: { warn() {}, log() {}, error() {} },
+        console: { warn() {}, log() {}, error() {}, info() {} },
         localStorage: storage,
         window: { myCharacters: characters, _wechatCharactersStorageState: { status: ready } },
         document: { getElementById: id => id === 'app-wechat-window' ? wechatWindow : nodes.get(id) || null, createElement: () => makeNode(), body: makeNode() },
@@ -138,14 +138,22 @@ test('the first launch prompt opens once for an empty roster and never for exist
 
 test('the picker marks added characters and adds the rest in one go', async () => {
     const h = harness({ characters: [{ id: 'x', name: '温今北', builtinId: 'wenjinbei' }] });
+    let reads = 0;
+    h.context.FileReader = class { readAsDataURL() { reads += 1; this.result = 'data:image/jpeg;base64,IMG' + reads; this.onload?.(); } };
     h.L.open();
     const overlay = h.nodes.get('bynd-builtin-library');
-    assert.match(overlay.innerHTML, /is-added[\s\S]*已添加/);
-    await h.L.pickAll();
+    assert.match(overlay.innerHTML, /is-added[\s\S]*补齐素材/, 'an added character without artwork offers a repair');
+    const adding = h.L.pickAll();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    await adding;
+    for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
+    const finalHtml = h.nodes.get('bynd-builtin-library').innerHTML;
+    assert.doesNotMatch(finalHtml, /补齐素材/, 'the background repair completed and the add was not blocked by it');
+    assert.equal((finalHtml.match(/头像 2\/2 · 封面 ✓ · 参考图 ✓/g) || []).length, 2);
     assert.equal(h.characters.length, 2);
     assert.equal(h.characters[1].builtinId, 'shanghuan');
-    assert.match(h.nodes.get('bynd-builtin-library').innerHTML, /已添加 商桓/);
-    assert.deepEqual(h.state.toasts, ['已添加 商桓']);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.state.toasts)), ['已添加 商桓'], 'the add itself reported success; the later repair re-render replaced the status line');
     await h.L.pickAll();
     assert.match(h.nodes.get('bynd-builtin-library').innerHTML, /没有需要添加的角色/);
 });
@@ -180,6 +188,11 @@ test('repair fills missing gallery, cover and reference for characters added ear
     let n = 0;
     h.context.FileReader = class { readAsDataURL() { n += 1; this.result = 'data:image/jpeg;base64,FILE' + n; this.onload?.(); } };
     assert.equal(h.L.isAdded('shanghuan'), true, 'a legacy add without builtinId is still recognised by its card header');
+    legacy.description = '我改过的描述：他是法医，也是我的前男友。';
+    assert.equal(h.L.isAdded('shanghuan'), true, 'an edited description still matches through the signature phrase');
+    legacy.description = '完全无关的描述';
+    assert.equal(h.L.isAdded('shanghuan'), false, 'without name and signature the character is not claimed');
+    legacy.description = '【角色描述】\n商桓，男，28 岁……';
     assert.equal(h.L.isAdded('wenjinbei'), false);
     const result = await h.L.repair();
     assert.deepEqual(JSON.parse(JSON.stringify(result.repaired)), ['商桓']);
@@ -197,4 +210,28 @@ test('repair fills missing gallery, cover and reference for characters added ear
     assert.equal(h.state.saves, 1);
     const existing = await h.L.add('shanghuan');
     assert.equal(existing, legacy, 'adding again returns the repaired legacy character instead of a duplicate');
+});
+
+test('the picker reports missing artwork per character and a manual repair surfaces the read error', async () => {
+    const legacy = { id: 'old', name: '温今北', description: '【角色描述】\n温今北', avatar: 'data:image/png;base64,MAIN', avatarGallery: ['data:image/png;base64,MAIN'], chatConfig: {}, history: [] };
+    const h = harness({ characters: [legacy] });
+    h.L.open();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    const overlay = () => h.nodes.get('bynd-builtin-library').innerHTML;
+    assert.match(overlay(), /头像 2\/2 · 封面 ✓ · 参考图 ✓/, 'opening the picker repairs a reachable character first');
+    assert.equal(legacy.avatarGallery.length, 2);
+    const broken = harness({ characters: [{ id: 'old2', name: '商桓', description: '【角色描述】\n商桓', avatar: 'data:image/png;base64,MAIN', avatarGallery: ['data:image/png;base64,MAIN'], chatConfig: {}, history: [] }] });
+    broken.context.fetch = async () => ({ ok: false, status: 404 });
+    broken.context.XMLHttpRequest = class { open() {} send() { this.status = 404; this.onload?.(); } };
+    broken.L.open();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    const html = broken.nodes.get('bynd-builtin-library').innerHTML;
+    assert.match(html, /头像 1\/2 · 封面 缺 · 参考图 缺/);
+    assert.match(html, /备用头像：HTTP 404/);
+    assert.match(html, /补齐素材/);
+    await broken.L.fix('shanghuan');
+    assert.match(broken.nodes.get('bynd-builtin-library').innerHTML, /有素材没能读取：备用头像：HTTP 404/);
+    assert.equal(broken.state.saves, 1, 'builtinId was still written once');
 });
