@@ -271,3 +271,25 @@ test('built-in identity and the world-book cover survive a save and reload', asy
     assert.equal(compact.builtinId, 'wenjinbei', 'the compact index keeps the identity so the library never offers a duplicate');
     assert.equal(compact.coverImage, undefined, 'large artwork stays out of the compact index');
 });
+
+test('character voice bindings persist only provider and voice references, never credentials', async () => {
+    const h = storageHarness({ local: [] });
+    await h.context.loadCharactersFromStorage();
+    h.context.window.myCharacters = [{
+        id: 'voice-role', name: '有声角色', history: [],
+        chatConfig: {
+            nickname: '保留备注',
+            voiceBinding: {
+                provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral',
+                apiKey: 'must-not-leak', baseUrl: 'https://secret.example', authorization: 'Bearer secret'
+            }
+        }
+    }];
+    assert.equal(await h.context.saveCharactersToStorage(), true);
+    const stored = h.state.record.characters[0];
+    assert.deepEqual(clone(stored.chatConfig.voiceBinding), {
+        provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral'
+    });
+    assert.equal(JSON.stringify(stored).includes('must-not-leak'), false);
+    assert.equal(stored.chatConfig.nickname, '保留备注');
+});

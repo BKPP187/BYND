@@ -17,6 +17,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -34,6 +36,8 @@ import android.webkit.WebViewClient;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.Locale;
+import java.util.Set;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
@@ -54,6 +58,8 @@ public class MainActivity extends Activity {
     private int captureHeight;
     private int captureDensity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private TextToSpeech systemTts;
+    private volatile boolean systemTtsReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +68,7 @@ public class MainActivity extends Activity {
         configureSystemBars();
 
         projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        initializeSystemTts();
         webView = new WebView(this);
         setContentView(webView);
         configureWebView(webView);
@@ -157,6 +164,61 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+    }
+
+    private void initializeSystemTts() {
+        systemTts = new TextToSpeech(getApplicationContext(), status -> {
+            systemTtsReady = status == TextToSpeech.SUCCESS;
+        });
+    }
+
+    private String buildTtsResult(String status, String message) {
+        JSONObject result = new JSONObject();
+        try {
+            result.put("status", status);
+            result.put("message", message == null ? "" : message);
+        } catch (Exception ignored) {}
+        return result.toString();
+    }
+
+    private String requestSystemSpeech(String text, String languageTag, double requestedRate) {
+        final TextToSpeech tts = systemTts;
+        if (!systemTtsReady || tts == null) return buildTtsResult("not-ready", "TTS is initializing");
+        final String content = text == null ? "" : text.trim();
+        if (content.isEmpty()) return buildTtsResult("empty", "Text is empty");
+        final Locale locale = languageTag == null || languageTag.trim().isEmpty()
+                ? Locale.getDefault()
+                : Locale.forLanguageTag(languageTag.trim());
+        final int support = tts.isLanguageAvailable(locale);
+        if (support == TextToSpeech.LANG_MISSING_DATA) {
+            return buildTtsResult("missing-data", "Language voice data is not installed");
+        }
+        if (support == TextToSpeech.LANG_NOT_SUPPORTED || support == TextToSpeech.ERROR) {
+            return buildTtsResult("not-supported", "Language is not supported by the installed TTS engine");
+        }
+        final float rate = (float) Math.max(0.5, Math.min(2.0, requestedRate));
+        mainHandler.post(() -> {
+            Voice selected = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Set<Voice> voices = tts.getVoices();
+                if (voices != null) {
+                    for (Voice candidate : voices) {
+                        Locale candidateLocale = candidate.getLocale();
+                        if (candidateLocale == null || !candidateLocale.getLanguage().equalsIgnoreCase(locale.getLanguage())) continue;
+                        if (!candidate.isNetworkConnectionRequired()) {
+                            selected = candidate;
+                            break;
+                        }
+                        if (selected == null) selected = candidate;
+                    }
+                }
+            }
+            if (selected != null) tts.setVoice(selected);
+            else tts.setLanguage(locale);
+            tts.setSpeechRate(rate);
+            tts.speak(content, TextToSpeech.QUEUE_FLUSH, null, "bynd-study-" + System.currentTimeMillis());
+        });
+        return buildTtsResult("queued", "");
     }
 
     private void requestScreenCapture() {
@@ -288,6 +350,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         stopProjection();
+        systemTtsReady = false;
+        if (systemTts != null) {
+            systemTts.stop();
+            systemTts.shutdown();
+            systemTts = null;
+        }
         pendingPngBytes = null;
         pendingPngId = null;
         if (webView != null) {
@@ -371,6 +439,17 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String captureScreenFrame() {
             return captureFrameDataUrl();
+        }
+
+        @JavascriptInterface
+        public String speakText(String text, String languageTag, double rate) {
+            return requestSystemSpeech(text, languageTag, rate);
+        }
+
+        @JavascriptInterface
+        public void stopTts() {
+            final TextToSpeech tts = systemTts;
+            if (tts != null) mainHandler.post(tts::stop);
         }
     }
 }

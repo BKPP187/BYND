@@ -1576,12 +1576,63 @@ async function requestLocalVoiceAudio(text, apiConfig) {
 async function requestDefaultVoiceAudio(text) {
     const api = getDefaultVoiceApi();
     if (!api) throw new Error('还没有配置可用的语音 API');
+    return requestVoiceAudioWithConfig(text, api);
+}
+
+function normalizeCharacterVoiceBinding(binding) {
+    const source = binding && typeof binding === 'object' ? binding : {};
+    const provider = ['minimax', 'openai', 'fish-audio', 'elevenlabs', 'local'].includes(source.provider)
+        ? source.provider
+        : '';
+    if (!provider) return null;
+    return {
+        provider,
+        voiceModel: String(source.voiceModel || source.model || '').trim().slice(0, 160),
+        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240)
+    };
+}
+
+function getCharacterVoiceBinding(char) {
+    return normalizeCharacterVoiceBinding(char?.chatConfig?.voiceBinding);
+}
+
+function getVoiceApiByProvider(provider) {
+    const data = getApiData();
+    if (provider === 'minimax') return normalizeVoiceApiData(data.voiceApi);
+    if (provider === 'openai') return normalizeOpenAiVoiceApiData(data.openAiVoiceApi);
+    if (provider === 'fish-audio') return normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi);
+    if (provider === 'elevenlabs') return normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi);
+    if (provider === 'local') return normalizeLocalVoiceApiData(data.localVoiceApi);
+    return null;
+}
+
+function getCharacterVoiceApi(char) {
+    const binding = getCharacterVoiceBinding(char);
+    if (!binding) return null;
+    const savedApi = getVoiceApiByProvider(binding.provider);
+    if (!savedApi) return null;
+    const api = { ...savedApi, provider: binding.provider };
+    if (binding.voiceModel) api.voiceModel = binding.voiceModel;
+    if (binding.voiceId) api.voiceId = binding.voiceId;
+    return api;
+}
+
+async function requestVoiceAudioWithConfig(text, api) {
+    if (!api) throw new Error('还没有配置可用的语音 API');
     const provider = api.provider || api.voiceProvider;
     if (provider === 'local') return requestLocalVoiceAudio(text, api);
     if (provider === 'openai') return requestOpenAiVoiceAudio(text, api);
     if (provider === 'fish-audio') return requestFishAudioVoiceAudio(text, api);
     if (provider === 'elevenlabs') return requestElevenLabsVoiceAudio(text, api);
     return requestMiniMaxVoiceAudio(text, api);
+}
+
+async function requestCharacterVoiceAudio(text, char) {
+    const binding = getCharacterVoiceBinding(char);
+    if (!binding) throw new Error('这个角色还没有绑定付费音色');
+    const api = getCharacterVoiceApi(char);
+    if (!api) throw new Error('请先在设置 → TTS 配置对应的语音服务');
+    return requestVoiceAudioWithConfig(text, api);
 }
 
 function estimateTextAudioDuration(text) {
@@ -2463,7 +2514,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.638';
+const APP_VERSION = 'v1.1.639';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';

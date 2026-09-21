@@ -391,21 +391,89 @@
     }
 
     // ---------- voice ----------
+    let activeVoiceAudio = null;
+
     function canSpeak() {
-        return typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance === 'function';
+        return !!(
+            typeof requestCharacterVoiceAudio === 'function'
+            || (window.ByndAndroid && typeof window.ByndAndroid.speakText === 'function')
+            || (typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance === 'function')
+        );
     }
-    function speak(text, code) {
-        if (!canSpeak() || !text) return false;
+
+    function stopVoice() {
+        if (activeVoiceAudio) {
+            try { activeVoiceAudio.pause(); activeVoiceAudio.currentTime = 0; } catch (_) {}
+            activeVoiceAudio = null;
+        }
+        try { window.ByndAndroid?.stopTts?.(); } catch (_) {}
+        try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); } catch (_) {}
+    }
+
+    function speakWithSystemVoice(text, code) {
+        const speechText = plainText(text).replace(/（[^）]*）|\([^)]*\)/g, ' ').trim() || plainText(text);
+        if (!speechText) return false;
+        if (window.ByndAndroid && typeof window.ByndAndroid.speakText === 'function') {
+            try {
+                const raw = window.ByndAndroid.speakText(speechText, code || '', 0.92);
+                const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (result?.status === 'queued') return true;
+                if (result?.status === 'missing-data') setStatus(`系统还没有安装 ${language(primaryTarget()?.id)?.label || code || '该语言'} 语音，请到手机的文字转语音设置中下载。`, 'warn');
+                else if (result?.status === 'not-supported') setStatus(`当前系统 TTS 不支持 ${language(primaryTarget()?.id)?.label || code || '该语言'}。`, 'warn');
+                else setStatus('系统语音正在初始化，请稍后再试。', 'warn');
+                render();
+                return false;
+            } catch (_) {
+                // Browser/PWA fallback below.
+            }
+        }
+        if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance !== 'function') {
+            setStatus('当前设备没有可用的系统语音。', 'warn');
+            render();
+            return false;
+        }
         try {
             speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(plainText(text).replace(/（[^）]*）|\([^)]*\)/g, ' ').trim() || plainText(text));
+            const utterance = new SpeechSynthesisUtterance(speechText);
             if (code) utterance.lang = code;
-            const voice = speechSynthesis.getVoices?.().find(item => code && item.lang && item.lang.toLowerCase().startsWith(code.toLowerCase().slice(0, 2)));
+            const voices = speechSynthesis.getVoices?.() || [];
+            const voice = voices.find(item => code && item.lang && item.lang.toLowerCase().startsWith(code.toLowerCase().slice(0, 2)));
+            if (code && voices.length && !voice) {
+                setStatus(`浏览器里没有 ${language(primaryTarget()?.id)?.label || code} 的系统语音。`, 'warn');
+                render();
+                return false;
+            }
             if (voice) utterance.voice = voice;
             utterance.rate = 0.92;
             speechSynthesis.speak(utterance);
             return true;
-        } catch (_) { return false; }
+        } catch (_) {
+            setStatus('系统语音播放失败，请检查该语言的语音包。', 'warn');
+            render();
+            return false;
+        }
+    }
+
+    async function speak(text, code) {
+        if (!canSpeak() || !text) return false;
+        stopVoice();
+        const char = tutor();
+        const binding = typeof getCharacterVoiceBinding === 'function' ? getCharacterVoiceBinding(char) : null;
+        if (binding && typeof requestCharacterVoiceAudio === 'function') {
+            try {
+                const result = await requestCharacterVoiceAudio(plainText(text), char);
+                if (!result?.audioUrl || typeof Audio !== 'function') throw new Error('没有可播放的音频');
+                activeVoiceAudio = new Audio(result.audioUrl);
+                activeVoiceAudio.onended = () => { activeVoiceAudio = null; };
+                await activeVoiceAudio.play();
+                return true;
+            } catch (error) {
+                console.warn('角色付费音色不可用，改用学习 App 的系统语音：', error);
+                setStatus('角色付费音色暂不可用，已改用系统语音。', 'warn');
+                render();
+            }
+        }
+        return speakWithSystemVoice(text, code);
     }
 
     // ---------- saving from chat ----------
@@ -947,7 +1015,7 @@
     window.getStudyLanguages = getStudyLanguages;
     window.initStudyApp = init;
     window.ByndStudy = {
-        init, render, setTab, submit, onKey, quick, askHowToSay, start, send, toggleTranslation, speakMessage, speakCard,
+        init, render, setTab, submit, onKey, quick, askHowToSay, start, send, toggleTranslation, speakMessage, speakCard, speak,
         saveSentence, saveWord, saveCorrection, setTutor, clearChat: clearChatConfirm, setNative, toggleTarget, addLanguage, removeLanguage,
         setLevel, setStrictness, setAutoTranslate, setVoice, searchWords, editCard, cancelEdit, saveCardForm, deleteCard,
         startQuiz, revealQuiz, markQuiz, gradeQuiz, setMood, saveCheckin, previewProgress,

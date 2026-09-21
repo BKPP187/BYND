@@ -24,5 +24,9 @@ assert.match(script, /const previewText = record\.summary \|\| record\.text \|\|
 assert.match(style, /\.dream-topbar\s*\{[^}]*min-height:\s*calc\(64px\s*\+\s*var\(--bynd-header-safe-top,\s*env\(safe-area-inset-top,\s*0px\)\)\)/s, 'dream header height must include the unreserved iPhone safe area');
 assert.match(style, /\.dream-topbar\s*\{[^}]*padding:\s*calc\(12px\s*\+\s*var\(--bynd-header-safe-top,\s*env\(safe-area-inset-top,\s*0px\)\)\)/s, 'dream header content must start below the unreserved safe area');
 assert.match(style, /html\.mobile-runtime \.phone-container\s*\{\s*--bynd-header-safe-top:\s*0px;/, 'headers must not duplicate the safe area already reserved by the mobile body');
+assert.match(html, /id="wcs-char-voice-provider"/, 'character settings must expose a credential-free voice binding selector');
+assert.doesNotMatch(html.match(/<div class="wcs-section-title">角色专属音色[\s\S]*?<div class="wcs-section-title">角色头像集/)?.[0] || '', /api[-_ ]?key/i, 'character voice controls must never ask for an API key');
+assert.match(wechat, /class="wcs-avatar-gallery-delete"/, 'avatar gallery must have a visible touch delete control');
+assert.match(wechat, /Chat character audio may only use the character's paid\/custom binding\. Never fall back to system TTS here\./, 'chat character voice must explicitly forbid system TTS fallback');
 
 console.log('ui regression tests passed');

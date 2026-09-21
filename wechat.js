@@ -9380,6 +9380,60 @@ async function returnWechatIncomingPayment(msgIdx) {
     renderChatList();
 }
 
+function normalizeWechatCharacterVoiceBinding(binding) {
+    const source = binding && typeof binding === 'object' ? binding : {};
+    const provider = ['minimax', 'openai', 'fish-audio', 'elevenlabs', 'local'].includes(source.provider)
+        ? source.provider
+        : '';
+    if (!provider) return null;
+    return {
+        provider,
+        voiceModel: String(source.voiceModel || source.model || '').trim().slice(0, 160),
+        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240)
+    };
+}
+
+function queueWechatCharacterVoiceAudio(char, msg) {
+    if (!char || !msg || msg.isMe || msg.type !== 'voice' || msg.audioUrl) return;
+    const binding = normalizeWechatCharacterVoiceBinding(char.chatConfig?.voiceBinding);
+    if (!binding || typeof requestCharacterVoiceAudio !== 'function') return;
+    const speechText = String(msg.transcript || msg.content || '').trim();
+    if (!speechText) return;
+    window._wechatCharacterVoicePending = window._wechatCharacterVoicePending || new WeakSet();
+    if (window._wechatCharacterVoicePending.has(msg)) return;
+    window._wechatCharacterVoicePending.add(msg);
+
+    // Chat character audio may only use the character's paid/custom binding. Never fall back to system TTS here.
+    let synthesizedState = null;
+    Promise.resolve(requestCharacterVoiceAudio(speechText, char)).then(result => {
+        if (!result?.audioUrl || !Array.isArray(char.history) || !char.history.includes(msg)) return;
+        const previousDuration = msg.duration;
+        synthesizedState = { previousDuration };
+        msg.audioUrl = result.audioUrl;
+        msg.audioMimeType = result.mimeType || '';
+        msg.duration = Math.max(1, Math.min(5999, Number(result.duration) || Number(msg.duration) || 1));
+        return Promise.resolve(saveCharactersToStorage()).then(saved => {
+            if (saved === false) {
+                delete msg.audioUrl;
+                delete msg.audioMimeType;
+                msg.duration = previousDuration;
+                throw new Error('角色语音未能保存');
+            }
+            if (window.currentChatCharId === char.id) refreshChatView(char);
+            renderChatList();
+        });
+    }).catch(error => {
+        if (synthesizedState) {
+            delete msg.audioUrl;
+            delete msg.audioMimeType;
+            msg.duration = synthesizedState.previousDuration;
+        }
+        console.warn('角色付费音色生成失败，保留文字语音气泡：', error);
+    }).finally(() => {
+        window._wechatCharacterVoicePending?.delete(msg);
+    });
+}
+
 function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
     const shouldRefreshActiveChat = !options.background && window.currentChatCharId === char?.id;
     const cleanedText = cleanWechatVisibleContent(text);
@@ -9451,6 +9505,9 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         }
         if (aiMsg.type === 'image' && aiMsg.imagePending) {
             queueWechatPendingImageGeneration(char, aiMsg);
+        }
+        if (aiMsg.type === 'voice' && !aiMsg.isMe) {
+            queueWechatCharacterVoiceAudio(char, aiMsg);
         }
         if (aiMsg.type === 'poke') {
             triggerWechatScreenFeedback('poke');
@@ -12816,8 +12873,24 @@ async function loadWechatCharactersFromIndexedDb() {
 }
 window.loadWechatCharactersFromIndexedDb = loadWechatCharactersFromIndexedDb;
 
+function sanitizeWechatChatConfigForStorage(config = {}) {
+    const safe = config && typeof config === 'object' ? { ...config } : {};
+    const source = safe.voiceBinding && typeof safe.voiceBinding === 'object' ? safe.voiceBinding : {};
+    const provider = ['minimax', 'openai', 'fish-audio', 'elevenlabs', 'local'].includes(source.provider)
+        ? source.provider
+        : '';
+    const voiceBinding = provider ? {
+        provider,
+        voiceModel: String(source.voiceModel || source.model || '').trim().slice(0, 160),
+        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240)
+    } : null;
+    if (voiceBinding) safe.voiceBinding = voiceBinding;
+    else delete safe.voiceBinding;
+    return safe;
+}
+
 function compactWechatChatConfigForLocal(config = {}) {
-    const compact = { ...config };
+    const compact = sanitizeWechatChatConfigForStorage(config);
     [
         'chatBgImage',
         'chatBgGallery',
@@ -12862,7 +12935,8 @@ function serializeWechatCharacterForStorage(char) {
         isGroupChat: !!char.isGroupChat,
         groupMembers: Array.isArray(char.groupMembers) ? char.groupMembers : [],
         groupCreatedAt: char.groupCreatedAt || 0,
-        chatConfig: char.chatConfig || {},
+        // Character data carries only a provider/model/voice reference. TTS credentials stay in Settings.
+        chatConfig: sanitizeWechatChatConfigForStorage(char.chatConfig),
         history: (char.history || []).map(msg => {
             if (!msg || !Object.prototype.hasOwnProperty.call(msg, 'imageResolving')) return msg;
             const stored = { ...msg };
@@ -18756,6 +18830,7 @@ function openChatSettings() {
     if (typeof renderWechatAgentSettings === 'function') renderWechatAgentSettings(char);
 
     // 头像集
+    renderWechatCharacterVoiceSettings(char);
     renderAvatarGallery(char);
     renderWechatMomentCoverGallery(char);
     renderWechatAiMomentsEditor(char);
@@ -19007,15 +19082,65 @@ function clearCharVideoCallBg() {
 }
 
 // --- 角色头像集 ---
+function renderWechatCharacterVoiceSettings(char) {
+    const providerEl = document.getElementById('wcs-char-voice-provider');
+    const modelEl = document.getElementById('wcs-char-voice-model');
+    const voiceEl = document.getElementById('wcs-char-voice-id');
+    if (!providerEl || !modelEl || !voiceEl) return;
+    const binding = normalizeWechatCharacterVoiceBinding(char?.chatConfig?.voiceBinding);
+    providerEl.value = binding?.provider || '';
+    modelEl.value = binding?.voiceModel || '';
+    voiceEl.value = binding?.voiceId || '';
+    updateWechatCharacterVoiceHint();
+}
+
+function getWechatVoiceProviderLabel(provider) {
+    return ({
+        minimax: 'MiniMax',
+        openai: 'OpenAI TTS',
+        'fish-audio': 'Fish Audio',
+        elevenlabs: 'ElevenLabs',
+        local: '本地 TTS 接口'
+    })[provider] || '';
+}
+
+function updateWechatCharacterVoiceHint() {
+    const provider = document.getElementById('wcs-char-voice-provider')?.value || '';
+    const fields = document.getElementById('wcs-char-voice-fields');
+    const hint = document.getElementById('wcs-char-voice-hint');
+    if (fields) fields.classList.toggle('is-disabled', !provider);
+    if (!hint) return;
+    hint.textContent = provider
+        ? `将使用设置 → TTS 中的 ${getWechatVoiceProviderLabel(provider)} 密钥和接口。角色卡只保存这里的模型与音色 ID，不保存密钥。`
+        : '未绑定付费音色。学习 App 会改用系统语音；聊天页不会用系统语音代替角色。';
+}
+
+function handleWechatCharacterVoiceProviderChange() {
+    const provider = document.getElementById('wcs-char-voice-provider')?.value || '';
+    const modelEl = document.getElementById('wcs-char-voice-model');
+    const voiceEl = document.getElementById('wcs-char-voice-id');
+    if (provider && typeof getVoiceApiByProvider === 'function') {
+        const saved = getVoiceApiByProvider(provider);
+        if (modelEl && !modelEl.value.trim()) modelEl.value = saved?.voiceModel || saved?.model || '';
+        if (voiceEl && !voiceEl.value.trim()) voiceEl.value = saved?.voiceId || saved?.voice || '';
+    }
+    updateWechatCharacterVoiceHint();
+}
+window.handleWechatCharacterVoiceProviderChange = handleWechatCharacterVoiceProviderChange;
+
 function renderAvatarGallery(char) {
     const gallery = document.getElementById('wcs-avatar-gallery');
     if (!gallery) return;
-    const avatars = char.avatarGallery || [];
+    const avatars = Array.from(new Set((Array.isArray(char.avatarGallery) ? char.avatarGallery : []).filter(Boolean)));
     if (char.avatar && !avatars.includes(char.avatar)) avatars.unshift(char.avatar);
+    char.avatarGallery = avatars;
     gallery.innerHTML = avatars.map((url, i) => `
-        <img class="wcs-avatar-gallery-item ${url === char.avatar ? 'active' : ''}"
-             src="${url}" onclick="selectCharAvatar(${i})"
-             oncontextmenu="event.preventDefault();removeGalleryAvatar(${i})">
+        <div class="wcs-avatar-gallery-tile">
+            <img class="wcs-avatar-gallery-item ${url === char.avatar ? 'active' : ''}"
+                 src="${wcEscapeAttr(url)}" alt="角色头像 ${i + 1}" onclick="selectCharAvatar(${i})">
+            <button type="button" class="wcs-avatar-gallery-delete" aria-label="删除这张头像"
+                    onclick="event.stopPropagation();removeGalleryAvatar(${i})"><i class="ri-close-line"></i></button>
+        </div>
     `).join('') || '<span style="font-size:12px;color:#bbb;">暂无头像</span>';
 }
 
@@ -19034,14 +19159,32 @@ function selectCharAvatar(idx) {
     }
 }
 
-function removeGalleryAvatar(idx) {
+async function removeGalleryAvatar(idx) {
     const charId = window.currentChatCharId;
     if (!charId) return;
     const char = window.myCharacters.find(c => c.id === charId);
-    if (!char || !char.avatarGallery) return;
-    char.avatarGallery.splice(idx, 1);
-    saveCharactersToStorage();
+    if (!char || !Array.isArray(char.avatarGallery) || !char.avatarGallery[idx]) return;
+    if (typeof confirm === 'function' && !confirm('删除这张角色头像？')) return;
+    const previousGallery = char.avatarGallery.slice();
+    const previousAvatar = char.avatar || '';
+    const removed = char.avatarGallery.splice(idx, 1)[0];
+    if (removed === char.avatar) char.avatar = char.avatarGallery[0] || '';
+    const preview = document.getElementById('wcs-char-avatar');
+    if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
     renderAvatarGallery(char);
+    try {
+        const saved = await saveCharactersToStorage();
+        if (saved === false) throw new Error('角色头像未能保存');
+        refreshChatView(char);
+        renderChatList();
+    } catch (error) {
+        char.avatarGallery = previousGallery;
+        char.avatar = previousAvatar;
+        if (preview) preview.src = char.avatar || DEFAULT_AVATAR;
+        renderAvatarGallery(char);
+        if (typeof showWechatToast === 'function') showWechatToast('头像删除失败，原数据已恢复');
+        console.error('角色头像删除失败:', error);
+    }
 }
 
 function addCharAvatarToGallery(input) {
@@ -19063,7 +19206,7 @@ function addCharAvatarToGallery(input) {
     input.value = '';
 }
 
-function saveChatSettings() {
+async function saveChatSettings() {
     const charId = window.currentChatCharId;
     if (!charId) return;
     const char = window.myCharacters.find(c => c.id === charId);
@@ -19071,6 +19214,11 @@ function saveChatSettings() {
 
     // 保存聊天配置到角色
     const prevConfig = char.chatConfig || {};
+    const voiceBinding = normalizeWechatCharacterVoiceBinding({
+        provider: document.getElementById('wcs-char-voice-provider')?.value || '',
+        voiceModel: document.getElementById('wcs-char-voice-model')?.value || '',
+        voiceId: document.getElementById('wcs-char-voice-id')?.value || ''
+    });
     const promptWorldBookIds = Array.from(document.querySelectorAll('#wcs-prompt-worldbook-list input[type="checkbox"]:checked'))
         .map(input => String(input.dataset.worldbookId || ''))
         .filter(Boolean);
@@ -19110,6 +19258,7 @@ function saveChatSettings() {
         monitorMode: getWechatMonitorMode({ chatConfig: { monitorMode: document.getElementById('wcs-monitor-mode')?.value } }),
         monitorBarrageSpeed: normalizeWechatMonitorBarrageSpeed(document.getElementById('wcs-monitor-barrage-speed')?.value),
         promptWorldBookIds,
+        voiceBinding,
         monitorState: prevConfig.monitorState || null,
         pendingMonitorRequest: prevConfig.pendingMonitorRequest || null,
         pendingContactDeleteRequest: prevConfig.pendingContactDeleteRequest || null,
@@ -19144,12 +19293,20 @@ function saveChatSettings() {
     // 应用配置到当前聊天
     applyChatConfig(char);
 
-    // 保存到 localStorage
-    saveCharactersToStorage();
+    // 保存成功后才关闭面板，避免将存储失败伪装成已保存。
+    try {
+        const saved = await saveCharactersToStorage();
+        if (saved === false) throw new Error('设置未能保存');
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('设置保存失败，请清理空间后重试');
+        console.error('聊天设置保存失败:', error);
+        return false;
+    }
     refreshChatView(char);
     renderChatList();
 
     closeChatSettings();
+    return true;
 }
 
 function resetWechatChatDerivedContext(char) {

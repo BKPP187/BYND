@@ -5227,9 +5227,18 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wcs-save-btn { width: 100%; height: 48px; background: rgba(17,24,39,0.92); color: white; border: none; border-radius: 24px; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 14px 34px rgba(15,23,42,0.22); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .wcs-save-btn:active { transform: scale(0.98); }
 .wcs-avatar-gallery { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0; }
+.wcs-avatar-gallery-tile { position: relative; width: 54px; height: 54px; display: grid; place-items: center; }
 .wcs-avatar-gallery-item { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; }
 .wcs-avatar-gallery-item.active { border-color: #111; }
 .wcs-avatar-gallery-item:hover { border-color: #999; }
+.wcs-avatar-gallery-delete { position: absolute; top: -2px; right: -2px; width: 22px; height: 22px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #ef4444; color: #fff; display: grid; place-items: center; font-size: 14px; line-height: 1; cursor: pointer; box-shadow: 0 2px 7px rgba(0,0,0,.2); z-index: 2; }
+.wcs-avatar-gallery-delete:active { transform: scale(.92); }
+.wcs-character-voice-box { display: grid; gap: 10px; }
+.wcs-character-voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wcs-character-voice-grid > div { min-width: 0; }
+.wcs-character-voice-grid span { display: block; margin: 0 0 5px; color: #8b8f97; font-size: 11px; }
+.wcs-character-voice-grid.is-disabled { opacity: .45; pointer-events: none; }
+.wcs-character-voice-hint { color: #8b8f97; font-size: 11px; line-height: 1.55; }
 .wcs-bg-gallery { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0 8px; }
 .wcs-bg-gallery-item { width: 54px; height: 96px; border-radius: 10px; object-fit: cover; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; background: #eee; }
 .wcs-bg-gallery-item.active { border-color: #111; }
