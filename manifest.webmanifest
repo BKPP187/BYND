@@ -2,7 +2,7 @@
   "name": "Beyond Screen",
   "short_name": "BYND",
   "description": "BYND phone-style AI companion app.",
-  "start_url": "/?v=1.1.590",
+  "start_url": "/?v=1.1.641",
   "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
@@ -12,16 +12,10 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "bynd-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "bynd-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "bynd-icon-maskable.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
     }
   ],
   "categories": ["productivity", "entertainment"],

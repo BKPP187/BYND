@@ -16,8 +16,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 65
-        versionName '1.1.640'
+        versionCode 66
+        versionName '1.1.641'
     }
 
     signingConfigs {
@@ -60,6 +60,7 @@ tasks.register('syncWebAssets', Copy) {
         include '*.js'
         include '*.css'
         include '*.svg'
+        include '*.png'
         include '*.webmanifest'
         include 'assets/**'
         include 'modules/**'

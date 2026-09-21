@@ -44,7 +44,7 @@ self.addEventListener('notificationclick', event => {
 
 const BYND_NOTIFY_CACHE = 'bynd-notify-cache-v1';
 const BYND_NOTIFY_CONFIG_URL = '/__bynd_notify_config__';
-const BYND_NOTIFY_ICON = '/bynd-icon.svg';
+const BYND_NOTIFY_ICON = '/bynd-icon.png';
 
 async function showByndNotification(payload, config) {
   const char = Array.isArray(config.chars) && config.chars.length ? config.chars[0] : {};
