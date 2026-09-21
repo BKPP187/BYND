@@ -10035,9 +10035,13 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 if (await saveCharactersToStorage() === false) throw new Error('回复已显示，但未能保存。请检查存储后重试保存，再关闭页面。');
                 renderChatList();
                 showWechatDesktopMessageIsland(char);
+                const statusRequestWillRun = shouldDeferWechatMemoryAfterReply(char);
                 requestWechatAiStatusSnapshot(char, { reason: 'after_reply' })
                     .catch(e => console.warn('ai status snapshot failed:', e));
-                scheduleWechatMemoryExtraction(char, 'after_reply');
+                // A reply must not immediately consume quota again for both generated
+                // status and memory. The next eligible reply will pick memory up once
+                // the status snapshot is fresh (or its automatic retry is cooled down).
+                if (!statusRequestWillRun) scheduleWechatMemoryExtraction(char, 'after_reply');
             } else if (typeof showWechatToast === 'function') {
                 showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');
             }
@@ -20710,6 +20714,13 @@ function isWechatAiStatusGenerationActive() {
     return !!(window._wechatAiStatusGenerating && window._wechatAiStatusGenerating.size > 0);
 }
 
+function shouldDeferWechatMemoryAfterReply(char) {
+    if (!char) return false;
+    const statusRequests = window._wechatAiStatusGenerating;
+    if (statusRequests && statusRequests.has(char.id)) return true;
+    return !shouldSkipWechatAiStatusSnapshotRequest(char, { reason: 'after_reply' });
+}
+
 function shouldSkipWechatAiStatusSnapshotRequest(char, options = {}) {
     if (!char) return true;
     if (options.force) return false;
@@ -20938,7 +20949,7 @@ function renderWechatAiStatusTicket(char) {
     const fieldsHtml = WECHAT_AI_STATUS_FIELDS.map((item, index) => {
         const value = snapshot
             ? getWechatStatusFieldDisplay(snapshot, item)
-            : (generating ? '正在生成状态快照...' : (errorText ? '状态暂时没有更新，请稍后刷新。' : '角色回复后会自动生成状态快照。'));
+            : (generating ? '正在生成中' : (errorText ? '状态暂时没有更新，请稍后刷新。' : '角色回复后会自动生成状态快照。'));
         return `
         <div class="wc-ai-status-row">
             <div class="wc-ai-status-item-head">
@@ -20952,7 +20963,7 @@ function renderWechatAiStatusTicket(char) {
     `;
     }).join('');
     const safeMiniDiary = snapshot && snapshot.fields ? sanitizeWechatAiStatusFieldValue(snapshot.fields.miniDiary, 'miniDiary') : '';
-    const guestbookText = safeMiniDiary || (generating ? '正在整理角色此刻想说但还没说出口的话。' : '状态生成后，这里会显示角色此刻想说的话。');
+    const guestbookText = safeMiniDiary || (generating ? '正在生成中' : '状态生成后，这里会显示角色此刻想说的话。');
     modal.innerHTML = `
         <div class="wc-ai-status-ticket">
             <div class="wc-ai-status-top">

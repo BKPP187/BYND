@@ -63,7 +63,8 @@ function harness() {
         ['const WECHAT_AI_STATUS_FIELDS', '// --- 气泡CSS预设系统 ---'],
         ['function isWechatApiRateLimitError(', 'async function triggerAiAfterMessage('],
         ['async function triggerAiAfterMessage(', 'function resizeWechatMessageInput('],
-        ['function isWechatAutoStatusSnapshotReason(', 'function buildWechatIdentityContextPrompt('],
+        ['function isWechatAutoStatusSnapshotReason(', 'function isWechatAiStatusGenerationActive('],
+        ['function isWechatAiStatusGenerationActive(', 'function buildWechatIdentityContextPrompt('],
         ['async function requestWechatAiStatusSnapshot(', 'function ensureWechatAiStatusOverlay('],
         ['function renderWechatAiStatusTicket(', 'function getWechatAiStatusHistory('],
         ['function refreshWechatAiStatusTicket(', 'function closeWechatAiStatusTicket(']
@@ -235,6 +236,17 @@ test('automatic status waits for the provider, while an explicit manual retry ca
     assert.equal(h.state.requests.length, 2);
     assert.equal(h.char.chatConfig.aiStatusError, '');
     assert.equal(h.context.getWechatChatApiPauseRemainingMs(), 0);
+});
+
+test('a new automatic status request defers memory extraction from the same reply', () => {
+    const h = harness();
+    assert.equal(h.context.shouldDeferWechatMemoryAfterReply(h.char), true);
+
+    h.char.chatConfig.aiStatusSnapshot = validSnapshot();
+    assert.equal(h.context.shouldDeferWechatMemoryAfterReply(h.char), false);
+
+    h.context.window._wechatAiStatusGenerating = new Map([[h.char.id, Promise.resolve(null)]]);
+    assert.equal(h.context.shouldDeferWechatMemoryAfterReply(h.char), true);
 });
 
 test('legacy global and saved pauses cannot block chat or the manual refresh button', async () => {
