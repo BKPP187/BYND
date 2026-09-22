@@ -5597,6 +5597,23 @@
 #app-wechat-window[class*="wc-ui-theme-"] .wc-chat-room .wc-room-content.has-custom-chat-bg::before {
     display: none !important;
 }
+
+/* Claude keeps its editorial, transparent reply treatment on paper, but a photo
+   background needs a light reading surface for character messages to stay legible. */
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-content.has-custom-chat-bg .msg-row.left .msg-bubble:not(.green):not(.image-bubble):not(.sticker):not(.rich):not(.msg-pay-bubble):not(.wc-share-moment-card):not(.wc-share-product-card) {
+    max-width: min(92%, 520px) !important;
+    padding: 12px 15px !important;
+    border: 1px solid rgba(47, 45, 42, 0.08) !important;
+    border-radius: 18px !important;
+    background: rgba(255, 253, 249, 0.90) !important;
+    color: #211f1c !important;
+    box-shadow: 0 8px 22px rgba(31, 29, 26, 0.10) !important;
+}
+
+#app-wechat-window.wc-ui-theme-claude .wc-chat-room .wc-room-content.has-custom-chat-bg .msg-row.left .msg-bubble:not(.green) .msg-text {
+    color: inherit !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
 /* === End custom chat background priority and clarity 20260528 === */
 
 /* === QQ tabbar and room chrome final polish 20260703 === */

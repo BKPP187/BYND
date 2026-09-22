@@ -7,9 +7,12 @@ const root = path.resolve(__dirname, '..');
 
 test('photo-header contrast stays in the BYND default theme and QQ keeps its own layout', () => {
     const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
+    const themeOverrides = fs.readFileSync(path.join(root, 'styles/wechat-themes/base-overrides.css'), 'utf8');
     assert.match(css, /#app-wechat-window\.wc-ui-theme-bynd \.wc-chat-room\.has-custom-chat-bg \.wc-float-back/);
     assert.doesNotMatch(css, /#app-wechat-window\[class\*="wc-ui-theme-"\] \.wc-chat-room\.has-custom-chat-bg \.wc-float-back/);
     assert.match(css, /wc-ui-theme-qq \.wc-chat-room \.wc-rich-input\s*\{[\s\S]*?grid-column: 1 \/ 5 !important;/);
+    assert.match(themeOverrides, /wc-ui-theme-claude[\s\S]*?has-custom-chat-bg[\s\S]*?background: rgba\(255, 253, 249, 0\.90\) !important/);
+    assert.match(themeOverrides, /wc-ui-theme-claude[\s\S]*?has-custom-chat-bg[\s\S]*?\.msg-text[\s\S]*?color: inherit !important/);
 });
 
 test('status ticket uses a concise generating label', () => {
