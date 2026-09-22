@@ -8,6 +8,13 @@
     const clean = (value, limit = 1200) => String(value ?? '').replace(/<[^>]*>/g, '').trim().slice(0, limit);
     const id = () => 'agent_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
     const preferences = char => Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, typeof char?.chatConfig?.agentPreferences?.[key] === 'boolean' ? char.chatConfig.agentPreferences[key] : fallback]));
+    const reasoningAppearance = char => {
+        const saved = char?.chatConfig?.agentReasoningAppearance || {};
+        return {
+            title: clean(saved.title, 36) || '思考摘要',
+            css: String(saved.css || '').trim()
+        };
+    };
     const notify = text => typeof showWechatToast === 'function' && showWechatToast(text);
     const refresh = char => {
         try { if (window.currentChatCharId === char?.id && document.getElementById('chat-room-content')) refreshChatView(char); }
@@ -17,18 +24,96 @@
         if (await saveCharactersToStorage() === false) throw new Error('保存失败，请重试');
     };
 
+    // The user may style only this component.  Keeping selectors scoped means a
+    // character's theme tweak can never accidentally recolor the whole chat.
+    const sanitizeReasoningCss = value => {
+        const source = String(value || '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+        if (!source) return '';
+        if (source.length > 12000) throw new Error('思考摘要 CSS 最多 12000 个字符');
+        if (/@(?:import|namespace|font-face|keyframes|media|supports)\b|url\s*\(|expression\s*\(|-moz-binding|<\/?style/iu.test(source)) {
+            throw new Error('只支持 .bynd-reasoning 范围内的普通样式规则');
+        }
+        const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
+        const rules = [...source.matchAll(rulePattern)];
+        if (!rules.length || source.replace(rulePattern, '').trim()) throw new Error('CSS 格式不完整，请使用“选择器 { 属性: 值; }”');
+        const scopedRules = rules.map(([, selectorText, declarations]) => {
+            const selectors = selectorText.split(',').map(selector => selector.trim()).filter(Boolean);
+            if (!selectors.length || selectors.some(selector => !/^\.bynd-reasoning(?:[\s>+~.#:\[\]_\-]|$)/u.test(selector))) {
+                throw new Error('CSS 选择器必须从 .bynd-reasoning 开始');
+            }
+            return selectors.map(selector => `#app-wechat-window ${selector}`).join(', ') + `{${declarations}}`;
+        });
+        return scopedRules.join('\n');
+    };
+
+    const applyReasoningCss = char => {
+        const doc = window.document;
+        if (!doc?.getElementById) return false;
+        let style = doc.getElementById('bynd-reasoning-custom-style');
+        const css = sanitizeReasoningCss(reasoningAppearance(char).css);
+        if (!css) {
+            style?.remove?.();
+            return true;
+        }
+        if (!style && doc.createElement && doc.head?.appendChild) {
+            style = doc.createElement('style');
+            style.id = 'bynd-reasoning-custom-style';
+            doc.head.appendChild(style);
+        }
+        if (!style) return false;
+        style.textContent = css;
+        return true;
+    };
+
+    const compactReasoningText = value => clean(value, 1200).replace(/\s+/g, ' ').trim().slice(0, 118);
+
+    function closeReasoningSheet(sheet) {
+        const node = sheet || document.getElementById('bynd-reasoning-sheet');
+        if (!node) return;
+        node.classList?.remove('is-open');
+        setTimeout(() => node.remove?.(), 160);
+    }
+
+    function openReasoningSheet(title, content, themeId) {
+        const doc = window.document;
+        if (!doc?.body || !doc.createElement) return;
+        closeReasoningSheet();
+        const sheet = doc.createElement('div');
+        sheet.id = 'bynd-reasoning-sheet';
+        sheet.className = `bynd-reasoning-sheet${themeId === 'claude' ? ' bynd-reasoning-sheet--claude' : ''}`;
+        sheet.setAttribute('role', 'dialog');
+        sheet.setAttribute('aria-modal', 'true');
+        sheet.setAttribute('aria-label', title);
+        sheet.innerHTML = `<div class="bynd-reasoning-sheet__backdrop" data-reasoning-close></div><section class="bynd-reasoning-sheet__panel"><div class="bynd-reasoning-sheet__handle"></div><header><button type="button" aria-label="关闭" data-reasoning-close><i class="ri-close-line"></i></button><strong>${escape(themeId === 'claude' ? 'Summary' : title)}</strong><span aria-hidden="true"></span></header><div class="bynd-reasoning-sheet__content bynd-reasoning__content"><span class="bynd-reasoning-sheet__dot" aria-hidden="true"></span><p>${escape(clean(content, 1200))}</p></div></section>`;
+        sheet.addEventListener('click', event => {
+            if (event.target?.closest?.('[data-reasoning-close]')) closeReasoningSheet(sheet);
+        });
+        sheet.addEventListener('keydown', event => { if (event.key === 'Escape') closeReasoningSheet(sheet); });
+        (doc.getElementById('app-wechat-window') || doc.body).appendChild(sheet);
+        requestAnimationFrame(() => sheet.classList?.add('is-open'));
+        sheet.querySelector?.('[data-reasoning-close]')?.focus?.();
+    }
+
     window.getWechatAgentPreferences = preferences;
     window.rememberWechatAgentDetails = (key, opened) => opened ? openDetails.add(key) : openDetails.delete(key);
+    window.sanitizeWechatReasoningCss = sanitizeReasoningCss;
+    window.applyWechatReasoningCss = applyReasoningCss;
 
     window.renderWechatAgentSettings = char => {
         const root = document.getElementById('wcs-agent-features');
         if (!root || !char) return;
         root.dataset.charId = char.id;
         const config = preferences(char);
+        const appearance = reasoningAppearance(char);
         const row = (key, title, hint) => `<label class="bynd-agent-toggle"><span><strong>${title}</strong><small>${hint}</small></span><input type="checkbox" data-agent-pref="${key}" ${config[key] ? 'checked' : ''} ${preferenceWrites.has(char.id) ? 'disabled' : ''} onchange="setWechatAgentPreference('${key}',this.checked,this)"></label>`;
         root.innerHTML = `<div class="wcs-section-title">思考与工具</div><div class="wcs-section bynd-agent-settings">
-            ${row('showThinking', '思考链 · 摘要', '显示模型提供的简短思考摘要，可展开查看')}
+            ${row('showThinking', '思考摘要', '在消息间显示一行公开摘要；点开后再看完整内容')}
             ${row('showTools', '工具调用动态', '显示生成图片、记录待办等操作的真实进度和结果')}
+        </div><div class="wcs-section-title">思考摘要外观</div><div class="wcs-section bynd-agent-settings bynd-reasoning-settings">
+            <label>显示标题<input id="bynd-reasoning-title" maxlength="36" value="${escape(appearance.title)}" placeholder="思考摘要"></label>
+            <label>自定义 CSS<textarea id="bynd-reasoning-css" maxlength="12000" spellcheck="false" placeholder=".bynd-reasoning { }&#10;.bynd-reasoning__header { }&#10;.bynd-reasoning__content { }">${escape(appearance.css)}</textarea></label>
+            <p>仅接受以上 <code>.bynd-reasoning</code> 作用域；不会影响心声、消息气泡或其他主题。</p>
+            <button type="button" class="bynd-reasoning-save" onclick="saveWechatReasoningAppearance(this)">保存思考摘要样式</button>
         </div><div class="wcs-section-title">角色权限</div><div class="wcs-section bynd-agent-settings">
             ${row('allowImages', '生成图片', '允许角色生成照片并收录到相册')}
             ${row('allowPhone', '更新自己的小手机', '允许按新聊天更新手机内容；已保存的信件保留')}
@@ -40,6 +125,37 @@
         </div><div class="wcs-section-title">OpenClaw · 微信</div><div class="wcs-section">
             <button type="button" class="bynd-agent-nav" onclick="openWechatOpenClawSettings()"><span><strong>角色绑定与连接</strong><small>${char.chatConfig?.openClawBinding?.agentId ? '已保存角色绑定 · 点击管理连接' : '设置服务地址，准备微信角色绑定'}</small></span><i class="ri-arrow-right-s-line"></i></button>
         </div><div class="wcs-section-title">角色待办</div><div class="wcs-section bynd-agent-todos">${renderTodos(char)}</div>`;
+    };
+
+    window.saveWechatReasoningAppearance = async button => {
+        const root = document.getElementById('wcs-agent-features');
+        const char = (window.myCharacters || []).find(item => item.id === root?.dataset.charId);
+        if (!char || !root) return false;
+        const title = clean(root.querySelector?.('#bynd-reasoning-title')?.value, 36);
+        const inputCss = String(root.querySelector?.('#bynd-reasoning-css')?.value || '');
+        let css;
+        try { css = sanitizeReasoningCss(inputCss); }
+        catch (error) { notify(error.message); return false; }
+        const before = char.chatConfig?.agentReasoningAppearance;
+        char.chatConfig = char.chatConfig || {};
+        if (!title && !css) delete char.chatConfig.agentReasoningAppearance;
+        else char.chatConfig.agentReasoningAppearance = { title, css: inputCss.trim() };
+        if (button) button.disabled = true;
+        try {
+            applyReasoningCss(char);
+            await persist();
+            refresh(char);
+            notify('思考摘要样式已保存');
+            return true;
+        } catch (error) {
+            if (before === undefined) delete char.chatConfig.agentReasoningAppearance;
+            else char.chatConfig.agentReasoningAppearance = before;
+            try { applyReasoningCss(char); } catch (_) {}
+            notify(error.message || '保存失败，请重试');
+            return false;
+        } finally {
+            if (button) button.disabled = false;
+        }
     };
 
     function renderTodos(char) {
@@ -143,6 +259,7 @@
     window.renderWechatAgentExtras = (container, char, msg) => {
         if (!container || !char || !msg) return;
         const config = preferences(char);
+        try { applyReasoningCss(char); } catch (error) { console.warn('思考摘要自定义样式已忽略', error); }
         const detail = (key, title, body, className) => {
             const node = document.createElement('details');
             node.className = 'bynd-agent-detail ' + className;
@@ -151,7 +268,19 @@
             node.addEventListener('toggle', () => window.rememberWechatAgentDetails(key, node.open));
             container.appendChild(node);
         };
-        if (config.showThinking && msg.thinkingSummary) detail(char.id + ':thought:' + msg.timestamp, '<i class="ri-lightbulb-line"></i><span>思考摘要</span>', escape(clean(msg.thinkingSummary, 1200)), 'bynd-agent-thought');
+        if (config.showThinking && msg.thinkingSummary) {
+            const appearance = reasoningAppearance(char);
+            const themeId = typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : '';
+            const summary = clean(msg.thinkingSummary, 1200);
+            const preview = compactReasoningText(summary);
+            const node = document.createElement('button');
+            node.type = 'button';
+            node.className = `bynd-reasoning${themeId === 'claude' ? ' bynd-reasoning--claude' : ''}`;
+            node.setAttribute?.('aria-label', `查看${appearance.title}`);
+            node.innerHTML = `<span class="bynd-reasoning__icon" aria-hidden="true"><i class="${themeId === 'claude' ? 'ri-time-line' : 'ri-sparkling-2-line'}"></i></span><span class="bynd-reasoning__copy"><span class="bynd-reasoning__header">${escape(appearance.title)}</span><span class="bynd-reasoning__preview">${escape(preview)}</span></span><i class="ri-arrow-right-s-line bynd-reasoning__chevron" aria-hidden="true"></i>`;
+            node.addEventListener('click', () => openReasoningSheet(appearance.title, summary, themeId));
+            container.appendChild(node);
+        }
         if (!config.showTools) return;
         for (const event of (Array.isArray(char.chatConfig?.agentActivity) ? char.chatConfig.agentActivity : []).filter(item => item && String(item.anchorTimestamp) === String(msg.timestamp))) {
             // An unfinished record restored from storage is not a live running tool.

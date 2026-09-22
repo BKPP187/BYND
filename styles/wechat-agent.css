@@ -90,6 +90,104 @@
 .bynd-agent-state.running { background: #89aeba; animation: bynd-agent-pulse 1s infinite alternate; }
 .bynd-agent-state.success { background: #68a48a; }
 .bynd-agent-state.error, .bynd-agent-state.interrupted { background: #cb967b; }
+.bynd-reasoning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(360px, calc(100% - 66px));
+    min-height: 39px;
+    margin: 4px 14px 11px 52px;
+    padding: 7px 9px 7px 8px;
+    overflow: hidden;
+    border: 1px solid rgba(98, 135, 118, .18);
+    border-radius: 13px;
+    background: rgba(246, 250, 247, .86);
+    color: #587165;
+    box-shadow: 0 3px 12px rgba(42, 68, 55, .05);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.bynd-reasoning:hover { background: rgba(238, 247, 240, .96); border-color: rgba(90, 145, 112, .32); }
+.bynd-reasoning:focus-visible { outline: 2px solid #5a9980; outline-offset: 2px; }
+.bynd-reasoning__icon { display: grid; place-items: center; width: 23px; height: 23px; flex: 0 0 23px; border-radius: 8px; color: #5e9a7c; background: rgba(218, 238, 224, .82); font-size: 14px; }
+.bynd-reasoning__copy { display: flex; flex: 1; align-items: baseline; gap: 6px; min-width: 0; }
+.bynd-reasoning__header { flex: 0 0 auto; color: #4e7564; font-weight: 600; white-space: nowrap; }
+.bynd-reasoning__preview { min-width: 0; overflow: hidden; color: #7c9185; text-overflow: ellipsis; white-space: nowrap; }
+.bynd-reasoning__chevron { flex: 0 0 auto; color: #9caea3; font-size: 16px; }
+
+/* Claude keeps the compact, almost weightless timeline row from its own chat UI. */
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude {
+    width: min(calc(100% - 38px), 620px);
+    min-height: 34px;
+    margin: 9px 19px 14px;
+    padding: 4px 1px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #6f6a63;
+    font-size: 13px;
+}
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude:hover { background: transparent; border-color: transparent; color: #36322d; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__icon { width: 25px; height: 25px; flex-basis: 25px; border-radius: 50%; color: #817a71; background: transparent; font-size: 18px; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__header { display: none; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__preview { color: inherit; font-size: 14px; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__chevron { color: #817a71; font-size: 20px; }
+
+.bynd-reasoning-sheet {
+    position: fixed;
+    z-index: 7500;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+    color: #26372f;
+    font-family: inherit;
+}
+.bynd-reasoning-sheet__backdrop { position: absolute; inset: 0; background: rgba(22, 29, 25, .2); opacity: 0; transition: opacity .16s ease; }
+.bynd-reasoning-sheet__panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 680px);
+    min-height: min(42vh, 410px);
+    max-height: min(74vh, 680px);
+    padding: 8px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    border-radius: 25px 25px 0 0;
+    background: #fff;
+    box-shadow: 0 -14px 42px rgba(22, 29, 25, .13);
+    transition: transform .19s cubic-bezier(.2, .8, .2, 1);
+}
+.bynd-reasoning-sheet.is-open { pointer-events: auto; }
+.bynd-reasoning-sheet.is-open .bynd-reasoning-sheet__backdrop { opacity: 1; }
+.bynd-reasoning-sheet.is-open .bynd-reasoning-sheet__panel { transform: translateY(0); }
+.bynd-reasoning-sheet__handle { width: 42px; height: 5px; margin: 0 auto 9px; border-radius: 5px; background: #dededc; }
+.bynd-reasoning-sheet__panel header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 47px; }
+.bynd-reasoning-sheet__panel header strong { color: #2d2b28; font-size: 22px; font-weight: 650; text-align: center; letter-spacing: -.25px; }
+.bynd-reasoning-sheet__panel header button { width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; color: #292724; background: transparent; font: inherit; font-size: 28px; cursor: pointer; }
+.bynd-reasoning-sheet__panel header button:focus-visible { outline: 2px solid #6d987b; outline-offset: 2px; }
+.bynd-reasoning-sheet__content { display: flex; gap: 15px; padding: 44px 14px 25px; overflow: auto; color: #393d39; font-family: Georgia, "Times New Roman", serif; font-size: clamp(19px, 4.8vw, 25px); line-height: 1.55; }
+.bynd-reasoning-sheet__content p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-reasoning-sheet__dot { width: 16px; height: 16px; flex: 0 0 16px; margin-top: .55em; border-radius: 50%; background: #edf0ee; }
+.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__panel { min-height: min(47vh, 470px); }
+.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__content { color: #272422; }
+
+.bynd-reasoning-settings { padding: 8px 14px 15px; }
+.bynd-reasoning-settings > label { display: block; padding: 8px 0; color: #52695e; font-size: 12px; font-weight: 600; }
+.bynd-reasoning-settings input, .bynd-reasoning-settings textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 7px; border: 1px solid #dbe7df; border-radius: 10px; background: #fbfdfb; color: #40584a; font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.bynd-reasoning-settings input { min-height: 39px; padding: 8px 10px; font-family: inherit; }
+.bynd-reasoning-settings textarea { min-height: 112px; padding: 9px 10px; resize: vertical; }
+.bynd-reasoning-settings input:focus, .bynd-reasoning-settings textarea:focus { outline: 2px solid #b7d3c0; border-color: #8eb69b; }
+.bynd-reasoning-settings p { margin: 5px 0 11px; color: #8a9a90; font-size: 10px; line-height: 1.65; }
+.bynd-reasoning-settings code { font-size: 10px; }
+.bynd-reasoning-save { width: 100%; min-height: 39px; border: 0; border-radius: 10px; color: #fff; background: #6e9a7d; font-size: 12px; }
 @keyframes bynd-agent-pulse { to { opacity: .35; } }
 .bynd-generator-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 18px; }
 .bynd-generator-intro { padding: 30px 6px 22px; text-align: center; }

@@ -137,20 +137,31 @@ test('clearing completed todos frees capacity without removing pending tasks or 
     assert.deepEqual(clone(h.char.chatConfig.agentTodos).map(todo => todo.id), ['pending']);
 });
 
-test('tool logs escape content, retain collapse state, and interrupted records never pretend to be running', () => {
+test('public reasoning uses the lightweight summary row, while tool logs retain their collapse state', () => {
     const h = harness();
     h.char.chatConfig.agentPreferences = { showThinking: true };
     h.char.chatConfig.agentActivity = [{ id: 'restored', title: '<img onerror=evil>', input: '<script>bad</script>', state: 'running', anchorTimestamp: 101 }];
     const rows = [];
     const container = { appendChild: node => rows.push(node) };
-    h.context.rememberWechatAgentDetails('role-a:thought:101', true);
     h.context.renderWechatAgentExtras(container, h.char, { timestamp: 101, thinkingSummary: '<b>回应摘要</b>' });
     assert.equal(rows.length, 2);
-    assert.equal(rows[0].open, true);
+    assert.match(rows[0].className, /bynd-reasoning/);
+    assert.match(rows[0].innerHTML, /回应摘要/);
     assert.equal(rows[1].open, false);
     assert.match(rows[1].innerHTML, /已中断/);
     assert.doesNotMatch(rows[1].innerHTML, /<img|<script>/);
     assert.match(rows[1].innerHTML, /&lt;img/);
+});
+
+test('reasoning CSS is limited to the independent reasoning scope', () => {
+    const h = harness();
+    const sanitize = h.context.sanitizeWechatReasoningCss;
+    const css = sanitize('.bynd-reasoning { color: tomato; } .bynd-reasoning__content { font-size: 18px; }');
+    assert.match(css, /#app-wechat-window \.bynd-reasoning\{ color: tomato; \}/);
+    assert.match(css, /#app-wechat-window \.bynd-reasoning__content\{ font-size: 18px; \}/);
+    for (const invalid of ['body { color: red; }', '.bynd-agent-detail { color: red; }', '@media (width > 1px) { .bynd-reasoning { color: red; } }', '.bynd-reasoning { background: url(https://example.test/a); }']) {
+        assert.throws(() => sanitize(invalid));
+    }
 });
 
 test('character normalization accepts valid world books and drops privileged model fields', () => {
