@@ -51,8 +51,10 @@ test('inline emoji and Android backups use native representations instead of lea
     assert.match(source, /renderWechatAiPhoneInlineEmojiHtml/);
     assert.match(source, /wc-ai-phone-inline-emoji/);
     assert.match(css, /\.msg-bubble\.wechat-emoji-text \.wc-inline-wechat-emoji/);
-    assert.match(settings, /bridge\.exportBackup/);
+    assert.match(settings, /bridge\.beginBackupExport/);
+    assert.match(settings, /bridge\.appendBackupExportChunk/);
     assert.match(settings, /bynd:backup-export/);
     assert.match(activity, /Intent\.ACTION_CREATE_DOCUMENT/);
     assert.match(activity, /BACKUP_EXPORT_REQUEST/);
+    assert.match(activity, /appendBackupExportChunk/);
 });

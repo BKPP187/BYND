@@ -2788,10 +2788,18 @@ async function buildByndBackupData() {
     return exportData;
 }
 
-function readByndBlobAsDataUrl(blob) {
+function readByndBlobChunkAsBase64(blob) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onload = () => {
+            const result = String(reader.result || '');
+            const separator = result.indexOf(',');
+            if (separator < 0) {
+                reject(new Error('备份分段编码失败'));
+                return;
+            }
+            resolve(result.slice(separator + 1));
+        };
         reader.onerror = () => reject(reader.error || new Error('备份读取失败'));
         reader.readAsDataURL(blob);
     });
@@ -2799,26 +2807,59 @@ function readByndBlobAsDataUrl(blob) {
 
 function exportByndBackupThroughAndroid(blob, filename) {
     const bridge = window.ByndAndroid;
-    if (!bridge || typeof bridge.exportBackup !== 'function') return null;
-    return new Promise(async (resolve, reject) => {
+    if (!bridge || typeof bridge.beginBackupExport !== 'function'
+        || typeof bridge.appendBackupExportChunk !== 'function'
+        || typeof bridge.finishBackupExport !== 'function') return null;
+    return new Promise((resolve, reject) => {
         const id = `backup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        let settled = false;
+        const cleanup = () => {
+            window.removeEventListener('bynd:backup-export-ready', onReady);
+            window.removeEventListener('bynd:backup-export', onResult);
+            clearTimeout(timeout);
+        };
+        const fail = error => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(error instanceof Error ? error : new Error(String(error || '备份导出失败')));
+        };
         const onResult = event => {
             if (event?.detail?.id !== id) return;
-            window.removeEventListener('bynd:backup-export', onResult);
-            clearTimeout(timeout);
-            event.detail.ok ? resolve(event.detail.message || '备份已保存') : reject(new Error(event.detail.message || '备份导出失败'));
+            if (!event.detail.ok) {
+                fail(new Error(event.detail.message || '备份导出失败'));
+                return;
+            }
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(event.detail.message || '备份已保存');
+        };
+        const onReady = async event => {
+            if (event?.detail?.id !== id || settled) return;
+            try {
+                const chunkSize = 192 * 1024;
+                for (let offset = 0; offset < blob.size; offset += chunkSize) {
+                    const encoded = await readByndBlobChunkAsBase64(blob.slice(offset, offset + chunkSize));
+                    if (settled) return;
+                    bridge.appendBackupExportChunk(id, encoded);
+                    // Keep the WebView event queue responsive for large image/font backups.
+                    await new Promise(resolveChunk => setTimeout(resolveChunk, 0));
+                }
+                if (!settled) bridge.finishBackupExport(id);
+            } catch (error) {
+                fail(error);
+            }
         };
         const timeout = setTimeout(() => {
-            window.removeEventListener('bynd:backup-export', onResult);
-            reject(new Error('系统文件选择未完成，请重新导出并选择保存位置'));
+            fail(new Error('系统文件选择或写入未完成，请重新导出并选择保存位置'));
         }, 2 * 60 * 1000);
+        window.addEventListener('bynd:backup-export-ready', onReady);
         window.addEventListener('bynd:backup-export', onResult);
         try {
-            bridge.exportBackup(id, filename, await readByndBlobAsDataUrl(blob));
+            bridge.beginBackupExport(id, filename);
         } catch (error) {
-            window.removeEventListener('bynd:backup-export', onResult);
-            clearTimeout(timeout);
-            reject(error);
+            fail(error);
         }
     });
 }
