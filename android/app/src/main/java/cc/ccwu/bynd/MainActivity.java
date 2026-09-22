@@ -536,7 +536,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean appendBackupExportChunk(String id, String base64Chunk) {
-            return appendBackupExportChunk(id, base64Chunk);
+            return MainActivity.this.appendBackupExportChunk(id, base64Chunk);
         }
 
         @JavascriptInterface

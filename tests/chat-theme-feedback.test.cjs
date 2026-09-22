@@ -59,4 +59,5 @@ test('inline emoji and Android backups use native representations instead of lea
     assert.match(activity, /BACKUP_EXPORT_REQUEST/);
     assert.match(activity, /appendBackupExportChunk/);
     assert.match(activity, /public boolean appendBackupExportChunk/);
+    assert.match(activity, /return MainActivity\.this\.appendBackupExportChunk\(id, base64Chunk\)/);
 });
