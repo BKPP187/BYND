@@ -54,6 +54,14 @@ test('complete letter content survives absent envelope decoration and ordinary w
     assert.equal(h.normalizeWechatAiPhoneDiaryLetterList([letter({ title: '未寄出的信', subtitle: 'For 小林', meta: 'PRIVATE' })]).length, 1);
 });
 
+test('diary titles stay like personal correspondence instead of report headings', () => {
+    const h = harness();
+    assert.equal(h.isWechatAiPhoneDiaryPoorTitle('关于那条短裙的病理分析'), true);
+    assert.equal(h.isWechatAiPhoneDiaryPoorTitle('关于合租的隐性条款'), true);
+    assert.equal(h.isWechatAiPhoneDiaryPoorTitle('雨声抵窗'), false);
+    assert.equal(h.normalizeWechatAiPhoneDiaryLetterList([letter({ title: '关于那条短裙的病理分析' })]).length, 0);
+});
+
 test('character-specific pronouns and a shorter complete body are not mechanical failures', () => {
     const h = harness();
     const prose = '见字如晤。今日案牍已毕，曾沿城南行过一程，桥边桂树开得正好。想着卿前日提及的旧书，便托掌柜另留一册。\n待府中诸事安定，某愿与卿同往，不必催问归期。若途中遇雨，仍可借檐听水，闲谈近日所见，亦是一桩乐事。';

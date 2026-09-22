@@ -2788,17 +2788,58 @@ async function buildByndBackupData() {
     return exportData;
 }
 
+function readByndBlobAsDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('备份读取失败'));
+        reader.readAsDataURL(blob);
+    });
+}
+
+function exportByndBackupThroughAndroid(blob, filename) {
+    const bridge = window.ByndAndroid;
+    if (!bridge || typeof bridge.exportBackup !== 'function') return null;
+    return new Promise(async (resolve, reject) => {
+        const id = `backup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const onResult = event => {
+            if (event?.detail?.id !== id) return;
+            window.removeEventListener('bynd:backup-export', onResult);
+            clearTimeout(timeout);
+            event.detail.ok ? resolve(event.detail.message || '备份已保存') : reject(new Error(event.detail.message || '备份导出失败'));
+        };
+        const timeout = setTimeout(() => {
+            window.removeEventListener('bynd:backup-export', onResult);
+            reject(new Error('系统文件选择未完成，请重新导出并选择保存位置'));
+        }, 2 * 60 * 1000);
+        window.addEventListener('bynd:backup-export', onResult);
+        try {
+            bridge.exportBackup(id, filename, await readByndBlobAsDataUrl(blob));
+        } catch (error) {
+            window.removeEventListener('bynd:backup-export', onResult);
+            clearTimeout(timeout);
+            reject(error);
+        }
+    });
+}
+
 // 导出所有数据。完整角色数据不可读时，不下载轻量索引冒充备份。
 async function exportAllData() {
     try {
         const exportData = await buildByndBackupData();
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `AI_OS备份_${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const filename = `AI_OS备份_${new Date().toISOString().slice(0,10)}.json`;
+        const androidExport = exportByndBackupThroughAndroid(blob, filename);
+        if (androidExport) {
+            await androidExport;
+        } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
         alert(exportData._backupWarnings?.length
             ? `备份已下载，但以下内容未完整备份：\n${exportData._backupWarnings.join('\n')}\n请保留当前设备的数据。`
             : '导出成功！');

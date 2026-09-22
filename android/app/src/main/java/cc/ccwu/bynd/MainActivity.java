@@ -44,12 +44,15 @@ public class MainActivity extends Activity {
     private static final int SCREEN_CAPTURE_REQUEST = 7311;
     private static final int FILE_CHOOSER_REQUEST = 7312;
     private static final int PNG_EXPORT_REQUEST = 7313;
+    private static final int BACKUP_EXPORT_REQUEST = 7314;
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
     private ValueCallback<Uri[]> fileChooserCallback;
     private byte[] pendingPngBytes;
     private String pendingPngId;
+    private byte[] pendingBackupBytes;
+    private String pendingBackupId;
     private MediaProjectionManager projectionManager;
     private MediaProjection mediaProjection;
     private VirtualDisplay virtualDisplay;
@@ -254,6 +257,31 @@ public class MainActivity extends Activity {
             applyFullscreenSystemBars();
             return;
         }
+        if (requestCode == BACKUP_EXPORT_REQUEST) {
+            final byte[] bytes = pendingBackupBytes;
+            final String id = pendingBackupId;
+            pendingBackupBytes = null;
+            pendingBackupId = null;
+            if (id == null) return;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                notifyBackupExport(id, false, "已取消导出备份");
+            } else {
+                final Uri destination = data.getData();
+                new Thread(() -> {
+                    try (OutputStream stream = getContentResolver().openOutputStream(destination, "w")) {
+                        if (stream == null || bytes == null) throw new IllegalStateException("No output stream");
+                        stream.write(bytes);
+                        stream.flush();
+                    } catch (Exception error) {
+                        runOnUiThread(() -> notifyBackupExport(id, false, "备份未能写入所选位置，请重试"));
+                        return;
+                    }
+                    runOnUiThread(() -> notifyBackupExport(id, true, "备份已保存到所选位置"));
+                }, "BYND-backup-export").start();
+            }
+            applyFullscreenSystemBars();
+            return;
+        }
         if (requestCode == FILE_CHOOSER_REQUEST) {
             ValueCallback<Uri[]> callback = fileChooserCallback;
             fileChooserCallback = null;
@@ -372,6 +400,44 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
+    private void notifyBackupExport(String id, boolean ok, String message) {
+        if (webView == null) return;
+        String script = "window.dispatchEvent(new CustomEvent('bynd:backup-export',{detail:{id:"
+                + JSONObject.quote(id) + ",ok:" + ok + ",message:" + JSONObject.quote(message) + "}}));";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void requestBackupExport(String id, String name, String dataUrl) {
+        if (webView == null || id == null || !id.matches("[a-zA-Z0-9_-]{1,80}")) return;
+        String page = webView.getUrl();
+        if (page == null || !page.startsWith("file:///android_asset/www/")) {
+            notifyBackupExport(id, false, "请在 BYND 应用内导出备份");
+            return;
+        }
+        if (pendingBackupId != null) { notifyBackupExport(id, false, "请先完成当前备份导出"); return; }
+        try {
+            if (dataUrl == null || dataUrl.length() > 48 * 1024 * 1024) throw new IllegalArgumentException();
+            String prefix = "data:application/json;base64,";
+            if (!dataUrl.startsWith(prefix)) throw new IllegalArgumentException();
+            byte[] bytes = Base64.decode(dataUrl.substring(prefix.length()), Base64.DEFAULT);
+            if (bytes.length < 2 || bytes[0] != '{') throw new IllegalArgumentException();
+            String filename = name == null ? "BYND-backup.json" : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
+            if (filename.length() > 100) filename = filename.substring(0, 100);
+            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) filename += ".json";
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.putExtra(Intent.EXTRA_TITLE, filename);
+            pendingBackupBytes = bytes;
+            pendingBackupId = id;
+            startActivityForResult(intent, BACKUP_EXPORT_REQUEST);
+        } catch (Exception error) {
+            pendingBackupBytes = null;
+            pendingBackupId = null;
+            notifyBackupExport(id, false, "无法准备备份文件，请检查内容后重试");
+        }
+    }
+
     private void requestPngExport(String id, String name, String dataUrl) {
         if (webView == null || id == null || !id.matches("[a-zA-Z0-9_-]{1,80}")) return;
         String page = webView.getUrl();
@@ -419,6 +485,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void exportPng(String id, String name, String dataUrl) {
             runOnUiThread(() -> requestPngExport(id, name, dataUrl));
+        }
+
+        @JavascriptInterface
+        public void exportBackup(String id, String name, String dataUrl) {
+            runOnUiThread(() -> requestBackupExport(id, name, dataUrl));
         }
 
         @JavascriptInterface

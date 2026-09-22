@@ -4662,6 +4662,8 @@ body.bynd-statusbar-hidden .status-bar,
     margin-top: 8px;
 }
 .msg-text { display: inline; white-space: pre-wrap; min-width: 0; }
+.msg-bubble.wechat-emoji-text .msg-text { white-space: normal; }
+.msg-bubble.wechat-emoji-text .wc-inline-wechat-emoji { display: inline-block; vertical-align: -0.34em; }
 .msg-text.rich { display: block; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; overflow-wrap: anywhere; white-space: normal; }
 .msg-bubble.rich { width: 100%; padding: 8px; overflow: hidden; }
 .msg-bubble.rich .msg-meta { margin-top: 6px; }
@@ -8430,14 +8432,14 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 /* WeChat call page */
 .wc-message-island {
     position: absolute;
-    top: 13px;
+    top: max(12px, env(safe-area-inset-top));
     left: 50%;
     z-index: 3890;
-    width: min(326px, calc(100% - 42px));
-    min-height: 54px;
-    padding: 7px 9px 7px 10px;
-    border-radius: 29px;
-    background: rgba(7,9,13,0.94);
+    width: min(370px, calc(100% - 24px));
+    min-height: 62px;
+    padding: 8px 10px 8px 11px;
+    border-radius: 31px;
+    background: linear-gradient(135deg, rgba(19,20,27,0.98), rgba(7,8,12,0.96));
     color: #fff;
     display: flex;
     align-items: center;
@@ -8476,23 +8478,25 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     line-height: 1.12;
 }
 .wc-message-island-text strong {
-    max-width: 188px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
     color: #fff;
     font-size: 13px;
     font-weight: 820;
 }
 .wc-message-island-text span {
-    max-width: 206px;
+    max-width: none;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
     color: rgba(255,255,255,0.62);
     font-size: 11px;
     font-weight: 620;
@@ -8579,8 +8583,8 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-monitor-card-actions button { height: 40px; border: none; border-radius: 16px; background: rgba(17,24,39,0.07); color: #232936; font-size: 13px; font-weight: 800; cursor: pointer; }
 .wc-monitor-card-actions .primary { background: #111827; color: #fff; }
 .wc-monitor-barrage { position: absolute; inset: 0; z-index: 3910; pointer-events: none; overflow: hidden; }
-.wc-monitor-barrage span { position: absolute; left: 100%; top: var(--top); max-width: 330px; padding: 8px 13px; border-radius: 999px; background: rgba(9,10,16,0.76); color: rgba(255,255,255,0.94); font-size: 13px; font-weight: 760; white-space: nowrap; box-shadow: 0 14px 34px rgba(0,0,0,0.22); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: wcMonitorFly var(--dur, 5.2s) linear forwards; animation-delay: calc(var(--i) * 0.34s); }
-@keyframes wcMonitorFly { from { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } to { transform: translateX(-720px); opacity: 0; } }
+.wc-monitor-barrage span { position: absolute; left: 100%; top: var(--top); width: max-content; max-width: min(360px, calc(100% - 30px)); padding: 8px 13px; border-radius: 18px; background: rgba(9,10,16,0.84); color: rgba(255,255,255,0.96); font-size: 13px; font-weight: 760; line-height: 1.38; white-space: normal; overflow-wrap: anywhere; box-shadow: 0 14px 34px rgba(0,0,0,0.22); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: wcMonitorFly var(--dur, 5.2s) linear forwards; animation-delay: calc(var(--i) * 0.34s); }
+@keyframes wcMonitorFly { from { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } to { transform: translateX(calc(-100vw - 32px)); opacity: 0; } }
 .wc-monitor-lockdown { position: absolute; inset: 0; z-index: 3950; overflow: hidden; background: #020304; color: #d9ffe8; display: flex; align-items: center; justify-content: center; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .wc-monitor-lockdown::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 5px), radial-gradient(circle at 50% 28%, rgba(129,72,255,0.22), transparent 45%); mix-blend-mode: screen; animation: wcMonitorStatic 0.22s steps(2) infinite; }
 .wc-monitor-noise { position: absolute; inset: 22px 16px; display: flex; flex-direction: column; gap: 8px; opacity: 0.30; color: #8dffbd; font-size: 9px; line-height: 1.2; transform: rotate(-2deg); }
@@ -18741,6 +18745,14 @@ button.wc-ai-phone-sync {
     line-height: 1.42;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+}
+.wc-ai-phone-inline-emoji {
+    width: 24px;
+    height: 24px;
+    margin: 0 1px;
+    display: inline-block;
+    object-fit: contain;
+    vertical-align: -6px;
 }
 .wc-ai-phone-msg-bubble time {
     display: block;

@@ -10113,7 +10113,7 @@ function setWechatVoiceInputMode(active, options = {}) {
     const icon = document.getElementById('wc-voice-toggle-icon');
     if (!room) return;
     room.classList.toggle('is-voice-input', !!active);
-    if (panel) panel.classList.toggle('hidden', !active);
+    if (panel) panel.classList.add('hidden');
     if (pressBtn) pressBtn.classList.toggle('hidden', !active);
     if (icon) icon.className = active ? 'ri-keyboard-line' : 'ri-mic-line';
     if (active) {
@@ -10452,7 +10452,7 @@ function stopWechatHoldMediaTracks(hold) {
 function startWechatHoldSpeechRecognition(hold) {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const target = document.getElementById('wc-voice-recognized-text');
-    if (!Recognition || !target || !hold) return;
+    if (!Recognition || !hold) return;
     try {
         stopWechatHoldSpeechRecognition();
         const recognition = new Recognition();
@@ -10468,7 +10468,9 @@ function startWechatHoldSpeechRecognition(hold) {
                 else interimText += part;
             }
             hold.finalTranscript = finalText;
-            target.value = `${finalText}${interimText ? `…${interimText}` : ''}`.trim();
+            // The old expanded voice panel is no longer part of the interaction.
+            // Keep this hidden field in sync only for legacy in-flight recordings.
+            if (target) target.value = `${finalText}${interimText ? `…${interimText}` : ''}`.trim();
         };
         recognition.onerror = () => {};
         window._wechatHoldSpeechRecognition = recognition;
@@ -10584,7 +10586,7 @@ async function finishWechatHoldVoice(event, options = {}) {
     stopWechatHoldMediaTracks(hold);
 
     const transcriptEl = document.getElementById('wc-voice-recognized-text');
-    const transcript = (transcriptEl?.value || hold.finalTranscript || '').replace(/….*$/g, '').trim();
+    const transcript = (hold.finalTranscript || transcriptEl?.value || '').replace(/….*$/g, '').trim();
     if (!hold.chunks.length) {
         resetWechatHoldVoiceUi('没有录到声音，请重新按住说话');
         return;
@@ -10965,7 +10967,7 @@ function showWechatDesktopMessageIsland(char) {
         host.appendChild(island);
     }
     const name = getWechatCharDisplayName(char);
-    const preview = getChatPreview(char).replace(/\s+/g, ' ').slice(0, 42);
+    const preview = getChatPreview(char).replace(/\s+/g, ' ').slice(0, 120);
     island.innerHTML = `
         <div class="wc-message-island-main">
             <img src="${wcEscapeHtml(char.avatar || DEFAULT_AVATAR)}" onerror="this.src='${DEFAULT_AVATAR}'">
@@ -11496,10 +11498,13 @@ function showWechatMonitorBarrage(watcher, phrases) {
     const barrage = document.createElement('div');
     barrage.id = 'wc-monitor-barrage';
     barrage.className = 'wc-monitor-barrage';
-    const safePhrases = (phrases || []).filter(Boolean).slice(0, 16);
+    const safePhrases = (phrases || [])
+        .map(phrase => stripWechatPromptText(phrase, 72))
+        .filter(Boolean)
+        .slice(0, 16);
     const speed = getWechatMonitorBarrageSpeed(watcher);
     barrage.innerHTML = safePhrases.map((phrase, index) => `
-        <span style="--i:${index};--top:${12 + Math.round(Math.random() * 66)}%;--dur:${((4.8 + Math.random() * 1.7) / speed).toFixed(2)}s;">${wcEscapeHtml(phrase)}</span>
+        <span style="--i:${index};--top:${10 + (index % 6) * 14}%;--dur:${((5.2 + Math.random() * 1.7) / speed).toFixed(2)}s;">${wcEscapeHtml(phrase)}</span>
     `).join('');
     host.appendChild(barrage);
     setTimeout(() => barrage.remove(), Math.max(4800, Math.round(7800 / speed)));
@@ -20836,14 +20841,15 @@ async function requestWechatAiStatusSnapshot(charOrId, options = {}) {
             const regexAnchor = buildWechatRegexPromptForStatus(char);
             const momentsAnchor = getWechatUserMomentsPromptForStatus();
             const previousStatus = buildWechatPreviousAiStatusPrompt(char);
-            const worldBookAnchor = buildWechatWorldBookPrompt(char);
-            const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? buildWechatMemoryPrompt(char) : '';
-            const characterCard = getWechatCharacterPersonaText(char, 6500);
+            // Status is a compact receipt rather than a second full chat completion.
+            const worldBookAnchor = stripWechatPromptText(buildWechatWorldBookPrompt(char), 1800);
+            const memoryAnchor = typeof buildWechatMemoryPrompt === 'function' ? stripWechatPromptText(buildWechatMemoryPrompt(char), 1800) : '';
+            const characterCard = getWechatCharacterPersonaText(char, 3000);
             const timeAnchor = typeof buildCurrentTimeAnchor === 'function' ? buildCurrentTimeAnchor(char) : '';
             const baseSystemPrompt = `你是 BYND 的微信角色状态收据生成器。你的任务不是继续聊天，而是根据真实上下文生成「${char.name || '角色'}」此刻的状态快照。只返回 JSON，不要 Markdown，不要解释。JSON 字段必须包含：innerMonologue, miniDiary, thoughts, outfit, posture, action, gaze, penis；字段名必须保留 penis，页面会显示为 PENIS。miniDiary 是想对用户说但没说出口的话。必须综合角色卡、角色设定、启用预设、正则设定、世界书、当前聊天备注/称呼、记忆、朋友圈、最近聊天和上一轮状态。用户给角色设置的备注只是身份元信息，不是用户名字，也不一定是聊天主题；如果最近聊天没有谈到名字/备注/称呼，不要让内心独白、小日记或想法围绕备注展开。不要编造用户没有说过的名字争议。所有字段都按最近聊天情绪和角色设定自然生成，禁止固定占位、模板化省略、拒绝式套话或“未特别描写”。禁止输出 [表情]、[微信表情:...]、表情031、[图片] 这类占位符；如果最近消息是表情、贴纸或图片，只能用自然语言写它造成的气氛或角色误读，不能照抄占位符。
 outfit、posture、action、gaze、penis 都必须写当前这一刻的具体状态；禁止写“没有新的描写/没有变化/保持角色设定/沿用设定/不适用/无该器官/当前剧情没有……”。
 penis 是 PENIS 栏的身体/生理状态字段，不是拒绝字段，也不是固定模板。状态是什么就写什么：必须按当前上下文、角色身体设定、世界书、服饰、姿势、情绪、关系阶段和剧情尺度推演。角色卡明确有对应器官时，可以如实写该器官此刻在衣物、姿势、刺激和情绪影响下的具体状态；角色设定不对应该器官时，也要写与该角色身体相符的下腹、腿间、敏感处、呼吸、体温或肌肉反应，不能用否定句绕过。不要无上下文硬升级情色；已有成人/亲密上下文时，就按当下尺度具体写。`;
-            const baseUserPrompt = `${identityAnchor}\n${characterCard ? `\n【角色卡/角色设定】\n${characterCard}\n` : ''}${presetAnchor ? `\n${presetAnchor}\n` : ''}${regexAnchor ? `\n${regexAnchor}\n` : ''}${worldBookAnchor ? `\n${worldBookAnchor}\n` : ''}${memoryAnchor ? `\n${memoryAnchor}\n` : ''}\n【最近聊天上下文】\n${buildWechatRecentHistoryForPrompt(char, 24)}\n${momentsAnchor ? `\n${momentsAnchor}` : ''}${previousStatus ? `\n【上一轮状态】\n${previousStatus}` : ''}`;
+            const baseUserPrompt = `${identityAnchor}\n${characterCard ? `\n【角色卡/角色设定】\n${characterCard}\n` : ''}${presetAnchor ? `\n${presetAnchor}\n` : ''}${regexAnchor ? `\n${regexAnchor}\n` : ''}${worldBookAnchor ? `\n${worldBookAnchor}\n` : ''}${memoryAnchor ? `\n${memoryAnchor}\n` : ''}\n【最近聊天上下文】\n${buildWechatRecentHistoryForPrompt(char, 12)}\n${momentsAnchor ? `\n${momentsAnchor}` : ''}${previousStatus ? `\n【上一轮状态】\n${previousStatus}` : ''}`;
             let lastRawStatus = '';
             let lastMissingKeys = [];
             for (let attempt = 0; attempt < 2 && !snapshot; attempt += 1) {
@@ -20863,7 +20869,7 @@ penis 是 PENIS 栏的身体/生理状态字段，不是拒绝字段，也不是
                         content: `${baseUserPrompt}${rejectedSample}`
                     }
                 ], {
-                    max_tokens: 1800 + attempt * 300,
+                    max_tokens: 1200 + attempt * 200,
                     temperature: attempt ? 0.52 : 0.45,
                     skipLengthContinuation: true,
                     skipEmptyLengthRetry: true,
@@ -21193,9 +21199,11 @@ function getWechatAiPhoneUserRemark(char, profile) {
     char = char || {};
     const config = char.chatConfig || {};
     const saved = stripWechatPromptText(config.aiPhoneUserRemark, 24);
-    if (saved) return saved;
+    if (saved && !/^(我|用户|user)$/i.test(saved)) return saved;
+    const characterTitle = stripWechatPromptText(config.userTitle, 24);
+    if (characterTitle && !/^(我|用户|user)$/i.test(characterTitle)) return characterTitle;
     const profileName = stripWechatPromptText(profile && profile.name, 24);
-    return profileName || '用户';
+    return profileName || '你';
 }
 
 function setWechatAiPhoneUserRemark(char, value) {
@@ -21704,6 +21712,13 @@ function isWechatAiPhoneDiaryPlaceholder(value) {
     return !text || /^(?:待补充|待完善|暂无(?:内容)?|无内容|未填写|占位(?:符)?|模板内容|这里填写|此处填写.*|按角色卡生成|结合世界书生成|正文|正文内容|标题|副标题|署名|日期|null|undefined|n\/a|\.{3,}|…+)$/i.test(text);
 }
 
+function isWechatAiPhoneDiaryPoorTitle(value) {
+    const title = stripWechatPromptText(value, 60).replace(/[《》“”"'：:，,。！？!?]/g, '');
+    if (!title || title.length < 2 || title.length > 20) return true;
+    return /^(?:关于|有关|针对|论|浅谈|分析|报告|记录)/.test(title)
+        || /(?:病理分析|隐性条款|问题分析|情况说明|工作汇报|研究报告|待办事项)/.test(title);
+}
+
 function getWechatAiPhoneDiaryText(value, depth = 0) {
     if (depth > 4) return '';
     if (typeof value === 'string') return value;
@@ -21773,6 +21788,10 @@ function normalizeWechatAiPhoneDiaryLetterList(value, report = null) {
         const title = isWechatAiPhoneDiaryPlaceholder(titleText) ? stripWechatPromptText(body.split(/[。！？\n]/)[0], 40) : titleText;
         const subtitle = isWechatAiPhoneDiaryPlaceholder(subtitleText) ? '' : subtitleText;
         const meta = isWechatAiPhoneDiaryPlaceholder(metaText) ? date : metaText;
+        if (isWechatAiPhoneDiaryPoorTitle(title)) {
+            if (report) report.issues.push('第' + (index + 1) + '封信题不宜使用说明文或分析文格式');
+            return null;
+        }
         return {
             title,
             subtitle,
@@ -22167,7 +22186,7 @@ async function requestWechatAiPhoneDiaryLetters(char, contextMessage, background
         {
             role: 'system',
             content: `你是「${char.name}」写给 user 的书信作者。只生成这个角色小手机日记里的两封正式中文书信，不生成其他手机应用数据。只返回可 JSON.parse 的对象 {"diaryLetters":[...]}，不要 Markdown、分析或解释。
-每封信完整返回 title、subtitle、meta、salutation、greeting、body、closing、wish、signature、date 十个非空字符串。title/subtitle/meta 要针对本封内容原创，不能使用“日记、草稿、便签、未寄出的信、未命名信件、一封信”等通用标题，不能出现品牌或占位文字。
+每封信完整返回 title、subtitle、meta、salutation、greeting、body、closing、wish、signature、date 十个非空字符串。title/subtitle/meta 要针对本封内容原创，不能使用“日记、草稿、便签、未寄出的信、未命名信件、一封信”等通用标题，不能出现品牌或占位文字。title 是书信信题：用 2-20 个字写成含具体意象、事件或心绪的短语，像“灯下的旧约”“雨声抵窗”“归途有信”，但必须按本封内容原创；禁止“关于……”“……病理分析”“……隐性条款”“问题分析”“情况说明”“工作汇报”等论文、报告或说明书式标题。subtitle 只作一行细小的情境提示，不能复述标题或写成分类标签。
 如果后续指出缺项并要求补写，只返回尚缺少的信件；不要重复已生成的完整信件。
 salutation 只写收信称呼；greeting 单独问候。body 用“我”对“你”写 120-260 字、2-4 段，在 JSON 字符串中用 \\n 分段。结合角色身份、世界书、记忆、关系和真实聊天中的具体话题，不能复制状态、写旁白、套模板或替 user 编造说过的话。没有可引用的聊天事实时，只写角色自己基于人设和关系想表达的内容。
 closing 与 wish 分别写祝颂语和祝愿，signature 写符合角色身份的署名，date 写 YYYY年M月D日。保留完整正文、称呼、问候、祝颂、署名和日期，不得返回字段碎片或固定兜底信件。`
@@ -22944,6 +22963,29 @@ function getWechatAiPhoneMessageText(msg) {
     return stripWechatPromptText(getWechatMessagePromptContent(msg), 120) || msg.content || '';
 }
 
+function renderWechatAiPhoneInlineEmojiHtml(text) {
+    const source = String(text || '');
+    const marker = /\[\[(WECHAT_EMOJI|QQ_EMOJI):([^:\]]+)(?::([^\]]+))?\]\]/g;
+    let html = '';
+    let cursor = 0;
+    let match;
+    while ((match = marker.exec(source))) {
+        html += wcEscapeHtml(source.slice(cursor, match.index));
+        const parsed = parseWechatBuiltinEmojiMarker(match[0]);
+        const url = parsed && (parsed.url || (parsed.source === 'qq'
+            ? getQqBuiltinEmojiUrlByName(parsed.name)
+            : getWechatBuiltinEmojiUrlByName(parsed.name)));
+        if (url) {
+            const label = parsed.source === 'qq' ? parsed.name : getWechatBuiltinEmojiAliasName(parsed.name);
+            html += `<img class="wc-ai-phone-inline-emoji" src="${wcEscapeAttr(url)}" alt="[${wcEscapeAttr(label)}]" title="${wcEscapeAttr(label)}" draggable="false">`;
+        } else {
+            html += wcEscapeHtml(parsed && parsed.name ? `[表情：${parsed.name}]` : '');
+        }
+        cursor = marker.lastIndex;
+    }
+    return html + wcEscapeHtml(source.slice(cursor));
+}
+
 function resolveWechatAiPhoneSticker(item, char) {
     const msg = item && item.msg ? item.msg : {};
     if (msg.type === 'sticker' && msg.content) {
@@ -23027,7 +23069,7 @@ function renderWechatAiPhoneMessageContent(item, char) {
     const stickerHtml = renderWechatAiPhoneMiniSticker(item, char);
     if (stickerHtml) return stickerHtml;
     return `
-        <p>${wcEscapeHtml(item.text)}</p>
+        <p>${renderWechatAiPhoneInlineEmojiHtml(item.text)}</p>
         ${item.time ? `<time>${wcEscapeHtml(item.time)}</time>` : ''}
     `;
 }
@@ -23042,7 +23084,7 @@ function renderWechatAiPhoneChatRows(snapshot, char) {
             <div class="wc-ai-phone-chat-avatar ${index === 0 ? 'primary' : ''}">${getWechatAiPhoneInitial(item.name)}</div>
             <div class="wc-ai-phone-chat-main">
                 <strong>${wcEscapeHtml(item.name || '联系人')}</strong>
-                <span>${wcEscapeHtml(item.text || ' ')}</span>
+                <span>${renderWechatAiPhoneInlineEmojiHtml(item.text || ' ')}</span>
             </div>
             <em>${wcEscapeHtml(item.time || '')}</em>
             <i class="ri-arrow-right-s-line"></i>
@@ -25281,7 +25323,6 @@ function composeField(type, msg, options = {}) {
                 <span>拍一拍内容</span>
                 <input id="wc-compose-action-content" type="text" maxlength="80" value="${wcEscapeAttr(getWechatPokeSuffix(msg || {}, getCurrentChatChar()) || '肩膀')}" placeholder="例如：肩膀、脑袋">
             </label>
-            <div class="wc-compose-hint">填写“的”后面的内容，发送后显示为居中提示。</div>
         `;
     }
     if (type === 'screen_shake') {
