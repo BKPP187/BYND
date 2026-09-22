@@ -2514,7 +2514,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.642';
+const APP_VERSION = 'v1.1.645';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -2809,10 +2809,12 @@ function exportByndBackupThroughAndroid(blob, filename) {
     const bridge = window.ByndAndroid;
     if (!bridge || typeof bridge.beginBackupExport !== 'function'
         || typeof bridge.appendBackupExportChunk !== 'function'
-        || typeof bridge.finishBackupExport !== 'function') return null;
+        || typeof bridge.finishBackupExport !== 'function'
+        || typeof bridge.abortBackupExport !== 'function') return null;
     return new Promise((resolve, reject) => {
         const id = `backup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         let settled = false;
+        let writing = false;
         const cleanup = () => {
             window.removeEventListener('bynd:backup-export-ready', onReady);
             window.removeEventListener('bynd:backup-export', onResult);
@@ -2821,6 +2823,9 @@ function exportByndBackupThroughAndroid(blob, filename) {
         const fail = error => {
             if (settled) return;
             settled = true;
+            if (writing) {
+                try { bridge.abortBackupExport(id); } catch (e) {}
+            }
             cleanup();
             reject(error instanceof Error ? error : new Error(String(error || '备份导出失败')));
         };
@@ -2838,11 +2843,13 @@ function exportByndBackupThroughAndroid(blob, filename) {
         const onReady = async event => {
             if (event?.detail?.id !== id || settled) return;
             try {
+                writing = true;
                 const chunkSize = 192 * 1024;
                 for (let offset = 0; offset < blob.size; offset += chunkSize) {
                     const encoded = await readByndBlobChunkAsBase64(blob.slice(offset, offset + chunkSize));
                     if (settled) return;
-                    bridge.appendBackupExportChunk(id, encoded);
+                    const accepted = bridge.appendBackupExportChunk(id, encoded);
+                    if (accepted !== true && accepted !== 'true') throw new Error('备份分段写入失败');
                     // Keep the WebView event queue responsive for large image/font backups.
                     await new Promise(resolveChunk => setTimeout(resolveChunk, 0));
                 }

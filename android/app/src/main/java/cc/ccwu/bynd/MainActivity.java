@@ -415,7 +415,7 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
-    private void clearActiveBackupExport() {
+    private synchronized void clearActiveBackupExport() {
         if (activeBackupStream != null) {
             try { activeBackupStream.close(); } catch (Exception ignored) {}
         }
@@ -448,17 +448,19 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void appendBackupExportChunk(String id, String base64Chunk) {
-        if (id == null || !id.equals(activeBackupId) || activeBackupStream == null) return;
+    private synchronized boolean appendBackupExportChunk(String id, String base64Chunk) {
+        if (id == null || !id.equals(activeBackupId) || activeBackupStream == null) return false;
         try {
             if (base64Chunk == null || base64Chunk.length() > 512 * 1024) throw new IllegalArgumentException();
             byte[] bytes = Base64.decode(base64Chunk, Base64.DEFAULT);
             if (bytes.length == 0 || activeBackupBytes + bytes.length > 256L * 1024L * 1024L) throw new IllegalArgumentException();
             activeBackupStream.write(bytes);
             activeBackupBytes += bytes.length;
+            return true;
         } catch (Exception error) {
             clearActiveBackupExport();
-            notifyBackupExport(id, false, "备份写入中断，请重新导出并选择保存位置");
+            runOnUiThread(() -> notifyBackupExport(id, false, "备份写入中断，请重新导出并选择保存位置"));
+            return false;
         }
     }
 
@@ -533,13 +535,20 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void appendBackupExportChunk(String id, String base64Chunk) {
-            runOnUiThread(() -> appendBackupExportChunk(id, base64Chunk));
+        public boolean appendBackupExportChunk(String id, String base64Chunk) {
+            return appendBackupExportChunk(id, base64Chunk);
         }
 
         @JavascriptInterface
         public void finishBackupExport(String id) {
             runOnUiThread(() -> finishBackupExport(id));
+        }
+
+        @JavascriptInterface
+        public void abortBackupExport(String id) {
+            runOnUiThread(() -> {
+                if (id != null && id.equals(activeBackupId)) clearActiveBackupExport();
+            });
         }
 
         @JavascriptInterface
