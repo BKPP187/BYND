@@ -91,36 +91,41 @@
 .bynd-agent-state.success { background: #68a48a; }
 .bynd-agent-state.error, .bynd-agent-state.interrupted { background: #cb967b; }
 .bynd-reasoning {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    --bynd-reasoning-accent: var(--wc-theme-accent, #7d8488);
+    --bynd-reasoning-text: var(--wc-theme-muted, #737b80);
     width: min(360px, calc(100% - 66px));
-    min-height: 39px;
     margin: 4px 14px 11px 52px;
-    padding: 7px 9px 7px 8px;
     overflow: hidden;
-    border: 1px solid rgba(98, 135, 118, .18);
-    border-radius: 13px;
-    background: rgba(246, 250, 247, .86);
-    color: #587165;
-    box-shadow: 0 3px 12px rgba(42, 68, 55, .05);
+    border: 1px solid color-mix(in srgb, var(--wc-theme-border, #b9c1c5) 76%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--bynd-reasoning-accent) 58%, transparent);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--wc-theme-card, #fff) 62%, transparent);
+    color: var(--bynd-reasoning-text);
+    box-shadow: 0 2px 10px rgba(24, 34, 39, .035);
     font: inherit;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
     text-align: left;
-    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    -webkit-backdrop-filter: blur(11px);
+    backdrop-filter: blur(11px);
 }
-.bynd-reasoning:hover { background: rgba(238, 247, 240, .96); border-color: rgba(90, 145, 112, .32); }
-.bynd-reasoning:focus-visible { outline: 2px solid #5a9980; outline-offset: 2px; }
-.bynd-reasoning__icon { display: grid; place-items: center; width: 23px; height: 23px; flex: 0 0 23px; border-radius: 8px; color: #5e9a7c; background: rgba(218, 238, 224, .82); font-size: 14px; }
-.bynd-reasoning__copy { display: flex; flex: 1; align-items: baseline; gap: 6px; min-width: 0; }
-.bynd-reasoning__header { flex: 0 0 auto; color: #4e7564; font-weight: 600; white-space: nowrap; }
-.bynd-reasoning__preview { min-width: 0; overflow: hidden; color: #7c9185; text-overflow: ellipsis; white-space: nowrap; }
-.bynd-reasoning__chevron { flex: 0 0 auto; color: #9caea3; font-size: 16px; }
+.bynd-reasoning--inline { display: block; }
+.bynd-reasoning--inline:hover { background: color-mix(in srgb, var(--wc-theme-card, #fff) 76%, transparent); }
+.bynd-reasoning--inline:focus-visible { outline: 2px solid var(--bynd-reasoning-accent); outline-offset: 2px; }
+.bynd-reasoning__summary { display: flex; align-items: center; min-height: 35px; gap: 7px; padding: 4px 9px 4px 7px; cursor: pointer; list-style: none; }
+.bynd-reasoning__summary::-webkit-details-marker { display: none; }
+.bynd-reasoning__icon { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; color: color-mix(in srgb, var(--bynd-reasoning-accent) 68%, var(--bynd-reasoning-text)); font-size: 13px; }
+.bynd-reasoning__header { min-width: 0; color: color-mix(in srgb, var(--wc-theme-text, #28323a) 76%, var(--bynd-reasoning-text)); font-size: 12px; font-weight: 560; letter-spacing: .015em; white-space: nowrap; }
+.bynd-reasoning__chevron { flex: 0 0 auto; color: color-mix(in srgb, var(--bynd-reasoning-text) 72%, transparent); font-size: 15px; transition: transform .16s ease; }
+.bynd-reasoning--inline[open] .bynd-reasoning__chevron { transform: rotate(90deg); }
+.bynd-reasoning--inline > .bynd-reasoning__content { margin: 0 10px 10px 31px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, var(--wc-theme-border, #c4cbcf) 78%, transparent); color: var(--bynd-reasoning-text); font-size: 12px; line-height: 1.72; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Claude keeps the compact, almost weightless timeline row from its own chat UI. */
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: min(calc(100% - 38px), 620px);
     min-height: 34px;
     margin: 9px 19px 14px;
@@ -131,11 +136,14 @@
     box-shadow: none;
     color: #6f6a63;
     font-size: 13px;
+    cursor: pointer;
 }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude:hover { background: transparent; border-color: transparent; color: #36322d; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude:focus-visible { outline: 2px solid #8b8177; outline-offset: 2px; }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__icon { width: 25px; height: 25px; flex-basis: 25px; border-radius: 50%; color: #817a71; background: transparent; font-size: 18px; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__copy { display: flex; flex: 1; min-width: 0; }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__header { display: none; }
-#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__preview { color: inherit; font-size: 14px; }
+#app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__preview { min-width: 0; overflow: hidden; color: inherit; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__chevron { color: #817a71; font-size: 20px; }
 
 .bynd-reasoning-sheet {
@@ -173,11 +181,11 @@
 .bynd-reasoning-sheet__panel header strong { color: #2d2b28; font-size: 22px; font-weight: 650; text-align: center; letter-spacing: -.25px; }
 .bynd-reasoning-sheet__panel header button { width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; color: #292724; background: transparent; font: inherit; font-size: 28px; cursor: pointer; }
 .bynd-reasoning-sheet__panel header button:focus-visible { outline: 2px solid #6d987b; outline-offset: 2px; }
-.bynd-reasoning-sheet__content { display: flex; gap: 15px; padding: 44px 14px 25px; overflow: auto; color: #393d39; font-family: Georgia, "Times New Roman", serif; font-size: clamp(19px, 4.8vw, 25px); line-height: 1.55; }
+.bynd-reasoning-sheet__content { display: flex; gap: 15px; padding: 34px 14px 25px; overflow: auto; color: #393d39; font-family: Georgia, "Times New Roman", serif; font-size: clamp(16px, 3.8vw, 20px); line-height: 1.62; }
 .bynd-reasoning-sheet__content p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bynd-reasoning-sheet__dot { width: 16px; height: 16px; flex: 0 0 16px; margin-top: .55em; border-radius: 50%; background: #edf0ee; }
-.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__panel { min-height: min(47vh, 470px); }
-.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__content { color: #272422; }
+.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__panel { min-height: min(43vh, 420px); }
+.bynd-reasoning-sheet--claude .bynd-reasoning-sheet__content { color: #272422; font-size: clamp(16px, 3.8vw, 20px); }
 
 .bynd-reasoning-settings { padding: 8px 14px 15px; }
 .bynd-reasoning-settings > label { display: block; padding: 8px 0; color: #52695e; font-size: 12px; font-weight: 600; }

@@ -137,7 +137,7 @@ test('clearing completed todos frees capacity without removing pending tasks or 
     assert.deepEqual(clone(h.char.chatConfig.agentTodos).map(todo => todo.id), ['pending']);
 });
 
-test('public reasoning uses the lightweight summary row, while tool logs retain their collapse state', () => {
+test('public reasoning uses a theme-native disclosure while tool logs retain their collapse state', () => {
     const h = harness();
     h.char.chatConfig.agentPreferences = { showThinking: true };
     h.char.chatConfig.agentActivity = [{ id: 'restored', title: '<img onerror=evil>', input: '<script>bad</script>', state: 'running', anchorTimestamp: 101 }];
@@ -145,12 +145,25 @@ test('public reasoning uses the lightweight summary row, while tool logs retain 
     const container = { appendChild: node => rows.push(node) };
     h.context.renderWechatAgentExtras(container, h.char, { timestamp: 101, thinkingSummary: '<b>回应摘要</b>' });
     assert.equal(rows.length, 2);
-    assert.match(rows[0].className, /bynd-reasoning/);
+    assert.match(rows[0].className, /bynd-reasoning--inline/);
+    assert.equal(rows[0].open, false);
     assert.match(rows[0].innerHTML, /回应摘要/);
     assert.equal(rows[1].open, false);
     assert.match(rows[1].innerHTML, /已中断/);
     assert.doesNotMatch(rows[1].innerHTML, /<img|<script>/);
     assert.match(rows[1].innerHTML, /&lt;img/);
+});
+
+test('Claude alone uses the Summary-sheet trigger instead of the inline disclosure', () => {
+    const h = harness();
+    h.char.chatConfig.agentPreferences = { showThinking: true, showTools: false };
+    h.context.getWechatUiThemeId = () => 'claude';
+    const rows = [];
+    h.context.renderWechatAgentExtras({ appendChild: node => rows.push(node) }, h.char, { timestamp: 101, thinkingSummary: '公开回应摘要' });
+    assert.equal(rows.length, 1);
+    assert.match(rows[0].className, /bynd-reasoning--claude/);
+    assert.doesNotMatch(rows[0].className, /bynd-reasoning--inline/);
+    assert.match(rows[0].innerHTML, /ri-time-line/);
 });
 
 test('reasoning CSS is limited to the independent reasoning scope', () => {

@@ -273,12 +273,19 @@
             const themeId = typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : '';
             const summary = clean(msg.thinkingSummary, 1200);
             const preview = compactReasoningText(summary);
-            const node = document.createElement('button');
-            node.type = 'button';
-            node.className = `bynd-reasoning${themeId === 'claude' ? ' bynd-reasoning--claude' : ''}`;
-            node.setAttribute?.('aria-label', `查看${appearance.title}`);
-            node.innerHTML = `<span class="bynd-reasoning__icon" aria-hidden="true"><i class="${themeId === 'claude' ? 'ri-time-line' : 'ri-sparkling-2-line'}"></i></span><span class="bynd-reasoning__copy"><span class="bynd-reasoning__header">${escape(appearance.title)}</span><span class="bynd-reasoning__preview">${escape(preview)}</span></span><i class="ri-arrow-right-s-line bynd-reasoning__chevron" aria-hidden="true"></i>`;
-            node.addEventListener('click', () => openReasoningSheet(appearance.title, summary, themeId));
+            const node = document.createElement(themeId === 'claude' ? 'button' : 'details');
+            node.className = `bynd-reasoning bynd-reasoning--${themeId === 'claude' ? 'claude' : 'inline'}`;
+            if (themeId === 'claude') {
+                node.type = 'button';
+                node.setAttribute?.('aria-label', `查看${appearance.title}`);
+                node.innerHTML = `<span class="bynd-reasoning__icon" aria-hidden="true"><i class="ri-time-line"></i></span><span class="bynd-reasoning__copy"><span class="bynd-reasoning__header">${escape(appearance.title)}</span><span class="bynd-reasoning__preview">${escape(preview)}</span></span><i class="ri-arrow-right-s-line bynd-reasoning__chevron" aria-hidden="true"></i>`;
+                node.addEventListener('click', () => openReasoningSheet(appearance.title, summary, themeId));
+            } else {
+                const key = char.id + ':thought:' + msg.timestamp;
+                node.open = openDetails.has(key);
+                node.innerHTML = `<summary class="bynd-reasoning__summary"><i class="ri-arrow-right-s-line bynd-reasoning__chevron" aria-hidden="true"></i><span class="bynd-reasoning__icon" aria-hidden="true"><i class="ri-loader-4-line"></i></span><span class="bynd-reasoning__header">${escape(appearance.title)}</span></summary><div class="bynd-reasoning__content">${escape(summary)}</div>`;
+                node.addEventListener('toggle', () => window.rememberWechatAgentDetails(key, node.open));
+            }
             container.appendChild(node);
         }
         if (!config.showTools) return;
