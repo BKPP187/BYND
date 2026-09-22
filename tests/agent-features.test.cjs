@@ -146,7 +146,8 @@ test('public reasoning uses a theme-native disclosure while tool logs retain the
     h.context.renderWechatAgentExtras(container, h.char, { timestamp: 101, thinkingSummary: '<b>回应摘要</b>' });
     assert.equal(rows.length, 2);
     assert.match(rows[0].className, /bynd-reasoning--inline/);
-    assert.equal(rows[0].open, false);
+    assert.equal(rows[0].dataset.expanded, 'false');
+    assert.match(rows[0].innerHTML, /button/);
     assert.match(rows[0].innerHTML, /回应摘要/);
     assert.equal(rows[1].open, false);
     assert.match(rows[1].innerHTML, /已中断/);

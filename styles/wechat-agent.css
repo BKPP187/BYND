@@ -109,17 +109,38 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-backdrop-filter: blur(11px);
     backdrop-filter: blur(11px);
+    align-self: flex-start;
+    flex: 0 0 auto;
 }
-.bynd-reasoning--inline { display: block; }
+.bynd-reasoning--inline { display: block; min-height: 37px; }
 .bynd-reasoning--inline:hover { background: color-mix(in srgb, var(--wc-theme-card, #fff) 76%, transparent); }
 .bynd-reasoning--inline:focus-visible { outline: 2px solid var(--bynd-reasoning-accent); outline-offset: 2px; }
-.bynd-reasoning__summary { display: flex; align-items: center; min-height: 35px; gap: 7px; padding: 4px 9px 4px 7px; cursor: pointer; list-style: none; }
-.bynd-reasoning__summary::-webkit-details-marker { display: none; }
+.bynd-reasoning--inline .bynd-reasoning__summary { display: flex !important; align-items: center !important; visibility: visible !important; opacity: 1 !important; width: 100% !important; min-height: 35px !important; gap: 7px; padding: 4px 9px 4px 7px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .bynd-reasoning__icon { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; color: color-mix(in srgb, var(--bynd-reasoning-accent) 68%, var(--bynd-reasoning-text)); font-size: 13px; }
-.bynd-reasoning__header { min-width: 0; color: color-mix(in srgb, var(--wc-theme-text, #28323a) 76%, var(--bynd-reasoning-text)); font-size: 12px; font-weight: 560; letter-spacing: .015em; white-space: nowrap; }
+.bynd-reasoning--inline .bynd-reasoning__header { display: inline-block !important; min-width: 0; color: color-mix(in srgb, var(--wc-theme-text, #28323a) 76%, var(--bynd-reasoning-text)) !important; font-size: 12px !important; font-weight: 560; letter-spacing: .015em; white-space: nowrap; }
 .bynd-reasoning__chevron { flex: 0 0 auto; color: color-mix(in srgb, var(--bynd-reasoning-text) 72%, transparent); font-size: 15px; transition: transform .16s ease; }
-.bynd-reasoning--inline[open] .bynd-reasoning__chevron { transform: rotate(90deg); }
-.bynd-reasoning--inline > .bynd-reasoning__content { margin: 0 10px 10px 31px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, var(--wc-theme-border, #c4cbcf) 78%, transparent); color: var(--bynd-reasoning-text); font-size: 12px; line-height: 1.72; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-reasoning--inline[data-expanded="true"] .bynd-reasoning__chevron { transform: rotate(90deg); }
+.bynd-reasoning--inline > .bynd-reasoning__content { display: block; margin: 0 10px 10px 31px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, var(--wc-theme-border, #c4cbcf) 78%, transparent); color: var(--bynd-reasoning-text); font-size: 12px; line-height: 1.72; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-reasoning--inline > .bynd-reasoning__content[hidden] { display: none !important; }
+
+/* Telegram can use a photo wall and has unusually aggressive room overrides.
+   Give its inline summary its own readable, blue-grey glass treatment. */
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline {
+    --bynd-reasoning-accent: #2aabee;
+    --bynd-reasoning-text: rgba(242, 248, 252, .92);
+    width: min(360px, calc(100% - 52px)) !important;
+    min-height: 38px !important;
+    margin: 5px 10px 11px 42px !important;
+    border-color: rgba(255,255,255,.24) !important;
+    border-left-color: rgba(42,171,238,.88) !important;
+    background: rgba(35, 47, 58, .62) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14) !important;
+}
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline .bynd-reasoning__summary { display: flex !important; min-height: 38px !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline .bynd-reasoning__header { color: rgba(255,255,255,.94) !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline .bynd-reasoning__icon,
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline .bynd-reasoning__chevron { color: #72c8f2 !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline > .bynd-reasoning__content { border-top-color: rgba(255,255,255,.17); color: rgba(242,248,252,.88); }
 
 /* Claude keeps the compact, almost weightless timeline row from its own chat UI. */
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude {
