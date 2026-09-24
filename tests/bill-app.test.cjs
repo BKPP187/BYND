@@ -154,7 +154,7 @@ test('summary totals, cache hit rate, estimated marker and partial cost', async 
     assert.equal(unpriced.summary.costState, 'none');
     const unpricedHtml = b.renderHtml(unpriced, view, {});
     assert.match(unpricedHtml, /估算成本<\/span><b>—<\/b>/);
-    assert.match(unpricedHtml, /尚未设置模型单价/);
+    assert.match(unpricedHtml, /查不到公开价格/);
 });
 
 test('feature ranking sorts by the active metric and a feature filter narrows the query', async () => {

@@ -245,3 +245,13 @@
 @media (prefers-reduced-motion: reduce) {
     #app-bill-window .bill-paper, #app-bill-window .bynd-api-ticket__paper, #app-bill-window .bynd-api-ticket__shade { transition-duration: .01ms; }
 }
+#app-bill-window .bill-price__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+#app-bill-window .bill-price__head b { font-size: 12px; overflow-wrap: anywhere; }
+#app-bill-window .bill-price__head small { flex: none; font-size: 10px; color: var(--bill-ink-2); text-align: right; max-width: 55%; overflow-wrap: anywhere; }
+#app-bill-window .bill-price__head small.is-missing { color: #9b2b21; }
+#app-bill-window .bill-price__grid.is-readonly span { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+#app-bill-window .bill-price__grid.is-readonly em { font-style: normal; color: var(--bill-ink-2); }
+#app-bill-window .bill-price__override { margin-top: 6px; font-size: 11px; }
+#app-bill-window .bill-price__override > summary { cursor: pointer; color: var(--bill-ink-2); padding: 4px 0; }
+#app-bill-window .bill-price__form { padding-top: 4px; }
+#app-bill-window .bill-price__form button[type="submit"] { margin-top: 8px; }

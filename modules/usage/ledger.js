@@ -398,11 +398,129 @@
         return priceCache;
     }
     if (typeof window.addEventListener === 'function') {
-        window.addEventListener('storage', event => { if (!event || event.key === PRICE_KEY || event.key === null) priceCache = null; });
+        window.addEventListener('storage', event => {
+            if (!event || event.key === PRICE_KEY || event.key === null) priceCache = null;
+            if (!event || event.key === AUTO_PRICE_KEY || event.key === null) autoPriceCache = null;
+            resolvedPrices.clear();
+        });
     }
 
     function getPrices() {
         return JSON.parse(JSON.stringify(readPrices().prices));
+    }
+
+    // Automatic prices: OpenRouter's public model list (no key, CORS open), refreshed at most once a day.
+    // Manual prices still win, so a relay that charges differently can be corrected per model.
+    const AUTO_PRICE_KEY = 'bynd_usage_auto_prices_v1';
+    const AUTO_PRICE_URL = 'https://openrouter.ai/api/v1/models';
+    const AUTO_PRICE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const BUILTIN_PRICES = { 'jev-latest': { input: 0.042, output: 0, id: 'TypeSafe Jev' } };
+    let autoPriceCache = null;
+    let autoPriceRefresh = null;
+    const resolvedPrices = new Map();
+
+    function normalizeModelName(name) {
+        return String(name || '').toLowerCase().trim()
+            .replace(/^\[[^\]]*\]\s*/, '')
+            .split('/').pop()
+            .replace(/:.*$/, '')
+            .replace(/[._\s]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    }
+
+    function modelNameCandidates(name) {
+        const base = normalizeModelName(name);
+        const withoutDate = base.replace(/-(?:\d{8}|\d{4}-\d{2}-\d{2}|\d{4})$/, '');
+        const withoutLatest = withoutDate.replace(/-latest$/, '');
+        return Array.from(new Set([base, withoutDate, withoutLatest].filter(Boolean)));
+    }
+
+    function readAutoPrices() {
+        if (autoPriceCache) return autoPriceCache;
+        let saved = null;
+        try { saved = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_PRICE_KEY)) || 'null'); } catch (_) {}
+        autoPriceCache = saved && typeof saved === 'object' && saved.map && typeof saved.map === 'object' ? saved : { fetchedAt: 0, map: {} };
+        return autoPriceCache;
+    }
+
+    function parseOpenRouterPrices(models) {
+        const map = {};
+        const perMillion = value => {
+            const number = Number(value);
+            return Number.isFinite(number) && number >= 0 ? Math.round(number * 1e6 * 1e6) / 1e6 : null;
+        };
+        // Base ids first, so ":batch" / ":free" variants never replace the regular price.
+        const sorted = (Array.isArray(models) ? models : []).filter(model => model?.id && model.pricing)
+            .sort((a, b) => Number(String(a.id).includes(':')) - Number(String(b.id).includes(':')));
+        for (const model of sorted) {
+            const key = normalizeModelName(model.id);
+            if (!key || map[key]) continue;
+            const price = {
+                input: perMillion(model.pricing.prompt),
+                output: perMillion(model.pricing.completion),
+                cacheRead: perMillion(model.pricing.input_cache_read),
+                cacheWrite: perMillion(model.pricing.input_cache_write),
+                id: String(model.id)
+            };
+            if (price.input == null && price.output == null) continue;
+            Object.keys(price).forEach(field => { if (price[field] == null) delete price[field]; });
+            map[key] = price;
+        }
+        return map;
+    }
+
+    async function refreshAutoPrices(options = {}) {
+        const current = readAutoPrices();
+        if (!options.force && Date.now() - Number(current.fetchedAt || 0) < AUTO_PRICE_MAX_AGE_MS && Object.keys(current.map).length) return current;
+        if (autoPriceRefresh) return autoPriceRefresh;
+        if (typeof fetch !== 'function') return current;
+        autoPriceRefresh = (async () => {
+            try {
+                const response = await fetch(AUTO_PRICE_URL, { credentials: 'omit' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const map = parseOpenRouterPrices((await response.json())?.data);
+                if (!Object.keys(map).length) throw new Error('价目表为空');
+                const next = { fetchedAt: Date.now(), source: 'openrouter', map };
+                try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTO_PRICE_KEY, JSON.stringify(next)); } catch (error) { console.warn('自动价格未保存', error); }
+                autoPriceCache = next;
+                resolvedPrices.clear();
+                notify({ type: 'prices' });
+                return next;
+            } catch (error) {
+                console.warn('自动价格获取失败，沿用上次的价格：', error?.message || error);
+                return current;
+            } finally {
+                autoPriceRefresh = null;
+            }
+        })();
+        return autoPriceRefresh;
+    }
+
+    // { price, source: 'manual' | 'openrouter' | 'builtin', matchedId } or null when no price is known.
+    function resolvePrice(model) {
+        const name = String(model || '').trim();
+        if (!name) return null;
+        if (resolvedPrices.has(name)) return resolvedPrices.get(name);
+        const { prices, lower } = readPrices();
+        let resolved = null;
+        const manual = prices[name] || lower.get(name.toLowerCase());
+        if (manual && (num(manual.input) != null || num(manual.output) != null)) {
+            resolved = { price: manual, source: 'manual', matchedId: name };
+        } else {
+            const auto = readAutoPrices().map;
+            for (const candidate of modelNameCandidates(name)) {
+                if (BUILTIN_PRICES[candidate]) { resolved = { price: BUILTIN_PRICES[candidate], source: 'builtin', matchedId: BUILTIN_PRICES[candidate].id }; break; }
+                if (auto[candidate]) { resolved = { price: auto[candidate], source: 'openrouter', matchedId: auto[candidate].id }; break; }
+            }
+        }
+        resolvedPrices.set(name, resolved);
+        return resolved;
+    }
+
+    function autoPriceInfo() {
+        const current = readAutoPrices();
+        return { fetchedAt: Number(current.fetchedAt) || 0, count: Object.keys(current.map).length, source: 'OpenRouter' };
     }
 
     function setPrice(model, price) {
@@ -418,13 +536,13 @@
         else delete prices[key];
         try { if (typeof localStorage !== 'undefined') localStorage.setItem(PRICE_KEY, JSON.stringify(prices)); } catch (error) { console.warn('价格保存失败', error); }
         priceCache = null;
+        resolvedPrices.clear();
         return getPrices();
     }
 
     function costOf(entry) {
         if (!entry?.model) return null;
-        const { prices, lower } = readPrices();
-        const price = prices[entry.model] || lower.get(String(entry.model).toLowerCase());
+        const price = resolvePrice(entry.model)?.price;
         if (!price) return null;
         const inputPrice = num(price.input);
         const outputPrice = num(price.output);
@@ -524,7 +642,13 @@
 
     window.ByndUsageLedger = {
         FEATURES, record, update, get, list, facets, subscribe, getPrices, setPrice, costOf,
+        resolvePrice, refreshAutoPrices, autoPriceInfo, normalizeModelName, parseOpenRouterPrices,
         parseUsage, providerOf, backfill, exportForBackup, importFromBackup
     };
     scheduleBackfill();
+    // Fetch the price list shortly after startup (at most daily) so costs are ready before the bill is opened.
+    if (typeof window.addEventListener === 'function' && typeof setTimeout === 'function') {
+        const timer = setTimeout(() => { void refreshAutoPrices(); }, 8000);
+        if (timer && typeof timer.unref === 'function') timer.unref();
+    }
 })();

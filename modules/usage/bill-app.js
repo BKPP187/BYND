@@ -317,19 +317,21 @@
             range = buildRange(view.path);
             entries = await ledger.list({ ...filters, from: range.from, to: range.to });
         }
-        // Skip costOf for models without a saved price (it re-reads prices per call).
-        const pricedModels = prices && typeof prices === 'object' ? new Set(Object.keys(prices).map(key => key.toLowerCase())) : null;
-        const costOf = entry => (pricedModels && !pricedModels.has(String(entry?.model || '').toLowerCase()) ? null : ledger.costOf?.(entry));
+        // costOf resolves manual, OpenRouter and built-in prices through a per-model cache inside the ledger.
+        const costOf = entry => ledger.costOf?.(entry) ?? null;
         const agg = aggregate(entries || [], range, { metric: view.metric, costOf });
         const facetModels = optionPairs(facets?.models, 'model', ledger).map(item => item.value);
         const priceModels = Object.keys(prices && typeof prices === 'object' ? prices : {});
+        const allPriceModels = Array.from(new Set([...facetModels, ...priceModels]));
         return {
             missing: false,
             range,
             ...agg,
             facets: facets || {},
             prices: prices && typeof prices === 'object' ? prices : {},
-            priceModels: Array.from(new Set([...facetModels, ...priceModels])),
+            priceModels: allPriceModels,
+            resolvedPrices: allPriceModels.map(name => ledger.resolvePrice?.(name) || null),
+            autoPrices: ledger.autoPriceInfo?.() || null,
             featureLabel: key => featureLabel(key, ledger),
             ledger
         };
@@ -404,10 +406,10 @@
         let hint = '';
         if (s.costState === 'none') {
             cost = '<b>—</b>';
-            hint = '尚未设置模型单价 · 去「价格」填写 ›';
+            hint = '这些模型暂时查不到公开价格 · 查看价格 ›';
         } else if (s.costState === 'partial') {
             cost = `<b>${approx}${formatCost(s.cost)} <small>部分</small></b>`;
-            hint = `${s.unpriced} 次请求的模型未定价（${escapeHtml(s.unpricedModels.slice(0, 3).join('、'))}${s.unpricedModels.length > 3 ? ' 等' : ''}）›`;
+            hint = `${s.unpriced} 次请求的模型查不到公开价格（${escapeHtml(s.unpricedModels.slice(0, 3).join('、'))}${s.unpricedModels.length > 3 ? ' 等' : ''}）›`;
         }
         return `
             <div class="bill-total"><span>总 Token</span><strong>${approx}${formatExact(s.total)}</strong></div>
@@ -442,13 +444,26 @@
         }).join('')}</div>`;
     }
 
+    const PRICE_SOURCE_LABEL = { openrouter: 'OpenRouter 自动', builtin: '官方价格', manual: '手动' };
+    const formatUnitPrice = value => (value == null || value === '' ? '—' : `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 4 })}`);
+
+    // Prices come from OpenRouter automatically; a manual form only appears for models it doesn't list
+    // (or when the user wants to correct a relay that charges differently).
     function renderPrices(model, view) {
         const models = model.priceModels;
         const body = models.length ? models.map((name, index) => {
-            const price = model.prices[name] || {};
-            return `<form class="bill-price" data-model-index="${index}"><b>${escapeHtml(name)}</b><div class="bill-price__grid">${PRICE_FIELDS.map(field => `<label><span>${field.label}</span><input type="number" inputmode="decimal" min="0" step="any" name="${field.key}" value="${price[field.key] != null && price[field.key] !== '' ? escapeHtml(price[field.key]) : ''}" placeholder="—"></label>`).join('')}</div><button type="submit">保存</button></form>`;
+            const resolved = model.resolvedPrices?.[index] || null;
+            const manual = model.prices[name] || {};
+            const form = `<form class="bill-price__form" data-model-index="${index}"><div class="bill-price__grid">${PRICE_FIELDS.map(field => `<label><span>${field.label}</span><input type="number" inputmode="decimal" min="0" step="any" name="${field.key}" value="${manual[field.key] != null && manual[field.key] !== '' ? escapeHtml(manual[field.key]) : ''}" placeholder="—"></label>`).join('')}</div><button type="submit">保存</button></form>`;
+            const head = `<div class="bill-price__head"><b>${escapeHtml(name)}</b>${resolved ? `<small>${escapeHtml(PRICE_SOURCE_LABEL[resolved.source] || resolved.source)}${resolved.source === 'openrouter' && resolved.matchedId !== name ? ` · ${escapeHtml(resolved.matchedId)}` : ''}</small>` : '<small class="is-missing">查不到公开价格</small>'}</div>`;
+            if (!resolved) return `<div class="bill-price">${head}<p class="bill-note">OpenRouter 上没有这个模型名（常见于中转站自定义名称），需要时可以手动填写：</p>${form}</div>`;
+            const price = resolved.price || {};
+            return `<div class="bill-price">${head}<div class="bill-price__grid is-readonly">${PRICE_FIELDS.map(field => `<span><em>${field.label}</em>${escapeHtml(formatUnitPrice(price[field.key] ?? (field.key === 'cacheRead' || field.key === 'cacheWrite' ? null : price[field.key])))}</span>`).join('')}</div><details class="bill-price__override"><summary>${resolved.source === 'manual' ? '修改手动价格' : '中转站收费不同？手动覆盖'}</summary>${form}</details></div>`;
         }).join('') : '<p class="bill-note">账本里还没有出现过模型。</p>';
-        return `<details class="bill-prices" ${view.pricesOpen ? 'open' : ''}><summary><span>04 / 价格</span><small>USD / 1M tokens</small></summary><p class="bill-note">单价只保存在本机，用来估算成本；不同 Provider 的实际计费以账单为准。</p>${body}</details>`;
+        const auto = model.autoPrices;
+        const updated = auto?.fetchedAt ? new Date(auto.fetchedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        const status = auto?.count ? `价格自动来自 OpenRouter 公开价目表（${auto.count} 个模型，${updated} 更新，每天自动刷新）。` : '正在获取 OpenRouter 公开价目表…';
+        return `<details class="bill-prices" ${view.pricesOpen ? 'open' : ''}><summary><span>04 / 价格</span><small>USD / 1M tokens</small></summary><p class="bill-note">${status}成本按官方价估算，中转站的实际收费可能不同。</p><button type="button" class="bill-hint" data-action="refresh-prices">刷新价格</button>${body}</details>`;
     }
 
     function renderFilters(model, view) {
@@ -675,6 +690,11 @@
                 render();
             } else if (action === 'request') {
                 openEntryTicket(state.model?.entries?.[Number(button.dataset.entry)]);
+            } else if (action === 'refresh-prices') {
+                const ledger = getLedger();
+                button.disabled = true;
+                button.textContent = '正在刷新…';
+                Promise.resolve(ledger?.refreshAutoPrices?.({ force: true })).finally(() => render());
             } else if (action === 'open-prices') {
                 state.pricesOpen = true;
                 const details = root.querySelector('.bill-prices');
@@ -706,7 +726,7 @@
             if (event.target.classList?.contains('bill-prices')) state.pricesOpen = event.target.open;
         }, true);
         root.addEventListener('submit', async event => {
-            const form = event.target.closest?.('form.bill-price');
+            const form = event.target.closest?.('form.bill-price__form');
             if (!form) return;
             event.preventDefault();
             const ledger = getLedger();
@@ -752,6 +772,8 @@
             } catch (_) { unsubscribe = null; }
         }
         getRoot()?.classList.remove('is-fed');
+        // Refresh the price list if it is older than a day; the ledger's subscribe event re-renders when it lands.
+        Promise.resolve(ledger?.refreshAutoPrices?.()).catch(() => {});
         return render();
     }
 
