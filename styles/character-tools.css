@@ -1,0 +1,55 @@
+/* Character toolbox: result cards in chat and the 设置 → 工具 panel. */
+.msg-bubble.bynd-tool-card {
+    width: min(100%, 292px);
+    max-width: 292px;
+    min-width: 224px;
+    padding: 11px 11px 0;
+    overflow: hidden;
+    background: rgba(255,255,255,0.98) !important;
+    color: #17212b !important;
+    border: 1px solid rgba(15,23,42,0.06);
+    box-shadow: 0 9px 24px rgba(15,23,42,0.08);
+    font-size: 13px;
+    line-height: 1.4;
+}
+.bynd-tool-card__head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.bynd-tool-card__head i { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 9px; background: #f1f5f9; color: #0f172a; font-size: 15px; }
+.bynd-tool-card__head strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 900; color: #111827; }
+.bynd-tool-card--weather .bynd-tool-card__head i { background: #e0f2fe; color: #0369a1; }
+.bynd-tool-card--places .bynd-tool-card__head i { background: #dcfce7; color: #15803d; }
+.bynd-tool-card--movies .bynd-tool-card__head i { background: #ede9fe; color: #6d28d9; }
+.bynd-tool-card--shop .bynd-tool-card__head i { background: #ffedd5; color: #ea580c; }
+.bynd-tool-card .msg-card-footer { margin: 10px -11px 0; }
+
+.bynd-tool-weather-now { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.bynd-tool-weather-now b { font-size: 34px; line-height: 1; font-weight: 800; color: #0f172a; }
+.bynd-tool-weather-now span { display: grid; font-weight: 800; color: #1f2937; }
+.bynd-tool-weather-now small { font-weight: 600; color: #7b8492; font-size: 11px; }
+.bynd-tool-weather-days { display: grid; gap: 5px; margin-top: 9px; }
+.bynd-tool-weather-days div { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; column-gap: 6px; padding: 6px 8px; border-radius: 10px; background: #f8fafc; }
+.bynd-tool-weather-days strong { font-size: 12px; color: #111827; }
+.bynd-tool-weather-days span { font-weight: 700; color: #334155; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bynd-tool-weather-days em { font-style: normal; font-weight: 800; color: #0f172a; }
+.bynd-tool-weather-days small { grid-column: 2 / -1; color: #7b8492; font-size: 11px; }
+
+.bynd-tool-list { display: grid; gap: 5px; margin-top: 9px; }
+.bynd-tool-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 10px; background: #f8fafc; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.bynd-tool-row:disabled { cursor: default; }
+.bynd-tool-row > span { display: grid; min-width: 0; flex: 1; }
+.bynd-tool-row strong { font-size: 13px; font-weight: 800; color: #111827; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bynd-tool-row strong small { font-weight: 600; color: #7b8492; }
+.bynd-tool-row > span > small { font-size: 11px; font-weight: 700; color: #ea580c; }
+.bynd-tool-row em { font-style: normal; font-size: 11px; color: rgba(31,41,55,0.58); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.bynd-tool-row > i { flex: none; color: #94a3b8; font-size: 18px; }
+.bynd-tool-row img, .bynd-tool-thumb { flex: none; width: 42px; height: 58px; border-radius: 7px; object-fit: cover; background: #e2e8f0; }
+.bynd-tool-card--shop .bynd-tool-row img, .bynd-tool-card--shop .bynd-tool-thumb { height: 42px; }
+.bynd-tool-thumb { display: grid; place-items: center; color: #94a3b8; font-size: 18px; }
+.bynd-tool-note { margin: 8px 0 0; color: #475569; font-size: 12px; }
+.bynd-tool-action { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 38px; margin-top: 9px; border: 0; border-radius: 11px; background: #ff5000; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+
+.bynd-tools-group { margin: 20px 0 2px; padding-top: 14px; border-top: 1px solid #eee8f2; font-size: 13px; font-weight: 800; color: #3f3749; }
+.bynd-tools-toggle { margin-top: 12px; }
+select.bynd-jev-key { appearance: auto; }
+.bynd-tools-card .bynd-jev-status { white-space: pre-line; }
+.bynd-tool-mcp-picker { display: grid; gap: 6px; max-height: 320px; overflow-y: auto; }
+.bynd-tool-mcp-picker .is-blocked { opacity: 0.55; }

@@ -18,6 +18,7 @@ const FONT_PRESETS = [
 function initSettings() {
     renderApiList();
     window.ByndJev?.renderSettings();
+    window.ByndCharacterTools?.renderSettings();
     renderPresetList();
     initFontSettings();
     if (typeof renderProactiveNotifySettings === 'function') renderProactiveNotifySettings();
@@ -2596,7 +2597,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.687';
+const APP_VERSION = 'v1.1.688';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -2705,12 +2706,15 @@ function isByndStorageKey(key) {
 
 function getBackupLocalStorageKeys() {
     const jevStorageKey = window.ByndJev?.storageKey || 'bynd_jev_config_v1';
+    // Character tool keys (AMap / TMDB) are device secrets like the Jev key.
+    const toolSecretStorageKey = window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1';
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (isByndStorageKey(key) && key !== jevStorageKey) keys.add(key);
+        if (isByndStorageKey(key) && key !== jevStorageKey && key !== toolSecretStorageKey) keys.add(key);
     }
     keys.delete(jevStorageKey);
+    keys.delete(toolSecretStorageKey);
     return Array.from(keys);
 }
 
@@ -3022,7 +3026,7 @@ async function importAllData(input) {
         const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
         Object.keys(data).forEach(key => {
             if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (isByndStorageKey(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1')) {
+            if (isByndStorageKey(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1') && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1')) {
                 localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });

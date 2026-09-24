@@ -689,7 +689,7 @@
     }
     function beginReply(char) { if (active(char, true)) { reset(char); runtime(char).pending = 'reply'; repaint(char); } }
     function endReply(char) { if (char?.id && runtimes.has(char.id)) { runtime(char).pending = ''; repaint(char); } }
-    window.ByndCharacterPet = { clean, uid, name, parse, normalizeStates, profile, runtime, reset, update, acceptBase, setEnabled, readAsset, storeAsset, listAssets, deleteAsset, purgeCharacter, assetUsage, cached, preload, active, available, material, visual, personaSource, hasPersona, persona, recent, stateMenu, chatInstructions, extract, normalizeReaction, applyChatReaction, repaint, request, testReaction, observeScene, analyzeAlpha, imagePrompt, beginReply, endReply,
+    window.ByndCharacterPet = { clean, uid, name, parse, normalizeStates, profile, runtime, reset, update, acceptBase, setEnabled, readAsset, storeAsset, listAssets, deleteAsset, purgeCharacter, assetUsage, cached, preload, active, available, material, visual, personaSource, hasPersona, persona, recent, stateMenu, chatInstructions, extract, normalizeReaction, applyChatReaction, record: recordReaction, repaint, request, testReaction, observeScene, analyzeAlpha, imagePrompt, beginReply, endReply,
         clearCache: () => { cacheEpoch++; assets.clear(); assetLoads.clear(); for (const char of window.myCharacters || []) reset(char); } };
     document.addEventListener('play', observeScene, true);
     document.addEventListener('pause', observeScene, true);

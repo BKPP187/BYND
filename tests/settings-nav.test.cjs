@@ -34,10 +34,11 @@ test('existing settings markup keeps its ids inside the matching panel', () => {
     assert.match(panelSource('api'), /id="api-route-panel"[\s\S]*id="api-list-container"[\s\S]*onclick="openApiModal\(\)"/);
     assert.match(panelSource('voice'), /id="api-voice-route-panel"/);
     assert.match(panelSource('decision'), /id="bynd-jev-settings"/);
+    assert.match(panelSource('tools'), /<div id="bynd-tools-settings"><\/div>/);
     assert.match(panelSource('notify'), /id="notify-enabled"[\s\S]*id="notify-interval"/);
     assert.match(panelSource('font'), /id="font-select"[\s\S]*id="font-file-input"/);
     assert.match(panelSource('data'), /onclick="exportAllData\(\)"[\s\S]*id="import-data-file"[\s\S]*clearInvalidCache\(\)/);
-    for (const id of ['api-route-panel', 'bynd-jev-settings', 'notify-enabled', 'font-select', 'import-data-file']) {
+    for (const id of ['api-route-panel', 'bynd-jev-settings', 'bynd-tools-settings', 'notify-enabled', 'font-select', 'import-data-file']) {
         assert.equal(html.split(`id="${id}"`).length, 2, `${id} stays unique`);
     }
 });
@@ -69,7 +70,7 @@ function fakeSettingsWindow(names) {
 
 function runTabNav(entries = {}) {
     const localStorage = memoryStorage(entries);
-    const dom = fakeSettingsWindow(['api', 'voice', 'decision', 'notify', 'font', 'data', 'usage']);
+    const dom = fakeSettingsWindow(['api', 'voice', 'decision', 'tools', 'notify', 'font', 'data', 'usage']);
     const context = vm.createContext({
         window: {}, localStorage,
         document: { getElementById: id => id === 'app-settings-window' ? dom.win : null }
@@ -103,5 +104,6 @@ test('opening settings restores the stored tab', () => {
     assert.equal(context.readSettingsTab(), 'font');
     const initSettings = sourceSection('settings.js', 'function initSettings()', '// --- Settings tab navigation ---');
     assert.match(initSettings, /openSettingsTab\(readSettingsTab\(\), \{ persist: false/);
+    assert.match(initSettings, /window\.ByndCharacterTools\?\.renderSettings\(\)/);
     assert.match(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), /openApp\('settings'\); window\.openSettingsTab\?\.\('api'\)/);
 });

@@ -3079,7 +3079,7 @@ function getWechatCssUrl(value) {
 }
 
 function isWechatSpecialMessage(type) {
-    return ['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall', 'share_card', 'gift', 'intimatePay', 'poke', 'screen_shake', 'music_card', 'link_card'].includes(type);
+    return ['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall', 'share_card', 'gift', 'intimatePay', 'poke', 'screen_shake', 'music_card', 'link_card', 'tool_result'].includes(type);
 }
 
 function normalizeWechatUrl(value) {
@@ -3258,6 +3258,9 @@ function getWechatMessageSummary(msg) {
     if (msg.type === 'link_card') {
         const title = msg.title || msg.url || '链接';
         return `[链接] ${title} ${msg.url || ''}`.trim();
+    }
+    if (msg.type === 'tool_result') {
+        return String(msg.summary || msg.content || '[工具结果]');
     }
     if (msg.type === 'voiceCall') {
         return `[语音通话] ${getWechatCallDescription(msg)}`;
@@ -8229,6 +8232,11 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
         return renderWechatShareCard(msg, quoteHtml);
     }
 
+    if (msg.type === 'tool_result') {
+        return window.ByndCharacterTools?.renderCard(msg, quoteHtml, metaHtml)
+            || `<div class="msg-bubble${sideClass}">${quoteHtml}<div class="msg-text">${wcEscapeHtml(msg.summary || msg.content || '[工具结果]')}</div>${metaHtml}</div>`;
+    }
+
     if (msg.type === 'poke') {
         return renderWechatPokeNotice(msg, charObj);
     }
@@ -9151,6 +9159,7 @@ function editSingleMsg(msgIdx) {
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char || !char.history || msgIdx < 0 || msgIdx >= char.history.length) return;
     const msg = char.history[msgIdx];
+    if (msg.type === 'tool_result') return;
     if (isWechatSpecialMessage(msg.type)) {
         openWechatComposer(msg.type, msgIdx);
         return;
@@ -10339,6 +10348,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                     textOnly: options.textOnly
                 }) || 0;
             }
+            if (typeof consumed.afterAppend === 'function') count += await consumed.afterAppend({ background: !!options.background }) || 0;
             const first = char.history.slice(start).find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
             if (first && consumed.summary) first.thinkingSummary = consumed.summary;
             if (count > 0 && petResponse) window.ByndCharacterPet.applyChatReaction(char, petResponse.reaction, char.history.slice(start).filter(msg => !msg.isMe).map(msg => msg.content || msg.description || '').join('\n')).catch(() => {});

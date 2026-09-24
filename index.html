@@ -47,19 +47,20 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.687">
-    <link rel="icon" href="bynd-icon.png?v=1.1.687" type="image/png">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.688">
+    <link rel="icon" href="bynd-icon.png?v=1.1.688" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/study.css?v=1.1.687" media="all">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.687" media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.687" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.687" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.688" media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.688" media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.688" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/character-tools.css?v=1.1.688" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -1565,6 +1566,7 @@
                 <button type="button" class="set-nav-tab active" role="tab" id="settings-nav-api" data-settings-tab="api" aria-controls="settings-tab-api" aria-selected="true" onclick="openSettingsTab('api')"><i class="ri-link"></i><span>API</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-voice" data-settings-tab="voice" aria-controls="settings-tab-voice" aria-selected="false" tabindex="-1" onclick="openSettingsTab('voice')"><i class="ri-volume-up-line"></i><span>语音</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-decision" data-settings-tab="decision" aria-controls="settings-tab-decision" aria-selected="false" tabindex="-1" onclick="openSettingsTab('decision')"><i class="ri-git-branch-line"></i><span>智能决策</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-tools" data-settings-tab="tools" aria-controls="settings-tab-tools" aria-selected="false" tabindex="-1" onclick="openSettingsTab('tools')"><i class="ri-tools-line"></i><span>工具</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-notify" data-settings-tab="notify" aria-controls="settings-tab-notify" aria-selected="false" tabindex="-1" onclick="openSettingsTab('notify')"><i class="ri-notification-3-line"></i><span>提醒</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-font" data-settings-tab="font" aria-controls="settings-tab-font" aria-selected="false" tabindex="-1" onclick="openSettingsTab('font')"><i class="ri-font-size-2"></i><span>字体</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-data" data-settings-tab="data" aria-controls="settings-tab-data" aria-selected="false" tabindex="-1" onclick="openSettingsTab('data')"><i class="ri-database-2-line"></i><span>数据</span></button>
@@ -1621,6 +1623,10 @@
                     <div class="bynd-jev-log-title">最近的决策 <small>绿色表示已执行</small></div>
                     <ul class="bynd-jev-log" id="bynd-jev-log"></ul>
                 </section>
+                </div>
+
+                <div class="set-nav-panel" id="settings-tab-tools" data-settings-panel="tools" role="tabpanel" aria-labelledby="settings-nav-tools" hidden>
+                    <div id="bynd-tools-settings"></div>
                 </div>
 
                 <div class="set-nav-panel" id="settings-tab-notify" data-settings-panel="notify" role="tabpanel" aria-labelledby="settings-nav-notify" hidden>
@@ -1760,7 +1766,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.687
+                    Beyond Screen v1.1.688
                 </div>
             </div>
         </div>
@@ -2993,40 +2999,42 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="modules/usage/ledger.js?v=1.1.687"></script>
-    <script src="chat-api.js?v=1.1.687"></script>
-    <script src="stickers-boltp-share.js?v=1.1.687"></script>
-    <script src="stickers-local-share.js?v=1.1.687"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.687"></script>
-    <script src="modules/decision/jev.js?v=1.1.687"></script>
-    <script src="modules/decision/decider.js?v=1.1.687"></script>
-    <script src="wechat.js?v=1.1.687"></script>
-    <script src="modules/living-world/living-world.js?v=1.1.687"></script>
-    <script src="theme.js?v=1.1.687"></script>
-    <script src="settings.js?v=1.1.687"></script>
-    <script src="script.js?v=1.1.687"></script>
-    <script src="modules/comic/comic.js?v=1.1.687"></script>
-    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.687">
-    <script src="netease.js?v=1.1.687"></script>
-    <script src="WorldBook.js?v=1.1.687"></script>
-    <script src="regular.js?v=1.1.687"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.687"></script>
-    <script src="modules/wechat/api-ticket.js?v=1.1.687"></script>
-    <script src="modules/usage/bill-app.js?v=1.1.687"></script>
-    <script src="modules/wechat/character-generator.js?v=1.1.687"></script>
-    <script src="modules/wechat/openclaw-settings.js?v=1.1.687"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.687"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.687"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.687"></script>
-    <script src="modules/study/study-app.js?v=1.1.687"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.687"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.687"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.687"></script>
-    <script src="modules/monitor/pet-animation.js?v=1.1.687"></script>
-    <script src="modules/monitor/pet-proportions.js?v=1.1.687"></script>
-    <script src="modules/monitor/pet-background.js?v=1.1.687"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.687"></script>
-    <script src="modules/monitor/pet-history.js?v=1.1.687"></script>
-    <script src="modules/monitor/workspace.js?v=1.1.687"></script>
+    <script src="modules/usage/ledger.js?v=1.1.688"></script>
+    <script src="chat-api.js?v=1.1.688"></script>
+    <script src="stickers-boltp-share.js?v=1.1.688"></script>
+    <script src="stickers-local-share.js?v=1.1.688"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.688"></script>
+    <script src="modules/decision/jev.js?v=1.1.688"></script>
+    <script src="modules/decision/decider.js?v=1.1.688"></script>
+    <script src="wechat.js?v=1.1.688"></script>
+    <script src="modules/living-world/living-world.js?v=1.1.688"></script>
+    <script src="theme.js?v=1.1.688"></script>
+    <script src="settings.js?v=1.1.688"></script>
+    <script src="script.js?v=1.1.688"></script>
+    <script src="modules/comic/comic.js?v=1.1.688"></script>
+    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.688">
+    <script src="netease.js?v=1.1.688"></script>
+    <script src="WorldBook.js?v=1.1.688"></script>
+    <script src="regular.js?v=1.1.688"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.688"></script>
+    <script src="modules/wechat/character-tools.js?v=1.1.688"></script>
+    <script src="modules/wechat/api-ticket.js?v=1.1.688"></script>
+    <script src="modules/usage/bill-app.js?v=1.1.688"></script>
+    <script src="modules/wechat/character-generator.js?v=1.1.688"></script>
+    <script src="modules/wechat/openclaw-settings.js?v=1.1.688"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.688"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.688"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.688"></script>
+    <script src="modules/study/study-app.js?v=1.1.688"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.688"></script>
+    <script src="modules/monitor/screen-companion.js?v=1.1.688"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.688"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.688"></script>
+    <script src="modules/monitor/pet-animation.js?v=1.1.688"></script>
+    <script src="modules/monitor/pet-proportions.js?v=1.1.688"></script>
+    <script src="modules/monitor/pet-background.js?v=1.1.688"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.688"></script>
+    <script src="modules/monitor/pet-history.js?v=1.1.688"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.688"></script>
 </body>
 </html>

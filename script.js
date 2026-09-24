@@ -1459,7 +1459,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.687' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.688' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -1645,6 +1645,50 @@ async function copyMcpResult() {
     } catch (_) {}
 }
 window.copyMcpResult = copyMcpResult;
+
+// Character toolbox bridge (modules/wechat/character-tools.js): the MCP app's current connection,
+// reused headlessly so characters can call the tools the user allowed for them.
+window.ByndMcpBridge = {
+    status() {
+        const config = githubMcpState.config || loadGitHubMcpConfig();
+        let key = '';
+        try { key = getMcpTokenScope(normalizeMcpServerUrl(config.url).url); } catch (_) {}
+        return {
+            connected: githubMcpState.connected,
+            key,
+            name: githubMcpState.serverInfo?.name || '',
+            tools: githubMcpState.tools.map(tool => ({ name: tool.name, description: tool.description || '', annotations: tool.annotations || null, inputSchema: tool.inputSchema || null }))
+        };
+    },
+    async ensureConnected() {
+        if (githubMcpState.connected) return true;
+        if (githubMcpState.busy) throw new Error('MCP 正在连接，请稍后再试');
+        const saved = loadGitHubMcpConfig();
+        const normalized = normalizeMcpServerUrl(saved.url);
+        const token = getMcpSessionToken(normalized.url);
+        if (normalized.isGitHub && !token) throw new Error('请先在 MCP 应用里重新连接（Token 只保存在本次会话）');
+        githubMcpState.config = { ...saved, url: normalized.url, isGitHub: normalized.isGitHub, connectionType: normalized.connectionType, token, readonly: normalized.isGitHub && saved.readonly, lockdown: normalized.isGitHub && saved.lockdown, toolsets: normalized.isGitHub ? saved.toolsets : '' };
+        githubMcpState.sessionId = '';
+        githubMcpState.protocolVersion = GITHUB_MCP_PROTOCOL_VERSION;
+        const initialized = await callGitHubMcpRpc('initialize', {
+            protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
+            capabilities: {},
+            clientInfo: { name: 'BYND Character Tools', version: '1' }
+        }, { includeSession: false, includeProtocol: false });
+        githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
+        githubMcpState.serverInfo = initialized?.serverInfo || { name: normalized.isGitHub ? 'GitHub MCP' : 'MCP Server' };
+        await sendGitHubMcpNotification('notifications/initialized', {});
+        githubMcpState.tools = await listAllGitHubMcpTools();
+        githubMcpState.connected = true;
+        return true;
+    },
+    async call(toolName, args) {
+        const result = await callGitHubMcpRpc('tools/call', { name: toolName, arguments: args });
+        const text = formatMcpToolResult(result);
+        if (result?.isError) throw new Error(String(text || '工具返回错误').slice(0, 200));
+        return text;
+    }
+};
 
 let manualSearchMarks = [];
 let manualSearchMarkIndex = -1;
@@ -1957,7 +2001,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.687').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.688').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -13172,7 +13216,7 @@ const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
 const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
-const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.687';
+const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.688';
 const COREAD_DEFAULT_SOURCE_URLS = [
     'https://lifves.com/api/v2/booksource/list',
     'https://someok.github.io/booksources/data.json'

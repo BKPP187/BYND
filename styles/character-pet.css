@@ -156,3 +156,24 @@
 
 #bynd-pet-studio .bynd-agent-header, .pet-history .bynd-agent-header { background: var(--mh-surface); color: var(--mh-ink); border-color: var(--mh-line); }
 #bynd-pet-studio .bynd-agent-header > button, .pet-history .bynd-agent-header > button { background: var(--mh-soft); color: var(--mh-accent); }
+
+/* 后台陪伴（仅安卓）settings in the pet app's 屏幕陪看 tab. */
+.sc-section { margin-top: 22px; }
+.sc-block, .sc-checklist { margin-top: 10px; }
+.sc-row, .sc-check { display: flex; align-items: center; gap: 10px; padding: 12px 14px; color: var(--mh-ink); }
+.sc-row + .sc-row, .sc-check + .sc-check { border-top: 1px solid var(--mh-line); }
+.sc-row > span, .sc-check > span { flex: 1; min-width: 0; }
+.sc-row strong, .sc-row small, .sc-check strong, .sc-check small { display: block; overflow-wrap: anywhere; }
+.sc-row strong, .sc-check strong { font-size: 12px; font-weight: 600; }
+.sc-row small, .sc-check small { margin-top: 4px; font-size: 11px; color: var(--mh-muted); }
+.sc-row select { flex: 0 0 auto; min-height: 32px; border: 1px solid var(--mh-line); border-radius: 10px; background: var(--mh-soft); color: var(--mh-ink); font-size: 12px; padding: 0 8px; }
+.sc-state { flex: 0 0 auto; font-size: 10px; padding: 3px 7px; border-radius: 999px; background: var(--mh-warning-bg); color: var(--mh-warning-ink); }
+.sc-state.is-on { background: #e6f4ef; color: var(--mh-success); }
+.sc-state.is-manual { background: var(--mh-soft); color: var(--mh-muted); }
+.sc-check .mh-text-button { flex: 0 0 auto; }
+.sc-guide { margin: 0; padding: 10px 14px 13px; border-top: 1px solid var(--mh-line); font-size: 11px; line-height: 1.7; color: var(--mh-muted); }
+.sc-exclusions { margin-top: 12px; font-size: 12px; color: var(--mh-ink); }
+.sc-exclusions summary { cursor: pointer; padding: 6px 3px; font-weight: 600; }
+.sc-exclusions p { margin: 4px 3px 8px; font-size: 11px; line-height: 1.7; color: var(--mh-muted); }
+.sc-exclusions textarea { box-sizing: border-box; width: 100%; border: 1px solid var(--mh-line); border-radius: 12px; padding: 9px 11px; font: 12px/1.6 ui-monospace, monospace; color: var(--mh-ink); background: #fff; resize: vertical; }
+.sc-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }

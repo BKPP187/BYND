@@ -33,6 +33,7 @@
         { key: 'study', label: '学习', icon: 'ri-graduation-cap-line' },
         { key: 'game', label: '游戏', icon: 'ri-gamepad-line' },
         { key: 'jev', label: 'Jev 决策', icon: 'ri-git-branch-line' },
+        { key: 'tool', label: '角色工具', icon: 'ri-tools-line' },
         { key: 'discover', label: '发现页', icon: 'ri-compass-3-line' },
         { key: 'dream', label: '梦境', icon: 'ri-moon-clear-line' },
         { key: 'read', label: '共读', icon: 'ri-book-2-line' },

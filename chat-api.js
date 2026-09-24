@@ -1318,6 +1318,9 @@ function buildSystemPrompt(char) {
     }
     prompt += `- 用户的名字是"${userName}"\n`;
     prompt += `- 当前采用${timeContext.label}，现在是 ${timeContext.text}。今天就是 ${timeContext.date || timeContext.text}，当前时刻是 ${timeContext.time || timeContext.text}。用户提到今天、现在、刚才、今晚、明天等相对时间时，必须以这个时间为准，不要说你无法得知实时信息\n`;
+    // Cached real-world weather only; the prompt never waits on the network.
+    const weatherAnchor = !isGroupChat && typeof window !== 'undefined' ? window.ByndCharacterTools?.weatherAnchor?.(char) : '';
+    if (weatherAnchor) prompt += `- ${weatherAnchor}\n`;
     if (typeof window !== 'undefined' && typeof window.buildProactiveNotifyPromptContext === 'function') {
         const notifyContext = window.buildProactiveNotifyPromptContext(char);
         if (notifyContext) prompt += `- ${notifyContext}\n`;
@@ -1581,7 +1584,8 @@ function buildMessages(char, history, maxMessages) {
         }
 
         messages.push({
-            role: isInternalContext ? 'system' : (msg.isMe ? 'user' : 'assistant'),
+            // A tool card reaches the model only as its short [工具结果] summary, never as the character's own words.
+            role: isInternalContext || msg.type === 'tool_result' ? 'system' : (msg.isMe ? 'user' : 'assistant'),
             content: content
         });
     });

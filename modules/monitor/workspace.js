@@ -174,7 +174,7 @@
                         <button type="button" class="mh-setting-row" id="monitor-observe-interval" data-mh-action="frequency" aria-haspopup="dialog"><span class="mh-setting-icon">${icon('ri-timer-line')}</span><span><strong>多久看一眼</strong><small>${escape(intervalLabel())}</small></span>${icon('ri-arrow-right-s-line')}</button></section>
                     ${!bound || !isMonitorPetEnabled() ? `<p class="mh-inline-note">${!bound ? '绑定桌宠角色后，TA 才会回应画面。' : '桌宠已关闭。开启桌宠后，TA 才会回应画面。'}</p>` : ''}
                     <div class="mh-privacy-note">${icon('ri-shield-check-line')}<p>共享画面会发送给你配置的模型，用于角色回应。停止后不再读取；麦克风不会开启。</p></div>
-                </div></div>`;
+                </div></div>${window.ByndScreenCompanion?.renderSection?.() || ''}`;
         }
         function libraryView() {
             return `${heading('发现喜欢的桌宠。', '先预览，喜欢就导入并使用。')}

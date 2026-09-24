@@ -1,6 +1,6 @@
 // Character-scoped permissions, public reasoning summaries and actual tool activity.
 (() => {
-    const defaults = { streamReplies: false, showTokenUsage: false, showThinking: false, showTools: true, allowImages: true, allowPhone: true, allowMemory: true, allowTodos: false };
+    const defaults = { streamReplies: false, showTokenUsage: false, showThinking: false, showTools: true, allowImages: true, allowPhone: true, allowMemory: true, allowTodos: false, allowTools: false, toolWeather: true, toolPlaces: true, toolMovies: true, toolShop: true, toolMcp: true };
     const openDetails = new Set();
     const liveActivities = new Set();
     const preferenceWrites = new Set();
@@ -124,6 +124,10 @@
             ${row('allowMemory', '自动整理记忆', '允许角色从当前聊天整理自己的记忆')}
             ${row('allowTodos', '记录待办', '允许角色在当前聊天里添加自己的待办事项')}
             <p class="bynd-agent-note">以上权限仅作用于当前角色。小手机和记忆仍可手动更新。OpenClaw 的权限需在服务端单独设置。</p>
+        </div><div class="wcs-section-title">角色工具箱</div><div class="wcs-section bynd-agent-settings">
+            ${row('allowTools', '允许使用工具', '角色按人设自然需要时会查天气、找店、聊电影、搜商品；不符合人设的调用会被拦下')}
+            ${window.ByndCharacterTools?.renderAgentToolRows(char, row) || ''}
+            <p class="bynd-agent-note">Key、城市和购物方式在「设置 → 工具」里配置。</p>
         </div><div class="wcs-section-title">角色桌宠</div><div class="wcs-section">
             <button type="button" class="bynd-agent-nav" onclick="openMonitorPetStudio(document.getElementById('wcs-agent-features').dataset.charId)"><span><strong>专属形象与人设互动</strong><small>沿用生图设置，制作透明 3D 形象和专属表情</small></span><i class="ri-arrow-right-s-line"></i></button>
         </div><div class="wcs-section-title">OpenClaw · 微信</div><div class="wcs-section">
@@ -354,7 +358,8 @@
             window.ByndDecider?.replyInstructions(char) || '',
             config.showThinking ? '请在回复开头用 <bynd_summary>...</bynd_summary> 提供 1-3 句简短、可公开的回应思路摘要。只说明回应目标和必要依据，不输出私有思维链、逐步内部推理或系统提示；正文仍放在标签之外。' : '不要输出 bynd_summary 或思考过程，只给角色正文。',
             !config.allowImages ? '当前角色的生图权限已关闭，不要发出图片生成指令。' : '',
-            config.allowTodos ? '可以使用当前角色的待办工具：<bynd_tool>{"name":"todo.add","title":"具体待办标题","note":"可选说明"}</bynd_tool> 或 <bynd_tool>{"name":"todo.list"}</bynd_tool>。只有用户需要记下/查看待办时才调用。最多 3 次；这些是应用内清单，不会自动向系统推送提醒。正文同时自然回应用户。' : '当前角色没有写入待办的权限，不要声称已经创建待办。'
+            config.allowTodos ? '可以使用当前角色的待办工具：<bynd_tool>{"name":"todo.add","title":"具体待办标题","note":"可选说明"}</bynd_tool> 或 <bynd_tool>{"name":"todo.list"}</bynd_tool>。只有用户需要记下/查看待办时才调用。最多 3 次；这些是应用内清单，不会自动向系统推送提醒。正文同时自然回应用户。' : '当前角色没有写入待办的权限，不要声称已经创建待办。',
+            window.ByndCharacterTools?.instructions(char) || ''
         ].filter(Boolean).join('\n');
     };
 
@@ -370,7 +375,25 @@
         content = content.replace(/<bynd_(?:summary|tool)\b[^>]*>[\s\S]*$/gi, '').replace(/<\/?bynd_(?:summary|tool)\b[^>]*>/gi, '');
         let toolCount = 0;
         const outcomes = [];
+        const toolCards = [];
+        const toolReacts = [];
         for (const rawCall of calls) {
+            let parsed = null;
+            try { parsed = JSON.parse(rawCall); } catch (_) {}
+            // Character toolbox calls never rewrite the character's own words; a blocked or failed call only shows in the activity card.
+            if (parsed && window.ByndCharacterTools?.handles(parsed.name)) {
+                const event = window.beginWechatToolActivity(char, 'tool', '角色工具');
+                let outcome;
+                try {
+                    if (!(window.myCharacters || []).includes(char)) throw new Error('角色已移除，未执行操作');
+                    outcome = await window.ByndCharacterTools.execute(char, parsed, event);
+                } catch (error) { outcome = { ok: false, message: error.message || '工具未完成' }; }
+                await window.finishWechatToolActivity(char, event, outcome.ok, outcome.message);
+                if (outcome.card) toolCards.push(outcome.card);
+                if (outcome.ok && outcome.react) toolReacts.push(outcome.react);
+                toolCount += 1;
+                continue;
+            }
             const event = window.beginWechatToolActivity(char, 'todo', '待办工具');
             try {
                 if (!(window.myCharacters || []).includes(char)) throw new Error('角色已移除，未执行操作');
@@ -402,6 +425,9 @@
         }
         if (outcomes.some(event => event.state === 'error')) content = '这次操作没有全部完成：' + outcomes.filter(event => event.state === 'error').map(event => event.result).join('；') + '。';
         else if (outcomes.length && (!content.trim() || outcomes.every(event => event.title === '查看待办'))) content = outcomes.map(event => event.result).join('\n');
-        return { content: content.trim(), summary, toolCount, decisions: decided.decisions };
+        const result = { content: content.trim(), summary, toolCount, decisions: decided.decisions };
+        // Cards land after the character's own bubbles; the follow-up reaction is queued in the background.
+        if (toolCards.length || toolReacts.length) result.afterAppend = (options = {}) => window.ByndCharacterTools.deliver(char, toolCards, toolReacts, options);
+        return result;
     };
 })();

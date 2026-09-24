@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 7312;
     private static final int PNG_EXPORT_REQUEST = 7313;
     private static final int BACKUP_EXPORT_REQUEST = 7314;
+    private static final int COMPANION_CAPTURE_REQUEST = 7315;
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
@@ -79,7 +80,34 @@ public class MainActivity extends Activity {
         setContentView(webView);
         configureWebView(webView);
         webView.addJavascriptInterface(new ByndAndroidBridge(), "ByndAndroid");
+        // 后台陪伴 runs JS while BYND is in the background: never pause timers, keep the renderer alive.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        ScreenCompanionService.bridge = companionBridge;
         webView.loadUrl("file:///android_asset/www/index.html");
+    }
+
+    private final ScreenCompanionService.Bridge companionBridge = new ScreenCompanionService.Bridge() {
+        @Override
+        public void onContext(String json) {
+            if (webView != null) webView.evaluateJavascript("window.ByndScreenCompanion&&window.ByndScreenCompanion.onContext(" + json + ");", null);
+        }
+
+        @Override
+        public void onState(String json) {
+            if (webView != null) webView.evaluateJavascript("window.ByndScreenCompanion&&window.ByndScreenCompanion.onNativeState(" + json + ");", null);
+        }
+    };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        ScreenCompanionService.setAppForeground(this, true);
+    }
+
+    @Override
+    protected void onStop() {
+        ScreenCompanionService.setAppForeground(this, false);
+        super.onStop();
     }
 
     @Override
@@ -330,6 +358,12 @@ public class MainActivity extends Activity {
             applyFullscreenSystemBars();
             return;
         }
+        if (requestCode == COMPANION_CAPTURE_REQUEST) {
+            if (resultCode == RESULT_OK && data != null) ScreenCompanionService.startProjection(this, resultCode, data);
+            else companionBridge.onState("{\"event\":\"projection-denied\",\"projection\":false}");
+            applyFullscreenSystemBars();
+            return;
+        }
         if (requestCode == SCREEN_CAPTURE_REQUEST && resultCode == RESULT_OK && data != null) {
             startProjection(data);
         }
@@ -414,6 +448,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (ScreenCompanionService.bridge == companionBridge) ScreenCompanionService.bridge = null;
         stopProjection();
         systemTtsReady = false;
         if (systemTts != null) {
@@ -566,7 +601,41 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void applyCompanionConfig(String json) {
+        try {
+            JSONObject config = new JSONObject(json == null ? "{}" : json);
+            org.json.JSONArray exclusions = config.optJSONArray("exclusions");
+            ScreenCompanionService.prefs(this).edit()
+                    .putBoolean("enabled", config.optBoolean("enabled", false))
+                    .putBoolean("watchScreen", config.optBoolean("watchScreen", false))
+                    .putInt("intervalMin", Math.max(1, Math.min(60, config.optInt("intervalMin", 3))))
+                    .putString("charName", config.optString("charName", "").trim())
+                    .putString("exclusions", exclusions == null ? "[]" : exclusions.toString())
+                    .apply();
+        } catch (Exception ignored) {
+            return;
+        }
+        ScreenCompanionService.sync(this);
+    }
+
     public class ByndAndroidBridge {
+        // Opens a shopping deep link (e.g. taobao://) in its app. Only a few schemes are allowed;
+        // false tells the page to fall back to the https search page (app not installed, blocked scheme).
+        @JavascriptInterface
+        public boolean openExternalUrl(String url) {
+            if (url == null) return false;
+            String lower = url.trim().toLowerCase(Locale.ROOT);
+            if (!(lower.startsWith("taobao://") || lower.startsWith("tbopen://") || lower.startsWith("https://"))) return false;
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url.trim()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public void exportPetImage(String id, String name, String dataUrl) {
             runOnUiThread(() -> requestPngExport(id, name, dataUrl));
@@ -622,6 +691,63 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String captureScreenFrame() {
             return captureFrameDataUrl();
+        }
+
+        @JavascriptInterface
+        public String companionStatus() {
+            return CompanionPermissions.status(MainActivity.this).toString();
+        }
+
+        @JavascriptInterface
+        public void setCompanionConfig(String json) {
+            runOnUiThread(() -> applyCompanionConfig(json));
+        }
+
+        @JavascriptInterface
+        public String openCompanionSetting(String kind) {
+            final String[] result = { "failed" };
+            final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+            runOnUiThread(() -> { result[0] = CompanionPermissions.open(MainActivity.this, kind); done.countDown(); });
+            try { done.await(2, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
+            return result[0];
+        }
+
+        @JavascriptInterface
+        public void clearCompanionPetFrames() {
+            runOnUiThread(() -> ScreenCompanionService.clearFrames(MainActivity.this));
+        }
+
+        @JavascriptInterface
+        public boolean setCompanionPetFrame(String key, String dataUrl) {
+            if (dataUrl == null || dataUrl.length() > 4 * 1024 * 1024) return false;
+            int comma = dataUrl.indexOf(',');
+            if (comma < 0 || !dataUrl.substring(0, comma).matches("data:image/(png|gif|webp|jpeg);base64")) return false;
+            final byte[] bytes;
+            try { bytes = Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT); } catch (Exception error) { return false; }
+            final boolean[] saved = { false };
+            final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+            runOnUiThread(() -> { saved[0] = ScreenCompanionService.saveFrame(MainActivity.this, key, bytes); done.countDown(); });
+            try { done.await(3, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
+            return saved[0];
+        }
+
+        @JavascriptInterface
+        public void showCompanionBubble(String text, String key) {
+            runOnUiThread(() -> ScreenCompanionService.showBubble(text, key));
+        }
+
+        @JavascriptInterface
+        public void startCompanionScreenWatch() {
+            runOnUiThread(() -> {
+                if (projectionManager == null) return;
+                try { startActivityForResult(projectionManager.createScreenCaptureIntent(), COMPANION_CAPTURE_REQUEST); }
+                catch (Exception error) { companionBridge.onState("{\"event\":\"projection-denied\",\"projection\":false}"); }
+            });
+        }
+
+        @JavascriptInterface
+        public void stopCompanionScreenWatch() {
+            runOnUiThread(ScreenCompanionService::stopProjectionNow);
         }
 
         @JavascriptInterface
