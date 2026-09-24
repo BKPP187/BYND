@@ -84,3 +84,23 @@ test('contact subtitles never expose the character card before AI profile genera
     context.getWechatAiContactProfile = () => ({ bio: '由 AI 生成的公开资料' });
     assert.equal(context.getWechatProfileBio(char), '由 AI 生成的公开资料');
 });
+
+test('AI mood recognition reads labels in order from the common JSON shapes and keeps them short', () => {
+    const c = vm.createContext({});
+    vm.runInContext(sourceSection('wechat.js', 'function cleanWechatJsonCandidate(', 'function isWechatAiStatusSnapshotComplete('), c);
+    vm.runInContext(sourceSection('wechat.js', 'function parseWechatAvatarMoodLabels(', '// One vision request labels every avatar'), c);
+    assert.deepEqual(Array.from(c.parseWechatAvatarMoodLabels('["冷淡","吃醋"]', 2)), ['冷淡', '吃醋']);
+    assert.deepEqual(Array.from(c.parseWechatAvatarMoodLabels('```json\n{"moods":[{"mood":"害羞"},"「炸毛」"]}\n```', 2)), ['害羞', '炸毛']);
+    assert.deepEqual(Array.from(c.parseWechatAvatarMoodLabels('{"1":"委屈","3":"得意"}', 3)), ['委屈', '', '得意']);
+});
+
+test('the mood recognizer sends every avatar in one request and the prompt asks for short bubbles', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const root = path.join(__dirname, '..');
+    const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
+    const body = source.slice(source.indexOf('async function recognizeWechatAvatarMoods('), source.indexOf('function handleWechatAvatarGalleryTap('));
+    assert.equal(body.match(/callChatApi\(/g).length, 1);
+    assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /onclick="recognizeWechatAvatarMoods\(\)"/);
+    assert.match(fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8'), /每个普通气泡只放一句话[\s\S]{0,40}通常不超过 25 个字/);
+});

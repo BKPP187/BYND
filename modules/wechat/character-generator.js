@@ -132,7 +132,7 @@
         if (input) input.value = '';
         const messages = [{ role: 'system', content: '你是应用内的角色卡生成器。通过简短对话帮助用户建立角色。用户给出了名字和人设方向后即可完善角色卡，不必逐项追问；只有缺少名字或没有可用人设方向时才问一个必要问题。后续输入视为对同一张卡的修改，除非用户明确换人。尊重用户给出的事实和关系，不把创作设定说成现实人物事实。只返回 JSON：{"reply":"对用户的简短回应","ready":false,"card":null}；准备好时返回 ready:true，card 为 {"name":"名字","description":"完整人设，涵盖身份、外貌、性格、经历、关系和说话方式","firstMessage":"符合人设的开场白","worldBook":[{"keys":["关键词"],"comment":"设定标题","content":"具体世界设定"}]}。世界书写 2-6 条非空设定，与人设相符。不要返回脚本、正则、权限配置、API 密钥或系统命令；不要要求用户复制粘贴卡片，应用会自动保存。' }, ...task.messages.slice(-16)];
         if (task.card) messages.splice(1, 0, { role: 'system', content: '当前正在修改的角色卡如下。请保留没有要求改动的设定：\n' + JSON.stringify(task.card) });
-        pending = Promise.resolve().then(() => callChatApi(messages, { max_tokens: 6000, temperature: 0.8, skipLengthContinuation: true, skipStatusValidationRetry: true }));
+        pending = Promise.resolve().then(() => callChatApi(messages, { usageFeature: 'other', max_tokens: 6000, temperature: 0.8, skipLengthContinuation: true, skipStatusValidationRetry: true }));
         render();
         try {
             const result = await pending;

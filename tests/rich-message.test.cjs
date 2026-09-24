@@ -22,6 +22,7 @@ function render(theme, content, isMe = false) {
         looksLikeWechatRegexPayloadSource: () => false,
         looksLikeWechatPipeStatusPayloadSource: () => false,
         getWechatChatUserProfile: () => ({}), DEFAULT_AVATAR: 'avatar',
+        getWechatForumPostPreview: () => null,
         getWechatFirstRealAvatarSource: () => 'avatar', getWechatCharAvatarSource: () => 'avatar',
         isWechatCoupleTheme: () => theme === 'couple',
         shouldRenderWechatExternalQuote: () => false,
@@ -41,7 +42,7 @@ function render(theme, content, isMe = false) {
     });
     vm.runInContext(sourceSection('wechat.js', 'function isRichMessageContent(', 'function cleanWechatVisibleContent('), context);
     vm.runInContext(sourceSection('wechat.js', 'function renderWechatMarkdownLite(', '// 微信聊天窗口'), context);
-    vm.runInContext(sourceSection('wechat.js', 'function renderMessageBubble(', 'function bindWechatMessageRowActions('), context);
+    vm.runInContext(sourceSection('wechat.js', 'function appendWechatApiTicketEntry(', 'function bindWechatMessageRowActions('), context);
     context.renderMessageBubble({ appendChild: row => rows.push(row) }, { type: 'text', isMe, content }, 'avatar', { id: 'role', regex: [] }, 0);
     assert.equal(rows.length, 1);
     return rows[0].innerHTML;

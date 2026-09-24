@@ -306,7 +306,8 @@
         const paths = item ? [item.avatar, ...(item.avatars || [])] : [];
         return (char.avatarGallery || []).map((src, index) => {
             const position = paths.findIndex(url => src === url || src === window.ByndBuiltinArtwork?.[url]);
-            return `${index + 1}：${position >= 0 ? item.avatarLabels?.[position] || '备用头像' : '自定义头像'}${src === char.avatar ? '（当前）' : ''}`;
+            const mood = String(char.avatarMoods?.[src] || '').trim();
+            return `${index + 1}：${mood || (position >= 0 ? item.avatarLabels?.[position] || '备用头像' : '自定义头像')}${src === char.avatar ? '（当前）' : ''}`;
         });
     }
     function backgroundOptions(char) {

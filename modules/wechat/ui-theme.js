@@ -469,6 +469,7 @@ function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
 }
 
 function getWechatChatInputPlaceholder(themeId = getWechatUiThemeId()) {
+    if (themeId === 'wechat') return '\u53ef\u6309\u4f4f \u8f6c\u6587\u5b57';
     if (themeId === 'telegram') return '\u8f93\u5165\u6d88\u606f';
     if (themeId === 'claude') return 'Reply to Claude';
     return themeId === 'douyin' ? '\u53d1\u9001\u6d88\u606f' : '\u53d1\u6d88\u606f...';

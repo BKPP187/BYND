@@ -47,15 +47,19 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.650">
-    <link rel="icon" href="bynd-icon.png?v=1.1.650" type="image/png">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.659">
+    <link rel="icon" href="bynd-icon.png?v=1.1.657" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.650" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/study.css?v=1.1.650" media="all">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=20260615-couple-avatar2" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.650-inline-summary-fix" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.682" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.653" media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.657" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.657" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.682" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.684-bill" media="all">
     <link rel="stylesheet" href="styles/character-pet.css?v=1.1.618" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.620" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.684" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.684" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -190,9 +194,17 @@
                                 <div class="app-icon icon-black"><i class="ri-book-open-line"></i></div>
                                 <span>PageMate</span>
                             </div>
+                            <div class="app-item" data-app-id="living-world" data-layout-id="app-living-world" onclick="openApp('living-world')">
+                                <div class="app-icon icon-black"><i class="ri-discuss-line"></i></div>
+                                <span>论坛</span>
+                            </div>
                             <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')">
                                 <div class="app-icon icon-black"><i class="ri-image-2-line"></i></div>
                                 <span>相册</span>
+                            </div>
+                            <div class="app-item" data-app-id="comic" data-layout-id="app-comic" onclick="openApp('comic')">
+                                <div class="app-icon icon-black"><i class="ri-booklet-line"></i></div>
+                                <span>漫画</span>
                             </div>
                             <div class="app-item" data-app-id="manual" data-layout-id="app-manual" onclick="openApp('manual')">
                                 <div class="app-icon icon-black"><i class="ri-book-2-line"></i></div>
@@ -228,6 +240,10 @@
                 <div class="dock-item" onclick="openApp('preset')">
                     <div class="dock-icon-box"><i class="ri-equalizer-line"></i></div>
                     <span class="dock-label">预设</span>
+                </div>
+                <div class="dock-item" onclick="openApp('bill')">
+                    <div class="dock-icon-box"><i class="ri-bill-line"></i></div>
+                    <span class="dock-label">账单</span>
                 </div>
             </div>
         </div>
@@ -825,6 +841,26 @@
             </div>
         </div>
 
+        <div id="app-living-world-window" class="app-window hidden living-world-window" aria-label="论坛 Living World">
+            <div id="living-world-root" class="living-world-root"></div>
+        </div>
+
+        <div id="app-comic-window" class="app-window hidden comic-window" aria-label="私人漫画之家">
+            <div id="comic-root" class="comic-root"></div>
+        </div>
+
+        <div id="app-bill-window" class="app-window hidden bill-window" aria-label="账单 Token Usage">
+            <header class="bill-topbar">
+                <button type="button" class="bill-close" onclick="closeApp('bill')" aria-label="关闭账单"><i class="ri-arrow-left-s-line"></i><span>关闭</span></button>
+                <div class="bill-title">
+                    <span>TOKEN USAGE</span>
+                    <strong>账单</strong>
+                </div>
+                <em id="bill-status" class="bill-status"></em>
+            </header>
+            <div id="bill-root" class="bill-root"></div>
+        </div>
+
         <div id="app-album-window" class="app-window hidden album-window">
             <div class="album-shell">
                 <div class="album-topbar">
@@ -1051,7 +1087,7 @@
                                 <ol>
                                     <li>打开“世界书”，点右上角“+”新建一本书，起一个自己看得懂的名字。</li>
                                     <li>进入书本后新增条目，填写关键词和内容。例如关键词写“学校”，内容写学校名称、地点与规则。</li>
-                                    <li>保存条目后，到角色聊天设置里勾选这本世界书。关键词在聊天中出现时，相关内容更容易被带给 AI。</li>
+                                    <li>进入角色的世界书后，点右上角菜单可导入、导出 JSON，或手动新增条目。保存条目后，到角色聊天设置里勾选这本世界书。</li>
                                     <li>设定很多时可以拆成多条短内容。过长世界书会占用上下文，也可能让回复变慢。</li>
                                 </ol>
                                 <h4>正则：先从一条小规则试起</h4>
@@ -1139,6 +1175,7 @@
                             <div class="manual-section-body">
                                 <ol>
                                     <li><strong>相册：</strong>打开第二页“相册”，按角色筛选聊天中保存的生成图。这里为空时，可以先在角色聊天里完成一次图片生成。</li>
+                                    <li><strong>漫画：</strong>打开第二页“漫画”创建私人系列，或在角色聊天设置中点“选择聊天生成漫画”。分镜和图片会逐格保存，可在章节编辑页续画、替换、调整顺序并导出；作品页可开启角色每周主动连载。</li>
                                     <li><strong>相机：</strong>点底部“相机”后，设备可能打开真实相机，也可能显示文件选择器，具体取决于浏览器能力和权限。</li>
                                     <li><strong>主动提醒：</strong>打开“设置”→“主动消息提醒”，开启“后台消息”并选择时间，再按系统弹窗决定是否允许通知。</li>
                                     <li><strong>改回权限：</strong>之前点了拒绝也没关系，可以到浏览器地址栏旁的网站设置，重新调整相机、麦克风、定位或通知。</li>
@@ -1524,14 +1561,52 @@
                 <h3 style="color: #d4749a;">设置</h3>
                 <span style="width:40px;"></span>
             </div>
+            <nav class="set-nav" id="settings-nav" role="tablist" aria-label="设置分类">
+                <button type="button" class="set-nav-tab active" role="tab" id="settings-nav-api" data-settings-tab="api" aria-controls="settings-tab-api" aria-selected="true" onclick="openSettingsTab('api')"><i class="ri-link"></i><span>API</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-voice" data-settings-tab="voice" aria-controls="settings-tab-voice" aria-selected="false" tabindex="-1" onclick="openSettingsTab('voice')"><i class="ri-volume-up-line"></i><span>语音</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-decision" data-settings-tab="decision" aria-controls="settings-tab-decision" aria-selected="false" tabindex="-1" onclick="openSettingsTab('decision')"><i class="ri-git-branch-line"></i><span>智能决策</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-notify" data-settings-tab="notify" aria-controls="settings-tab-notify" aria-selected="false" tabindex="-1" onclick="openSettingsTab('notify')"><i class="ri-notification-3-line"></i><span>提醒</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-font" data-settings-tab="font" aria-controls="settings-tab-font" aria-selected="false" tabindex="-1" onclick="openSettingsTab('font')"><i class="ri-font-size-2"></i><span>字体</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-data" data-settings-tab="data" aria-controls="settings-tab-data" aria-selected="false" tabindex="-1" onclick="openSettingsTab('data')"><i class="ri-database-2-line"></i><span>数据</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-usage" data-settings-tab="usage" aria-controls="settings-tab-usage" aria-selected="false" tabindex="-1" onclick="openSettingsTab('usage')"><i class="ri-bar-chart-2-line"></i><span>用量</span></button>
+            </nav>
             <div class="window-content" style="padding: 20px; background: #faf5f0;">
+                <div class="set-nav-panel" id="settings-tab-api" data-settings-panel="api" role="tabpanel" aria-labelledby="settings-nav-api">
                 <div class="set-section-title"><i class="ri-link"></i> API 连接</div>
                 <div id="api-route-panel" class="api-route-panel"></div>
                 <div id="api-list-container"></div>
                 <div class="set-add-btn" onclick="openApiModal()">
                     <i class="ri-add-line"></i> 添加 API
                 </div>
+                </div>
 
+                <div class="set-nav-panel" id="settings-tab-voice" data-settings-panel="voice" role="tabpanel" aria-labelledby="settings-nav-voice" hidden>
+                    <div class="set-section-title"><i class="ri-volume-up-line"></i> 语音连接</div>
+                    <div id="api-voice-route-panel" class="api-route-panel"></div>
+                </div>
+
+                <div class="set-nav-panel" id="settings-tab-decision" data-settings-panel="decision" role="tabpanel" aria-labelledby="settings-nav-decision" hidden>
+                <section class="bynd-jev-card" id="bynd-jev-settings" aria-label="智能决策">
+                    <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-git-branch-line"></i></span><div><strong>智能决策</strong><small>BYND Agent / Jev 双路径</small></div></div>
+                    <p class="bynd-jev-intro">默认使用 BYND 自有 Agent 与提示词。你也可以自愿接入 Jev，让它先判断是否行动；角色内容仍由原模型创作。</p>
+                    <label class="bynd-jev-enable"><span><strong>使用 Jev 辅助决策</strong><small>未配置、调用失败时自动回到 BYND 路径</small></span><input type="checkbox" id="bynd-jev-enabled"></label>
+                    <label class="bynd-jev-key-label" for="bynd-jev-key">TypeSafe Jev API Key</label>
+                    <input class="bynd-jev-key" id="bynd-jev-key" type="password" placeholder="apikey_…" autocomplete="off" spellcheck="false">
+                    <small class="bynd-jev-key-help">只填完整的 apikey_ 开头密钥；不要填邮箱、表格竖线或引号。</small>
+                    <div class="bynd-jev-scopes" role="group" aria-label="Jev 决策场景">
+                        <label><input type="checkbox" data-jev-scope="moment"><span>角色朋友圈</span></label>
+                        <label><input type="checkbox" data-jev-scope="momentEngagement"><span>朋友圈互动</span></label>
+                        <label><input type="checkbox" data-jev-scope="forumAction"><span>论坛行动</span></label>
+                        <label><input type="checkbox" data-jev-scope="forumReply"><span>评论回应</span></label>
+                        <label><input type="checkbox" data-jev-scope="profile"><span>主页更新</span></label>
+                    </div>
+                    <p class="bynd-jev-privacy">密钥保存在当前设备的应用数据中，不写入安装包，也不包含在 BYND 的 JSON 导出中。决策会把必要的精简状态发往 TypeSafe；浏览器直连失败时，经 BYND 固定代理转发。测试连接会产生一次调用。</p>
+                    <div class="bynd-jev-actions"><button type="button" id="bynd-jev-test" onclick="ByndJev.testSettings()">测试连接</button><button type="button" onclick="ByndJev.saveSettings()">保存设置</button></div>
+                    <p class="bynd-jev-status" id="bynd-jev-status" role="status" aria-live="polite"></p>
+                </section>
+                </div>
+
+                <div class="set-nav-panel" id="settings-tab-notify" data-settings-panel="notify" role="tabpanel" aria-labelledby="settings-nav-notify" hidden>
                 <div style="margin-top: 25px;">
                     <div class="set-section-title"><i class="ri-notification-3-line"></i> 主动消息提醒</div>
                     <div class="notify-card">
@@ -1581,8 +1656,10 @@
                         <p id="notify-status"></p>
                     </div>
                 </div>
+                </div>
 
                 <!-- 字体设置 -->
+                <div class="set-nav-panel" id="settings-tab-font" data-settings-panel="font" role="tabpanel" aria-labelledby="settings-nav-font" hidden>
                 <div style="margin-top: 25px;">
                     <div class="set-section-title"><i class="ri-font-size-2"></i> 字体设置</div>
 
@@ -1626,8 +1703,10 @@
                         <span class="font-reset-btn" onclick="resetFont()">恢复默认字体</span>
                     </div>
                 </div>
+                </div>
 
                 <!-- 数据管理 -->
+                <div class="set-nav-panel" id="settings-tab-data" data-settings-panel="data" role="tabpanel" aria-labelledby="settings-nav-data" hidden>
                 <div style="margin-top: 25px;">
                     <div class="set-section-title"><i class="ri-database-2-line"></i> 数据管理</div>
 
@@ -1653,10 +1732,18 @@
                         </div>
                     </div>
                 </div>
+                </div>
+
+                <!-- Token 用量（仪表盘稍后挂载到 #bynd-usage-dashboard） -->
+                <div class="set-nav-panel" id="settings-tab-usage" data-settings-panel="usage" role="tabpanel" aria-labelledby="settings-nav-usage" hidden>
+                    <div class="set-section-title"><i class="ri-bar-chart-2-line"></i> 用量</div>
+                    <div id="bynd-usage-dashboard"></div>
+                    <p class="set-nav-note">Token 用量汇总即将上线</p>
+                </div>
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.650
+                    Beyond Screen v1.1.684
                 </div>
             </div>
         </div>
@@ -2115,9 +2202,8 @@
                         <svg class="wc-douyin-official-icon wc-douyin-voice-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M17 25.8994C18.1046 25.8994 19 25.004 19 23.8994C19 22.7948 18.1046 21.8994 17 21.8994C15.8954 21.8994 15 22.7948 15 23.8994C15 25.004 15.8954 25.8994 17 25.8994Z" fill="currentColor"/><path d="M21.9497 28.8492C23.2165 27.5825 24 25.8325 24 23.8995C24 21.9665 23.2165 20.2165 21.9497 18.9497" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M26.8994 33.799C29.4329 31.2655 30.9999 27.7655 30.9999 23.8995C30.9999 20.0335 29.4329 16.5335 26.8994 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
                     </button>
-                    <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn hidden" aria-label="按住说话" oncontextmenu="event.preventDefault()" onpointerdown="startWechatHoldVoice(event)" onpointerup="finishWechatHoldVoice(event)" onpointercancel="cancelWechatHoldVoice(event)" onpointerleave="maybeCancelWechatHoldVoice(event)">按住 说话</button>
-                    <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></textarea>
-                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)"></div>
+                    <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></textarea>
+                    <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></div>
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
                     <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
@@ -2130,6 +2216,15 @@
                     </div>
                     <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()" aria-label="发送"></i>
                     <svg class="wc-ai-btn" onclick="triggerAiReply()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-label="AI 回复"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6z"/></svg>
+                </div>
+
+                <div id="wc-hold-voice-overlay" class="wc-hold-voice-overlay hidden" aria-live="polite" aria-label="语音录制中">
+                    <div class="wc-hold-voice-transcript" id="wc-hold-voice-transcript">正在聆听...</div>
+                    <div class="wc-hold-voice-prompt" id="wc-hold-voice-prompt">松手 发送</div>
+                    <div class="wc-hold-voice-actions">
+                        <button type="button" onclick="cancelWechatHoldVoice()">取消</button>
+                        <button type="button" onclick="requestWechatHoldVoiceEdit()">编辑</button>
+                    </div>
                 </div>
 
                 <!-- + 工具栏 -->
@@ -2215,7 +2310,7 @@
                         <textarea id="wc-voice-tts-input" rows="2" placeholder="输入文字，发送后显示为语音气泡"></textarea>
                         <button type="button" class="wc-voice-tts-send" onclick="sendWechatTypedVoice()"><i class="ri-volume-up-line"></i> 发送语音</button>
                     </div>
-                    <div id="wc-voice-status" class="wc-voice-status">按住底栏按钮说话，松开发送</div>
+                    <div id="wc-voice-status" class="wc-voice-status">长按输入框说话，松开发送</div>
                 </div>
                 <input type="file" id="wc-camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleCameraCapture(this)">
                 <input type="file" id="wc-image-input" accept="image/*" multiple style="display:none" onchange="handleImagePick(this)">
@@ -2259,6 +2354,8 @@
                     </div>
                     <div class="wcs-body">
                         <div id="wcs-agent-features"></div>
+                        <div class="wcs-section-title">共同创作</div>
+                        <div class="wcs-section"><button type="button" class="wcs-nav-row" onclick="ByndComic.fromChat(getCurrentChatChar()?.id)"><span><i class="ri-booklet-line"></i> 选择聊天生成漫画</span><em>将剧情画成连续分镜</em><i class="ri-arrow-right-s-line"></i></button></div>
                         <!-- 聊天外观 -->
                         <div class="wcs-section-title">聊天外观</div>
                         <div class="wcs-section">
@@ -2560,7 +2657,10 @@
                                     </div>
                                     <input type="file" id="wcs-add-avatar-file" accept="image/*" style="display:none" onchange="addCharAvatarToGallery(this)">
                                 </div>
-                                <div style="font-size:11px;color:#999;">AI 可根据情绪自行切换头像</div>
+                                <div class="wcs-avatar-mood-hint">
+                                    <span>AI 按心情标签自行切换头像</span>
+                                    <button type="button" id="wcs-avatar-mood-ai-btn" onclick="recognizeWechatAvatarMoods()"><i class="ri-sparkling-line"></i>AI 识别心情</button>
+                                </div>
                             </div>
                         </div>
 
@@ -2663,6 +2763,15 @@
                 </div>
             </div>
         </div>
+        <div id="wb-transfer-modal" class="wc-modal-overlay hidden" style="z-index: 2200;" onclick="if (event.target === this) closeWorldBookTransferMenu()">
+            <div class="wb-transfer-card" role="dialog" aria-modal="true" aria-label="世界书操作">
+                <div class="wb-transfer-title">世界书操作<button type="button" onclick="closeWorldBookTransferMenu()" aria-label="关闭"><i class="ri-close-line"></i></button></div>
+                <button type="button" onclick="chooseWorldBookImport()"><i class="ri-download-2-line"></i><span>导入世界书<small>从 JSON 文件追加设定</small></span></button>
+                <button type="button" onclick="exportWorldBook()"><i class="ri-upload-2-line"></i><span>导出世界书<small>保存当前角色的全部设定</small></span></button>
+                <button type="button" onclick="addWorldBookEntryFromMenu()"><i class="ri-add-line"></i><span>新增条目<small>手动添加一条世界设定</small></span></button>
+            </div>
+        </div>
+        <input type="file" id="wb-import-file" accept=".json,application/json" hidden onchange="importWorldBookFile(this)">
         <div id="wb-add-entry-modal" class="wc-modal-overlay hidden" style="z-index: 2100;">
             <div class="wc-char-card" style="background: #fffcf5; border: 1px solid #d7ccc8;">
                 <div class="wc-card-header" style="border-bottom-color: #eee;">
@@ -2867,24 +2976,31 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="chat-api.js?v=1.1.650"></script>
+    <script src="modules/usage/ledger.js?v=1.1.684"></script>
+    <script src="chat-api.js?v=1.1.677"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
-    <script src="stickers-local-share.js?v=1.1.650"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.590"></script>
-    <script src="wechat.js?v=1.1.650"></script>
+    <script src="stickers-local-share.js?v=1.1.657"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.657"></script>
+    <script src="modules/decision/jev.js?v=1.1.684"></script>
+    <script src="wechat.js?v=1.1.684"></script>
+    <script src="modules/living-world/living-world.js?v=1.1.684"></script>
     <script src="theme.js?v=1.1.616-dream-icons"></script>
-    <script src="settings.js?v=1.1.650"></script>
-    <script src="script.js?v=1.1.650"></script>
+    <script src="settings.js?v=1.1.684"></script>
+    <script src="script.js?v=1.1.676-comic-pet-layout"></script>
+    <script src="modules/comic/comic.js?v=1.1.675"></script>
+    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.675">
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
-    <script src="WorldBook.js?v=1.1.631-cover-image"></script>
+    <script src="WorldBook.js?v=1.1.682"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.650-inline-summary-fix"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.677"></script>
+    <script src="modules/wechat/api-ticket.js?v=1.1.682"></script>
+    <script src="modules/usage/bill-app.js?v=1.1.684-bill"></script>
     <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.650"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.650"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.650"></script>
-    <script src="modules/study/study-app.js?v=1.1.650"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.657"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.657"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.657"></script>
+    <script src="modules/study/study-app.js?v=1.1.657"></script>
     <script src="modules/monitor/character-pet.js?v=1.1.626"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>

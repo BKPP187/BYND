@@ -45,7 +45,7 @@
         if (!canSend()) return { ok: false, cancelled: true, error: '本次互动已取消。' };
         const { stage, ...forwarded } = options;
         const result = await callChatApi(messages, {
-            background: true, backgroundPriority: 1, ...forwarded,
+            background: true, backgroundPriority: 1, usageFeature: 'pet', ...forwarded,
             skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true, canSend
         });
         if (result?.ok) pauses.delete(lease.key);
@@ -114,12 +114,12 @@
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     const waitingNote = ms => '聊天接口限流，' + Math.max(1, Math.ceil(ms / 1000)) + ' 秒后自动重试…';
     async function callWithBackoff(char, lease, messages, options, manual) {
-        let result = await requests.call(lease, messages, options);
+        let result = await requests.call(lease, messages, { usageChar: char, ...options });
         for (let attempt = 0; manual && throttled(result) && attempt < maxBackoffRetries; attempt++) {
             const pause = requests.cooldown();
             if (char) { runtime(char).note = waitingNote(pause); repaint(char); }
             await wait(pause);
-            result = await requests.call(lease, messages, options);
+            result = await requests.call(lease, messages, { usageChar: char, ...options });
         }
         if (char && runtime(char).note.startsWith('聊天接口限流')) runtime(char).note = '';
         return result;

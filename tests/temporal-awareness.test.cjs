@@ -206,3 +206,12 @@ test('a short overnight pause keeps the real calendar date without replaying an 
     assert.doesNotMatch(timePrompt(h), /59天|1个月29天/);
     assert.match(timePrompt(h), /正常连续聊天应自然衔接/);
 });
+
+test('echoed history time labels are scrubbed from visible replies instead of turning dialogue into narration', () => {
+    const { context } = harness();
+    assert.equal(
+        context.cleanChatApiVisibleContent('至于蘑菇，希望他至少有常识让它彻底煮熟了。【消息时间：2026年9月23日 星期三 23:22】'),
+        '至于蘑菇，希望他至少有常识让它彻底煮熟了。'
+    );
+    assert.equal(context.cleanChatApiVisibleContent('【消息时间：2026年9月23日 星期三 23:22】\n嗯。\n好吧【微笑】'), '嗯。\n好吧【微笑】');
+});

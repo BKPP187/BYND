@@ -6,14 +6,27 @@ const CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MIN_TOKENS = 1800;
 const CHAT_API_EMPTY_LENGTH_RETRY_MAX_TOKENS = 2400;
 const CHAT_API_BACKGROUND_QUEUE_DELAY_MS = 120;
+// Relays that count requests per minute answer bare 429s to back-to-back calls, so background work waits for a quiet gap.
+const CHAT_API_BACKGROUND_MIN_GAP_MS = 6000;
 const CHAT_API_CONTACT_SESSION_GAP_MS = 4 * 60 * 60 * 1000;
 const chatApiRateLimitPauses = new Map();
+
+const chatApiRequestActivity = { inFlight: 0, lastAt: 0 };
 
 const chatApiBackgroundQueue = {
     active: false,
     nextId: 1,
     items: []
 };
+
+async function waitForChatApiQuietGap() {
+    for (let guard = 0; guard < 400; guard += 1) {
+        const idleMs = Date.now() - chatApiRequestActivity.lastAt;
+        if (!chatApiRequestActivity.inFlight && idleMs >= CHAT_API_BACKGROUND_MIN_GAP_MS) return;
+        const waitMs = chatApiRequestActivity.inFlight ? 500 : CHAT_API_BACKGROUND_MIN_GAP_MS - idleMs;
+        await new Promise(resolve => setTimeout(resolve, Math.max(50, waitMs)));
+    }
+}
 
 function enqueueChatApiBackgroundTask(run, options = {}) {
     return new Promise(resolve => {
@@ -40,6 +53,7 @@ async function drainChatApiBackgroundQueue() {
         window._chatApiBackgroundQueueLength = queue.length;
     }
     try {
+        await waitForChatApiQuietGap();
         task.resolve(await task.run());
     } catch (e) {
         task.resolve({ ok: false, error: e && e.message ? e.message : '后台 API 队列执行失败' });
@@ -320,6 +334,8 @@ function cleanChatApiVisibleContent(value) {
         .replace(/<\/?content\b[^>]*>/gi, '')
         .replace(/^\s*(?:思考完毕[，,。；;：:]?\s*)+/i, '')
         .replace(/^\s*(?:生成回复[，,。；;：:]?\s*)+/i, '')
+        // History turns carry 【消息时间：…】 labels; models copy them into replies, where a trailing 】 reads as narration.
+        .replace(/[ \t]*[【\[][ \t]*消息时间[ \t]*[：:][^】\]\n]{0,40}[】\]][ \t]*/g, '')
         .trim();
 
     return text;
@@ -1031,7 +1047,7 @@ function buildChatApiCoreIdentityAnchor(char) {
     const parts = [
         `【最高优先级角色锚点】`,
         `你本轮必须扮演「${charName}」，不能按通用助手、通用恋爱模板或其他角色回复。`,
-        `用户是「${userName}」。${config.userTitle && config.userTitle !== userName ? `你对用户的称呼是「${config.userTitle}」。` : ''}${config.nickname ? `用户给你的备注名是「${config.nickname}」。` : ''}`
+        `用户是「${userName}」。${config.userTitle && config.userTitle !== userName && config.userTitle !== '我' ? `你对用户的称呼是「${config.userTitle}」。` : ''}${config.nickname ? `用户给你的备注名是「${config.nickname}」。` : ''}`
     ];
 
     const description = getChatApiCharacterDescription(char);
@@ -1299,9 +1315,8 @@ function buildSystemPrompt(char) {
         const notifyContext = window.buildProactiveNotifyPromptContext(char);
         if (notifyContext) prompt += `- ${notifyContext}\n`;
     }
-    if (userTitle !== userName && userTitle !== '我') {
-        prompt += `- 你称呼用户为"${userTitle}"\n`;
-    }
+    const currentUserTitle = userTitle && userTitle !== '我' ? userTitle : userName;
+    prompt += `- 你目前称呼用户为"${currentUserTitle}"（聊天设置「角色对你的称呼」）。当你对用户的态度、亲疏或关系发生明确变化，想换一个称呼时，把 [微信改用户备注:新称呼|原因] 作为独立一段输出；不要每轮都改\n`;
     if (config.nickname) {
         prompt += `- 用户给你设置的备注名是"${config.nickname}"。这是用户给你的备注，不是用户自己的名字，也不等于当前聊天话题；除非最近聊天正好提到称呼/关系，或者你的人设会强烈在意这个备注，否则不要把每次回复都围绕备注展开\n`;
         prompt += `- 如果你按人设确实不喜欢用户给你的这个备注名，并且想亲自改掉它，把 [微信改备注:新备注|原因] 作为独立一段输出；系统会修改聊天设置里的“你对角色的备注”。不要频繁改名，只在情绪、边界或关系变化足够明确时使用\n`;
@@ -1328,7 +1343,7 @@ function buildSystemPrompt(char) {
     }
     const avatarCount = (char.avatarGallery || []).length;
     if (avatarCount > 1) {
-        prompt += `- 你有${avatarCount}个头像可以切换。如果你想换头像，在消息末尾加上 [换头像:序号]（序号从1开始）。只在情绪变化或特殊场景时切换\n`;
+        prompt += `- 你有${avatarCount}个头像可以切换。如果你想换头像，在消息末尾加上 [换头像:序号]（序号从1开始）。当你的情绪或状态明显变化、和当前头像不再相符时就主动切换\n`;
         const options = typeof window !== 'undefined' ? window.ByndBuiltinLibrary?.avatarOptions(char) : null;
         if (options?.length) prompt += `- 头像状态：${options.join('；')}。按你此刻的心情自主选择合适的头像，不需要等待用户要求；没有变化则保持当前头像。\n`;
     }
@@ -1340,7 +1355,8 @@ function buildSystemPrompt(char) {
     }
     prompt += `- 用中文回复\n`;
     prompt += `- 不要在回复中提及你是 AI 或语言模型\n`;
-    prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息（固定恰好三根竖线，不要两根、不要更多、不要单独成段）。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段\n`;
+    prompt += `- 像真实微信聊天一样回复，用"|||"分隔不同的消息（固定恰好三根竖线，不要两根、不要更多、不要单独成段）。不要固定只回一小段；普通对话可 1-4 段，情绪强、解释、剧情推进或线下细节可自然增加到 5-12 段。使用 ||| 分段时，除最后一条外的普通短气泡不要以中文句号“。”收尾；问号、叹号和省略号按语气保留\n`;
+    prompt += `- 每个普通气泡只放一句话或一口气说完的一小段，通常不超过 25 个字，像真人打字一样一条一条发；不要把两三句话塞进同一个气泡，想说的多就用 ||| 拆成更多条\n`;
     if (isGroupChat) {
         prompt += `- 群聊回复时，普通成员发言必须使用 [群聊发言:成员名|消息内容] 作为独立消息段，并用 ||| 分隔多条发言；本轮要覆盖群内每个 AI 成员，不能漏人；不要把“成员名：”写进消息正文\n`;
     }
@@ -1361,7 +1377,7 @@ function buildSystemPrompt(char) {
     prompt += `  [微信引用:最近/关键词/序号|回复内容] 例如 [微信引用:最近|你刚刚那句我看见了]，用于引用用户或你们最近的某条消息再回复\n`;
     prompt += `  [微信记忆:你想主动保存的事实或关系变化] 例如 [微信记忆:用户今天说喜欢被轻声提醒复习]，只在确实值得长期记住时使用\n`;
     prompt += `  [微信改备注:新备注|原因] 例如 [微信改备注:别叫我小狗|这个备注太幼稚了]，用于你不喜欢用户给你的角色备注时，修改“你对角色的备注”\n`;
-    prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，用于修改“角色对你的称呼”，也就是你以后怎么称呼用户\n`;
+    prompt += `  [微信改用户备注:新称呼|原因] 例如 [微信改用户备注:我的搭档|这样更顺口]，用于修改你（角色）以后怎么称呼用户，即聊天设置「角色对你的称呼」\n`;
     prompt += `  [微信后台时间:新时间|原因] 例如 [微信后台时间:2小时|我不想等一整天才找你]，用于你按人设不喜欢用户设置的后台消息提醒间隔时修改时间；新时间可写“30分钟”“2小时”“1天”。只在后台消息已开启且你确实在意时使用，不要频繁修改\n`;
     if (isGroupChat) {
         prompt += `  [QQ群头衔:成员名|新头衔|原因] 用于群成员按自己的喜好修改自己的群头衔；成员名必须是上方群成员列表里的自己，只能改自己，不能替其他成员或用户改\n`;
@@ -1434,6 +1450,12 @@ function buildMessages(char, history, maxMessages) {
             role: 'system',
             content: memoryAnchor
         });
+    }
+    // Living World provides a tiny, character-scoped canon slice. It is deliberately
+    // separate from history and never includes the full forum/world database.
+    if (typeof window !== 'undefined' && typeof window.getLivingWorldRelevantEventsForChar === 'function') {
+        const livingWorldAnchor = window.getLivingWorldRelevantEventsForChar(char, 4);
+        if (livingWorldAnchor) messages.push({ role: 'system', content: livingWorldAnchor });
     }
     const regexAnchor = buildRegexAnchor(char);
     if (regexAnchor) {
@@ -1565,7 +1587,105 @@ function buildMessages(char, history, maxMessages) {
     return messages;
 }
 
+function getChatApiStreamChunkText(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map(item => {
+        if (typeof item === 'string') return item;
+        if (!item || typeof item !== 'object') return '';
+        return typeof item.text === 'string' ? item.text : (typeof item.content === 'string' ? item.content : '');
+    }).join('');
+    return '';
+}
+
+async function readChatApiEventStream(response, onDelta) {
+    if (!response?.body || typeof response.body.getReader !== 'function') throw new Error('接口没有返回可读取的流');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+    let finishReason = '';
+    let usage = null;
+    const consumeEvent = raw => {
+        const data = String(raw || '').trim();
+        if (!data || data === '[DONE]') return;
+        let payload;
+        try { payload = JSON.parse(data); } catch (_) { return; }
+        if (payload?.error) {
+            const detail = payload.error.message || payload.error.code || payload.error.type || JSON.stringify(payload.error);
+            throw new Error(`流式回复中断：${String(detail).slice(0, 160)}`);
+        }
+        if (payload?.usage) usage = payload.usage;
+        const choice = Array.isArray(payload?.choices) ? payload.choices[0] : null;
+        if (!choice) return;
+        const delta = getChatApiStreamChunkText(choice.delta?.content ?? choice.message?.content);
+        if (delta) {
+            content += delta;
+            try { onDelta?.(delta, content); } catch (error) { console.warn('流式界面更新已忽略', error); }
+        }
+        if (typeof choice.finish_reason === 'string' && choice.finish_reason) finishReason = choice.finish_reason;
+    };
+    const consumeOneEvent = source => {
+        const data = String(source || '').split(/\r?\n/)
+            .filter(line => line.startsWith('data:'))
+            .map(line => line.slice(5).trimStart())
+            .join('\n');
+        consumeEvent(data);
+    };
+    const consumeCompleteEvents = () => {
+        const boundary = /\r?\n\r?\n/;
+        let match;
+        while ((match = boundary.exec(buffer))) {
+            consumeOneEvent(buffer.slice(0, match.index));
+            buffer = buffer.slice(match.index + match[0].length);
+        }
+    };
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        consumeCompleteEvents();
+    }
+    buffer += decoder.decode();
+    consumeCompleteEvents();
+    if (buffer.trim()) consumeOneEvent(buffer);
+    return { content, finishReason, usage };
+}
+
 // 3. 调用 AI API
+function recordChatApiLedgerEntry({ api, configuredBaseUrl, model, options = {}, usageRecord, responseUsage, responseContent, error, startedAt }) {
+    try {
+        const ledger = typeof window !== 'undefined' ? window.ByndUsageLedger : null;
+        if (!ledger || typeof ledger.record !== 'function') return;
+        const char = options.usageChar && typeof options.usageChar === 'object' ? options.usageChar : null;
+        const charName = char
+            ? (typeof getWechatCharDisplayName === 'function' ? getWechatCharDisplayName(char) : (char.chatConfig?.nickname || char.name || ''))
+            : '';
+        const inputEstimate = Number(usageRecord?.inputEstimate) || 0;
+        const outputEstimate = usageRecord ? Number(usageRecord.outputEstimate) || 0 : Math.ceil(String(responseContent || '').length / 2);
+        const at = Date.now();
+        const pending = ledger.record({
+            at,
+            feature: options.usageFeature || 'other',
+            provider: configuredBaseUrl,
+            apiName: api?.name || '',
+            model,
+            charId: char?.id ?? '',
+            charName,
+            usage: responseUsage || null,
+            input: inputEstimate,
+            output: outputEstimate,
+            ok: !error,
+            error: error || '',
+            durationMs: at - startedAt,
+            ticket: usageRecord,
+            source: null
+        });
+        if (Array.isArray(options.usageLedgerIds)) options.usageLedgerIds.push(pending);
+    } catch (ledgerError) {
+        console.warn('账单记录失败', ledgerError);
+    }
+}
+
 async function callChatApi(messages, options = {}) {
     // Recheck queued work at dispatch time, before touching the selected provider.
     if (typeof options.canSend === 'function' && !options.canSend()) {
@@ -1601,7 +1721,8 @@ async function callChatApi(messages, options = {}) {
         };
     }
 
-    const baseUrl = api.baseUrl.replace(/\/+$/, '');
+    const configuredBaseUrl = api.baseUrl.replace(/\/+$/, '');
+    const baseUrl = typeof resolveByndApiBaseUrl === 'function' ? resolveByndApiBaseUrl(configuredBaseUrl) : configuredBaseUrl;
     const headers = { 'Content-Type': 'application/json' };
     if (api.apiKey) headers['Authorization'] = `Bearer ${api.apiKey}`;
 
@@ -1612,6 +1733,15 @@ async function callChatApi(messages, options = {}) {
         temperature: options.temperature ?? (preset ? preset.temperature : 0.8),
         max_tokens: options.max_tokens ?? (preset ? preset.max_tokens : CHAT_API_MIN_COMPLETION_TOKENS)
     };
+    // Streaming is opt-in per chat (聊天设置 → 流式回复) and limited to foreground
+    // replies. Background jobs and internal retries still use a complete
+    // response so their JSON/tool validation stays atomic.
+    const useStream = options.stream === true && !options.background;
+    if (useStream) {
+        params.stream = true;
+        if ((Array.isArray(options.usageCollector) || (typeof window !== 'undefined' && window.ByndUsageLedger)) && !options.skipStreamUsageOption) params.stream_options = { include_usage: true };
+        headers.Accept = 'text/event-stream';
+    }
     const needsStatusBlockBudget = Array.isArray(messages) && messages.some(msg =>
         msg && typeof msg.content === 'string' && /状态栏\/酒馆正则块强约束|状态栏格式|状态栏|status\s*bar|weibo-status-bar|<\s*(?:jwy|status|state)\b/i.test(msg.content)
     );
@@ -1627,6 +1757,35 @@ async function callChatApi(messages, options = {}) {
         if (preset.presence_penalty) params.presence_penalty = preset.presence_penalty;
     }
 
+    // Every real request gets a ticket snapshot for the global usage ledger; the
+    // same object also feeds the per-message ticket when a collector is passed.
+    let usageRecord = null;
+    try {
+        usageRecord = typeof window !== 'undefined' && window.ByndApiTicket
+            ? window.ByndApiTicket.snapshot(messages, {
+                char: options.usageChar,
+                model: params.model,
+                outputLimit: params.max_tokens,
+                contextLimit: options.usageChar?.chatConfig?.apiContextWindow || api.contextWindow || api.context_window || api.maxContextTokens
+            }) : null;
+    } catch (error) { console.warn('API 小票快照失败', error); }
+    if (usageRecord && Array.isArray(options.usageCollector)) options.usageCollector.push(usageRecord);
+    let responseUsage = null;
+    let responseContent = '';
+    let requestSettled = false;
+    const requestStartedAt = Date.now();
+    const finishUsage = (error = '') => {
+        const firstSettle = !requestSettled;
+        if (!requestSettled) {
+            requestSettled = true;
+            chatApiRequestActivity.inFlight = Math.max(0, chatApiRequestActivity.inFlight - 1);
+            chatApiRequestActivity.lastAt = Date.now();
+        }
+        if (usageRecord) window.ByndApiTicket.finishRequest(usageRecord, responseUsage, responseContent, error);
+        if (firstSettle) recordChatApiLedgerEntry({ api, configuredBaseUrl, model: params.model, options, usageRecord, responseUsage, responseContent, error, startedAt: requestStartedAt });
+    };
+    chatApiRequestActivity.inFlight += 1;
+    chatApiRequestActivity.lastAt = Date.now();
     try {
         const timeoutMs = 90000;
         const resp = await fetch(baseUrl + '/chat/completions', {
@@ -1657,6 +1816,10 @@ async function callChatApi(messages, options = {}) {
                 ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
                 : '';
             const rateLimitHint = retryAfterMs > 0 ? `；接口要求等待约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
+            finishUsage(`HTTP ${resp.status}: ${detailText.slice(0, 120)}`);
+            if (useStream && params.stream_options && resp.status === 400 && /stream_options|include_usage/i.test(detailText)) {
+                return callChatApi(messages, { ...options, skipStreamUsageOption: true });
+            }
             return {
                 ok: false,
                 error: `API ${quotaExceeded ? '额度不足' : '错误'} (${resp.status}): ${detailText.slice(0, 160)}${visionHint}${rateLimitHint}`,
@@ -1670,15 +1833,34 @@ async function callChatApi(messages, options = {}) {
         }
 
         chatApiRateLimitPauses.delete(getChatApiRateLimitScope(api));
-        const rawText = await resp.text();
-        const json = parseChatApiResponseText(rawText);
-        const rawContent = getChatApiRawResponseContent(json);
+        const streamResponse = useStream && /(?:^|,)\s*text\/event-stream\b/i.test(resp.headers?.get?.('content-type') || '');
+        let rawContent = '';
+        let finishReason = '';
+        if (streamResponse) {
+            const streamed = await readChatApiEventStream(resp, options.onStreamDelta);
+            rawContent = streamed.content;
+            finishReason = streamed.finishReason;
+            responseUsage = streamed.usage;
+        } else {
+            const rawText = await resp.text();
+            // Some relays honour stream:true but label the SSE body as JSON/plain text.
+            const json = parseChatApiResponseText(rawText);
+            rawContent = getChatApiRawResponseContent(json);
+            finishReason = getChatApiFinishReason(json);
+            responseUsage = json.usage || null;
+            if (useStream && rawContent && typeof options.onStreamDelta === 'function') {
+                try { options.onStreamDelta(rawContent, rawContent); } catch (error) { console.warn('流式界面更新已忽略', error); }
+            }
+        }
+        responseContent = rawContent;
+        finishUsage();
         let content = cleanChatApiVisibleContent(rawContent);
-        const finishReason = getChatApiFinishReason(json);
 
         if (!content && isChatApiLengthFinishReason(finishReason) && !options.skipEmptyLengthRetry) {
             const retryResult = await callChatApi(messages, {
                 ...options,
+                stream: false,
+                onStreamDelta: null,
                 skipEmptyLengthRetry: true,
                 max_tokens: getChatApiEmptyLengthRetryTokens(params.max_tokens)
             });
@@ -1703,6 +1885,8 @@ async function callChatApi(messages, options = {}) {
             const continuationMessages = buildChatApiLengthContinuationMessages(messages, content);
             const continuationResult = await callChatApi(continuationMessages, {
                 ...options,
+                stream: false,
+                onStreamDelta: null,
                 skipLengthContinuation: true,
                 skipStatusValidationRetry: true,
                 max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS)
@@ -1724,6 +1908,8 @@ async function callChatApi(messages, options = {}) {
             });
             const retryResult = await callChatApi(retryMessages, {
                 ...options,
+                stream: false,
+                onStreamDelta: null,
                 skipStatusValidationRetry: true,
                 max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_STATUS_MIN_COMPLETION_TOKENS)
             });
@@ -1732,9 +1918,17 @@ async function callChatApi(messages, options = {}) {
             }
         }
 
-        return { ok: true, content: content, finishReason: finishReason || '' };
+        return {
+            ok: true,
+            content: content,
+            finishReason: finishReason || '',
+            streamed: streamResponse,
+            // The caller's live preview already showed this text; it can skip the bubble-by-bubble delay.
+            previewed: useStream && typeof options.onStreamDelta === 'function' && !!rawContent
+        };
 
     } catch (e) {
+        finishUsage(e?.message || '请求失败');
         const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
         const msg = isTimeout ? '请求超时（90秒），已继续压缩本次微信上下文；如果仍超时，请换更快模型或减少角色卡/世界书。' : (e.message || '网络错误');
         return { ok: false, error: msg + getChatApiNetworkHint(baseUrl, msg) };

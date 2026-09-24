@@ -351,7 +351,7 @@
     // ---------- API turn ----------
     async function requestTurn(char, settings, chat, userText, kind = 'chat') {
         if (typeof callChatApi !== 'function') throw new Error('聊天 API 模块没有加载。');
-        const result = await callChatApi(buildTurnMessages(char, settings, chat, userText, kind), { temperature: 0.8, max_tokens: Math.min(5000, 1400 + 600 * Math.max(0, settings.targetIds.length - 1)), skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
+        const result = await callChatApi(buildTurnMessages(char, settings, chat, userText, kind), { usageFeature: 'study', usageChar: char, temperature: 0.8, max_tokens: Math.min(5000, 1400 + 600 * Math.max(0, settings.targetIds.length - 1)), skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
         if (!result || !result.ok) throw new Error(failureText(result));
         const turn = normalizeTurn(parseJson(result.content), settings);
         if (!turn) throw new Error('这次回复不是要求的格式，请再发一次。');
@@ -586,7 +586,7 @@
                 { role: 'system', content: `你就是${charName(char)}本人，用你的性格和口吻点评用户的翻译练习，不要变成老师腔。只输出 JSON：{"correct":true或false,"feedback":"一两句${language(getSettings().nativeId)?.label || '中文'}点评，像你本人在说话","better":"更地道的写法，没有就留空"}。意思对、只是不够地道也算 correct:true。` },
                 { role: 'user', content: `题目（${quiz.promptLang.label}）：${card.lines[quiz.promptLang.id]}\n参考答案（${quiz.answerLang.label}）：${card.lines[quiz.answerLang.id]}\n我的答案：${answer}` }
             ];
-            const result = await callChatApi(messages, { temperature: 0.6, max_tokens: 500, skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
+            const result = await callChatApi(messages, { usageFeature: 'study', usageChar: char, temperature: 0.6, max_tokens: 500, skipLengthContinuation: true, skipStatusValidationRetry: true, skipEmptyLengthRetry: true });
             if (!result || !result.ok) throw new Error(failureText(result));
             const parsed = parseJson(result.content);
             if (!parsed) throw new Error('这次点评不是要求的格式，请再试一次。');

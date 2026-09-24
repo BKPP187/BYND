@@ -17,10 +17,47 @@ const FONT_PRESETS = [
 // 1. 初始化
 function initSettings() {
     renderApiList();
+    window.ByndJev?.renderSettings();
     renderPresetList();
     initFontSettings();
     if (typeof renderProactiveNotifySettings === 'function') renderProactiveNotifySettings();
+    openSettingsTab(readSettingsTab(), { persist: false, smooth: false });
 }
+
+// --- Settings tab navigation ---
+const SETTINGS_TAB_STORAGE_KEY = 'bynd_settings_tab_v1';
+const SETTINGS_DEFAULT_TAB = 'api';
+
+function readSettingsTab() {
+    try { return localStorage.getItem(SETTINGS_TAB_STORAGE_KEY) || SETTINGS_DEFAULT_TAB; } catch (e) { return SETTINGS_DEFAULT_TAB; }
+}
+
+function openSettingsTab(name, options = {}) {
+    const win = document.getElementById('app-settings-window');
+    if (!win) return null;
+    const panels = Array.from(win.querySelectorAll('[data-settings-panel]'));
+    if (!panels.length) return null;
+    const target = panels.some(panel => panel.dataset.settingsPanel === name) ? name : SETTINGS_DEFAULT_TAB;
+    panels.forEach(panel => { panel.hidden = panel.dataset.settingsPanel !== target; });
+    const nav = win.querySelector('.set-nav');
+    win.querySelectorAll('[data-settings-tab]').forEach(tab => {
+        const active = tab.dataset.settingsTab === target;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        if (active && nav) {
+            nav.scrollTo?.({ left: Math.max(0, tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2), behavior: options.smooth === false ? 'auto' : 'smooth' });
+        }
+    });
+    const content = win.querySelector('.window-content');
+    if (content) content.scrollTop = 0;
+    if (options.persist !== false) {
+        try { localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, target); } catch (e) {}
+    }
+    return target;
+}
+window.openSettingsTab = openSettingsTab;
+// --- /Settings tab navigation ---
 
 // 2. 读取数据
 function getApiData() {
@@ -346,7 +383,7 @@ function renderApiRoutePanel(data = getApiData()) {
     const elevenLabsVoiceReady = isElevenLabsVoiceEnabled(elevenLabsVoiceApi);
     const localVoiceReady = isLocalVoiceEnabled(localVoiceApi);
     const voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, localVoiceApi, openAiVoiceApi, elevenLabsVoiceApi, fishAudioVoiceApi);
-    panel.innerHTML = `
+    const panelHead = `
         <div class="api-route-head">
             <div>
                 <strong>API 工作台</strong>
@@ -365,6 +402,8 @@ function renderApiRoutePanel(data = getApiData()) {
                 <span>生图 API</span>
                 ${renderApiRoutePicker('image', imageApi, data.apis.filter(api => api.imageModel), data.imageDefaultId)}
             </div>
+    `;
+    const voiceCard = `
             <div class="api-route-card voice">
                 <i class="ri-volume-up-line"></i>
                 <span>语音 API</span>
@@ -416,6 +455,11 @@ function renderApiRoutePanel(data = getApiData()) {
                     })}
                 </div>
             </div>
+    `;
+    // Voice providers live on their own settings tab when that container exists.
+    const voicePanel = document.getElementById('api-voice-route-panel');
+    if (voicePanel) voicePanel.innerHTML = `<div class="api-route-grid">${voiceCard}</div>`;
+    panel.innerHTML = `${panelHead}${voicePanel ? '' : voiceCard}
         </div>
     `;
 }
@@ -1617,14 +1661,33 @@ function getCharacterVoiceApi(char) {
     return api;
 }
 
-async function requestVoiceAudioWithConfig(text, api) {
+async function requestVoiceAudioWithConfig(text, api, char = null) {
     if (!api) throw new Error('还没有配置可用的语音 API');
     const provider = api.provider || api.voiceProvider;
-    if (provider === 'local') return requestLocalVoiceAudio(text, api);
-    if (provider === 'openai') return requestOpenAiVoiceAudio(text, api);
-    if (provider === 'fish-audio') return requestFishAudioVoiceAudio(text, api);
-    if (provider === 'elevenlabs') return requestElevenLabsVoiceAudio(text, api);
-    return requestMiniMaxVoiceAudio(text, api);
+    const startedAt = Date.now();
+    // TTS services bill characters, not tokens; the ledger keeps the request with zero estimated tokens.
+    const recordUsage = (ok, error = '') => {
+        try {
+            window.ByndUsageLedger?.record({
+                feature: 'voice', provider: api.baseUrl || api.endpoint || (provider === 'minimax' || !provider ? 'https://api.minimax.io' : ''),
+                apiName: api.name || provider || 'minimax', model: api.voiceModel || api.model || '',
+                charId: char?.id ?? '', charName: char ? (char.chatConfig?.nickname || char.name || '') : '',
+                input: 0, output: 0, estimated: true, ok, error, durationMs: Date.now() - startedAt, ticket: null, source: null
+            });
+        } catch (_) {}
+    };
+    try {
+        const result = await (provider === 'local' ? requestLocalVoiceAudio(text, api)
+            : provider === 'openai' ? requestOpenAiVoiceAudio(text, api)
+                : provider === 'fish-audio' ? requestFishAudioVoiceAudio(text, api)
+                    : provider === 'elevenlabs' ? requestElevenLabsVoiceAudio(text, api)
+                        : requestMiniMaxVoiceAudio(text, api));
+        recordUsage(true);
+        return result;
+    } catch (error) {
+        recordUsage(false, error?.message || '语音请求失败');
+        throw error;
+    }
 }
 
 async function requestCharacterVoiceAudio(text, char) {
@@ -1632,7 +1695,7 @@ async function requestCharacterVoiceAudio(text, char) {
     if (!binding) throw new Error('这个角色还没有绑定付费音色');
     const api = getCharacterVoiceApi(char);
     if (!api) throw new Error('请先在设置 → TTS 配置对应的语音服务');
-    return requestVoiceAudioWithConfig(text, api);
+    return requestVoiceAudioWithConfig(text, api, char);
 }
 
 function estimateTextAudioDuration(text) {
@@ -1988,36 +2051,52 @@ function isNvidiaApiBaseUrl(baseUrl) {
     return /(^|\/\/|\.)(nvidia\.com|integrate\.api\.nvidia\.com)(\/|$)/i.test(String(baseUrl || ''));
 }
 
-function isWisartApiBaseUrl(baseUrl) {
+// Sites that refuse browser requests (no CORS) but that BYND proxies through
+// its own Worker. The user keeps typing the official Base URL; requests are
+// silently routed to the pinned proxy, which never stores keys.
+const BYND_PINNED_API_PROXIES = [
+    { id: 'wisart', hostname: 'wisart.kuaileshifu.com', proxyPath: '/wisart/v1' },
+    { id: 'l0veyou', hostname: 'l0veyou.com', proxyPath: '/l0veyou/v1' }
+];
+
+function getByndPinnedApiProxy(baseUrl) {
     try {
         const url = new URL(String(baseUrl || '').trim());
-        return url.protocol === 'https:'
-            && url.hostname.toLowerCase() === 'wisart.kuaileshifu.com'
-            && !url.port
-            && /^\/v1\/?$/.test(url.pathname)
-            && !url.search
-            && !url.hash;
+        if (url.protocol !== 'https:' || url.port || url.search || url.hash || !/^\/v1\/?$/.test(url.pathname)) return null;
+        const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+        return BYND_PINNED_API_PROXIES.find(item => item.hostname === hostname) || null;
     } catch (error) {
-        return false;
+        return null;
     }
+}
+
+function isWisartApiBaseUrl(baseUrl) {
+    return getByndPinnedApiProxy(baseUrl)?.id === 'wisart';
+}
+
+function isByndProxiedApiBaseUrl(baseUrl) {
+    return !!getByndPinnedApiProxy(baseUrl);
 }
 
 function resolveByndApiBaseUrl(baseUrl) {
     const original = String(baseUrl || '').trim().replace(/\/+$/, '');
-    if (!isWisartApiBaseUrl(original)) return original;
+    const proxy = getByndPinnedApiProxy(original);
+    if (!proxy) return original;
     const isProductionWeb = typeof location !== 'undefined'
         && location.protocol === 'https:'
         && location.hostname.toLowerCase() === 'bynd.ccwu.cc';
     return isProductionWeb
-        ? `${location.origin}/wisart/v1`
-        : 'https://bynd-push.myluckylxy.workers.dev/wisart/v1';
+        ? `${location.origin}${proxy.proxyPath}`
+        : `https://bynd-push.myluckylxy.workers.dev${proxy.proxyPath}`;
 }
 window.isWisartApiBaseUrl = isWisartApiBaseUrl;
+window.isByndProxiedApiBaseUrl = isByndProxiedApiBaseUrl;
 window.resolveByndApiBaseUrl = resolveByndApiBaseUrl;
 
 function getApiProxyHint(baseUrl) {
-    if (isWisartApiBaseUrl(baseUrl)) {
-        return 'BYND 已自动通过固定 Wisart 代理连接；请确认 Worker 已部署、API Key 有效，并重试。';
+    const pinnedProxy = getByndPinnedApiProxy(baseUrl);
+    if (pinnedProxy) {
+        return `BYND 已自动通过固定代理连接 ${pinnedProxy.hostname}；请确认 Worker 已部署、API Key 有效，并重试。`;
     }
     if (isNvidiaApiBaseUrl(baseUrl)) {
         return 'NVIDIA 接口通常不允许浏览器静态网页直连。请走 BYND AI Proxy Worker：Worker 不保存 key；网页 Base URL 填 Worker 地址，API Key 继续填用户自己的 NVIDIA key。';
@@ -2105,6 +2184,7 @@ async function probeChatModels(baseUrl, apiKey, models) {
                 const rawText = await resp.text().catch(() => '');
                 const json = rawText ? parseSettingsApiJsonResponseText(rawText) : {};
                 const content = json.choices?.[0]?.message?.content || '';
+                try { window.ByndUsageLedger?.record({ feature: 'other', provider: baseUrl, apiName: 'API 测试', model, usage: json.usage || null, input: 6, output: 1, ok: true, ticket: null, source: null }); } catch (_) {}
                 if (content.trim()) return { ok: true, model };
                 lastError = `${model}: 空响应`;
             } else {
@@ -2514,7 +2594,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.650';
+const APP_VERSION = 'v1.1.684';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -2573,6 +2653,7 @@ const ALL_DATA_KEYS = [
     'bynd_character_generator_v1',
     'bynd_coread_shelf_settings_v1',
     'bynd_coread_shelf_meta_v1',
+    'bynd_living_world_v1',
     'bynd_monitor_pet_enabled_v1',
     'bynd_monitor_pet_observe_interval_v1',
     'bynd_proactive_notify_settings_v1',
@@ -2621,11 +2702,13 @@ function isByndStorageKey(key) {
 }
 
 function getBackupLocalStorageKeys() {
+    const jevStorageKey = window.ByndJev?.storageKey || 'bynd_jev_config_v1';
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (isByndStorageKey(key)) keys.add(key);
+        if (isByndStorageKey(key) && key !== jevStorageKey) keys.add(key);
     }
+    keys.delete(jevStorageKey);
     return Array.from(keys);
 }
 
@@ -2784,6 +2867,12 @@ async function buildByndBackupData() {
             exportData._dreamImages = dreamImages;
         }
     } catch (e) { warnings.push('梦境图片未能读取'); console.warn('导出梦境图片失败', e); }
+
+    // IndexedDB API 账单（逐笔用量；不含小票明细，控制备份体积）
+    try {
+        const usageLedger = await window.ByndUsageLedger?.exportForBackup?.();
+        if (Array.isArray(usageLedger) && usageLedger.length) exportData._usageLedger = usageLedger;
+    } catch (e) { warnings.push('API 账单未能读取'); console.warn('导出 API 账单失败', e); }
     if (warnings.length) exportData._backupWarnings = warnings;
     return exportData;
 }
@@ -2931,7 +3020,7 @@ async function importAllData(input) {
         const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
         Object.keys(data).forEach(key => {
             if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (isByndStorageKey(key)) {
+            if (isByndStorageKey(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1')) {
                 localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });
@@ -2951,6 +3040,11 @@ async function importAllData(input) {
         // 恢复 IndexedDB 梦境图片
         if (data._dreamImages) {
             await importDreamImagesFromBackup(data._dreamImages);
+        }
+
+        // 恢复 API 账单（按 id 合并，不覆盖本机已有记录）
+        if (Array.isArray(data._usageLedger) && window.ByndUsageLedger?.importFromBackup) {
+            await window.ByndUsageLedger.importFromBackup(data._usageLedger);
         }
 
         alert('导入成功！页面即将刷新...');

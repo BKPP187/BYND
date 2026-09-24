@@ -20,7 +20,9 @@ function harness() {
     }
     const modal = { innerHTML: '' };
     const context = vm.createContext({
-        Date: Clock, Response, Promise, Map, setTimeout, clearTimeout,
+        Date: Clock, Response, Promise, Map, TextDecoder, clearTimeout,
+        // Sleeps advance the frozen clock so request-spacing waits finish at once.
+        setTimeout: (fn, ms = 0) => setTimeout(() => { state.now += Math.max(0, Number(ms) || 0); fn(); }, 0),
         AbortSignal: { timeout: () => undefined },
         window: { myCharacters: [] },
         console: { log() {}, warn() {}, error() {} },
@@ -116,6 +118,76 @@ test('successful replies carry the provider finish reason so callers can detect 
     const complete = await h.context.callChatApi([{ role: 'user', content: 'test' }], { skipStatusValidationRetry: true });
     assert.equal(complete.ok, true);
     assert.equal(complete.finishReason, 'stop');
+});
+
+test('foreground chat can consume a real SSE response while background jobs remain complete-response requests', async () => {
+    const h = harness();
+    h.state.respond = () => new Response([
+        'data: {"choices":[{"delta":{"content":"你好"},"finish_reason":null}]}',
+        '',
+        'data: {"choices":[{"delta":{"content":"，世界"},"finish_reason":"stop"}]}',
+        '',
+        'data: [DONE]',
+        ''
+    ].join('\n'), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    const deltas = [];
+    const streamed = await h.context.callChatApi([{ role: 'user', content: 'test' }], {
+        stream: true,
+        onStreamDelta: (delta, full) => deltas.push([delta, full]),
+        skipStatusValidationRetry: true
+    });
+    assert.equal(streamed.ok, true);
+    assert.equal(streamed.streamed, true);
+    assert.equal(streamed.previewed, true);
+    assert.equal(streamed.content, '你好，世界');
+    assert.deepEqual(deltas, [['你好', '你好'], ['，世界', '你好，世界']]);
+    assert.equal(JSON.parse(h.state.requests[0].options.body).stream, true);
+    assert.equal(h.state.requests[0].options.headers.Accept, 'text/event-stream');
+
+    h.state.respond = () => successResponse(validSnapshot());
+    await h.context.callChatApi([{ role: 'user', content: 'background' }], { background: true, stream: true, skipStatusValidationRetry: true });
+    assert.equal(JSON.parse(h.state.requests[1].options.body).stream, undefined);
+    await h.context.callChatApi([{ role: 'user', content: 'default' }], { skipStatusValidationRetry: true });
+    assert.equal(JSON.parse(h.state.requests[2].options.body).stream, undefined, 'streaming is never implied by the API card alone');
+});
+
+test('streamed replies survive JSON-labelled SSE bodies, surface stream errors, and keep internal retries non-streaming', async () => {
+    const h = harness();
+    const sse = 'data: {"choices":[{"delta":{"content":"半"},"finish_reason":null}]}\n\ndata: {"choices":[{"delta":{"content":"截"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n';
+    h.state.respond = () => new Response(sse, { status: 200, headers: { 'content-type': 'application/json' } });
+    const deltas = [];
+    const mislabeled = await h.context.callChatApi([{ role: 'user', content: 'test' }], { stream: true, onStreamDelta: (delta, full) => deltas.push(full), skipStatusValidationRetry: true });
+    assert.equal(mislabeled.ok, true);
+    assert.equal(mislabeled.streamed, false);
+    assert.equal(mislabeled.content, '半截');
+    assert.deepEqual(deltas, ['半截'], 'a complete body still feeds the preview once');
+
+    h.state.respond = () => new Response('data: {"choices":[{"delta":{"content":"你"},"finish_reason":null}]}\n\ndata: {"error":{"message":"upstream exploded"}}\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    const failed = await h.context.callChatApi([{ role: 'user', content: 'test' }], { stream: true, onStreamDelta() {}, skipStatusValidationRetry: true });
+    assert.equal(failed.ok, false);
+    assert.match(failed.error, /流式回复中断：upstream exploded/);
+
+    let calls = 0;
+    h.state.respond = () => {
+        calls += 1;
+        if (calls === 1) return new Response('data: {"choices":[{"delta":{"content":""},"finish_reason":"length"}]}\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } });
+        return response(200, { choices: [{ message: { content: '补上的正文' }, finish_reason: 'stop' }] });
+    };
+    const retried = await h.context.callChatApi([{ role: 'user', content: 'test' }], { stream: true, onStreamDelta() {}, skipStatusValidationRetry: true, skipLengthContinuation: true });
+    assert.equal(retried.ok, true);
+    assert.equal(retried.content, '补上的正文');
+    assert.equal(JSON.parse(h.state.requests.at(-1).options.body).stream, undefined, 'the empty-length retry is a plain request');
+});
+
+test('pinned proxy sites are rewritten for chat requests while other base URLs are untouched', async () => {
+    const h = harness();
+    h.context.resolveByndApiBaseUrl = base => base === 'https://l0veyou.com/v1' ? 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1' : base;
+    h.state.api.baseUrl = 'https://l0veyou.com/v1/';
+    await h.context.callChatApi([{ role: 'user', content: 'hi' }], { skipStatusValidationRetry: true });
+    assert.equal(h.state.requests.at(-1).url, 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/chat/completions');
+    h.state.api.baseUrl = 'https://example.invalid/v1';
+    await h.context.callChatApi([{ role: 'user', content: 'hi' }], { skipStatusValidationRetry: true });
+    assert.equal(h.state.requests.at(-1).url, 'https://example.invalid/v1/chat/completions');
 });
 
 test('billing failures are distinct from temporary limits, including HTTP 429 insufficient_quota', async () => {
@@ -341,7 +413,7 @@ test('overlapping automatic and manual status refreshes share one request and on
     h.state.respond = () => pending.promise;
     const first = h.context.requestWechatAiStatusSnapshot(h.char, { reason: 'after_reply' });
     const second = h.context.requestWechatAiStatusSnapshot(h.char, { reason: 'manual_refresh', force: true });
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(h.state.requests.length, 1);
     pending.resolve(successResponse(validSnapshot()));
     const [a, b] = await Promise.all([first, second]);

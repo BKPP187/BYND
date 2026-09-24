@@ -68,6 +68,23 @@ test('agent permissions are role-scoped and failed writes restore the toggle', a
     assert.match(h.state.notices.at(-1), /保存失败/);
 });
 
+test('API context limit validates input and restores its previous value when saving fails', async () => {
+    const h = harness();
+    const input = { value: '128000', disabled: false };
+    assert.equal(await h.context.saveWechatApiContextWindow(input), true);
+    assert.equal(h.char.chatConfig.apiContextWindow, 128000);
+    input.value = 'not-a-number';
+    assert.equal(await h.context.saveWechatApiContextWindow(input), false);
+    assert.equal(input.value, 128000);
+    h.state.saveResult = () => false;
+    input.value = '64000';
+    assert.equal(await h.context.saveWechatApiContextWindow(input), false);
+    assert.equal(h.char.chatConfig.apiContextWindow, 128000);
+    assert.equal(input.value, 128000);
+    assert.equal(input.disabled, false);
+    assert.match(h.state.notices.at(-1), /保存失败/);
+});
+
 test('public summaries are opt-in, separated from visible content, and truncated control blocks never execute', async () => {
     const h = harness();
     const raw = '<bynd_summary>先回应近况，再确认约定。</bynd_summary>我们周末去吧。';
@@ -149,7 +166,9 @@ test('public reasoning uses a theme-native disclosure while tool logs retain the
     assert.equal(rows[0].dataset.expanded, 'false');
     assert.match(rows[0].innerHTML, /button/);
     assert.match(rows[0].innerHTML, /回应摘要/);
-    assert.equal(rows[1].open, false);
+    assert.match(rows[1].className, /bynd-agent-detail--inline/);
+    assert.equal(rows[1].dataset.expanded, 'false');
+    assert.match(rows[1].innerHTML, /bynd-agent-detail__summary/);
     assert.match(rows[1].innerHTML, /已中断/);
     assert.doesNotMatch(rows[1].innerHTML, /<img|<script>/);
     assert.match(rows[1].innerHTML, /&lt;img/);
@@ -165,6 +184,33 @@ test('Claude alone uses the Summary-sheet trigger instead of the inline disclosu
     assert.match(rows[0].className, /bynd-reasoning--claude/);
     assert.doesNotMatch(rows[0].className, /bynd-reasoning--inline/);
     assert.match(rows[0].innerHTML, /ri-time-line/);
+});
+
+test('streaming is a per-chat preference exposed in chat settings and off by default', async () => {
+    const h = harness();
+    assert.equal(h.context.getWechatAgentPreferences(h.char).streamReplies, false);
+    const panel = { dataset: {}, innerHTML: '', querySelectorAll: () => [] };
+    h.nodes.set('wcs-agent-features', panel);
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/wechat/agent-tools.js'), 'utf8'), h.context);
+    h.context.renderWechatAgentSettings(h.char);
+    assert.match(panel.innerHTML, /回复方式/);
+    assert.match(panel.innerHTML, /data-agent-pref="streamReplies"/);
+    assert.match(panel.innerHTML, /流式回复/);
+    assert.equal(await h.context.setWechatAgentPreference('streamReplies', true, { checked: true }), true);
+    assert.equal(h.context.getWechatAgentPreferences(h.char).streamReplies, true);
+    assert.equal(h.context.getWechatAgentPreferences({ id: 'other', chatConfig: {} }).streamReplies, false, 'the toggle is scoped to one chat');
+});
+
+test('Claude tool activity has its own neutral disclosure variant', () => {
+    const h = harness();
+    h.char.chatConfig.agentPreferences = { showTools: true };
+    h.char.chatConfig.agentActivity = [{ id: 'phone', title: '更新小手机', state: 'success', anchorTimestamp: 101 }];
+    h.context.getWechatUiThemeId = () => 'claude';
+    const rows = [];
+    h.context.renderWechatAgentExtras({ appendChild: node => rows.push(node) }, h.char, { timestamp: 101 });
+    assert.equal(rows.length, 1);
+    assert.match(rows[0].className, /bynd-agent-detail--claude/);
+    assert.doesNotMatch(rows[0].className, /bynd-agent-detail--inline/);
 });
 
 test('reasoning CSS is limited to the independent reasoning scope', () => {

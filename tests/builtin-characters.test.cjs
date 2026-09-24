@@ -53,6 +53,9 @@ test('bundled bytes survive blocked file requests, repair old contacts idempoten
     assert.equal(old.description, '保留修改');
     assert.ok(h.L.list()[0].complete);
     assert.match(h.L.avatarOptions(old).join(';'), /6：脸红期待/);
+    old.avatarGallery.push('custom-angry.png');
+    old.avatarMoods = { 'custom-angry.png': '生气' };
+    assert.match(h.L.avatarOptions(old).join(';'), /7：生气/);
     const second = await h.L.add('shanghuan');
     assert.equal(second.avatarGallery.length, 5);
     assert.ok(h.L.list()[1].complete);

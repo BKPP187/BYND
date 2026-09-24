@@ -31,7 +31,7 @@ test('status snapshots are compact, while the generating receipt keeps its real 
     const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
     assert.match(source, /getWechatCharacterPersonaText\(char, 3000\)/);
     assert.match(source, /buildWechatRecentHistoryForPrompt\(char, 12\)/);
-    assert.match(source, /max_tokens: 1200 \+ attempt \* 200/);
+    assert.match(source, /max_tokens: 2200 \+ attempt \* 400/);
     assert.match(source, /stripWechatPromptText\(buildWechatWorldBookPrompt\(char\), 1800\)/);
 });
 
@@ -44,6 +44,28 @@ test('voice mode stays in the composer, monitor text is bounded, and the poke he
     assert.doesNotMatch(html, /填写“的”后面的内容/);
     assert.match(css, /\.wc-message-island-text span\s*\{[\s\S]*?-webkit-line-clamp: 2/);
     assert.match(css, /\.wc-monitor-barrage span\s*\{[\s\S]*?white-space: normal/);
+});
+
+test('Rednote and WeChat composers keep compact controls while voice transcription stays available', () => {
+    const rednote = fs.readFileSync(path.join(root, 'styles/wechat-themes/reference-themes.css'), 'utf8');
+    const themeOverrides = fs.readFileSync(path.join(root, 'styles/wechat-themes/base-overrides.css'), 'utf8');
+    const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
+    assert.match(rednote, /wc-ui-theme-rednote[\s\S]*?\.wc-input\s*\{[\s\S]*?font-size: 14px !important;[\s\S]*?font-weight: 650 !important;/);
+    assert.match(themeOverrides, /WeChat hold-to-transcribe overlay[\s\S]*?\.wc-room-footer\s*\{[\s\S]*?height: 56px !important;[\s\S]*?gap: 7px !important;/);
+    assert.match(themeOverrides, /wc-ui-theme-wechat[\s\S]*?\.wc-rich-input\s*\{[\s\S]*?height: 32px !important;[\s\S]*?font-size: 15px !important;/);
+    assert.match(themeOverrides, /wc-ui-theme-wechat[\s\S]*?\.wc-voice-btn,[\s\S]*?\.wc-add-btn\s*\{[\s\S]*?width: 28px !important;/);
+    assert.match(themeOverrides, /\.wc-hold-voice-overlay\s*\{/);
+    assert.match(themeOverrides, /\.wc-hold-voice-transcript\s*\{[\s\S]*?font-size: clamp\(16px, 4\.6vw, 20px\);/);
+    assert.match(themeOverrides, /\.wc-hold-voice-prompt\s*\{[\s\S]*?font-size: 14px;/);
+    assert.match(themeOverrides, /\.wc-hold-voice-actions button\s*\{[\s\S]*?font-size: 15px;/);
+    assert.match(source, /微信主题的输入框始终保持可编辑：[\s\S]*?const nextActive = useDirectHold \? false : !!active;/);
+    assert.match(source, /function toggleWechatVoiceInputMode\(force\) \{[\s\S]*?if \(isWechatNativeVoiceTheme\(\)\) \{[\s\S]*?setWechatVoiceInputMode\(false, \{ keepDraft: true \}\);/);
+    assert.match(source, /else if \(isWechatNativeVoiceTheme\(\) && surface\) \{[\s\S]*?surface\.dataset\.placeholder = getWechatChatInputPlaceholder\(\);/);
+    assert.match(source, /function handleWechatVoiceInputPointerMove\(event\) \{[\s\S]*?deltaX >= 72[\s\S]*?editRequested \? '松开 编辑' : '松手 发送'/);
+    assert.match(source, /finishWechatHoldVoice\(event, hold\?\.editRequested \? \{ edit: true \} : undefined\);/);
+    assert.match(source, /startX: event\?\.clientX \?\? null,[\s\S]*?startY: event\?\.clientY \?\? null,/);
+    assert.match(source, /clientX: pending\.startX, clientY: pending\.startY/);
+    assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /id="wc-rich-msg-input"[\s\S]*?onpointermove="handleWechatVoiceInputPointerMove\(event\)"/);
 });
 
 test('inline emoji and Android backups use native representations instead of leaking markers or fake downloads', () => {

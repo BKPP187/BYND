@@ -71,23 +71,30 @@ test('all desktop and dock apps have matching customization slots, including MCP
     }
     assert.equal(targets[17].n, 'MCP', 'keep the existing MCP mapping');
     assert.equal(targets[18].n, '桌宠');
+    assert.equal(targets[19].n, '论坛');
+    assert.equal(targets[20].n, '漫画');
     c.initIconGrid();
     assert.match(elements.get('icon-grid-container').innerHTML, /file-icon-17/);
     assert.match(elements.get('icon-grid-container').innerHTML, /file-icon-18/);
+    assert.match(elements.get('icon-grid-container').innerHTML, /file-icon-19/);
+    assert.match(elements.get('icon-grid-container').innerHTML, /file-icon-20/);
 });
 
 test('historical icon arrays keep original app and dock images after adding new slots', () => {
     const { context: c } = setup();
-    for (const length of [11, 12, 13, 14, 16, 17, 18, 19]) {
+    for (const length of [11, 12, 13, 14, 16, 17, 18, 19, 20, 21]) {
         const icons = Array.from({ length }, (_, index) => 'old-' + index);
         const actual = plain(c.normalizeThemeIconList(icons));
-        assert.equal(actual.length, 19);
+        assert.equal(actual.length, 22);
         const desktopCount = ({ 11: 8, 12: 8, 13: 10, 14: 11 })[length] || length;
         assert.deepEqual(actual.slice(0, desktopCount), icons.slice(0, desktopCount));
         const dockIndices = ({ 11: [8, 9, 10], 12: [8, 10, 11], 13: [10, 11, 12], 14: [11, 12, 13] })[length] || [13, 14, 15];
         assert.deepEqual(actual.slice(13, 16), dockIndices.map(index => icons[index]));
         if (length < 18) assert.equal(actual[17], '');
         if (length < 19) assert.equal(actual[18], '');
+        if (length < 20) assert.equal(actual[19], '');
+        if (length < 21) assert.equal(actual[20], '');
+        assert.equal(actual[21], '');
     }
 });
 

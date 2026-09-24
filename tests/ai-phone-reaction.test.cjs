@@ -50,13 +50,22 @@ test('phone-triggered replies save separate bubbles for message separators and n
         const parts = ['看到你回的消息了。', '这么主动？', '过来，给你奖励。'];
         h.state.respond = async () => ({ ok: true, content: parts.join(separator) });
         assert.equal(await h.context.triggerWechatAiPhoneContactReplyReaction(h.char, [h.event]), true);
-        assert.deepEqual(h.char.history.slice(1).map(msg => msg.content), parts);
+        const expected = ['看到你回的消息了', '这么主动？', '过来，给你奖励。'];
+        assert.deepEqual(h.char.history.slice(1).map(msg => msg.content), expected);
         assert.ok(h.char.history.slice(1).every(msg => msg.type === 'text' && !msg.isMe));
         assert.equal(new Set(h.char.history.slice(1).map(msg => msg.timestamp)).size, 3);
-        assert.deepEqual(h.state.saved.history.slice(1).map(msg => msg.content), parts);
+        assert.deepEqual(h.state.saved.history.slice(1).map(msg => msg.content), expected);
         assert.equal(h.state.saved.chatConfig.aiPhoneContactReplies.pending.length, 0);
         assert.match(h.state.requests[0].messages[0].content, /多个短气泡/);
     }
+});
+
+test('pipe-separated chat bubbles drop only interior Chinese full stops', () => {
+    const h = harness();
+    assert.deepEqual(
+        Array.from(h.context.splitWechatAiResponseSegments('第一条。|||你确定？|||别走……|||最后一句。', h.char)),
+        ['第一条', '你确定？', '别走……', '最后一句。']
+    );
 });
 
 test('a long unsplit phone reaction uses normal sentence boundaries without losing its words', async () => {

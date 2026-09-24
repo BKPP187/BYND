@@ -29,6 +29,7 @@ import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -79,6 +80,29 @@ public class MainActivity extends Activity {
         configureWebView(webView);
         webView.addJavascriptInterface(new ByndAndroidBridge(), "ByndAndroid");
         webView.loadUrl("file:///android_asset/www/index.html");
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        openForumPostLink(intent != null ? intent.getData() : null);
+    }
+
+    private boolean isForumPostLink(Uri uri) {
+        return uri != null && "bynd".equalsIgnoreCase(uri.getScheme())
+                && "forum".equalsIgnoreCase(uri.getHost())
+                && uri.getPathSegments().size() == 2
+                && "post".equals(uri.getPathSegments().get(0))
+                && !uri.getPathSegments().get(1).isEmpty();
+    }
+
+    private void openForumPostLink(Uri uri) {
+        if (!isForumPostLink(uri) || webView == null) return;
+        String script = "if(window.LivingWorld&&window.LivingWorld.openPostLink)window.LivingWorld.openPostLink("
+                + JSONObject.quote(uri.toString()) + ");";
+        webView.evaluateJavascript(script, null);
+        if (getIntent() != null && uri.equals(getIntent().getData())) getIntent().setData(null);
     }
 
     private void configureSystemBars() {
@@ -142,7 +166,21 @@ public class MainActivity extends Activity {
         settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         view.setBackgroundColor(Color.rgb(242, 244, 246));
-        view.setWebViewClient(new WebViewClient());
+        view.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView webView, String url) {
+                super.onPageFinished(webView, url);
+                openForumPostLink(getIntent() != null ? getIntent().getData() : null);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if (!isForumPostLink(uri)) return false;
+                openForumPostLink(uri);
+                return true;
+            }
+        });
         view.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
@@ -425,6 +463,10 @@ public class MainActivity extends Activity {
     }
 
     private void requestBackupExport(String id, String name) {
+        requestDocumentExport(id, name, "application/json");
+    }
+
+    private void requestDocumentExport(String id, String name, String requestedMime) {
         if (webView == null || id == null || !id.matches("[a-zA-Z0-9_-]{1,80}")) return;
         String page = webView.getUrl();
         if (page == null || !page.startsWith("file:///android_asset/www/")) {
@@ -433,12 +475,18 @@ public class MainActivity extends Activity {
         }
         if (pendingBackupId != null || activeBackupId != null) { notifyBackupExport(id, false, "请先完成当前备份导出"); return; }
         try {
-            String filename = name == null ? "BYND-backup.json" : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
+            String mime = "application/zip".equals(requestedMime) ? "application/zip"
+                    : "application/pdf".equals(requestedMime) ? "application/pdf"
+                    : "image/png".equals(requestedMime) ? "image/png" : "application/json";
+            String extension = "application/zip".equals(mime) ? ".zip"
+                    : "application/pdf".equals(mime) ? ".pdf"
+                    : "image/png".equals(mime) ? ".png" : ".json";
+            String filename = name == null ? "BYND-export" + extension : name.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_");
             if (filename.length() > 100) filename = filename.substring(0, 100);
-            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) filename += ".json";
+            if (!filename.toLowerCase(java.util.Locale.ROOT).endsWith(extension)) filename += extension;
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/json");
+            intent.setType(mime);
             intent.putExtra(Intent.EXTRA_TITLE, filename);
             pendingBackupId = id;
             startActivityForResult(intent, BACKUP_EXPORT_REQUEST);
@@ -532,6 +580,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void beginBackupExport(String id, String name) {
             runOnUiThread(() -> requestBackupExport(id, name));
+        }
+
+        @JavascriptInterface
+        public void beginDocumentExport(String id, String name, String mime) {
+            runOnUiThread(() -> requestDocumentExport(id, name, mime));
         }
 
         @JavascriptInterface

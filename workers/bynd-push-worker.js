@@ -27,18 +27,41 @@ const MCP_FORWARDED_HEADERS = [
   'X-MCP-Lockdown',
   'X-MCP-Insiders'
 ];
-const WISART_UPSTREAM_ORIGIN = 'https://wisart.kuaileshifu.com';
-const WISART_MAX_REQUEST_BYTES = 24 * 1024 * 1024;
-const WISART_ALLOWED_ORIGINS = new Set([
+// Browser-facing proxies for OpenAI-compatible sites that refuse cross-origin
+// requests.  Each entry pins one upstream origin and the exact routes BYND
+// uses, so the Worker never becomes an open proxy.  Keys stay client-provided.
+const PINNED_API_PROXIES = new Map([
+  ['/wisart', {
+    origin: 'https://wisart.kuaileshifu.com',
+    routes: new Map([
+      ['/v1/models', 'GET'],
+      ['/v1/images/generations', 'POST'],
+      ['/v1/images/edits', 'POST']
+    ])
+  }],
+  ['/l0veyou', {
+    origin: 'https://l0veyou.com',
+    routes: new Map([
+      ['/v1/models', 'GET'],
+      ['/v1/chat/completions', 'POST'],
+      ['/v1/images/generations', 'POST'],
+      ['/v1/images/edits', 'POST']
+    ])
+  }],
+  ['/jev', {
+    origin: 'https://api.typesafe.ai',
+    jsonOnly: true,
+    maxRequestBytes: 32 * 1024,
+    routes: new Map([['/v1/systemone', 'POST']])
+  }]
+]);
+const PINNED_API_MAX_REQUEST_BYTES = 24 * 1024 * 1024;
+const PINNED_API_ALLOWED_ORIGINS = new Set([
   'https://bynd.ccwu.cc',
   'null'
 ]);
-const WISART_ROUTES = new Map([
-  ['/v1/models', 'GET'],
-  ['/v1/images/generations', 'POST'],
-  ['/v1/images/edits', 'POST']
-]);
-const WISART_FORWARDED_HEADERS = ['Authorization', 'Content-Type', 'Accept'];
+const PINNED_API_FORWARDED_HEADERS = ['Authorization', 'Content-Type', 'Accept'];
+const WISART_FORWARDED_HEADERS = PINNED_API_FORWARDED_HEADERS;
 
 export default {
   async fetch(request, env) {
@@ -51,8 +74,9 @@ export default {
       if (url.pathname.startsWith('/mcp/')) {
         return mcpJsonResponse(url, request.headers.get('Origin'), 404, 'not found');
       }
-      if (url.pathname.startsWith('/wisart/')) {
-        return proxyWisart(request, url);
+      const pinnedProxy = getPinnedApiProxy(url);
+      if (pinnedProxy) {
+        return proxyPinnedApi(request, url, pinnedProxy);
       }
       if (request.method === 'OPTIONS') return corsResponse(null, 204);
       if (request.method === 'POST' && url.pathname === '/subscribe') {
@@ -79,7 +103,7 @@ export default {
       if (url.pathname.startsWith('/mcp/')) {
         return mcpJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
       }
-      if (url.pathname.startsWith('/wisart/')) {
+      if (getPinnedApiProxy(url)) {
         return wisartJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
       }
       return corsResponse({ ok: false, error: error.message || String(error) }, 500);
@@ -91,14 +115,23 @@ export default {
   }
 };
 
-async function proxyWisart(request, requestUrl) {
+function getPinnedApiProxy(requestUrl) {
+  for (const [prefix, config] of PINNED_API_PROXIES) {
+    if (requestUrl.pathname === prefix || requestUrl.pathname.startsWith(`${prefix}/`)) {
+      return { prefix, ...config };
+    }
+  }
+  return null;
+}
+
+async function proxyPinnedApi(request, requestUrl, proxy) {
   const requestOrigin = request.headers.get('Origin');
   if (!isAllowedWisartOrigin(requestOrigin, requestUrl)) {
     return wisartJsonResponse(requestUrl, requestOrigin, 403, 'origin not allowed');
   }
 
-  const upstreamPath = requestUrl.pathname.slice('/wisart'.length);
-  const allowedMethod = WISART_ROUTES.get(upstreamPath);
+  const upstreamPath = requestUrl.pathname.slice(proxy.prefix.length);
+  const allowedMethod = proxy.routes.get(upstreamPath);
   if (!allowedMethod || requestUrl.search) {
     return wisartJsonResponse(requestUrl, requestOrigin, 404, 'not found');
   }
@@ -116,19 +149,19 @@ async function proxyWisart(request, requestUrl) {
   }
 
   const upstreamHeaders = new Headers();
-  WISART_FORWARDED_HEADERS.forEach(name => {
+  PINNED_API_FORWARDED_HEADERS.forEach(name => {
     const value = request.headers.get(name);
     if (value !== null) upstreamHeaders.set(name, value);
   });
   let body;
   if (request.method === 'POST') {
     const contentType = String(request.headers.get('Content-Type') || '').toLowerCase();
-    const acceptsBody = contentType.startsWith('application/json') || contentType.startsWith('multipart/form-data;');
+    const acceptsBody = contentType.startsWith('application/json') || (!proxy.jsonOnly && contentType.startsWith('multipart/form-data;'));
     if (!acceptsBody) {
       return wisartJsonResponse(requestUrl, requestOrigin, 415, 'unsupported content type');
     }
     try {
-      body = await readMcpRequestBody(request, WISART_MAX_REQUEST_BYTES);
+      body = await readMcpRequestBody(request, proxy.maxRequestBytes || PINNED_API_MAX_REQUEST_BYTES);
     } catch (error) {
       return wisartJsonResponse(requestUrl, requestOrigin, error?.status === 413 ? 413 : 400, error?.message || 'unable to read request body');
     }
@@ -136,7 +169,7 @@ async function proxyWisart(request, requestUrl) {
 
   let upstream;
   try {
-    upstream = await fetch(`${WISART_UPSTREAM_ORIGIN}${upstreamPath}`, {
+    upstream = await fetch(`${proxy.origin}${upstreamPath}`, {
       method: request.method,
       headers: upstreamHeaders,
       body,
@@ -146,6 +179,8 @@ async function proxyWisart(request, requestUrl) {
     return wisartJsonResponse(requestUrl, requestOrigin, 502, 'upstream request failed');
   }
 
+  // Streamed chat replies (text/event-stream) pass through untouched: the body
+  // is piped as-is, so the browser receives each SSE chunk as it arrives.
   const responseHeaders = new Headers();
   const contentType = upstream.headers.get('Content-Type');
   if (contentType) responseHeaders.set('Content-Type', contentType);
@@ -154,7 +189,7 @@ async function proxyWisart(request, requestUrl) {
 
 function isAllowedWisartOrigin(requestOrigin, requestUrl) {
   if (!requestOrigin) return true;
-  if (requestOrigin === requestUrl.origin || WISART_ALLOWED_ORIGINS.has(requestOrigin)) return true;
+  if (requestOrigin === requestUrl.origin || PINNED_API_ALLOWED_ORIGINS.has(requestOrigin)) return true;
   return /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(requestOrigin);
 }
 

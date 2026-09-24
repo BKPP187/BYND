@@ -27,6 +27,8 @@ test('avatar instructions accept whitespace and never leak invalid indices to ch
     assert.equal(result.content,'哼。|||');
     assert.equal(c.consumeWechatAvatarDirective(char,'[换头像:900]').content,'');
     assert.equal(char.avatar,'C');
+    assert.equal(c.consumeWechatAvatarDirective(char,'别烦我【换头像：2】').content,'别烦我');
+    assert.equal(char.avatar,'B');
 });
 
 test('background instructions switch the chat background from the gallery and never leak to chat', () => {

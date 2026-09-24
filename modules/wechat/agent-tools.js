@@ -1,6 +1,6 @@
 // Character-scoped permissions, public reasoning summaries and actual tool activity.
 (() => {
-    const defaults = { showThinking: false, showTools: true, allowImages: true, allowPhone: true, allowMemory: true, allowTodos: false };
+    const defaults = { streamReplies: false, showTokenUsage: false, showThinking: false, showTools: true, allowImages: true, allowPhone: true, allowMemory: true, allowTodos: false };
     const openDetails = new Set();
     const liveActivities = new Set();
     const preferenceWrites = new Set();
@@ -106,13 +106,17 @@
         const config = preferences(char);
         const appearance = reasoningAppearance(char);
         const row = (key, title, hint) => `<label class="bynd-agent-toggle"><span><strong>${title}</strong><small>${hint}</small></span><input type="checkbox" data-agent-pref="${key}" ${config[key] ? 'checked' : ''} ${preferenceWrites.has(char.id) ? 'disabled' : ''} onchange="setWechatAgentPreference('${key}',this.checked,this)"></label>`;
-        root.innerHTML = `<div class="wcs-section-title">思考与工具</div><div class="wcs-section bynd-agent-settings">
+        root.innerHTML = `<div class="wcs-section-title">回复方式</div><div class="wcs-section bynd-agent-settings">
+            ${row('streamReplies', '流式回复', '边生成边显示文字；接口不支持流式时自动按完整回复处理')}
+            ${row('showTokenUsage', '显示 Token 用量', '开启后在每轮回复下方显示 API 小票入口，记录请求和上下文组成')}
+            <label class="bynd-agent-context"><span><strong>模型上下文上限</strong><small>可选；填写模型公布的 Token 上限后，小票会显示占用比例</small></span><input type="number" min="1" max="2000000" inputmode="numeric" value="${Number(char.chatConfig?.apiContextWindow) || ''}" placeholder="未知" onchange="saveWechatApiContextWindow(this)"></label>
+        </div><div class="wcs-section-title">思考与工具</div><div class="wcs-section bynd-agent-settings">
             ${row('showThinking', '思考摘要', '在消息间显示一行公开摘要；点开后再看完整内容')}
             ${row('showTools', '工具调用动态', '显示生成图片、记录待办等操作的真实进度和结果')}
         </div><div class="wcs-section-title">思考摘要外观</div><div class="wcs-section bynd-agent-settings bynd-reasoning-settings">
             <label>显示标题<input id="bynd-reasoning-title" maxlength="36" value="${escape(appearance.title)}" placeholder="思考摘要"></label>
             <label>自定义 CSS<textarea id="bynd-reasoning-css" maxlength="12000" spellcheck="false" placeholder=".bynd-reasoning { }&#10;.bynd-reasoning__header { }&#10;.bynd-reasoning__content { }">${escape(appearance.css)}</textarea></label>
-            <p>仅接受以上 <code>.bynd-reasoning</code> 作用域；不会影响心声、消息气泡或其他主题。</p>
+            <p>仅接受以上 <code>.bynd-reasoning</code> 作用域。</p>
             <button type="button" class="bynd-reasoning-save" onclick="saveWechatReasoningAppearance(this)">保存思考摘要样式</button>
         </div><div class="wcs-section-title">角色权限</div><div class="wcs-section bynd-agent-settings">
             ${row('allowImages', '生成图片', '允许角色生成照片并收录到相册')}
@@ -204,6 +208,31 @@
         }
     };
 
+    window.saveWechatApiContextWindow = async input => {
+        const char = (window.myCharacters || []).find(item => item.id === document.getElementById('wcs-agent-features')?.dataset.charId);
+        if (!char || !input) return false;
+        const raw = String(input.value || '').trim();
+        const value = raw ? Number(raw) : 0;
+        if (raw && (!Number.isInteger(value) || value < 1 || value > 2000000)) {
+            notify('请输入 1 到 2,000,000 之间的 Token 上限');
+            input.value = char.chatConfig?.apiContextWindow || '';
+            return false;
+        }
+        char.chatConfig = char.chatConfig || {};
+        const before = char.chatConfig.apiContextWindow;
+        if (value) char.chatConfig.apiContextWindow = value;
+        else delete char.chatConfig.apiContextWindow;
+        input.disabled = true;
+        try { await persist(); return true; }
+        catch (error) {
+            if (before === undefined) delete char.chatConfig.apiContextWindow;
+            else char.chatConfig.apiContextWindow = before;
+            input.value = before || '';
+            notify(error.message || '保存失败，请重试');
+            return false;
+        } finally { input.disabled = false; }
+    };
+
     window.toggleWechatAgentTodo = async input => {
         const char = (window.myCharacters || []).find(item => item.id === document.getElementById('wcs-agent-features')?.dataset.charId);
         const todo = char?.chatConfig?.agentTodos?.find(item => item.id === input.dataset.todoId);
@@ -259,18 +288,28 @@
     window.renderWechatAgentExtras = (container, char, msg) => {
         if (!container || !char || !msg) return;
         const config = preferences(char);
+        const themeId = typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : '';
         try { applyReasoningCss(char); } catch (error) { console.warn('思考摘要自定义样式已忽略', error); }
         const detail = (key, title, body, className) => {
-            const node = document.createElement('details');
-            node.className = 'bynd-agent-detail ' + className;
-            node.open = openDetails.has(key);
-            node.innerHTML = `<summary><i class="ri-arrow-right-s-line"></i>${title}</summary><div class="bynd-agent-detail-body">${body}</div>`;
-            node.addEventListener('toggle', () => window.rememberWechatAgentDetails(key, node.open));
+            const expanded = openDetails.has(key);
+            const node = document.createElement('section');
+            node.className = `bynd-agent-detail bynd-agent-detail--${themeId === 'claude' ? 'claude' : 'inline'} ${className}`;
+            node.dataset.expanded = String(expanded);
+            node.innerHTML = `<button type="button" class="bynd-agent-detail__summary" aria-expanded="${expanded}"><i class="ri-arrow-right-s-line"></i>${title}</button><div class="bynd-agent-detail-body"${expanded ? '' : ' hidden'}>${body}</div>`;
+            node.addEventListener('click', event => {
+                const trigger = event.target?.closest?.('.bynd-agent-detail__summary');
+                if (!trigger) return;
+                const next = node.dataset.expanded !== 'true';
+                node.dataset.expanded = String(next);
+                trigger.setAttribute?.('aria-expanded', String(next));
+                const content = node.querySelector?.('.bynd-agent-detail-body');
+                if (content) content.hidden = !next;
+                window.rememberWechatAgentDetails(key, next);
+            });
             container.appendChild(node);
         };
         if (config.showThinking && msg.thinkingSummary) {
             const appearance = reasoningAppearance(char);
-            const themeId = typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : '';
             const summary = clean(msg.thinkingSummary, 1200);
             const preview = compactReasoningText(summary);
             const node = document.createElement(themeId === 'claude' ? 'button' : 'section');

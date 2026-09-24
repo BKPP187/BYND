@@ -57,6 +57,7 @@ function playWorldBookTone(index, force) {
 }
 
 function initWorldBook() {
+    closeWorldBookTransferMenu();
     currentReadingChar = null;
     currentEntryIndex = -1;
     const container = document.getElementById('wb-content-area');
@@ -294,6 +295,7 @@ function openWorldBookWithAnimation(index, bookEl) {
 }
 
 function renderBookDetail(char) {
+    closeWorldBookTransferMenu();
     currentReadingChar = char;
     const container = document.getElementById('wb-content-area');
     if (!container) return;
@@ -302,9 +304,9 @@ function renderBookDetail(char) {
     container.innerHTML = `
         <div class="wb-detail-page">
             <div class="wb-nav-bar">
-                <i class="ri-arrow-left-line" onclick="initWorldBook()"></i>
+                <button type="button" class="wb-nav-action" onclick="initWorldBook()" aria-label="返回书架"><i class="ri-arrow-left-line" aria-hidden="true"></i></button>
                 <span>${wbEscapeHtml(char.name || '角色')} 的世界书</span>
-                <i class="ri-add-circle-line" onclick="openCreateWBModal()"></i>
+                <button type="button" class="wb-nav-action" onclick="openWorldBookTransferMenu()" aria-label="导入导出世界书"><i class="ri-file-transfer-line" aria-hidden="true"></i></button>
             </div>
             <div class="wb-open-book">
                 <div class="wb-open-cover" style="--book-color:${stringToColor(char.name || '角色')}">
@@ -324,7 +326,7 @@ function renderBookDetail(char) {
 
 function generateListHtml(entries) {
     if (!entries || entries.length === 0) {
-        return `<div class="wb-empty wb-entry-empty">这本书是空白的<br><span>点击右上角 + 添加设定</span></div>`;
+        return `<div class="wb-empty wb-entry-empty">这本书是空白的<br><span>点击右上角菜单添加或导入设定</span></div>`;
     }
 
     return entries.map((entry, index) => {
@@ -395,6 +397,96 @@ function stringToColor(str) {
     const text = String(str || 'book');
     for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
+}
+
+function openWorldBookTransferMenu() {
+    if (!currentReadingChar) return;
+    document.getElementById('wb-transfer-modal')?.classList.remove('hidden');
+}
+
+function closeWorldBookTransferMenu() {
+    document.getElementById('wb-transfer-modal')?.classList.add('hidden');
+}
+
+function addWorldBookEntryFromMenu() {
+    closeWorldBookTransferMenu();
+    openCreateWBModal();
+}
+
+function chooseWorldBookImport() {
+    closeWorldBookTransferMenu();
+    document.getElementById('wb-import-file')?.click();
+}
+
+function parseWorldBookImport(data) {
+    const source = Array.isArray(data) ? data : data?.entries ?? data?.character_book?.entries;
+    const entries = Array.isArray(source) ? source : source && typeof source === 'object' ? Object.values(source) : null;
+    if (!entries || entries.length === 0) throw new Error('文件中没有世界书条目。');
+    return entries.map((entry, index) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            throw new Error(`第 ${index + 1} 条世界书设定格式无效。`);
+        }
+        const content = entry.content ?? entry.entry;
+        if (typeof content !== 'string' || !content.trim()) {
+            throw new Error(`第 ${index + 1} 条世界书设定缺少内容。`);
+        }
+        const rawKeys = entry.keys ?? entry.key ?? [];
+        if (!Array.isArray(rawKeys) && typeof rawKeys !== 'string') {
+            throw new Error(`第 ${index + 1} 条世界书设定的关键词格式无效。`);
+        }
+        const keys = (Array.isArray(rawKeys) ? rawKeys : rawKeys.split(/,|，/))
+            .map(key => String(key).trim()).filter(Boolean);
+        return { ...entry, keys, content, enabled: entry.enabled !== false && entry.disable !== true };
+    });
+}
+
+async function importWorldBookFile(input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    try {
+        if (!currentReadingChar) throw new Error('请先打开一本世界书。');
+        const imported = parseWorldBookImport(JSON.parse(await file.text()));
+        const char = currentReadingChar;
+        const original = Array.isArray(char.worldBook) ? char.worldBook : [];
+        char.worldBook = original.concat(imported);
+        try {
+            if (typeof saveCharactersToStorage !== 'function' || await saveCharactersToStorage() !== true) {
+                throw new Error('世界书保存失败，请检查设备存储空间后重试。');
+            }
+        } catch (error) {
+            char.worldBook = original;
+            throw error;
+        }
+        renderBookDetail(char);
+        alert(`已导入 ${imported.length} 条世界书设定。`);
+    } catch (error) {
+        alert(`导入世界书失败：${error.message || '文件无法读取。'}`);
+    } finally {
+        input.value = '';
+    }
+}
+
+function exportWorldBook() {
+    try {
+        if (!currentReadingChar) throw new Error('请先打开一本世界书。');
+        const char = currentReadingChar;
+        const data = { format: 'bynd-worldbook', version: 1, character: char.name || '', entries: getWorldBookEntries(char) };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        try {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${String(char.name || '世界书').replace(/[\\/:*?"<>|]/g, '_')}-世界书.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } finally {
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        closeWorldBookTransferMenu();
+    } catch (error) {
+        alert(`导出世界书失败：${error.message || '无法创建文件。'}`);
+    }
 }
 
 function openCreateWBModal() {

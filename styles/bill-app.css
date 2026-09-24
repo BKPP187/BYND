@@ -1,0 +1,247 @@
+/* 账单 · TOKEN USAGE — thermal receipt, continues styles/wechat-api-ticket.css. */
+#app-bill-window {
+    --bill-ink: #191b1c;
+    --bill-ink-2: #4b4d4f;
+    --bill-muted: #74766f;
+    --bill-paper: #f8f8f4;
+    --bill-hair: #d6d6cf;
+    --bill-dim: #b9bab2;
+    background: radial-gradient(circle at 50% -10%, #3a3f45, #1c1f23 62%);
+    color: var(--bill-ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans Mono CJK SC', 'Microsoft YaHei', monospace;
+}
+#app-bill-window .bill-topbar {
+    flex: 0 0 auto; box-sizing: border-box; min-height: 92px; padding: 44px 12px 10px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px;
+    color: #f4f4ef;
+}
+#app-bill-window .bill-close {
+    display: inline-flex; align-items: center; gap: 2px; min-width: 44px; height: 38px; padding: 0 10px 0 4px;
+    border: 1px solid rgba(255,255,255,.28); border-radius: 19px; background: rgba(255,255,255,.06);
+    color: inherit; font: 600 13px/1 system-ui, sans-serif; cursor: pointer;
+}
+#app-bill-window .bill-close i { font-size: 20px; }
+#app-bill-window .bill-title { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.2; }
+#app-bill-window .bill-title span { font-size: 10px; letter-spacing: .28em; opacity: .7; }
+#app-bill-window .bill-title strong { font-size: 17px; letter-spacing: .12em; }
+#app-bill-window .bill-status { min-width: 44px; font-style: normal; font-size: 11px; text-align: right; opacity: .72; white-space: nowrap; }
+
+#app-bill-window .bill-root { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; }
+#app-bill-window .bill-printer {
+    position: relative; z-index: 3; flex: 0 0 auto; width: min(calc(100% - 12px), 452px); height: 22px;
+    border-radius: 0 0 13px 13px; background: linear-gradient(#292d32, #111316); box-shadow: 0 7px 14px rgba(0,0,0,.3);
+}
+#app-bill-window .bill-printer span { display: block; width: 88%; height: 4px; margin: 5px auto; border-radius: 5px; background: #08090b; box-shadow: 0 1px 0 #60636a; }
+#app-bill-window .bill-scroll {
+    position: relative; z-index: 2; flex: 1 1 auto; width: 100%; min-height: 0; margin-top: -8px;
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+#app-bill-window .bill-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#app-bill-window .bill-paper {
+    box-sizing: border-box; width: min(calc(100% - 22px), 430px); margin: 0 auto 28px; padding: 24px 18px 40px;
+    color: var(--bill-ink);
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 4px), var(--bill-paper);
+    box-shadow: 0 18px 42px rgba(0,0,0,.34), inset 0 0 45px rgba(0,0,0,.025);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), 97% 100%, 94% calc(100% - 10px), 91% 100%, 88% calc(100% - 10px), 85% 100%, 82% calc(100% - 10px), 79% 100%, 76% calc(100% - 10px), 73% 100%, 70% calc(100% - 10px), 67% 100%, 64% calc(100% - 10px), 61% 100%, 58% calc(100% - 10px), 55% 100%, 52% calc(100% - 10px), 49% 100%, 46% calc(100% - 10px), 43% 100%, 40% calc(100% - 10px), 37% 100%, 34% calc(100% - 10px), 31% 100%, 28% calc(100% - 10px), 25% 100%, 22% calc(100% - 10px), 19% 100%, 16% calc(100% - 10px), 13% 100%, 10% calc(100% - 10px), 7% 100%, 4% calc(100% - 10px), 0 100%);
+    transform: translateY(-104%); transition: transform .8s cubic-bezier(.22,.72,.16,1);
+}
+#app-bill-window .bill-root.is-fed .bill-paper { transform: translateY(0); }
+
+#app-bill-window .bill-mast { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; font-weight: 900; letter-spacing: .14em; }
+#app-bill-window .bill-mast span:last-child { font-weight: 600; letter-spacing: .04em; color: var(--bill-ink-2); }
+#app-bill-window .bill-stars { margin: 12px 0 5px; padding: 7px 0; text-align: center; color: #f7f7f3; background: #191b1d; letter-spacing: .28em; font-size: 12px; }
+#app-bill-window .bill-paper h2 { margin: 12px 0 2px; font-size: 24px; font-weight: 900; letter-spacing: .15em; text-align: center; }
+#app-bill-window .bill-sub { font-size: 10px; letter-spacing: .12em; text-align: center; color: var(--bill-ink-2); }
+#app-bill-window .bill-rule { margin: 14px 0 8px; border-top: 2px solid #202020; }
+
+#app-bill-window .bill-units { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 6px; border: 1.5px solid var(--bill-ink); }
+#app-bill-window .bill-units i { color: var(--bill-dim); font-style: normal; font-size: 12px; }
+#app-bill-window .bill-units button,
+#app-bill-window .bill-metrics button {
+    flex: 1 1 0; min-width: 0; min-height: 38px; padding: 0 2px; border: 0; background: transparent;
+    color: var(--bill-ink); font-weight: 700; font-size: 14px; line-height: 1; font-family: inherit; cursor: pointer;
+}
+#app-bill-window .bill-units button.is-active { background: var(--bill-ink); color: var(--bill-paper); }
+
+#app-bill-window .bill-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; margin: 4px 0 8px; font-size: 12px; }
+#app-bill-window .bill-crumbs button {
+    min-height: 36px; padding: 0 5px; border: 0; background: transparent; color: var(--bill-ink-2);
+    font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer;
+}
+#app-bill-window .bill-crumbs i { color: var(--bill-muted); font-style: normal; }
+#app-bill-window .bill-crumbs span { display: inline-flex; align-items: center; min-height: 36px; padding: 0 5px; font-weight: 900; }
+
+#app-bill-window .bill-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+#app-bill-window .bill-pill { position: relative; display: inline-flex; align-items: center; max-width: 100%; }
+#app-bill-window .bill-pill select {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box; max-width: 11.5em; min-height: 36px;
+    padding: 0 24px 0 11px; border: 1px solid var(--bill-ink); border-radius: 18px; background: transparent;
+    color: var(--bill-ink); font-weight: 600; font-size: 12px; line-height: 1; font-family: inherit; text-overflow: ellipsis; cursor: pointer;
+}
+#app-bill-window .bill-pill span { position: absolute; right: 10px; pointer-events: none; font-size: 11px; }
+#app-bill-window .bill-pill.is-active select { background: var(--bill-ink); color: var(--bill-paper); }
+#app-bill-window .bill-pill.is-active span { color: var(--bill-paper); }
+
+#app-bill-window .bill-total { display: flex; flex-direction: column; gap: 2px; margin: 6px 0 8px; padding: 10px 0; border-bottom: 1px dashed #222; }
+#app-bill-window .bill-total span { font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+#app-bill-window .bill-total strong { font-size: clamp(28px, 9vw, 38px); font-weight: 900; line-height: 1.1; overflow-wrap: anywhere; }
+#app-bill-window .bill-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 13px; line-height: 1.5; }
+#app-bill-window .bill-line b { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#app-bill-window .bill-line small, #app-bill-window .bill-total small { font-size: 11px; font-weight: 600; color: var(--bill-ink-2); }
+#app-bill-window .bill-hint {
+    display: block; width: 100%; min-height: 36px; margin: 0 0 4px; padding: 6px 0; border: 0; border-bottom: 1px dashed var(--bill-dim);
+    background: transparent; color: var(--bill-ink-2); font-size: 12px; line-height: 1.45; font-family: inherit; text-align: right; cursor: pointer;
+}
+#app-bill-window .bill-note { margin: 6px 0; color: #555; font-size: 11px; line-height: 1.6; }
+#app-bill-window .bill-barcode { height: 42px; margin: 14px 0; background: repeating-linear-gradient(90deg,#17191a 0 3px,transparent 3px 5px,#17191a 5px 6px,transparent 6px 9px,#17191a 9px 14px,transparent 14px 17px,#17191a 17px 19px,transparent 19px 23px); }
+#app-bill-window .bill-section { margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #222; font-size: 13px; font-weight: 900; letter-spacing: .06em; }
+#app-bill-window .bill-section small { font-size: 10px; font-weight: 500; letter-spacing: 0; color: var(--bill-ink-2); }
+
+#app-bill-window .bill-metrics { display: flex; gap: 4px; margin: 0 -2px 6px; padding: 0 2px 2px; overflow-x: auto; scrollbar-width: none; }
+#app-bill-window .bill-metrics::-webkit-scrollbar { display: none; }
+#app-bill-window .bill-metrics button { flex: 0 0 auto; min-height: 36px; padding: 0 10px; border: 1px solid var(--bill-hair); border-radius: 18px; font-size: 12px; font-weight: 600; }
+#app-bill-window .bill-metrics button.is-active { border-color: var(--bill-ink); background: var(--bill-ink); color: var(--bill-paper); }
+
+#app-bill-window .bill-chart-wrap { margin: 4px 0 0; }
+#app-bill-window .bill-chart { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#app-bill-window .bill-chart:focus { outline: none; }
+#app-bill-window .bill-chart:focus-visible { outline: 1px dashed var(--bill-ink); outline-offset: 2px; }
+#app-bill-window .bill-grid { stroke: var(--bill-hair); stroke-width: 1; }
+#app-bill-window .bill-axis { stroke: var(--bill-ink); stroke-width: 1; }
+#app-bill-window .bill-bar { fill: var(--bill-ink); }
+#app-bill-window .bill-bar.is-dim { fill: var(--bill-dim); }
+#app-bill-window .bill-empty { fill: var(--bill-hair); }
+#app-bill-window .bill-hit { fill: transparent; }
+#app-bill-window .bill-tick, #app-bill-window .bill-xlabel { fill: var(--bill-muted); font-size: 10px; font-family: inherit; font-variant-numeric: tabular-nums; }
+#app-bill-window .bill-xlabel.is-selected { fill: var(--bill-ink); font-weight: 900; }
+#app-bill-window .bill-value-label { fill: var(--bill-ink); font-size: 11px; font-weight: 900; font-family: inherit; paint-order: stroke; stroke: var(--bill-paper); stroke-width: 3px; }
+
+#app-bill-window .bill-pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; margin: 4px 0; padding: 4px 0 4px 10px; border-left: 3px solid var(--bill-ink); }
+#app-bill-window .bill-pick.is-hint { border-left-color: var(--bill-dim); color: var(--bill-muted); font-size: 11px; }
+#app-bill-window .bill-pick div { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
+#app-bill-window .bill-pick span { color: var(--bill-ink-2); overflow-wrap: anywhere; }
+#app-bill-window .bill-pick button {
+    flex: 0 0 auto; min-width: 72px; min-height: 38px; border: 1.5px solid var(--bill-ink); background: var(--bill-ink);
+    color: var(--bill-paper); font-weight: 800; font-size: 13px; line-height: 1; font-family: inherit; cursor: pointer;
+}
+#app-bill-window .bill-pick button:disabled { background: transparent; color: var(--bill-dim); border-color: var(--bill-dim); cursor: default; }
+
+#app-bill-window .bill-table { margin: 4px 0; font-size: 11px; }
+#app-bill-window .bill-table summary { min-height: 34px; display: flex; align-items: center; color: var(--bill-ink-2); cursor: pointer; }
+#app-bill-window .bill-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+#app-bill-window .bill-table th, #app-bill-window .bill-table td { padding: 4px 2px; border-bottom: 1px dashed var(--bill-hair); text-align: right; }
+#app-bill-window .bill-table th:first-child, #app-bill-window .bill-table td:first-child { text-align: left; }
+
+#app-bill-window .bill-features { display: flex; flex-direction: column; }
+#app-bill-window .bill-feature {
+    display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 44px; padding: 7px 0; border: 0;
+    border-bottom: 1px dashed var(--bill-hair); background: transparent; color: var(--bill-ink); font: inherit; text-align: left; cursor: pointer;
+}
+#app-bill-window .bill-feature__head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+#app-bill-window .bill-feature__head b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#app-bill-window .bill-feature__bar { display: block; height: 6px; background: transparent; }
+#app-bill-window .bill-feature__bar i { display: block; height: 100%; border-radius: 0 3px 3px 0; background: var(--bill-ink); }
+#app-bill-window .bill-feature.is-active { padding-inline: 6px; background: #ecece5; }
+#app-bill-window .bill-feature.is-active .bill-feature__head span::before { content: '✦ '; }
+
+#app-bill-window .bill-requests { display: flex; flex-direction: column; }
+#app-bill-window .bill-request {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+    padding: 6px 0; border: 0; border-bottom: 1px dashed var(--bill-hair); background: transparent; color: var(--bill-ink);
+    font: inherit; text-align: left; cursor: pointer;
+}
+#app-bill-window .bill-request:active { background: #ecece5; }
+#app-bill-window .bill-request__time { font-size: 12px; font-variant-numeric: tabular-nums; }
+#app-bill-window .bill-request__main { display: flex; flex-direction: column; min-width: 0; }
+#app-bill-window .bill-request__main b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#app-bill-window .bill-request__main small { font-size: 10px; color: var(--bill-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#app-bill-window .bill-request__num { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+#app-bill-window .bill-request.is-failed .bill-request__main small { color: #9b2b21; }
+
+#app-bill-window .bill-prices { margin-top: 20px; }
+#app-bill-window .bill-prices > summary {
+    display: flex; justify-content: space-between; align-items: baseline; min-height: 38px; padding-bottom: 6px;
+    border-bottom: 1px solid #222; font-size: 13px; font-weight: 900; letter-spacing: .06em; cursor: pointer; list-style: none;
+}
+#app-bill-window .bill-prices > summary::-webkit-details-marker { display: none; }
+#app-bill-window .bill-prices > summary::after { content: '▾'; margin-left: auto; padding-left: 8px; }
+#app-bill-window .bill-prices[open] > summary::after { content: '▴'; }
+#app-bill-window .bill-prices > summary small { font-size: 10px; font-weight: 500; letter-spacing: 0; color: var(--bill-ink-2); margin-left: 8px; }
+#app-bill-window .bill-price { padding: 10px 0; border-bottom: 1px dashed var(--bill-hair); }
+#app-bill-window .bill-price > b { display: block; margin-bottom: 6px; font-size: 12px; overflow-wrap: anywhere; }
+#app-bill-window .bill-price__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+#app-bill-window .bill-price label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--bill-ink-2); }
+#app-bill-window .bill-price label span { flex: 0 0 3.2em; }
+#app-bill-window .bill-price input {
+    box-sizing: border-box; flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 8px; border: 1px solid #9a9b94; border-radius: 0;
+    background: #fff; color: var(--bill-ink); font-size: 13px; line-height: 1; font-family: inherit; text-align: right;
+}
+#app-bill-window .bill-price button[type="submit"] {
+    display: block; min-width: 76px; min-height: 36px; margin: 8px 0 0 auto; border: 1.5px solid var(--bill-ink); background: transparent;
+    color: var(--bill-ink); font-weight: 800; font-size: 12px; line-height: 1; font-family: inherit; cursor: pointer;
+}
+
+#app-bill-window .bill-empty-state { display: flex; flex-direction: column; gap: 4px; margin: 14px 0; padding: 14px 12px; border: 1px dashed var(--bill-ink-2); text-align: center; }
+#app-bill-window .bill-empty-state b { font-size: 14px; }
+#app-bill-window .bill-empty-state span { font-size: 11px; line-height: 1.6; color: var(--bill-ink-2); }
+#app-bill-window .bill-end { margin-top: 24px; padding-top: 10px; border-top: 2px solid #222; text-align: center; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
+
+/* Per-request receipt ("API 小票") shown on top of 账单 — same look as the WeChat ticket. */
+#app-bill-window .bynd-api-ticket-layer {
+    position: absolute; inset: 0; z-index: 30; overflow: hidden; display: flex; justify-content: center; align-items: flex-start;
+    padding-top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans Mono CJK SC', 'Microsoft YaHei', monospace;
+}
+#app-bill-window .bynd-api-ticket__shade { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(21,25,29,.55); opacity: 0; transition: opacity .35s ease; }
+#app-bill-window .bynd-api-ticket-layer.is-open .bynd-api-ticket__shade { opacity: 1; }
+#app-bill-window .bynd-api-ticket__printer { position: absolute; z-index: 2; top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)); width: min(89%, 410px); height: 22px; border-radius: 0 0 13px 13px; background: linear-gradient(#292d32, #111316); box-shadow: 0 7px 14px rgba(0,0,0,.24); }
+#app-bill-window .bynd-api-ticket__printer span { display: block; width: 88%; height: 4px; margin: 5px auto; border-radius: 5px; background: #08090b; box-shadow: 0 1px 0 #60636a; }
+#app-bill-window .bynd-api-ticket__paper {
+    position: relative; z-index: 1; box-sizing: border-box; width: min(84%, 388px); max-height: calc(100% - var(--bynd-header-safe-top, 0px) - 30px);
+    margin-top: 12px; padding: 25px 23px 36px; overflow-y: auto; overscroll-behavior: contain; color: #191b1c;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 4px), #f8f8f4;
+    box-shadow: 0 18px 42px rgba(0,0,0,.3), inset 0 0 45px rgba(0,0,0,.025);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), 96% 100%, 92% calc(100% - 10px), 88% 100%, 84% calc(100% - 10px), 80% 100%, 76% calc(100% - 10px), 72% 100%, 68% calc(100% - 10px), 64% 100%, 60% calc(100% - 10px), 56% 100%, 52% calc(100% - 10px), 48% 100%, 44% calc(100% - 10px), 40% 100%, 36% calc(100% - 10px), 32% 100%, 28% calc(100% - 10px), 24% 100%, 20% calc(100% - 10px), 16% 100%, 12% calc(100% - 10px), 8% 100%, 4% calc(100% - 10px), 0 100%);
+    transform: translateY(calc(-100% - 80px)); transition: transform .8s cubic-bezier(.22,.72,.16,1); scrollbar-width: none;
+}
+#app-bill-window .bynd-api-ticket__paper::-webkit-scrollbar { display: none; }
+#app-bill-window .bynd-api-ticket-layer.is-open .bynd-api-ticket__paper { transform: translateY(0); }
+#app-bill-window .bynd-api-ticket__paper:focus { outline: none; }
+#app-bill-window .bynd-api-ticket__mast { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 900; letter-spacing: .18em; }
+#app-bill-window .bynd-api-ticket__close { width: 36px; height: 36px; border: 1px solid #222; background: transparent; color: #222; font: 22px/20px monospace; cursor: pointer; }
+#app-bill-window .bynd-api-ticket__stars { margin: 12px 0 5px; padding: 7px 0; text-align: center; color: #f7f7f3; background: #191b1d; letter-spacing: .28em; }
+#app-bill-window .bynd-api-ticket__paper h2 { margin: 12px 0 2px; font-size: 25px; font-weight: 900; letter-spacing: .15em; text-align: center; }
+#app-bill-window .bynd-api-ticket__sub { font-size: 9px; letter-spacing: .12em; text-align: center; }
+#app-bill-window .bynd-api-ticket__rule { margin: 16px 0 10px; border-top: 2px solid #202020; }
+#app-bill-window .bynd-api-ticket__line { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 11px; line-height: 1.55; }
+#app-bill-window .bynd-api-ticket__line span { min-width: 0; }
+#app-bill-window .bynd-api-ticket__line b { max-width: 58%; overflow-wrap: anywhere; text-align: right; }
+#app-bill-window .bynd-api-ticket__total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 9px 0; padding: 9px 0; border-block: 1px dashed #222; font-size: 13px; font-weight: 900; }
+#app-bill-window .bynd-api-ticket__total strong { font-size: 23px; }
+#app-bill-window .bynd-api-ticket__note { margin: 7px 0; color: #555; font-size: 10px; line-height: 1.65; }
+#app-bill-window .bynd-api-ticket__barcode { height: 46px; margin: 15px 0; background: repeating-linear-gradient(90deg,#17191a 0 3px,transparent 3px 5px,#17191a 5px 6px,transparent 6px 9px,#17191a 9px 14px,transparent 14px 17px,#17191a 17px 19px,transparent 19px 23px); }
+#app-bill-window .bynd-api-ticket__section { margin: 19px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #222; font-size: 13px; font-weight: 900; letter-spacing: .07em; }
+#app-bill-window .bynd-api-ticket__section small { font-size: 9px; font-weight: normal; }
+#app-bill-window .bynd-api-ticket__meter { height: 8px; margin: 5px 0 9px; border: 1px solid #222; }
+#app-bill-window .bynd-api-ticket__meter i { display: block; height: 100%; background: #1a1a1a; }
+#app-bill-window .bynd-api-ticket__book { padding: 8px 0; border-bottom: 1px dashed #b5b5ae; }
+#app-bill-window .bynd-api-ticket__book b, #app-bill-window .bynd-api-ticket__book span, #app-bill-window .bynd-api-ticket__book small { display: block; overflow-wrap: anywhere; }
+#app-bill-window .bynd-api-ticket__book b { font-size: 11px; }
+#app-bill-window .bynd-api-ticket__book span { margin: 3px 0; font-size: 10px; }
+#app-bill-window .bynd-api-ticket__book small { color: #666; font-size: 9px; line-height: 1.5; }
+#app-bill-window .bynd-api-ticket__paper details { border-bottom: 1px dashed #babbb5; font-size: 10px; }
+#app-bill-window .bynd-api-ticket__paper summary { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; cursor: pointer; }
+#app-bill-window .bynd-api-ticket__paper summary span { min-width: 0; overflow-wrap: anywhere; }
+#app-bill-window .bynd-api-ticket__paper pre { margin: 0 0 10px; padding: 9px; overflow-wrap: anywhere; white-space: pre-wrap; background: #e9e9e3; color: #303030; font: 10px/1.5 ui-monospace, monospace; }
+#app-bill-window .bynd-api-ticket__request > summary { font-size: 11px; font-weight: 800; }
+#app-bill-window .bynd-api-ticket__error { color: #9b2b21; font-size: 10px; }
+#app-bill-window .bynd-api-ticket__end { margin-top: 24px; padding-top: 10px; border-top: 2px solid #222; text-align: center; font-size: 9px; font-weight: 900; letter-spacing: .08em; overflow-wrap: anywhere; }
+
+@media (max-width: 360px) {
+    #app-bill-window .bill-paper { width: calc(100% - 14px); padding-inline: 13px; }
+    #app-bill-window .bill-units button { font-size: 13px; }
+    #app-bill-window .bynd-api-ticket__paper { width: 88%; padding-inline: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #app-bill-window .bill-paper, #app-bill-window .bynd-api-ticket__paper, #app-bill-window .bynd-api-ticket__shade { transition-duration: .01ms; }
+}

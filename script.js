@@ -305,6 +305,15 @@ function openApp(appName) {
             initCoReadApp();
         }
     }
+    // 14.5 Living World / 论坛
+    else if (appName === 'living-world') {
+        const win = document.getElementById('app-living-world-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            if (typeof initLivingWorld === 'function') initLivingWorld();
+        }
+    }
     // 15. 相册
     else if (appName === 'album') {
         const win = document.getElementById('app-album-window');
@@ -312,6 +321,16 @@ function openApp(appName) {
             win.classList.remove('hidden');
             setTimeout(() => win.classList.add('active'), 10);
             initAlbumApp();
+        }
+    }
+    else if (appName === 'comic') {
+        const win = document.getElementById('app-comic-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            const source = window._comicPendingSource || null;
+            window._comicPendingSource = null;
+            window.ByndComic?.open(source);
         }
     }
     // 16. 说明书
@@ -330,6 +349,15 @@ function openApp(appName) {
             win.classList.remove('hidden');
             setTimeout(() => win.classList.add('active'), 10);
             initMcpApp();
+        }
+    }
+    // 18.5 账单 / Token usage
+    else if (appName === 'bill') {
+        const win = document.getElementById('app-bill-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            window.ByndBillApp?.open();
         }
     }
     // 19. System Camera
@@ -571,9 +599,12 @@ function closeApp(appName) {
     else if (appName === 'pet') winId = 'app-pet-window';
     else if (appName === 'outing') winId = 'app-outing-window';
     else if (appName === 'coread') winId = 'app-coread-window';
+    else if (appName === 'living-world') winId = 'app-living-world-window';
     else if (appName === 'album') winId = 'app-album-window';
+    else if (appName === 'comic') winId = 'app-comic-window';
     else if (appName === 'manual') winId = 'app-manual-window';
     else if (appName === 'mcp') winId = 'app-mcp-window';
+    else if (appName === 'bill') winId = 'app-bill-window';
     const win = document.getElementById(winId);
     if (win) {
         restoreDesktopPageAfterApp(appName);
@@ -581,6 +612,7 @@ function closeApp(appName) {
         if (appName === 'monitor') window.ByndMonitor?.close();
         if (appName === 'pet') window.ByndPetWorkspace?.close();
         if (appName === 'manual') resetManualSearchState();
+        if (appName === 'bill') window.ByndBillApp?.close();
         setTimeout(() => win.classList.add('hidden'), 300);
 
         if (appName === 'wechat' && typeof closeChat === 'function') {
@@ -4129,7 +4161,7 @@ async function requestMusicAiReaction(reason) {
         content: '你正在 BYND Music 里和用户一起听歌。请按角色卡和最近聊天，用自然口吻给出一句短评论；只允许输出角色自己说的话。不要写旁白、动作描写、舞台说明、心理描写、括号说明、分隔符或思考过程。如果你想点歌或不喜欢当前歌，可以在回复末尾单独加一行 JSON：{"action":"request","query":"歌名 歌手","comment":"理由"} 或 {"action":"skip","comment":"理由"}。'
     });
     messages.push({ role: 'user', content: context });
-    const result = await callChatApi(messages);
+    const result = await callChatApi(messages, { usageFeature: 'music', usageChar: char });
     musicCoListenBusy = false;
     if (!result?.ok) {
         saveMusicAiMessage(track, char, result?.error || '我这边暂时听不清，等一下再说。', 'error');
@@ -5618,6 +5650,7 @@ function renderDreamPreview(record) {
         <div class="dream-preview-actions">
             <button type="button" class="dream-primary-button" id="dream-enter-button" onclick="enterDreamRecord('${musicEscapeAttr(record.id)}')"><i class="ri-footprint-line"></i><span>${musicEscapeHtml(actionLabel)}</span></button>
             ${char ? `<button type="button" class="dream-secondary-button" onclick="prepareDreamRegeneration('${musicEscapeAttr(record.id)}', true)"><i class="ri-refresh-line"></i><span>重新生成</span></button>
+            <button type="button" class="dream-secondary-button" onclick="openDreamRecordInComic('${musicEscapeAttr(record.id)}')"><i class="ri-booklet-line"></i><span>画成漫画</span></button>
             <button type="button" class="dream-writing-edit" onclick="prepareDreamRegeneration('${musicEscapeAttr(record.id)}')"><i class="ri-quill-pen-line"></i><span>调整文风与视角</span></button>` : ''}
         </div>`;
 }
@@ -5643,6 +5676,13 @@ function openDreamPreview(id) {
     }
 }
 window.openDreamPreview = openDreamPreview;
+
+function openDreamRecordInComic(recordId) {
+    const record = getDreamRecordById(recordId);
+    if (!record) return;
+    window.ByndComic?.fromSource('dream', record.charId, [record.title, record.summary, record.openingScene, record.charAction].filter(Boolean).join('\n\n'));
+}
+window.openDreamRecordInComic = openDreamRecordInComic;
 
 function prepareDreamRegeneration(id, generateNow = false) {
     if (dreamGenerating) return false;
@@ -5679,7 +5719,7 @@ async function generateDreamRecord() {
     syncDreamWritingControls();
     setDreamStatus('正在读取角色记忆与最近聊天...', 'busy');
     try {
-        const result = await callChatApi(buildDreamGenerationMessages(char, writing), { temperature: 0.86, max_tokens: 2600 });
+        const result = await callChatApi(buildDreamGenerationMessages(char, writing), { temperature: 0.86, max_tokens: 2600, usageFeature: 'dream', usageChar: char });
         if (!result.ok) throw new Error(result.error || '梦境文字生成失败');
         const payload = validateDreamGenerationPayload(extractDreamJsonPayload(result.content));
 
@@ -5689,7 +5729,7 @@ async function generateDreamRecord() {
             setDreamStatus('梦境已经成形，正在生成梦境图...', 'busy');
             const imageResult = await callWechatImageGenerationApi(
                 payload.imagePrompt,
-                { referenceImage: getDreamCharReferenceImage(char), size: '1024x1024' }
+                { referenceImage: getDreamCharReferenceImage(char), size: '1024x1024', usageChar: char }
             );
             if (imageResult.ok && imageResult.url) imageUrl = imageResult.url;
             else imageError = imageResult.error || '图片接口没有返回图片';
@@ -5884,7 +5924,7 @@ async function enterDreamRecord(id) {
     if (button) button.disabled = true;
     setDreamPreviewStatus('正在由 AI 重建这条旧梦境的互动入口...', 'busy');
     try {
-        const result = await callChatApi(buildDreamInteractionMessages(char, record, null, '', true), { temperature: 0.82, max_tokens: 1800 });
+        const result = await callChatApi(buildDreamInteractionMessages(char, record, null, '', true), { temperature: 0.82, max_tokens: 1800, usageFeature: 'dream', usageChar: char });
         if (!result.ok) throw new Error(result.error || '入梦入口重建失败');
         const payload = validateDreamTurnPayload(extractDreamJsonPayload(result.content));
         const session = {
@@ -5962,7 +6002,7 @@ async function advanceDreamSession(choiceIndex) {
     document.querySelectorAll('#dream-session-content button').forEach(button => button.disabled = true);
     setDreamSessionStatus('梦境正在回应你的选择...', 'busy');
     try {
-        const result = await callChatApi(buildDreamInteractionMessages(char, record, record.session, selectedChoice, false), { temperature: 0.86, max_tokens: 1800 });
+        const result = await callChatApi(buildDreamInteractionMessages(char, record, record.session, selectedChoice, false), { temperature: 0.86, max_tokens: 1800, usageFeature: 'dream', usageChar: char });
         if (!result.ok) throw new Error(result.error || '梦境推进失败');
         const payload = validateDreamTurnPayload(extractDreamJsonPayload(result.content));
         record = updateDreamRecord(record.id, current => {
@@ -7029,6 +7069,8 @@ async function requestMonitorPetReaction(reason = 'tap') {
         const messages = buildMonitorPetReactionMessages(char, reason, screenImage);
         const options = {
             max_tokens: screenImage ? 220 : 160,
+            usageFeature: 'pet',
+            usageChar: char,
             temperature: 0.82,
             background: true,
             backgroundPriority: 1,
@@ -8724,7 +8766,7 @@ async function generateActingScript() {
     saveActingGameState(pending);
     renderGameApp();
     try {
-        const result = await callChatApi(buildActingGameMessages(char));
+        const result = await callChatApi(buildActingGameMessages(char), { usageFeature: 'game', usageChar: char });
         if (!result || !result.ok) throw new Error((result && result.error) || '剧本生成失败');
         const payload = extractActingJsonPayload(result.content);
         if (!payload) throw new Error('AI 没有返回可解析的剧本 JSON');
@@ -9252,12 +9294,12 @@ async function startSyncMiniGame() {
     try {
         let questionData = pickSyncFallbackQuestion();
         if (typeof callChatApi === 'function') {
-            const questionResult = await callChatApi(buildSyncJudgeQuestionMessages(char), { max_tokens: 520, temperature: 0.72 });
+            const questionResult = await callChatApi(buildSyncJudgeQuestionMessages(char), { max_tokens: 520, temperature: 0.72, usageFeature: 'game', usageChar: char });
             if (questionResult && questionResult.ok) questionData = normalizeSyncQuestionPayload(extractSyncJsonPayload(questionResult.content));
         }
         let charData = normalizeSyncCharAnswerPayload(null, char);
         if (typeof callChatApi === 'function') {
-            const charResult = await callChatApi(buildSyncCharAnswerMessages(char, questionData.question), { max_tokens: 420, temperature: 0.68 });
+            const charResult = await callChatApi(buildSyncCharAnswerMessages(char, questionData.question), { max_tokens: 420, temperature: 0.68, usageFeature: 'game', usageChar: char });
             if (charResult && charResult.ok) charData = normalizeSyncCharAnswerPayload(extractSyncJsonPayload(charResult.content) || { answer: charResult.content }, char);
         }
         saveSyncGameState({
@@ -9293,7 +9335,7 @@ async function submitSyncGameAnswer() {
     try {
         let resultData = normalizeSyncJudgePayload(null, judgingState);
         if (typeof callChatApi === 'function') {
-            const result = await callChatApi(buildSyncJudgeResultMessages(judgingState), { max_tokens: 520, temperature: 0.35 });
+            const result = await callChatApi(buildSyncJudgeResultMessages(judgingState), { max_tokens: 520, temperature: 0.35, usageFeature: 'game', usageChar: char });
             if (result && result.ok) resultData = normalizeSyncJudgePayload(extractSyncJsonPayload(result.content), judgingState);
         }
         saveSyncGameState({ ...judgingState, phase: 'result', result: resultData });
@@ -10804,9 +10846,8 @@ function getBoardGamePieceSide(type, piece, row) {
         if ('♟♜♞♝♛♚'.includes(piece)) return 'black';
     }
     if (type === 'xiangqi') {
-        if ('兵炮相仕帥'.includes(piece)) return 'red';
-        if ('卒砲象士將'.includes(piece)) return 'black';
-        return row <= 4 ? 'red' : 'black';
+        if ('俥傌兵炮相仕帥'.includes(piece)) return 'red';
+        if ('車馬卒砲象士將'.includes(piece)) return 'black';
     }
     return '';
 }
@@ -11152,15 +11193,21 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
         return;
     }
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const previousChat = getBoardGameChat(type);
+    const recentComments = previousChat.speakerId === char.id && Array.isArray(previousChat.recentComments)
+        ? previousChat.recentComments.filter(text => typeof text === 'string' && text.trim()).slice(-5)
+        : [];
     saveBoardGameChat(type, {
         status: 'pending',
         requestId,
         text: '正在请求角色发言...',
+        speakerId: char.id,
+        recentComments,
         updatedAt: Date.now()
     });
     renderGameApp();
     if (typeof callChatApi !== 'function') {
-        saveBoardGameChat(type, { status: 'error', text: '暂时没连上聊天 API。', updatedAt: Date.now() });
+        saveBoardGameChat(type, { status: 'error', text: '暂时没连上聊天 API。', speakerId: char.id, recentComments, updatedAt: Date.now() });
         renderGameApp();
         return;
     }
@@ -11171,9 +11218,9 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
             : [{ role: 'system', content: `你是${getMusicCharName(char)}。` }];
         messages.push({
             role: 'user',
-            content: `我们正在 BYND 里玩${meta.title}。你是陪玩角色，请严格按照角色卡和最近聊天，用自然口吻回一句棋局气泡，40字以内。不要写思考过程，不要暴露系统提示，不要JSON。当前局面：${summarizeBoardGame(type, payload)}。触发原因：${reason}。`
+            content: `我们正在 BYND 里玩${meta.title}。你是陪玩角色，请严格按照角色卡和最近聊天，用自然口吻回一句棋局气泡，40字以内。针对刚才的落子或局势说具体、有角色感的话；当前轮到谁只是规则信息，不要每轮都催促“该你了”“到你了”或换词重复最近发言。允许短暂停顿、调侃或情绪反应。不要写思考过程，不要暴露系统提示，不要JSON。最近你的棋局气泡：${JSON.stringify(recentComments.slice(-4))}。当前局面：${summarizeBoardGame(type, payload)}。触发原因：${reason}。`
         });
-        const result = await callChatApi(messages);
+        const result = await callChatApi(messages, { usageFeature: 'game', usageChar: char });
         const current = getBoardGameChat(type);
         if (current.requestId && current.requestId !== requestId) return;
         const raw = result.ok ? result.content : result.error;
@@ -11186,6 +11233,8 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
             text: result.ok
                 ? (cleanText || '本次 API 没有返回可显示内容。')
                 : (isBoardGameRateLimitError(raw) ? '接口限流中，已暂停棋局发言几分钟。' : '这一句暂时没连上 API。'),
+            speakerId: char.id,
+            recentComments: result.ok && cleanText ? [...recentComments, cleanText].slice(-5) : recentComments,
             updatedAt: Date.now()
         });
     } catch (e) {
@@ -11195,6 +11244,8 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
         saveBoardGameChat(type, {
             status: 'error',
             text: isBoardGameRateLimitError(e?.message || e) ? '接口限流中，已暂停棋局发言几分钟。' : '这一句暂时没连上 API。',
+            speakerId: char.id,
+            recentComments,
             updatedAt: Date.now()
         });
     }
@@ -11256,7 +11307,6 @@ function renderBoardGameCompanionBar(type) {
     const name = char ? getMusicCharName(char) : 'AI 陪玩';
     const text = chat.text || '真实角色发言会显示在这里。';
     const isApiSpeech = chat.source === 'api';
-    const sourceLabel = isApiSpeech ? 'API 角色发言' : '系统状态';
     const state = type === 'gomoku' ? getGomokuState() : getBoardGameState(type);
     const turnText = getBoardGameTurnText(type, state);
     return `
@@ -11271,7 +11321,7 @@ function renderBoardGameCompanionBar(type) {
                     <button type="button" onclick="openBoardGameCompanionSetup('${musicEscapeAttr(type)}')">换人</button>
                 </div>
                 <div class="board-inline-speech ${isApiSpeech ? 'api' : 'system'} ${chat.status === 'pending' ? 'thinking' : ''} ${chat.status === 'error' ? 'error' : ''}">
-                    <span class="board-speech-source">${musicEscapeHtml(sourceLabel)}</span>
+                    ${isApiSpeech ? '' : '<span class="board-speech-source">系统状态</span>'}
                     <p>${musicEscapeHtml(text)}</p>
                     <button type="button" aria-label="让角色说一句" onclick="requestBoardGameAiComment('${musicEscapeAttr(type)}','manual',{ action: '用户想听你对当前棋局说一句话。' })"><i class="ri-chat-smile-3-line"></i></button>
                 </div>
@@ -11387,7 +11437,7 @@ function getInitialBoardGameState(type, firstPlayer = getBoardGameFirstPlayer(ty
             userSide: sides.userSide,
             charSide: sides.charSide,
             board: [
-                ['車','馬','相','仕','帥','仕','相','馬','車'],
+                ['俥','傌','相','仕','帥','仕','相','傌','俥'],
                 ['', '', '', '', '', '', '', '', ''],
                 ['', '炮', '', '', '', '', '', '炮', ''],
                 ['兵', '', '兵', '', '兵', '', '兵', '', '兵'],
@@ -11428,6 +11478,18 @@ function getBoardGameState(type) {
             state.firstPlayer = state.firstPlayer || sides.firstPlayer;
             state.userSide = state.userSide || sides.userSide;
             state.charSide = state.charSide || sides.charSide;
+            // Older games used the same 車/馬 glyphs for both sides. Migrate in
+            // memory; the next successful game save persists the distinct pieces.
+            if (type === 'xiangqi' && !state.xiangqiDistinctPieces) {
+                state.board.forEach((row, r) => {
+                    if (r > 4) return;
+                    row.forEach((piece, c) => {
+                        if (piece === '車') row[c] = '俥';
+                        if (piece === '馬') row[c] = '傌';
+                    });
+                });
+                state.xiangqiDistinctPieces = true;
+            }
             return state;
         }
     } catch (e) {}
@@ -11505,6 +11567,7 @@ function renderBoardGame(el, type) {
     const title = isXiangqi ? '中国象棋' : '国际象棋';
     const turnLabel = state.winner ? `${getBoardGameSideLabel(type, state.winner)}获胜` : getBoardGameTurnText(type, state);
     const cols = isXiangqi ? 9 : 8;
+    const rotateForUser = isXiangqi && state.userSide === 'red';
     const selectedMoves = state.selected ? getBoardLegalMoves(type, state, state.selected.row, state.selected.col) : [];
     const legalKeys = new Set(selectedMoves.map(move => `${move.to[0]},${move.to[1]}`));
     const chessHelp = isXiangqi ? '' : `
@@ -11533,12 +11596,16 @@ function renderBoardGame(el, type) {
             ${renderBoardGameCompanionBar(type)}
             <div class="board-game-top"><div><span>${isXiangqi ? 'XIANGQI' : 'CHESS'}</span><strong>${title}</strong><p>${musicEscapeHtml(turnLabel)}。${isXiangqi ? '点击棋子选中，再点击目标格移动。' : '点棋子会亮出能走的位置，绿色可走，红色可吃。'}</p></div><button type="button" onclick="resetBoardGame('${type}')">重开</button></div>
             ${chessHelp}
-            <div class="classic-board ${isXiangqi ? 'xiangqi' : 'chess'}" style="--cols:${cols}">
-                ${state.board.map((row, r) => row.map((piece, c) => {
+            <div class="classic-board ${isXiangqi ? 'xiangqi' : 'chess'}" style="--cols:${cols}" aria-label="${title}棋盘${isXiangqi ? `，你的${getBoardGameSideLabel(type, state.userSide)}在下方` : ''}">
+                ${state.board.map((_, viewRow) => Array.from({ length: cols }, (_, viewCol) => {
+                    const r = rotateForUser ? state.board.length - 1 - viewRow : viewRow;
+                    const c = rotateForUser ? cols - 1 - viewCol : viewCol;
+                    const piece = state.board[r][c];
+                    const side = piece ? getBoardGamePieceSide(type, piece, r) : '';
                     const selected = state.selected && state.selected.row === r && state.selected.col === c;
                     const legal = legalKeys.has(`${r},${c}`);
                     const capturable = legal && !!piece;
-                    return `<button type="button" class="${selected ? 'selected' : ''} ${piece ? 'has-piece' : ''} ${legal ? 'legal-move' : ''} ${capturable ? 'capture-move' : ''}" onclick="clickBoardGameCell('${type}',${r},${c})"><span>${musicEscapeHtml(piece)}</span></button>`;
+                    return `<button type="button" class="${selected ? 'selected' : ''} ${piece ? `has-piece side-${side}` : ''} ${legal ? 'legal-move' : ''} ${capturable ? 'capture-move' : ''}" onclick="clickBoardGameCell('${type}',${r},${c})" aria-label="${piece ? `${getBoardGameSideLabel(type, side)}${piece}` : '空位'}"><span>${musicEscapeHtml(piece)}</span></button>`;
                 }).join('')).join('')}
             </div>
         </section>
@@ -12368,7 +12435,7 @@ async function runWolfchaAiSpeech(playerId) {
             role: 'user',
             content: buildWolfchaAiSpeechPrompt(latest, player, char)
         });
-        const result = await callChatApi(messages);
+        const result = await callChatApi(messages, { usageFeature: 'game', usageChar: char });
         updateWolfchaState(next => {
             const logs = Array.isArray(next.log) ? next.log.map(normalizeWolfchaLogEntry) : [];
             const pendingIndex = getWolfchaPendingSpeechIndex(logs, player.id);
@@ -12662,7 +12729,10 @@ function getDesktopThemeIconUrl(appId, source) {
         preset: 15,
         manual: 16,
         mcp: 17,
-        pet: 18
+        pet: 18,
+        'living-world': 19,
+        comic: 20,
+        bill: 21
     }[appId];
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);
@@ -15176,7 +15246,9 @@ async function requestCoReadAiComment(char, book, extra = {}, options = {}) {
     const requestedTokens = Number(options.max_tokens);
     const apiOptions = {
         max_tokens: Math.max(minTokens, Number.isFinite(requestedTokens) ? requestedTokens : 0),
-        temperature: options.temperature ?? 0.84
+        temperature: options.temperature ?? 0.84,
+        usageFeature: 'read',
+        usageChar: char
     };
     const first = await callChatApi(buildCoReadCommentMessages(char, book, extra), apiOptions);
     const firstText = normalizeCoReadAiCommentText(first && first.ok ? first.content : '');
@@ -15916,7 +15988,7 @@ async function generateCoReadBookReviews(bookId) {
     coreadBookReviewBusyId = id;
     renderCoReadBookDetail();
     try {
-        const result = await callChatApi(buildCoReadBookReviewMessages(book), { max_tokens: 1800, temperature: 0.9 });
+        const result = await callChatApi(buildCoReadBookReviewMessages(book), { max_tokens: 1800, temperature: 0.9, usageFeature: 'read' });
         const items = normalizeCoReadBookReviewItems(result && result.ok ? result.content : '');
         if (items.length) {
             book.reviews = [...items, ...getCoReadBookReviews(book)].slice(0, 80);
@@ -18276,7 +18348,8 @@ window.selectAlbumChar = selectAlbumChar;
 const DESKTOP_DOCK_APP_DEFINITIONS = [
     { id: 'music', name: '音乐', icon: 'ri-music-2-fill' },
     { id: 'camera', name: '相机', icon: 'ri-camera-lens-line' },
-    { id: 'preset', name: '预设', icon: 'ri-equalizer-line' }
+    { id: 'preset', name: '预设', icon: 'ri-equalizer-line' },
+    { id: 'bill', name: '账单', icon: 'ri-bill-line' }
 ];
 
 const DESKTOP_APPS = [
@@ -18293,7 +18366,9 @@ const DESKTOP_APPS = [
     { id: 'pet', name: '桌宠', icon: 'ri-bear-smile-line' },
     { id: 'outing', name: '一起出门', icon: 'ri-map-pin-user-line' },
     { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
+    { id: 'living-world', name: '论坛', icon: 'ri-discuss-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' },
+    { id: 'comic', name: '漫画', icon: 'ri-booklet-line' },
     { id: 'manual', name: '说明书', icon: 'ri-book-2-line' },
     { id: 'mcp', name: 'MCP', icon: 'ri-github-fill' }
 ];
@@ -18556,6 +18631,7 @@ function initPageSwipe(options = {}) {
             p.style.transform = `translateX(-${currentPage * 100}%)`;
         });
         updateDots();
+        if (typeof scheduleDesktopVisibleLayoutRepair === 'function') scheduleDesktopVisibleLayoutRepair();
     }
     window.goToDesktopPage = goToPage;
     window._desktopPageSwipeState = {
@@ -18843,6 +18919,7 @@ const DESKTOP_SNAP_TOLERANCE = 9;
 const DESKTOP_DOCK_LAYOUT_MAX = 4;
 const DESKTOP_DELETABLE_BUILTIN_IDS = new Set(['widget-calendar', 'widget-photo-1', 'widget-photo-2']);
 const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set();
+const DESKTOP_PAGE2_APP_IDS = new Set(['dream', 'monitor', 'pet', 'outing', 'coread', 'living-world', 'album', 'manual', 'mcp', 'comic']);
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
 let _editLongPressTimer = null;
@@ -19344,6 +19421,65 @@ function getDesktopFallbackSlotMetrics(pageArea) {
     };
 }
 
+function getDesktopFourColumnAppGridMetrics(pageArea) {
+    const width = Math.max(300, pageArea?.clientWidth || 375);
+    const columns = 4;
+    const iconWidth = Math.min(72, Math.floor((width - 24) / columns));
+    const iconHeight = 82;
+    const gapX = Math.max(0, (width - iconWidth * columns - 24) / (columns - 1));
+    const startX = Math.max(8, (width - (iconWidth * columns + gapX * (columns - 1))) / 2);
+    return { columns, iconWidth, iconHeight, gapX, gapY: 18, startX, startY: 18 };
+}
+
+function normalizeSecondPageAppGrid(pageArea) {
+    if (!pageArea || getDesktopPageIndex(pageArea.closest('.desktop-page')) !== 1 || !hasDesktopUsableLayoutBounds(pageArea)) return false;
+    const apps = getDesktopOrderedSlotItems(pageArea, true);
+    const appIds = apps.map(item => getDesktopAppIdFromElement(item));
+    const originalGrid = apps.length === DESKTOP_PAGE2_APP_IDS.size - 1
+        && new Set(appIds).size === apps.length
+        && appIds.every(id => DESKTOP_PAGE2_APP_IDS.has(id) && id !== 'comic');
+    const comicGrid = apps.length === DESKTOP_PAGE2_APP_IDS.size && pageArea.dataset.comicAutoLayout === '1'
+        && new Set(appIds).size === apps.length
+        && appIds.every(id => DESKTOP_PAGE2_APP_IDS.has(id));
+    if (!originalGrid && !comicGrid) return false;
+    const orderedApps = comicGrid
+        ? [
+            ...apps.filter(item => !['pet', 'comic'].includes(getDesktopAppIdFromElement(item))),
+            apps.find(item => getDesktopAppIdFromElement(item) === 'pet'),
+            apps.find(item => getDesktopAppIdFromElement(item) === 'comic')
+        ]
+        : apps;
+
+    const metrics = getDesktopFourColumnAppGridMetrics(pageArea);
+    const widgets = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'));
+    const widgetBottom = widgets.reduce((bottom, widget) => {
+        const rect = getDesktopStyleRect(widget, pageArea);
+        return Math.max(bottom, rect ? rect.top + rect.height : 0);
+    }, 0);
+    const rows = Math.ceil(orderedApps.length / metrics.columns);
+    const areaHeight = Math.max(520, pageArea.clientHeight || 590);
+    const requiredHeight = rows * metrics.iconHeight + (rows - 1) * metrics.gapY;
+    const maxStartY = Math.max(metrics.startY, areaHeight - requiredHeight - 8);
+    const startY = Math.min(Math.max(metrics.startY, widgetBottom + 18), maxStartY);
+    let changed = false;
+
+    orderedApps.forEach((item, index) => {
+        const column = index % metrics.columns;
+        const row = Math.floor(index / metrics.columns);
+        const rect = {
+            left: metrics.startX + column * (metrics.iconWidth + metrics.gapX),
+            top: startY + row * (metrics.iconHeight + metrics.gapY),
+            width: metrics.iconWidth,
+            height: metrics.iconHeight
+        };
+        item.dataset.desktopSlot = String(index);
+        if (setDesktopLayoutItemRect(item, rect)) changed = true;
+    });
+    if (comicGrid) delete pageArea.dataset.comicAutoLayout;
+    if (changed) captureDesktopPageSlotRects(pageArea);
+    return changed;
+}
+
 function getDesktopFlowSlotRects(pageArea) {
     if (!pageArea) return [];
     const metrics = getDesktopFallbackSlotMetrics(pageArea);
@@ -19790,6 +19926,120 @@ function findDesktopOpenAppRect(pageArea, item, preferredRect) {
     return (scored.find(entry => entry.overlap < 0.16) || scored[0])?.rect || source;
 }
 
+function desktopAppRectsHaveClearance(a, b) {
+    if (!a || !b) return true;
+    return a.left + a.width + 6 <= b.left
+        || b.left + b.width + 6 <= a.left
+        || a.top + a.height + 8 <= b.top
+        || b.top + b.height + 8 <= a.top;
+}
+
+function findDesktopComicBesidePetRect(pageArea, comic) {
+    if (!pageArea || !comic) return null;
+    const apps = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app'))
+        .filter(item => item !== comic);
+    const pet = apps.find(item => getDesktopAppIdFromElement(item) === 'pet');
+    const petRect = getDesktopStyleRect(pet, pageArea);
+    if (!petRect) return null;
+    const appRects = apps.map(item => getDesktopStyleRect(item, pageArea)).filter(Boolean);
+    const columns = [];
+    appRects.map(rect => rect.left).sort((a, b) => a - b).forEach(left => {
+        if (!columns.some(value => Math.abs(value - left) < 16)) columns.push(left);
+    });
+    const petColumn = columns.findIndex(left => Math.abs(left - petRect.left) < 16);
+    if (petColumn < 0) return null;
+    const widgets = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
+        .map(item => getDesktopStyleRect(item, pageArea))
+        .filter(rect => rect && getDesktopRectIntersectionRatio(rect, petRect) < 0.12);
+    const width = parseFloat(comic.style.width) || petRect.width;
+    const height = parseFloat(comic.style.height) || petRect.height;
+    for (const left of columns.slice(petColumn + 1)) {
+        const rect = clampDesktopLayoutRect({ left, top: petRect.top, width, height }, pageArea);
+        if (appRects.every(other => desktopAppRectsHaveClearance(rect, other))
+            && widgets.every(other => desktopAppRectsHaveClearance(rect, other))) return rect;
+    }
+    return null;
+}
+
+function getDesktopComicProvisionalPetRect(pageArea, comic) {
+    const apps = Array.from(pageArea?.querySelectorAll(':scope > .desktop-layout-item.layout-app') || []);
+    const pet = apps.find(item => getDesktopAppIdFromElement(item) === 'pet');
+    const petRect = getDesktopStyleRect(pet, pageArea);
+    if (!petRect) return null;
+    const nextColumn = apps.map(item => getDesktopStyleRect(item, pageArea)?.left)
+        .filter(left => Number.isFinite(left) && left > petRect.left + 16)
+        .sort((a, b) => a - b)[0];
+    const metrics = getDesktopFourColumnAppGridMetrics(pageArea);
+    return clampDesktopLayoutRect({
+        left: nextColumn ?? petRect.left + petRect.width + metrics.gapX,
+        top: petRect.top,
+        width: parseFloat(comic.style.width) || petRect.width,
+        height: parseFloat(comic.style.height) || petRect.height
+    }, pageArea);
+}
+
+function findDesktopComicClearRect(pageArea, item, preferredRect) {
+    if (!pageArea || !item) return null;
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const width = preferredRect?.width || parseFloat(item.style.width) || metrics.iconWidth;
+    const height = preferredRect?.height || parseFloat(item.style.height) || metrics.iconHeight;
+    const occupied = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item'))
+        .filter(other => other !== item)
+        .map(other => getDesktopStyleRect(other, pageArea))
+        .filter(Boolean);
+    const clear = rect => occupied.every(other => desktopAppRectsHaveClearance(rect, other));
+    const preferred = preferredRect && clampDesktopLayoutRect(preferredRect, pageArea);
+    if (preferred && clear(preferred)) return preferred;
+    const besidePet = findDesktopComicBesidePetRect(pageArea, item);
+    if (besidePet) return besidePet;
+    const slots = getDesktopFlowSlotRects(pageArea)
+        .map(slot => clampDesktopLayoutRect({
+            left: slot.left + Math.round((slot.width - width) / 2),
+            top: slot.top + Math.round((slot.height - height) / 2),
+            width,
+            height
+        }, pageArea))
+        .filter(clear)
+        .sort((a, b) => {
+            if (!preferred) return (a.top - b.top) || (a.left - b.left);
+            const distance = rect => Math.abs(rect.left - preferred.left) + Math.abs(rect.top - preferred.top);
+            return (distance(a) - distance(b)) || (a.top - b.top) || (a.left - b.left);
+        });
+    return slots[0] || null;
+}
+
+function repairDesktopComicOverlap(pageArea) {
+    if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return false;
+    const comic = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app'))
+        .find(item => getDesktopAppIdFromElement(item) === 'comic');
+    if (!comic) return false;
+    const current = getDesktopStyleRect(comic, pageArea);
+    let clear = findDesktopComicClearRect(pageArea, comic, current);
+    if (!clear && getDesktopPageIndex(pageArea.closest('.desktop-page')) === 1) {
+        const apps = getDesktopOrderedSlotItems(pageArea, true);
+        if (apps.length === DESKTOP_PAGE2_APP_IDS.size
+            && apps.every(item => DESKTOP_PAGE2_APP_IDS.has(getDesktopAppIdFromElement(item)))) {
+            pageArea.dataset.comicAutoLayout = '1';
+            normalizeSecondPageAppGrid(pageArea);
+            clear = findDesktopComicClearRect(pageArea, comic, getDesktopStyleRect(comic, pageArea));
+        }
+    }
+    if (clear && !desktopRectsDiffer(current, clear, 0.1)) return false;
+    if (clear) {
+        setDesktopLayoutItemRect(comic, clear);
+        captureDesktopPageSlotRects(pageArea);
+        return true;
+    }
+    const nextArea = ensureDesktopPage(getDesktopPageIndex(pageArea.closest('.desktop-page')) + 1)?.querySelector('.desktop-scroll-area');
+    if (!nextArea) return false;
+    const nextRect = findDesktopComicClearRect(nextArea, comic, null);
+    if (!nextRect) return false;
+    prepareDesktopLayoutItem(comic, nextArea, nextRect);
+    captureDesktopPageSlotRects(pageArea);
+    captureDesktopPageSlotRects(nextArea);
+    return true;
+}
+
 function repairDesktopAppOverlaps(pageArea) {
     if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return false;
     const items = getDesktopOrderedSlotItems(pageArea, true);
@@ -19852,7 +20102,9 @@ function repairDesktopLayoutOverlaps() {
     document.querySelectorAll('#pages-container .desktop-scroll-area.layout-canvas').forEach(pageArea => {
         if (!hasDesktopUsableLayoutBounds(pageArea)) return;
         if (repairDesktopWidgetOverlaps(pageArea)) changed = true;
+        if (normalizeSecondPageAppGrid(pageArea)) changed = true;
         if (repairDesktopAppOverlaps(pageArea)) changed = true;
+        if (repairDesktopComicOverlap(pageArea)) changed = true;
     });
     return changed;
 }
@@ -22956,6 +23208,91 @@ function applySavedDesktopLayout() {
         area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
         page.querySelectorAll('.bento-box').forEach(el => el.classList.add('layout-source-hidden'));
     });
+    // Saved layouts intentionally preserve the user's arrangement. New built-in apps
+    // therefore need an explicit migration instead of relying on the static HTML grid.
+    // Keep Living World directly under PageMate on page two when an older layout lacks it.
+    const hasLivingWorld = savedItems.some(item => item?.id === 'app-living-world')
+        || (Array.isArray(saved.dock) && saved.dock.includes('living-world'));
+    let livingWorldAdded = false;
+    if (!hasLivingWorld) {
+        const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+        const app = DESKTOP_APPS.find(item => item.id === 'living-world');
+        const pageMate = Array.from(area?.querySelectorAll('.desktop-layout-item.layout-app') || [])
+            .find(item => getDesktopAppIdFromElement(item) === 'coread');
+        if (area && app && pageMate) {
+            const mateRect = getDesktopStyleRect(pageMate, area);
+            const metrics = getDesktopFourColumnAppGridMetrics(area);
+            const item = createDesktopAppElement(app);
+            prepareDesktopLayoutItem(item, area, {
+                left: mateRect?.left ?? metrics.startX,
+                top: (mateRect?.top ?? metrics.startY) + (mateRect?.height ?? metrics.iconHeight) + metrics.gapY,
+                width: mateRect?.width ?? metrics.iconWidth,
+                height: mateRect?.height ?? metrics.iconHeight,
+                canvasWidth: area.clientWidth
+            });
+            livingWorldAdded = true;
+            _desktopLayoutNeedsVisiblePersist = true;
+        }
+    }
+    const hasComic = savedItems.some(item => item?.id === 'app-comic')
+        || (Array.isArray(saved.dock) && saved.dock.includes('comic'));
+    let comicAdded = false;
+    let comicReturned = false;
+    if (hasComic && saved.repairedAt && !savedItems.some(item => item?.id === 'app-comic' && item.page === 1)) {
+        const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+        const comic = Array.from(document.querySelectorAll('.desktop-layout-item.layout-app'))
+            .find(item => getDesktopAppIdFromElement(item) === 'comic');
+        const oldPage = comic?.closest('.desktop-page');
+        const oldArea = comic?.closest('.desktop-scroll-area');
+        if (area && comic && oldPage && getDesktopPageIndex(oldPage) > 1
+            && oldArea.querySelectorAll(':scope > .desktop-layout-item').length === 1) {
+            const canonicalGrid = getDesktopOrderedSlotItems(area, true).length === DESKTOP_PAGE2_APP_IDS.size - 1
+                && getDesktopOrderedSlotItems(area, true).every(item => DESKTOP_PAGE2_APP_IDS.has(getDesktopAppIdFromElement(item)));
+            const rect = findDesktopComicBesidePetRect(area, comic)
+                || (canonicalGrid ? getDesktopComicProvisionalPetRect(area, comic) : null);
+            if (rect) {
+                prepareDesktopLayoutItem(comic, area, { ...rect, canvasWidth: area.clientWidth });
+                if (canonicalGrid) area.dataset.comicAutoLayout = '1';
+                if (isDesktopScreenEmpty(oldPage) && oldPage === getDesktopPages().at(-1)) oldPage.remove();
+                syncDesktopPagesAndDots(Math.min(window._desktopCurrentPage || 0, getDesktopPages().length - 1));
+                comicReturned = true;
+                _desktopLayoutNeedsVisiblePersist = true;
+            }
+        }
+    }
+    if (!hasComic) {
+        const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+        const app = DESKTOP_APPS.find(item => item.id === 'comic');
+        const album = Array.from(area?.querySelectorAll('.desktop-layout-item.layout-app') || [])
+            .find(item => getDesktopAppIdFromElement(item) === 'album');
+        if (area && app) {
+            const albumRect = album && getDesktopStyleRect(album, area);
+            const metrics = getDesktopFourColumnAppGridMetrics(area);
+            const item = createDesktopAppElement(app);
+            const preferredRect = {
+                left: albumRect?.left ?? metrics.startX,
+                top: (albumRect?.top ?? metrics.startY) + (albumRect?.height ?? metrics.iconHeight) + metrics.gapY,
+                width: albumRect?.width ?? metrics.iconWidth,
+                height: albumRect?.height ?? metrics.iconHeight
+            };
+            const canonicalGrid = getDesktopOrderedSlotItems(area, true).length === DESKTOP_PAGE2_APP_IDS.size - 1
+                && getDesktopOrderedSlotItems(area, true).every(entry => DESKTOP_PAGE2_APP_IDS.has(getDesktopAppIdFromElement(entry)));
+            let targetArea = area;
+            let rect = findDesktopComicBesidePetRect(targetArea, item)
+                || (canonicalGrid ? getDesktopComicProvisionalPetRect(targetArea, item) : null)
+                || findDesktopComicClearRect(targetArea, item, preferredRect);
+            if (!rect) {
+                targetArea = ensureDesktopPage(getDesktopPages().length)?.querySelector('.desktop-scroll-area');
+                rect = findDesktopComicClearRect(targetArea, item, null);
+            }
+            if (targetArea && rect) {
+                prepareDesktopLayoutItem(item, targetArea, { ...rect, canvasWidth: targetArea.clientWidth });
+                if (canonicalGrid && targetArea === area) area.dataset.comicAutoLayout = '1';
+                comicAdded = true;
+                _desktopLayoutNeedsVisiblePersist = true;
+            }
+        }
+    }
     pages.forEach(page => {
         page.querySelectorAll(':scope > .desktop-scroll-area > .calendar-widget:not(.desktop-layout-item), :scope > .desktop-scroll-area > .photo-large:not(.desktop-layout-item)').forEach(el => {
             el.classList.add('layout-source-hidden');
@@ -22968,7 +23305,7 @@ function applySavedDesktopLayout() {
         });
     });
     const repaired = repairDesktopLayoutOverlaps();
-    if (savedItemsSanitized || repaired) {
+    if (savedItemsSanitized || repaired || livingWorldAdded || comicAdded || comicReturned) {
         if (hasDesktopMeasurableLayoutCanvas()) {
             persistDesktopLayoutRepair(saved);
         } else {
@@ -23141,6 +23478,54 @@ function migrateDesktopPetApp() {
     return true;
 }
 
+// 账单 ships in the default dock. Saved layouts replace the dock HTML, so existing users
+// get it appended to their own dock when a slot is free; a full dock is never evicted —
+// the app goes to the first open desktop slot instead (same placement as 说明书 / MCP).
+function planDesktopBillDockEntry(saved, currentDock, placedElsewhere) {
+    const safe = saved && typeof saved === 'object' ? saved : {};
+    const hasSavedLayout = Array.isArray(safe.items) || Array.isArray(safe.dock) || Array.isArray(safe.deletedBuiltins);
+    if (!hasSavedLayout || !Array.isArray(safe.dock)) return { action: 'default' };
+    const dock = (Array.isArray(currentDock) ? currentDock : safe.dock).map(appId => String(appId || '')).filter(Boolean);
+    const inSaved = safe.dock.some(appId => String(appId) === 'bill')
+        || (Array.isArray(safe.items) ? safe.items : []).some(item => String(item?.id || '') === 'app-bill');
+    if (placedElsewhere || inSaved || dock.includes('bill')) return { action: 'present' };
+    if (dock.length < DESKTOP_DOCK_LAYOUT_MAX) return { action: 'dock', dock: [...dock, 'bill'] };
+    return { action: 'desktop' };
+}
+
+function migrateDesktopBillDockApp() {
+    const migrationKey = 'bynd_desktop_bill_dock_v1';
+    let saved;
+    try {
+        if (localStorage.getItem(migrationKey) === '1') return false;
+        saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {};
+    } catch (_) { return false; }
+    const remember = () => { try { localStorage.setItem(migrationKey, '1'); } catch (_) {} };
+    const inFolder = (Array.isArray(window._folders) ? window._folders : []).some(folder => (Array.isArray(folder?.apps) ? folder.apps : []).some(app => String(app?.id || app) === 'bill'));
+    const onDesktop = Array.from(document.querySelectorAll('#pages-container .desktop-layout-item.layout-app')).some(item => getDesktopAppIdFromElement(item) === 'bill');
+    const plan = planDesktopBillDockEntry(saved, collectDesktopDockLayout(), inFolder || onDesktop);
+    if (plan.action === 'default' || plan.action === 'present') { remember(); return false; }
+    if (plan.action === 'dock') {
+        const dock = document.querySelector('#home-screen .dock-bar');
+        if (!dock) return false;
+        dock.appendChild(createDesktopDockItem('bill'));
+        refreshDesktopDockOrder();
+        try {
+            localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify({ ...saved, dock: collectDesktopDockLayout() }));
+            remember();
+        } catch (e) {
+            console.warn('bill dock migration persist failed:', e);
+        }
+        return true;
+    }
+    const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+    if (!area?.classList.contains('layout-canvas')) return false;
+    if (!addDesktopAppAfterFolderPage(getDesktopAppDefinition('bill'), area, 2)) return false;
+    if (hasDesktopMeasurableLayoutCanvas() && persistDesktopLayoutRepair(saved)) remember();
+    else _desktopLayoutNeedsVisiblePersist = true;
+    return true;
+}
+
 function cleanupRemovedWatchTogetherData() {
     let saved = null;
     try {
@@ -23213,7 +23598,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor', 'pet', 'outing', 'coread', 'album', 'manual', 'mcp'].forEach(appId => {
+    ['dream', 'monitor', 'pet', 'outing', 'coread', 'album', 'comic', 'manual', 'mcp'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -23272,6 +23657,7 @@ function initEditMode() {
         migrateDesktopManualApp();
         migrateDesktopMcpApp();
         migrateDesktopPetApp();
+        migrateDesktopBillDockApp();
         ensureMonitorDesktopEntry();
         ensureDesktopLovelyWidget();
         setupDesktopDockEditing();

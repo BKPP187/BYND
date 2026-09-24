@@ -435,6 +435,10 @@
     display: none;
 }
 
+#app-wechat-window.wc-ui-theme-couple .wc-chat-room.is-voice-input .wc-input.wc-voice-hold-surface {
+    display: block !important;
+}
+
 #app-wechat-window.wc-ui-theme-couple .wc-chat-room .wc-room-footer {
     height: auto !important;
 }

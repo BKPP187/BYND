@@ -46,7 +46,7 @@
 }
 .bynd-agent-overlay button, #wcs-agent-features button { cursor: pointer; font-family: inherit; }
 .bynd-agent-overlay button:disabled, #wcs-agent-features input:disabled { opacity: .5; cursor: wait; }
-.bynd-agent-overlay button:focus-visible, .bynd-agent-overlay summary:focus-visible, .bynd-agent-detail summary:focus-visible { outline: 2px solid #5a9980; outline-offset: 2px; }
+.bynd-agent-overlay button:focus-visible, .bynd-agent-overlay summary:focus-visible, .bynd-agent-detail__summary:focus-visible { outline: 2px solid #5a9980; outline-offset: 2px; }
 .bynd-agent-settings { padding: 0 14px; }
 .bynd-agent-toggle { display: flex; gap: 14px; align-items: center; padding: 15px 0; cursor: pointer; }
 .bynd-agent-toggle + .bynd-agent-toggle { border-top: 1px solid rgba(119, 145, 129, .12); }
@@ -68,27 +68,34 @@
 .bynd-agent-todos input { accent-color: #69a78c; width: 18px; height: 18px; flex-shrink: 0; }
 .bynd-agent-todos input:checked + span { opacity: .55; text-decoration: line-through; }
 .bynd-agent-detail {
+    --bynd-agent-accent: var(--wc-theme-accent, #7d8488);
+    --bynd-agent-text: var(--wc-theme-muted, #737b80);
     width: calc(100% - 66px);
     margin: 7px 14px 10px 52px;
-    border: 1px solid rgba(124, 153, 139, .2);
-    border-radius: 12px;
-    background: rgba(245, 249, 247, .94);
-    color: #587165;
+    border: 1px solid color-mix(in srgb, var(--wc-theme-border, #b9c1c5) 76%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--bynd-agent-accent) 58%, transparent);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--wc-theme-card, #fff) 62%, transparent);
+    color: var(--bynd-agent-text);
+    box-shadow: 0 2px 10px rgba(24, 34, 39, .035);
     font-size: 11px;
     overflow: hidden;
-    flex-shrink: 0;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    -webkit-backdrop-filter: blur(11px);
+    backdrop-filter: blur(11px);
 }
-.bynd-agent-detail summary { display: flex; align-items: center; gap: 6px; padding: 10px; cursor: pointer; list-style: none; line-height: 1.5; }
-.bynd-agent-detail summary::-webkit-details-marker { display: none; }
-.bynd-agent-detail summary > i:first-child { transition: transform .15s; flex-shrink: 0; }
-.bynd-agent-detail[open] summary > i:first-child { transform: rotate(90deg); }
-.bynd-agent-detail summary strong, .bynd-agent-detail summary > span:not(.bynd-agent-state) { flex: 1; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
-.bynd-agent-detail summary small { margin-left: auto; font-size: 10px; flex-shrink: 0; color: #8a9b92; }
-.bynd-agent-detail-body { padding: 2px 13px 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-agent-detail__summary { display: flex !important; align-items: center !important; visibility: visible !important; opacity: 1 !important; width: 100% !important; min-height: 37px; gap: 6px; padding: 5px 10px 5px 8px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; line-height: 1.5; }
+.bynd-agent-detail__summary > i:first-child { transition: transform .15s; flex-shrink: 0; color: color-mix(in srgb, var(--bynd-agent-text) 72%, transparent); font-size: 15px; }
+.bynd-agent-detail[data-expanded="true"] .bynd-agent-detail__summary > i:first-child { transform: rotate(90deg); }
+.bynd-agent-detail__summary strong, .bynd-agent-detail__summary > span:not(.bynd-agent-state) { flex: 1; min-width: 0; color: color-mix(in srgb, var(--wc-theme-text, #28323a) 76%, var(--bynd-agent-text)); font-weight: 560; overflow-wrap: anywhere; }
+.bynd-agent-detail__summary small { margin-left: auto; flex-shrink: 0; color: var(--bynd-agent-text); font-size: 10px; }
+.bynd-agent-detail-body { display: block; padding: 2px 13px 12px 30px; border-top: 1px solid color-mix(in srgb, var(--wc-theme-border, #c4cbcf) 78%, transparent); color: var(--bynd-agent-text); line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bynd-agent-detail-body[hidden] { display: none !important; }
 .bynd-agent-detail-body p { margin: 4px 0; }
 .bynd-agent-state { width: 6px; height: 6px; border-radius: 50%; background: #a9b4ac; flex-shrink: 0; }
-.bynd-agent-state.running { background: #89aeba; animation: bynd-agent-pulse 1s infinite alternate; }
-.bynd-agent-state.success { background: #68a48a; }
+.bynd-agent-state.running { background: var(--bynd-agent-accent, #89aeba); animation: bynd-agent-pulse 1s infinite alternate; }
+.bynd-agent-state.success { background: var(--bynd-agent-accent, #68a48a); }
 .bynd-agent-state.error, .bynd-agent-state.interrupted { background: #cb967b; }
 .bynd-reasoning {
     --bynd-reasoning-accent: var(--wc-theme-accent, #7d8488);
@@ -142,6 +149,25 @@
 #app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline .bynd-reasoning__chevron { color: #72c8f2 !important; }
 #app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-reasoning--inline > .bynd-reasoning__content { border-top-color: rgba(255,255,255,.17); color: rgba(242,248,252,.88); }
 
+/* Tool activity uses the same theme-native disclosure language as summaries.
+   Telegram's photo wall needs an explicit readable blue-grey variant. */
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline {
+    --bynd-agent-accent: #2aabee;
+    --bynd-agent-text: rgba(242, 248, 252, .92);
+    width: min(360px, calc(100% - 52px)) !important;
+    min-height: 38px !important;
+    margin: 5px 10px 11px 42px !important;
+    border-color: rgba(255,255,255,.24) !important;
+    border-left-color: rgba(42,171,238,.88) !important;
+    background: rgba(35, 47, 58, .62) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14) !important;
+}
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline .bynd-agent-detail__summary { display: flex !important; min-height: 38px !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline .bynd-agent-detail__summary strong { color: rgba(255,255,255,.94) !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline .bynd-agent-detail__summary > i:first-child { color: #72c8f2 !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline .bynd-agent-detail__summary small { color: rgba(222,242,251,.76) !important; }
+#app-wechat-window.wc-ui-theme-telegram .wc-chat-room .bynd-agent-detail--inline .bynd-agent-detail-body { border-top-color: rgba(255,255,255,.17); color: rgba(242,248,252,.88); }
+
 /* Claude keeps the compact, almost weightless timeline row from its own chat UI. */
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude {
     display: flex;
@@ -166,6 +192,23 @@
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__header { display: none; }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__preview { min-width: 0; overflow: hidden; color: inherit; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 #app-wechat-window.wc-ui-theme-claude .bynd-reasoning--claude .bynd-reasoning__chevron { color: #817a71; font-size: 20px; }
+
+/* Claude has its own restrained, neutral tool timeline rather than a coloured card. */
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude {
+    width: min(calc(100% - 38px), 620px);
+    margin: 7px 19px 13px;
+    border: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #77736d;
+}
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude .bynd-agent-detail__summary { min-height: 32px; padding: 3px 1px; }
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude .bynd-agent-detail__summary > i:first-child,
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude .bynd-agent-detail__summary small { color: #8d877f; }
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude .bynd-agent-detail__summary strong { color: #5f5a54; }
+#app-wechat-window.wc-ui-theme-claude .bynd-agent-detail--claude .bynd-agent-detail-body { margin-left: 14px; padding: 7px 0 8px; border-top-color: rgba(31,29,26,.09); color: #77736d; }
 
 .bynd-reasoning-sheet {
     position: fixed;
@@ -267,8 +310,8 @@
     .bynd-agent-header { padding-left: 10px; padding-right: 10px; }
     .bynd-generator-messages, .bynd-openclaw-body { padding-left: 13px; padding-right: 13px; }
     .bynd-agent-detail { width: calc(100% - 52px); margin-left: 42px; margin-right: 10px; }
-    .bynd-agent-detail summary { gap: 4px; padding: 9px 7px; }
-    .bynd-agent-detail summary small { font-size: 9px; }
+    .bynd-agent-detail__summary { gap: 4px; padding: 9px 7px; }
+    .bynd-agent-detail__summary small { font-size: 9px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .bynd-agent-state.running { animation: none; }
