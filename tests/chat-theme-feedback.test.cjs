@@ -23,8 +23,8 @@ test('status ticket uses a concise generating label', () => {
 
 test('automatic reply follow-ups do not request status and memory in the same turn', () => {
     const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
-    assert.match(source, /const statusRequestWillRun = shouldDeferWechatMemoryAfterReply\(char\);/);
-    assert.match(source, /if \(!statusRequestWillRun\) scheduleWechatMemoryExtraction\(char, 'after_reply'\);/);
+    assert.match(source, /const statusRequestWillRun = !skipStatus && shouldDeferWechatMemoryAfterReply\(char\);/);
+    assert.match(source, /if \(!statusRequestWillRun && turn\?\.memory !== false\) scheduleWechatMemoryExtraction\(char, 'after_reply'\);/);
 });
 
 test('status snapshots are compact, while the generating receipt keeps its real failure reason', () => {

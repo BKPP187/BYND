@@ -433,3 +433,12 @@ test('a failed library preference write cannot deactivate a confirmed character 
     assert.equal(h.timers.length, 0);
     assert.match(h.read('monitorPetStatus'), /切换未能保存/);
 });
+
+test('character-pet reactions from the persisted log appear in the pet 互动记录 page', () => {
+    const h = harness();
+    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    h.chars[0].chatConfig.characterPetLog = [{ text: '谢谢。', state: 'quiet_smile', at: 400 }, { text: '表情：浅笑', state: 'quiet_smile', at: 500 }, { text: '', at: 600 }];
+    h.chars[0].chatConfig.monitorPetState = { bubbleText: 'pet', bubbleAt: 300 };
+    assert.deepEqual(Array.from(h.context.ByndPetWorkspace.activity(), item => [item.text, item.kind, item.at]), [['表情：浅笑', 'pet', 500], ['谢谢。', 'pet', 400], ['pet', 'pet', 300]]);
+    assert.equal(h.context.ByndMonitor.activity().length, 0, 'pet reactions stay out of the monitor feed');
+});

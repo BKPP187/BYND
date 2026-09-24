@@ -88,7 +88,7 @@ test('API context limit validates input and restores its previous value when sav
 test('public summaries are opt-in, separated from visible content, and truncated control blocks never execute', async () => {
     const h = harness();
     const raw = '<bynd_summary>先回应近况，再确认约定。</bynd_summary>我们周末去吧。';
-    assert.deepEqual(clone(await h.context.consumeWechatAgentResponse(h.char, raw)), { content: '我们周末去吧。', summary: '', toolCount: 0 });
+    assert.deepEqual(clone(await h.context.consumeWechatAgentResponse(h.char, raw)), { content: '我们周末去吧。', summary: '', toolCount: 0, decisions: null });
     h.char.chatConfig.agentPreferences = { showThinking: true, allowTodos: true };
     const visible = await h.context.consumeWechatAgentResponse(h.char, raw);
     assert.equal(visible.summary, '先回应近况，再确认约定。');

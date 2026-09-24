@@ -337,16 +337,27 @@ test('manual diary sync updates only letters and preserves the full-phone turn a
     assert.equal(h.state.savedChar.chatConfig.aiPhoneSnapshot.diaryLetters.length, 2);
 });
 
-test('full-phone sync repairs missing letters with a diary-only request', async () => {
+test('full-phone sync saves the phone first and writes missing letters in a later diary-only request', async () => {
     const h = harness();
+    h.open();
     h.state.respond = async () => h.state.requests.length === 1 ? phoneResponse({ diaryLetters: [] }) : phoneResponse();
     const result = await h.context.requestWechatAiPhoneSnapshot(h.char, { force: true });
-    assert.equal(h.state.requests.length, 2);
+    assert.equal(h.state.requests.length, 1, 'the diary request must not join the same burst');
     assert.match(h.state.requests[0].messages[0].content, /本人手机的数据生成器/);
-    assert.match(h.state.requests[1].messages[0].content, /只生成.*两封正式中文书信/);
-    assert.equal(result.diaryLetters.length, 2);
-    assert.equal(result.diarySyncError, undefined);
+    assert.equal(h.state.requests[0].options.background, true);
+    assert.ok(h.state.requests[0].options.backgroundPriority > 0, 'manual sync jumps ahead in the background queue');
+    assert.equal(result.diaryLetters.length, 0);
     assert.equal(result.memos[0].title, '新的备忘录');
+    const timerId = h.context.window._wechatAiPhoneDiaryFollowUpTimers.get(h.char.id);
+    assert.ok(timerId, 'a deferred diary request is scheduled');
+    h.timers.get(timerId)();
+    await h.finish();
+    assert.equal(h.state.requests.length, 2);
+    assert.match(h.state.requests[1].messages[0].content, /只生成.*两封正式中文书信/);
+    assert.equal(h.state.requests[1].options.background, true);
+    assert.equal(h.char.chatConfig.aiPhoneSnapshot.diaryLetters.length, 2);
+    assert.equal(h.char.chatConfig.aiPhoneSnapshot.diarySyncError, undefined);
+    assert.equal(h.char.chatConfig.aiPhoneSnapshot.memos[0].title, '新的备忘录');
 });
 
 test('a malformed diary response gets one bounded repair, then keeps the cached letters on failure', async () => {
@@ -427,24 +438,115 @@ test('new chat turns update other phone data while saved letters survive repeate
     assert.deepEqual(clone(reloaded.char.chatConfig.aiPhoneSnapshot.diaryLetters), before.diaryLetters);
 });
 
-test('phone refresh preserves partial diaries and does not automatically retry a failed diary', async () => {
+test('phone refresh keeps a partial or failed diary without a same-turn diary request inside its backoff', async () => {
     for (const savedLetters of [[], [letters()[0]]]) {
         const h = harness();
         const diagnostics = { responses: [{ content: '之前的返回', acceptedCount: savedLetters.length }] };
-        h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: savedLetters, diaryUpdatedAt: now - 5000, diarySyncError: '日记接口错误 (503)', diarySyncFailedAt: now - 3000, diarySyncDiagnostics: diagnostics });
+        h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: savedLetters, diaryUpdatedAt: now - 5000, diarySyncError: '日记接口错误 (503)', diarySyncFailedAt: now - 3000, diarySyncAttempts: 1, diarySyncDiagnostics: diagnostics });
         h.char.history = [message(true, now - 100), message(false, now - 50)];
+        h.state.respond = async () => phoneResponse({ diaryLetters: [] });
         h.open();
         await h.finish();
         const result = h.char.chatConfig.aiPhoneSnapshot;
         assert.equal(h.state.requests.length, 1);
-        assert.equal(!!h.context.window._wechatAiPhoneDiaryGenerating?.has(h.char.id), false);
+        assert.match(h.state.requests[0].messages[0].content.match(/字段固定：[^。]+/)[0], /diaryLetters/, 'an incomplete mailbox is still requested');
         assert.deepEqual(clone(result.diaryLetters), savedLetters);
         assert.equal(result.diarySyncError, '日记接口错误 (503)');
         assert.equal(result.diarySyncFailedAt, now - 3000);
         assert.equal(result.diaryUpdatedAt, now - 5000);
         assert.deepEqual(clone(result.diarySyncDiagnostics), diagnostics);
         assert.deepEqual(h.state.savedChar.chatConfig.aiPhoneSnapshot.diaryLetters, savedLetters);
+        assert.equal(h.context.window._wechatAiPhoneDiaryFollowUpTimers?.has(h.char.id) || false, false, 'failed diaries back off');
     }
+});
+
+test('a failed diary with zero letters is not frozen: auto sync fills it and a due retry runs on its own', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: [], diarySyncError: '日记接口错误 (503)', diarySyncFailedAt: now - 3000, diarySyncAttempts: 1 });
+    h.char.history = [message(true, now - 100), message(false, now - 50)];
+    h.open();
+    await h.finish();
+    assert.equal(h.state.requests.length, 1);
+    const result = h.char.chatConfig.aiPhoneSnapshot;
+    assert.equal(result.diaryLetters.length, 2);
+    assert.equal(result.diarySyncError, undefined);
+    assert.equal(result.diarySyncAttempts, undefined);
+
+    const due = harness();
+    due.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: [], diarySyncError: '日记接口错误 (503)', diarySyncFailedAt: now - 11 * 60 * 1000, diarySyncAttempts: 1, syncTurnKey: 'saved' });
+    due.open();
+    const timerId = due.context.window._wechatAiPhoneDiaryFollowUpTimers.get(due.char.id);
+    assert.ok(timerId, 'a failed diary gets its own retry once the backoff passed');
+    due.timers.get(timerId)();
+    await due.finish();
+    assert.equal(due.state.requests.length, 1);
+    assert.match(due.state.requests[0].messages[0].content, /只生成.*两封正式中文书信/);
+    assert.equal(due.char.chatConfig.aiPhoneSnapshot.diaryLetters.length, 2);
+    assert.equal(due.char.chatConfig.aiPhoneSnapshot.syncTurnKey, 'saved');
+
+    const exhausted = harness();
+    exhausted.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: [], diarySyncError: 'x', diarySyncFailedAt: now - 24 * 60 * 60 * 1000, diarySyncAttempts: 3 });
+    exhausted.open();
+    assert.equal(exhausted.context.window._wechatAiPhoneDiaryFollowUpTimers?.size || 0, 0, 'automatic diary retries stop after a few failures');
+});
+
+test('a failed deferred diary records the attempt so retries back off', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: [] });
+    h.open();
+    h.state.respond = async () => ({ ok: false, error: 'API 错误 (503)' });
+    h.timers.get(h.context.window._wechatAiPhoneDiaryFollowUpTimers.get(h.char.id))();
+    await h.finish();
+    assert.equal(h.state.requests.length, 1);
+    const saved = h.char.chatConfig.aiPhoneSnapshot;
+    assert.equal(saved.diarySyncAttempts, 1);
+    assert.equal(saved.diarySyncFailedAt, now);
+    h.close();
+    h.open();
+    assert.equal(h.context.window._wechatAiPhoneDiaryFollowUpTimers.size, 0);
+});
+
+test('an unparseable phone reply gets at most one repair request, all through the background queue', async () => {
+    for (const [first, label] of [[{ ok: true, content: 'not JSON' }, 'json'], [{ ok: false, error: 'AI 返回了空内容' }, 'empty']]) {
+        const h = harness();
+        h.state.respond = async () => h.state.requests.length === 1 ? first : ({ ok: true, content: 'still not JSON' });
+        const result = await h.context.requestWechatAiPhoneSnapshot(h.char, { force: true });
+        assert.equal(h.state.requests.length, 2, label);
+        assert.ok(h.state.requests.every(request => request.options.background === true && request.options.usageFeature === 'charPhone'), label);
+        assert.equal(result.generatedBy, 'error', label);
+    }
+    const auto = harness();
+    auto.char.history = [message(true, now - 100), message(false, now - 50)];
+    auto.open();
+    await auto.finish();
+    assert.equal(auto.state.requests[0].options.background, true);
+    assert.ok(!(auto.state.requests[0].options.backgroundPriority > 0), 'automatic sync keeps normal priority');
+});
+
+test('missing phone fields are saved as a partial result and only patched by a user 补全', async () => {
+    const h = harness();
+    vm.runInContext(sourceSection('wechat.js', 'function mergeWechatAiPhoneRawPatch(', 'function normalizeWechatAiPhoneSnapshot('), h.context);
+    h.context.getWechatAiPhoneSnapshotGapSummary = snapshot => snapshot.browser?.length ? '' : '缺少：浏览器';
+    h.char.chatConfig.aiPhoneSnapshot = savedPhone({ diaryLetters: letters(), syncTurnKey: 'old' });
+    h.char.history = [message(true, now - 100), message(false, now - 50)];
+    h.open();
+    await h.finish();
+    assert.equal(h.state.requests.length, 1, 'no same-turn missing-field patch');
+    const partial = h.char.chatConfig.aiPhoneSnapshot;
+    assert.match(partial.syncRecovered, /浏览器/);
+    const turnKey = partial.syncTurnKey;
+    await new Promise(setImmediate);
+    h.state.respond = async () => ({ ok: true, content: JSON.stringify({ browser: [{ title: '补上的浏览记录' }] }) });
+    await h.context.completeWechatAiPhoneSnapshot(h.char.id);
+    assert.equal(h.state.requests.length, 2);
+    assert.match(h.state.requests[1].messages[0].content, /缺项：缺少：浏览器/);
+    assert.equal(h.state.requests[1].options.background, true);
+    const patched = h.char.chatConfig.aiPhoneSnapshot;
+    assert.equal(patched.browser[0].title, '补上的浏览记录');
+    assert.equal(patched.memos[0].title, '新的备忘录');
+    assert.equal(patched.syncRecovered, undefined);
+    assert.equal(patched.syncTurnKey, turnKey);
+    assert.deepEqual(clone(patched.diaryLetters), letters());
 });
 
 test('phone storage failures leave the saved diary and its timestamp intact', async () => {
@@ -548,13 +650,18 @@ test('a bounded repair completes the remaining letter without discarding the fir
     assert.equal(result.diarySyncError, undefined);
 });
 
-test('a complete letter from the full phone response survives the diary repair', async () => {
+test('a complete letter from the full phone response survives the deferred diary repair', async () => {
     const h = harness();
+    h.open();
     h.state.respond = async () => phoneResponse({ diaryLetters: [letters()[h.state.requests.length - 1]] });
     const result = await h.context.requestWechatAiPhoneSnapshot(h.char, { force: true });
+    assert.equal(h.state.requests.length, 1);
+    assert.equal(result.diaryLetters.length, 1);
+    h.timers.get(h.context.window._wechatAiPhoneDiaryFollowUpTimers.get(h.char.id))();
+    await h.finish();
     assert.equal(h.state.requests.length, 2);
-    assert.equal(result.diaryLetters.length, 2);
-    assert.equal(result.diarySyncError, undefined);
+    assert.equal(h.char.chatConfig.aiPhoneSnapshot.diaryLetters.length, 2);
+    assert.equal(h.char.chatConfig.aiPhoneSnapshot.diarySyncError, undefined);
 });
 
 test('partial diary responses remain readable and failure details survive reload', async () => {

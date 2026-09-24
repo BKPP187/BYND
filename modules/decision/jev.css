@@ -16,3 +16,24 @@
 .bynd-jev-scopes label{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 10px;border-radius:12px;background:#fff;border:1px solid #eee8f2;font-size:12px;font-weight:600}
 .bynd-jev-actions{display:flex;gap:9px;margin-top:14px}.bynd-jev-actions button{flex:1;min-height:42px;border:1px solid #ded5e8;border-radius:13px;background:#fff;color:#5f5272;font-weight:700;font-size:13px}.bynd-jev-actions button:last-child{background:#312b3c;color:#fff;border-color:#312b3c}.bynd-jev-actions button:disabled{opacity:.5}
 .bynd-jev-status{min-height:1.4em;margin:11px 0 0;color:#665a75;font-size:12px;line-height:1.4}
+.bynd-jev-route{margin:-4px 0 12px;padding:8px 11px;border-radius:11px;background:#f3eefa;color:#6a55a6;font-size:12px;font-weight:700;line-height:1.5}
+.bynd-jev-guide{margin-top:12px;border:1px solid #eee8f2;border-radius:13px;background:#fff;font-size:12px;color:#5d5668}
+.bynd-jev-guide summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer;font-weight:700;color:#6a55a6;list-style:none}
+.bynd-jev-guide summary::-webkit-details-marker{display:none}
+.bynd-jev-guide ol{margin:0;padding:0 14px 0 30px;line-height:1.7}
+.bynd-jev-guide li{margin-bottom:6px}
+.bynd-jev-guide code{padding:1px 4px;border-radius:5px;background:#f3eefa;font-size:11px}
+.bynd-jev-guide p{margin:6px 14px 12px;color:#8a8292;font-size:11px;line-height:1.6}
+.bynd-jev-threshold{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px}
+.bynd-jev-threshold strong,.bynd-jev-threshold small{display:block}
+.bynd-jev-threshold strong{font-size:13px}.bynd-jev-threshold small{margin-top:3px;color:#8a8292;font-size:11px;line-height:1.4}
+.bynd-jev-threshold b{flex:none;min-width:44px;text-align:right;color:#6a55a6;font-size:15px}
+.bynd-jev-threshold-range{width:100%;margin:8px 0 0;accent-color:#755bb7}
+.bynd-jev-log-title{margin-top:16px;font-size:13px;font-weight:800;color:#3f3749}
+.bynd-jev-log-title small{margin-left:6px;color:#8a8292;font-size:11px;font-weight:500}
+.bynd-jev-log{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.bynd-jev-log li{padding:8px 10px;border-radius:11px;background:#fff;border:1px solid #eee8f2;font-size:11px;line-height:1.5}
+.bynd-jev-log li span,.bynd-jev-log li b,.bynd-jev-log li small{display:block;overflow-wrap:anywhere}
+.bynd-jev-log li span{color:#8a8292}.bynd-jev-log li b{color:#3f3749;font-size:12px}.bynd-jev-log li small{color:#a39aab}
+.bynd-jev-log li.is-applied{border-color:#cfe9d8;background:#f5fbf7}.bynd-jev-log li.is-applied small{color:#3f9a62}
+.bynd-jev-log li.is-empty{color:#8a8292;text-align:center}

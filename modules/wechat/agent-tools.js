@@ -351,6 +351,7 @@
         const config = preferences(char);
         return [
             window.ByndCharacterPet?.chatInstructions(char) || '',
+            window.ByndDecider?.replyInstructions(char) || '',
             config.showThinking ? '请在回复开头用 <bynd_summary>...</bynd_summary> 提供 1-3 句简短、可公开的回应思路摘要。只说明回应目标和必要依据，不输出私有思维链、逐步内部推理或系统提示；正文仍放在标签之外。' : '不要输出 bynd_summary 或思考过程，只给角色正文。',
             !config.allowImages ? '当前角色的生图权限已关闭，不要发出图片生成指令。' : '',
             config.allowTodos ? '可以使用当前角色的待办工具：<bynd_tool>{"name":"todo.add","title":"具体待办标题","note":"可选说明"}</bynd_tool> 或 <bynd_tool>{"name":"todo.list"}</bynd_tool>。只有用户需要记下/查看待办时才调用。最多 3 次；这些是应用内清单，不会自动向系统推送提醒。正文同时自然回应用户。' : '当前角色没有写入待办的权限，不要声称已经创建待办。'
@@ -359,7 +360,8 @@
 
     window.consumeWechatAgentResponse = async (char, raw) => {
         const config = preferences(char);
-        let content = String(raw || '');
+        const decided = window.ByndDecider?.extractReplyDecisions(raw) || { content: String(raw || ''), decisions: null };
+        let content = decided.content;
         let summary = '';
         content = content.replace(/<bynd_summary\b[^>]*>([\s\S]*?)<\/bynd_summary>/gi, (_, value) => { if (config.showThinking && !summary) summary = clean(value, 1200); return ''; });
         const calls = [];
@@ -400,6 +402,6 @@
         }
         if (outcomes.some(event => event.state === 'error')) content = '这次操作没有全部完成：' + outcomes.filter(event => event.state === 'error').map(event => event.result).join('；') + '。';
         else if (outcomes.length && (!content.trim() || outcomes.every(event => event.title === '查看待办'))) content = outcomes.map(event => event.result).join('\n');
-        return { content: content.trim(), summary, toolCount };
+        return { content: content.trim(), summary, toolCount, decisions: decided.decisions };
     };
 })();

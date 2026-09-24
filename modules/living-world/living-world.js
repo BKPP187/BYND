@@ -6,6 +6,12 @@
     const VERSION = 1;
     const MAX_NPCS = 80;
     const DAY = 86400000;
+    const EVENT_RETENTION = { private_chat: 300, forum_view: 200, forum_view_as: 200 };
+    const EVENT_RETENTION_DEFAULT = 800;
+    const KNOWLEDGE_PER_ACCOUNT = 1200;
+    const MAX_IMAGE_SIDE = 1280;
+    const MAX_IMAGE_DATA_URL = 700000;
+    const UNREAD_KEY = 'bynd_living_world_unread_v1';
     const DEFAULT_AVATAR = window.DEFAULT_AVATAR || 'assets/default-avatar.png';
 
     let state = null;
@@ -116,6 +122,19 @@
         next.subscriptions = raw.subscriptions && typeof raw.subscriptions === 'object' ? raw.subscriptions : {};
         next.follows = raw.follows && typeof raw.follows === 'object' ? raw.follows : {};
         next.viewerId = typeof raw.viewerId === 'string' ? raw.viewerId : 'user';
+        // One-time repair: author replies were once saved with the post id as actor and the metadata as target.
+        if (!next.migration?.forumReplyEventsRepaired) {
+            next.events.forEach(event => {
+                if (event.type !== 'forum_reply' || !event.targetId || typeof event.targetId !== 'object') return;
+                const metadata = event.targetId; const comment = next.comments.find(item => item.id === metadata.commentId);
+                event.targetId = String(comment?.postId || event.actorId || ''); event.actorId = comment?.authorId || ''; event.metadata = metadata; event.visibility = 'public';
+            });
+            next.migration = { ...next.migration, forumReplyEventsRepaired: true };
+        }
+        // Private chat mirrors one event per message; keep history bounded so localStorage never fills up.
+        next.events = trimEvents(next.events, next.interactionQueue);
+        const liveEventIds = new Set(next.events.map(item => item.id));
+        next.knowledge = Object.fromEntries(Object.entries(next.knowledge).map(([id, rows]) => [id, safeList(rows).filter(row => row && liveEventIds.has(row.eventId)).slice(-KNOWLEDGE_PER_ACCOUNT)]));
         next.npcs.forEach(npc => { if (!npc.contactCharId && npcInteractionCount(npc.id, next) >= 3 && npc.tier !== 'contact') { npc.tier = 'persistent'; npc.persistent = true; } });
         // v1 briefly shipped local placeholder content. It was never canonical,
         // so remove it once rather than presenting hard-coded people as a world.
@@ -127,6 +146,14 @@
             next.migration = { ...next.migration, seeded: false, apiGenerated: false };
         }
         return next;
+    }
+    function trimEvents(events, queue) {
+        const pinned = new Set(safeList(queue).map(item => item.eventId)); const counts = {}; const kept = [];
+        for (let index = events.length - 1; index >= 0; index--) {
+            const event = events[index]; counts[event.type] = (counts[event.type] || 0) + 1;
+            if (counts[event.type] <= (EVENT_RETENTION[event.type] || EVENT_RETENTION_DEFAULT) || pinned.has(event.id)) kept.push(event);
+        }
+        return kept.reverse();
     }
     function validPost(item) { return !!(item && item.id && item.authorId && item.communityId && String(item.title || item.body || '').trim()); }
     function loadState() {
@@ -140,7 +167,7 @@
         next.updatedAt = now();
         const normalized = normalizeState(next);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); }
-        catch (error) { console.error('Living World 保存失败', error); throw new Error('论坛数据保存失败，未写入本次操作。'); }
+        catch (error) { console.error('Living World 保存失败', error); throw new Error(/quota/i.test(`${error?.name || ''} ${error?.message || ''}`) ? '论坛存储空间已满，保存失败：图片或记录过多，本次操作未写入。可删除部分带图帖子后重试。' : '论坛数据保存失败，未写入本次操作。'); }
         state = normalized;
         normalized.events.filter(event => !oldEventIds.has(event.id)).forEach(event => {
             try { window.dispatchEvent(new CustomEvent('bynd:world-event', { detail: clone(event) })); } catch (_) {}
@@ -263,13 +290,32 @@
         const excerpt = String(message.content || message.description || '').replace(/\s+/g, ' ').trim().slice(0, 140);
         if (!excerpt) return false;
         const sourceKey = `${charId}:${actorId}:${String(message.timestamp || '')}:${excerpt}`;
-        if (loadState().events.some(item => item.type === 'private_chat' && item.metadata?.sourceKey === sourceKey)) return false;
+        const keys = knownPrivateChatKeys();
+        if (keys.has(sourceKey)) return false;
         mutate(next => {
             if (!next.accounts[charId]) next.accounts[charId] = accountFromChar(char);
             const event = addEvent(next, 'private_chat', actorId, recipientId, { sourceKey, excerpt, privateTo: [charId, 'user'] }, 'private');
             grantKnowledge(next, actorId, event, actorId, 'direct', 1);
             grantKnowledge(next, recipientId, event, actorId, 'direct', 1);
         });
+        keys.add(sourceKey); privateChatKeysState = state;
+        return true;
+    }
+    // Chat mirroring runs per message; a cached key set keeps dedupe from rescanning every event each time.
+    let privateChatKeys = new Set(); let privateChatKeysState = null;
+    function knownPrivateChatKeys() {
+        const world = loadState();
+        if (privateChatKeysState !== world) { privateChatKeys = new Set(world.events.filter(item => item.type === 'private_chat').map(item => item.metadata?.sourceKey)); privateChatKeysState = world; }
+        return privateChatKeys;
+    }
+    function clearPrivateChatEvents(char) {
+        if (!char?.id) return false;
+        const world = loadState();
+        const ids = new Set([`char:${char.id}`, ...world.npcs.filter(item => item.contactCharId === char.id).map(item => item.id)]);
+        const removed = new Set(world.events.filter(item => item.type === 'private_chat' && safeList(item.metadata?.privateTo).some(id => ids.has(id))).map(item => item.id));
+        if (!removed.size) return false;
+        // normalizeState drops the knowledge rows that pointed at the removed events.
+        mutate(next => { next.events = next.events.filter(item => !removed.has(item.id)); });
         return true;
     }
     function recordView(postId, sensitivity = 'low') {
@@ -393,7 +439,7 @@
     function updateReplyDraft(value) { replyDraft = String(value || '').slice(0,1600); const button = document.querySelector('.lw-reply-send'); if (button) button.disabled = !replyDraft.trim(); }
     function setReplyMedia(kind) { replyMediaKind = replyMediaKind === kind ? '' : kind; replyDraftImage = ''; render(); document.getElementById('lw-reply-media-url')?.focus(); }
     function clearReplyMedia() { replyMediaKind = ''; replyDraftImage = ''; render(); }
-    function pickReplyImage(input) { const file = input?.files?.[0]; if (!file) return; if (!/^image\/(png|jpeg|webp|gif)$/i.test(file.type) || file.size > 1024 * 1024) { showToast('评论图片需小于 1 MB。'); return; } const reader = new FileReader(); reader.onload = () => { replyDraftImage = String(reader.result || ''); replyMediaKind = 'image'; render(); }; reader.onerror = () => showToast('图片读取失败。'); reader.readAsDataURL(file); }
+    function pickReplyImage(input) { const file = input?.files?.[0]; if (!file) return; if (!/^image\/(png|jpeg|webp|gif)$/i.test(file.type) || file.size > 20 * 1024 * 1024) { showToast('评论图片需小于 20 MB。'); return; } compressImageFile(file).then(dataUrl => { replyDraftImage = dataUrl; replyMediaKind = 'image'; render(); }).catch(error => showToast(error?.message || '图片读取失败。')); }
     function toggleCommentSort() { commentSort = commentSort === 'new' ? 'old' : 'new'; render(); }
     function replyToComment(id) { const comment = commentsFor(activePostId).find(row => row.id === id); if (!comment) return; openReplyComposer(id); }
     function clearReplyTarget() { replyTargetId = ''; render(); }
@@ -466,7 +512,7 @@
             <p>完整模式只在角色主页实际更新时尝试生图。生图 API 未配置或失败时保留现有头像，并提示错误。</p>
             <section class="lw-promo-settings"><div class="lw-promo-settings-head"><span class="lw-promo-settings-icon"><i class="ri-megaphone-line"></i></span><div><h2>世界内推广</h2><p>让世界里的店铺与事件自然出现在信息流。</p></div></div><input id="lw-promotion-enabled" type="hidden" value="${settings.promotionsEnabled ? 'yes' : 'no'}"><div class="lw-promo-segment" role="group" aria-label="展示推广"><button type="button" class="${settings.promotionsEnabled ? 'active' : ''}" onclick="LivingWorld.setPromotionEnabled(true)">开启</button><button type="button" class="${!settings.promotionsEnabled ? 'active' : ''}" onclick="LivingWorld.setPromotionEnabled(false)">关闭</button></div><div class="lw-promo-preview"><span>信息流预览</span><strong>推广 · Sponsored</strong><p>与当前世界相关的内容会在这里出现</p></div><div class="lw-promo-sliders"><label for="lw-promotion-min"><span>最少间隔</span><b id="lw-promotion-min-display">${Number(settings.promotionMinGap || 8)} 条</b></label><input id="lw-promotion-min" type="range" min="4" max="30" value="${Number(settings.promotionMinGap || 8)}" oninput="LivingWorld.updatePromotionGap('min',this.value)"><label for="lw-promotion-max"><span>最多间隔</span><b id="lw-promotion-max-display">${Number(settings.promotionMaxGap || 15)} 条</b></label><input id="lw-promotion-max" type="range" min="4" max="30" value="${Number(settings.promotionMaxGap || 15)}" oninput="LivingWorld.updatePromotionGap('max',this.value)"></div><p class="lw-promo-note">每隔设定数量的帖子随机插入 1 条。始终明确标注「推广」，关闭后不再展示或生成。</p></section><h2 class="lw-hidden-title">已隐藏的帖子</h2>${safeList(loadState().hiddenPosts[viewer().id]).map(id => { const post = loadState().posts.find(row => row.id === id); return post ? `<button class="lw-hidden-post" type="button" onclick="LivingWorld.restoreHiddenPost('${escapeAttr(id)}')">${escapeHtml(post.title)} <span>恢复</span></button>` : ''; }).join('') || '<p class="lw-hidden-empty">暂无隐藏的帖子</p>'}
             <div class="lw-settings-actions"><button class="lw-settings-save" type="button" onclick="LivingWorld.saveForumSettings()">保存设置</button><button class="lw-settings-run" type="button" onclick="LivingWorld.progressWorld()" ${isGenerating ? 'disabled' : ''}>推进一位角色</button></div>
-            <div class="lw-world-expand"><div><strong>扩展世界</strong><p>批量生成新社区、路人和世界线索。会比推进单个角色消耗更多文本额度。</p></div><button type="button" onclick="LivingWorld.generate()" ${isGenerating ? 'disabled' : ''}>扩展</button></div>${settings.lastAttemptAt ? `<small>上次自动尝试：${new Date(settings.lastAttemptAt).toLocaleString('zh-CN')}</small>` : ''}
+            <div class="lw-world-expand"><div><strong>扩展世界</strong><p>批量生成新社区、路人和世界线索。会比推进单个角色消耗更多文本额度。</p></div><button type="button" onclick="LivingWorld.generate()" ${isGenerating ? 'disabled' : ''}>扩展</button></div>${settings.lastAttemptAt ? `<small>上次自动尝试：${new Date(settings.lastAttemptAt).toLocaleString('zh-CN')}</small>` : ''}${settings.lastAutoFailure?.reason ? `<small class="lw-auto-failure">上次自动推进失败：${escapeHtml(settings.lastAutoFailure.reason)}（${new Date(settings.lastAutoFailure.at).toLocaleString('zh-CN')}）${settings.autoRetryAt ? `，将于 ${new Date(settings.autoRetryAt).toLocaleString('zh-CN')} 重试` : ''}</small>` : ''}
         </section>`;
     }
     function visibleSocialLinks() {
@@ -747,7 +793,34 @@
     }
     function updateAmaStart() { const input = document.getElementById('lw-ama-start-at'); if (input) { input.hidden = document.getElementById('lw-ama-start-mode')?.value !== 'later'; if (!input.hidden && !input.value) { const start = new Date(now() + 3600000); input.value = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}T${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`; } } }
     function removeDraftImage() { draftImage = ''; document.querySelector('.lw-draft-image')?.remove(); }
-    function pickImage(input) { const file = input?.files?.[0]; if (!file) return; if (!/^image\/(png|jpeg|webp|gif)$/i.test(file.type) || file.size > 2 * 1024 * 1024) { showToast('请选择小于 2 MB 的 PNG、JPG、WebP 或 GIF 图片。'); input.value = ''; return; } const reader = new FileReader(); reader.onload = () => { draftImage = String(reader.result || ''); document.querySelector('.lw-draft-image')?.remove(); const container = document.createElement('div'); container.className = 'lw-draft-image'; const img = document.createElement('img'); img.src = draftImage; img.alt = '待发布图片'; const button = document.createElement('button'); button.type = 'button'; button.textContent = '移除'; button.onclick = removeDraftImage; container.append(img, button); document.querySelector('.lw-compose-tools')?.before(container); }; reader.onerror = () => showToast('图片读取失败。'); reader.readAsDataURL(file); }
+    function pickImage(input) { const file = input?.files?.[0]; if (!file) return; if (!/^image\/(png|jpeg|webp|gif)$/i.test(file.type) || file.size > 20 * 1024 * 1024) { showToast('请选择小于 20 MB 的 PNG、JPG、WebP 或 GIF 图片。'); input.value = ''; return; } compressImageFile(file).then(dataUrl => { draftImage = dataUrl; document.querySelector('.lw-draft-image')?.remove(); const container = document.createElement('div'); container.className = 'lw-draft-image'; const img = document.createElement('img'); img.src = draftImage; img.alt = '待发布图片'; const button = document.createElement('button'); button.type = 'button'; button.textContent = '移除'; button.onclick = removeDraftImage; container.append(img, button); document.querySelector('.lw-compose-tools')?.before(container); }).catch(error => { if (input) input.value = ''; showToast(error?.message || '图片读取失败。'); }); }
+    // Forum media lives inside the localStorage world state, so every picked image is downscaled to a JPEG first.
+    function compressImageFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('图片读取失败。'));
+            reader.onload = () => {
+                const image = new Image();
+                image.onerror = () => reject(new Error('图片无法读取。'));
+                image.onload = () => {
+                    try {
+                        const width = image.naturalWidth || image.width, height = image.naturalHeight || image.height; let side = MAX_IMAGE_SIDE;
+                        for (const quality of [.82, .7, .58]) {
+                            const scale = Math.min(1, side / Math.max(width, height, 1));
+                            const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
+                            const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                            const result = canvas.toDataURL('image/jpeg', quality);
+                            if (result.length <= MAX_IMAGE_DATA_URL) { resolve(result); return; }
+                            side = Math.round(side * .75);
+                        }
+                        reject(new Error('图片压缩后仍然过大，请换一张较小的图片。'));
+                    } catch (error) { reject(error); }
+                };
+                image.src = String(reader.result || '');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
     function startMessage() { activeThreadId = ''; activeTab = 'chat'; render(); const main = document.querySelector('.lw-inbox'); if (!main) return; const chooser = document.createElement('div'); chooser.className = 'lw-recipient-chooser'; chooser.innerHTML = `<div class="lw-chooser-head"><b>新私信</b><button type="button" onclick="this.closest('.lw-recipient-chooser').remove()" aria-label="关闭"><i class="ri-close-line"></i></button></div><input type="search" placeholder="搜索成员" aria-label="搜索成员" oninput="LivingWorld.filterRecipients(this.value)"><div id="lw-recipient-list"></div>`; main.prepend(chooser); filterRecipients(''); chooser.querySelector('input')?.focus(); }
     function toggleCommunityForm() { const form = document.getElementById('lw-community-form'); if (form) { form.hidden = !form.hidden; if (!form.hidden) document.getElementById('lw-community-name')?.focus(); } }
     function createCommunity(event) { event.preventDefault(); const name = document.getElementById('lw-community-name')?.value.trim(); const description = document.getElementById('lw-community-description')?.value.trim(); if (!name || !description) return false; const id = uid('community'); const composing = activeTab === 'create'; try { mutate(next => { if (next.communities.some(item => item.name.toLowerCase() === name.toLowerCase())) throw new Error('这个社区名称已存在。'); next.communities.push({ id, name: name.slice(0, 40), description: description.slice(0, 160), icon: 'ri-community-line', createdAt: now(), ownerId: next.viewerId, generated: false }); next.subscriptions[next.viewerId] = [...new Set([...safeList(next.subscriptions[next.viewerId]), id])]; addEvent(next, 'forum_community_create', next.viewerId, id, { name }, 'public'); }); activeCommunity = id; if (composing) { const select = document.getElementById('lw-post-community'); if (select) { const option = document.createElement('option'); option.value = id; option.textContent = name; select.append(option); } selectComposeCommunity(id); } else { activeTab = 'home'; render(); } showToast('社区已创建。'); } catch (error) { showToast(error.message); } return false; }
@@ -813,7 +886,7 @@
     async function copyText(value) { try { if (!window.navigator?.clipboard?.writeText) throw new Error('当前环境不支持复制。'); await window.navigator.clipboard.writeText(value); showToast('已复制。'); } catch (error) { showToast(error.message || '复制失败。'); } }
     function copyPostLink() { const id = activePostId; postActionSheetOpen = false; render(); void copyText(postLink(id)); }
     function copyPostText() { const post = loadState().posts.find(item => item.id === activePostId); postActionSheetOpen = false; render(); if (post && !post.deletedAt) void copyText(`${post.title}\n\n${post.body || ''}`); }
-    function comicCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post || post.deletedAt) return; postActionSheetOpen = false; window.ByndComic?.fromSource('forum', post.authorId, `${post.title}\n\n${post.body || ''}`); }
+    function comicCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post || post.deletedAt) return; postActionSheetOpen = false; const author = String(post.authorId || ''); const charId = author.startsWith('char:') ? author.slice(5) : loadState().npcs.find(item => item.id === author)?.contactCharId || ''; window.ByndComic?.fromSource('forum', charId, `${post.title}\n\n${post.body || ''}`); }
     function shareCurrentPost() { postActionSheetOpen = false; sharePost(activePostId); }
     function saveCurrentPost() { postActionSheetOpen = false; toggleBookmark(activePostId); }
     function followCurrentPost() { const id = activePostId; try { mutate(next => { const follows = new Set(safeList(next.postFollows[next.viewerId])); if (follows.has(id)) follows.delete(id); else follows.add(id); next.postFollows[next.viewerId] = [...follows]; }); postActionSheetOpen = false; render(); } catch (error) { showToast(error.message); } }
@@ -1141,7 +1214,7 @@
                 if (decision.action === 'reply' && currentPost && !currentPost.deletedAt && currentComment && !next.comments.some(item => item.parentCommentId === task.commentId && item.authorId === actor.id)) {
                     const row = { id:uid('comment'), postId:task.postId, parentCommentId:task.commentId, authorId:actor.id, body:decision.body.trim(), createdAt:now(), generated:true };
                     next.comments.push(row); currentPost.commentCount = Number(currentPost.commentCount || 0) + 1;
-                    const event = addEvent(next,'forum_reply',task.postId,{ commentId:row.id, excerpt:row.body.slice(0,180), sourceEventIds:[task.eventId], generated:true },'public');
+                    const event = addEvent(next,'forum_reply',actor.id,task.postId,{ commentId:row.id, excerpt:row.body.slice(0,180), sourceEventIds:[task.eventId], generated:true },'public');
                     grantKnowledge(next,actor.id,event,actor.id,'authored',1);
                     notify(next,currentComment.authorId,'有人回复了你的评论',`${actor.name}：${row.body.slice(0,70)}`,task.postId);
                     grantKnowledge(next,currentComment.authorId,event,actor.id,'notification',1);
@@ -1218,7 +1291,11 @@
         const encountered = actorBrowsePosts(world,actor.id);
         const context = actorWorldContext(world,actor.id,encountered);
         isGenerating = true; render(); if (!options.offline) showToast(`${actor.name} 正在经历自己的这一天…`);
-        let outcome = '';
+        let outcome = ''; let failure = '';
+        const settings = world.forumSettings; const lastPromotionAt = Math.max(0, ...world.promotions.map(item => Number(item.createdAt || 0)));
+        const postsSincePromotion = world.posts.filter(post => Number(post.createdAt || 0) > lastPromotionAt).length;
+        // Promotions follow the feed gap settings: after min..max new posts, one actor step may add a world-grounded promotion.
+        const promotionDue = !!settings.promotionsEnabled && postsSincePromotion >= Math.max(4, Number(settings.promotionMinGap || 8)) && (postsSincePromotion >= Number(settings.promotionMaxGap || 15) || Math.random() < .5);
         try {
             const actionOptions = { silence:'No public action is natural now.', post:'Publish a new public forum post.', profile:'Update public nickname, handle, mood or bio.', community:'Create a relevant new community.' };
             if (context.encounteredPosts.length) actionOptions.reply = 'Reply to a post this actor has actually encountered.';
@@ -1231,17 +1308,37 @@
                 return;
             }
             const actionGuidance = jevAction ? `Jev 已选择 action=${jevAction}。你只负责补全该行动的有效内容；若该行动与已知事实或角色意愿冲突，可改为 silence，不得换成其他行动。` : '先判断此时的意愿，再只选一个动作。';
-            const prompt = `你只扮演 BYND 论坛的一位角色。以下资料是这位角色自己的身份、已知经历与本次实际刷到的帖子，不是全知世界。actor.worldRules 只约束世界设定，不意味着角色知道其中每件事；角色可选择沉默，不要为了产出而编造遭遇，不要替 User 行动，不要泄露私聊原文。${actionGuidance}只返回严格 JSON：{"actorId":"${actor.id}","action":"silence|post|reply|delete|profile|community","sourceEventIds":[],"communityId":"发帖社区ID","targetPostId":"回复或删除的帖子ID","title":"帖子标题","body":"帖子或回复内容","deleteAfterMinutes":0,"name":"社交平台公开昵称","username":"@可更改的公开ID","summary":"签名","mood":"心情","followerCount":0,"avatarPrompt":"头像描述","description":"新社区简介"}。只填写所选动作需要的字段。profile 的 followerCount 是公开粉丝总数，不得小于已知关注者 ${profileMetrics(actor.id).followers} 人，不要编造粉丝身份。sourceEventIds 只能引用 knownEvents 或 encounteredPosts 的 eventId。reply 只能回复已知或本次刷到的帖子；delete 只能删除自己生成的帖子。行为要延续已有情绪与习惯，但记忆不能改写原始事实。若没有自然动机，返回 action=silence。\n${JSON.stringify(context)}`;
+            const prompt = `你只扮演 BYND 论坛的一位角色。以下资料是这位角色自己的身份、已知经历与本次实际刷到的帖子，不是全知世界。actor.worldRules 只约束世界设定，不意味着角色知道其中每件事；角色可选择沉默，不要为了产出而编造遭遇，不要替 User 行动，不要泄露私聊原文。${actionGuidance}只返回严格 JSON：{"actorId":"${actor.id}","action":"silence|post|reply|delete|profile|community","sourceEventIds":[],"communityId":"发帖社区ID","targetPostId":"回复或删除的帖子ID","title":"帖子标题","body":"帖子或回复内容","deleteAfterMinutes":0,"name":"社交平台公开昵称","username":"@可更改的公开ID","summary":"签名","mood":"心情","followerCount":0,"avatarPrompt":"头像描述","description":"新社区简介"}。只填写所选动作需要的字段。profile 的 followerCount 是公开粉丝总数，不得小于已知关注者 ${profileMetrics(actor.id).followers} 人，不要编造粉丝身份。sourceEventIds 只能引用 knownEvents 或 encounteredPosts 的 eventId。reply 只能回复已知或本次刷到的帖子；delete 只能删除自己生成的帖子。行为要延续已有情绪与习惯，但记忆不能改写原始事实。若没有自然动机，返回 action=silence。${promotionDue ? '此外，信息流需要一条世界内推广：可额外输出 "promotion":{"sponsor":"","headline":"","body":"","detail":"","cta":"","targetCommunityIds":["社区ID"]}，从这位角色所处世界里的店铺或活动出发，明确是推广，不写真实广告商或外部链接；它与 action 无关，不合适就省略。' : ''}\n${JSON.stringify(context)}`;
             const result = await window.callChatApi([{ role:'system', content:'只输出单个角色的严格 JSON 决策；世界事实以输入为准。' },{ role:'user', content:prompt }],{ background:true, backgroundPriority:-1, stream:false, temperature:.72, max_tokens:1300, usageFeature:'forum' });
             if (!result?.ok) throw new Error(result?.error || '角色行动决策失败。');
-            const decision = validateActorDecision(world,actor.id,encountered,parseJsonBatch(result.content));
+            const raw = parseJsonBatch(result.content);
+            const decision = validateActorDecision(world,actor.id,encountered,raw);
             if (jevAction && decision.action !== jevAction && decision.action !== 'silence') throw new Error('角色行动与 Jev 决策不一致。');
-            mutate(next => { if (next.posts.length !== world.posts.length || next.events.length !== world.events.length || next.knowledge[actor.id]?.length !== world.knowledge[actor.id]?.length) throw new Error('世界在角色思考时已经变化，请重新推进。'); commitActorDecision(next,actor.id,encountered,decision); });
+            const promotion = promotionDue ? actorPromotion(world,actor.id,raw.promotion) : null;
+            mutate(next => { if (next.posts.length !== world.posts.length || next.events.length !== world.events.length || next.knowledge[actor.id]?.length !== world.knowledge[actor.id]?.length) throw new Error('世界在角色思考时已经变化，请重新推进。'); commitActorDecision(next,actor.id,encountered,decision); if (promotion) { next.promotions.push({ id:uid('promotion'), ...promotion, createdAt:now(), generated:true, actorId:actor.id }); next.promotions = next.promotions.slice(-40); } });
             const avatars = decision.action === 'profile' && loadState().forumSettings.profileMode === 'full' ? await generatePendingAvatars(1,actor.id) : { made:0, error:'' };
             outcome = decision.action === 'silence' ? `${actor.name} 看了看论坛，今天没有发言。` : `${actor.name} 的${{ post:'帖子', reply:'回复', delete:'删帖', profile:'主页更新', community:'新社区' }[decision.action]}已写入世界轨迹。`;
             if (avatars.error) outcome += ` 头像未更新：${avatars.error}`;
-        } catch (error) { console.warn('Living World actor step rejected',error); outcome = error?.message || '角色行动失败，世界状态未改变。'; }
-        finally { isGenerating = false; processPlannedDeletes(); render(); if (!options.offline) showToast(outcome); }
+        } catch (error) { console.warn('Living World actor step rejected',error); outcome = error?.message || '角色行动失败，世界状态未改变。'; failure = outcome; }
+        finally { isGenerating = false; if (options.offline && (failure || loadState().forumSettings.autoFailureCount)) recordAutoAttempt(failure); processPlannedDeletes(); render(); if (!options.offline) showToast(outcome); }
+    }
+    function actorPromotion(world, actorId, raw) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+        try { const item = validateBatch({ newPromotions:[{ ...raw, privateFor:'' }] }).promotions[0]; return item && !copiesPrivateChat(world,actorId,{ title:item.headline, body:`${item.body} ${item.detail}` }) ? item : null; }
+        catch (_) { return null; }
+    }
+    // A failed scheduled step (e.g. relay 429) retries after 10 min, doubling up to the refresh interval, instead of waiting a whole interval.
+    function recordAutoAttempt(failure) {
+        try {
+            mutate(next => {
+                const settings = next.forumSettings;
+                if (!failure) { settings.autoFailureCount = 0; settings.autoRetryAt = 0; settings.lastAutoFailure = null; return; }
+                const count = Math.min(12, Number(settings.autoFailureCount || 0) + 1);
+                const cap = Math.max(10 * 60000, (settings.refreshMode === 'interval' ? Number(settings.intervalHours || 12) : 6) * 3600000);
+                settings.autoFailureCount = count; settings.autoRetryAt = now() + Math.min(cap, 10 * 60000 * 2 ** (count - 1));
+                settings.lastAutoFailure = { reason:String(failure).slice(0,160), at:now() };
+            });
+        } catch (error) { console.warn('论坛自动推进状态未保存', error); }
     }
     function progressWorld(options = {}) { const world = loadState(); return !world.migration?.apiGenerated || !world.communities.length || !agentActors(world).length ? generate({ ...options, bootstrap:!world.communities.length }) : advanceWorld(options); }
     async function generate(options = {}) {
@@ -1292,9 +1389,17 @@
         finally { isGenerating = false; processPlannedDeletes(); render(); showToast(outcome); }
     }
     function processPlannedDeletes() { const due = loadState().posts.filter(post => post.plannedDeleteAt && !post.deletedAt && post.plannedDeleteAt <= now()); if (!due.length) return; try { mutate(next => { next.posts.filter(post => post.plannedDeleteAt && !post.deletedAt && post.plannedDeleteAt <= now()).forEach(post => tombstonePost(next,post,post.authorId,true,post.plannedDeleteAt)); }); render(); } catch (error) { showToast(error.message); } }
-    function maybeLazySimulate() { if (now() - lastScheduleCheck < 30000) return; lastScheduleCheck = now(); const world = loadState(); if (!world.migration?.apiGenerated || isGenerating) return; const settings = world.forumSettings; const elapsed = now() - Number(world.lastSimulatedAt || now()); const lastAttempt = Number(settings.lastAttemptAt || 0); let due = false; if (settings.refreshMode === 'interval') due = now() - Math.max(Number(world.lastSimulatedAt || 0),lastAttempt) >= Number(settings.intervalHours || 12) * 3600000; if (settings.refreshMode === 'smart') { if (!settings.nextSmartAt) { try { mutate(next => { next.forumSettings.nextSmartAt = nextSmartTime(now()); }); } catch (error) { showToast(error.message); } return; } due = now() >= Number(settings.nextSmartAt) && now() - lastAttempt >= 30 * 60000; } if (!due) return; try { mutate(next => { next.forumSettings.lastAttemptAt = now(); if (settings.refreshMode === 'smart') next.forumSettings.nextSmartAt = nextSmartTime(now()); }); void advanceWorld({ offline: true, elapsed }); } catch (error) { showToast(error.message); } }
-    async function init() { if (window._wechatCharactersLoadPromise) { try { await window._wechatCharactersLoadPromise; } catch (_) {} } let saveError = null; try { syncAccounts(); queueRecentInteractions(); } catch (error) { saveError = error; } activeTab = activeTab || 'home'; render(); if (saveError) showToast(saveError.message); else { processPlannedDeletes(); maybeLazySimulate(); void maybeRunInteraction(); } }
+    function maybeLazySimulate() { if (now() - lastScheduleCheck < 30000) return; lastScheduleCheck = now(); const world = loadState(); if (!world.migration?.apiGenerated || isGenerating) return; const settings = world.forumSettings; const elapsed = now() - Number(world.lastSimulatedAt || now()); const lastAttempt = Number(settings.lastAttemptAt || 0); const retryAt = Number(settings.autoRetryAt || 0); let due = false; if (settings.refreshMode === 'interval') due = retryAt ? now() >= retryAt : now() - Math.max(Number(world.lastSimulatedAt || 0),lastAttempt) >= Number(settings.intervalHours || 12) * 3600000; if (settings.refreshMode === 'smart') { if (!settings.nextSmartAt) { try { mutate(next => { next.forumSettings.nextSmartAt = nextSmartTime(now()); }); } catch (error) { showToast(error.message); } return; } due = retryAt ? now() >= retryAt : now() >= Number(settings.nextSmartAt) && now() - lastAttempt >= 30 * 60000; } if (!due) return; try { mutate(next => { next.forumSettings.lastAttemptAt = now(); next.forumSettings.autoRetryAt = 0; if (settings.refreshMode === 'smart' && !retryAt) next.forumSettings.nextSmartAt = nextSmartTime(now()); }); void advanceWorld({ offline: true, elapsed }); } catch (error) { showToast(error.message); } }
+    async function init() { setForumUnread(false); if (window._wechatCharactersLoadPromise) { try { await window._wechatCharactersLoadPromise; } catch (_) {} } let saveError = null; try { syncAccounts(); queueRecentInteractions(); } catch (error) { saveError = error; } activeTab = activeTab || 'home'; render(); if (saveError) showToast(saveError.message); else { processPlannedDeletes(); maybeLazySimulate(); void maybeRunInteraction(); } }
     if (typeof window.setInterval === 'function') window.setInterval(() => { if (document.hidden) return; void maybeRunInteraction(); const forum = document.getElementById('app-living-world-window'); if (!forum || forum.classList.contains('hidden')) return; processPlannedDeletes(); maybeLazySimulate(); const current = now(); const boundary = loadState().posts.some(post => post.ama && ((Number(post.amaStartsAt) > lastAmaCheckAt && Number(post.amaStartsAt) <= current) || (Number(post.expiresAt) > lastAmaCheckAt && Number(post.expiresAt) <= current))); lastAmaCheckAt = current; if (boundary) { if (activeTab === 'detail' && !isVisible(loadState().posts.find(post => post.id === activePostId),viewer().id)) { activeTab = 'home'; activePostId = ''; replyComposerOpen = false; } render(); } }, 30000);
+    // Background replies (「应用运行时自动」) land while the forum is closed; flag the desktop entry until the forum opens.
+    function setForumUnread(value) { try { if (value) localStorage.setItem(UNREAD_KEY, '1'); else localStorage.removeItem(UNREAD_KEY); } catch (_) {} document.documentElement?.classList?.toggle('lw-forum-unread', !!value); }
+    if (typeof window.addEventListener === 'function') window.addEventListener('bynd:world-event', event => {
+        const item = event?.detail; const forum = document.getElementById('app-living-world-window');
+        if (!item || !item.actorId || item.actorId === 'user' || !['forum_reply','forum_post','forum_dm_reply','forum_news_reply','forum_follow','forum_like'].includes(item.type) || (forum && !forum.classList.contains('hidden'))) return;
+        setForumUnread(true);
+    });
+    try { if (localStorage.getItem(UNREAD_KEY)) document.documentElement?.classList?.add('lw-forum-unread'); } catch (_) {}
 
     function getRelevantEventsForChar(char, limit = 4) {
         const charId = char?.id ? (loadState().npcs.find(item => item.contactCharId === char.id)?.id || `char:${char.id}`) : String(char || ''); if (!charId) return '';
@@ -1339,7 +1444,7 @@
         }).join('\n');
     }
 
-    window.LivingWorld = { init, render, setTab, setCommunity, openCommunity, openPost, openPostLink, openProfile, refreshProfile, back, toggleMenu, menuGo, returnToDesktop, saveForumSettings, setPromotionEnabled, updatePromotionGap, restoreHiddenPost, getVisibleSocialLinks: visibleSocialLinks, togglePerspective, toggleSearch, submitSearch, searchFor, clearSearch, toggleCommentSearch, submitCommentSearch, clearCommentSearch, openReplyComposer, closeReplyComposer, updateReplyDraft, setReplyMedia, clearReplyMedia, pickReplyImage, togglePostActions, copyPostLink, copyPostText, comicCurrentPost, shareCurrentPost, saveCurrentPost, followCurrentPost, hideCurrentPost, blockPostAuthor, reportCurrentPost, awardCurrentPost, crosspostCurrentPost, postLanguageInfo, translateCurrentPost, translateNews, openChat, setActivityTab, setProfileTab, editProfile, pickProfileAvatar, saveProfile, setViewer, createPost, reply, replyToComment, clearReplyTarget, toggleCommentSort, voteComment, vote, votePoll, toggleLike, toggleBookmark, toggleBlock, togglePostMenu, sharePost, shareNews, closeShare, shareToForumDm, shareToCharacterChat, deletePost, toggleFollow, toggleCommunityPicker, selectComposeCommunity, showComposeCommunityForm, updateCompose, toggleLinkInput, togglePoll, addPollOption, toggleAma, openAmaPicker, closeAmaPicker, selectAmaOption, updateAmaStart, removeDraftImage, pickImage, startMessage, filterRecipients, openThread, sendMessage, retryDirectReply, markAllRead, toggleCommunityForm, createCommunity, toggleSubscribe, promoteNpc, openNotice, fetchRealNews, openNews, commentNews, updateNewsDraft, openPromotion, generate, advanceWorld, maybeRunInteraction, progressWorld, getRelevantEventsForChar, recordPrivateChatMessage, storageKey: STORAGE_KEY };
+    window.LivingWorld = { init, render, setTab, setCommunity, openCommunity, openPost, openPostLink, openProfile, refreshProfile, back, toggleMenu, menuGo, returnToDesktop, saveForumSettings, setPromotionEnabled, updatePromotionGap, restoreHiddenPost, getVisibleSocialLinks: visibleSocialLinks, togglePerspective, toggleSearch, submitSearch, searchFor, clearSearch, toggleCommentSearch, submitCommentSearch, clearCommentSearch, openReplyComposer, closeReplyComposer, updateReplyDraft, setReplyMedia, clearReplyMedia, pickReplyImage, togglePostActions, copyPostLink, copyPostText, comicCurrentPost, shareCurrentPost, saveCurrentPost, followCurrentPost, hideCurrentPost, blockPostAuthor, reportCurrentPost, awardCurrentPost, crosspostCurrentPost, postLanguageInfo, translateCurrentPost, translateNews, openChat, setActivityTab, setProfileTab, editProfile, pickProfileAvatar, saveProfile, setViewer, createPost, reply, replyToComment, clearReplyTarget, toggleCommentSort, voteComment, vote, votePoll, toggleLike, toggleBookmark, toggleBlock, togglePostMenu, sharePost, shareNews, closeShare, shareToForumDm, shareToCharacterChat, deletePost, toggleFollow, toggleCommunityPicker, selectComposeCommunity, showComposeCommunityForm, updateCompose, toggleLinkInput, togglePoll, addPollOption, toggleAma, openAmaPicker, closeAmaPicker, selectAmaOption, updateAmaStart, removeDraftImage, pickImage, startMessage, filterRecipients, openThread, sendMessage, retryDirectReply, markAllRead, toggleCommunityForm, createCommunity, toggleSubscribe, promoteNpc, openNotice, fetchRealNews, openNews, commentNews, updateNewsDraft, openPromotion, generate, advanceWorld, maybeRunInteraction, progressWorld, getRelevantEventsForChar, recordPrivateChatMessage, clearPrivateChatEvents, storageKey: STORAGE_KEY };
     window.initLivingWorld = init;
     window.LivingWorld.getRelationshipGraph = relationshipGraphData;
     window.LivingWorld.openRelation = openRelation;

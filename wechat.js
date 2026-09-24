@@ -10151,6 +10151,32 @@ function consumeWechatAvatarDirective(char, content) {
     return { content: text, changed, backgroundChanged };
 }
 
+// After a reply, the decision layer (Jev when configured, otherwise the reply's own <bynd_decide> verdicts)
+// says which background jobs are worth a request; null keeps the original BYND behaviour for that job.
+async function runWechatTurnFollowUps(char, context = {}) {
+    let turn = null;
+    try { turn = await window.ByndDecider?.afterReply(char, { replyDecisions: context.replyDecisions }); }
+    catch (error) { console.warn('turn decisions failed:', error); }
+    if (!(window.myCharacters || []).includes(char)) return;
+    if (turn?.avatar && char.avatarGallery?.[turn.avatar.index]) {
+        char.avatar = char.avatarGallery[turn.avatar.index];
+        saveCharactersToStorage();
+        if (window.currentChatCharId === char.id) refreshChatView(char);
+        renderChatList();
+    }
+    const skipStatus = turn?.status === false;
+    const statusRequestWillRun = !skipStatus && shouldDeferWechatMemoryAfterReply(char);
+    if (!skipStatus) {
+        requestWechatAiStatusSnapshot(char, { reason: 'after_reply', decided: turn?.status === true })
+            .catch(e => console.warn('ai status snapshot failed:', e));
+    }
+    // A reply must not immediately consume quota again for both generated
+    // status and memory. The next eligible reply will pick memory up once
+    // the status snapshot is fresh (or its automatic retry is cooled down).
+    if (!statusRequestWillRun && turn?.memory !== false) scheduleWechatMemoryExtraction(char, 'after_reply');
+    if (!context.textOnly && !char.isGroupChat && turn?.moment !== false) void considerWechatCharMomentAfterReply(char);
+}
+
 // --- 流式回复：边生成边显示 ---
 // The preview only ever shows text that the final pipeline would also show:
 // summaries, tool calls, pet reactions, hidden thinking and unfinished
@@ -10158,9 +10184,9 @@ function consumeWechatAvatarDirective(char, content) {
 // the preview with the real bubbles, so nothing here touches char.history.
 function getWechatStreamPreviewSegments(rawContent) {
     let text = String(rawContent || '')
-        .replace(/<bynd_(?:summary|tool|pet)\b[^>]*>[\s\S]*?<\/bynd_(?:summary|tool|pet)>/gi, '')
-        .replace(/<bynd_(?:summary|tool|pet)\b[^>]*>[\s\S]*$/gi, '')
-        .replace(/<\/?bynd_(?:summary|tool|pet)\b[^>]*>/gi, '')
+        .replace(/<bynd_(?:summary|tool|pet|decide)\b[^>]*>[\s\S]*?<\/bynd_(?:summary|tool|pet|decide)>/gi, '')
+        .replace(/<bynd_(?:summary|tool|pet|decide)\b[^>]*>[\s\S]*$/gi, '')
+        .replace(/<\/?bynd_(?:summary|tool|pet|decide)\b[^>]*>/gi, '')
         // A hidden reasoning block that is still open hides everything after it.
         .replace(/<(thinking|think|thought|execute_think|cot|analysis|reasoning|chain_of_thought)\b[^>]*>(?![\s\S]*?<\/\1\s*>)[\s\S]*$/i, '');
     text = cleanWechatVisibleContent(text);
@@ -10284,6 +10310,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
     let streamPreview = null;
     const usageCollector = typeof getWechatAgentPreferences === 'function' && getWechatAgentPreferences(char).showTokenUsage ? [] : null;
     const usageLedgerIds = [];
+    let replyDecisions = null;
 
     try {
         const appendAiResultToChat = async (rawContent, appendOptions = {}) => {
@@ -10292,6 +10319,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             const consumed = typeof consumeWechatAgentResponse === 'function'
                 ? await consumeWechatAgentResponse(char, rawContent)
                 : { content: rawContent, summary: '', toolCount: 0 };
+            if (consumed.decisions) replyDecisions = consumed.decisions;
             const petResponse = window.ByndCharacterPet?.extract(consumed.content);
             if (petResponse) consumed.content = petResponse.content;
             const avatarAction = consumeWechatAvatarDirective(char, consumed.content);
@@ -10417,14 +10445,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 }
                 renderChatList();
                 showWechatDesktopMessageIsland(char);
-                const statusRequestWillRun = shouldDeferWechatMemoryAfterReply(char);
-                requestWechatAiStatusSnapshot(char, { reason: 'after_reply' })
-                    .catch(e => console.warn('ai status snapshot failed:', e));
-                // A reply must not immediately consume quota again for both generated
-                // status and memory. The next eligible reply will pick memory up once
-                // the status snapshot is fresh (or its automatic retry is cooled down).
-                if (!statusRequestWillRun) scheduleWechatMemoryExtraction(char, 'after_reply');
-                if (!options.textOnly && !char.isGroupChat) void considerWechatCharMomentAfterReply(char);
+                void runWechatTurnFollowUps(char, { replyDecisions, textOnly: !!options.textOnly });
             } else if (typeof showWechatToast === 'function') {
                 showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');
             }
@@ -13226,8 +13247,29 @@ function deleteCharacter(charId) {
     window.myCharacters = window.myCharacters.filter(c => c.id !== charId);
     if (window.currentChatCharId === charId) window.currentChatCharId = null;
 
-    saveCharactersToStorage();
+    // Only purge side data once the removal itself was saved.
+    const saved = Promise.resolve(saveCharactersToStorage()).then(result => {
+        if (result !== false) return purgeWechatDeletedCharacterData(charId);
+    }).catch(error => console.warn('删除角色保存失败', error));
     renderChatList();
+    return saved;
+}
+
+// Data kept outside the character record: pet images (IndexedDB) and 学习 chats.
+function purgeWechatDeletedCharacterData(charId) {
+    try {
+        const key = 'bynd_study_chats_v1';
+        const chats = JSON.parse(localStorage.getItem(key) || 'null');
+        if (chats && typeof chats === 'object' && Object.prototype.hasOwnProperty.call(chats, charId)) {
+            delete chats[charId];
+            localStorage.setItem(key, JSON.stringify(chats));
+        }
+    } catch (error) { console.warn('学习对话清理失败', error); }
+    const pet = window.ByndCharacterPet;
+    if (pet && typeof pet.purgeCharacter === 'function') {
+        return Promise.resolve().then(() => pet.purgeCharacter(charId)).catch(error => console.warn('桌宠图片清理失败', error));
+    }
+    return Promise.resolve();
 }
 
 // 滑动手势处理
@@ -14126,7 +14168,7 @@ function renderXMePage(page, profile) {
     const people = getWechatXPeople();
     const followerCount = people.length ? Math.max(1, Math.round(people.length * 1.6)) : 0;
     const store = typeof getWechatMomentStore === 'function' ? getWechatMomentStore() : { posts: [] };
-    const posts = Array.isArray(store.posts) ? store.posts.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
+    const posts = Array.isArray(store.posts) ? store.posts.filter(post => post && !post.charId).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
     const latestPost = posts[0] || null;
     const joinedAt = profile.joinedAt || profile.createdAt || profile.importedAt || '';
     const joinedDate = joinedAt && !Number.isNaN(new Date(joinedAt).getTime())
@@ -15149,12 +15191,44 @@ function getWechatProfileBio(char) {
 }
 
 function getWechatCharMoments(char) {
-    const config = (char && char.chatConfig) || {};
-    const saved = Array.isArray(config.aiMoments)
-        ? config.aiMoments.filter(item => item && (item.source === 'ai_moment' || item.source === 'manual_moment'))
-        : [];
-    if (saved.length) return saved.slice(-4).reverse();
-    return [];
+    return getWechatCharMomentPosts(char).slice(-4).reverse();
+}
+
+function buildWechatCharMomentPost(char, text, source, id = '', createdAt = 0) {
+    return {
+        id: id || 'mom_char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        text,
+        images: [],
+        userName: getWechatCharDisplayName(char),
+        userAvatar: char.avatar || DEFAULT_AVATAR,
+        charId: char.id,
+        source,
+        cover: pickWechatCharMomentCover(char),
+        comments: [],
+        pending: [],
+        createdAt: Number(createdAt) || Date.now()
+    };
+}
+
+// The moment store is the single source of truth for a character's moments.
+// Settings-only moments used to live in chatConfig.aiMoments and never reached the feed; move them in once.
+// (AI moments were always written to both, so a missing one was deleted from the feed and stays deleted.)
+function getWechatCharMomentPosts(char) {
+    if (!char || !char.id) return [];
+    const store = getWechatMomentStore();
+    char.chatConfig = char.chatConfig || {};
+    if (!char.chatConfig.aiMomentsMigrated) {
+        const known = new Set(store.posts.map(post => post.id));
+        const legacy = (Array.isArray(char.chatConfig.aiMoments) ? char.chatConfig.aiMoments : [])
+            .filter(item => item && item.id && item.source === 'manual_moment' && String(item.text || '').trim() && !known.has(item.id));
+        legacy.forEach(item => store.posts.push(buildWechatCharMomentPost(char, String(item.text).trim(), 'manual_moment', item.id, item.createdAt)));
+        if (legacy.length) saveWechatMomentStore(store);
+        char.chatConfig.aiMomentsMigrated = true;
+        saveCharactersToStorage();
+    }
+    return store.posts
+        .filter(post => post && post.charId === char.id && (post.source === 'ai_moment' || post.source === 'manual_moment'))
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 }
 
 function renderWechatCharMoments(char) {
@@ -16374,7 +16448,7 @@ function migrateWechatMomentTemplateComments(store) {
 }
 
 function scheduleWechatMomentEngagement(post) {
-    const chars = (window.myCharacters || []).slice(0, 6);
+    const chars = (window.myCharacters || []).filter(char => char && !char.isGroupChat).slice(0, 6);
     const needsAsk = /[?？]|怎么|为什么|为啥|怎么办|不懂|纠结/.test(post.text || '');
     post.pending = chars.map((char, index) => ({
         id: 'mqt_' + (post.id || Date.now()) + '_' + char.id + '_' + index,
@@ -16447,8 +16521,9 @@ async function generateWechatMomentPersonaComment(post, char, usedTexts = new Se
                 role: 'user',
                 content: `朋友圈内容：${postText}\n图片：${imageHint}\n发布时间：${formatWechatRelativeTime(post?.createdAt)}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 10)}`
             }
-        ], { usageFeature: 'moment', usageChar: char });
-        const parsed = result?.ok ? parseWechatJsonObject(result.content) : null;
+        ], { background: true, usageFeature: 'moment', usageChar: char });
+        if (!result?.ok) return getWechatMomentTaskFailure(result);
+        const parsed = parseWechatJsonObject(result.content);
         if (parsed?.action === 'silence') return { silence:true, text:'' };
         const text = result && result.ok ? normalizeWechatMomentGeneratedComment(result.content) : '';
         if (text && !usedTexts.has(text) && !isWechatOldMomentTemplateComment(text)) return { silence:false, text };
@@ -16458,15 +16533,10 @@ async function generateWechatMomentPersonaComment(post, char, usedTexts = new Se
     return { silence:false, text:'' };
 }
 
-function appendWechatMomentCommentToStore(store, post, task, char, text) {
+function appendWechatMomentCommentToStore(store, post, task, char, text, failure = {}) {
     post.comments = post.comments || [];
     const safeText = String(text || '').trim();
-    if (!safeText) {
-        task.generating = false;
-        task.error = 'API 未生成朋友圈评论';
-        task.dueAt = Date.now() + 5 * 60000;
-        return false;
-    }
+    if (!safeText) return backoffWechatMomentTask(task, { error: 'API 未生成朋友圈评论', ...failure });
     post.comments.push({
         id: 'mc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         charId: char.id,
@@ -16483,6 +16553,42 @@ function appendWechatMomentCommentToStore(store, post, task, char, text) {
     return true;
 }
 
+const WECHAT_MOMENT_TASK_MAX_ATTEMPTS = 4;
+
+function getWechatMomentTaskFailure(result) {
+    return { silence: false, text: '', error: String(result?.error || 'API 调用失败'), deferred: !!result?.deferred, retryAfterMs: Number(result?.retryAfterMs) || 0 };
+}
+
+// Failed moment tasks back off exponentially and stop after a few sent attempts; a deferred request was never sent, so it only waits.
+function backoffWechatMomentTask(task, failure = {}) {
+    const retryAfterMs = Math.max(0, Number(failure.retryAfterMs) || 0);
+    task.generating = false;
+    task.error = String(failure.error || 'API 未生成朋友圈互动').slice(0, 160);
+    if (failure.deferred) {
+        task.dueAt = Date.now() + Math.max(retryAfterMs, 60000);
+        return false;
+    }
+    task.attempts = Number(task.attempts || 0) + 1;
+    if (task.attempts >= WECHAT_MOMENT_TASK_MAX_ATTEMPTS) {
+        task.done = true;
+        task.failed = true;
+        return false;
+    }
+    task.dueAt = Date.now() + Math.max(retryAfterMs, 5 * 60000 * 2 ** (task.attempts - 1));
+    return false;
+}
+
+// Jobs await the API; re-read the store afterwards so a stale snapshot never overwrites other posts or resurrects deleted ones.
+function commitWechatMomentTask(postId, taskId, apply) {
+    const store = getWechatMomentStore();
+    const post = store.posts.find(item => item.id === postId);
+    const task = post && (post.pending || []).find(item => item.id === taskId);
+    if (!post || !task || task.done) return false;
+    apply(post, task, store);
+    saveWechatMomentStore(store);
+    return true;
+}
+
 function queueWechatMomentCommentGeneration(postId, taskId) {
     window._wechatMomentCommentJobs = window._wechatMomentCommentJobs || new Set();
     const jobKey = `${postId}:${taskId}`;
@@ -16496,19 +16602,21 @@ function queueWechatMomentCommentGeneration(postId, taskId) {
             const char = task && (window.myCharacters || []).find(c => c.id === task.charId);
             if (!post || !task || !char || task.done) return;
             if (await chooseWechatMomentEngagement(post,char,'comment') === 'silence') {
-                finishWechatMomentTaskSilently(task);
-                saveWechatMomentStore(store);
+                commitWechatMomentTask(postId, taskId, (latestPost, latestTask) => finishWechatMomentTaskSilently(latestTask));
                 return;
             }
             const used = new Set((post.comments || []).map(comment => String(comment && comment.text || '').trim()).filter(Boolean));
             const result = await generateWechatMomentPersonaComment(post, char, used);
-            if (result.silence) finishWechatMomentTaskSilently(task);
-            else appendWechatMomentCommentToStore(store, post, task, char, result.text);
-            saveWechatMomentStore(store);
+            const saved = commitWechatMomentTask(postId, taskId, (latestPost, latestTask, latestStore) => {
+                if (result.silence) finishWechatMomentTaskSilently(latestTask);
+                else appendWechatMomentCommentToStore(latestStore, latestPost, latestTask, char, result.text, result);
+            });
+            if (!saved) return;
             saveCharactersToStorage();
             if (isWechatMomentsScreenOpen()) renderWechatMoments();
         } finally {
             window._wechatMomentCommentJobs.delete(jobKey);
+            setTimeout(processWechatMomentQueue, 0);
         }
     })();
 }
@@ -16548,24 +16656,20 @@ async function generateWechatMomentAskMessage(post, char) {
                 role: 'user',
                 content: `朋友圈内容：${postText}\n图片数量：${Array.isArray(post?.images) ? post.images.length : 0}\n\n世界书：\n${buildWechatWorldBookPrompt(char, 12)}\n\n最近聊天：\n${buildWechatRecentHistoryForPrompt(char, 10)}`
             }
-        ], { usageFeature: 'moment', usageChar: char });
-        const parsed = result?.ok ? parseWechatJsonObject(result.content) : null;
+        ], { background: true, usageFeature: 'moment', usageChar: char });
+        if (!result?.ok) return getWechatMomentTaskFailure(result);
+        const parsed = parseWechatJsonObject(result.content);
         if (parsed?.action === 'silence') return { silence:true, text:'' };
-        return { silence:false, text:result && result.ok ? normalizeWechatMomentGeneratedChat(result.content) : '' };
+        return { silence:false, text:normalizeWechatMomentGeneratedChat(result.content) };
     } catch (e) {
         console.warn('moment ask generation failed:', e);
         return { silence:false, text:'' };
     }
 }
 
-function appendWechatMomentAskToChar(char, post, task, text) {
+function appendWechatMomentAskToChar(char, post, task, text, failure = {}) {
     const safeText = String(text || '').trim();
-    if (!safeText) {
-        task.generating = false;
-        task.error = 'API 未生成朋友圈询问';
-        task.dueAt = Date.now() + 5 * 60000;
-        return false;
-    }
+    if (!safeText) return backoffWechatMomentTask(task, { error: 'API 未生成朋友圈询问', ...failure });
     if (!char.history) char.history = [];
     char.history.push({
         type: 'share_card',
@@ -16607,18 +16711,20 @@ function queueWechatMomentAskGeneration(postId, taskId) {
             const char = task && (window.myCharacters || []).find(c => c.id === task.charId);
             if (!post || !task || !char || task.done) return;
             if (await chooseWechatMomentEngagement(post,char,'ask') === 'silence') {
-                finishWechatMomentTaskSilently(task);
-                saveWechatMomentStore(store);
+                commitWechatMomentTask(postId, taskId, (latestPost, latestTask) => finishWechatMomentTaskSilently(latestTask));
                 return;
             }
             const result = await generateWechatMomentAskMessage(post, char);
-            if (result.silence) finishWechatMomentTaskSilently(task);
-            else appendWechatMomentAskToChar(char, post, task, result.text);
-            saveWechatMomentStore(store);
+            const saved = commitWechatMomentTask(postId, taskId, (latestPost, latestTask) => {
+                if (result.silence) finishWechatMomentTaskSilently(latestTask);
+                else appendWechatMomentAskToChar(char, latestPost, latestTask, result.text, result);
+            });
+            if (!saved) return;
             saveCharactersToStorage();
             if (isWechatMomentsScreenOpen()) renderWechatMoments();
         } finally {
             window._wechatMomentAskJobs.delete(jobKey);
+            setTimeout(processWechatMomentQueue, 0);
         }
     })();
 }
@@ -16626,6 +16732,8 @@ function queueWechatMomentAskGeneration(postId, taskId) {
 function processWechatMomentQueue() {
     const store = getWechatMomentStore();
     let changed = migrateWechatMomentTemplateComments(store);
+    // The relay rejects request bursts: start at most one job per scan; each finished job rescans for the next due task.
+    let started = !!(window._wechatMomentCommentJobs?.size || window._wechatMomentAskJobs?.size);
     store.posts.forEach(post => {
         (post.pending || []).forEach(task => {
             if (task.done || task.dueAt > Date.now()) return;
@@ -16634,7 +16742,7 @@ function processWechatMomentQueue() {
                 changed = true;
             }
             const char = (window.myCharacters || []).find(c => c.id === task.charId);
-            if (!char) {
+            if (!char || char.isGroupChat) {
                 task.done = true;
                 changed = true;
                 return;
@@ -16644,22 +16752,12 @@ function processWechatMomentQueue() {
                 task.error = task.error || '生成超时，等待重试';
                 changed = true;
             }
-            if (task.type === 'ask') {
-                if (task.generating) return;
-                task.generating = true;
-                task.startedAt = Date.now();
-                queueWechatMomentAskGeneration(post.id, task.id);
-                changed = true;
-                return;
-            } else {
-                if (task.generating) return;
-                task.generating = true;
-                task.startedAt = Date.now();
-                queueWechatMomentCommentGeneration(post.id, task.id);
-                changed = true;
-                return;
-            }
-            task.done = true;
+            if (task.generating || started) return;
+            task.generating = true;
+            task.startedAt = Date.now();
+            started = true;
+            if (task.type === 'ask') queueWechatMomentAskGeneration(post.id, task.id);
+            else queueWechatMomentCommentGeneration(post.id, task.id);
             changed = true;
         });
     });
@@ -16670,6 +16768,7 @@ function processWechatMomentQueue() {
 }
 
 function openWechatMoments(focusPostId = '') {
+    (window.myCharacters || []).filter(char => char && !char.isGroupChat).forEach(char => getWechatCharMomentPosts(char));
     processWechatMomentQueue();
     window._wechatMomentDraftImages = window._wechatMomentDraftImages || [];
     renderWechatMoments(focusPostId);
@@ -16716,7 +16815,7 @@ function renderWechatMomentPost(post) {
                     <div class="wc-moment-meta-actions">
                         <button onclick="collectWechatMoment(${postId})">收藏</button>
                         <button onclick="shareWechatMomentPost(${postId})">转发</button>
-                        <button onclick="editWechatMoment(${postId})">编辑</button>
+                        ${post.charId ? '' : `<button onclick="editWechatMoment(${postId})">编辑</button>`}
                         <button onclick="deleteWechatMoment(${postId})">删除</button>
                     </div>
                 </div>
@@ -16821,7 +16920,7 @@ function openNewWechatMomentTextComposer() {
 function openWechatMomentTextComposer(postId = '') {
     hideActionSheet();
     const store = getWechatMomentStore();
-    const editingPost = postId ? store.posts.find(post => post.id === postId) : null;
+    const editingPost = postId ? store.posts.find(post => post.id === postId && !post.charId) : null;
     window._wechatEditingMomentId = editingPost ? editingPost.id : '';
     window._wechatMomentDraftImages = editingPost ? (editingPost.images || []).slice() : (window._wechatMomentDraftImages || []);
     const title = editingPost ? '编辑朋友圈' : '发表文字';
@@ -16894,7 +16993,8 @@ function publishWechatMoment() {
     const visibility = document.getElementById('wc-moment-visibility-value')?.value === 'private' ? 'private' : 'public';
     const store = getWechatMomentStore();
     const editingId = window._wechatEditingMomentId || '';
-    const editingPost = editingId ? store.posts.find(item => item.id === editingId) : null;
+    // Character-authored posts are theirs; the user's composer can only edit the user's own posts.
+    const editingPost = editingId ? store.posts.find(item => item.id === editingId && !item.charId) : null;
     if (editingPost) {
         editingPost.text = text;
         editingPost.images = images;
@@ -16974,8 +17074,14 @@ function replyWechatMomentComment(postId, commentId) {
 function deleteWechatMoment(id) {
     if (!confirm('确定删除这条朋友圈吗？')) return;
     const store = getWechatMomentStore();
+    const removed = store.posts.find(post => post.id === id);
     store.posts = store.posts.filter(post => post.id !== id);
     saveWechatMomentStore(store);
+    const author = removed?.charId && (window.myCharacters || []).find(char => char.id === removed.charId);
+    if (author && Array.isArray(author.chatConfig?.aiMoments)) {
+        author.chatConfig.aiMoments = author.chatConfig.aiMoments.filter(item => item.id !== id);
+        saveCharactersToStorage();
+    }
     renderWechatMoments();
 }
 
@@ -19238,9 +19344,7 @@ function removeWechatMomentCover(index) {
 function renderWechatAiMomentsEditor(char) {
     const list = document.getElementById('wcs-ai-moment-list');
     if (!list || !char) return;
-    const moments = Array.isArray(char.chatConfig && char.chatConfig.aiMoments)
-        ? char.chatConfig.aiMoments.filter(item => item && (item.source === 'ai_moment' || item.source === 'manual_moment'))
-        : [];
+    const moments = getWechatCharMomentPosts(char);
     list.innerHTML = moments.length ? moments.slice().reverse().map(item => `
         <div class="wcs-ai-moment-item">
             <span>${wcEscapeHtml(item.text || '')}</span>
@@ -19254,17 +19358,13 @@ function addWechatAiMomentFromSettings() {
     const input = document.getElementById('wcs-ai-moment-text');
     const text = (input && input.value || '').trim();
     if (!char || !text) return;
-    char.chatConfig = char.chatConfig || {};
-    char.chatConfig.aiMoments = Array.isArray(char.chatConfig.aiMoments) ? char.chatConfig.aiMoments : [];
-    char.chatConfig.aiMoments.push({
-        id: 'aim_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        text,
-        source: 'manual_moment',
-        createdAt: Date.now()
-    });
+    getWechatCharMomentPosts(char);
+    const store = getWechatMomentStore();
+    store.posts.push(buildWechatCharMomentPost(char, text, 'manual_moment'));
+    saveWechatMomentStore(store);
     if (input) input.value = '';
-    saveCharactersToStorage();
     renderWechatAiMomentsEditor(char);
+    if (isWechatMomentsScreenOpen()) renderWechatMoments();
 }
 
 async function generateWechatAiMoment() {
@@ -19287,10 +19387,16 @@ async function generateWechatAiMoment() {
 
 function deleteWechatAiMoment(id) {
     const char = getCurrentChatChar();
-    if (!char || !char.chatConfig || !Array.isArray(char.chatConfig.aiMoments)) return;
-    char.chatConfig.aiMoments = char.chatConfig.aiMoments.filter(item => item.id !== id);
-    saveCharactersToStorage();
+    if (!char) return;
+    const store = getWechatMomentStore();
+    store.posts = store.posts.filter(post => !(post.id === id && post.charId === char.id));
+    saveWechatMomentStore(store);
+    if (Array.isArray(char.chatConfig?.aiMoments)) {
+        char.chatConfig.aiMoments = char.chatConfig.aiMoments.filter(item => item.id !== id);
+        saveCharactersToStorage();
+    }
     renderWechatAiMomentsEditor(char);
+    if (isWechatMomentsScreenOpen()) renderWechatMoments();
 }
 
 async function generateWechatSignature() {
@@ -20192,6 +20298,8 @@ function resetWechatChatDerivedContext(char) {
     char.chatConfig.aiPhoneSnapshot = null;
     char.chatConfig.aiPhoneUserRemark = '';
     char.chatConfig.aiPhoneUsageLog = [];
+    // 代发 threads, pending reactions and events belong to the cleared session.
+    char.chatConfig.aiPhoneContactReplies = null;
     char.chatConfig.monitorState = null;
     char.chatConfig.pendingMonitorRequest = null;
     char.chatConfig.pendingContactDeleteRequest = null;
@@ -20202,6 +20310,9 @@ function resetWechatChatDerivedContext(char) {
     char.chatConfig.lastReadAt = resetAt;
     char.chatConfig.unreadCount = 0;
     char.unreadCount = 0;
+    // Cleared chats must not linger as Living World private-chat memories.
+    try { window.LivingWorld?.clearPrivateChatEvents?.(char); }
+    catch (error) { console.warn('论坛私聊记录清理失败', error); }
 }
 
 function pruneWechatAutoMemoryForChar(charId) {
@@ -21486,7 +21597,8 @@ function shouldSkipWechatAiStatusSnapshotRequest(char, options = {}) {
     const now = Date.now();
     const snapshot = getWechatAiStatusSnapshot(char);
     const snapshotAt = Number(snapshot && snapshot.updatedAt) || 0;
-    if (snapshotAt && now - snapshotAt < WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS) return true;
+    // A decided change of heart may refresh a recent snapshot; the retry cooldown below still applies.
+    if (snapshotAt && !options.decided && now - snapshotAt < WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS) return true;
     const lastRequestedAt = Number(char.chatConfig && char.chatConfig.aiStatusAutoRequestedAt) || 0;
     return !!(lastRequestedAt && now - lastRequestedAt < WECHAT_AI_STATUS_AUTO_RETRY_COOLDOWN_MS);
 }
@@ -22925,6 +23037,33 @@ function scheduleWechatAiPhoneSyncAfterStatus(char) {
     window._wechatAiPhoneDeferredSyncTimers.set(char.id, timer);
 }
 
+// Missing letters are written by a separate, later diary request instead of in
+// the phone sync's own burst. Failed diaries retry on their own backoff and stop
+// after a few automatic attempts; 同步日记 stays available at any time.
+const WECHAT_AI_PHONE_DIARY_RETRY_MS = 10 * 60 * 1000;
+const WECHAT_AI_PHONE_DIARY_AUTO_ATTEMPTS = 3;
+function isWechatAiPhoneDiaryFollowUpDue(char) {
+    const snapshot = char?.chatConfig?.aiPhoneSnapshot;
+    if (!snapshot || snapshot.generatedBy !== 'api' || snapshot.schemaVersion !== WECHAT_AI_PHONE_SCHEMA_VERSION) return false;
+    if (getWechatAiPhoneDiaryLetters(snapshot).length >= 2) return false;
+    const attempts = Number(snapshot.diarySyncAttempts) || 0;
+    if (attempts >= WECHAT_AI_PHONE_DIARY_AUTO_ATTEMPTS) return false;
+    const failedAt = Number(snapshot.diarySyncFailedAt) || 0;
+    return !failedAt || Date.now() - failedAt >= WECHAT_AI_PHONE_DIARY_RETRY_MS * Math.max(1, attempts);
+}
+
+function scheduleWechatAiPhoneDiaryFollowUp(char) {
+    if (!char || !char.id || !isWechatAiPhoneDiaryFollowUpDue(char)) return;
+    window._wechatAiPhoneDiaryFollowUpTimers = window._wechatAiPhoneDiaryFollowUpTimers || new Map();
+    if (window._wechatAiPhoneDiaryFollowUpTimers.has(char.id)) return;
+    const timer = setTimeout(() => {
+        window._wechatAiPhoneDiaryFollowUpTimers.delete(char.id);
+        if (window._wechatAiPhoneOpenCharId !== char.id || !isWechatAiPhoneDiaryFollowUpDue(char)) return;
+        requestWechatAiPhoneSnapshot(char, { diaryOnly: true, followUp: true }).catch(error => console.warn('deferred ai phone diary failed:', error));
+    }, 1500);
+    window._wechatAiPhoneDiaryFollowUpTimers.set(char.id, timer);
+}
+
 function buildWechatAiPhoneDiaryFailureSnapshot(snapshot, error, previousSnapshot = snapshot) {
     const freshLetters = normalizeWechatAiPhoneDiaryLetterList([
         ...getWechatAiPhoneDiaryLetters(error && error.diaryLetters),
@@ -22935,7 +23074,8 @@ function buildWechatAiPhoneDiaryFailureSnapshot(snapshot, error, previousSnapsho
         ...snapshot,
         diaryLetters: normalizeWechatAiPhoneDiaryLetterList([...freshLetters, ...savedLetters]),
         diarySyncError: stripWechatPromptText(error?.message || error || '日记同步失败，请重试。', 260),
-        diarySyncFailedAt: Date.now()
+        diarySyncFailedAt: Date.now(),
+        diarySyncAttempts: (Number(previousSnapshot?.diarySyncAttempts) || 0) + 1
     };
     if (freshLetters.length) result.diaryUpdatedAt = Date.now();
     else if (savedLetters.length) result.diaryUpdatedAt = previousSnapshot.diaryUpdatedAt || previousSnapshot.updatedAt;
@@ -22944,7 +23084,8 @@ function buildWechatAiPhoneDiaryFailureSnapshot(snapshot, error, previousSnapsho
     return result;
 }
 
-async function requestWechatAiPhoneDiaryLetters(char, contextMessage, background = false, initialLetters = []) {
+// Every phone request goes through the background queue (quiet gap between calls); manual work only jumps ahead in it.
+async function requestWechatAiPhoneDiaryLetters(char, contextMessage, manual = false, initialLetters = []) {
     let collected = normalizeWechatAiPhoneDiaryLetterList(initialLetters);
     const responses = [];
     const failure = message => {
@@ -22965,7 +23106,7 @@ closing 与 wish 分别写祝颂语和祝愿，signature 写符合角色身份�
         contextMessage
     ];
     for (let attempt = 0; attempt < 2; attempt += 1) {
-        const result = await callChatApi(messages, { max_tokens: 4096, temperature: attempt ? 0.5 : 0.72, background, skipStatusValidationRetry: true, usageFeature: 'charPhone', usageChar: char });
+        const result = await callChatApi(messages, { max_tokens: 4096, temperature: attempt ? 0.5 : 0.72, background: true, backgroundPriority: manual ? 5 : 0, force: !!manual, skipStatusValidationRetry: true, usageFeature: 'charPhone', usageChar: char });
         if (!result?.ok) throw failure(result?.error || '日记接口未返回内容，请稍后重试。');
         const report = {};
         const letters = getWechatAiPhoneDiaryLetters(result.content, report);
@@ -22997,22 +23138,31 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
     if (!options.force && typeof getWechatAgentPreferences === 'function' && !getWechatAgentPreferences(char).allowPhone) return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     const savedDiaryLetters = getWechatAiPhoneDiaryLetters(previousSnapshot);
     // Reading an existing diary must not rewrite it when other phone data refreshes.
-    const preserveDiary = !options.diaryOnly && !!(savedDiaryLetters.length || previousSnapshot?.diaryUpdatedAt || previousSnapshot?.diarySyncError || previousSnapshot?.diarySyncFailedAt);
+    // Only a complete mailbox (two letters) is preserved; a failed or partial diary
+    // is still requested again instead of being frozen by its error marker.
+    const preserveDiary = !options.diaryOnly && savedDiaryLetters.length >= 2;
+    const keepSavedDiary = preserveDiary || !!options.patchOnly;
+    const manual = !!options.force;
+    const phoneApiOptions = { max_tokens: 4096, background: true, backgroundPriority: manual ? 5 : 0, force: manual, usageFeature: 'charPhone', usageChar: char };
     const buildFailureSnapshot = error => options.diaryOnly ? {
         ...buildWechatAiPhoneDiaryFailureSnapshot(previousSnapshot || buildWechatAiPhoneFallback(char), error, previousSnapshot),
         generatedBy: previousSnapshot?.generatedBy || 'error'
+    } : options.patchOnly && previousSnapshot ? {
+        ...previousSnapshot,
+        syncRecovered: stripWechatPromptText('补全未完成：' + (error?.message || error || '请稍后重试'), 260)
     } : buildWechatAiPhoneErrorSnapshot(char, error?.message || error, previousSnapshot);
     window._wechatAiPhoneGenerating = window._wechatAiPhoneGenerating || new Map();
     if (window._wechatAiPhoneGenerating.has(char.id)) return window._wechatAiPhoneGenerating.get(char.id);
     const syncTurn = getWechatAiPhoneSyncTurn(char);
-    if (!options.force && !shouldAutoSyncWechatAiPhone(char, syncTurn)) {
+    if (!options.force && !options.followUp && !shouldAutoSyncWechatAiPhone(char, syncTurn)) {
         return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     }
     if (!options.force && (isWechatAiRateLimitPaused() || isWechatBackgroundApiPaused())) {
         return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     }
     if (!options.force && (window._wechatAiBusy || isWechatAiStatusGenerationActive())) {
-        scheduleWechatAiPhoneSyncAfterStatus(char);
+        if (options.followUp) scheduleWechatAiPhoneDiaryFollowUp(char);
+        else scheduleWechatAiPhoneSyncAfterStatus(char);
         return previousSnapshot || getWechatAiPhoneRenderSnapshot(char);
     }
     const deferredTimer = window._wechatAiPhoneDeferredSyncTimers && window._wechatAiPhoneDeferredSyncTimers.get(char.id);
@@ -23030,7 +23180,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
             // syncs. Capture this turn now so a newer reply is not consumed later.
             char.chatConfig.aiPhoneSnapshot = {
                 ...(previousSnapshot || snapshot),
-                ...(options.diaryOnly ? {} : { syncTurnKey: syncTurn?.key || '' })
+                ...(options.diaryOnly || options.patchOnly ? {} : { syncTurnKey: syncTurn?.key || '' })
             };
             if (await saveCharactersToStorage() === false) {
                 throw new Error('同步记录未能保存，本次未请求 API。请检查存储后手动重试。');
@@ -23079,26 +23229,49 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
                 snapshot = {
                     ...(previousSnapshot || snapshot),
                     generatedBy: previousSnapshot?.generatedBy || 'api',
-                    diaryLetters: await requestWechatAiPhoneDiaryLetters(char, buildMessages()[1], !options.force),
+                    diaryLetters: await requestWechatAiPhoneDiaryLetters(char, buildMessages()[1], manual, options.followUp ? savedDiaryLetters : []),
                     diaryUpdatedAt: Date.now()
                 };
                 delete snapshot.diarySyncError;
                 delete snapshot.diarySyncFailedAt;
+                delete snapshot.diarySyncAttempts;
                 delete snapshot.diarySyncDiagnostics;
                 if (!getWechatAiPhoneSnapshotGapSummary(snapshot)) delete snapshot.syncRecovered;
+            } else if (options.patchOnly) {
+                // User-triggered 补全: one request for the fields the last sync left short.
+                const base = previousSnapshot || snapshot;
+                const gap = getWechatAiPhoneSnapshotGapSummary(base, { includeDiary: false });
+                snapshot = { ...base };
+                if (gap) {
+                    const patch = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设、世界书、关系和最近真实聊天定制补齐；不要重写已有完整字段，不要套模板。本次不要生成 diaryLetters。`), { ...phoneApiOptions, max_tokens: 2400, temperature: 0.62 });
+                    if (!patch || !patch.ok) throw new Error(patch && patch.error || '补全请求失败');
+                    const patchParsed = parseWechatJsonObject(patch.content);
+                    if (!patchParsed) throw new Error('AI 返回的补全内容无法解析。');
+                    snapshot = { ...base, ...normalizeWechatAiPhoneSnapshot(mergeWechatAiPhoneRawPatch(base, patchParsed), char) };
+                }
+                snapshot.diaryLetters = savedDiaryLetters;
+                for (const key of ['diaryUpdatedAt', 'diarySyncError', 'diarySyncFailedAt', 'diarySyncAttempts', 'diarySyncDiagnostics', 'syncTurnKey']) {
+                    if (Object.prototype.hasOwnProperty.call(base, key)) snapshot[key] = base[key];
+                }
+                const remaining = getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary: false });
+                if (remaining) snapshot.syncRecovered = `AI 已按角色资料生成，仍有部分字段偏少：${remaining}`;
+                else delete snapshot.syncRecovered;
             } else {
-                const phoneApiOptions = { max_tokens: 4096, temperature: 0.78, background: !options.force, usageFeature: 'charPhone', usageChar: char };
-                let result = await callChatApi(buildMessages(), phoneApiOptions);
+                // At most the main request plus one repair (empty-body retry or JSON
+                // repair) per sync; everything else is deferred or user-triggered.
+                let result = await callChatApi(buildMessages(), { ...phoneApiOptions, temperature: 0.78 });
+                let repairUsed = false;
                 if ((!result || !result.ok) && /空内容/.test(String(result && result.error || ''))) {
+                    repairUsed = true;
                     result = await callChatApi(
                         buildMessages('上一次响应没有 JSON 正文。现在必须直接输出一个 minified JSON 对象，禁止 thinking、reasoning、分析、解释、Markdown。每组数组最多 2 条；' + (preserveDiary ? '不要返回 diaryLetters。' : '非信件字符串可以更短，但 diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信。')),
-                        { max_tokens: 4096, temperature: 0.42, background: !options.force, usageFeature: 'charPhone', usageChar: char }
+                        { ...phoneApiOptions, temperature: 0.42 }
                     );
                 }
                 if (result && result.ok) {
                     let parsed = parseWechatJsonObject(result.content);
                     let rawJsonText = result.content || '';
-                    if (!parsed) {
+                    if (!parsed && !repairUsed) {
                         const repair = await callChatApi([
                             {
                                 role: 'system',
@@ -23108,52 +23281,30 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
                                 role: 'user',
                                 content: String(rawJsonText || '').slice(0, 9000)
                             }
-                        ], { max_tokens: 4096, temperature: 0, background: !options.force, usageFeature: 'charPhone', usageChar: char });
+                        ], { ...phoneApiOptions, temperature: 0 });
                         if (repair && repair.ok) {
                             rawJsonText = repair.content || rawJsonText;
                             parsed = parseWechatJsonObject(repair.content);
                         }
                     }
-                    if (!parsed) {
-                        const retry = await callChatApi(
-                            buildMessages('上一次不是合法 JSON 或被截断。这次只给 minified JSON；每组 2 条；不要任何多余文字。' + (preserveDiary ? '不要返回 diaryLetters。' : 'diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信，不得缩成字段碎片。')),
-                            { max_tokens: 4096, temperature: 0.45, background: !options.force, usageFeature: 'charPhone', usageChar: char }
-                        );
-                        if (retry && retry.ok) {
-                            rawJsonText = retry.content || rawJsonText;
-                            parsed = parseWechatJsonObject(retry.content);
-                        }
-                    }
                     if (parsed) {
-                        let rawPhoneData = parsed;
-                        snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
-                        const gap = getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary: false });
-                        if (gap) {
-                            const retry = await callChatApi(buildMessages(`缺项：${gap}。只返回缺少/空白字段的 JSON patch，按同一个 char 的人设、世界书、关系和最近真实聊天定制补齐；不要重写已有完整字段，不要套模板。本次不要生成 diaryLetters。`), { max_tokens: 2400, temperature: 0.62, background: !options.force, usageFeature: 'charPhone', usageChar: char });
-                            if (retry && retry.ok) {
-                                const retryParsed = parseWechatJsonObject(retry.content);
-                                if (retryParsed) {
-                                    rawPhoneData = mergeWechatAiPhoneRawPatch(rawPhoneData, retryParsed);
-                                    snapshot = normalizeWechatAiPhoneSnapshot(rawPhoneData, char);
-                                }
+                        snapshot = normalizeWechatAiPhoneSnapshot(parsed, char);
+                        const freshLetters = getWechatAiPhoneDiaryLetters(snapshot);
+                        if (preserveDiary || freshLetters.length < 2) {
+                            // Keep the saved mailbox (plus any complete letter this reply
+                            // brought); missing letters are requested later on their own.
+                            snapshot.diaryLetters = preserveDiary ? savedDiaryLetters : normalizeWechatAiPhoneDiaryLetterList([...freshLetters, ...savedDiaryLetters]);
+                            for (const key of ['diaryUpdatedAt', 'diarySyncError', 'diarySyncFailedAt', 'diarySyncAttempts', 'diarySyncDiagnostics']) {
+                                if (previousSnapshot && Object.prototype.hasOwnProperty.call(previousSnapshot, key)) snapshot[key] = previousSnapshot[key];
                             }
-                        }
-                        if (preserveDiary) {
-                            snapshot.diaryLetters = savedDiaryLetters;
-                            for (const key of ['diaryUpdatedAt', 'diarySyncError', 'diarySyncFailedAt', 'diarySyncDiagnostics']) {
-                                if (Object.prototype.hasOwnProperty.call(previousSnapshot, key)) snapshot[key] = previousSnapshot[key];
-                            }
-                        } else if (getWechatAiPhoneDiaryLetters(snapshot).length < 2) {
-                            try {
-                                snapshot.diaryLetters = await requestWechatAiPhoneDiaryLetters(char, buildMessages()[1], !options.force, snapshot.diaryLetters);
+                            if (!preserveDiary && snapshot.diaryLetters.length >= 2) {
                                 snapshot.diaryUpdatedAt = Date.now();
-                            } catch (error) {
-                                snapshot = buildWechatAiPhoneDiaryFailureSnapshot(snapshot, error, previousSnapshot);
+                                for (const key of ['diarySyncError', 'diarySyncFailedAt', 'diarySyncAttempts', 'diarySyncDiagnostics']) delete snapshot[key];
                             }
                         } else {
                             snapshot.diaryUpdatedAt = Date.now();
                         }
-                        const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot);
+                        const finalGap = getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary: false });
                         if (finalGap) {
                             snapshot.generatedBy = 'api';
                             snapshot.syncRecovered = `AI 已按角色资料生成，仍有部分字段偏少：${finalGap}`;
@@ -23175,13 +23326,14 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
             if (activity) await finishWechatToolActivity(char, activity, false, '自动更新权限已关闭，保留原有内容');
             return previousSnapshot;
         }
-        if (!options.diaryOnly) snapshot.syncTurnKey = syncTurn?.key || '';
+        const keepsTurn = options.diaryOnly || options.patchOnly;
+        if (!keepsTurn) snapshot.syncTurnKey = syncTurn?.key || '';
         char.chatConfig.aiPhoneSnapshot = snapshot;
         try {
             if (await saveCharactersToStorage() === false) throw new Error('小手机内容未能保存，请检查存储后手动重试。');
         } catch (error) {
             snapshot = buildFailureSnapshot(error.message || '小手机内容保存失败');
-            if (!options.diaryOnly) snapshot.syncTurnKey = syncTurn?.key || '';
+            if (!keepsTurn) snapshot.syncTurnKey = syncTurn?.key || '';
             char.chatConfig.aiPhoneSnapshot = snapshot;
         }
         if (activity) await finishWechatToolActivity(char, activity, snapshot.generatedBy !== 'error' && !snapshot.diarySyncError, snapshot.syncError || snapshot.diarySyncError || (snapshot.syncRecovered ? '已更新，部分内容不完整，可在小手机中查看' : options.diaryOnly ? '日记已保存' : '小手机内容已保存'));
@@ -23195,7 +23347,7 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
     });
 
     window._wechatAiPhoneGenerating.set(char.id, promise);
-    if (!preserveDiary) {
+    if (options.diaryOnly || (!preserveDiary && !options.patchOnly)) {
         window._wechatAiPhoneDiaryGenerating = window._wechatAiPhoneDiaryGenerating || new Set();
         window._wechatAiPhoneDiaryGenerating.add(char.id);
     }
@@ -23206,6 +23358,7 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
         window._wechatAiPhoneGenerating.delete(char.id);
         window._wechatAiPhoneDiaryGenerating?.delete(char.id);
         if (window._wechatAiPhoneOpenCharId === char.id) renderWechatAiPhone(char);
+        if (!options.diaryOnly && !options.patchOnly) scheduleWechatAiPhoneDiaryFollowUp(char);
     }
 }
 
@@ -23228,6 +23381,8 @@ function openWechatAiPhone(charId) {
     renderWechatAiPhone(char);
     if (shouldAutoSyncWechatAiPhone(char)) {
         requestWechatAiPhoneSnapshot(char).catch(e => console.warn('ai phone open failed:', e));
+    } else {
+        scheduleWechatAiPhoneDiaryFollowUp(char);
     }
 }
 
@@ -23238,6 +23393,16 @@ function regenerateWechatAiPhoneSnapshot(charId) {
     renderWechatAiPhone(char);
 }
 window.regenerateWechatAiPhoneSnapshot = regenerateWechatAiPhoneSnapshot;
+
+// 补全: the missing-field patch runs only when the user asks for it.
+function completeWechatAiPhoneSnapshot(charId) {
+    const char = (window.myCharacters || []).find(c => c.id === charId);
+    if (!char) return Promise.resolve(null);
+    const pending = requestWechatAiPhoneSnapshot(char, { force: true, patchOnly: true }).catch(e => console.warn('ai phone patch failed:', e));
+    renderWechatAiPhone(char);
+    return pending;
+}
+window.completeWechatAiPhoneSnapshot = completeWechatAiPhoneSnapshot;
 
 function regenerateWechatAiPhoneDiary(charId) {
     return requestWechatAiPhoneSnapshot(charId, { force: true, diaryOnly: true }).catch(error => {
@@ -23863,6 +24028,7 @@ function renderWechatAiPhoneChatRows(snapshot, char) {
     `).join('');
 }
 
+const WECHAT_AI_PHONE_CONTACT_THREAD_LIMIT = 12;
 function getWechatAiPhoneContactReplyStore(char) {
     if (!char) return { threads: {}, threadsByName: {}, pending: [], events: [] };
     char.chatConfig = char.chatConfig || {};
@@ -23926,8 +24092,17 @@ function setWechatAiPhoneStoredContactRows(char, contact, index, rows) {
     const key = getWechatAiPhoneContactKey(contact, index);
     const nameKey = getWechatAiPhoneContactNameKey(contact.name || '');
     const merged = mergeWechatAiPhoneContactRows(rows);
+    // Re-insert so key order tracks recency, then drop the oldest threads.
+    delete store.threads[key];
     store.threads[key] = merged;
-    if (nameKey) store.threadsByName[nameKey] = merged;
+    if (nameKey) {
+        delete store.threadsByName[nameKey];
+        store.threadsByName[nameKey] = merged;
+    }
+    for (const map of [store.threads, store.threadsByName]) {
+        const keys = Object.keys(map);
+        keys.slice(0, Math.max(0, keys.length - WECHAT_AI_PHONE_CONTACT_THREAD_LIMIT)).forEach(oldKey => delete map[oldKey]);
+    }
     return merged;
 }
 
@@ -24444,7 +24619,8 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const retryId = quoteWechatJsString(char && char.id);
     const syncPill = syncError
         ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="event.stopPropagation(); openWechatAiPhoneErrorPrompt(${retryId})" aria-label="查看小手机同步失败原因">${wcEscapeHtml(syncLabel)}</button>`
-        : (diaryError ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="switchWechatAiPhoneTab('diary')" aria-label="查看日记同步失败原因">${wcEscapeHtml(syncLabel)}</button>` : `<div class="wc-ai-phone-sync">${wcEscapeHtml(syncLabel)}</div>`);
+        : (diaryError ? `<button type="button" class="wc-ai-phone-sync is-error" onclick="switchWechatAiPhoneTab('diary')" aria-label="查看日记同步失败原因">${wcEscapeHtml(syncLabel)}</button>`
+            : (!isLoading && snapshot.syncRecovered ? `<button type="button" class="wc-ai-phone-sync" onclick="event.stopPropagation(); completeWechatAiPhoneSnapshot(${retryId})" aria-label="补全小手机缺少的内容" title="${wcEscapeHtml(snapshot.syncRecovered)}">补全</button>` : `<div class="wc-ai-phone-sync">${wcEscapeHtml(syncLabel)}</div>`));
     return `
         <div class="wc-ai-phone-home">
             <div class="wc-ai-phone-home-top">
@@ -24724,6 +24900,9 @@ function closeWechatAiPhone() {
     const deferredTimer = window._wechatAiPhoneDeferredSyncTimers?.get(charId);
     if (deferredTimer) clearTimeout(deferredTimer);
     window._wechatAiPhoneDeferredSyncTimers?.delete(charId);
+    const diaryTimer = window._wechatAiPhoneDiaryFollowUpTimers?.get(charId);
+    if (diaryTimer) clearTimeout(diaryTimer);
+    window._wechatAiPhoneDiaryFollowUpTimers?.delete(charId);
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
     closeWechatAiPhoneErrorPrompt();

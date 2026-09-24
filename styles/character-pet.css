@@ -147,6 +147,8 @@
 .monitor-pet-floating.character-pet.dragging .monitor-pet-floating-body { animation: none !important; transform: rotate(3deg) !important; }
 .monitor-pet-floating.character-pet .monitor-pet-floating-bubble { min-width: 0 !important; max-width: min(210px, calc(100vw - 70px)) !important; background: #fffef8f5 !important; color: var(--mh-ink) !important; font-weight: 400 !important; border: 1px solid var(--mh-line); box-shadow: 0 4px 18px rgb(var(--mh-shadow) / 0.071) !important; }
 .monitor-pet-floating.character-pet .monitor-pet-floating-bubble::after { background: #fff !important; }
+.monitor-pet-floating .monitor-pet-floating-paused { position: absolute; right: 2px; bottom: 2px; padding: 1px 7px; border-radius: 999px; font-size: 10px; line-height: 16px; background: #fffef8f0; color: var(--mh-muted, #777); border: 1px solid var(--mh-line, #ddd); pointer-events: none; }
+.monitor-pet-floating.paused .monitor-pet-floating-body { opacity: .72; }
 @keyframes pet-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes pet-loading { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .monitor-pet-floating.character-pet .monitor-pet-floating-body { animation: none !important; } .pet-progress .ri-loader-4-line, .pet-inline-loader { animation: none; } }

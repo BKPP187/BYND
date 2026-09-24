@@ -111,6 +111,12 @@ function getChatApiRateLimitPauseRemainingMs(api) {
     return Math.max(0, (chatApiRateLimitPauses.get(scope) || 0) - Date.now());
 }
 
+// Any successful reply proves the relay accepts requests again (pet pauses read this).
+const chatApiLastSuccessAt = new Map();
+function getChatApiLastSuccessAt(api) {
+    return chatApiLastSuccessAt.get(getChatApiRateLimitScope(api)) || 0;
+}
+
 function formatChatApiRateLimitPause(ms) {
     const seconds = Math.ceil(Math.max(0, Number(ms) || 0) / 1000);
     if (seconds >= 60) return `${Math.ceil(seconds / 60)} 分钟`;
@@ -995,7 +1001,8 @@ function buildUserMomentsAnchor() {
         if (!posts.length) return '';
 
         const recentPosts = posts
-            .filter(post => post && (post.text || (Array.isArray(post.images) && post.images.length)))
+            // Character-authored moments share the store but are not the user's own updates.
+            .filter(post => post && !post.charId && (post.text || (Array.isArray(post.images) && post.images.length)))
             .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
             .slice(0, 5);
         if (!recentPosts.length) return '';
@@ -1833,6 +1840,7 @@ async function callChatApi(messages, options = {}) {
         }
 
         chatApiRateLimitPauses.delete(getChatApiRateLimitScope(api));
+        chatApiLastSuccessAt.set(getChatApiRateLimitScope(api), Date.now());
         const streamResponse = useStream && /(?:^|,)\s*text\/event-stream\b/i.test(resp.headers?.get?.('content-type') || '');
         let rawContent = '';
         let finishReason = '';

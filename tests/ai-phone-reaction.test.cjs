@@ -149,3 +149,39 @@ test('failed background reactions stop retries and paused APIs keep pending even
     assert.equal(h.context.flushWechatAiPhoneContactReplyReactions(h.char), false);
     assert.equal(h.state.requests.length, 1);
 });
+
+test('clearing the chat drops 代发 threads and pending reactions instead of sending them into the new session', async () => {
+    const h = harness();
+    h.char.chatConfig.aiPhoneContactReplies = {
+        threads: { '1:薛明': [{ text: '旧会话代发', byUserProxy: true, isCharSide: true }] },
+        threadsByName: { '薛明': [{ text: '旧会话代发', byUserProxy: true, isCharSide: true }] },
+        pending: [h.event], events: [h.event]
+    };
+    Object.assign(h.context, { clearWechatMemoryForChar() {} });
+    vm.runInContext(sourceSection('wechat.js', 'function resetWechatChatDerivedContext(', 'function pruneWechatAutoMemoryForChar('), h.context);
+    h.context.resetWechatChatDerivedContext(h.char);
+    const store = h.context.getWechatAiPhoneContactReplyStore(h.char);
+    assert.deepEqual(clone(store.threads), {});
+    assert.deepEqual(clone(store.threadsByName), {});
+    assert.equal(store.pending.length, 0);
+    assert.equal(store.events.length, 0);
+    assert.equal(h.context.flushWechatAiPhoneContactReplyReactions(h.char), false);
+    assert.equal(h.state.requests.length, 0);
+});
+
+test('stored 代发 threads are capped to the most recently used contacts', () => {
+    const h = harness();
+    vm.runInContext(sourceSection('wechat.js', 'const WECHAT_AI_PHONE_CONTACT_THREAD_LIMIT', 'function buildWechatAiPhoneContactPreviewRow('), h.context);
+    h.context.stripWechatPromptText = (value, max) => String(value || '').slice(0, max);
+    for (let index = 1; index <= 30; index += 1) {
+        h.context.setWechatAiPhoneStoredContactRows(h.char, { name: `联系人${index}` }, index, [{ text: `消息${index}` }]);
+    }
+    h.context.setWechatAiPhoneStoredContactRows(h.char, { name: '联系人1' }, 1, [{ text: '再次代发' }]);
+    const store = h.char.chatConfig.aiPhoneContactReplies;
+    const limit = vm.runInContext('WECHAT_AI_PHONE_CONTACT_THREAD_LIMIT', h.context);
+    assert.equal(Object.keys(store.threads).length, limit);
+    assert.equal(Object.keys(store.threadsByName).length, limit);
+    assert.ok(store.threadsByName['联系人1'], 'recently used thread survives');
+    assert.ok(store.threadsByName['联系人30']);
+    assert.equal(store.threadsByName['联系人2'], undefined);
+});

@@ -50,16 +50,16 @@
     <link rel="manifest" href="manifest.webmanifest?v=1.1.659">
     <link rel="icon" href="bynd-icon.png?v=1.1.657" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.682" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.685" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/study.css?v=1.1.653" media="all">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.657" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.657" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.682" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.684-bill" media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.618" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.685" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.685" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.685" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.685" media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.685" data-bynd-core-style media="all">
     <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.620" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.684" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.684" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.685" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.685" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -1588,21 +1588,38 @@
                 <div class="set-nav-panel" id="settings-tab-decision" data-settings-panel="decision" role="tabpanel" aria-labelledby="settings-nav-decision" hidden>
                 <section class="bynd-jev-card" id="bynd-jev-settings" aria-label="智能决策">
                     <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-git-branch-line"></i></span><div><strong>智能决策</strong><small>BYND Agent / Jev 双路径</small></div></div>
-                    <p class="bynd-jev-intro">默认使用 BYND 自有 Agent 与提示词。你也可以自愿接入 Jev，让它先判断是否行动；角色内容仍由原模型创作。</p>
-                    <label class="bynd-jev-enable"><span><strong>使用 Jev 辅助决策</strong><small>未配置、调用失败时自动回到 BYND 路径</small></span><input type="checkbox" id="bynd-jev-enabled"></label>
+                    <p class="bynd-jev-intro">每轮回复后判断要不要更新心声、写记忆、发朋友圈、换心情头像，以及角色工具是否符合人设。没填 Jev 时由 BYND 内置 Agent 在回复里顺带判断，不额外请求；填了 Jev 则交给 Jev，更快、不占聊天接口，也不会引发 429。角色内容始终由聊天模型创作。</p>
+                    <p class="bynd-jev-route" id="bynd-jev-route">当前路径：BYND 内置 Agent（未启用 Jev）</p>
+                    <label class="bynd-jev-enable"><span><strong>使用 Jev 辅助决策</strong><small>未配置、调用失败或把握不足时自动回到 BYND 路径</small></span><input type="checkbox" id="bynd-jev-enabled"></label>
                     <label class="bynd-jev-key-label" for="bynd-jev-key">TypeSafe Jev API Key</label>
                     <input class="bynd-jev-key" id="bynd-jev-key" type="password" placeholder="apikey_…" autocomplete="off" spellcheck="false">
                     <small class="bynd-jev-key-help">只填完整的 apikey_ 开头密钥；不要填邮箱、表格竖线或引号。</small>
+                    <details class="bynd-jev-guide">
+                        <summary><i class="ri-question-line"></i>怎么注册 Jev、领取密钥？</summary>
+                        <ol>
+                            <li>打开 <b>typesafe.ai</b>，点 <b>Join Waitlist</b> 用邮箱排队。Jev 目前是抢先体验，暂时不能直接自助注册。</li>
+                            <li>收到 TypeSafe 的邀请邮件后，登录控制台 <b>console.typesafe.ai</b>。</li>
+                            <li>进入 <b>Settings → Keys</b>，点创建密钥。密钥以 <code>apikey_</code> 开头，<b>只显示一次</b>，请立刻复制保存。</li>
+                            <li>回到这里粘贴密钥，点「测试连接」，成功后勾选「使用 Jev 辅助决策」并保存。</li>
+                        </ol>
+                        <p>计费：输入约 0.042 美元 / 百万 Token，输出免费，以官网为准。每轮决策大约几百 Token，用量会记进「账单」的「Jev 决策」。</p>
+                    </details>
                     <div class="bynd-jev-scopes" role="group" aria-label="Jev 决策场景">
+                        <label><input type="checkbox" data-jev-scope="turn"><span>每轮回复后</span></label>
+                        <label><input type="checkbox" data-jev-scope="toolGate"><span>工具人设把关</span></label>
                         <label><input type="checkbox" data-jev-scope="moment"><span>角色朋友圈</span></label>
                         <label><input type="checkbox" data-jev-scope="momentEngagement"><span>朋友圈互动</span></label>
                         <label><input type="checkbox" data-jev-scope="forumAction"><span>论坛行动</span></label>
                         <label><input type="checkbox" data-jev-scope="forumReply"><span>评论回应</span></label>
                         <label><input type="checkbox" data-jev-scope="profile"><span>主页更新</span></label>
                     </div>
-                    <p class="bynd-jev-privacy">密钥保存在当前设备的应用数据中，不写入安装包，也不包含在 BYND 的 JSON 导出中。决策会把必要的精简状态发往 TypeSafe；浏览器直连失败时，经 BYND 固定代理转发。测试连接会产生一次调用。</p>
+                    <label class="bynd-jev-threshold" for="bynd-jev-threshold"><span><strong>执行门槛</strong><small>Jev 的把握低于这个概率时不执行，改用 BYND 原逻辑</small></span><b id="bynd-jev-threshold-value">55%</b></label>
+                    <input class="bynd-jev-threshold-range" id="bynd-jev-threshold" type="range" min="34" max="95" step="1" value="55" oninput="ByndJev.previewThreshold(this.value)">
+                    <p class="bynd-jev-privacy">密钥保存在当前设备的应用数据中，不写入安装包，也不包含在 BYND 的 JSON 导出中。决策会把必要的精简状态经 BYND 转发服务发往 TypeSafe（转发不保存密钥）。测试连接会产生一次调用。</p>
                     <div class="bynd-jev-actions"><button type="button" id="bynd-jev-test" onclick="ByndJev.testSettings()">测试连接</button><button type="button" onclick="ByndJev.saveSettings()">保存设置</button></div>
                     <p class="bynd-jev-status" id="bynd-jev-status" role="status" aria-live="polite"></p>
+                    <div class="bynd-jev-log-title">最近的决策 <small>绿色表示已执行</small></div>
+                    <ul class="bynd-jev-log" id="bynd-jev-log"></ul>
                 </section>
                 </div>
 
@@ -1743,7 +1760,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.684
+                    Beyond Screen v1.1.685
                 </div>
             </div>
         </div>
@@ -2976,39 +2993,40 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="modules/usage/ledger.js?v=1.1.684"></script>
-    <script src="chat-api.js?v=1.1.677"></script>
+    <script src="modules/usage/ledger.js?v=1.1.685"></script>
+    <script src="chat-api.js?v=1.1.685"></script>
     <script src="stickers-boltp-share.js?v=20260529-outing-desktop41"></script>
     <script src="stickers-local-share.js?v=1.1.657"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.657"></script>
-    <script src="modules/decision/jev.js?v=1.1.684"></script>
-    <script src="wechat.js?v=1.1.684"></script>
-    <script src="modules/living-world/living-world.js?v=1.1.684"></script>
-    <script src="theme.js?v=1.1.616-dream-icons"></script>
-    <script src="settings.js?v=1.1.684"></script>
-    <script src="script.js?v=1.1.676-comic-pet-layout"></script>
-    <script src="modules/comic/comic.js?v=1.1.675"></script>
-    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.675">
+    <script src="modules/wechat/ui-theme.js?v=1.1.685"></script>
+    <script src="modules/decision/jev.js?v=1.1.685"></script>
+    <script src="modules/decision/decider.js?v=1.1.685"></script>
+    <script src="wechat.js?v=1.1.685"></script>
+    <script src="modules/living-world/living-world.js?v=1.1.685"></script>
+    <script src="theme.js?v=1.1.685"></script>
+    <script src="settings.js?v=1.1.685"></script>
+    <script src="script.js?v=1.1.685"></script>
+    <script src="modules/comic/comic.js?v=1.1.685"></script>
+    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.685">
     <script src="netease.js?v=1.1.569-music-library-cache"></script>
-    <script src="WorldBook.js?v=1.1.682"></script>
+    <script src="WorldBook.js?v=1.1.685"></script>
     <script src="regular.js?v=20260529-outing-desktop41"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.677"></script>
-    <script src="modules/wechat/api-ticket.js?v=1.1.682"></script>
-    <script src="modules/usage/bill-app.js?v=1.1.684-bill"></script>
-    <script src="modules/wechat/character-generator.js?v=1.1.603-agent-features-20260910"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.685"></script>
+    <script src="modules/wechat/api-ticket.js?v=1.1.685"></script>
+    <script src="modules/usage/bill-app.js?v=1.1.685"></script>
+    <script src="modules/wechat/character-generator.js?v=1.1.685"></script>
     <script src="modules/wechat/openclaw-settings.js?v=1.1.603-agent-features-20260910"></script>
     <script src="assets/characters/builtin/artwork.js?v=1.1.657"></script>
     <script src="assets/characters/builtin/library.js?v=1.1.657"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.657"></script>
-    <script src="modules/study/study-app.js?v=1.1.657"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.626"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.685"></script>
+    <script src="modules/study/study-app.js?v=1.1.685"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.685"></script>
     <script src="assets/vendor/gifenc.js?v=1.0.3"></script>
     <script src="assets/vendor/omggif.js?v=1.0.10"></script>
     <script src="modules/monitor/pet-animation.js?v=1.1.616"></script>
     <script src="modules/monitor/pet-proportions.js?v=1.1.620"></script>
     <script src="modules/monitor/pet-background.js?v=1.1.622"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.621"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.685"></script>
     <script src="modules/monitor/pet-history.js?v=1.1.620"></script>
-    <script src="modules/monitor/workspace.js?v=1.1.621"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.685"></script>
 </body>
 </html>

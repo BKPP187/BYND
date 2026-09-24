@@ -393,14 +393,14 @@ test('confirmed animated states follow the reviewed reply and use a still poster
     const gif = 'data:image/gif;base64,R0lGODlh';
     data.set('smile', { url: gif, posterUrl: png, transparent: true, format: 'gif', baseKey: 'base' });
     await C.preload(char);
-    state.answer = reviewReply;
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢。'), true);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: true }, '谢谢。'), true);
     assert.equal(C.visual(char).image, gif);
     context.window.matchMedia = () => ({ matches: true });
     assert.equal(C.visual(char).image, png);
-    state.answer = { ok: true, content: '{"allow":false,"note":"违背人设"}' };
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '撒娇'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: false, note: '违背人设' }, '撒娇'), false);
     assert.equal(C.visual(char).state, 'idle');
+    assert.equal(C.runtime(char).note, '违背人设');
+    assert.equal(state.calls.length, 0, 'the reply tag carries the self-check; no second request');
 });
 
 test('confirmed idle GIFs retain the mother and all existing reaction assets', async () => {
@@ -491,7 +491,7 @@ test('a reply whose self-check fails keeps the pet idle without a second request
     assert.equal(preview.reaction.text, '');
 });
 
-test('a persistent bare 429 waits out learned cooldowns, then pauses automatic reactions until a manual recovery', async () => {
+test('a persistent bare 429 waits out learned cooldowns, then automatic reactions resume once the cooldown expires', async () => {
     const { C, char, state, timers } = harness();
     state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0, error: 'rate limit exceeded' };
     const fired = [];
@@ -502,17 +502,32 @@ test('a persistent bare 429 waits out learned cooldowns, then pauses automatic r
     assert.equal(C.runtime(char).bubble, '');
     assert.equal(await C.request(char, 'scene'), false);
     assert.equal(state.calls.length, 3, 'automatic reactions never send during the cooldown');
+    assert.match(C.visual(char).paused.message, /秒/, 'the floating pet shows the pause');
     state.now += 60000;
-    assert.equal(await C.request(char, 'scene'), false);
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
-    assert.equal(state.calls.length, 3, 'an expired cooldown still keeps automatic reactions paused');
+    assert.equal(C.visual(char).paused, null, 'an expired learned cooldown lifts itself');
     state.answer = answerPet;
-    assert.equal(await C.request(char), true);
-    assert.equal(state.calls.length, 4);
-    assert.equal(await C.request(char, 'scene'), false);
-    state.now += 30000;
     assert.equal(await C.request(char, 'scene'), true);
-    assert.equal(state.calls.length, 5);
+    assert.equal(state.calls.length, 4);
+    state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 0 };
+    state.now += 30000;
+    assert.equal(await C.request(char, 'scene'), false);
+    assert.ok(Math.abs(C.visual(char).paused.remainingMs - 15000) < 1000, 'a success resets the learned backoff');
+});
+
+test('any successful chat request lifts a pet pause, including a quota pause', async () => {
+    const { C, char, state, context } = harness();
+    let lastOk = 0; context.getChatApiLastSuccessAt = () => lastOk;
+    state.answer = { ok: false, httpStatus: 429, quotaExceeded: true, rateLimited: false, retryAfterMs: 0, error: 'insufficient_quota' };
+    assert.equal(await C.request(char, 'scene'), false);
+    state.now += 600000;
+    assert.equal(await C.request(char, 'scene'), false, 'a quota pause does not expire on its own');
+    assert.equal(state.calls.length, 1);
+    assert.equal(C.visual(char).paused.quotaExceeded, true);
+    state.now += 1000; lastOk = state.now;
+    state.answer = answerPet;
+    assert.equal(C.visual(char).paused, null);
+    assert.equal(await C.request(char, 'scene'), true);
+    assert.equal(state.calls.length, 2);
 });
 
 test('a tap during a learned cooldown reports the remaining seconds without sending', async () => {
@@ -573,8 +588,8 @@ for (const key of ['baseUrl', 'model', 'apiKey']) test('pet automatic pause is i
     assert.equal(state.calls.length, 3);
     const before = state.api[key]; state.api[key] += '-other'; state.answer = answerPet;
     assert.equal(await C.request(char), true);
-    state.api[key] = before; state.now += 60000;
-    assert.equal(await C.request(char, 'scene'), false);
+    state.api[key] = before; state.now += 20000;
+    assert.equal(await C.request(char, 'scene'), false, 'the original scope is still inside its learned cooldown');
     assert.equal(state.calls.length, 4);
 });
 
@@ -653,8 +668,9 @@ test('throttle and provider failures name the stage, HTTP status and upstream re
     state.now += 3000; state.answer = petReply;
     assert.equal(await C.request(char, 'tap'), true, 'a manual success clears the quota pause');
     state.now += 3000; C.reset(char); state.answer = { ok: false, error: 'API 错误 (502): bad gateway' };
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
-    assert.equal(C.runtime(char).note, '一致性审校：API 错误 (502): bad gateway', 'the chat-side review still names its stage');
+    const callsBefore = state.calls.length;
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: true, note: '符合人设' }, '谢谢'), true);
+    assert.equal(state.calls.length, callsBefore, 'a chat-side reaction never sends its own review request');
 });
 
 test('the test panel also rides out a transient 429 and still surfaces a persistent one', async () => {
@@ -694,9 +710,10 @@ test('legacy pet requests share the rate gate and preserve the old bubble when s
     vm.runInContext(sourceSection('script.js', 'async function requestMonitorPetReaction(', 'window.requestMonitorPetReaction'), context);
     state.answer = { ok: false, rateLimited: true, httpStatus: 429, retryAfterMs: 0 };
     await context.requestMonitorPetReaction();
-    state.now += 60000;
+    state.now += 5000;
     await context.requestMonitorPetReaction('observe');
-    assert.equal(state.calls.length, 1);
+    assert.equal(state.calls.length, 1, 'automatic legacy requests respect the learned cooldown');
+    state.now += 60000;
     assert.equal(bubble.bubbleText, '原来的气泡');
     state.answer = { ok: true, content: '新的气泡' }; state.failSave = true;
     await context.requestMonitorPetReaction();
@@ -800,60 +817,56 @@ test('pet metadata and truncated tags never become visible dialogue', () => {
     assert.equal(C.extract('谢谢。<bynd_pet>{"state":').reaction, null);
 });
 
-test('character-specific persona, boundaries and relationship reach both generation and independent review', async () => {
+test('character-specific persona, boundaries and relationship reach the chat reply that carries its own self-check', async () => {
     const { C, char, state } = harness();
     const instructions = C.chatInstructions(char);
     assert.match(instructions, /初识同事/);
     assert.match(instructions, /禁止幼儿化/);
     assert.match(instructions, /quiet_smile/);
-    await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 0.9 }, '谢谢你的关心。');
-    assert.equal(state.calls.length, 1);
-    const request = JSON.stringify(state.calls[0].messages);
-    assert.match(request, /成年研究员/);
-    assert.match(request, /刚认识的同事/);
-    assert.match(request, /谢谢你的关心/);
-    assert.match(request, /审校器/);
+    assert.match(instructions, /"allow":true,"note"/);
+    assert.match(instructions, /过度亲昵、幼儿化、态度相反/);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 0.9, allow: true, note: '克制地回应感谢。' }, '谢谢你的关心。'), true);
+    assert.equal(state.calls.length, 0, 'one chat turn is one request');
     assert.equal(C.runtime(char).state, 'quiet_smile');
+    assert.equal(C.runtime(char).note, '克制地回应感谢。');
 });
 
-test('OOC rejection and failed review keep the pet idle without manufacturing speech', async () => {
+test('OOC rejection and a missing self-check keep the pet idle without manufacturing speech', async () => {
     const { C, char, state } = harness();
-    state.answer = { ok: true, content: '{"allow":false,"note":"不符合当前关系。"}' };
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '宝贝抱抱'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: false, note: '不符合当前关系。' }, '宝贝抱抱'), false);
     assert.equal(C.runtime(char).state, 'idle');
     assert.equal(C.runtime(char).bubble, '');
-    state.answer = { ok: false, error: 'timeout' };
+    assert.equal(C.runtime(char).note, '不符合当前关系。');
     assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢'), false);
     assert.equal(C.runtime(char).state, 'idle');
+    assert.match(C.runtime(char).note, /一致性检查未通过/);
+    assert.equal(state.calls.length, 0);
 });
 
 for (const [label, change] of [
-    ['new interaction', h => h.char.history.push({ isMe: true, content: '别这么说。', timestamp: 2 })],
     ['role switch', h => { h.state.bound = h.other; }],
     ['global off', h => { h.state.enabled = false; }],
     ['automatic reactions off', h => { h.char.chatConfig.characterPet.autoReact = false; }],
-    ['changed personality', h => { h.char.description = '性格已修改，不会微笑。'; }],
-    ['changed imported persona', h => { h.char.system_prompt = '不能用微笑回应感谢。'; }],
     ['removed character', h => { h.context.window.myCharacters = [h.other]; }]
-]) test('an outstanding pet review is discarded after ' + label, async () => {
-    const h = harness(); const gate = deferred(); h.state.answer = () => gate.promise;
-    const request = h.C.applyChatReaction(h.char, { state: 'quiet_smile', confidence: 0.9 }, '谢谢。');
-    change(h); gate.resolve({ ok: true, content: '{"allow":true}' });
-    assert.equal(await request, false);
+]) test('a chat reaction is ignored after ' + label, async () => {
+    const h = harness();
+    change(h);
+    assert.equal(await h.C.applyChatReaction(h.char, { state: 'quiet_smile', confidence: 0.9, allow: true }, '谢谢。'), false);
     assert.equal(h.C.runtime(h.char).state, 'idle');
+    assert.equal(h.state.calls.length, 0);
 });
 
 test('confirmed emotions expire without another API request and opening/rendering a scene does not query AI', async () => {
     const { C, char, state, timers, context } = harness();
     C.observeScene(); C.observeScene(); C.material(char);
     assert.equal(state.calls.length, 0);
-    await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, durationSeconds: 1 }, '谢谢。');
+    await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, durationSeconds: 1, allow: true }, '谢谢。');
     const timer = [...timers.values()].find(item => item.delay === 15000);
     context.getMonitorPetCurrentSceneText = () => '用户切换到了共读页。';
     C.observeScene();
     assert.ok(timer); timer.fn();
     assert.equal(C.runtime(char).state, 'idle');
-    assert.equal(state.calls.length, 1);
+    assert.equal(state.calls.length, 0);
 });
 
 test('saved pet changes roll back on persistence failure, serialize writes and retain other roles', async () => {
@@ -1035,7 +1048,7 @@ test('a pet with only an image stays neutral until personality evidence is avail
     delete char.description; char.worldBook = [];
     char.chatConfig.characterPet.appearance = '银灰短发，红色眼睛。';
     assert.equal(await C.request(char, 'tap'), false);
-    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1 }, '谢谢。'), false);
+    assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: true }, '谢谢。'), false);
     await assert.rejects(C.testReaction(char, '今天开心吗？'), /性格.*关系/);
     assert.equal(state.calls.length, 0);
     assert.equal(C.runtime(char).state, 'idle');
@@ -1549,4 +1562,57 @@ test('image results normalize raw base64, existing data URLs and output MIME cor
         respond(() => new Response(JSON.stringify(body), { status: 200 }));
         assert.equal((await context.callWechatImageGenerationApi('character', petImageOptions)).url, expected);
     }
+});
+
+test('purging a deleted character removes only its own pet images', async () => {
+    const { C, context, data, other } = harness();
+    data.set('character-pet:pet-a:1', { url: png });
+    data.set('character-pet:pet-a:2', { url: png });
+    data.set('character-pet:pet-b:1', { url: png });
+    await assert.rejects(C.purgeCharacter('pet-a'), /仍存在/);
+    assert.equal(data.has('character-pet:pet-a:1'), true);
+    context.window.myCharacters = [other];
+    assert.equal(await C.purgeCharacter('pet-a'), 2);
+    assert.deepEqual([...data.keys()].filter(key => key.startsWith('character-pet:')), ['character-pet:pet-b:1']);
+});
+
+test('deleting a character cleans its pet images and study chats after the removal is saved', async () => {
+    for (const saved of [true, false]) {
+        const purged = [];
+        const localStorage = memoryStorage({ bynd_study_chats_v1: JSON.stringify({ 'pet-a': { messages: [{ id: 1 }] }, 'pet-b': { messages: [] } }) });
+        const context = vm.createContext({
+            console: { warn() {} }, localStorage, confirm: () => true, renderChatList() {},
+            saveCharactersToStorage: async () => saved,
+            window: { myCharacters: [{ id: 'pet-a', name: '沈清' }, { id: 'pet-b', name: '乔乐' }], currentChatCharId: 'pet-a', ByndCharacterPet: { purgeCharacter: async id => { purged.push(id); return 1; } } }
+        });
+        vm.runInContext(sourceSection('wechat.js', 'function deleteCharacter(', '// 滑动手势处理'), context);
+        await context.deleteCharacter('pet-a');
+        assert.deepEqual(context.window.myCharacters.map(char => char.id), ['pet-b']);
+        const chats = JSON.parse(localStorage.getItem('bynd_study_chats_v1'));
+        if (saved) {
+            assert.deepEqual(purged, ['pet-a']);
+            assert.deepEqual(Object.keys(chats), ['pet-b']);
+        } else {
+            assert.deepEqual(purged, [], 'nothing is purged when the deletion was not saved');
+            assert.deepEqual(Object.keys(chats), ['pet-a', 'pet-b']);
+        }
+    }
+});
+
+test('displayed pet reactions are persisted to a bounded log for the 互动记录 page', async () => {
+    const { C, char, state, timers } = harness();
+    state.answer = answerPet;
+    assert.equal(await C.request(char, 'tap'), true);
+    assert.deepEqual(JSON.parse(JSON.stringify(char.chatConfig.characterPetLog)), [{ text: '谢谢。', state: 'quiet_smile', at: state.now }]);
+    const save = [...timers.values()].find(timer => timer.delay === 1200);
+    assert.ok(save, 'the log is saved shortly after');
+    save.fn(); await new Promise(setImmediate);
+    assert.equal(state.saves.at(-1)[0].chatConfig.characterPetLog.length, 1);
+    for (let index = 0; index < 40; index++) {
+        state.now += 1000;
+        assert.equal(await C.applyChatReaction(char, { state: 'quiet_smile', confidence: 1, allow: true }, '谢谢'), true);
+    }
+    assert.equal(char.chatConfig.characterPetLog.length, 30);
+    assert.equal(char.chatConfig.characterPetLog.at(-1).text, '表情：浅笑');
+    assert.equal(state.calls.length, 1);
 });

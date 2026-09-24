@@ -92,6 +92,10 @@
                 if (isPet) {
                     const pet = char.chatConfig?.monitorPetState;
                     if (pet?.bubbleText && pet.bubbleAt) records.push({ id: `${char.id}:pet`, char, text: String(pet.bubbleText), kind: 'pet', at: timestamp(pet.bubbleAt) });
+                    const log = Array.isArray(char.chatConfig?.characterPetLog) ? char.chatConfig.characterPetLog : [];
+                    log.forEach((entry, index) => {
+                        if (entry?.text) records.push({ id: `${char.id}:pet-log:${index}`, char, text: String(entry.text), kind: 'pet', at: timestamp(entry.at) });
+                    });
                     continue;
                 }
                 const history = Array.isArray(char.history) ? char.history : [];

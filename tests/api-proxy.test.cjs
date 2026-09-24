@@ -30,7 +30,8 @@ test('official l0veyou and Wisart base URLs resolve to the BYND proxy, everythin
     assert.match(local.getApiProxyHint('https://l0veyou.com/v1'), /固定代理连接 l0veyou\.com/);
 
     const production = settingsHarness('bynd.ccwu.cc', 'https:');
-    assert.equal(production.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd.ccwu.cc/l0veyou/v1');
+    // Until the bynd.ccwu.cc/l0veyou/* route is attached (sameOriginRoute: false) production uses workers.dev.
+    assert.equal(production.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1');
     assert.equal(production.resolveByndApiBaseUrl('https://wisart.kuaileshifu.com/v1'), 'https://bynd.ccwu.cc/wisart/v1');
 });
 

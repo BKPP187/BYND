@@ -2054,9 +2054,11 @@ function isNvidiaApiBaseUrl(baseUrl) {
 // Sites that refuse browser requests (no CORS) but that BYND proxies through
 // its own Worker. The user keeps typing the official Base URL; requests are
 // silently routed to the pinned proxy, which never stores keys.
+// sameOriginRoute: the bynd.ccwu.cc/<path>/* Worker route is attached (see workers/DEPLOY.md);
+// without it the production page must use the workers.dev address instead.
 const BYND_PINNED_API_PROXIES = [
-    { id: 'wisart', hostname: 'wisart.kuaileshifu.com', proxyPath: '/wisart/v1' },
-    { id: 'l0veyou', hostname: 'l0veyou.com', proxyPath: '/l0veyou/v1' }
+    { id: 'wisart', hostname: 'wisart.kuaileshifu.com', proxyPath: '/wisart/v1', sameOriginRoute: true },
+    { id: 'l0veyou', hostname: 'l0veyou.com', proxyPath: '/l0veyou/v1', sameOriginRoute: false }
 ];
 
 function getByndPinnedApiProxy(baseUrl) {
@@ -2085,7 +2087,7 @@ function resolveByndApiBaseUrl(baseUrl) {
     const isProductionWeb = typeof location !== 'undefined'
         && location.protocol === 'https:'
         && location.hostname.toLowerCase() === 'bynd.ccwu.cc';
-    return isProductionWeb
+    return isProductionWeb && proxy.sameOriginRoute
         ? `${location.origin}${proxy.proxyPath}`
         : `https://bynd-push.myluckylxy.workers.dev${proxy.proxyPath}`;
 }
@@ -2594,7 +2596,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.684';
+const APP_VERSION = 'v1.1.685';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';

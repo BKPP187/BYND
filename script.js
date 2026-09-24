@@ -6853,9 +6853,17 @@ function renderMonitorPetFloat(pet, mode = '') {
     const message = transientMessage || (pending ? '...' : characterMessage);
     const hasBubble = !!message;
     const boundName = boundChar ? getMonitorCharName(boundChar) : '';
-    node.className = `monitor-pet-floating ${custom ? 'character-pet' : ''} ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} pop`;
+    node.className = `monitor-pet-floating ${custom ? 'character-pet' : ''} ${mode === 'preview' ? 'previewing' : ''} ${hasBubble ? 'has-bubble' : ''} ${pending ? 'thinking' : ''} ${visual?.paused ? 'paused' : ''} pop`;
     node.dataset.boundChar = boundChar ? boundChar.id : '';
     node.dataset.petState = visual?.state || 'idle';
+    // Rate-limit pauses hold automatic reactions back; say so on the pet instead of going silent.
+    let pausedBadge = node.querySelector('.monitor-pet-floating-paused');
+    if (visual?.paused) {
+        if (!pausedBadge) { pausedBadge = document.createElement('span'); pausedBadge.className = 'monitor-pet-floating-paused'; node.appendChild(pausedBadge); }
+        pausedBadge.textContent = visual.paused.quotaExceeded ? '额度不足' : '暂停';
+        pausedBadge.title = visual.paused.message || '';
+        pausedBadge.setAttribute('role', 'status');
+    } else pausedBadge?.remove();
     let bubble = node.querySelector('.monitor-pet-floating-bubble');
     if (hasBubble) {
         if (!bubble) { bubble = document.createElement('div'); bubble.className = 'monitor-pet-floating-bubble'; node.prepend(bubble); }
@@ -10926,38 +10934,157 @@ function getChessLegalMoves(state, row, col) {
     return moves;
 }
 
+const XIANGQI_PIECE_KINDS = {
+    '俥': 'rook', '車': 'rook', '傌': 'horse', '馬': 'horse', '相': 'elephant', '象': 'elephant',
+    '仕': 'advisor', '士': 'advisor', '帥': 'general', '將': 'general', '炮': 'cannon', '砲': 'cannon', '兵': 'soldier', '卒': 'soldier'
+};
+
+function getXiangqiPieceKind(piece) {
+    return XIANGQI_PIECE_KINDS[piece] || '';
+}
+
+// Red starts on rows 0-4 and advances toward row 9; black the reverse. The river
+// lies between rows 4 and 5 and each palace spans columns 3-5.
+function getXiangqiPseudoMoves(board, row, col) {
+    const piece = board[row]?.[col] || '';
+    const side = getBoardGamePieceSide('xiangqi', piece, row);
+    const kind = getXiangqiPieceKind(piece);
+    if (!side || !kind) return [];
+    const forward = side === 'red' ? 1 : -1;
+    const ownHalf = r => side === 'red' ? r <= 4 : r >= 5;
+    const inPalace = (r, c) => c >= 3 && c <= 5 && (side === 'red' ? r >= 0 && r <= 2 : r >= 7 && r <= 9);
+    const inside = (r, c) => isBoardCellInside('xiangqi', r, c);
+    const at = (r, c) => board[r]?.[c] || '';
+    const enemy = (r, c) => !!at(r, c) && getBoardGamePieceSide('xiangqi', at(r, c), r) !== side;
+    const targets = [];
+    const add = (r, c) => { if (inside(r, c) && (!at(r, c) || enemy(r, c))) targets.push([r, c]); };
+    const orthogonal = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    if (kind === 'rook' || kind === 'cannon') {
+        for (const [dr, dc] of orthogonal) {
+            let screened = false;
+            for (let r = row + dr, c = col + dc; inside(r, c); r += dr, c += dc) {
+                if (!at(r, c)) { if (!screened) targets.push([r, c]); continue; }
+                // 車 captures the first piece; 炮 needs exactly one screen before its capture.
+                if (kind === 'rook' || screened) { if (enemy(r, c)) targets.push([r, c]); break; }
+                screened = true;
+            }
+        }
+    } else if (kind === 'horse') {
+        for (const [dr, dc] of [[2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]]) {
+            const legRow = Math.abs(dr) === 2 ? row + dr / 2 : row;
+            const legCol = Math.abs(dc) === 2 ? col + dc / 2 : col;
+            if (!at(legRow, legCol)) add(row + dr, col + dc); // 蹩马腿
+        }
+    } else if (kind === 'elephant') {
+        for (const [dr, dc] of [[2, 2], [2, -2], [-2, 2], [-2, -2]]) {
+            if (ownHalf(row + dr) && inside(row + dr, col + dc) && !at(row + dr / 2, col + dc / 2)) add(row + dr, col + dc); // 塞象眼, no river crossing
+        }
+    } else if (kind === 'advisor') {
+        for (const [dr, dc] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) if (inPalace(row + dr, col + dc)) add(row + dr, col + dc);
+    } else if (kind === 'general') {
+        for (const [dr, dc] of orthogonal) if (inPalace(row + dr, col + dc)) add(row + dr, col + dc);
+    } else if (kind === 'soldier') {
+        add(row + forward, col);
+        if (!ownHalf(row)) { add(row, col - 1); add(row, col + 1); }
+    }
+    return targets.map(([r, c]) => ({ from: [row, col], to: [r, c], piece, capturedPiece: at(r, c), row: r, col: c }));
+}
+
+function findXiangqiGeneral(board, side) {
+    for (let r = 0; r < board.length; r += 1) {
+        for (let c = 0; c < (board[r] || []).length; c += 1) {
+            const piece = board[r][c];
+            if (getXiangqiPieceKind(piece) === 'general' && getBoardGamePieceSide('xiangqi', piece, r) === side) return [r, c];
+        }
+    }
+    return null;
+}
+
+function areXiangqiGeneralsFacing(board) {
+    const red = findXiangqiGeneral(board, 'red');
+    const black = findXiangqiGeneral(board, 'black');
+    if (!red || !black || red[1] !== black[1]) return false;
+    for (let r = Math.min(red[0], black[0]) + 1; r < Math.max(red[0], black[0]); r += 1) {
+        if (board[r]?.[red[1]]) return false;
+    }
+    return true;
+}
+
+function getXiangqiLegalMoves(state, row, col) {
+    const board = state.board || [];
+    return getXiangqiPseudoMoves(board, row, col).filter(move => {
+        if (getXiangqiPieceKind(move.capturedPiece) === 'general') return true;
+        const next = board.map(line => line.slice());
+        next[move.to[0]][move.to[1]] = move.piece;
+        next[row][col] = '';
+        return !areXiangqiGeneralsFacing(next); // 将帅不能照面
+    });
+}
+
+function getBoardSideLegalMoves(type, state, side) {
+    const moves = [];
+    (state.board || []).forEach((line, r) => line.forEach((piece, c) => {
+        if (piece && getBoardGamePieceSide(type, piece, r) === side) moves.push(...getBoardLegalMoves(type, state, r, c));
+    }));
+    return moves;
+}
+
 function getBoardLegalMoves(type, state, row, col) {
     if (type === 'chess') return getChessLegalMoves(state, row, col);
-    const board = state.board || [];
-    const piece = board[row]?.[col] || '';
-    if (!piece) return [];
-    const side = getBoardGamePieceSide(type, piece, row);
-    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-    return dirs.map(([dr, dc]) => {
-        const nr = row + dr;
-        const nc = col + dc;
-        const target = board[nr]?.[nc] || '';
-        if (!isBoardCellInside(type, nr, nc)) return null;
-        if (target && getBoardGamePieceSide(type, target, nr) === side) return null;
-        return { from: [row, col], to: [nr, nc], piece, capturedPiece: target, row: nr, col: nc };
-    }).filter(Boolean);
+    if (type === 'xiangqi') return getXiangqiLegalMoves(state, row, col);
+    return [];
+}
+
+const BOARD_AI_PIECE_VALUES = {
+    chess: { king: 999, queen: 90, rook: 50, bishop: 32, knight: 31, pawn: 10 },
+    xiangqi: { general: 999, rook: 90, cannon: 45, horse: 40, elephant: 20, advisor: 20, soldier: 10 }
+};
+
+function getBoardPieceKind(type, piece) {
+    return type === 'xiangqi' ? getXiangqiPieceKind(piece) : getChessPieceKind(piece);
+}
+
+function getBoardAiPieceValue(type, piece) {
+    if (!piece) return 0;
+    return BOARD_AI_PIECE_VALUES[type]?.[getBoardPieceKind(type, piece)] || 1;
+}
+
+function isBoardLeaderPiece(type, piece) {
+    return ['king', 'general'].includes(getBoardPieceKind(type, piece));
+}
+
+function getOppositeBoardSide(type, side) {
+    if (type === 'xiangqi') return side === 'red' ? 'black' : 'red';
+    return side === 'white' ? 'black' : 'white';
 }
 
 function chooseClassicBoardAutoMove(type, state) {
     const ownSide = state.charSide || state.turn;
-    const moves = [];
-    const rows = state.board || [];
-    rows.forEach((row, r) => row.forEach((piece, c) => {
-        if (!piece || getBoardGamePieceSide(type, piece, r) !== ownSide) return;
-        moves.push(...getBoardLegalMoves(type, state, r, c));
-    }));
-    const valueMap = { king: 999, queen: 90, rook: 50, bishop: 32, knight: 31, pawn: 10 };
-    moves.sort((a, b) => {
-        const av = valueMap[getChessPieceKind(a.capturedPiece)] || Number(!!a.capturedPiece);
-        const bv = valueMap[getChessPieceKind(b.capturedPiece)] || Number(!!b.capturedPiece);
-        return bv - av;
+    const enemySide = getOppositeBoardSide(type, ownSide);
+    const forward = type === 'xiangqi' ? (ownSide === 'red' ? 1 : -1) : (ownSide === 'white' ? -1 : 1);
+    const recent = Array.isArray(state.charRecentMoves) ? state.charRecentMoves.slice(-6) : [];
+    const last = recent[recent.length - 1];
+    const sameSquare = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
+    const scored = getBoardSideLegalMoves(type, state, ownSide).map((move, index) => {
+        let score = getBoardAiPieceValue(type, move.capturedPiece) * 10;
+        if (isBoardLeaderPiece(type, move.capturedPiece)) score += 100000;
+        else {
+            const board = state.board.map(line => line.slice());
+            board[move.to[0]][move.to[1]] = move.piece;
+            board[move.from[0]][move.from[1]] = '';
+            const replies = getBoardSideLegalMoves(type, { ...state, board }, enemySide);
+            // Never leave the king/general capturable; avoid dropping the piece just moved.
+            if (replies.some(reply => isBoardLeaderPiece(type, reply.capturedPiece))) score -= 50000;
+            else if (replies.some(reply => sameSquare(reply.to, move.to))) score -= getBoardAiPieceValue(type, move.piece) * 5;
+        }
+        // Without a capture, shuffling a piece back and forth is the worst kind of quiet move.
+        if (recent.some(item => sameSquare(item.from, move.to))) score -= 30;
+        if (last && sameSquare(last.to, move.from)) score -= 8;
+        score += (move.to[0] - move.from[0]) * forward;
+        return { move, score, index };
     });
-    return moves[0] || null;
+    scored.sort((a, b) => (b.score - a.score) || (a.index - b.index));
+    return scored[0]?.move || null;
 }
 
 function promoteChessPieceIfNeeded(piece, toRow) {
@@ -10975,12 +11102,13 @@ function applyClassicBoardMove(type, state, move) {
     state.board[from[0]][from[1]] = '';
     state.selected = null;
     state.moves = (state.moves || 0) + 1;
-    if (type === 'chess' && getChessPieceKind(capturedPiece) === 'king') {
-        state.winner = getBoardGamePieceSide(type, movingPiece, from[0]);
+    const moverSide = getBoardGamePieceSide(type, movingPiece, from[0]);
+    if (isBoardLeaderPiece(type, capturedPiece)) {
+        state.winner = moverSide;
     } else {
-        state.turn = type === 'xiangqi'
-            ? (state.turn === 'red' ? 'black' : 'red')
-            : (state.turn === 'white' ? 'black' : 'white');
+        state.turn = getOppositeBoardSide(type, state.turn);
+        // In xiangqi a side left without any legal move (checkmate or stalemate) loses.
+        if (type === 'xiangqi' && !getBoardSideLegalMoves(type, state, state.turn).length) state.winner = moverSide;
     }
     return { ...move, piece: movingPiece, capturedPiece };
 }
@@ -11011,11 +11139,23 @@ function getBoardGameMoveCountForComment(type, payload = {}) {
     return Number(state?.moves || 0);
 }
 
+// The relay rejects back-to-back calls: board comments keep one request at a time
+// with a quiet gap, and only the final win comment may queue behind another.
+const BOARD_GAME_MIN_REQUEST_GAP_MS = 6000;
+const boardGameCommentInFlight = new Map();
+
 function reserveBoardGameAiComment(type, reason, payload = {}) {
     const now = Date.now();
     const rate = getBoardGameCommentRate(type);
     if (rate.pauseUntil && now < rate.pauseUntil) {
         return { allowed: false, reason: 'paused', retryMs: rate.pauseUntil - now };
+    }
+    if (reason !== 'win') {
+        if (boardGameCommentInFlight.has(type)) return { allowed: false, reason: 'in-flight' };
+        const sinceLast = now - Number(rate.lastRequestAt || 0);
+        if (sinceLast >= 0 && sinceLast < BOARD_GAME_MIN_REQUEST_GAP_MS) {
+            return { allowed: false, reason: 'request-gap', retryMs: BOARD_GAME_MIN_REQUEST_GAP_MS - sinceLast };
+        }
     }
     if (reason === 'manual') {
         if (now - Number(rate.lastManualAt || 0) < BOARD_GAME_MANUAL_COMMENT_COOLDOWN_MS) {
@@ -11095,8 +11235,17 @@ function executeBoardGameAutoMove(type, reason = 'auto') {
         return;
     }
     const move = chooseClassicBoardAutoMove(type, state);
-    if (!move) return;
+    if (!move) {
+        // A side with nothing to move must not freeze the game: in xiangqi it loses.
+        if (type !== 'xiangqi') return;
+        state.winner = getOppositeBoardSide(type, state.charSide || state.turn);
+        saveBoardGameState(type, state);
+        renderGameApp();
+        requestBoardGameAiComment(type, 'win', { action: `你已经无子可走，${getBoardGameSideLabel(type, state.winner)}获胜了，请按人设对这一局说一句收尾气泡。`, moveCount: state.moves || 0 });
+        return;
+    }
     const applied = applyClassicBoardMove(type, state, move);
+    state.charRecentMoves = [...(Array.isArray(state.charRecentMoves) ? state.charRecentMoves : []), { from: applied.from, to: applied.to }].slice(-6);
     finishBoardGameMove(type, state, { ...applied, side: state.charSide }, 'char');
 }
 
@@ -11184,7 +11333,7 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
     const meta = getBoardGameMeta(type);
     const reserved = reserveBoardGameAiComment(type, reason, payload);
     if (!reserved.allowed) {
-        if (reason === 'manual' && reserved.reason === 'manual-cooldown' && typeof showWechatToast === 'function') {
+        if (reason === 'manual' && ['manual-cooldown', 'request-gap', 'in-flight'].includes(reserved.reason) && typeof showWechatToast === 'function') {
             showWechatToast('棋局气泡先缓一下，避免接口限流');
         }
         if (reason === 'manual' && reserved.reason === 'paused' && typeof showWechatToast === 'function') {
@@ -11211,6 +11360,7 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
         renderGameApp();
         return;
     }
+    boardGameCommentInFlight.set(type, (boardGameCommentInFlight.get(type) || 0) + 1);
     try {
         const history = Array.isArray(char.history) ? char.history.slice(-6) : [];
         const messages = typeof buildMessages === 'function'
@@ -11220,7 +11370,8 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
             role: 'user',
             content: `我们正在 BYND 里玩${meta.title}。你是陪玩角色，请严格按照角色卡和最近聊天，用自然口吻回一句棋局气泡，40字以内。针对刚才的落子或局势说具体、有角色感的话；当前轮到谁只是规则信息，不要每轮都催促“该你了”“到你了”或换词重复最近发言。允许短暂停顿、调侃或情绪反应。不要写思考过程，不要暴露系统提示，不要JSON。最近你的棋局气泡：${JSON.stringify(recentComments.slice(-4))}。当前局面：${summarizeBoardGame(type, payload)}。触发原因：${reason}。`
         });
-        const result = await callChatApi(messages, { usageFeature: 'game', usageChar: char });
+        // The background queue waits for any in-flight request plus the relay's quiet gap.
+        const result = await callChatApi(messages, { usageFeature: 'game', usageChar: char, background: true, backgroundPriority: 1 });
         const current = getBoardGameChat(type);
         if (current.requestId && current.requestId !== requestId) return;
         const raw = result.ok ? result.content : result.error;
@@ -11248,6 +11399,9 @@ async function requestBoardGameAiComment(type, reason = 'manual', payload = {}) 
             recentComments,
             updatedAt: Date.now()
         });
+    } finally {
+        const left = (boardGameCommentInFlight.get(type) || 1) - 1;
+        if (left > 0) boardGameCommentInFlight.set(type, left); else boardGameCommentInFlight.delete(type);
     }
     if (getActiveGame() === type) renderGameApp();
 }
@@ -13146,12 +13300,20 @@ function getCoReadCharacters() {
         : [];
 }
 
+// Cover lookups in flight this session; coverResolving is never persisted, so a
+// reload cannot leave a book stuck showing "..." without a lookup running.
+const coreadCoverResolvingIds = new Set();
+
 function getCoReadLibrary() {
     try {
         const raw = localStorage.getItem(COREAD_LIBRARY_KEY) || '[]';
         if (raw !== coreadLibraryCacheRaw || !Array.isArray(coreadLibraryCache)) {
             const list = JSON.parse(raw);
             coreadLibraryCache = Array.isArray(list) ? list.filter(item => item && item.id) : [];
+            coreadLibraryCache.forEach(item => {
+                if (coreadCoverResolvingIds.has(item.id)) item.coverResolving = true;
+                else delete item.coverResolving;
+            });
             coreadLibraryCacheRaw = raw;
         }
         applyCoReadStoredProgress(coreadLibraryCache);
@@ -13163,7 +13325,7 @@ function getCoReadLibrary() {
 
 function saveCoReadLibrary(list) {
     const normalized = (Array.isArray(list) ? list : []).slice(0, 80);
-    const raw = JSON.stringify(normalized);
+    const raw = JSON.stringify(normalized, (key, value) => key === 'coverResolving' ? undefined : value);
     localStorage.setItem(COREAD_LIBRARY_KEY, raw);
     coreadLibraryCache = normalized;
     coreadLibraryCacheRaw = raw;
@@ -13967,10 +14129,12 @@ async function ensureCoReadBookCover(bookId) {
     const library = getCoReadLibrary();
     const book = library.find(item => item.id === bookId);
     if (!book || book.coverUrl || book.coverResolving) return;
+    coreadCoverResolvingIds.add(bookId);
     book.coverResolving = true;
     saveCoReadLibrary(library);
     try {
         const cover = await fetchCoReadCoverFromMetadata(book.title, book.author);
+        coreadCoverResolvingIds.delete(bookId);
         const latest = getCoReadLibrary();
         const target = latest.find(item => item.id === bookId);
         if (target) {
@@ -13979,6 +14143,7 @@ async function ensureCoReadBookCover(bookId) {
             saveCoReadLibrary(latest);
         }
     } catch (_) {
+        coreadCoverResolvingIds.delete(bookId);
         const latest = getCoReadLibrary();
         const target = latest.find(item => item.id === bookId);
         if (target) {
@@ -14075,6 +14240,8 @@ function isCoReadLikelyDirectoryContent(text) {
 
 function shouldResolveCoReadBookContent(book) {
     if (!book || !book.url || coreadResolvingBookIds.has(book.id)) return false;
+    // A link that already failed to parse waits for a manual 重新解析 instead of re-fetching forever.
+    if (book.resolveFailedAt) return false;
     const contentLength = String(book.content || '').length;
     if (isCoReadUrlTitle(book.title) && Number(book.resolveMetaVersion || 0) < COREAD_META_VERSION) return true;
     if (Number(book.resolveChapterVersion || 0) < COREAD_CHAPTER_VERSION) return true;
@@ -14095,6 +14262,9 @@ function renderCoReadBookCard(book) {
                 <span>${musicEscapeHtml(book.title || '未命名书籍')}</span>
                 <em>${musicEscapeHtml([book.author, status].filter(Boolean).join(' · '))}</em>
             </button>
+            ${coreadShelfSelectionMode || !book.url || !book.resolveFailedAt || book.resolving ? '' : `<button type="button" class="coread-book-delete coread-book-retry" onclick="event.stopPropagation(); retryCoReadBookContent('${musicEscapeAttr(book.id)}')" aria-label="重新解析正文" title="重新解析">
+                <i class="ri-refresh-line"></i>
+            </button>`}
             ${coreadShelfSelectionMode ? '' : `<button type="button" class="coread-book-delete" onclick="event.stopPropagation(); deleteCoReadBook('${musicEscapeAttr(book.id)}')" aria-label="删除书籍">
                 <i class="ri-delete-bin-6-line"></i>
             </button>`}
@@ -15138,19 +15308,21 @@ function saveCoReadThoughtMutation(bookId, thoughtId, mutator) {
     return thought;
 }
 
-function createCoReadThoughtRecord(book, char, text) {
+function createCoReadThoughtRecord(book, char, text, anchor = null) {
     const library = getCoReadLibrary();
     const record = library.find(item => item.id === book.id);
     if (!record) return null;
     record.thoughts = Array.isArray(record.thoughts) ? record.thoughts : [];
+    // The comment belongs to the page it was asked about, not wherever the reader turned while waiting.
+    const hasAnchor = anchor && Number.isFinite(Number(anchor.page));
     const thought = {
         id: `thought_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         charId: char.id,
         charName: getCoReadCharName(char),
         charAvatar: char.avatar || DEFAULT_AVATAR,
         text,
-        page: Number(record.page || 0),
-        pageText: getCoReadRecentPageContextText(record),
+        page: hasAnchor ? Number(anchor.page) : Number(record.page || 0),
+        pageText: hasAnchor ? String(anchor.pageText || '') : getCoReadRecentPageContextText(record),
         replies: [],
         createdAt: Date.now()
     };
@@ -15248,25 +15420,26 @@ async function requestCoReadAiComment(char, book, extra = {}, options = {}) {
         max_tokens: Math.max(minTokens, Number.isFinite(requestedTokens) ? requestedTokens : 0),
         temperature: options.temperature ?? 0.84,
         usageFeature: 'read',
-        usageChar: char
+        usageChar: char,
+        // Our own single retry below replaces callChatApi's back-to-back empty/status retries.
+        skipEmptyLengthRetry: true,
+        skipStatusValidationRetry: true
     };
     const first = await callChatApi(buildCoReadCommentMessages(char, book, extra), apiOptions);
     const firstText = normalizeCoReadAiCommentText(first && first.ok ? first.content : '');
     if (firstText) return { ok: true, text: firstText };
+    // A throttled relay answers every back-to-back retry with another 429: stop here.
+    if (first && (first.rateLimited || first.quotaExceeded || first.deferred || first.cancelled)) return { ok: false, error: first.error || '接口请求太频繁，请稍后再试', rateLimited: !!first.rateLimited };
     if (first && (first.ok || /空内容|empty/i.test(String(first.error || '')))) {
+        // One retry at most, and only after the relay's quiet gap.
+        if (typeof waitForChatApiQuietGap === 'function') await waitForChatApiQuietGap();
         const retry = await callChatApi(
-            buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true }),
-            { ...apiOptions, temperature: Math.max(0.72, Number(apiOptions.temperature || 0.84) - 0.08), max_tokens: Math.max(minTokens, Number(apiOptions.max_tokens || minTokens)) }
-        );
-        const retryText = normalizeCoReadAiCommentText(retry && retry.ok ? retry.content : '');
-        if (retryText) return { ok: true, text: retryText };
-        const safeRetry = await callChatApi(
             buildCoReadCommentMessages(char, book, { ...extra, retryForEmpty: true, safeRetry: true }),
             { ...apiOptions, temperature: 0.72, max_tokens: Math.max(minTokens, Number(apiOptions.max_tokens || minTokens)) }
         );
-        const safeText = normalizeCoReadAiCommentText(safeRetry && safeRetry.ok ? safeRetry.content : '');
-        if (safeText) return { ok: true, text: safeText };
-        return { ok: false, error: (safeRetry && safeRetry.error) || (retry && retry.error) || 'AI 返回了空内容' };
+        const retryText = normalizeCoReadAiCommentText(retry && retry.ok ? retry.content : '');
+        if (retryText) return { ok: true, text: retryText };
+        return { ok: false, error: (retry && retry.error) || 'AI 返回了空内容', rateLimited: !!(retry && retry.rateLimited) };
     }
     return { ok: false, error: (first && first.error) || 'AI 没有回应' };
 }
@@ -15987,19 +16160,24 @@ async function generateCoReadBookReviews(bookId) {
     if (!book || coreadBookReviewBusyId || typeof callChatApi !== 'function') return;
     coreadBookReviewBusyId = id;
     renderCoReadBookDetail();
+    // The request takes a while; write into the library as it is now, not the snapshot from before it.
+    const saveReviewChange = change => {
+        const latest = getCoReadLibrary();
+        const target = latest.find(item => item && item.id === id);
+        if (!target) return;
+        change(target);
+        saveCoReadLibrary(latest);
+    };
     try {
         const result = await callChatApi(buildCoReadBookReviewMessages(book), { max_tokens: 1800, temperature: 0.9, usageFeature: 'read' });
         const items = normalizeCoReadBookReviewItems(result && result.ok ? result.content : '');
-        if (items.length) {
-            book.reviews = [...items, ...getCoReadBookReviews(book)].slice(0, 80);
-        } else {
-            book.reviewError = (result && result.error) || 'AI 没有返回可用书评。';
-        }
-        book.updatedAt = Date.now();
-        saveCoReadLibrary(library);
+        saveReviewChange(target => {
+            if (items.length) target.reviews = [...items, ...getCoReadBookReviews(target)].slice(0, 80);
+            else target.reviewError = (result && result.error) || 'AI 没有返回可用书评。';
+            target.updatedAt = Date.now();
+        });
     } catch (_) {
-        book.reviewError = '书评生成失败，稍后再试。';
-        saveCoReadLibrary(library);
+        saveReviewChange(target => { target.reviewError = '书评生成失败，稍后再试。'; });
     } finally {
         coreadBookReviewBusyId = '';
         renderCoReadBookDetail();
@@ -16111,6 +16289,7 @@ function renderCoReadBookDetail() {
         </article>
         <div class="coread-book-actions">
             <button type="button" onclick="startCoReadBook('${musicEscapeAttr(book.id)}')"><i class="ri-book-open-line"></i>开始阅读</button>
+            ${book.url && book.resolveFailedAt && !book.resolving ? `<button type="button" onclick="retryCoReadBookContent('${musicEscapeAttr(book.id)}')"><i class="ri-refresh-line"></i>重新解析</button>` : ''}
             <button type="button" onclick="generateCoReadBookReviews('${musicEscapeAttr(book.id)}')" ${coreadBookReviewBusyId === book.id ? 'disabled' : ''}><i class="ri-chat-smile-3-line"></i>${coreadBookReviewBusyId === book.id ? '生成中' : 'AI 书评'}</button>
         </div>
         <section class="coread-book-review-panel">
@@ -17461,9 +17640,15 @@ async function resolveCoReadBookContent(bookId) {
             book.description = book.description || text.slice(0, 240);
             book.resolveStatus = '正文已解析';
             book.resolveVersion = COREAD_RESOLVE_VERSION;
+            delete book.resolveFailedAt;
+            delete book.resolveAttempts;
         } else {
             book.resolveStatus = '未解析到正文，可导入 txt/md';
             book.resolveVersion = COREAD_RESOLVE_VERSION;
+            if (!isCoReadUsefulContent(book.content)) {
+                book.resolveFailedAt = Date.now();
+                book.resolveAttempts = (Number(book.resolveAttempts) || 0) + 1;
+            }
         }
         book.resolving = false;
         saveCoReadLibrary(library);
@@ -17477,6 +17662,8 @@ async function resolveCoReadBookContent(bookId) {
             book.resolveVersion = COREAD_RESOLVE_VERSION;
             book.resolveMetaVersion = COREAD_META_VERSION;
             book.resolveChapterVersion = COREAD_CHAPTER_VERSION;
+            book.resolveFailedAt = Date.now();
+            book.resolveAttempts = (Number(book.resolveAttempts) || 0) + 1;
             saveCoReadLibrary(library);
         }
     } finally {
@@ -17485,6 +17672,20 @@ async function resolveCoReadBookContent(bookId) {
     renderCoReadApp();
 }
 window.resolveCoReadBookContent = resolveCoReadBookContent;
+
+// 重新解析: the only path that clears a recorded parse failure.
+function retryCoReadBookContent(bookId) {
+    const id = String(bookId || '');
+    const library = getCoReadLibrary();
+    const book = library.find(item => item && item.id === id);
+    if (!book || !book.url || coreadResolvingBookIds.has(id)) return Promise.resolve();
+    delete book.resolveFailedAt;
+    book.resolveVersion = 0;
+    book.resolveStatus = '等待重新解析正文';
+    saveCoReadLibrary(library);
+    return resolveCoReadBookContent(id);
+}
+window.retryCoReadBookContent = retryCoReadBookContent;
 
 async function readCoReadFileAsBook(file) {
     if (!file) return;
@@ -18185,11 +18386,12 @@ async function askCoReadComment() {
     coreadCommentStatusText = '正在读这一段...';
     coreadBusy = true;
     renderCoReadApp();
+    const anchor = { page: Math.max(0, Number(book.page || 0)), pageText: getCoReadRecentPageContextText(book) };
     try {
-        const result = await requestCoReadAiComment(char, book, {}, { max_tokens: COREAD_AI_COMMENT_MAX_TOKENS, temperature: 0.84 });
+        const result = await requestCoReadAiComment(char, { ...book, page: anchor.page }, {}, { max_tokens: COREAD_AI_COMMENT_MAX_TOKENS, temperature: 0.84 });
         const text = result && result.ok ? result.text : '';
         if (text) {
-            createCoReadThoughtRecord(book, char, text);
+            createCoReadThoughtRecord(book, char, text, anchor);
             coreadCommentStatusText = '';
             renderCoReadThoughts();
         } else {
