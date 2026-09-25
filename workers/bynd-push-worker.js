@@ -71,12 +71,12 @@ export default {
       if (url.pathname === '/mcp/bridge') {
         return proxyGitHubMcp(request, url);
       }
-      if (url.pathname.startsWith('/mcp/')) {
-        return mcpJsonResponse(url, request.headers.get('Origin'), 404, 'not found');
-      }
       const pinnedProxy = getPinnedApiProxy(url);
       if (pinnedProxy) {
         return proxyPinnedApi(request, url, pinnedProxy);
+      }
+      if (url.pathname.startsWith('/mcp/')) {
+        return mcpJsonResponse(url, request.headers.get('Origin'), 404, 'not found');
       }
       if (request.method === 'OPTIONS') return corsResponse(null, 204);
       if (request.method === 'POST' && url.pathname === '/subscribe') {
@@ -115,10 +115,16 @@ export default {
   }
 };
 
+// Pinned proxies answer on their own prefix and, because bynd.ccwu.cc/mcp/* is already routed to this
+// Worker, also under /mcp/relay/<prefix>. The page then only ever talks to its own domain.
+const RELAY_PREFIX = '/mcp/relay';
+
 function getPinnedApiProxy(requestUrl) {
-  for (const [prefix, config] of PINNED_API_PROXIES) {
-    if (requestUrl.pathname === prefix || requestUrl.pathname.startsWith(`${prefix}/`)) {
-      return { prefix, ...config };
+  for (const [name, config] of PINNED_API_PROXIES) {
+    for (const prefix of [name, `${RELAY_PREFIX}${name}`]) {
+      if (requestUrl.pathname === prefix || requestUrl.pathname.startsWith(`${prefix}/`)) {
+        return { prefix, ...config };
+      }
     }
   }
   return null;

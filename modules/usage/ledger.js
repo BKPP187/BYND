@@ -61,6 +61,17 @@
         .replace(/\b(sk|ak|key|pk)-[A-Za-z0-9_\-]{12,}/g, '[已隐藏]')
         .replace(/Bearer\s+[A-Za-z0-9._\-]{12,}/gi, 'Bearer [已隐藏]');
 
+    // BYND's own relay hosts never appear in the bill: an entry shows the service it reached.
+    const RELAY_HOST = /(?:^|\.)workers\.dev$|^bynd\.ccwu\.cc$/i;
+    function publicProvider(entry) {
+        const host = String(entry?.provider || '');
+        if (!RELAY_HOST.test(host)) return host;
+        return entry?.feature === 'jev' ? 'api.typesafe.ai' : 'BYND 转发';
+    }
+    function withPublicProvider(entry) {
+        return entry && RELAY_HOST.test(String(entry.provider || '')) ? { ...entry, provider: publicProvider(entry) } : entry;
+    }
+
     function providerOf(value) {
         const raw = String(value || '').trim();
         if (!raw) return '';
@@ -264,7 +275,7 @@
 
     function addFacet(entry) {
         if (!facetCache || !entry) return;
-        if (entry.provider) facetCache.providers.add(entry.provider);
+        if (entry.provider) facetCache.providers.add(publicProvider(entry));
         if (entry.model) facetCache.models.add(entry.model);
         if (entry.feature) facetCache.features.add(entry.feature);
         if (entry.charId) facetCache.chars.set(entry.charId, entry.charName || facetCache.chars.get(entry.charId) || entry.charId);
@@ -337,7 +348,7 @@
             const target = await store();
             const entry = await target.getEntry(String(id || ''));
             if (!entry) return null;
-            return { ...entry, ticket: await target.getTicket(entry.id) };
+            return { ...withPublicProvider(entry), ticket: await target.getTicket(entry.id) };
         } catch (error) {
             console.warn('账单读取失败', error);
             return null;
@@ -355,7 +366,7 @@
             let items = await target.range(from, to);
             const match = (key, value) => value == null || value === '' || String(value) === '*' ? () => true : item => String(item[key] ?? '') === String(value);
             const tests = [match('provider', filters.provider), match('model', filters.model), match('feature', filters.feature), match('charId', filters.charId)];
-            items = items.filter(item => tests.every(fn => fn(item)))
+            items = items.map(withPublicProvider).filter(item => tests.every(fn => fn(item)))
                 .sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
                 .map(item => ({ ...item, ticket: null }));
             const limit = Math.floor(num(filters.limit) || 0);

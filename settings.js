@@ -2055,11 +2055,12 @@ function isNvidiaApiBaseUrl(baseUrl) {
 // Sites that refuse browser requests (no CORS) but that BYND proxies through
 // its own Worker. The user keeps typing the official Base URL; requests are
 // silently routed to the pinned proxy, which never stores keys.
-// sameOriginRoute: the bynd.ccwu.cc/<path>/* Worker route is attached (see workers/DEPLOY.md);
-// without it the production page must use the workers.dev address instead.
+// Every relay is reached on BYND's own domain (bynd.ccwu.cc/mcp/relay/*, see workers/DEPLOY.md),
+// from the website and the APK alike.
+const BYND_RELAY_ORIGIN = 'https://bynd.ccwu.cc';
 const BYND_PINNED_API_PROXIES = [
-    { id: 'wisart', hostname: 'wisart.kuaileshifu.com', proxyPath: '/wisart/v1', sameOriginRoute: true },
-    { id: 'l0veyou', hostname: 'l0veyou.com', proxyPath: '/l0veyou/v1', sameOriginRoute: false }
+    { id: 'wisart', hostname: 'wisart.kuaileshifu.com', proxyPath: '/mcp/relay/wisart/v1' },
+    { id: 'l0veyou', hostname: 'l0veyou.com', proxyPath: '/mcp/relay/l0veyou/v1' }
 ];
 
 function getByndPinnedApiProxy(baseUrl) {
@@ -2085,12 +2086,7 @@ function resolveByndApiBaseUrl(baseUrl) {
     const original = String(baseUrl || '').trim().replace(/\/+$/, '');
     const proxy = getByndPinnedApiProxy(original);
     if (!proxy) return original;
-    const isProductionWeb = typeof location !== 'undefined'
-        && location.protocol === 'https:'
-        && location.hostname.toLowerCase() === 'bynd.ccwu.cc';
-    return isProductionWeb && proxy.sameOriginRoute
-        ? `${location.origin}${proxy.proxyPath}`
-        : `https://bynd-push.myluckylxy.workers.dev${proxy.proxyPath}`;
+    return `${BYND_RELAY_ORIGIN}${proxy.proxyPath}`;
 }
 window.isWisartApiBaseUrl = isWisartApiBaseUrl;
 window.isByndProxiedApiBaseUrl = isByndProxiedApiBaseUrl;
@@ -2597,7 +2593,7 @@ function deletePreset(presetId) {
 
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.688';
+const APP_VERSION = 'v1.1.689';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -3094,7 +3090,7 @@ const FONT_DB_NAME = 'XuexiFontDB';
 const FONT_DB_STORE = 'fonts';
 const FONT_MAX_BYTES = 50 * 1024 * 1024;
 const FONT_FETCH_TIMEOUT_MS = 300000;
-const FONT_PROXY_FALLBACK = 'https://bynd-push.myluckylxy.workers.dev/font-proxy';
+const FONT_PROXY_FALLBACK = 'https://bynd.ccwu.cc/font-proxy';
 const FONT_EXTENSIONS = ['.ttf', '.woff', '.woff2', '.otf', '.ttc'];
 
 function openFontDB() {

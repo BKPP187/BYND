@@ -25,7 +25,7 @@
         });
     }
     async function readWeb(url, path) {
-        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.688');
+        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.689');
         const response = await fetch(url.href, { credentials: 'omit', signal: AbortSignal.timeout(45000) });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const bytes = await response.arrayBuffer();

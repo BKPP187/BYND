@@ -6,13 +6,11 @@
     const LOG_KEY = 'bynd_decision_log_v1';
     const LOG_LIMIT = 60;
     const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
-    const WORKER_ENDPOINT = 'https://bynd-push.myluckylxy.workers.dev/jev/v1/systemone';
-    const isProductionWeb = typeof location !== 'undefined' && location.hostname === 'bynd.ccwu.cc';
-    // TypeSafe refuses browser origins, so pages go through BYND's Worker. The same-origin route works on
-    // networks that block workers.dev; the workers.dev address covers the APK and a route that isn't attached yet.
-    const PROXY_ENDPOINTS = isProductionWeb ? [`${location.origin}/jev/v1/systemone`, WORKER_ENDPOINT] : [WORKER_ENDPOINT];
-    const PROXY_ENDPOINT = PROXY_ENDPOINTS[PROXY_ENDPOINTS.length - 1];
-    let directBlocked = isProductionWeb;
+    // TypeSafe refuses browser origins, so the page goes through BYND's relay on its own domain
+    // (bynd.ccwu.cc/mcp/relay/*, see workers/DEPLOY.md). The APK calls the same address.
+    const PROXY_ENDPOINTS = ['https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone'];
+    const PROXY_ENDPOINT = PROXY_ENDPOINTS[0];
+    let directBlocked = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
     const SCOPES = ['turn', 'toolGate', 'moment', 'momentEngagement', 'forumAction', 'forumReply', 'profile'];
     const DEFAULT_MIN_PROBABILITY = 0.55;
     const clampProbability = value => Math.min(0.95, Math.max(0.34, Number(value) || DEFAULT_MIN_PROBABILITY));
@@ -83,7 +81,7 @@
                 if (!response.ok) throw new Error(endpoint === PROXY_ENDPOINT && response.status === 404 ? 'Jev 转发服务尚未上线（HTTP 404），不是密钥格式问题' : `Jev HTTP ${response.status}`);
                 const data = await response.json();
                 const answered = !!data?.answers && Object.keys(questions).every(key => data.answers[key]);
-                try { window.ByndUsageLedger?.record({ feature: 'jev', provider: endpoint, apiName: 'Jev', model: 'jev-latest', usage: data?.usage || null, ok: answered, ticket: null, source: null }); } catch (_) {}
+                try { window.ByndUsageLedger?.record({ feature: 'jev', provider: 'api.typesafe.ai', apiName: 'Jev', model: 'jev-latest', usage: data?.usage || null, ok: answered, ticket: null, source: null }); } catch (_) {}
                 if (!data || typeof data !== 'object' || !answered) throw new Error('Jev 没有返回有效决策');
                 return data.answers;
             } catch (error) {

@@ -56,7 +56,7 @@ test('a browser CORS failure retries through the fixed BYND proxy', async () => 
     api.write({ enabled:true, apiKey:'test-key', scopes:{} });
     assert.equal(await api.choose('forumReply', {}, 'Reply?', { reply:'Yes', silence:'No' }), 'silence');
     assert.match(urls[0], /api\.typesafe\.ai\/v1\/systemone/);
-    assert.match(urls[1], /bynd-push\.myluckylxy\.workers\.dev\/jev\/v1\/systemone/);
+    assert.match(urls[1], /bynd\.ccwu\.cc\/mcp\/relay\/jev\/v1\/systemone/);
 });
 
 test('missing Jev proxy reports deployment status without blaming the key', async () => {

@@ -13,14 +13,13 @@
 
 这些转发存在的原因：这几家服务不允许浏览器网页直接调用（CORS），网页版必须经过一个服务器中转。每条转发都写死了上游地址和允许的接口，不是开放代理；用户的 API Key 只是原样转发，Worker 不保存。
 
-## 两个访问地址
+## 访问地址
 
-- `https://bynd-push.myluckylxy.workers.dev/<路径>`：部署后立即可用，APK 和网页都能调用。**但 workers.dev 在国内很多网络下连不上。**
-- `https://bynd.ccwu.cc/<路径>`：和网页同域名，国内能访问。需要在 `bynd.ccwu.cc` 这个域名上挂 Worker 路由（`wrangler.toml` 里的 `routes`）才生效。
+前端只使用 BYND 自己的域名，不暴露 Worker 的 workers.dev 地址：
 
-前端的处理方式：
-- Jev（`modules/decision/jev.js`）：生产网页先试同域地址，返回 404/405 或网络失败时自动改用 workers.dev。
-- 聊天/生图中转（`settings.js` 的 `BYND_PINNED_API_PROXIES`）：只有标了 `sameOriginRoute: true` 的才走同域。路由挂好后，把对应条目改成 `true`（并同步 `tests/api-proxy.test.cjs`）。
+- `bynd.ccwu.cc/mcp/*` 和 `bynd.ccwu.cc/wisart/*`、`/font-proxy*` 的路由早已挂在这个 Worker 上。
+- 所有固定转发（Jev、l0veyou、wisart）同时响应 `/<名字>/...` 和 `/mcp/relay/<名字>/...`。前端统一用 `https://bynd.ccwu.cc/mcp/relay/<名字>/...`，网页版和 APK 都一样，不需要为新转发再挂路由。
+- 账单里只显示真正的服务方（如 `api.typesafe.ai`、`l0veyou.com`），不显示转发地址。
 
 ## 需要的 Cloudflare API Token 权限
 
@@ -33,7 +32,7 @@
 | Zone | Workers Routes | Edit | 在 `bynd.ccwu.cc` 上挂路由 |
 
 「Zone Resources」选 **Include → Specific zone → bynd.ccwu.cc**。
-Account 选 `Myluckylxy@gmail.com's Account`（ID `7962d55c8c26eddfab2bbeb961a249a8`）。
+Account 选 BYND 所在的 Cloudflare 账号。
 
 token 只在部署时通过环境变量传给 wrangler，**不要写进仓库、不要提交**。
 
@@ -43,7 +42,7 @@ token 只在部署时通过环境变量传给 wrangler，**不要写进仓库、
 
 ```bash
 export CLOUDFLARE_API_TOKEN='你的 token'
-export CLOUDFLARE_ACCOUNT_ID=7962d55c8c26eddfab2bbeb961a249a8
+export CLOUDFLARE_ACCOUNT_ID='你的 Account ID'
 npx wrangler whoami          # 确认登录的是上面那个账号
 npx wrangler deploy --dry-run  # 只打包检查，不上线
 npx wrangler deploy
@@ -60,17 +59,16 @@ npx wrangler deploy
 curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://bynd.ccwu.cc' https://bynd.ccwu.cc/wisart/v1/models
 
 # Jev 转发的浏览器预检，应返回 204 且带 Access-Control-Allow-Origin: https://bynd.ccwu.cc
-curl -s -o /dev/null -D - -X OPTIONS https://bynd.ccwu.cc/jev/v1/systemone \
+curl -s -o /dev/null -D - -X OPTIONS https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone \
   -H 'Origin: https://bynd.ccwu.cc' -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: authorization,content-type'
 ```
 
-把上面的 `bynd.ccwu.cc` 换成 `bynd-push.myluckylxy.workers.dev` 可以检查 workers.dev 地址。
 
 ## 常见问题
 
 **`Trigger configuration ... was only partially updated` / `Routes: No access to the specified resource`**
-代码已经上线，但 token 没有 `Zone → Workers Routes → Edit` 权限，`bynd.ccwu.cc` 上的新路由没挂上（旧路由不受影响）。按上面的表格给 token 加权限后重新 `npx wrangler deploy`。
+代码已经上线，只是 token 没有 `Zone → Workers Routes → Edit` 权限，`wrangler.toml` 里新增的路由挂不上。前端走 `/mcp/relay/*`，不依赖这些路由，可以忽略。
 
 **`Not logged in. Your auth token has expired`**
 wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新 `npx wrangler login`。
@@ -78,8 +76,9 @@ wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新
 **新增一个需要转发的服务**
 1. `bynd-push-worker.js` 的 `PINNED_API_PROXIES` 加一条（固定上游 origin 和允许的接口）。
 2. `wrangler.toml` 的 `routes` 加 `bynd.ccwu.cc/<路径>/*`。
-3. 前端配置对应地址；部署并确认路由挂上后，再让前端走同域。
+3. 前端用 `https://bynd.ccwu.cc/mcp/relay/<名字>/...`，不要写 workers.dev 地址（`tests/api-proxy.test.cjs` 会检查）。
 
 ## 部署记录
 
-- 2026-09-24：上线 `/l0veyou`、`/jev` 转发（Worker 代码已在 workers.dev 生效）。当时的 token 缺少 Zone 路由权限，`bynd.ccwu.cc/l0veyou/*` 和 `bynd.ccwu.cc/jev/*` 路由未挂上，前端走 workers.dev。BYND 用户使用海外模型本来就开着代理，workers.dev 可以访问，所以**这一步不是必须的**，不要为此让用户去 Cloudflare 后台操作；只有以后要支持不开代理的国内网络时才需要补路由权限。
+- 2026-09-24：上线 `/l0veyou`、`/jev` 转发。
+- 2026-09-25：所有固定转发加上 `/mcp/relay/*` 入口，前端改走 `bynd.ccwu.cc`，不再出现 workers.dev 地址。

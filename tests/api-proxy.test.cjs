@@ -18,9 +18,9 @@ function settingsHarness(hostname = 'localhost', protocol = 'http:') {
 
 test('official l0veyou and Wisart base URLs resolve to the BYND proxy, everything else stays direct', () => {
     const local = settingsHarness();
-    assert.equal(local.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1');
-    assert.equal(local.resolveByndApiBaseUrl('https://www.l0veyou.com/v1/'), 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1');
-    assert.equal(local.resolveByndApiBaseUrl('https://wisart.kuaileshifu.com/v1'), 'https://bynd-push.myluckylxy.workers.dev/wisart/v1');
+    assert.equal(local.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd.ccwu.cc/mcp/relay/l0veyou/v1');
+    assert.equal(local.resolveByndApiBaseUrl('https://www.l0veyou.com/v1/'), 'https://bynd.ccwu.cc/mcp/relay/l0veyou/v1');
+    assert.equal(local.resolveByndApiBaseUrl('https://wisart.kuaileshifu.com/v1'), 'https://bynd.ccwu.cc/mcp/relay/wisart/v1');
     assert.equal(local.resolveByndApiBaseUrl('https://api.openai.com/v1'), 'https://api.openai.com/v1');
     assert.equal(local.resolveByndApiBaseUrl('https://l0veyou.com/v2'), 'https://l0veyou.com/v2', 'only the documented /v1 root is proxied');
     assert.equal(local.resolveByndApiBaseUrl('http://l0veyou.com/v1'), 'http://l0veyou.com/v1');
@@ -30,9 +30,8 @@ test('official l0veyou and Wisart base URLs resolve to the BYND proxy, everythin
     assert.match(local.getApiProxyHint('https://l0veyou.com/v1'), /固定代理连接 l0veyou\.com/);
 
     const production = settingsHarness('bynd.ccwu.cc', 'https:');
-    // Until the bynd.ccwu.cc/l0veyou/* route is attached (sameOriginRoute: false) production uses workers.dev.
-    assert.equal(production.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1');
-    assert.equal(production.resolveByndApiBaseUrl('https://wisart.kuaileshifu.com/v1'), 'https://bynd.ccwu.cc/wisart/v1');
+    assert.equal(production.resolveByndApiBaseUrl('https://l0veyou.com/v1'), 'https://bynd.ccwu.cc/mcp/relay/l0veyou/v1');
+    assert.equal(production.resolveByndApiBaseUrl('https://wisart.kuaileshifu.com/v1'), 'https://bynd.ccwu.cc/mcp/relay/wisart/v1');
 });
 
 test('the Worker route table and the web resolver agree on every pinned proxy', () => {
@@ -124,5 +123,23 @@ test('the Worker proxies only the documented l0veyou endpoints with CORS, passes
         assert.equal(upstreamCalls.length, 2, 'rejected requests never reach any upstream');
     } finally {
         globalThis.fetch = realFetch;
+    }
+});
+
+test('pinned proxies also answer under bynd.ccwu.cc/mcp/relay so the page never shows the workers.dev host', async () => {
+    const { default: worker } = await workerModule;
+    const realFetch = globalThis.fetch;
+    const upstreamCalls = [];
+    globalThis.fetch = async url => { upstreamCalls.push(String(url)); return new Response('{"answers":{"d":{"type":"noul","noul":0.9}}}', { headers:{ 'Content-Type':'application/json' } }); };
+    try {
+        const headers = { Origin:'https://bynd.ccwu.cc', Authorization:'Bearer k', 'Content-Type':'application/json' };
+        const relay = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone', { method:'POST', headers, body:'{}' }), {});
+        assert.equal(relay.status, 200);
+        assert.equal(upstreamCalls[0], 'https://api.typesafe.ai/v1/systemone');
+        assert.equal((await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/unknown/v1/x', { method:'POST', headers, body:'{}' }), {})).status, 404);
+        assert.equal((await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/anything', { method:'POST', headers, body:'{}' }), {})).status, 404);
+    } finally { globalThis.fetch = realFetch; }
+    for (const file of ['modules/decision/jev.js', 'settings.js']) {
+        assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /workers\.dev/, `${file} must not expose the Worker host`);
     }
 });

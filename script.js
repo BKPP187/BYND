@@ -636,7 +636,7 @@ function restoreDesktopPageAfterApp(appName) {
 
 // --- MCP repository discovery and Remote MCP ---
 const GITHUB_MCP_DEFAULT_URL = 'https://api.githubcopilot.com/mcp/';
-const GITHUB_MCP_ANDROID_PROXY_URL = 'https://bynd-push.myluckylxy.workers.dev/mcp/bridge';
+const GITHUB_MCP_ANDROID_PROXY_URL = 'https://bynd.ccwu.cc/mcp/bridge';
 const GITHUB_MCP_PROTOCOL_VERSION = '2025-11-25';
 const GITHUB_MCP_CONFIG_KEY = 'bynd_github_mcp_config_v1';
 const GITHUB_MCP_TOKEN_KEY = 'bynd_github_mcp_pat_session_v1';
@@ -1459,7 +1459,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.688' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.689' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -2001,7 +2001,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.688').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.689').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -13216,7 +13216,7 @@ const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
 const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
-const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.688';
+const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.689';
 const COREAD_DEFAULT_SOURCE_URLS = [
     'https://lifves.com/api/v2/booksource/list',
     'https://someok.github.io/booksources/data.json'
