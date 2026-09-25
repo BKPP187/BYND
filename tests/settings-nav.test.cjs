@@ -43,11 +43,12 @@ test('existing settings markup keeps its ids inside the matching panel', () => {
     }
 });
 
-test('usage tab is an empty placeholder for the token dashboard', () => {
+test('usage tab has a live dashboard mount instead of an empty promise', () => {
     const usage = panelSource('usage');
     assert.match(settingsWindow, /id="settings-tab-usage" data-settings-panel="usage"/);
     assert.match(usage, /<div id="bynd-usage-dashboard"><\/div>/);
-    assert.match(usage, /Token 用量汇总即将上线/);
+    assert.doesNotMatch(usage, /即将上线/);
+    assert.match(fs.readFileSync(path.join(root, 'settings.js'), 'utf8'), /if \(target === 'usage'\) void renderSettingsUsageDashboard\(\)/);
 });
 
 function fakeSettingsWindow(names) {

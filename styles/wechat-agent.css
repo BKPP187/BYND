@@ -316,3 +316,7 @@
 @media (prefers-reduced-motion: reduce) {
     .bynd-agent-state.running { animation: none; }
 }
+.bynd-web-sources { display: grid; gap: 5px; margin: 7px 0 3px 62px; padding: 9px 12px; max-width: min(300px, calc(100% - 74px)); border: 1px solid rgba(117,154,180,.22); border-radius: 13px; background: rgba(255,255,255,.82); box-shadow: 0 4px 16px rgba(34,49,77,.06); }
+.bynd-web-sources strong { color: #526778; font-size: 11px; }
+.bynd-web-sources a { overflow: hidden; color: #467592; font-size: 11px; line-height: 1.5; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.bynd-web-sources a:hover { text-decoration: underline; }

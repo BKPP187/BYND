@@ -181,10 +181,10 @@ test('streamed replies survive JSON-labelled SSE bodies, surface stream errors, 
 
 test('pinned proxy sites are rewritten for chat requests while other base URLs are untouched', async () => {
     const h = harness();
-    h.context.resolveByndApiBaseUrl = base => base === 'https://l0veyou.com/v1' ? 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1' : base;
+    h.context.resolveByndApiBaseUrl = base => base === 'https://l0veyou.com/v1' ? 'https://bynd.ccwu.cc/mcp/relay/l0veyou/v1' : base;
     h.state.api.baseUrl = 'https://l0veyou.com/v1/';
     await h.context.callChatApi([{ role: 'user', content: 'hi' }], { skipStatusValidationRetry: true });
-    assert.equal(h.state.requests.at(-1).url, 'https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/chat/completions');
+    assert.equal(h.state.requests.at(-1).url, 'https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/chat/completions');
     h.state.api.baseUrl = 'https://example.invalid/v1';
     await h.context.callChatApi([{ role: 'user', content: 'hi' }], { skipStatusValidationRetry: true });
     assert.equal(h.state.requests.at(-1).url, 'https://example.invalid/v1/chat/completions');

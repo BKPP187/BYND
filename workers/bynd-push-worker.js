@@ -71,6 +71,18 @@ export default {
       if (url.pathname === '/mcp/bridge') {
         return proxyGitHubMcp(request, url);
       }
+      if (url.pathname === '/mcp/web-search') {
+        return searchPublicWeb(request, url);
+      }
+      if (url.pathname === '/mcp/demo') {
+        return demoMcp(request, url);
+      }
+      if (url.pathname.startsWith('/mcp/relay/giphy/')) {
+        return proxyGiphyStickers(request, url, env);
+      }
+      if (request.method === 'GET' && url.pathname.startsWith('/mcp/relay/codex-pets/')) {
+        return proxyCodexPets(request, url);
+      }
       const pinnedProxy = getPinnedApiProxy(url);
       if (pinnedProxy) {
         return proxyPinnedApi(request, url, pinnedProxy);
@@ -118,6 +130,95 @@ export default {
 // Pinned proxies answer on their own prefix and, because bynd.ccwu.cc/mcp/* is already routed to this
 // Worker, also under /mcp/relay/<prefix>. The page then only ever talks to its own domain.
 const RELAY_PREFIX = '/mcp/relay';
+
+function xmlText(value) {
+  return String(value || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&#([0-9]+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&apos;/gi, "'").replace(/&amp;/gi, '&')
+    .replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function parseSearchRss(xml) {
+  const items = [];
+  for (const match of String(xml || '').matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
+    const field = tag => xmlText(match[1].match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))?.[1]);
+    const title = field('title').slice(0, 160);
+    const snippet = field('description').slice(0, 320);
+    let link = field('link');
+    try { const parsed = new URL(link); if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') link = ''; else link = parsed.toString(); } catch (_) { link = ''; }
+    if (title && link && !items.some(item => item.url === link)) items.push({ title, url: link, snippet });
+    if (items.length >= 5) break;
+  }
+  return items;
+}
+
+async function searchPublicWeb(request, url) {
+  const origin = request.headers.get('Origin');
+  if (!isAllowedWisartOrigin(origin, url)) return wisartJsonResponse(url, origin, 403, 'origin not allowed');
+  if (request.method === 'OPTIONS') return wisartResponse(null, 204, url, origin);
+  if (request.method !== 'GET') return wisartJsonResponse(url, origin, 405, 'method not allowed', { Allow: 'GET, OPTIONS' });
+  const query = String(url.searchParams.get('q') || '').replace(/\s+/g, ' ').trim();
+  if (!query || query.length > 180 || url.searchParams.getAll('q').length !== 1) return wisartJsonResponse(url, origin, 400, 'invalid query');
+  const upstream = await fetch(`https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`, {
+    headers: { Accept: 'application/rss+xml, application/xml;q=0.9', 'User-Agent': 'BYND/1.0' },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!upstream.ok) return wisartJsonResponse(url, origin, 502, 'search source unavailable');
+  const xml = (await upstream.text()).slice(0, 150000);
+  const results = parseSearchRss(xml);
+  const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=120' });
+  return wisartResponse(JSON.stringify({ query, fetchedAt: new Date().toISOString(), results }), 200, url, origin, headers);
+}
+
+async function demoMcp(request, url) {
+  const origin = request.headers.get('Origin');
+  if (!isAllowedWisartOrigin(origin, url)) return wisartJsonResponse(url, origin, 403, 'origin not allowed');
+  if (request.method === 'OPTIONS') return wisartResponse(null, 204, url, origin);
+  if (request.method !== 'POST') return wisartJsonResponse(url, origin, 405, 'method not allowed', { Allow: 'POST, OPTIONS' });
+  if (!String(request.headers.get('Content-Type') || '').startsWith('application/json')) return wisartJsonResponse(url, origin, 415, 'content type must be application/json');
+  const raw = await request.text();
+  if (raw.length > 8000) return wisartJsonResponse(url, origin, 413, 'request too large');
+  let rpc;
+  try { rpc = JSON.parse(raw); } catch (_) { return wisartJsonResponse(url, origin, 400, 'invalid JSON'); }
+  if (rpc?.jsonrpc !== '2.0' || typeof rpc.method !== 'string') return wisartJsonResponse(url, origin, 400, 'invalid JSON-RPC');
+  if (rpc.method === 'notifications/initialized') return wisartResponse(null, 202, url, origin);
+  let result;
+  if (rpc.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'BYND 示例工具', version: '1.0.0' } };
+  else if (rpc.method === 'tools/list') result = { tools: [
+    { name: 'current_time', description: '读取当前 UTC 时间，用来试一次真实 MCP 工具调用。', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true, openWorldHint: false } },
+    { name: 'bynd_guide', description: '说明角色如何使用 MCP 工具。', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true, openWorldHint: false } }
+  ] };
+  else if (rpc.method === 'tools/call') {
+    if (rpc.params?.name === 'current_time') result = { content: [{ type: 'text', text: `当前 UTC 时间：${new Date().toISOString()}` }] };
+    else if (rpc.params?.name === 'bynd_guide') result = { content: [{ type: 'text', text: '连接成功。到角色聊天设置 → 角色工具箱，开启允许使用工具，再勾选这个角色可用的只读 MCP 工具。' }] };
+    else return wisartResponse(JSON.stringify({ jsonrpc: '2.0', id: rpc.id ?? null, error: { code: -32601, message: 'unknown tool' } }), 200, url, origin, new Headers({ 'Content-Type': 'application/json' }));
+  } else return wisartResponse(JSON.stringify({ jsonrpc: '2.0', id: rpc.id ?? null, error: { code: -32601, message: 'unknown method' } }), 200, url, origin, new Headers({ 'Content-Type': 'application/json' }));
+  return wisartResponse(JSON.stringify({ jsonrpc: '2.0', id: rpc.id ?? null, result }), 200, url, origin, new Headers({ 'Content-Type': 'application/json' }));
+}
+
+async function proxyGiphyStickers(request, url, env) {
+  const origin = request.headers.get('Origin');
+  if (!isAllowedWisartOrigin(origin, url)) return wisartJsonResponse(url, origin, 403, 'origin not allowed');
+  if (request.method === 'OPTIONS') return wisartResponse(null, 204, url, origin);
+  if (request.method !== 'GET') return wisartJsonResponse(url, origin, 405, 'method not allowed', { Allow: 'GET, OPTIONS' });
+  const path = url.pathname.slice('/mcp/relay/giphy'.length);
+  if (!['/stickers/search', '/stickers/trending'].includes(path)) return wisartJsonResponse(url, origin, 404, 'not found');
+  const q = String(url.searchParams.get('q') || '').trim();
+  if (q.length > 100 || url.searchParams.getAll('q').length > 1) return wisartJsonResponse(url, origin, 400, 'invalid query');
+  let upstream;
+  try {
+    upstream = new URL(String(env.GIPHY_PROXY_ORIGIN || ''));
+    if (upstream.protocol !== 'https:' || upstream.pathname !== '/') throw new Error('not configured');
+  } catch (_) { return wisartJsonResponse(url, origin, 503, 'sticker source unavailable'); }
+  upstream.pathname = path;
+  upstream.searchParams.set('limit', '30');
+  if (q) upstream.searchParams.set('q', q);
+  const response = await fetch(upstream.toString(), { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+  if (!response.ok) return wisartJsonResponse(url, origin, 502, 'sticker source unavailable');
+  const content = (await response.text()).slice(0, 300000);
+  return wisartResponse(content, 200, url, origin, new Headers({ 'Content-Type': 'application/json; charset=utf-8' }));
+}
 
 function getPinnedApiProxy(requestUrl) {
   for (const [name, config] of PINNED_API_PROXIES) {
@@ -374,7 +475,7 @@ async function handleSubscribe(request, env) {
 }
 
 async function proxyCodexPets(request, url) {
-  const upstreamPath = url.pathname.replace(/^\/codex-pets/, '') || '/';
+  const upstreamPath = url.pathname.replace(/^(?:\/mcp\/relay)?\/codex-pets/, '') || '/';
   if (!isAllowedCodexPetsPath(upstreamPath)) {
     return corsResponse({ ok: false, error: 'codex pets path not allowed' }, 403);
   }

@@ -97,7 +97,7 @@ test('the tool gate blocks only a confident out-of-character verdict', async () 
 test('chat follow-ups honour the decisions and the reply parser/preview strip the hidden block', () => {
     const wechat = read('wechat.js');
     const tools = read('modules/wechat/agent-tools.js');
-    assert.match(wechat, /void runWechatTurnFollowUps\(char, \{ replyDecisions, textOnly: !!options\.textOnly \}\);/);
+    assert.match(wechat, /void runWechatTurnFollowUps\(char, \{ replyDecisions, textOnly: !!options\.textOnly, webSearched: !!webSearchContext\?\.sources\?\.length \}\);/);
     assert.match(wechat, /turn\?\.moment !== false\) void considerWechatCharMomentAfterReply\(char\)/);
     assert.match(wechat, /if \(snapshotAt && !options\.decided && now - snapshotAt < WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS\) return true;/);
     assert.match(wechat, /bynd_\(\?:summary\|tool\|pet\|decide\)/);

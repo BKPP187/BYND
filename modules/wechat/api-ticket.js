@@ -202,6 +202,7 @@
 
     function finishRequest(record, rawUsage, content, error = '') {
         if (!record) return;
+        record.finishedAt = Date.now();
         record.usage = normalizeUsage(rawUsage);
         record.outputEstimate = estimate(content);
         record.error = clipped(error, 240);

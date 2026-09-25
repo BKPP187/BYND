@@ -10,6 +10,9 @@
 | `/wisart/*` | Wisart 生图接口转发 |
 | `/l0veyou/*` | l0veyou 中转站转发（模型列表、聊天、生图） |
 | `/jev/*` | TypeSafe Jev 决策接口转发 |
+| `/mcp/web-search` | 公开网页搜索，返回最多 5 条来源 |
+| `/mcp/demo` | 无需密钥的只读 MCP 示例工具 |
+| `/mcp/relay/giphy/*` | 表情包代理，私有上游地址由 Worker Secret 提供 |
 
 这些转发存在的原因：这几家服务不允许浏览器网页直接调用（CORS），网页版必须经过一个服务器中转。每条转发都写死了上游地址和允许的接口，不是开放代理；用户的 API Key 只是原样转发，Worker 不保存。
 
@@ -35,6 +38,8 @@
 Account 选 BYND 所在的 Cloudflare 账号。
 
 token 只在部署时通过环境变量传给 wrangler，**不要写进仓库、不要提交**。
+
+表情包代理另需 Worker Secret `GIPHY_PROXY_ORIGIN`，值为旧表情包代理的 HTTPS 根地址（结尾 `/`）。这个值不得写入前端或仓库。更换时运行 `npx wrangler secret put GIPHY_PROXY_ORIGIN`。
 
 ## 部署步骤
 
@@ -82,3 +87,4 @@ wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新
 
 - 2026-09-24：上线 `/l0veyou`、`/jev` 转发。
 - 2026-09-25：所有固定转发加上 `/mcp/relay/*` 入口，前端改走 `bynd.ccwu.cc`，不再出现 workers.dev 地址。
+- 2026-09-25：增加网页搜索、MCP 示例服务和表情包同域代理。

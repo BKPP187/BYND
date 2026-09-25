@@ -109,7 +109,6 @@
         root.innerHTML = `<div class="wcs-section-title">回复方式</div><div class="wcs-section bynd-agent-settings">
             ${row('streamReplies', '流式回复', '边生成边显示文字；接口不支持流式时自动按完整回复处理')}
             ${row('showTokenUsage', '显示 Token 用量', '开启后在每轮回复下方显示 API 小票入口，记录请求和上下文组成')}
-            <label class="bynd-agent-context"><span><strong>模型上下文上限</strong><small>可选；填写模型公布的 Token 上限后，小票会显示占用比例</small></span><input type="number" min="1" max="2000000" inputmode="numeric" value="${Number(char.chatConfig?.apiContextWindow) || ''}" placeholder="未知" onchange="saveWechatApiContextWindow(this)"></label>
         </div><div class="wcs-section-title">思考与工具</div><div class="wcs-section bynd-agent-settings">
             ${row('showThinking', '思考摘要', '在消息间显示一行公开摘要；点开后再看完整内容')}
             ${row('showTools', '工具调用动态', '显示生成图片、记录待办等操作的真实进度和结果')}
@@ -341,10 +340,44 @@
             }
             container.appendChild(node);
         }
+        if (Array.isArray(msg.webSources) && msg.webSources.length) {
+            const sources = document.createElement('section');
+            sources.className = 'bynd-web-sources';
+            const heading = document.createElement('strong');
+            heading.textContent = '这次查到的来源';
+            sources.appendChild(heading);
+            msg.webSources.slice(0, 5).forEach((source, index) => {
+                try {
+                    const url = new URL(source.url);
+                    if (!['https:', 'http:'].includes(url.protocol)) return;
+                    const link = document.createElement('a');
+                    link.href = url.toString();
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = `${index + 1}. ${clean(source.title, 100) || url.hostname}`;
+                    sources.appendChild(link);
+                } catch (_) {}
+            });
+            if (sources.querySelector('a')) container.appendChild(sources);
+        }
         if (!config.showTools) return;
-        for (const event of (Array.isArray(char.chatConfig?.agentActivity) ? char.chatConfig.agentActivity : []).filter(item => item && String(item.anchorTimestamp) === String(msg.timestamp))) {
+        const activities = (Array.isArray(char.chatConfig?.agentActivity) ? char.chatConfig.agentActivity : []).filter(item => item && String(item.anchorTimestamp) === String(msg.timestamp));
+        const phoneEvents = activities.filter(item => item.kind === 'phone' && ['更新小手机', '更新日记'].includes(item.title));
+        const phoneGroup = phoneEvents.length > 1 ? phoneEvents : null;
+        for (const original of activities) {
+            if (phoneGroup && original.kind === 'phone' && original !== phoneGroup[0]) continue;
+            const event = phoneGroup && original === phoneGroup[0] ? {
+                ...original,
+                id: phoneGroup.map(item => item.id).join(':'),
+                title: '更新小手机与日记',
+                state: phoneGroup.some(item => item.state === 'error') ? 'error' : phoneGroup.some(item => item.state === 'running') ? 'running' : 'success',
+                startedAt: Math.min(...phoneGroup.map(item => item.startedAt)),
+                finishedAt: phoneGroup.every(item => item.finishedAt) ? Math.max(...phoneGroup.map(item => item.finishedAt)) : null,
+                result: phoneGroup.map(item => `${item.title}：${item.result || (item.state === 'running' ? '执行中' : '已完成')}`).join('\n'),
+                unsaved: phoneGroup.some(item => item.unsaved)
+            } : original;
             // An unfinished record restored from storage is not a live running tool.
-            const running = event.state === 'running' && liveActivities.has(event.id);
+            const running = event.state === 'running' && (phoneGroup && original === phoneGroup[0] ? phoneGroup.some(item => liveActivities.has(item.id)) : liveActivities.has(event.id));
             const state = running ? 'running' : ['success', 'error'].includes(event.state) ? event.state : 'interrupted';
             const label = { running: '执行中', success: '已完成', error: '未完成', interrupted: '已中断' }[state] || '已记录';
             const duration = event.finishedAt ? ` · ${Math.max(0.1, (event.finishedAt - event.startedAt) / 1000).toFixed(1)} 秒` : '';

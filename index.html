@@ -32,6 +32,7 @@
                 document.documentElement.classList.add('mobile-runtime');
             }
             if (isIOS) document.documentElement.classList.add('bynd-ios');
+            try { if (!localStorage.getItem('bynd_opening_seen_v1')) document.documentElement.classList.add('bynd-opening-pending'); } catch (e) {}
             if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
             try {
                 var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
@@ -47,24 +48,44 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.689">
-    <link rel="icon" href="bynd-icon.png?v=1.1.689" type="image/png">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.690">
+    <link rel="icon" href="bynd-icon.png?v=1.1.690" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/study.css?v=1.1.689" media="all">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.689" media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.689" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/character-tools.css?v=1.1.689" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.690" media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.690" media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/character-tools.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/mcp-refresh.css?v=1.1.690" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/opening/opening.css?v=1.1.690" data-bynd-core-style media="all">
 </head>
 <body>
 
     <div class="phone-container">
+        <div id="bynd-opening" class="bynd-opening" aria-label="BYND 欢迎动画" role="dialog" aria-modal="true">
+            <button type="button" class="bynd-opening-skip" id="bynd-opening-skip">跳过 <span aria-hidden="true">›</span></button>
+            <div class="bynd-opening-scene" aria-hidden="true">
+                <svg class="bynd-opening-art" viewBox="0 0 320 320" fill="none">
+                    <g class="bynd-opening-mycelium" stroke="currentColor" stroke-linecap="round" stroke-width="1.3">
+                        <path d="M160 174 C160 206 160 226 160 248 M160 218 C129 220 108 237 82 252 M160 218 C189 218 212 237 240 250 M138 226 C121 212 99 210 70 217 M185 227 C205 211 230 209 252 218 M118 237 C101 236 89 229 73 231 M202 238 C222 239 235 229 251 232"/>
+                        <path d="M82 252 L57 262 M82 252 L71 274 M240 250 L263 260 M240 250 L251 273 M70 217 L53 209 M252 218 L269 210"/>
+                    </g>
+                    <g class="bynd-opening-mushroom" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path class="bynd-opening-cap" d="M94 149 C97 105 121 78 160 78 C199 78 223 105 226 149 C226 157 220 161 212 161 L108 161 C100 161 94 157 94 149 Z" stroke-width="2.2"/>
+                        <path d="M109 161 C110 170 121 174 132 174 L188 174 C200 174 210 170 211 161 M143 174 L140 204 C146 210 174 210 180 204 L177 174" stroke-width="1.8"/>
+                        <path d="M118 128 C128 107 142 99 158 98" stroke-width="1.2" opacity=".46"/>
+                    </g>
+                    <g class="bynd-opening-nodes" fill="currentColor"><circle cx="82" cy="252" r="2"/><circle cx="240" cy="250" r="2"/><circle cx="70" cy="217" r="2"/><circle cx="252" cy="218" r="2"/><circle cx="57" cy="262" r="2"/><circle cx="263" cy="260" r="2"/></g>
+                </svg>
+                <div class="bynd-opening-wordmark"><strong>BYND</strong><span>欢迎回家</span></div>
+            </div>
+        </div>
         <div class="status-bar">
             <span id="clock-time-small">--:--</span>
             <div class="status-right">
@@ -212,7 +233,7 @@
                                 <span>说明书</span>
                             </div>
                             <div class="app-item" data-app-id="mcp" data-layout-id="app-mcp" onclick="openApp('mcp')">
-                                <div class="app-icon icon-black mcp-desktop-icon"><i class="ri-github-fill"></i><b></b><b></b><b></b></div>
+                                <div class="app-icon icon-black mcp-desktop-icon"><i class="ri-plug-2-line"></i></div>
                                 <span>MCP</span>
                             </div>
                         </div>
@@ -1609,6 +1630,7 @@
                     <div class="bynd-jev-scopes" role="group" aria-label="Jev 决策场景">
                         <label><input type="checkbox" data-jev-scope="turn"><span>每轮回复后</span></label>
                         <label><input type="checkbox" data-jev-scope="toolGate"><span>工具人设把关</span></label>
+                        <label><input type="checkbox" data-jev-scope="webSearch"><span>主动搜索</span></label>
                         <label><input type="checkbox" data-jev-scope="moment"><span>角色朋友圈</span></label>
                         <label><input type="checkbox" data-jev-scope="momentEngagement"><span>朋友圈互动</span></label>
                         <label><input type="checkbox" data-jev-scope="forumAction"><span>论坛行动</span></label>
@@ -1757,16 +1779,15 @@
                 </div>
                 </div>
 
-                <!-- Token 用量（仪表盘稍后挂载到 #bynd-usage-dashboard） -->
+                <!-- Token 用量 -->
                 <div class="set-nav-panel" id="settings-tab-usage" data-settings-panel="usage" role="tabpanel" aria-labelledby="settings-nav-usage" hidden>
                     <div class="set-section-title"><i class="ri-bar-chart-2-line"></i> 用量</div>
                     <div id="bynd-usage-dashboard"></div>
-                    <p class="set-nav-note">Token 用量汇总即将上线</p>
                 </div>
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.689
+                    Beyond Screen v1.1.690
                 </div>
             </div>
         </div>
@@ -2882,49 +2903,25 @@
                 <header class="mcp-topbar">
                     <button type="button" class="mcp-back" onclick="closeApp('mcp')" aria-label="返回桌面"><i class="ri-arrow-left-s-line"></i></button>
                     <div class="mcp-topbar-title">
-                        <span class="mcp-mini-mark"><i class="ri-github-fill"></i><b></b><b></b><b></b></span>
+                        <span class="mcp-mini-mark"><i class="ri-plug-2-line"></i></span>
                         <div><strong id="mcp-window-title">MCP 接入</strong><small id="mcp-header-status">未连接</small></div>
                     </div>
                     <button type="button" class="mcp-disconnect" id="mcp-disconnect-btn" onclick="disconnectGitHubMcp()" disabled>断开</button>
                 </header>
 
                 <main class="mcp-scroll">
-                    <section class="mcp-hero">
-                        <div class="mcp-hero-copy">
-                            <p>BYND · MCP HUB</p>
-                            <h2>把 MCP 接进 BYND</h2>
-                            <span>发现 GitHub 工具，或连接正在运行的 MCP 服务。</span>
-                        </div>
-                        <div class="mcp-route" aria-hidden="true">
-                            <span class="mcp-route-node mcp-route-github"><i class="ri-github-fill"></i></span>
-                            <b><i></i></b>
-                            <span class="mcp-route-core">MCP</span>
-                            <b><i></i></b>
-                            <span class="mcp-route-node mcp-route-bynd">B</span>
-                        </div>
-                        <em id="mcp-status-pill" data-state="idle"><i></i>未连接</em>
-                    </section>
-
-                    <section class="mcp-panel mcp-import-panel">
-                        <div class="mcp-panel-heading"><b class="mcp-step">01</b><div><strong>导入 GitHub 仓库</strong><span>识别安装方式与可用端点</span></div><i class="ri-git-repository-line"></i></div>
-                        <div class="mcp-repo-input-row">
-                            <label class="mcp-field">
-                                <span>仓库链接</span>
-                                <input id="mcp-repo-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" value="https://github.com/screenpipe/screenpipe" placeholder="https://github.com/owner/repo">
-                            </label>
-                            <button type="button" class="mcp-inspect-btn" id="mcp-inspect-btn" onclick="inspectGitHubMcpRepository()"><i class="ri-search-eye-line"></i><span>识别</span></button>
-                        </div>
-                        <p class="mcp-repo-note"><i class="ri-information-line"></i>仓库仅用于识别；连接前仍需运行 MCP 服务。</p>
-                        <div class="mcp-import-result hidden" id="mcp-import-result" aria-live="polite"></div>
-                    </section>
-
                     <section class="mcp-panel mcp-connect-panel">
-                        <div class="mcp-panel-heading"><b class="mcp-step">02</b><div><strong>建立连接</strong><span id="mcp-connection-kind">GitHub Remote MCP · 经 BYND 安全代理</span></div><i class="ri-shield-keyhole-line" id="mcp-connection-icon"></i></div>
-
+                        <div class="mcp-panel-heading"><div><strong>连接 MCP 服务</strong><span id="mcp-connection-kind">BYND 示例工具 · 无需密钥</span></div><i class="ri-shield-keyhole-line" id="mcp-connection-icon"></i></div>
                         <div class="mcp-control-stack">
+
+                            <label class="mcp-field mcp-control-row">
+                                <span>服务地址<small>Server URL</small></span>
+                                <input id="mcp-server-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" value="https://bynd.ccwu.cc/mcp/demo" placeholder="https://example.com/mcp" oninput="handleMcpServerUrlInput()">
+                            </label>
                             <label class="mcp-field mcp-control-row">
                                 <span>连接预设<small>能力范围</small></span>
                                 <select id="mcp-preset-select" onchange="applyGitHubMcpPreset(this.value)">
+                                    <option value="demo">BYND 示例工具 · 免密钥</option>
                                     <option value="default">默认工具集</option>
                                     <option value="readonly">默认工具集 · 只读</option>
                                     <option value="all-readonly">全部工具 · 只读</option>
@@ -2935,13 +2932,6 @@
                                     <option value="custom">第三方 Streamable HTTP</option>
                                 </select>
                             </label>
-
-                            <label class="mcp-field mcp-control-row">
-                                <span>服务地址<small>Server URL</small></span>
-                                <input id="mcp-server-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" value="https://api.githubcopilot.com/mcp/" placeholder="https://api.githubcopilot.com/mcp/" oninput="handleMcpServerUrlInput()">
-                            </label>
-
-                            <p class="mcp-address-hint"><i class="ri-magic-line"></i><span id="mcp-address-hint-text">多数 HTTP MCP 服务只需填写地址即可连接。</span></p>
 
                             <details id="mcp-auth-details" class="mcp-advanced-auth">
                                 <summary>
@@ -2976,7 +2966,7 @@
                     </section>
 
                     <section class="mcp-panel mcp-tools-panel hidden" id="mcp-tools-panel">
-                        <div class="mcp-panel-heading"><b class="mcp-step">03</b><div><strong>可用工具</strong><span id="mcp-tools-count">0 个工具</span></div><i class="ri-tools-line"></i></div>
+                        <div class="mcp-panel-heading"><div><strong>可用工具</strong><span id="mcp-tools-count">0 个工具</span></div><i class="ri-tools-line"></i></div>
                         <div class="mcp-search"><i class="ri-search-line"></i><input id="mcp-tool-search" type="search" oninput="filterMcpTools(this.value)" placeholder="搜索工具名称或说明"></div>
                         <div class="mcp-tool-list" id="mcp-tool-list"></div>
                     </section>
@@ -2988,10 +2978,6 @@
                         <div class="mcp-result hidden" id="mcp-result"><div><strong>返回结果</strong><button type="button" onclick="copyMcpResult()"><i class="ri-file-copy-line"></i>复制</button></div><pre id="mcp-result-output"></pre></div>
                     </section>
 
-                    <section class="mcp-footnote">
-                        <i class="ri-information-line"></i>
-                        <p>GitHub 与 GHE 经安全代理连接；第三方地址由本机直连。stdio 服务需先桥接为 Streamable HTTP。</p>
-                    </section>
                 </main>
             </div>
         </div>
@@ -2999,42 +2985,44 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="modules/usage/ledger.js?v=1.1.689"></script>
-    <script src="chat-api.js?v=1.1.689"></script>
-    <script src="stickers-boltp-share.js?v=1.1.689"></script>
-    <script src="stickers-local-share.js?v=1.1.689"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.689"></script>
-    <script src="modules/decision/jev.js?v=1.1.689"></script>
-    <script src="modules/decision/decider.js?v=1.1.689"></script>
-    <script src="wechat.js?v=1.1.689"></script>
-    <script src="modules/living-world/living-world.js?v=1.1.689"></script>
-    <script src="theme.js?v=1.1.689"></script>
-    <script src="settings.js?v=1.1.689"></script>
-    <script src="script.js?v=1.1.689"></script>
-    <script src="modules/comic/comic.js?v=1.1.689"></script>
-    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.689">
-    <script src="netease.js?v=1.1.689"></script>
-    <script src="WorldBook.js?v=1.1.689"></script>
-    <script src="regular.js?v=1.1.689"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.689"></script>
-    <script src="modules/wechat/character-tools.js?v=1.1.689"></script>
-    <script src="modules/wechat/api-ticket.js?v=1.1.689"></script>
-    <script src="modules/usage/bill-app.js?v=1.1.689"></script>
-    <script src="modules/wechat/character-generator.js?v=1.1.689"></script>
-    <script src="modules/wechat/openclaw-settings.js?v=1.1.689"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.689"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.689"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.689"></script>
-    <script src="modules/study/study-app.js?v=1.1.689"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.689"></script>
-    <script src="modules/monitor/screen-companion.js?v=1.1.689"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.689"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.689"></script>
-    <script src="modules/monitor/pet-animation.js?v=1.1.689"></script>
-    <script src="modules/monitor/pet-proportions.js?v=1.1.689"></script>
-    <script src="modules/monitor/pet-background.js?v=1.1.689"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.689"></script>
-    <script src="modules/monitor/pet-history.js?v=1.1.689"></script>
-    <script src="modules/monitor/workspace.js?v=1.1.689"></script>
+    <script src="modules/usage/ledger.js?v=1.1.690"></script>
+    <script src="chat-api.js?v=1.1.690"></script>
+    <script src="stickers-boltp-share.js?v=1.1.690"></script>
+    <script src="stickers-local-share.js?v=1.1.690"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.690"></script>
+    <script src="modules/decision/jev.js?v=1.1.690"></script>
+    <script src="modules/decision/decider.js?v=1.1.690"></script>
+    <script src="wechat.js?v=1.1.690"></script>
+    <script src="modules/living-world/living-world.js?v=1.1.690"></script>
+    <script src="theme.js?v=1.1.690"></script>
+    <script src="settings.js?v=1.1.690"></script>
+    <script src="script.js?v=1.1.690"></script>
+    <script src="modules/comic/comic.js?v=1.1.690"></script>
+    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.690">
+    <script src="netease.js?v=1.1.690"></script>
+    <script src="WorldBook.js?v=1.1.690"></script>
+    <script src="regular.js?v=1.1.690"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.690"></script>
+    <script src="modules/wechat/web-search.js?v=1.1.690"></script>
+    <script src="modules/wechat/character-tools.js?v=1.1.690"></script>
+    <script src="modules/wechat/api-ticket.js?v=1.1.690"></script>
+    <script src="modules/usage/bill-app.js?v=1.1.690"></script>
+    <script src="modules/wechat/character-generator.js?v=1.1.690"></script>
+    <script src="modules/wechat/openclaw-settings.js?v=1.1.690"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.690"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.690"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.690"></script>
+    <script src="modules/study/study-app.js?v=1.1.690"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.690"></script>
+    <script src="modules/monitor/screen-companion.js?v=1.1.690"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.690"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.690"></script>
+    <script src="modules/monitor/pet-animation.js?v=1.1.690"></script>
+    <script src="modules/monitor/pet-proportions.js?v=1.1.690"></script>
+    <script src="modules/monitor/pet-background.js?v=1.1.690"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.690"></script>
+    <script src="modules/monitor/pet-history.js?v=1.1.690"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.690"></script>
+    <script src="modules/opening/opening.js?v=1.1.690"></script>
 </body>
 </html>

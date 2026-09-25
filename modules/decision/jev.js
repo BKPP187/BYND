@@ -11,7 +11,7 @@
     const PROXY_ENDPOINTS = ['https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone'];
     const PROXY_ENDPOINT = PROXY_ENDPOINTS[0];
     let directBlocked = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
-    const SCOPES = ['turn', 'toolGate', 'moment', 'momentEngagement', 'forumAction', 'forumReply', 'profile'];
+    const SCOPES = ['turn', 'toolGate', 'webSearch', 'moment', 'momentEngagement', 'forumAction', 'forumReply', 'profile'];
     const DEFAULT_MIN_PROBABILITY = 0.55;
     const clampProbability = value => Math.min(0.95, Math.max(0.34, Number(value) || DEFAULT_MIN_PROBABILITY));
     const defaults = () => ({ enabled: false, apiKey: '', minProbability: DEFAULT_MIN_PROBABILITY, scopes: Object.fromEntries(SCOPES.map(scope => [scope, true])) });

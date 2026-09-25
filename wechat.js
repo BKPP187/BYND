@@ -8688,7 +8688,9 @@ function appendWechatApiTicketEntry(row, msg, charObj, msgIndex) {
     const ticket = document.createElement('button');
     ticket.type = 'button';
     ticket.className = 'bynd-api-ticket-entry';
-    ticket.innerHTML = `<i class="ri-receipt-line" aria-hidden="true"></i><span>API 小票 · ${totals.estimated ? '≈' : ''}${totals.total.toLocaleString('zh-CN')} Token</span><i class="ri-arrow-right-s-line" aria-hidden="true"></i>`;
+    const returnedAt = Number(msg.apiUsageRecords.at(-1)?.finishedAt);
+    const timeLabel = Number.isFinite(returnedAt) && returnedAt > 0 ? ` · ${new Date(returnedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : '';
+    ticket.innerHTML = `<i class="ri-receipt-line" aria-hidden="true"></i><span>API 小票 · ${totals.estimated ? '≈' : ''}${totals.total.toLocaleString('zh-CN')} Token${timeLabel}</span><i class="ri-arrow-right-s-line" aria-hidden="true"></i>`;
     ticket.setAttribute('aria-label', `打开本轮 API 小票，共 ${totals.total} Token`);
     ticket.addEventListener('click', event => {
         event.stopPropagation();
@@ -10175,14 +10177,16 @@ async function runWechatTurnFollowUps(char, context = {}) {
     }
     const skipStatus = turn?.status === false;
     const statusRequestWillRun = !skipStatus && shouldDeferWechatMemoryAfterReply(char);
-    if (!skipStatus) {
-        requestWechatAiStatusSnapshot(char, { reason: 'after_reply', decided: turn?.status === true })
-            .catch(e => console.warn('ai status snapshot failed:', e));
-    }
+    const statusJob = !skipStatus ? requestWechatAiStatusSnapshot(char, { reason: 'after_reply', decided: turn?.status === true })
+        .catch(e => console.warn('ai status snapshot failed:', e)) : null;
     // A reply must not immediately consume quota again for both generated
     // status and memory. The next eligible reply will pick memory up once
     // the status snapshot is fresh (or its automatic retry is cooled down).
-    if (!statusRequestWillRun && turn?.memory !== false) scheduleWechatMemoryExtraction(char, 'after_reply');
+    if (statusRequestWillRun && context.webSearched && turn?.memory === true) {
+        void statusJob?.then(() => scheduleWechatMemoryExtraction(char, 'web_search'));
+    } else if (!statusRequestWillRun && turn?.memory !== false) {
+        scheduleWechatMemoryExtraction(char, context.webSearched && turn?.memory === true ? 'web_search' : 'after_reply');
+    }
     if (!context.textOnly && !char.isGroupChat && turn?.moment !== false) void considerWechatCharMomentAfterReply(char);
 }
 
@@ -10320,6 +10324,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
     const usageCollector = typeof getWechatAgentPreferences === 'function' && getWechatAgentPreferences(char).showTokenUsage ? [] : null;
     const usageLedgerIds = [];
     let replyDecisions = null;
+    let webSearchContext = null;
 
     try {
         const appendAiResultToChat = async (rawContent, appendOptions = {}) => {
@@ -10351,16 +10356,25 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             if (typeof consumed.afterAppend === 'function') count += await consumed.afterAppend({ background: !!options.background }) || 0;
             const first = char.history.slice(start).find(msg => msg && !msg.isMe && msg.type !== 'system_notice');
             if (first && consumed.summary) first.thinkingSummary = consumed.summary;
+            if (webSearchContext?.sources?.length) {
+                const answer = char.history.slice(start).reverse().find(msg => msg && !msg.isMe && msg.type === 'text' && !msg.apiError);
+                if (answer) answer.webSources = webSearchContext.sources;
+            }
             if (count > 0 && petResponse) window.ByndCharacterPet.applyChatReaction(char, petResponse.reaction, char.history.slice(start).filter(msg => !msg.isMe).map(msg => msg.content || msg.description || '').join('\n')).catch(() => {});
             if (avatarAction.backgroundChanged && shouldTouchChatUi && typeof applyChatConfig === 'function') applyChatConfig(char);
-            if ((consumed.summary || consumed.toolCount || avatarAction.changed) && shouldTouchChatUi) refreshChatView(char);
+            if ((consumed.summary || consumed.toolCount || avatarAction.changed || webSearchContext?.sources?.length) && shouldTouchChatUi) refreshChatView(char);
             // A tool-only response was handled; retrying it could repeat an action.
             return count + consumed.toolCount + (avatarAction.changed ? 1 : 0);
         };
 
         // 构建消息并调用API
+        if (!options.background && !options.textOnly && !char.isGroupChat) {
+            try { webSearchContext = await window.ByndWebSearch?.prepare(char, char.history || []); }
+            catch (error) { console.warn('主动搜索决策失败，继续普通回复', error); }
+        }
         const messages = buildMessages(char, char.history || []);
         if (typeof buildWechatAgentInstructions === 'function') messages.push({ role: 'system', content: buildWechatAgentInstructions(char) });
+        if (webSearchContext?.prompt) messages.push({ role: 'system', content: webSearchContext.prompt });
         if (options.textOnly) {
             messages.push({
                 role: 'system',
@@ -10371,7 +10385,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
         const streamPreference = shouldTouchChatUi
             && !char.isGroupChat
             && typeof getWechatAgentPreferences === 'function'
-            && getWechatAgentPreferences(char).streamReplies === true;
+            && (getWechatAgentPreferences(char).streamReplies === true || !!webSearchContext);
         streamPreview = streamPreference ? createWechatStreamPreview(char, contentEl) : null;
         const chatApiOptions = {
             background: !!options.background,
@@ -10455,7 +10469,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
                 }
                 renderChatList();
                 showWechatDesktopMessageIsland(char);
-                void runWechatTurnFollowUps(char, { replyDecisions, textOnly: !!options.textOnly });
+                void runWechatTurnFollowUps(char, { replyDecisions, textOnly: !!options.textOnly, webSearched: !!webSearchContext?.sources?.length });
             } else if (typeof showWechatToast === 'function') {
                 showWechatToast('AI 这次只返回了思维链，已拦截，没有发送空气泡');
             }
@@ -25400,7 +25414,7 @@ function buildWechatMemoryExtractionTranscript(char, startIndex, maxCount = 18) 
         rows.push({
             index: i,
             role: msg.isMe ? 'user' : 'char',
-            line: `#${i + 1} ${msg.isMe ? userName : charName}: ${content}`
+            line: `#${i + 1} ${msg.isMe ? userName : charName}: ${content}${Array.isArray(msg.webSources) && msg.webSources.length ? ` [本轮主动搜索了现实资料，展示了 ${msg.webSources.length} 条来源]` : ''}`
         });
     }
     return rows;
@@ -25697,7 +25711,7 @@ function scheduleWechatMemoryExtraction(char, reason = 'after_reply') {
     const bucket = getWechatMemoryBucket(store, char.id);
     const config = getWechatMemoryConfig(char);
     const cursor = Math.min(history.length, Math.max(0, Number(bucket.meta?.lastExtractedIndex || 0)));
-    if (getWechatExtractableMessageCount(history, cursor) < config.extractEvery) return;
+    if (reason !== 'web_search' && getWechatExtractableMessageCount(history, cursor) < config.extractEvery) return;
     window._wechatMemoryExtractionTimers = window._wechatMemoryExtractionTimers || new Map();
     const oldTimer = window._wechatMemoryExtractionTimers.get(char.id);
     if (oldTimer) clearTimeout(oldTimer);
@@ -25728,7 +25742,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
     const maxWindow = Math.max(12, config.extractEvery * 4);
     if (startIndex === 0 && history.length > maxWindow) startIndex = history.length - maxWindow;
     const transcriptRows = buildWechatMemoryExtractionTranscript(char, startIndex, maxWindow);
-    if (transcriptRows.length < config.extractEvery && reason !== 'manual') return null;
+    if (transcriptRows.length < config.extractEvery && reason !== 'manual' && reason !== 'web_search') return null;
     if (!transcriptRows.length) return null;
     const forumCandidates = typeof window.getLivingWorldMemoryCandidatesForChar === 'function'
         ? window.getLivingWorldMemoryCandidatesForChar(char, bucket.meta?.lastExtractedAt || 0)
@@ -25741,7 +25755,7 @@ async function requestWechatMemoryExtraction(charOrId, reason = 'manual') {
         const result = await callChatApi([
             {
                 role: 'system',
-                content: `你是 BYND 微信记忆整理子代理。只分析提供的新增聊天片段和角色确实可知的论坛记忆候选，抽取值得长期影响后续互动的记忆；先检查已有记忆，避免重复。论坛公开发言只是某人的说法，不可当作已证实的客观事实；不知道的角色不得获知。只返回 JSON，不要 Markdown。格式：{"memories":[{"category":"relationship|preference|fact|boundary|plot|task|correction","topic":"主题","title":"短标题","content":"一条可直接给角色使用的记忆","confidence":0.35到1}],"facts":[{"subject":"User/角色名/具体实体","predicate":"喜欢/害怕/正在/会为了等关系动作","object":"对象或事实结果","topic":"记忆家族主题","emotion":"可空","confidence":0.35到1}],"relations":[{"from":"事实或实体A","type":"关联类型","to":"事实或实体B","topic":"记忆家族主题","confidence":0.35到1}]}。memories 是给角色直接阅读的自然语言记忆；facts 是可组成记忆星河的原子事实，必须从 memories、聊天片段或论坛候选中拆出；relations 只描述真实存在的联想关系。保存标准：用户明确要求记住的事、稳定偏好、关系变化、边界、推进的剧情、承诺、重要论坛互动。不要保存：普通寒暄、普通帖子、一次性情绪、未确认猜测、隐私敏感内容、模型思考过程。没有值得记的内容就返回空数组。`
+                content: `你是 BYND 微信记忆整理子代理。只分析提供的新增聊天片段和角色确实可知的论坛记忆候选，抽取值得长期影响后续互动的记忆；先检查已有记忆，避免重复。论坛公开发言只是某人的说法，不可当作已证实的客观事实；不知道的角色不得获知。只返回 JSON，不要 Markdown。格式：{"memories":[{"category":"relationship|preference|fact|boundary|plot|task|correction","topic":"主题","title":"短标题","content":"一条可直接给角色使用的记忆","confidence":0.35到1}],"facts":[{"subject":"User/角色名/具体实体","predicate":"喜欢/害怕/正在/会为了等关系动作","object":"对象或事实结果","topic":"记忆家族主题","emotion":"可空","confidence":0.35到1}],"relations":[{"from":"事实或实体A","type":"关联类型","to":"事实或实体B","topic":"记忆家族主题","confidence":0.35到1}]}。memories 是给角色直接阅读的自然语言记忆；facts 是可组成记忆星河的原子事实，必须从 memories、聊天片段或论坛候选中拆出；relations 只描述真实存在的联想关系。保存标准：用户明确要求记住的事、稳定偏好、关系变化、边界、推进的剧情、承诺、重要论坛互动；主动搜索若带来后续会用到的新约定或共同认知，也可记住这次查找事件。不要保存：普通寒暄、普通帖子、一次性情绪、临时搜索结果、未确认猜测、隐私敏感内容、模型思考过程。没有值得记的内容就返回空数组。`
             },
             {
                 role: 'user',
@@ -27207,7 +27221,7 @@ function getEditableStickerPacks(data) {
 
 const STICKER_STORAGE_KEY = 'my_sticker_packs';
 const WECHAT_GIPHY_PACK_ID = 'pack_giphy_proxy_trending';
-const WECHAT_GIPHY_PROXY_URL = 'https://bynd-giphy-proxy.myluckylxy.workers.dev';
+const WECHAT_GIPHY_PROXY_URL = 'https://bynd.ccwu.cc/mcp/relay/giphy';
 const WECHAT_GIPHY_FALLBACK_QUERIES = ['cute', 'happy', 'cat', 'love', 'dog', 'anime'];
 const WECHAT_GIPHY_CN_QUERY_RULES = [
     { re: /可爱|萌|软萌|乖|奶|甜|治愈/, term: 'cute' },

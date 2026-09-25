@@ -10,6 +10,62 @@ const { root, sourceSection } = require('./helpers/harness.cjs');
 const workerSource = fs.readFileSync(path.join(root, 'workers/bynd-push-worker.js'), 'utf8');
 const workerModule = import('data:text/javascript;base64,' + Buffer.from(workerSource).toString('base64'));
 
+test('public search returns bounded real sources and rejects foreign origins and oversized queries', async () => {
+    const { default: worker } = await workerModule;
+    const original = globalThis.fetch;
+    const upstream = [];
+    globalThis.fetch = async url => {
+        upstream.push(String(url));
+        return new Response('<?xml version="1.0"?><rss><channel><item><title>新闻 &amp; 事实</title><link>https://example.org/news</link><description>今天更新的资料</description></item><item><title>坏链接</title><link>javascript:alert(1)</link><description>不能展示</description></item></channel></rss>', { headers: { 'Content-Type': 'text/xml' } });
+    };
+    try {
+        const url = 'https://bynd.ccwu.cc/mcp/web-search?q=' + encodeURIComponent('今天的新闻');
+        const response = await worker.fetch(new Request(url, { headers: { Origin: 'https://bynd.ccwu.cc' } }), {});
+        assert.equal(response.status, 200);
+        const data = await response.json();
+        assert.equal(data.results.length, 1);
+        assert.equal(data.results[0].title, '新闻 & 事实');
+        assert.equal(data.results[0].url, 'https://example.org/news');
+        assert.equal(upstream.length, 1);
+        assert.equal((await worker.fetch(new Request(url, { headers: { Origin: 'https://evil.example' } }), {})).status, 403);
+        assert.equal((await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/web-search?q=' + 'x'.repeat(181)), {})).status, 400);
+        assert.equal(upstream.length, 1);
+    } finally { globalThis.fetch = original; }
+});
+
+test('BYND example MCP connects without credentials and only exposes read-only sample tools', async () => {
+    const { default: worker } = await workerModule;
+    const url = 'https://bynd.ccwu.cc/mcp/demo';
+    const call = async (method, params = {}) => {
+        const response = await worker.fetch(new Request(url, { method: 'POST', headers: { Origin: 'https://bynd.ccwu.cc', 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }), {});
+        return { response, body: await response.json() };
+    };
+    assert.equal((await call('initialize')).body.result.serverInfo.name, 'BYND 示例工具');
+    const listed = (await call('tools/list')).body.result.tools;
+    assert.deepEqual(listed.map(tool => tool.name), ['current_time', 'bynd_guide']);
+    assert.ok(listed.every(tool => tool.annotations?.readOnlyHint === true));
+    assert.match((await call('tools/call', { name: 'current_time', arguments: {} })).body.result.content[0].text, /UTC/);
+    assert.equal((await call('tools/call', { name: 'delete_file' })).body.error.code, -32601);
+});
+
+test('sticker relay requires its configured upstream and rejects unrelated paths', async () => {
+    const { default: worker } = await workerModule;
+    const url = 'https://bynd.ccwu.cc/mcp/relay/giphy/stickers/trending';
+    const request = new Request(url, { headers: { Origin: 'https://bynd.ccwu.cc' } });
+    assert.equal((await worker.fetch(request, {})).status, 503);
+    const realFetch = globalThis.fetch;
+    const upstreamCalls = [];
+    globalThis.fetch = async target => { upstreamCalls.push(String(target)); return new Response('{"items":[]}', { headers: { 'Content-Type': 'application/json' } }); };
+    try {
+        const env = { GIPHY_PROXY_ORIGIN: 'https://stickers.example.org/' };
+        assert.equal((await worker.fetch(request, env)).status, 200);
+        assert.equal(upstreamCalls[0], 'https://stickers.example.org/stickers/trending?limit=30');
+        assert.equal((await worker.fetch(new Request(url.replace('trending', 'delete'), { headers: { Origin: 'https://bynd.ccwu.cc' } }), env)).status, 404);
+        assert.equal((await worker.fetch(new Request(url, { headers: { Origin: 'https://evil.example' } }), env)).status, 403);
+        assert.equal(upstreamCalls.length, 1);
+    } finally { globalThis.fetch = realFetch; }
+});
+
 function settingsHarness(hostname = 'localhost', protocol = 'http:') {
     const context = vm.createContext({ window: {}, URL, location: { protocol, hostname, origin: `${protocol}//${hostname}` } });
     vm.runInContext(sourceSection('settings.js', '// Sites that refuse browser requests', '// 10. 核心测试逻辑'), context);
@@ -51,7 +107,7 @@ test('Jev proxy is pinned to TypeSafe System One and never stores the user key',
         return new Response(JSON.stringify({ answers:{ decision:{ type:'choice', choice:'silence' } } }), { headers:{ 'Content-Type':'application/json' } });
     };
     try {
-        const url = 'https://bynd-push.myluckylxy.workers.dev/jev/v1/systemone';
+        const url = 'https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone';
         const headers = { Origin:'https://bynd.ccwu.cc', Authorization:'Bearer example-user-key', 'Content-Type':'application/json' };
         const response = await worker.fetch(new Request(url,{ method:'POST', headers, body:'{"model":"jev-latest","state":{},"questions":{}}' }),{});
         assert.equal(response.status,200);
@@ -84,14 +140,14 @@ test('the Worker proxies only the documented l0veyou endpoints with CORS, passes
     };
     try {
         const origin = 'https://bynd.ccwu.cc';
-        const preflight = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/chat/completions', {
+        const preflight = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/chat/completions', {
             method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' }
         }), {});
         assert.equal(preflight.status, 204);
         assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), origin);
         assert.equal(upstreamCalls.length, 0, 'preflights never reach the upstream');
 
-        const chat = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/chat/completions', {
+        const chat = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/chat/completions', {
             method: 'POST',
             headers: { Origin: origin, 'Content-Type': 'application/json', Authorization: 'Bearer user-key', Accept: 'text/event-stream', Cookie: 'session=abc' },
             body: JSON.stringify({ model: 'model-a', stream: true, messages: [] })
@@ -107,18 +163,18 @@ test('the Worker proxies only the documented l0veyou endpoints with CORS, passes
         assert.equal(upstreamCalls[0].init.headers.get('Cookie'), null);
         assert.equal(upstreamCalls[0].init.headers.get('Origin'), null);
 
-        const models = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/models', { headers: { Origin: 'http://127.0.0.1:8771', Authorization: 'Bearer k' } }), {});
+        const models = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/models', { headers: { Origin: 'http://127.0.0.1:8771', Authorization: 'Bearer k' } }), {});
         assert.equal(models.status, 200);
         assert.equal(models.headers.get('Access-Control-Allow-Origin'), 'http://127.0.0.1:8771');
         assert.equal(upstreamCalls.at(-1).url, 'https://l0veyou.com/v1/models');
 
-        const denied = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/models', { headers: { Origin: 'https://evil.example' } }), {});
+        const denied = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/models', { headers: { Origin: 'https://evil.example' } }), {});
         assert.equal(denied.status, 403);
-        const unknown = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/embeddings', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
+        const unknown = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/embeddings', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
         assert.equal(unknown.status, 404);
-        const wrongMethod = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/l0veyou/v1/models', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
+        const wrongMethod = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/l0veyou/v1/models', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
         assert.equal(wrongMethod.status, 405);
-        const wisart = await worker.fetch(new Request('https://bynd-push.myluckylxy.workers.dev/wisart/v1/chat/completions', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
+        const wisart = await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/wisart/v1/chat/completions', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}' }), {});
         assert.equal(wisart.status, 404, 'Wisart keeps its image-only route table');
         assert.equal(upstreamCalls.length, 2, 'rejected requests never reach any upstream');
     } finally {

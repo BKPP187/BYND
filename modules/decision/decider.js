@@ -17,7 +17,7 @@
         if (!char || char.isGroupChat || usesJev('turn')) return '';
         return '在全部正文之后另起一行，附上用户看不到的判断块：<bynd_decide>{"status":true或false,"memory":true或false,"moment":true或false}</bynd_decide>。'
             + 'status：这一轮之后你（角色）的心情、状态或没说出口的想法是否明显变化，值得更新心声；'
-            + 'memory：这一轮是否出现值得长期记住的新事实（用户的经历、偏好、约定、关系变化）；'
+            + 'memory：这一轮是否出现值得长期记住的新事实或共同经历（用户的经历、偏好、约定、关系变化，或主动查资料带来的重要事件）；普通一次性搜索结果不用记；'
             + 'moment：按你的人设和此刻情绪，是否有自然动机发一条自己的朋友圈。'
             + '按角色真实会怎么做来判断，不确定就填 false。判断块只能出现一次，不要解释。';
     }
@@ -56,7 +56,8 @@
         const history = Array.isArray(char.history) ? char.history : [];
         const recent = history.filter(msg => msg && msg.type !== 'system_notice').slice(-8).map(msg => ({
             from: msg.isMe ? 'user' : 'character',
-            text: clip(msg.content || msg.description || `[${msg.type || 'message'}]`, 160)
+            text: clip(msg.content || msg.description || `[${msg.type || 'message'}]`, 160),
+            searchedSources: Array.isArray(msg.webSources) ? msg.webSources.length : 0
         }));
         const persona = typeof getWechatCharacterPersonaText === 'function' ? getWechatCharacterPersonaText(char, 700) : (char.description || char.personality || '');
         const world = typeof buildWechatWorldBookPrompt === 'function' ? buildWechatWorldBookPrompt(char) : '';
@@ -77,7 +78,7 @@
     function turnQuestions(char) {
         const questions = {
             status: { type: 'noul', instructions: "After this exchange, has the character's mood, inner state or unspoken thoughts changed noticeably enough to refresh their inner-voice status?" },
-            memory: { type: 'noul', instructions: 'Did this exchange reveal a new fact worth remembering long term (the user\'s experiences, preferences, promises, or a change in the relationship)?' },
+            memory: { type: 'noul', instructions: 'Did this exchange reveal a new fact or shared event worth remembering long term, including a meaningful search the character performed for the user? Do not store one-off search results.' },
             moment: { type: 'noul', instructions: "Given the character's persona and current mood, would they naturally post an update to their own social feed right now?" }
         };
         const moods = moodOptions(char);

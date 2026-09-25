@@ -1,0 +1,59 @@
+/* MCP connects through a server URL; keep the connection form in the first viewport. */
+#app-mcp-window { --mcp-bg:#f7f7fa; --mcp-text:#262538; --mcp-muted:#77778a; --mcp-dim:#aaa9b7; --mcp-line:#e9e8ef; --mcp-line-strong:#dfdde9; --mcp-surface:#fff; --mcp-surface-input:#fff; --mcp-accent:#7355aa; --mcp-accent-soft:#f4f0fa; --mcp-accent-strong:#7355aa; --mcp-blue:#7355aa; --mcp-green:#32986c; color:var(--mcp-text); background:var(--mcp-bg); }
+#app-mcp-window .mcp-shell { background:#f7f7fa; }
+#app-mcp-window .mcp-shell::before { display:none; }
+#app-mcp-window .mcp-topbar { border-color:#ecebf1; background:#fff; box-shadow:none; }
+#app-mcp-window .mcp-back { color:#524a62!important; background:#f4f2f8; }
+#app-mcp-window .mcp-topbar-title strong { color:#272438; }
+#app-mcp-window .mcp-topbar-title small { color:#898497; }
+#app-mcp-window .mcp-mini-mark { color:#7557a4; border-color:#e8e1ef; background:#f6f2fa; box-shadow:none; }
+#app-mcp-window .mcp-disconnect { color:#675d76!important; border-color:#e4e0eb!important; background:#fff!important; }
+#app-mcp-window .mcp-disconnect:disabled { color:#b8b3c1!important; }
+#app-mcp-window .mcp-scroll { display:flex; flex-direction:column; gap:12px; padding:18px 16px max(94px,env(safe-area-inset-bottom)); }
+#app-mcp-window .mcp-status-line { display:flex; align-items:center; gap:8px; padding:0 3px 2px; color:#817b8c; font-size:11px; }
+#app-mcp-window .mcp-status-dot { width:7px; height:7px; border-radius:50%; background:#aaa5b3; }
+#app-mcp-window .mcp-status-line:has([data-state="connected"]) { color:#28845c; }
+#app-mcp-window .mcp-status-line:has([data-state="connected"]) .mcp-status-dot { background:#34a472; }
+#app-mcp-window .mcp-status-line:has([data-state="error"]) { color:#b65f67; }
+#app-mcp-window .mcp-status-line:has([data-state="error"]) .mcp-status-dot { background:#d47680; }
+#app-mcp-window .mcp-panel { margin:0; padding:19px 17px; border:1px solid #e7e5ee; border-radius:18px; background:#fff; box-shadow:0 5px 18px rgba(42,34,68,.035); animation:none; }
+#app-mcp-window .mcp-panel-heading { min-height:0; margin-bottom:18px; }
+#app-mcp-window .mcp-panel-heading strong { color:#2f2a3d; font-size:17px; font-weight:700; }
+#app-mcp-window .mcp-panel-heading span { margin-top:3px; color:#888393; font-size:11px; }
+#app-mcp-window .mcp-panel-heading>i { width:30px; height:30px; color:#766194; border:0; background:#f5f1f9; }
+#app-mcp-window .mcp-control-stack { overflow:visible; border:0; border-radius:0; background:transparent; }
+#app-mcp-window .mcp-control-stack>.mcp-field { margin:0 0 15px; padding:0; border:0; }
+#app-mcp-window .mcp-field>span { color:#5c5669; font-size:11px; }
+#app-mcp-window .mcp-field>span small { color:#aaa4b4; }
+#app-mcp-window .mcp-field input,#app-mcp-window .mcp-field select,#app-mcp-window .mcp-field textarea,#app-mcp-window .mcp-control-row input,#app-mcp-window .mcp-control-row select { color:#353045; border:1px solid #e4e0eb; border-radius:11px; background:#fff; color-scheme:light; }
+#app-mcp-window .mcp-field input,#app-mcp-window .mcp-field select { height:46px; }
+#app-mcp-window .mcp-field input::placeholder,#app-mcp-window .mcp-search input::placeholder { color:#aaa4b4; }
+#app-mcp-window .mcp-field input:focus,#app-mcp-window .mcp-field select:focus,#app-mcp-window .mcp-field textarea:focus { border-color:#a48ac8; background:#fff; box-shadow:0 0 0 3px rgba(128,97,175,.1); }
+#app-mcp-window .mcp-address-hint { margin:-6px 0 12px; padding:0 1px; border:0; color:#8b8597; background:transparent; font-size:10px; }
+#app-mcp-window .mcp-address-hint i { color:#8a70ad; }
+#app-mcp-window .mcp-advanced-auth { border:1px solid #ece9f0; border-radius:11px; background:#fcfbfd; }
+#app-mcp-window .mcp-advanced-auth>summary { min-height:45px; padding:7px 10px; }
+#app-mcp-window .mcp-auth-summary-icon { width:28px; height:28px; color:#84749b; border:0; background:#f3eef8; }
+#app-mcp-window .mcp-auth-summary-copy strong { color:#60566e; }
+#app-mcp-window .mcp-auth-summary-copy small { color:#a19aaa; }
+#app-mcp-window .mcp-auth-chevron { color:#91849f; }
+#app-mcp-window .mcp-advanced-auth[open]>summary { background:#f9f6fc; border-color:#e9e4ef; }
+#app-mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-advanced-auth>summary { border:0; background:transparent; }
+#app-mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-icon { color:#84749b; border:0; background:#f3eef8; }
+#app-mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-copy small { color:#a19aaa; }
+#app-mcp-window .mcp-github-options { margin-top:12px; border:1px solid #eee8f3; border-radius:11px; background:#fbf9fd; }
+#app-mcp-window .mcp-github-options>.mcp-field { border-color:#ece8f0; }
+#app-mcp-window .mcp-switch-row label { color:#60586e; border-color:#e8e3ee; background:#fff; }
+#app-mcp-window .mcp-switch-row b strong { color:#3d354a; }
+#app-mcp-window .mcp-primary-btn { margin-top:16px; min-height:48px; color:#fff; border:1px solid #7355aa; border-radius:11px; background:#7355aa; box-shadow:0 5px 12px rgba(93,63,143,.14); font-size:12px; }
+#app-mcp-window .mcp-primary-btn>b { color:#7355aa; background:#fff; }
+#app-mcp-window .mcp-primary-btn:active { transform:translateY(1px); background:#674a9b; }
+#app-mcp-window .mcp-security-note { color:#9a94a4; font-size:10px; }
+#app-mcp-window .mcp-security-note i { color:#8d7da3; }
+#app-mcp-window .mcp-tool-item { color:#3e364d; border-color:#eae6f0; background:#fff; }
+#app-mcp-window .mcp-tool-item strong { color:#3e364d; }
+#app-mcp-window .mcp-tool-item p,#app-mcp-window .mcp-tool-item em { color:#817a8d; }
+#app-mcp-window .mcp-result { color:#4d435a; border-color:#e9e3f0; background:#faf8fc; }
+#app-mcp-window .mcp-result pre { color:#4b4157; }
+#app-mcp-window .mcp-footnote { color:#938c9c; }
+@media (max-width:360px) { #app-mcp-window .mcp-scroll { padding-inline:11px; } #app-mcp-window .mcp-panel { padding-inline:14px; } }

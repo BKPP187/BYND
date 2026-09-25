@@ -641,7 +641,9 @@ const GITHUB_MCP_PROTOCOL_VERSION = '2025-11-25';
 const GITHUB_MCP_CONFIG_KEY = 'bynd_github_mcp_config_v1';
 const GITHUB_MCP_TOKEN_KEY = 'bynd_github_mcp_pat_session_v1';
 const MCP_TOKEN_STORE_KEY = 'bynd_mcp_tokens_session_v2';
+const MCP_DEMO_URL = 'https://bynd.ccwu.cc/mcp/demo';
 const GITHUB_MCP_PRESETS = {
+    demo: { url: MCP_DEMO_URL, readonly: true },
     default: { url: GITHUB_MCP_DEFAULT_URL, readonly: true },
     readonly: { url: 'https://api.githubcopilot.com/mcp/readonly', readonly: true },
     'all-readonly': { url: 'https://api.githubcopilot.com/mcp/x/all/readonly', readonly: true },
@@ -661,7 +663,6 @@ const githubMcpState = {
     selectedTool: null,
     config: null,
     lastResult: '',
-    importBusy: false,
     formTokenScope: ''
 };
 
@@ -669,14 +670,14 @@ function loadGitHubMcpConfig() {
     try {
         const saved = JSON.parse(localStorage.getItem(GITHUB_MCP_CONFIG_KEY) || '{}');
         return {
-            preset: String(saved.preset || 'default'),
-            url: String(saved.url || GITHUB_MCP_DEFAULT_URL),
+            preset: String(saved.preset || 'demo'),
+            url: String(saved.url || MCP_DEMO_URL),
             toolsets: String(saved.toolsets || ''),
             readonly: saved.readonly !== false,
             lockdown: saved.lockdown === true
         };
     } catch (_) {
-        return { preset: 'default', url: GITHUB_MCP_DEFAULT_URL, toolsets: '', readonly: true, lockdown: false };
+        return { preset: 'demo', url: MCP_DEMO_URL, toolsets: '', readonly: true, lockdown: false };
     }
 }
 
@@ -736,7 +737,7 @@ function initMcpApp() {
     const readonly = document.getElementById('mcp-readonly');
     const lockdown = document.getElementById('mcp-lockdown');
     if (preset) preset.value = GITHUB_MCP_PRESETS[config.preset] ? config.preset : 'custom';
-    if (url) url.value = config.url || GITHUB_MCP_DEFAULT_URL;
+    if (url) url.value = config.url || MCP_DEMO_URL;
     if (toolsets) toolsets.value = config.toolsets || '';
     if (readonly) readonly.checked = config.readonly !== false;
     if (lockdown) lockdown.checked = config.lockdown === true;
@@ -812,7 +813,7 @@ function getGitHubMcpFormConfig() {
     const token = String(document.getElementById('mcp-token')?.value || '').trim();
     if (normalized.isGitHub && !token) throw new Error('请填写 GitHub Personal Access Token');
     return {
-        preset: normalized.isGitHub ? preset : 'custom',
+        preset: normalized.isGitHub ? preset : normalized.url === MCP_DEMO_URL ? 'demo' : 'custom',
         url: normalized.url,
         isGitHub: normalized.isGitHub,
         connectionType: normalized.connectionType,
@@ -841,12 +842,12 @@ function refreshMcpConnectionFormMode(options = {}) {
     try {
         normalized = normalizeMcpServerUrl(input?.value || '');
         isGitHub = normalized.isGitHub;
-        if (!isGitHub && preset) preset.value = 'custom';
+        if (!isGitHub && preset && !(preset.value === 'demo' && normalized.url === MCP_DEMO_URL)) preset.value = 'custom';
     } catch (_) {
         if (preset?.value === 'custom') isGitHub = false;
     }
     githubOptions?.classList.toggle('hidden', !isGitHub);
-    if (kind) kind.textContent = isGitHub ? 'GitHub Remote MCP · 经 BYND 安全代理' : '第三方 Streamable HTTP · 本机直连';
+    if (kind) kind.textContent = isGitHub ? 'GitHub Remote MCP · 经 BYND 安全代理' : normalized?.url === MCP_DEMO_URL ? 'BYND 示例工具 · 无需密钥' : '第三方 Streamable HTTP · 本机直连';
     if (icon) icon.className = isGitHub ? 'ri-shield-keyhole-line' : 'ri-router-line';
     if (label) label.innerHTML = isGitHub ? 'GitHub Personal Access Token <small>必填</small>' : 'Bearer Token <small>服务器要求时再填</small>';
     if (token) token.placeholder = isGitHub ? 'github_pat_… 或 ghp_…' : '服务器要求时填写 Bearer Token';
@@ -884,376 +885,6 @@ function handleMcpServerUrlInput() {
     refreshMcpConnectionFormMode({ loadToken: true });
 }
 window.handleMcpServerUrlInput = handleMcpServerUrlInput;
-
-function parseGitHubRepositoryUrl(value) {
-    let url;
-    try { url = new URL(String(value || '').trim()); } catch (_) { throw new Error('请输入完整的 GitHub 仓库链接'); }
-    if (!['github.com', 'www.github.com'].includes(url.hostname.toLowerCase())) throw new Error('目前仅支持 github.com 的公开仓库');
-    const parts = url.pathname.split('/').filter(Boolean);
-    if (parts.length < 2) throw new Error('仓库链接需要包含 owner/repo');
-    const owner = parts[0];
-    const repo = parts[1].replace(/\.git$/i, '');
-    if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) throw new Error('GitHub 仓库链接格式不正确');
-    return { owner, repo, fullName: `${owner}/${repo}`, url: `https://github.com/${owner}/${repo}` };
-}
-
-async function fetchGitHubMcpJson(apiPath) {
-    const headers = { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
-    const savedGitHubToken = getMcpSessionToken(GITHUB_MCP_DEFAULT_URL);
-    if (savedGitHubToken) headers.Authorization = `Bearer ${savedGitHubToken}`;
-    const response = await fetch(`https://api.github.com${apiPath}`, {
-        headers
-    });
-    if (!response.ok) {
-        if (response.status === 404) throw new Error('找不到该公开仓库或文件');
-        if (response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') throw new Error('GitHub 公开 API 请求额度已用完，请稍后再试');
-        throw new Error(`GitHub API 请求失败（${response.status}）`);
-    }
-    return response.json();
-}
-
-function decodeGitHubBase64(value) {
-    const binary = atob(String(value || '').replace(/\s/g, ''));
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-    return new TextDecoder().decode(bytes);
-}
-
-async function fetchGitHubMcpFile(owner, repo, path, ref) {
-    const data = await fetchGitHubMcpJson(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`);
-    if (data?.type !== 'file') throw new Error('元数据路径不是文件');
-    if (Number(data.size) > 1024 * 1024) throw new Error('仓库元数据文件过大，已停止读取');
-    if (data.content) return decodeGitHubBase64(data.content);
-    if (data.download_url) {
-        const response = await fetch(data.download_url);
-        if (response.ok) return response.text();
-    }
-    throw new Error('无法读取仓库元数据文件');
-}
-
-function scoreMcpMetadataPath(path) {
-    const lower = String(path || '').toLowerCase();
-    let score = lower.includes('mcp') ? 40 : 0;
-    if (lower.startsWith('packages/')) score += 12;
-    if (lower === 'server.json') score += 8;
-    score -= lower.split('/').length;
-    return score;
-}
-
-function getMcpMetadataDirectory(path) {
-    const index = String(path || '').lastIndexOf('/');
-    return index < 0 ? '' : path.slice(0, index);
-}
-
-function findMcpTreePath(treePaths, directory, fileName) {
-    const expected = `${directory ? `${directory}/` : ''}${fileName}`.toLowerCase();
-    return treePaths.find(path => path.toLowerCase() === expected) || '';
-}
-
-function normalizeMcpTransport(value) {
-    const raw = typeof value === 'string' ? value : value?.type;
-    const text = String(raw || '').trim();
-    if (/streamable[-_ ]?http/i.test(text)) return 'Streamable HTTP';
-    if (/stdio/i.test(text)) return 'stdio';
-    if (/sse/i.test(text)) return 'SSE';
-    return text;
-}
-
-function deriveStructuredMcpPackage(packageEntry, packageJson) {
-    if (!packageEntry || typeof packageEntry !== 'object') return null;
-    const registry = String(packageEntry.registryType || packageEntry.registry || '').toLowerCase();
-    const identifier = String(packageEntry.identifier || packageEntry.name || '').trim();
-    const version = String(packageEntry.version || '').trim();
-    const cleanVersion = /^[0-9A-Za-z.+_-]+$/.test(version) ? version : '';
-    let runtime = '';
-    let command = '';
-    if (registry === 'npm' && /^(?:@[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/.test(identifier)) {
-        runtime = packageJson?.engines?.node ? `Node.js ${packageJson.engines.node}` : 'Node.js';
-        command = `npx -y ${identifier}${cleanVersion ? `@${cleanVersion}` : '@latest'}`;
-    } else if (['pypi', 'python'].includes(registry) && /^[A-Za-z0-9._-]+$/.test(identifier)) {
-        runtime = 'Python + uv';
-        command = `uvx ${identifier}${cleanVersion ? `==${cleanVersion}` : ''}`;
-    } else if (['oci', 'docker'].includes(registry)) {
-        runtime = 'Docker / OCI';
-    }
-    return {
-        packageName: identifier,
-        runtime,
-        command,
-        transport: normalizeMcpTransport(packageEntry.transport),
-        registry
-    };
-}
-
-function derivePackageJsonMcpPackage(packageJson) {
-    if (!packageJson || typeof packageJson !== 'object') return null;
-    const identifier = String(packageJson.name || '').trim();
-    const keywords = Array.isArray(packageJson.keywords) ? packageJson.keywords.map(value => String(value).toLowerCase()) : [];
-    const description = String(packageJson.description || '');
-    const hasMcpIdentity = /(^|[-_.])mcp($|[-_.])/i.test(identifier)
-        || keywords.some(value => value === 'mcp' || value === 'model-context-protocol')
-        || /model context protocol|\bmcp server\b/i.test(description);
-    if (!hasMcpIdentity || !/^(?:@[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/.test(identifier)) return null;
-    return {
-        packageName: identifier,
-        runtime: packageJson.engines?.node ? `Node.js ${packageJson.engines.node}` : 'Node.js',
-        command: '',
-        transport: normalizeMcpTransport(packageJson.mcp?.transport),
-        registry: ''
-    };
-}
-
-function createMcpImportElement(tagName, className, textValue = '') {
-    const element = document.createElement(tagName);
-    if (className) element.className = className;
-    if (textValue) element.textContent = textValue;
-    return element;
-}
-
-async function copyMcpImportValue(value) {
-    try {
-        await navigator.clipboard.writeText(value);
-        if (typeof showWechatToast === 'function') showWechatToast('配置已复制');
-    } catch (_) {}
-}
-
-function useImportedMcpEndpoint(endpoint) {
-    const preset = document.getElementById('mcp-preset-select');
-    const input = document.getElementById('mcp-server-url');
-    let presetValue = 'custom';
-    try {
-        const normalized = normalizeMcpServerUrl(endpoint);
-        if (normalized.isGitHub) {
-            const matched = Object.entries(GITHUB_MCP_PRESETS).find(([, item]) => item.url === normalized.url);
-            presetValue = matched?.[0] || 'default';
-        }
-    } catch (_) {}
-    if (preset) preset.value = presetValue;
-    if (input) input.value = endpoint;
-    refreshMcpConnectionFormMode({ loadToken: true });
-    document.querySelector('.mcp-connect-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function renderMcpRepositoryResult(result) {
-    const container = document.getElementById('mcp-import-result');
-    if (!container) return;
-    container.innerHTML = '';
-    container.classList.remove('hidden', 'is-error', 'is-loading');
-    if (result.error) {
-        container.classList.add('is-error');
-        const error = createMcpImportElement('div', 'mcp-import-message');
-        error.appendChild(createMcpImportElement('i', 'ri-error-warning-line'));
-        error.appendChild(createMcpImportElement('span', '', result.error));
-        container.appendChild(error);
-        return;
-    }
-    if (result.loading) {
-        container.classList.add('is-loading');
-        const loading = createMcpImportElement('div', 'mcp-import-message');
-        loading.appendChild(createMcpImportElement('i', 'ri-loader-4-line mcp-spin'));
-        loading.appendChild(createMcpImportElement('span', '', '正在读取仓库、默认分支与 MCP 元数据…'));
-        container.appendChild(loading);
-        return;
-    }
-
-    const head = createMcpImportElement('div', 'mcp-import-head');
-    const logo = createMcpImportElement('span', 'mcp-import-logo');
-    logo.appendChild(createMcpImportElement('i', 'ri-github-fill'));
-    const identity = createMcpImportElement('div', 'mcp-import-identity');
-    const title = createMcpImportElement('a', '', result.fullName);
-    title.href = result.repoUrl;
-    title.target = '_blank';
-    title.rel = 'noopener noreferrer';
-    identity.appendChild(title);
-    if (result.summary || result.description) identity.appendChild(createMcpImportElement('p', '', result.summary || result.description));
-    head.appendChild(logo);
-    head.appendChild(identity);
-    container.appendChild(head);
-
-    const badges = createMcpImportElement('div', 'mcp-import-badges');
-    if (result.verified) badges.appendChild(createMcpImportElement('span', 'is-verified', '来源已核对'));
-    if (result.transport) badges.appendChild(createMcpImportElement('span', '', result.transport));
-    if (Number.isFinite(result.stars)) badges.appendChild(createMcpImportElement('span', '', `★ ${result.stars.toLocaleString()}`));
-    container.appendChild(badges);
-
-    const details = createMcpImportElement('dl', 'mcp-import-details');
-    [
-        ['Package', result.packageName],
-        ['Runtime', result.runtime]
-    ].forEach(([label, value]) => {
-        if (!value) return;
-        details.appendChild(createMcpImportElement('dt', '', label));
-        details.appendChild(createMcpImportElement('dd', '', value));
-    });
-    if (details.childElementCount) container.appendChild(details);
-
-    (result.commands || []).forEach((item, index) => {
-        const command = createMcpImportElement('div', `mcp-import-command${index === 0 ? ' is-primary' : ''}`);
-        command.appendChild(createMcpImportElement('small', '', item.label));
-        const row = createMcpImportElement('div', '');
-        row.appendChild(createMcpImportElement('code', '', item.value));
-        const copy = createMcpImportElement('button', '');
-        copy.type = 'button';
-        copy.setAttribute('aria-label', '复制命令');
-        copy.appendChild(createMcpImportElement('i', 'ri-file-copy-line'));
-        copy.addEventListener('click', () => copyMcpImportValue(item.value));
-        row.appendChild(copy);
-        command.appendChild(row);
-        container.appendChild(command);
-    });
-
-    if (result.endpoint) {
-        const endpoint = createMcpImportElement('div', 'mcp-import-endpoint');
-        const endpointText = createMcpImportElement('div', '');
-        endpointText.appendChild(createMcpImportElement('small', '', '运行中的 Streamable HTTP 地址'));
-        endpointText.appendChild(createMcpImportElement('code', '', result.endpoint));
-        const fill = createMcpImportElement('button', '');
-        fill.type = 'button';
-        fill.appendChild(createMcpImportElement('i', 'ri-arrow-down-circle-line'));
-        fill.appendChild(createMcpImportElement('span', '', '填入连接配置'));
-        fill.addEventListener('click', () => useImportedMcpEndpoint(result.endpoint));
-        endpoint.appendChild(endpointText);
-        endpoint.appendChild(fill);
-        container.appendChild(endpoint);
-    }
-
-    if (result.notices?.length) {
-        const noticeDetails = createMcpImportElement('details', 'mcp-import-notice-toggle');
-        const summary = createMcpImportElement('summary', '');
-        summary.appendChild(createMcpImportElement('i', 'ri-information-line'));
-        summary.appendChild(createMcpImportElement('span', '', '使用前须知'));
-        summary.appendChild(createMcpImportElement('em', '', `${result.notices.length} 条`));
-        const notices = createMcpImportElement('ul', 'mcp-import-notices');
-        result.notices.forEach(textValue => notices.appendChild(createMcpImportElement('li', '', textValue)));
-        noticeDetails.appendChild(summary);
-        noticeDetails.appendChild(notices);
-        container.appendChild(noticeDetails);
-    }
-}
-
-function setMcpRepositoryImportBusy(busy) {
-    githubMcpState.importBusy = !!busy;
-    const button = document.getElementById('mcp-inspect-btn');
-    if (!button) return;
-    button.disabled = !!busy;
-    const icon = button.querySelector('i');
-    const label = button.querySelector('span');
-    if (icon) icon.className = busy ? 'ri-loader-4-line mcp-spin' : 'ri-search-eye-line';
-    if (label) label.textContent = busy ? '读取中' : '识别';
-}
-
-async function inspectGitHubMcpRepository() {
-    if (githubMcpState.importBusy) return;
-    let repository;
-    try {
-        repository = parseGitHubRepositoryUrl(document.getElementById('mcp-repo-url')?.value);
-    } catch (error) {
-        renderMcpRepositoryResult({ error: error.message });
-        return;
-    }
-    setMcpRepositoryImportBusy(true);
-    renderMcpRepositoryResult({ loading: true });
-    try {
-        const repoData = await fetchGitHubMcpJson(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`);
-        const branchName = String(repoData.default_branch || 'main');
-        const branchData = await fetchGitHubMcpJson(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/branches/${encodeURIComponent(branchName)}`);
-        const treeSha = branchData?.commit?.commit?.tree?.sha || branchData?.commit?.sha;
-        if (!treeSha) throw new Error('无法读取默认分支目录树');
-        const treeData = await fetchGitHubMcpJson(`/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`);
-        const treePaths = (Array.isArray(treeData?.tree) ? treeData.tree : [])
-            .filter(item => item?.type === 'blob' && item.path)
-            .map(item => String(item.path));
-        const isScreenpipe = repoData.full_name?.toLowerCase() === 'screenpipe/screenpipe';
-        let serverPaths = treePaths.filter(path => /(^|\/)server\.json$/i.test(path)).sort((a, b) => scoreMcpMetadataPath(b) - scoreMcpMetadataPath(a)).slice(0, 6);
-        if (isScreenpipe && !serverPaths.includes('packages/screenpipe-mcp/server.json')) serverPaths.unshift('packages/screenpipe-mcp/server.json');
-        const serverFiles = (await Promise.all(serverPaths.map(async path => {
-            try { return { path, text: await fetchGitHubMcpFile(repository.owner, repository.repo, path, branchName) }; } catch (_) { return null; }
-        }))).filter(Boolean);
-        const manifests = serverFiles.map(file => {
-            try { return { path: file.path, data: JSON.parse(file.text) }; } catch (_) { return null; }
-        }).filter(item => item?.data && typeof item.data === 'object');
-        const manifest = manifests.find(item => Array.isArray(item.data.packages) || Array.isArray(item.data.remotes)) || manifests[0] || null;
-        const metadataDirectory = getMcpMetadataDirectory(manifest?.path || (isScreenpipe ? 'packages/screenpipe-mcp/server.json' : ''));
-        const packagePath = findMcpTreePath(treePaths, metadataDirectory, 'package.json') || treePaths
-            .filter(path => /(^|\/)package\.json$/i.test(path) && path.toLowerCase().includes('mcp'))
-            .sort((a, b) => scoreMcpMetadataPath(b) - scoreMcpMetadataPath(a))[0] || '';
-        let packageJson = null;
-        if (packagePath) {
-            try { packageJson = JSON.parse(await fetchGitHubMcpFile(repository.owner, repository.repo, packagePath, branchName)); } catch (_) {}
-        }
-        let result;
-        if (isScreenpipe) {
-            result = {
-                fullName: repoData.full_name,
-                repoUrl: repoData.html_url,
-                description: repoData.description,
-                summary: '搜索本机屏幕记录、音频转写与电脑活动。',
-                defaultBranch: branchName,
-                stars: Number(repoData.stargazers_count),
-                verified: true,
-                packageName: 'screenpipe-mcp',
-                runtime: 'Node.js >=18',
-                transport: 'Streamable HTTP（HTTP 模式）',
-                metadataSources: ['server.json', 'package.json', 'README'],
-                commands: [
-                    { label: '本机启动', value: 'npx -y screenpipe-mcp@latest --http --port 3031' },
-                    { label: '手机 / 局域网启动', value: 'npx -y screenpipe-mcp@latest --http --listen-on-lan --api-key <API_KEY>' }
-                ],
-                endpoint: 'http://127.0.0.1:3031/mcp',
-                notices: [
-                    '必须先在运行 MCP Server 的电脑上启动 Screenpipe 桌面应用或守护进程；其本地数据服务使用 3030 端口。',
-                    'HTTP 模式目前只暴露 search_content；需要完整工具集时应在支持 stdio 的本地客户端中使用。',
-                    '127.0.0.1 只适合同一台设备。手机连接电脑时，请使用 --listen-on-lan 与 --api-key，并将地址改为 http://<电脑局域网IP>:3031/mcp，Bearer Token 填同一个 API Key。',
-                    '仓库链接只描述源码与安装方式；请先运行服务，再连接上面的 MCP 地址。'
-                ]
-            };
-        } else {
-            const manifestData = manifest?.data || {};
-            const packageEntry = Array.isArray(manifestData.packages) ? manifestData.packages[0] : null;
-            const derivedPackage = deriveStructuredMcpPackage(packageEntry, packageJson) || derivePackageJsonMcpPackage(packageJson) || {};
-            const remoteEntry = Array.isArray(manifestData.remotes)
-                ? manifestData.remotes.find(item => /streamable[-_ ]?http/i.test(String(item?.type || item?.transport?.type || '')) && typeof (item?.url || item?.transport?.url) === 'string')
-                : null;
-            let endpoint = '';
-            const notices = [];
-            const remoteUrl = remoteEntry?.url || remoteEntry?.transport?.url || '';
-            if (/[{}]/.test(remoteUrl)) {
-                notices.push('检测到需要配置变量的远程地址；填写变量后，才能把它作为 MCP Server URL。');
-            } else if (remoteUrl) {
-                try {
-                    endpoint = normalizeMcpServerUrl(remoteUrl).url;
-                } catch (_) {}
-            }
-            const transport = normalizeMcpTransport(remoteEntry?.type || remoteEntry?.transport) || derivedPackage.transport;
-            const metadataSources = [manifest?.path, packagePath].filter(Boolean);
-            if (transport === 'stdio' && !endpoint) notices.push('检测到 stdio 包。浏览器不能直接启动它，需要先在本机运行并桥接为 Streamable HTTP。');
-            if (!endpoint) notices.push('没有在 server.json 的 remotes 中发现可直接连接的 Streamable HTTP 地址。仓库链接本身不能用于连接。');
-            if (!manifest && packageJson) notices.push('只发现了 package.json，无法确认该包已经发布；BYND 不会据此生成可执行安装命令。');
-            if (!derivedPackage.command && !endpoint) notices.push('公开结构化元数据不足，BYND 不会猜测或执行 README 中的命令。');
-            result = {
-                fullName: repoData.full_name,
-                repoUrl: repoData.html_url,
-                description: repoData.description,
-                defaultBranch: branchName,
-                stars: Number(repoData.stargazers_count),
-                verified: false,
-                packageName: derivedPackage.packageName || manifestData.name || '',
-                runtime: derivedPackage.runtime,
-                transport,
-                metadataSources,
-                commands: derivedPackage.command ? [{ label: '从 server.json 推导的启动包', value: derivedPackage.command }] : [],
-                endpoint,
-                notices
-            };
-        }
-        renderMcpRepositoryResult(result);
-    } catch (error) {
-        renderMcpRepositoryResult({ error: error?.message || '仓库识别失败' });
-    } finally {
-        setMcpRepositoryImportBusy(false);
-    }
-}
-window.inspectGitHubMcpRepository = inspectGitHubMcpRepository;
 
 function setMcpBusy(busy, label = '') {
     githubMcpState.busy = !!busy;
@@ -1459,7 +1090,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.689' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.690' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -2001,7 +1632,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.689').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.690').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -6131,7 +5762,7 @@ const MONITOR_PET_DB_STORE = 'assets';
 const MONITOR_PET_ORIGIN = 'https://codex-pets.net';
 const MONITOR_PET_API_BASES = [
     '/codex-pets',
-    'https://bynd-push.myluckylxy.workers.dev/codex-pets',
+    'https://bynd.ccwu.cc/mcp/relay/codex-pets',
     MONITOR_PET_ORIGIN
 ];
 let monitorActiveTool = localStorage.getItem(MONITOR_ACTIVE_TOOL_KEY) || 'internal';
@@ -13216,7 +12847,7 @@ const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
 const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
-const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.689';
+const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.690';
 const COREAD_DEFAULT_SOURCE_URLS = [
     'https://lifves.com/api/v2/booksource/list',
     'https://someok.github.io/booksources/data.json'
@@ -19679,6 +19310,7 @@ function getDesktopFourColumnAppGridMetrics(pageArea) {
 
 function normalizeSecondPageAppGrid(pageArea) {
     if (!pageArea || getDesktopPageIndex(pageArea.closest('.desktop-page')) !== 1 || !hasDesktopUsableLayoutBounds(pageArea)) return false;
+    try { if (localStorage.getItem('bynd_desktop_page2_custom_v1') === '1') return false; } catch (_) {}
     const apps = getDesktopOrderedSlotItems(pageArea, true);
     const appIds = apps.map(item => getDesktopAppIdFromElement(item));
     const originalGrid = apps.length === DESKTOP_PAGE2_APP_IDS.size - 1
@@ -21038,6 +20670,9 @@ function startDesktopItemDrag(e) {
         }
         const point = getDesktopPointerPoint(ev);
         const area = item.closest('.desktop-scroll-area') || currentPageArea || pageArea;
+        if (hasMoved && isAppIcon && ['pet', 'comic'].includes(getDesktopAppIdFromElement(item))) {
+            try { localStorage.setItem('bynd_desktop_page2_custom_v1', '1'); } catch (_) {}
+        }
         if (isFolderIcon && (!hasMoved || maxMovedDistance <= 18)) {
             item.classList.remove('desktop-layout-dragging', 'desktop-slot-dragging', 'desktop-dock-drop-ready');
             hideDesktopSnapGuides(area);
