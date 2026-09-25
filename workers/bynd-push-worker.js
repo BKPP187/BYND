@@ -1,6 +1,9 @@
 const DEFAULT_INTERVAL_HOURS = 24;
 const MIN_INTERVAL_HOURS = 0.1;
 const MAX_INTERVAL_HOURS = 720;
+const SUBSCRIBE_MAX_BYTES = 16 * 1024;
+const PUSH_ENDPOINT_MAX_LENGTH = 1024;
+const PUSH_SERVICE_HOSTS = ['fcm.googleapis.com', 'push.services.mozilla.com', 'notify.windows.com', 'push.apple.com'];
 const FONT_PROXY_MAX_BYTES = 50 * 1024 * 1024;
 const FONT_PROXY_ALLOWED_HOSTS = new Set([
   'files.catbox.moe',
@@ -97,10 +100,6 @@ export default {
       if (request.method === 'POST' && url.pathname === '/contact') {
         return corsResponse(await handleContact(request, env));
       }
-      if (request.method === 'POST' && url.pathname === '/tick') {
-        await runProactiveTick(env);
-        return corsResponse({ ok: true });
-      }
       if (request.method === 'GET' && url.pathname === '/health') {
         return corsResponse({ ok: true, service: 'bynd-push-worker' });
       }
@@ -118,7 +117,7 @@ export default {
       if (getPinnedApiProxy(url)) {
         return wisartJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
       }
-      return corsResponse({ ok: false, error: error.message || String(error) }, 500);
+      return corsResponse({ ok: false, error: error.message || String(error) }, error.status || 500);
     }
   },
 
@@ -467,7 +466,10 @@ function mcpResponse(body, status, requestUrl, requestOrigin, headers = new Head
 }
 
 async function handleSubscribe(request, env) {
-  const payload = await request.json();
+  const payload = JSON.parse(new TextDecoder().decode(await readMcpRequestBody(request, SUBSCRIBE_MAX_BYTES)));
+  if (!normalizePushEndpoint(payload.subscription?.endpoint)) {
+    throw Object.assign(new Error('push endpoint not allowed'), { status: 400 });
+  }
   const clientId = normalizeClientId(payload.clientId);
   const record = normalizeRecord(payload);
   await putRecord(env, clientId, record);
@@ -597,9 +599,12 @@ async function handleContact(request, env) {
   return { ok: true };
 }
 
+// Only the cron trigger runs this; there is deliberately no public HTTP route for it.
 async function runProactiveTick(env) {
   const records = await listRecords(env);
-  await Promise.all(records.map(record => maybeSendRecord(env, record)));
+  await Promise.all(records.map(record => maybeSendRecord(env, record).catch(error => {
+    console.error('push record failed', record?.clientId, error?.message || error);
+  })));
 }
 
 async function maybeSendRecord(env, record) {
@@ -623,6 +628,10 @@ async function maybeSendRecord(env, record) {
     if ((lastContact && now - lastContact < intervalMs) || (lastSent && now - lastSent < minSentGap)) continue;
 
     const ok = await sendWebPush(env, record.subscription);
+    if (ok === 'gone') {
+      await env.BYND_PUSH.delete(keyFor(record.clientId));
+      return;
+    }
     if (ok) {
       state.lastSent[char.id] = now;
       changed = true;
@@ -640,16 +649,16 @@ function normalizeRecord(payload) {
   const settings = payload.settings || {};
   return {
     clientId: normalizeClientId(payload.clientId),
-    subscription: payload.subscription,
+    subscription: normalizeSubscription(payload.subscription),
     settings: {
       enabled: !!settings.enabled,
       charId: String(settings.charId || 'current'),
       intervalHours: clampNumber(settings.intervalHours, DEFAULT_INTERVAL_HOURS, MIN_INTERVAL_HOURS, MAX_INTERVAL_HOURS)
     },
-    state: payload.state || { lastContact: {}, lastSent: {} },
+    state: { lastContact: {}, lastSent: {} },
     chars: Array.isArray(payload.chars) ? payload.chars.slice(0, 40).map(normalizeChar).filter(Boolean) : [],
-    origin: String(payload.origin || ''),
-    url: String(payload.url || ''),
+    origin: String(payload.origin || '').slice(0, 200),
+    url: String(payload.url || '').slice(0, 500),
     updatedAt: Date.now()
   };
 }
@@ -659,7 +668,31 @@ function normalizeChar(char) {
   return {
     id: String(char.id),
     name: String(char.name || 'AI').slice(0, 80),
-    avatar: String(char.avatar || '')
+    avatar: String(char.avatar || '').slice(0, 500)
+  };
+}
+
+// A subscription endpoint is a URL the cron later POSTs to, so only real browser push services are kept.
+function normalizePushEndpoint(value) {
+  try {
+    const raw = String(value || '');
+    if (raw.length > PUSH_ENDPOINT_MAX_LENGTH) return '';
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || url.port || url.username || url.password) return '';
+    return PUSH_SERVICE_HOSTS.some(allowed => host === allowed || host.endsWith('.' + allowed)) ? url.toString() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function normalizeSubscription(subscription) {
+  const endpoint = normalizePushEndpoint(subscription?.endpoint);
+  if (!endpoint) return null;
+  const keys = subscription.keys || {};
+  return {
+    endpoint,
+    keys: { p256dh: String(keys.p256dh || '').slice(0, 200), auth: String(keys.auth || '').slice(0, 100) }
   };
 }
 
@@ -672,15 +705,15 @@ function pickNotifyChars(record) {
 }
 
 async function sendWebPush(env, subscription) {
-  if (!subscription || !subscription.endpoint) return false;
+  const target = normalizePushEndpoint(subscription?.endpoint);
+  if (!target) return false;
   const publicKey = env.VAPID_PUBLIC_KEY;
   const privateKey = env.VAPID_PRIVATE_KEY;
   const subject = env.VAPID_SUBJECT || 'mailto:admin@example.com';
   if (!publicKey || !privateKey) throw new Error('missing VAPID keys');
 
-  const endpoint = new URL(subscription.endpoint);
-  const jwt = await createVapidJwt(endpoint.origin, subject, publicKey, privateKey);
-  const response = await fetch(subscription.endpoint, {
+  const jwt = await createVapidJwt(new URL(target).origin, subject, publicKey, privateKey);
+  const response = await fetch(target, {
     method: 'POST',
     headers: {
       TTL: '86400',
@@ -689,6 +722,7 @@ async function sendWebPush(env, subscription) {
       'Content-Length': '0'
     }
   });
+  if (response.status === 404 || response.status === 410) return 'gone';
   return response.ok || response.status === 201 || response.status === 202;
 }
 

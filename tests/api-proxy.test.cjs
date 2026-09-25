@@ -199,3 +199,64 @@ test('pinned proxies also answer under bynd.ccwu.cc/mcp/relay so the page never 
         assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /workers\.dev/, `${file} must not expose the Worker host`);
     }
 });
+
+test('push worker has no public tick route and only stores real browser push endpoints', async () => {
+    const { default: worker } = await workerModule;
+    const kv = new Map();
+    const env = { BYND_PUSH: {
+        get: async key => kv.get(key) ?? null,
+        put: async (key, value) => { kv.set(key, value); },
+        delete: async key => { kv.delete(key); },
+        list: async ({ prefix }) => ({ keys: [...kv.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })) })
+    } };
+    const subscribe = endpoint => worker.fetch(new Request('https://bynd-push.example/subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: 'c1', subscription: { endpoint, keys: { p256dh: 'p', auth: 'a' } }, settings: { enabled: true } })
+    }), env);
+    assert.equal((await worker.fetch(new Request('https://bynd-push.example/tick', { method: 'POST' }), env)).status, 404);
+    for (const endpoint of ['https://evil.example/hook', 'http://fcm.googleapis.com/fcm/send/x', 'https://fcm.googleapis.com.evil.example/x', 'https://169.254.169.254/latest', 'not a url']) {
+        assert.equal((await subscribe(endpoint)).status, 400, endpoint);
+    }
+    assert.equal(kv.size, 0);
+    assert.equal((await subscribe('https://fcm.googleapis.com/fcm/send/abc')).status, 200);
+    assert.equal(JSON.parse(kv.get('sub:c1')).subscription.endpoint, 'https://fcm.googleapis.com/fcm/send/abc');
+    const huge = await worker.fetch(new Request('https://bynd-push.example/subscribe', { method: 'POST', body: JSON.stringify({ clientId: 'c2', pad: 'x'.repeat(20000) }) }), env);
+    assert.equal(huge.status, 413);
+});
+
+test('push cron isolates a broken record and drops subscriptions the push service reports gone', async () => {
+    const { default: worker } = await workerModule;
+    const record = (clientId, endpoint) => JSON.stringify({ clientId, subscription: { endpoint }, settings: { enabled: true, charId: 'current', intervalHours: 1 }, chars: [{ id: 'a', name: 'A' }], state: { lastContact: {}, lastSent: {} } });
+    const kv = new Map([['sub:bad', record('bad', 'https://evil.example/x')], ['sub:gone', record('gone', 'https://updates.push.services.mozilla.com/wpush/v2/gone')], ['sub:ok', record('ok', 'https://fcm.googleapis.com/fcm/send/ok')]]);
+    const env = {
+        VAPID_PUBLIC_KEY: 'BLc4xRzKlKORKWlbdgFaBrrPK3ydWAHo4M0gs0i1oEKgPpWC5cW8OCzVI3nZUPSCNQoG1aGxx3ndHSYkgLb9Twk', VAPID_PRIVATE_KEY: 'x',
+        BYND_PUSH: {
+            get: async key => kv.get(key) ?? null,
+            put: async (key, value) => { kv.set(key, value); },
+            delete: async key => { kv.delete(key); },
+            list: async ({ prefix }) => ({ keys: [...kv.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })) })
+        }
+    };
+    const original = globalThis.fetch;
+    const originalSubtle = { importKey: crypto.subtle.importKey, sign: crypto.subtle.sign };
+    const sent = [];
+    globalThis.fetch = async url => { sent.push(String(url)); return new Response(null, { status: String(url).includes('/gone') ? 410 : 201 }); };
+    crypto.subtle.importKey = async () => ({});
+    crypto.subtle.sign = async () => new Uint8Array([48, 6, 2, 1, 1, 2, 1, 1]).buffer;
+    const waits = [];
+    try {
+        await worker.scheduled({}, env, { waitUntil: promise => waits.push(promise) });
+        await Promise.all(waits);
+    } finally {
+        globalThis.fetch = original;
+        Object.assign(crypto.subtle, originalSubtle);
+    }
+    assert.deepEqual(sent.sort(), ['https://fcm.googleapis.com/fcm/send/ok', 'https://updates.push.services.mozilla.com/wpush/v2/gone']);
+    assert.equal(kv.has('sub:gone'), false);
+    assert.ok(JSON.parse(kv.get('sub:ok')).state.lastSent.a > 0);
+});
+
+test('local proactive notifications use the shipped PNG icon', () => {
+    const script = fs.readFileSync(path.join(root, 'script.js'), 'utf8');
+    for (const match of script.matchAll(/'(bynd-icon\.[a-z]+)'/g)) assert.ok(fs.existsSync(path.join(root, match[1])), match[1]);
+});
