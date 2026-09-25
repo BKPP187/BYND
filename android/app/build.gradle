@@ -16,8 +16,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 116
-        versionName '1.1.691'
+        versionCode 117
+        versionName '1.1.692'
     }
 
     signingConfigs {
@@ -54,7 +54,7 @@ android {
     }
 }
 
-tasks.register('syncWebAssets', Copy) {
+tasks.register('syncWebAssets', Sync) {
     from(rootProject.projectDir.parentFile) {
         include '*.html'
         include '*.js'

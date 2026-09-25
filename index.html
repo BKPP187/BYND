@@ -32,7 +32,6 @@
                 document.documentElement.classList.add('mobile-runtime');
             }
             if (isIOS) document.documentElement.classList.add('bynd-ios');
-            try { if (!localStorage.getItem('bynd_opening_seen_v1')) document.documentElement.classList.add('bynd-opening-pending'); } catch (e) {}
             if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
             try {
                 var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
@@ -48,44 +47,25 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.691">
-    <link rel="icon" href="bynd-icon.png?v=1.1.691" type="image/png">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.692">
+    <link rel="icon" href="bynd-icon.png?v=1.1.692" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="style.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/study.css?v=1.1.691" media="all">
-    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.691" media="all">
-    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/character-tools.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="styles/mcp-refresh.css?v=1.1.691" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="modules/opening/opening.css?v=1.1.691" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="style.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/study.css?v=1.1.692" media="all">
+    <link rel="stylesheet" href="styles/wechat-themes/couple-theme.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-agent.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/wechat-api-ticket.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/bill-app.css?v=1.1.692" media="all">
+    <link rel="stylesheet" href="styles/character-pet.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/monitor-workspace.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/living-world/living-world.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="modules/decision/jev.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/character-tools.css?v=1.1.692" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="styles/mcp-refresh.css?v=1.1.692" data-bynd-core-style media="all">
 </head>
 <body>
 
     <div class="phone-container">
-        <div id="bynd-opening" class="bynd-opening" aria-label="BYND 欢迎动画" role="dialog" aria-modal="true">
-            <button type="button" class="bynd-opening-skip" id="bynd-opening-skip">跳过 <span aria-hidden="true">›</span></button>
-            <div class="bynd-opening-scene" aria-hidden="true">
-                <svg class="bynd-opening-art" viewBox="0 0 320 320" fill="none">
-                    <g class="bynd-opening-mycelium" stroke="currentColor" stroke-linecap="round" stroke-width="1.3">
-                        <path d="M160 174 C160 206 160 226 160 248 M160 218 C129 220 108 237 82 252 M160 218 C189 218 212 237 240 250 M138 226 C121 212 99 210 70 217 M185 227 C205 211 230 209 252 218 M118 237 C101 236 89 229 73 231 M202 238 C222 239 235 229 251 232"/>
-                        <path d="M82 252 L57 262 M82 252 L71 274 M240 250 L263 260 M240 250 L251 273 M70 217 L53 209 M252 218 L269 210"/>
-                    </g>
-                    <g class="bynd-opening-mushroom" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path class="bynd-opening-cap" d="M94 149 C97 105 121 78 160 78 C199 78 223 105 226 149 C226 157 220 161 212 161 L108 161 C100 161 94 157 94 149 Z" stroke-width="2.2"/>
-                        <path d="M109 161 C110 170 121 174 132 174 L188 174 C200 174 210 170 211 161 M143 174 L140 204 C146 210 174 210 180 204 L177 174" stroke-width="1.8"/>
-                        <path d="M118 128 C128 107 142 99 158 98" stroke-width="1.2" opacity=".46"/>
-                    </g>
-                    <g class="bynd-opening-nodes" fill="currentColor"><circle cx="82" cy="252" r="2"/><circle cx="240" cy="250" r="2"/><circle cx="70" cy="217" r="2"/><circle cx="252" cy="218" r="2"/><circle cx="57" cy="262" r="2"/><circle cx="263" cy="260" r="2"/></g>
-                </svg>
-                <div class="bynd-opening-wordmark"><strong>BYND</strong><span>欢迎回家</span></div>
-            </div>
-        </div>
         <div class="status-bar">
             <span id="clock-time-small">--:--</span>
             <div class="status-right">
@@ -1787,7 +1767,7 @@
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.691
+                    Beyond Screen v1.1.692
                 </div>
             </div>
         </div>
@@ -2985,44 +2965,43 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="modules/usage/ledger.js?v=1.1.691"></script>
-    <script src="chat-api.js?v=1.1.691"></script>
-    <script src="stickers-boltp-share.js?v=1.1.691"></script>
-    <script src="stickers-local-share.js?v=1.1.691"></script>
-    <script src="modules/wechat/ui-theme.js?v=1.1.691"></script>
-    <script src="modules/decision/jev.js?v=1.1.691"></script>
-    <script src="modules/decision/decider.js?v=1.1.691"></script>
-    <script src="wechat.js?v=1.1.691"></script>
-    <script src="modules/living-world/living-world.js?v=1.1.691"></script>
-    <script src="theme.js?v=1.1.691"></script>
-    <script src="settings.js?v=1.1.691"></script>
-    <script src="script.js?v=1.1.691"></script>
-    <script src="modules/comic/comic.js?v=1.1.691"></script>
-    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.691">
-    <script src="netease.js?v=1.1.691"></script>
-    <script src="WorldBook.js?v=1.1.691"></script>
-    <script src="regular.js?v=1.1.691"></script>
-    <script src="modules/wechat/agent-tools.js?v=1.1.691"></script>
-    <script src="modules/wechat/web-search.js?v=1.1.691"></script>
-    <script src="modules/wechat/character-tools.js?v=1.1.691"></script>
-    <script src="modules/wechat/api-ticket.js?v=1.1.691"></script>
-    <script src="modules/usage/bill-app.js?v=1.1.691"></script>
-    <script src="modules/wechat/character-generator.js?v=1.1.691"></script>
-    <script src="modules/wechat/openclaw-settings.js?v=1.1.691"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.691"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.691"></script>
-    <script src="modules/wechat/builtin-characters.js?v=1.1.691"></script>
-    <script src="modules/study/study-app.js?v=1.1.691"></script>
-    <script src="modules/monitor/character-pet.js?v=1.1.691"></script>
-    <script src="modules/monitor/screen-companion.js?v=1.1.691"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.691"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.691"></script>
-    <script src="modules/monitor/pet-animation.js?v=1.1.691"></script>
-    <script src="modules/monitor/pet-proportions.js?v=1.1.691"></script>
-    <script src="modules/monitor/pet-background.js?v=1.1.691"></script>
-    <script src="modules/monitor/pet-studio.js?v=1.1.691"></script>
-    <script src="modules/monitor/pet-history.js?v=1.1.691"></script>
-    <script src="modules/monitor/workspace.js?v=1.1.691"></script>
-    <script src="modules/opening/opening.js?v=1.1.691"></script>
+    <script src="modules/usage/ledger.js?v=1.1.692"></script>
+    <script src="chat-api.js?v=1.1.692"></script>
+    <script src="stickers-boltp-share.js?v=1.1.692"></script>
+    <script src="stickers-local-share.js?v=1.1.692"></script>
+    <script src="modules/wechat/ui-theme.js?v=1.1.692"></script>
+    <script src="modules/decision/jev.js?v=1.1.692"></script>
+    <script src="modules/decision/decider.js?v=1.1.692"></script>
+    <script src="wechat.js?v=1.1.692"></script>
+    <script src="modules/living-world/living-world.js?v=1.1.692"></script>
+    <script src="theme.js?v=1.1.692"></script>
+    <script src="settings.js?v=1.1.692"></script>
+    <script src="script.js?v=1.1.692"></script>
+    <script src="modules/comic/comic.js?v=1.1.692"></script>
+    <link rel="stylesheet" href="modules/comic/comic.css?v=1.1.692">
+    <script src="netease.js?v=1.1.692"></script>
+    <script src="WorldBook.js?v=1.1.692"></script>
+    <script src="regular.js?v=1.1.692"></script>
+    <script src="modules/wechat/agent-tools.js?v=1.1.692"></script>
+    <script src="modules/wechat/web-search.js?v=1.1.692"></script>
+    <script src="modules/wechat/character-tools.js?v=1.1.692"></script>
+    <script src="modules/wechat/api-ticket.js?v=1.1.692"></script>
+    <script src="modules/usage/bill-app.js?v=1.1.692"></script>
+    <script src="modules/wechat/character-generator.js?v=1.1.692"></script>
+    <script src="modules/wechat/openclaw-settings.js?v=1.1.692"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.692"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.692"></script>
+    <script src="modules/wechat/builtin-characters.js?v=1.1.692"></script>
+    <script src="modules/study/study-app.js?v=1.1.692"></script>
+    <script src="modules/monitor/character-pet.js?v=1.1.692"></script>
+    <script src="modules/monitor/screen-companion.js?v=1.1.692"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.692"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.692"></script>
+    <script src="modules/monitor/pet-animation.js?v=1.1.692"></script>
+    <script src="modules/monitor/pet-proportions.js?v=1.1.692"></script>
+    <script src="modules/monitor/pet-background.js?v=1.1.692"></script>
+    <script src="modules/monitor/pet-studio.js?v=1.1.692"></script>
+    <script src="modules/monitor/pet-history.js?v=1.1.692"></script>
+    <script src="modules/monitor/workspace.js?v=1.1.692"></script>
 </body>
 </html>
