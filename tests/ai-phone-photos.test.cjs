@@ -22,6 +22,7 @@ function harness() {
         compressWechatSettingsImage: (...args) => state.readImage(...args),
         openWechatAvatarCropper: (source, confirm, options) => state.crops.push({ source, confirm, options })
     });
+    vm.runInContext(require('node:fs').readFileSync(require('node:path').join(__dirname, '../apps/char-phone/catalog.js'), 'utf8'), context);
     vm.runInContext(sourceSection('wechat.js', 'function getWechatAiPhoneAllApps(', 'function getWechatAiPhoneApps('), context);
     vm.runInContext(sourceSection('wechat.js', 'function getWechatAiPhoneHomeSettings(', 'function getWechatAiPhoneHomeAvatar('), context);
     vm.runInContext(sourceSection('wechat.js', 'async function uploadWechatAiPhoneAppIcon(', 'async function updateWechatAiPhoneHomeSettings('), context);

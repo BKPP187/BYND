@@ -31,6 +31,7 @@ function harness(savedChar) {
         window: { myCharacters: [char] },
         document: {
             getElementById: id => nodes.get(id) || null,
+            querySelector: () => null,
             createElement: () => ({ setAttribute() {}, remove() { nodes.delete(this.id); } })
         },
         getWechatModalRoot: () => ({ appendChild(node) { nodes.set(node.id, node); } }),
@@ -58,6 +59,9 @@ function harness(savedChar) {
             return saved;
         }
     });
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/char-phone/catalog.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/char-phone/system-apps.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/char-phone/home.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8'), context);
     context.callChatApi = async (messages, options) => {
         state.requests.push({ messages, options });
@@ -419,7 +423,7 @@ test('new chat turns update other phone data while saved letters survive repeate
     assert.equal(h.char.chatConfig.aiPhoneSnapshot.diaryUpdatedAt, before.diaryUpdatedAt);
     assert.equal(h.char.chatConfig.aiPhoneSnapshot.memos[0].title, '新的备忘录');
     const prompt = h.state.requests[0].messages[0].content;
-    assert.doesNotMatch(prompt.match(/字段固定：[^。]+/)[0], /diaryLetters/);
+    assert.doesNotMatch(prompt.match(/基础字段：[^。]+/)[0], /diaryLetters/);
     assert.doesNotMatch(prompt, /diaryLetters 2 条|diaryLetters 必须是|diaryLetters\.body/);
     assert.match(prompt, /不要返回 diaryLetters/);
     for (let i = 0; i < 3; i += 1) { h.close(); h.open(); await h.finish(); }
@@ -449,7 +453,7 @@ test('phone refresh keeps a partial or failed diary without a same-turn diary re
         await h.finish();
         const result = h.char.chatConfig.aiPhoneSnapshot;
         assert.equal(h.state.requests.length, 1);
-        assert.match(h.state.requests[0].messages[0].content.match(/字段固定：[^。]+/)[0], /diaryLetters/, 'an incomplete mailbox is still requested');
+        assert.match(h.state.requests[0].messages[0].content.match(/基础字段：[^。]+/)[0], /diaryLetters/, 'an incomplete mailbox is still requested');
         assert.deepEqual(clone(result.diaryLetters), savedLetters);
         assert.equal(result.diarySyncError, '日记接口错误 (503)');
         assert.equal(result.diarySyncFailedAt, now - 3000);
@@ -711,3 +715,5 @@ test('saving a partial diary failure cannot replace cached letters when storage 
     assert.equal(result.diarySyncDiagnostics, undefined);
     assert.match(result.diarySyncError, /保存/);
 });
+
+test('phone JSON repair provider error is retained instead of replaced by a generic parse failure',async()=>{const h=harness();h.state.respond=async()=>h.state.requests.length===1?{ok:true,content:'invalid JSON'}:{ok:false,error:'API 错误 (429): rate limit exceeded'};const result=await h.context.requestWechatAiPhoneSnapshot(h.char,{force:true});assert.equal(result.generatedBy,'error');assert.match(result.syncError,/429/);assert.match(result.syncError,/JSON/);assert.equal(h.state.requests.length,2);});

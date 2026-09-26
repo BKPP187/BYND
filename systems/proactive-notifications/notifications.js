@@ -117,7 +117,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.698').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.704').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

@@ -1,9 +1,14 @@
 function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
+    if (activeTab === 'library') return renderCharPhoneLibrary(snapshot,char);
+    const native = renderCharPhoneTemplate(activeTab, snapshot, char);
+    if (native !== null) return native;
+    const system = renderCharPhoneSystemApp(activeTab, snapshot, char, isLoading);
+    if (system !== null) return system;
     const clock = getWechatAiPhoneClockParts();
     const charName = getWechatCharDisplayName(char);
     if (activeTab === 'chat') {
         return `
-            <div class="wc-ai-phone-app-title"><strong>信息</strong><span>${isLoading ? '正在同步聊天记录' : `iMessage · ${wcEscapeHtml(charName)}`}</span></div>
+            <div class="wc-ai-phone-app-title"><strong>微信</strong><span>${isLoading ? '正在同步聊天记录' : `微信 · ${wcEscapeHtml(charName)}`}</span></div>
             <div class="wc-ai-phone-ios-search"><i class="ri-search-line"></i><span>搜索</span></div>
             <div class="wc-ai-phone-wechat-list">
                 ${renderWechatAiPhoneChatRows(snapshot, char)}
@@ -38,7 +43,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                 ` : `
                     <div class="wc-ai-phone-compose">
                         <i class="ri-add-circle-line"></i>
-                        <span>${chatIndex === 0 ? '这是你和 char 的聊天' : 'iMessage'}</span>
+                        <span>${chatIndex === 0 ? '这是你和 char 的聊天' : '微信'}</span>
                         <i class="ri-mic-fill"></i>
                     </div>
                 `}
@@ -182,6 +187,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
         const homeSettings = getWechatAiPhoneHomeSettings(char);
         const charIdArgument = quoteWechatJsString(char.id);
         return `
+            <section class="cp-native cp-system-designed cp-system-settings" data-app-layout="settings"><div class="cp-scroll">
             <div class="wc-ai-phone-app-title wc-ai-phone-app-title-compact"><strong>设置</strong><span>${wcEscapeHtml(charName)} 的小手机</span></div>
             <div class="wc-ai-phone-settings-profile">
                 <img src="${wcEscapeAttr(avatar)}" alt="" onerror="this.onerror=null;this.src=window.DEFAULT_AVATAR">
@@ -210,6 +216,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                     <b class="ri-arrow-right-s-line"></b>
                 </button>` : ''}
             </div>
+            </div></section>
         `;
     }
     return '';
@@ -219,6 +226,9 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const apps = getWechatAiPhoneApps(char, snapshot);
     const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
+    const pages = [gridApps.slice(0, 8)];
+    for (let offset = 8; offset < gridApps.length; offset += 20) pages.push(gridApps.slice(offset, offset + 20));
+    const pageIndex = Math.min(pages.length - 1, Math.max(0, window._charPhoneHomePage || 0));
     const syncError = stripWechatPromptText(snapshot && snapshot.syncError, 118);
     const diaryError = snapshot && snapshot.diarySyncError;
     const syncLabel = isLoading ? '正在同步' : (syncError ? '同步失败' : (diaryError ? '日记待同步' : (snapshot.generatedBy === 'api' ? `同步于 ${formatWechatSnapshotTime(snapshot.updatedAt)}` : '尚未同步')));
@@ -238,10 +248,13 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
                     </button>
                 </div>
             </div>
-            ${renderWechatAiPhonePhotoWidget(char)}
-            <div class="wc-ai-phone-grid">
-                ${gridApps.map(app => renderWechatAiPhoneAppButton(app, char)).join('')}
+            <div class="cp-home-pages" data-page="${pageIndex}" onscroll="updateCharPhoneHomePage(this)">
+                ${pages.map((items,index)=>`<section class="cp-home-page ${index === 0 ? 'has-widgets' : ''}" aria-label="桌面第 ${index+1} 页">
+                    ${index === 0 ? renderWechatAiPhonePhotoWidget(char) : ''}
+                    <div class="wc-ai-phone-grid">${items.map(app=>renderWechatAiPhoneAppButton(app,char)).join('')}</div>
+                </section>`).join('')}
             </div>
+            <div class="cp-home-dots" aria-label="桌面页码">${pages.map((_,index)=>`<button aria-label="第 ${index+1} 页" aria-current="${index===pageIndex}" onclick="goCharPhoneHomePage(${index})" class="${index===pageIndex?'active':''}"></button>`).join('')}</div>
             <div class="wc-ai-phone-dock">
                 ${dockApps.map(app => renderWechatAiPhoneAppButton(app, char)).join('')}
             </div>
@@ -292,13 +305,13 @@ function renderWechatAiPhone(char) {
             <div class="wc-ai-phone-wallpaper">
                 ${wallpaper ? `<img class="wc-ai-phone-wallpaper-image" src="${wcEscapeAttr(wallpaper)}" alt="" aria-hidden="true" onload="updateWechatAiPhoneWallpaperTone(this)">` : ''}
                 ${isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
-                    <div class="wc-ai-phone-app-page tone-${meta.tone}">
+                    <div class="wc-ai-phone-app-page tone-${meta.tone} ${activeTab!=='wechatChat'?'cp-brand-shell':''}">
                         <div class="wc-ai-phone-app-nav">
                             <button type="button" onclick="switchWechatAiPhoneTab('${backTarget}')"><i class="ri-arrow-left-s-line"></i><span>${wcEscapeHtml(backLabel)}</span></button>
-                            <strong><i class="${meta.icon}"></i>${wcEscapeHtml(activeTab === 'wechatChat' ? '信息' : meta.label)}</strong>
+                            <strong><i class="${meta.icon}"></i>${wcEscapeHtml(activeTab === 'wechatChat' ? '微信' : activeTab === 'library' ? 'App 资料库' : meta.label)}</strong>
                             <button type="button" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
                         </div>
-                        <div class="wc-ai-phone-app-body">
+                        <div class="wc-ai-phone-app-body ${activeTab!=='wechatChat' ? 'cp-app-host' : ''}">
                             ${renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading)}
                         </div>
                     </div>
@@ -307,10 +320,18 @@ function renderWechatAiPhone(char) {
             <div class="wc-ai-phone-home-indicator"></div>
         </div>
     `;
+    const pager = modal.querySelector('.cp-home-pages');
+    if (pager) {
+        pager.scrollLeft = Number(pager.dataset.page || 0) * pager.clientWidth;
+        bindCharPhoneHomeSwipe(pager);
+    }
+
 }
 
 function switchWechatAiPhoneTab(tabName) {
-    const validTabs = ['home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
+    if(window._wechatAiPhoneTab==='clock')resetCharPhoneClock();
+    const validTabs = [...CHAR_PHONE_EXTRA_APPS.map(a=>a.key), 'library', 'home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
+    window._charPhoneDetail = null;
     window._wechatAiPhoneTab = validTabs.includes(tabName) ? tabName : 'home';
     if (window._wechatAiPhoneTab !== 'diary') window._wechatAiPhoneDiaryOpen = -1;
     if (window._wechatAiPhoneTab !== 'memo') window._wechatAiPhoneMemoIndex = -1;
@@ -381,3 +402,64 @@ function closeWechatAiPhoneBrowserItem() {
     if (char) renderWechatAiPhone(char);
 }
 
+
+function updateCharPhoneHomePage(pager) {
+    if (!pager.clientWidth) return;
+    const page = Math.round(pager.scrollLeft / pager.clientWidth);
+    window._charPhoneHomePage = page;
+    pager.parentElement.querySelectorAll('.cp-home-dots button').forEach((button,index)=>{
+        button.classList.toggle('active',index===page);
+        button.setAttribute('aria-current',String(index===page));
+    });
+}
+function goCharPhoneHomePage(index) {
+    const pager=document.querySelector('#wc-ai-phone-overlay .cp-home-pages');
+    if(pager) pager.scrollTo({left:index*pager.clientWidth,behavior:'smooth'});
+}
+
+// Own the character phone's gesture so mouse dragging and touch swiping both
+// work, including when the gesture starts on an app icon.
+function bindCharPhoneHomeSwipe(pager) {
+    let gesture = null;
+    let suppressClickUntil = 0;
+    pager.addEventListener('pointerdown', event => {
+        if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+        gesture = {id:event.pointerId,x:event.clientX,y:event.clientY,left:pager.scrollLeft,page:Math.round(pager.scrollLeft/pager.clientWidth),dragging:false};
+    });
+    pager.addEventListener('pointermove', event => {
+        if (!gesture || gesture.id !== event.pointerId) return;
+        const dx = event.clientX - gesture.x;
+        const dy = event.clientY - gesture.y;
+        if (!gesture.dragging) {
+            if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { gesture = null; return; }
+            if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+            gesture.dragging = true;
+            pager.classList.add('is-dragging');
+            pager.setPointerCapture(event.pointerId);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        pager.scrollLeft = gesture.left - dx;
+    });
+    const finish = event => {
+        if (!gesture || gesture.id !== event.pointerId) return;
+        const current = gesture;
+        gesture = null;
+        if (!current.dragging) return;
+        const dx = event.clientX - current.x;
+        const threshold = Math.min(64, pager.clientWidth * .18);
+        const last = pager.querySelectorAll('.cp-home-page').length - 1;
+        const target = event.type === 'pointercancel' ? current.page : Math.max(0,Math.min(last,current.page + (Math.abs(dx)>threshold ? (dx<0?1:-1):0)));
+        suppressClickUntil = Date.now() + 400;
+        pager.classList.remove('is-dragging');
+        if (pager.hasPointerCapture(event.pointerId)) pager.releasePointerCapture(event.pointerId);
+        pager.scrollTo({left:target*pager.clientWidth,behavior:'smooth'});
+    };
+    pager.addEventListener('pointerup', finish);
+    pager.addEventListener('pointercancel', finish);
+    pager.addEventListener('lostpointercapture', () => { gesture=null; pager.classList.remove('is-dragging'); });
+    pager.addEventListener('click', event => {
+        if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopImmediatePropagation(); }
+    }, true);
+    pager.addEventListener('dragstart', event => event.preventDefault());
+}

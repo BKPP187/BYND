@@ -1405,3 +1405,331 @@ button.wc-ai-phone-sync {
 }
 
 
+/* Native-style layouts scoped to the character phone. */
+.cp-native{color:#191919;background:#fff;min-height:100%;margin:-12px;padding:14px 12px 58px;position:relative;font-family:Arial,'Microsoft YaHei',sans-serif;box-sizing:border-box}
+.cp-native header{display:flex;align-items:center;justify-content:space-between;font-size:22px;padding:8px 4px 15px;font-weight:800}.cp-native header i{font-size:25px}.cp-native nav{display:flex;border-bottom:1px solid #eee;gap:6px;overflow:auto}.cp-native nav button{flex:1;white-space:nowrap;border:0;background:none;color:#888;padding:12px 3px;font-weight:700}.cp-native nav button.active{color:inherit;border-bottom:3px solid currentColor}.cp-summary{font-size:12px;color:#777;line-height:1.6;padding:0 5px}.cp-items{display:flex;flex-direction:column;gap:0}.cp-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eee;padding:16px 7px;background:transparent;color:inherit;cursor:pointer;min-width:0}.cp-item h3{font-size:15px;margin:6px 0;line-height:1.4}.cp-item p{font-size:13px;line-height:1.65;margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.cp-item footer{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#888;margin-top:9px}.cp-author{display:flex;justify-content:space-between;font-size:12px;margin:10px 0}.cp-author span{color:#999;font-size:10px}.cp-native img{width:100%;max-height:320px;object-fit:cover;border-radius:5px}.cp-art{aspect-ratio:1;background:linear-gradient(135deg,#e8e4df,#bdc5c8);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;text-align:center;box-sizing:border-box;color:#47515a}.cp-art i{font-size:42px;opacity:.5}.cp-art span{font-size:12px;line-height:1.6;margin:12px 0}.cp-social-actions{border-top:1px solid #eee;padding-top:12px;font-size:14px;margin-top:12px}.cp-bottom{position:sticky;bottom:-58px;margin:22px -12px -58px;background:inherit;border-top:1px solid #ddd;padding:15px 8px;display:flex;justify-content:space-around;font-size:11px}.cp-empty{padding:38px 20px;text-align:center;color:#999;font-size:13px;line-height:1.8}.cp-balance{border-radius:14px;background:linear-gradient(120deg,#223450,#46627c);color:white;padding:24px 18px;margin:16px 0}.cp-balance small{display:block;opacity:.7}.cp-balance strong{display:block;font-size:24px;margin-top:12px;overflow-wrap:anywhere}.cp-amount{font-size:18px;display:block;margin:12px 0}.cp-back{background:none;border:0;color:#2682bd;padding:10px 0;font-size:15px}.cp-letter{white-space:pre-wrap;line-height:1.9;font-size:14px;overflow-wrap:anywhere}
+.cp-instagram header{font-family:cursive;font-size:26px}.cp-instagram .cp-item{padding:14px 0}.cp-x{background:#fff;color:#0f1419}.cp-x .cp-item{border-color:#eff3f4}.cp-x header{font-size:30px}.cp-red nav .active{border-color:#ff2442}.cp-red .cp-items,.cp-album .cp-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding-top:12px}.cp-red .cp-item,.cp-album .cp-item{padding:0;border:0}.cp-red h3{font-size:12px}.cp-red .cp-item p{display:none}.cp-red .cp-art{border-radius:12px;aspect-ratio:3/4}.cp-red .cp-social-actions{font-size:10px}.cp-weibo{background:#f2f2f2}.cp-weibo header{color:#f57813}.cp-weibo .cp-item{background:#fff;border:0;border-radius:7px;margin-bottom:9px}.cp-douyin{background:#111;color:#fff}.cp-douyin .cp-art{aspect-ratio:9/14;background:linear-gradient(155deg,#302740,#131c26);color:#ddd}.cp-douyin .cp-item{position:relative;border-color:#333}.cp-douyin .cp-social-actions{border-color:#333}.cp-music header{color:#df2737}.cp-music .cp-item{border-radius:10px;background:#f8f8f8;margin:6px 0}.cp-mail{background:#f3f4f8}.cp-mail header{font-size:28px}.cp-mail .cp-items{background:#fff;border-radius:14px}.cp-mail .cp-item h3{font-size:14px}.cp-bank{background:#171e2a;color:#e8cf9b}.cp-bank .cp-summary{color:#aaa}.cp-bank .cp-item,.cp-bank nav,.cp-bank .cp-bottom{border-color:#374052}.cp-bank .cp-balance{background:linear-gradient(130deg,#cbb486,#f0ddb0);color:#332a1c}.cp-stocks,.cp-funds{background:#f6f7fa}.cp-stocks .cp-item,.cp-funds .cp-item{background:#fff;margin:4px 0}.cp-stocks .cp-amount,.cp-funds .cp-amount{color:#db3845}.cp-board .cp-item{border-left:3px solid #5875b1;margin:7px 0;background:#f4f6fa;border-radius:5px}.cp-flights header{color:#254978}.cp-flights .cp-item{background:#f1f5fc;border-radius:14px;margin:8px 0;border:1px dashed #b8c8de}.cp-hotels header{color:#7151b0}.cp-hotels .cp-item{border:1px solid #e5dfee;border-radius:10px;margin:7px 0}.cp-luxury{background:#faf8f4}.cp-luxury header{font-family:Georgia,serif;letter-spacing:2px}.cp-luxury .cp-item{border-color:#ded7c9}.cp-golf{background:#f3f7f2;color:#254b35}.cp-golf .cp-item{background:#fff;border-radius:12px;margin:8px 0}.cp-golf .cp-balance{background:linear-gradient(130deg,#234c35,#57805b)}.cp-alipay header{color:#1677ff}.cp-alipay .cp-balance{background:linear-gradient(130deg,#1677ff,#39a9ff)}.cp-album header{font-size:26px}.cp-album .cp-art{border-radius:3px}.wc-ai-phone-grid{max-height:none}
+.cp-bottom button{border:0;background:none;color:#999;font-size:11px;padding:5px}.cp-bottom button.active{color:inherit;font-weight:bold}.cp-library-link{width:100%;padding:10px;border:1px solid #ffffff40;border-radius:15px;background:#ffffff25;color:inherit;margin:0 0 12px;text-align:left}.cp-library{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.cp-library button{border:1px solid #eee;border-radius:14px;padding:14px 3px;background:#f8f8fa;display:grid;gap:7px;color:#333;min-width:0}.cp-library i{font-size:26px}.cp-library b{font-size:11px;overflow-wrap:anywhere}.cp-library small{font-size:9px;color:#999}
+.cp-quote{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums}.cp-quote small{display:block;font-size:10px;color:#999;margin-top:4px}.cp-quote strong{font-size:20px}.cp-quote b{font-size:14px;text-align:right}.cp-route{display:flex;align-items:center;justify-content:space-between;padding:18px 5px;color:#254978;gap:10px}.cp-route strong{font-size:18px}.cp-route span{font-size:23px}.cp-dates{display:flex;justify-content:space-between;padding:14px 3px;font-size:11px;color:#7151b0}.cp-membership{background:#254b35;color:#e7d5a0;border-radius:8px;padding:14px;letter-spacing:2px}.cp-track{display:flex;gap:14px;align-items:center;color:#df2737;font-size:22px}.cp-track span{font-size:12px;color:#777}
+/* Character phone desktop: each page owns its layout, the dock stays outside. */
+.wc-ai-phone-home { overflow: hidden; gap: 8px; }
+.wc-ai-phone-home > .cp-home-pages { flex: 1 1 0; min-height: 0; min-width: 0; }
+.cp-home-pages {
+    display: flex; overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory; scrollbar-width: none;
+    overscroll-behavior-x: contain; touch-action: pan-y;
+}
+.cp-home-pages::-webkit-scrollbar { display: none; }
+.cp-home-pages.is-dragging { scroll-snap-type: none; user-select: none; cursor: grabbing; }
+.cp-home-page {
+    flex: 0 0 100%; min-width: 0; height: 100%; box-sizing: border-box;
+    scroll-snap-align: start; scroll-snap-stop: always;
+    display: flex; flex-direction: column; gap: 12px; padding: 2px 0;
+    overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+}
+.cp-home-page .wc-ai-phone-grid {
+    flex: 1; min-height: 0; grid-template-rows: repeat(5,minmax(64px,1fr));
+    align-items: start; gap: 5px 7px;
+}
+.cp-home-page.has-widgets { display: grid; grid-template-rows: minmax(140px,1fr) auto; }
+.cp-home-page.has-widgets .wc-ai-phone-grid {
+    grid-template-rows: repeat(2,auto); gap: 10px 7px; padding: 0;
+}
+.cp-home-page .wc-ai-phone-app-icon span { width: 44px; height: 44px; }
+.cp-home-page .wc-ai-phone-app-icon b {
+    font-size: 10px; line-height: 1.15; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cp-home-page.has-widgets .wc-ai-phone-photo-widget {
+    display: grid; grid-template-rows: minmax(70px,1fr) minmax(36px,.4fr);
+    gap: 20px; min-height: 0; max-height: none; overflow: visible;
+}
+.cp-home-page .wc-ai-phone-photo-hero { min-height: 0; }
+.cp-home-page .wc-ai-phone-photo-main { height: 100%; aspect-ratio: auto; box-sizing: border-box; }
+.cp-home-page .wc-ai-phone-photo-avatar { width: 60px; height: 60px; border-width: 4px; bottom: -14px; box-sizing: border-box; }
+.cp-home-page .wc-ai-phone-photo-strip { margin-top: 0; min-height: 0; }
+.cp-home-page .wc-ai-phone-photo-small { height: 100%; aspect-ratio: auto; box-sizing: border-box; }
+.cp-home-dots { display: flex; justify-content: center; gap: 4px; padding: 0; flex: none; }
+.cp-home-dots button { width: 24px; height: 20px; min-height: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.cp-home-dots button::after { content: ''; display: block; width: 7px; height: 7px; margin: auto; border-radius: 50%; background: #a2a2ac; opacity: .4; }
+.cp-home-dots button.active::after { background: #52525b; opacity: 1; }
+.wc-ai-phone-home > .wc-ai-phone-dock { margin-top: 0; flex: none; }
+
+/* Each app has one navigation bar. Content scrolls independently of bottom navigation. */
+.wc-ai-phone-app-body.cp-app-host {
+    padding: 0;
+    gap: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+.cp-app-host > .cp-native {
+    margin: 0;
+    padding: 12px 12px 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.cp-app-host .cp-native > header,
+.cp-app-host .cp-native > nav { flex: none; }
+.cp-app-host .cp-native > header { padding: 8px 4px 13px; }
+.cp-scroll { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.cp-items.is-empty { display: flex; min-height: 210px; width: 100%; }
+.cp-empty { width: 100%; grid-column: 1 / -1; box-sizing: border-box; padding: 48px 22px; }
+.cp-empty > i { display: block; font-size: 36px; color: currentColor; opacity: .35; margin-bottom: 18px; }
+.cp-empty > p { margin: 0; font-size: 13px; line-height: 1.8; }
+.cp-app-host .cp-native > .cp-bottom {
+    position: static;
+    margin: 0 -12px;
+    padding: 8px 10px 16px;
+    width: auto;
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid #e8e8eb;
+    border-bottom: 0;
+    background: inherit;
+}
+.cp-app-host .cp-native > .cp-bottom button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 5px;
+    border: 0;
+    flex: 1;
+    font-size: 10px;
+}
+.cp-bottom button i { font-size: 22px; }
+.cp-app-host .cp-native > .cp-bottom button.active { border-bottom: 0; }
+.cp-tabs button { font-size: 12px; }
+.cp-app-host > .cp-native:has(> .cp-back) { overflow-y: auto; display: block; padding-bottom: 20px; }
+.cp-album .cp-items:not(.is-empty) { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3px; }
+.cp-album .cp-item h3 { font-size: 11px; }
+.cp-album .cp-author,.cp-album .cp-social-actions { display: none; }
+.cp-instagram .cp-bottom { color: #111; }
+.cp-music .cp-bottom button.active { color: #df2737; }
+.cp-red .cp-tabs button.active { color: #ff2442; }
+.cp-weibo .cp-tabs button.active { color: #f57813; }
+.cp-mail .cp-tabs { margin-bottom: 9px; }
+.cp-bank .cp-tabs button.active { color: #e8cf9b; }
+.cp-douyin .cp-items.is-empty { min-height: 300px; }
+
+/* App-specific chrome. The desktop controls remain above the app's own UI. */
+.cp-brand-shell .wc-ai-phone-app-nav { display:grid; min-height:36px; height:36px; flex:none; padding:0 6px; align-items:center; }
+.cp-brand-shell .wc-ai-phone-app-nav button { position:static; top:auto; height:30px; min-height:30px; }
+.cp-brand-shell .wc-ai-phone-app-nav strong { position:static; transform:none; width:auto; max-width:none; }
+.cp-brand-shell .wc-ai-phone-app-nav strong { font-size:11px; color:#8e8e93; }
+.cp-brand-shell .wc-ai-phone-app-nav button { font-size:11px; }
+.cp-app-host > .cp-brand-screen { padding:0; }
+.cp-brand-screen button { cursor:pointer; font-family:inherit; }
+.cp-brand-screen .cp-scroll { scrollbar-width:none; }
+.cp-brand-nav { flex:none; display:flex; justify-content:space-around; border-top:1px solid #eff3f4; background:#fff; padding:9px 3px 13px; }
+.cp-native .cp-brand-nav button { flex:1; border:0; padding:0; background:transparent; color:#536471; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; }
+.cp-native .cp-brand-nav button i { font-size:22px; }
+.cp-native .cp-brand-nav button.active { color:#0f1419; border:0; }
+.cp-brand-empty { text-align:left; padding:38px 25px; color:#536471; font-size:13px; line-height:1.6; }
+.cp-brand-empty strong { display:block; color:#0f1419; font-size:23px; line-height:1.3; }
+.cp-brand-empty p { margin:10px 0; }
+.cp-x-top { display:grid; grid-template-columns:1fr 1fr 1fr; align-items:center; height:46px; padding:0 12px; flex:none; }
+.cp-x-top button { border:0; background:none; padding:0; width:30px; height:30px; font-size:22px; }
+.cp-x-top button:last-child { justify-self:end; }
+.cp-x-logo { text-align:center; font-size:25px; }
+.cp-x .cp-x-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+.cp-x-timeline-tabs { display:flex; border-bottom:1px solid #eff3f4; flex:none; }
+.cp-x-timeline-tabs button { position:relative; flex:1; padding:13px 3px; border:0; background:none; color:#536471; font-size:13px; font-weight:700; }
+.cp-x-timeline-tabs button.active { color:#0f1419; }
+.cp-x-timeline-tabs button.active::after { content:''; position:absolute; bottom:0; left:25%; right:25%; height:4px; border-radius:6px; background:#1d9bf0; }
+.cp-x-post { display:flex; width:100%; gap:9px; padding:12px 10px; background:#fff; border:0; border-bottom:1px solid #eff3f4; text-align:left; color:#0f1419; }
+.cp-x-post[hidden] { display:none; }
+.cp-x-post-avatar { width:33px; height:33px; flex:none; display:grid; place-items:center; border-radius:50%; background:#eff3f4; font-size:16px; color:#536471; }
+.cp-x-post-content { min-width:0; flex:1; }
+.cp-x-byline { display:flex; gap:4px; align-items:center; font-size:11px; white-space:nowrap; overflow:hidden; }
+.cp-x-byline b { max-width:45%; overflow:hidden; text-overflow:ellipsis; }
+.cp-x-byline span { color:#536471; font-size:10px; }
+.cp-x-byline .ri-verified-badge-fill { color:#1d9bf0; }
+.cp-x-byline .ri-more-line { margin-left:auto; }
+.cp-x-post p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; line-height:1.55; margin:5px 0 10px; }
+.cp-x .cp-x-media { width:100%; border-radius:13px; max-height:280px; border:1px solid #cfd9de; }
+.cp-x-actions { display:flex; justify-content:space-between; color:#536471; gap:4px; font-size:9px; }
+.cp-x-actions span { display:flex; gap:3px; align-items:center; }
+.cp-x-actions i { font-size:14px; }
+.cp-x-post-meta { display:block; color:#536471; font-size:10px; margin-top:7px; }
+.cp-x-compose { position:absolute; bottom:69px; right:13px; width:47px; height:47px; background:#1d9bf0; color:white; border:0; border-radius:50%; font-size:24px; box-shadow:0 2px 7px #0002; }
+.cp-x-compose b { position:absolute; font-size:14px; left:9px; top:8px; }
+.cp-x-search { display:flex; align-items:center; gap:7px; margin:6px 12px 12px; padding:9px 14px; border-radius:30px; background:#eff3f4; color:#536471; }
+.cp-x-search input { width:100%; min-width:0; border:0; background:none; outline:none; font-size:13px; }
+.cp-x-view-title { padding:10px 13px; margin:0; font-size:18px; border-bottom:1px solid #eff3f4; }
+.cp-x-notification { display:flex; gap:15px; padding:16px; width:100%; border:0; border-bottom:1px solid #eff3f4; background:white; text-align:left; }
+.cp-x-notification>i { color:#f91880; font-size:22px; }
+.cp-x-notification p,.cp-x-notification small { color:#536471; font-size:12px; }
+.cp-x-cover { height:90px; background:#cfd9de; }
+.cp-x-bio { padding:0 14px 15px; font-size:13px; }
+.cp-x .cp-x-bio img { width:54px; height:54px; border:3px solid white; margin-top:-22px; }
+.cp-x-bio h2 { margin:5px 0; font-size:18px; }
+.cp-x-grok { padding:55px 24px; text-align:center; }
+.cp-x-grok>i { font-size:36px; }
+.cp-x-grok p { font-size:13px; line-height:1.7; }
+.cp-x-draft { padding:18px 12px; display:flex; flex-wrap:wrap; gap:10px; }
+.cp-x-draft textarea { flex:1; min-width:0; min-height:170px; border:0; resize:vertical; font-size:14px; font-family:inherit; outline:none; }
+.cp-x-draft small { width:100%; color:#536471; }
+.cp-x-search-empty { padding:30px; color:#536471; font-size:13px; }
+.cp-alipay { background:#f5f6f8; color:#222; }
+.cp-pay-blue { background:#1677ff; color:white; padding:10px 12px 18px; flex:none; }
+.cp-pay-search { display:flex; gap:8px; align-items:center; font-size:12px; }
+.cp-pay-search button { border:0; border-radius:5px; background:#fff; color:#9aa5b4; padding:7px 9px; flex:1; text-align:left; font-size:11px; }
+.cp-pay-search button:last-child { flex:none; background:transparent; color:white; padding:0; font-size:24px; }
+.cp-pay-primary { display:flex; justify-content:space-between; margin-top:19px; }
+.cp-pay-service { display:flex; flex-direction:column; align-items:center; gap:7px; background:none; border:0; padding:0; font-size:10px; color:#222; }
+.cp-pay-service i { font-size:24px; color:#1677ff; }
+.cp-pay-primary .cp-pay-service { color:white; font-size:12px; }
+.cp-pay-primary .cp-pay-service i { font-size:29px; color:white; }
+.cp-pay-services { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); row-gap:21px; padding:20px 9px; background:white; border-radius:0 0 12px 12px; }
+.cp-pay-service.orange i { color:#ff9a23; }.cp-pay-service.green i { color:#26b16d; }
+.cp-pay-card { background:white; margin:10px 9px; border-radius:10px; padding:12px; }
+.cp-pay-card-heading { display:flex; align-items:center; justify-content:space-between; font-size:13px; padding:2px 0 10px; }
+.cp-pay-card-heading button { border:0; background:none; font-size:10px; color:#999; }
+.cp-pay-shortcuts { display:flex; padding:13px 8px; }
+.cp-pay-shortcuts button { flex:1; display:flex; align-items:center; gap:8px; border:0; background:none; padding:3px; font-size:12px; }
+.cp-pay-shortcuts button>i:first-child { color:#1677ff; font-size:20px; }.cp-pay-shortcuts button>i:last-child { color:#bbb; }
+.cp-pay-shortcuts button+button { border-left:1px solid #eee; padding-left:15px; }
+.cp-pay-record { display:flex; gap:9px; align-items:center; width:100%; background:none; border:0; border-bottom:1px solid #f2f2f2; text-align:left; padding:12px 0; color:#222; }
+.cp-pay-record-icon { width:32px; height:32px; flex:none; display:grid; place-items:center; border-radius:8px; background:#edf6ff; color:#1677ff; font-size:18px; }
+.cp-pay-record>div { flex:1; min-width:0; }.cp-pay-record b { display:block; font-size:12px; overflow-wrap:anywhere; }
+.cp-pay-record small { display:block; font-size:9px; color:#999; margin-top:5px; max-height:30px; overflow:hidden; }.cp-pay-record aside { text-align:right; flex:none; max-width:35%; }.cp-pay-record strong { font-size:13px; overflow-wrap:anywhere; }
+.cp-pay-summary { font-size:12px; }.cp-pay-summary p { color:#777; line-height:1.6; margin-bottom:0; }
+.cp-pay-page-title { display:flex; align-items:center; justify-content:space-between; padding:12px; background:white; border-bottom:1px solid #eee; flex:none; font-size:15px; }
+.cp-pay-page-title button { background:none; border:0; font-size:20px; padding:0; }.cp-pay-page-title>i { font-size:20px; }
+.cp-alipay .cp-brand-nav button.active { color:#1677ff; }.cp-alipay .cp-brand-nav button { color:#888; }.cp-alipay .cp-brand-nav { border-top-color:#eee; }
+.cp-pay-assets { padding:20px 15px; }.cp-pay-assets small { color:#777; font-size:11px; }.cp-pay-assets strong { display:block; font-size:29px; padding:12px 0; overflow-wrap:anywhere; }.cp-pay-assets>div { display:flex; gap:20px; font-size:11px; padding-top:10px; border-top:1px solid #eee; }
+.cp-pay-profile { display:flex; align-items:center; gap:12px; padding:22px 15px; background:white; }.cp-pay-profile img { width:48px; height:48px; border-radius:10px; }.cp-pay-profile h2 { font-size:17px; margin:0 0 7px; }.cp-pay-profile span { color:#999; font-size:10px; }.cp-pay-profile>i { margin-left:auto; }
+.cp-pay-menu { display:flex; align-items:center; gap:12px; width:100%; padding:15px 0; background:none; border:0; border-bottom:1px solid #eee; text-align:left; font-size:13px; }.cp-pay-menu>i:first-child { color:#1677ff; font-size:20px; }.cp-pay-menu>i:last-child { margin-left:auto; color:#aaa; }
+.cp-pay-bill-filter { display:flex; justify-content:space-between; padding:15px; font-size:13px; }.cp-alipay .cp-brand-empty { padding:25px 10px; }.cp-alipay .cp-brand-empty strong { font-size:16px; }.cp-alipay .cp-brand-empty p { font-size:11px; }
+
+/* Dedicated layouts for the other persona apps. */
+.cp-app-host > .cp-native-designed { padding:0; }
+.cp-native-designed button { font-family:inherit; cursor:pointer; }
+.cp-native-header { display:flex; align-items:center; justify-content:space-between; padding:15px 13px; font-size:18px; flex:none; }
+.cp-native-header>i { font-size:21px; }
+.cp-native-tabs { display:flex; justify-content:space-around; border-bottom:1px solid #eee; flex:none; }
+.cp-native-tabs button { position:relative; flex:1; background:none; border:0; padding:12px 5px; font-size:12px; color:#888; }
+.cp-native-tabs button.active { color:inherit; font-weight:700; }
+.cp-native-tabs button.active::after { content:''; position:absolute; height:3px; bottom:0; left:28%; right:28%; border-radius:4px; background:currentColor; }
+.cp-native-nav { display:flex; flex:none; border-top:1px solid #eee; background:#fff; padding:9px 3px 13px; }
+.cp-native .cp-native-nav button { display:flex; align-items:center; flex-direction:column; flex:1; gap:4px; background:none; border:0; color:#888; font-size:9px; padding:0; }
+.cp-native .cp-native-nav button.active { color:inherit; border:0; }
+.cp-native-nav button i { font-size:21px; }
+.cp-native-avatar { width:30px; height:30px; background:#edeef2; color:#777; border-radius:50%; display:grid; place-items:center; font-size:12px; flex:none; }
+.cp-native-media { display:block; width:100%; object-fit:cover; margin:0; }
+.cp-media-description { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; padding:18px; aspect-ratio:1; background:#e9eced; color:#75818b; box-sizing:border-box; }
+.cp-media-description i { font-size:28px; opacity:.6; }.cp-media-description span { font-size:11px; line-height:1.6; max-height:80px; overflow:hidden; }
+.cp-native-profile { padding:20px 16px; font-size:12px; }.cp-native-profile img { width:52px; height:52px; border-radius:50%; }.cp-native-profile h2 { font-size:18px; margin:9px 0; }.cp-native-profile p { color:#888; line-height:1.6; }
+.cp-native-record { display:block; width:100%; border:0; border-bottom:1px solid #eee; background:transparent; color:inherit; text-align:left; padding:16px; font-size:13px; }.cp-native-record p { line-height:1.6; font-size:12px; white-space:pre-wrap; }.cp-native-record small { color:#999; display:block; }.cp-native-record>strong { display:block; margin-top:10px; }
+.cp-ig-header { display:flex; align-items:center; gap:16px; padding:12px; flex:none; }.cp-ig-header strong { flex:1; font-size:25px; font-family:'Brush Script MT','Segoe Script',cursive; letter-spacing:-1px; }.cp-ig-header button { border:0; background:none; font-size:21px; padding:0; }
+.cp-ig-stories { display:flex; gap:15px; padding:12px; overflow-x:auto; border-bottom:1px solid #eee; }.cp-ig-stories button { width:49px; flex:none; display:flex; flex-direction:column; gap:7px; align-items:center; border:0; background:none; padding:0; }.cp-ig-stories .cp-native-avatar { width:45px; height:45px; border:2px solid #e04b88; outline:2px solid #f8b956; outline-offset:1px; }.cp-ig-stories small { width:100%; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cp-ig-post { width:100%; display:block; border:0; background:white; padding:0; text-align:left; }.cp-ig-author { display:flex; gap:8px; align-items:center; padding:10px; font-size:11px; }.cp-ig-author>i { margin-left:auto; }.cp-ig-post .cp-native-media { aspect-ratio:1; max-height:none; border-radius:0; }.cp-ig-actions { display:flex; gap:13px; font-size:22px; padding:10px; }.cp-ig-actions i:last-child { margin-left:auto; }.cp-ig-caption { padding:0 11px 15px; font-size:12px; }.cp-ig-caption p { margin:5px 0; }.cp-ig-caption small { color:#999; font-size:9px; }.cp-ig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; }.cp-ig-grid .cp-brand-empty { grid-column:1/-1; }
+.cp-red-header { display:flex; align-items:center; justify-content:space-between; padding:0 10px; flex:none; }.cp-red-header .cp-native-tabs { flex:1; border:0; }.cp-red-header .active::after { background:#ff2442; }.cp-red-header>i { font-size:20px; }.cp-red-categories { display:flex; justify-content:space-around; padding:10px 5px; color:#777; font-size:11px; }.cp-red-categories b { color:#222; }
+.cp-red-waterfall { columns:2; column-gap:7px; padding:8px; background:#f6f6f6; }.cp-red-note { display:inline-block; width:100%; break-inside:avoid; background:white; border:0; padding:0; margin-bottom:8px; border-radius:9px; overflow:hidden; text-align:left; }.cp-red-note .cp-native-media { aspect-ratio:3/4; max-height:none; border-radius:0; }.cp-red-note:nth-child(even) .cp-native-media { aspect-ratio:1; }.cp-red-note h3 { margin:8px; font-size:12px; line-height:1.4; }.cp-red-note>div:last-child { display:flex; align-items:center; gap:5px; padding:0 8px 10px; font-size:9px; }.cp-red-note .cp-native-avatar { width:17px; height:17px; font-size:8px; }.cp-red-note small { margin-left:auto; }.cp-red-waterfall>.cp-brand-empty { column-span:all; }.cp-red .cp-native-nav button.active { color:#ff2442; }
+.cp-weibo-search { display:flex; align-items:center; gap:12px; padding:10px 12px; background:white; }.cp-weibo-search>i:first-child { color:#ff8200; font-size:26px; }.cp-weibo-search>span { flex:1; background:#f3f3f3; border-radius:20px; padding:8px 12px; color:#aaa; font-size:11px; }.cp-wb-post { display:block; width:100%; background:white; padding:12px 10px 0; border:0; margin-top:8px; text-align:left; }.cp-wb-author { display:flex; gap:8px; align-items:center; font-size:12px; }.cp-wb-author small { display:block; color:#999; font-size:9px; padding-top:4px; }.cp-wb-author>i { margin-left:auto; }.cp-wb-post>p { font-size:13px; line-height:1.6; white-space:pre-wrap; }.cp-wb-actions { display:flex; justify-content:space-around; border-top:1px solid #eee; padding:12px 0; color:#777; font-size:11px; }.cp-weibo .cp-native-nav button.active { color:#ff8200; }.cp-weibo .cp-native-tabs { background:white; }
+.cp-dy-header { display:flex; align-items:center; justify-content:space-between; padding:0 9px; background:#111; }.cp-dy-header .cp-native-tabs { flex:1; border:0; }.cp-dy-header button { color:#888; }.cp-dy-header button.active { color:white; }.cp-video-feed { height:100%; overflow-y:auto; scroll-snap-type:y mandatory; }.cp-video-post { display:block; position:relative; width:100%; height:100%; min-height:330px; scroll-snap-align:start; background:#111; border:0; color:white; text-align:left; padding:0; overflow:hidden; }.cp-video-post .cp-native-media { width:100%; height:100%; max-height:none; border-radius:0; object-fit:cover; }.cp-video-post .cp-media-description { background:linear-gradient(165deg,#252c35,#121218); color:#aaa; padding:45px; }.cp-video-play { position:absolute; left:45%; top:40%; font-size:36px; opacity:.5; }.cp-video-rail { position:absolute; right:10px; top:28%; display:flex; flex-direction:column; align-items:center; gap:10px; font-size:26px; text-shadow:0 1px 5px #0006; }.cp-video-rail small { font-size:9px; margin-top:-8px; }.cp-video-caption { position:absolute; bottom:0; left:0; right:0; padding:40px 50px 17px 12px; background:linear-gradient(transparent,#000a); font-size:12px; }.cp-video-caption p { line-height:1.6; margin:6px 0; }.cp-video-caption small { font-size:10px; }.cp-douyin .cp-native-nav { background:#111; border-color:#333; }.cp-douyin .cp-native-nav button.active { color:white; }.cp-video-post.is-empty>.ri-play-fill { display:block; text-align:center; font-size:45px; opacity:.3; }.cp-douyin .cp-brand-empty strong { color:#eee; }
+.cp-photos-header { padding:18px 14px 10px; position:relative; }.cp-photos-header h2 { font-size:28px; margin:0 0 4px; }.cp-photos-header span { color:#999; font-size:10px; }.cp-photos-header>i { position:absolute; right:15px; top:24px; color:#007aff; font-size:20px; }.cp-photos-date { padding:12px 13px; font-size:16px; font-weight:bold; }.cp-photos-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; }.cp-photo-tile { background:none; padding:0; border:0; }.cp-photo-tile .cp-native-media { aspect-ratio:1; border-radius:0; }.cp-photo-tile .cp-media-description { padding:8px; }.cp-photo-tile .cp-media-description span { font-size:8px; max-height:35px; }.cp-photos-grid>.cp-brand-empty { grid-column:1/-1; }.cp-album .cp-native-nav button.active { color:#007aff; }
+.cp-music-header { display:flex; align-items:center; justify-content:space-between; padding:15px; background:#fff; font-size:17px; }.cp-music-tools { display:flex; justify-content:space-around; padding:18px 0; font-size:10px; }.cp-music-tools span { display:flex; gap:8px; flex-direction:column; align-items:center; }.cp-music-tools i { font-size:24px; color:#e6434c; }.cp-music-favorites { margin:8px 13px; display:flex; gap:12px; padding:16px; background:#f5f5f5; border-radius:12px; align-items:center; }.cp-music-favorites>i { color:white; background:linear-gradient(135deg,#a7b5c6,#6b7c8b); width:53px; height:53px; display:grid; place-items:center; border-radius:8px; font-size:23px; }.cp-music-favorites b { font-size:13px; }.cp-music-favorites small { display:block; color:#aaa; font-size:10px; margin-top:7px; }.cp-music-list-title { display:flex; justify-content:space-between; padding:18px 13px 10px; font-size:13px; }.cp-music-list-title span { color:#999; font-size:10px; }.cp-music-song { display:flex; gap:9px; align-items:center; width:100%; background:white; border:0; padding:9px 13px; text-align:left; }.cp-music-number { color:#aaa; font-size:11px; }.cp-music-song .cp-native-media { width:37px; height:37px; aspect-ratio:1; border-radius:6px; padding:0; flex:none; }.cp-music-song .cp-media-description span { display:none; }.cp-music-song>div:not(.cp-native-media) { flex:1; min-width:0; }.cp-music-song b { display:block; font-size:12px; }.cp-music-song small { color:#999; display:block; font-size:9px; padding-top:4px; }.cp-music-player { flex:none; display:flex; gap:10px; align-items:center; width:100%; border:0; border-top:1px solid #eee; padding:9px 12px; background:white; font-size:12px; text-align:left; }.cp-music-player i { font-size:25px; }.cp-music-player span { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }.cp-music .cp-native-nav button.active { color:#e6434c; }
+.cp-mail-toolbar { display:flex; justify-content:space-between; padding:13px; color:#007aff; font-size:11px; background:white; }.cp-mail-toolbar button { border:0; background:none; color:#007aff; padding:0; }.cp-mail-title { background:white; font-size:27px; margin:0; padding:0 13px 8px; }.cp-mail-search { margin:0; padding:9px 13px 14px; background:white; display:flex; gap:8px; color:#aaa; font-size:12px; }.cp-mail-message { display:flex; gap:6px; align-items:flex-start; width:100%; padding:14px 10px 13px 6px; text-align:left; border:0; border-bottom:1px solid #e6e6e6; background:white; }.cp-mail-dot { width:7px; height:7px; border-radius:50%; background:#007aff; flex:none; margin-top:5px; }.cp-mail-message>div { flex:1; min-width:0; }.cp-mail-message>div>div { display:flex; justify-content:space-between; font-size:13px; }.cp-mail-message small { color:#aaa; font-size:9px; }.cp-mail-message strong { display:block; font-size:11px; margin-top:5px; }.cp-mail-message p { font-size:11px; line-height:1.5; color:#888; margin:4px 0 0; max-height:34px; overflow:hidden; }.cp-mail-message>i { color:#bbb; font-size:15px; }.cp-mail-bottom { display:flex; justify-content:space-between; align-items:center; padding:12px 14px 18px; background:white; border-top:1px solid #eee; }.cp-native .cp-mail-bottom button { flex:none; border:0; background:none; padding:0; color:#007aff; font-size:22px; }.cp-mail-bottom small { font-size:10px; color:#777; }
+.cp-bank.cp-native-designed { background:#f7f5f0; color:#302b25; }.cp-private-hero { background:linear-gradient(120deg,#302c28,#746044); color:#e8d5b4; padding:25px 20px; }.cp-private-hero small { letter-spacing:3px; font-size:9px; }.cp-private-hero h2 { margin:15px 0 25px; font-size:18px; }.cp-private-hero span { display:block; font-size:11px; }.cp-private-hero strong { display:block; font-size:27px; margin-top:9px; overflow-wrap:anywhere; }.cp-private-actions { display:flex; justify-content:space-around; background:white; padding:20px 0; font-size:10px; }.cp-private-actions span { display:flex; flex-direction:column; gap:7px; align-items:center; }.cp-private-actions i { font-size:23px; color:#a98753; }.cp-private-list { background:white; margin:12px; border-radius:8px; }.cp-bank .cp-native-nav button.active { color:#9e7a43; }
+.cp-stock-search { display:flex; align-items:center; gap:10px; padding:14px 12px; background:white; }.cp-stock-search>b { color:#2785d3; font-size:18px; }.cp-stock-search>span { flex:1; background:#f4f5f7; border-radius:20px; padding:7px 9px; color:#a5a5a5; font-size:11px; }.cp-stocks.cp-native-designed { background:#fff; }.cp-stock-table-head { display:grid; grid-template-columns:1.5fr 1fr 1fr; padding:12px; color:#999; font-size:10px; }.cp-stock-table-head span:not(:first-child) { text-align:right; }.cp-stock-row { width:100%; display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:9px; align-items:center; padding:14px 12px; border:0; border-bottom:1px solid #eee; text-align:left; background:white; }.cp-stock-row b { display:block; font-size:13px; }.cp-stock-row small { display:block; font-size:9px; color:#999; padding-top:6px; }.cp-stock-row strong { font-size:16px; text-align:right; }.cp-stock-row em { color:white; padding:7px 3px; text-align:center; font-size:11px; border-radius:3px; font-style:normal; }.cp-stock-row .up { background:#e34a4a; }.cp-stock-row .down { background:#2daa81; }.cp-stock-summary { padding:20px 13px; font-size:12px; color:#999; line-height:1.6; }.cp-stocks .cp-native-nav button.active { color:#2785d3; }
+.cp-fund-assets { padding:24px 19px; background:linear-gradient(130deg,#2778ed,#4898f6); color:white; }.cp-fund-assets>span { font-size:11px; }.cp-fund-assets strong { display:block; font-size:30px; margin:17px 0 22px; }.cp-fund-assets>div { display:flex; justify-content:space-between; font-size:11px; }.cp-fund-card { display:block; width:calc(100% - 20px); margin:10px; padding:16px 12px; border:0; border-radius:9px; background:white; text-align:left; }.cp-fund-card>div { display:flex; justify-content:space-between; margin-bottom:12px; gap:10px; }.cp-fund-card b { font-size:13px; }.cp-fund-card small { font-size:9px; color:#999; }.cp-fund-card strong { font-size:19px; }.cp-fund-card em { color:#e35051; font-style:normal; font-size:13px; }.cp-funds .cp-native-nav button.active { color:#2778ed; }
+.cp-board-header { display:flex; align-items:center; justify-content:space-between; padding:15px; font-size:18px; color:#177bd0; }.cp-board-week { display:flex; justify-content:space-around; padding:7px 0 16px; border-bottom:1px solid #eee; }.cp-board-week>span { display:flex; flex-direction:column; gap:9px; align-items:center; }.cp-board-week small { font-size:10px; color:#aaa; }.cp-board-week b { display:grid; place-items:center; font-size:12px; width:27px; height:27px; border-radius:50%; }.cp-board-week .active b { color:white; background:#177bd0; }.cp-board-day { background:#f3f6fa; padding:10px 13px; font-size:11px; color:#555; }.cp-board-event { display:flex; gap:13px; width:100%; padding:14px 12px; border:0; background:white; text-align:left; }.cp-board-event time { width:36px; flex:none; color:#999; font-size:10px; }.cp-board-event>div { border-left:3px solid #177bd0; background:#edf5fd; padding:11px; flex:1; min-width:0; border-radius:3px; }.cp-board-event b { font-size:13px; }.cp-board-event p { font-size:11px; color:#58708b; line-height:1.6; }.cp-board-event small { font-size:9px; color:#999; }.cp-board .cp-native-nav button.active { color:#177bd0; }
+.cp-flights.cp-native-designed { background:#f4f2ee; color:#302c28; }.cp-flights .cp-native-header { background:white; font-family:Georgia,serif; letter-spacing:1px; }.cp-flight-heading { padding:23px 16px 8px; }.cp-flight-heading small { color:#aa2f36; letter-spacing:2px; font-size:9px; }.cp-flight-heading h2 { font-family:Georgia,serif; font-size:25px; font-weight:400; }.cp-flight-ticket { display:block; width:calc(100% - 24px); margin:14px 12px; background:white; border:0; padding:16px; text-align:left; box-shadow:0 3px 12px #0001; }.cp-flight-date { display:flex; justify-content:space-between; font-size:10px; color:#999; }.cp-flight-date span { color:#a62e37; }.cp-flight-route { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:23px 0; }.cp-flight-route small { display:block; font-size:9px; letter-spacing:2px; color:#aaa; margin-bottom:7px; }.cp-flight-route b { font-family:Georgia,serif; font-size:18px; }.cp-flight-route>i { color:#a62e37; font-size:24px; }.cp-flight-divider { border-top:1px dashed #d4ceca; }.cp-flight-ticket h3 { font-size:13px; margin:14px 0 8px; }.cp-flight-ticket p { color:#888; font-size:11px; line-height:1.6; }.cp-flights .cp-native-nav button.active { color:#a62e37; }
+.cp-hotels.cp-native-designed { background:#f6f5f2; color:#23231f; }.cp-hotels .cp-native-header { font-family:Georgia,serif; letter-spacing:2px; font-size:14px; background:white; }.cp-hotel-heading { padding:20px 15px 0; }.cp-hotel-heading small { font-size:9px; color:#999; letter-spacing:2px; }.cp-hotel-heading h2 { font-size:25px; font-family:Georgia,serif; font-weight:400; }.cp-hotel-reservation { width:calc(100% - 24px); display:block; margin:15px 12px; padding:0; border:0; background:white; text-align:left; box-shadow:0 2px 7px #0001; }.cp-hotel-reservation .cp-native-media { height:145px; aspect-ratio:auto; border-radius:0; }.cp-hotel-info { padding:17px; }.cp-hotel-info>small { font-size:9px; color:#939080; text-transform:uppercase; letter-spacing:2px; }.cp-hotel-info h3 { font-family:Georgia,serif; font-size:18px; font-weight:400; margin:12px 0; }.cp-hotel-dates { display:flex; align-items:center; justify-content:space-between; border-top:1px solid #eee; padding-top:14px; }.cp-hotel-dates small { display:block; color:#aaa; font-size:9px; margin-bottom:6px; }.cp-hotel-dates b { font-size:11px; }.cp-hotel-info p { color:#888; font-size:11px; line-height:1.5; }
+.cp-luxury.cp-native-designed { background:#fff; }.cp-luxury-header { padding:20px 12px; display:flex; align-items:center; justify-content:center; gap:20px; border-bottom:1px solid #ddd; font-family:Georgia,serif; letter-spacing:1px; font-size:16px; }.cp-luxury-header>i { position:absolute; right:12px; font-size:18px; }.cp-luxury-title { font-weight:400; font-family:Georgia,serif; letter-spacing:2px; font-size:20px; text-align:center; margin:24px 0; }.cp-luxury-order { display:block; background:white; border:0; border-bottom:1px solid #ddd; padding:17px 12px; width:100%; text-align:left; }.cp-luxury-order-head { display:flex; justify-content:space-between; font-size:9px; }.cp-luxury-order-head b { font-weight:400; }.cp-luxury-product { display:flex; gap:14px; padding:20px 0; }.cp-luxury-product .cp-native-media { width:83px; height:111px; flex:none; border-radius:0; }.cp-luxury-product .cp-media-description { padding:7px; font-size:9px; background:#f5f4f2; }.cp-luxury-product small { color:#aaa; font-size:9px; }.cp-luxury-product h3 { font-size:13px; font-weight:400; }.cp-luxury-product p { color:#888; font-size:10px; line-height:1.5; }.cp-luxury-product strong { font-size:12px; }.cp-luxury-detail { display:block; border:1px solid #222; padding:11px; text-align:center; font-size:9px; letter-spacing:1px; }
+.cp-golf.cp-native-designed { background:#f4f5f3; }.cp-golf .cp-native-header { color:#247247; background:white; letter-spacing:1px; }.cp-golf-hero { padding:22px; color:white; background:linear-gradient(135deg,#194d32,#568258); position:relative; }.cp-golf-hero>i { position:absolute; right:20px; bottom:20px; font-size:72px; opacity:.16; }.cp-golf-hero small { font-size:9px; letter-spacing:2px; }.cp-golf-hero h2 { font-family:Georgia,serif; font-size:24px; font-weight:400; margin:15px 0; }.cp-golf-hero span { font-size:11px; }.cp-golf-booking { display:block; width:calc(100% - 24px); margin:12px; padding:16px; background:white; border:0; border-radius:8px; text-align:left; color:#234e32; }.cp-golf-booking small { color:#999; font-size:10px; }.cp-golf-booking h3 { font-size:16px; margin:10px 0; }.cp-golf-booking p { font-size:11px; line-height:1.6; color:#777; }.cp-golf-booking>div { display:flex; justify-content:space-between; border-top:1px solid #eee; padding-top:14px; font-size:10px; }.cp-golf .cp-native-nav button.active { color:#247247; }
+
+/* Familiar system apps and the original phone apps, each with its own layout. */
+.cp-app-host > .cp-system-designed { padding:0; }
+.cp-system-designed { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif; }
+.cp-system-designed button { cursor:pointer; font-family:inherit; }
+.cp-system-large-title { margin:0; padding:12px 15px 15px; font-size:27px; letter-spacing:-.5px; }
+.cp-system-search { display:flex; align-items:center; gap:8px; background:#e9e9ed; border-radius:9px; margin:0 15px 16px; padding:9px 11px; color:#999; }
+.cp-system-search input { min-width:0; flex:1; font-family:inherit; background:none; border:0; outline:none; font-size:12px; }
+.cp-system-record { background:white; border-bottom:1px solid #eee; font-size:12px; }.cp-system-record summary { display:flex; gap:10px; align-items:center; padding:15px 12px; list-style:none; cursor:pointer; }.cp-system-record summary>i:first-child { font-size:21px; color:#777; }.cp-system-record summary>div { flex:1; min-width:0; }.cp-system-record b { display:block; }.cp-system-record small { color:#999; display:block; font-size:10px; margin-top:5px; }.cp-system-record p { padding:0 15px 14px; line-height:1.7; white-space:pre-wrap; margin:0; }.cp-system-record summary>i:last-child { color:#bbb; }
+.cp-wc-header { display:flex; justify-content:space-between; align-items:center; padding:15px 13px 10px; background:#ededed; font-size:16px; }.cp-wc-header i { font-size:21px; }.cp-wc-search { display:flex; align-items:center; justify-content:center; gap:5px; background:#ededed; padding:0 10px 10px; }.cp-wc-search>i { display:none; }.cp-wc-search input { border:0; background:white; border-radius:5px; text-align:center; font-size:11px; padding:9px; width:100%; outline:none; }.cp-system-chat .wc-ai-phone-chat-row { padding:12px 11px; border-radius:0; min-height:65px; border-bottom:1px solid #eee; grid-template-columns:42px minmax(0,1fr) auto; gap:10px; }.cp-system-chat .wc-ai-phone-chat-avatar { width:40px; height:40px; border-radius:6px; background:#dceadb; color:#526b4a; }.cp-system-chat .wc-ai-phone-chat-row>.ri-arrow-right-s-line { display:none; }.cp-system-chat .wc-ai-phone-chat-main strong { font-size:13px; }.cp-system-chat .wc-ai-phone-chat-main span { font-size:10px; color:#999; }.cp-system-chat .wc-ai-phone-chat-row em { color:#aaa; font-size:9px; }.cp-system-chat .cp-native-nav { background:#f7f7f7; }.cp-system-chat .cp-native-nav button.active { color:#07c160; }.cp-wc-profile { display:flex; gap:12px; align-items:center; padding:28px 15px; }.cp-wc-profile img { width:52px; height:52px; border-radius:8px; }.cp-wc-profile h2 { font-size:18px; margin:0 0 7px; }.cp-wc-profile p { font-size:11px; color:#999; }.cp-wc-profile>i { margin-left:auto; }.cp-wc-feature { display:flex; align-items:center; gap:12px; width:100%; background:white; border:0; border-top:7px solid #ededed; padding:18px 15px; font-size:14px; }.cp-wc-feature i:first-child { color:#07c160; font-size:23px; }.cp-wc-feature i:last-child { margin-left:auto; color:#aaa; }
+.cp-system-memo { background:#f2f2f7; }.cp-notes-toolbar { display:flex; align-items:center; justify-content:space-between; padding:15px 15px 0; color:#d4a320; font-size:12px; }.cp-notes-date-heading { font-size:15px; margin:6px 15px 10px; }.cp-notes-list { margin:0 14px; border-radius:10px; overflow:hidden; background:white; }.cp-notes-entry { padding:14px 13px; background:white; border:0; border-bottom:1px solid #eee; width:100%; text-align:left; }.cp-notes-entry[hidden] { display:none; }.cp-notes-entry>b { font-size:13px; display:block; }.cp-notes-entry>div { margin-top:5px; display:flex; gap:10px; font-size:10px; color:#999; }.cp-notes-entry>div>span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.cp-notes-entry time { flex:none; }.cp-notes-bottom { display:flex; justify-content:space-between; align-items:center; padding:13px 16px; color:#d4a320; flex:none; }.cp-notes-bottom i { font-size:23px; }.cp-notes-bottom small { color:#999; font-size:9px; }
+.cp-calendar-toolbar { display:flex; justify-content:space-between; align-items:center; padding:14px 15px 0; color:#ff3b30; font-size:13px; }.cp-calendar-toolbar span { flex:1; }.cp-calendar-toolbar i { font-size:20px; margin-left:15px; }.cp-calendar-weekdays,.cp-calendar-month { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); text-align:center; padding:0 11px; }.cp-calendar-weekdays { font-size:9px; color:#999; margin-bottom:6px; }.cp-calendar-month span { display:grid; place-items:center; width:30px; height:32px; margin:4px auto; font-size:14px; }.cp-calendar-month .today { background:#ff3b30; color:white; border-radius:50%; }.cp-calendar-agenda-heading { padding:14px 13px; font-size:11px; border-top:1px solid #eee; margin-top:14px; }.cp-calendar-event { margin:5px 13px; font-size:12px; }.cp-calendar-event summary { display:flex; gap:15px; list-style:none; cursor:pointer; }.cp-calendar-event time { width:40px; flex:none; font-size:10px; color:#999; padding-top:6px; }.cp-calendar-event summary>div { border-left:3px solid #ff9e35; padding:6px 10px; flex:1; }.cp-calendar-event small { display:block; color:#aaa; font-size:10px; padding-top:6px; }.cp-calendar-event>p { padding:8px 10px 8px 55px; font-size:11px; line-height:1.6; }.cp-calendar-bottom { display:flex; justify-content:space-between; padding:15px 18px; color:#ff3b30; font-size:12px; flex:none; border-top:1px solid #eee; }
+.cp-system-shopping,.cp-system-takeout { background:#f4f4f4; }.cp-commerce-header { display:flex; gap:15px; align-items:center; background:linear-gradient(110deg,#ff5000,#ff8b41); color:white; padding:15px 13px; }.cp-commerce-header strong { font-size:17px; flex:1; }.cp-commerce-header i { font-size:19px; }.cp-commerce-profile { display:flex; align-items:center; gap:12px; padding:10px 14px 18px; color:white; background:linear-gradient(110deg,#ff5000,#ff8b41); font-size:15px; }.cp-commerce-profile img { width:40px; height:40px; border-radius:50%; }.cp-commerce-profile>i { margin-left:auto; }.cp-commerce-title { padding:15px 12px 8px; background:white; font-size:15px; font-weight:700; }.cp-system-shopping .cp-native-tabs,.cp-system-takeout .cp-native-tabs { background:white; }.cp-system-shopping .cp-native-tabs .active { color:#ff5000; }.cp-commerce-order { margin:10px; border-radius:10px; background:white; padding:13px; font-size:12px; }.cp-commerce-order summary { list-style:none; cursor:pointer; }.cp-commerce-order-head { display:flex; justify-content:space-between; gap:10px; font-size:10px; }.cp-commerce-order-head span { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }.cp-commerce-order-head em { color:#ff5000; font-style:normal; }.cp-commerce-product { display:flex; gap:10px; padding:15px 0; }.cp-commerce-placeholder { width:65px; height:65px; display:grid; place-items:center; font-size:28px; border-radius:6px; flex:none; background:#f5f3f0; color:#c7bda9; }.cp-commerce-product h3 { font-size:12px; margin:2px 0 8px; }.cp-commerce-product p { font-size:10px; color:#999; line-height:1.6; margin:0; }.cp-commerce-order-foot { display:flex; justify-content:flex-end; align-items:center; gap:9px; font-size:10px; color:#999; }.cp-commerce-order-foot span { border:1px solid #ddd; border-radius:20px; padding:6px 12px; }.cp-commerce-order>p { white-space:pre-wrap; line-height:1.6; color:#777; }.cp-system-shopping .cp-native-nav button.active { color:#ff5000; }.cp-system-takeout .cp-commerce-header,.cp-system-takeout .cp-commerce-profile { background:#ffd100; color:#222; }.cp-system-takeout .cp-commerce-order-head em { color:#999; }.cp-system-takeout .cp-native-nav button.active { color:#d3a200; }
+.cp-games-header { display:flex; justify-content:space-between; align-items:center; padding:15px; }.cp-games-header h2 { margin:0; font-size:27px; }.cp-games-header img { width:29px; height:29px; border-radius:50%; }.cp-games-banner { display:flex; gap:18px; align-items:center; margin:10px 13px; padding:25px 18px; background:linear-gradient(120deg,#d4c5ff,#939ceb); border-radius:15px; color:#393056; }.cp-games-banner>i { font-size:45px; }.cp-games-banner small { font-size:9px; letter-spacing:1px; }.cp-games-banner h2 { font-size:18px; margin:8px 0; }.cp-games-heading { margin:23px 15px 12px; font-size:19px; }.cp-games-item { padding:12px 15px; border-bottom:1px solid #eee; }.cp-games-item summary { display:flex; gap:12px; align-items:center; list-style:none; cursor:pointer; }.cp-games-item summary>div { width:50px; height:50px; border-radius:10px; background:#eee9ff; color:#8975bf; font-size:25px; display:grid; place-items:center; }.cp-games-item span { flex:1; }.cp-games-item b { display:block; font-size:13px; }.cp-games-item small { color:#999; display:block; font-size:10px; margin-top:8px; }.cp-games-item p { color:#888; font-size:12px; line-height:1.6; }.cp-system-games .cp-native-nav button.active { color:#8975bf; }
+.cp-system-browser { background:#f2f3f7; }.cp-safari-heading { font-size:30px; margin:22px 16px; }.cp-safari-section-heading { margin:20px 15px 13px; font-size:17px; }.cp-safari-favorites { display:flex; gap:13px; padding:0 15px; }.cp-safari-favorites button { min-width:0; flex:1; border:0; background:none; display:flex; flex-direction:column; align-items:center; gap:8px; padding:0; }.cp-safari-favorites span { width:42px; height:42px; border-radius:10px; background:white; color:#547ecc; display:grid; place-items:center; font-size:23px; }.cp-safari-favorites small { font-size:9px; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.cp-safari-bottom { background:#e9eaf0; padding:10px 13px 16px; flex:none; }.cp-safari-bottom>div:first-child { display:flex; align-items:center; gap:9px; border-radius:12px; padding:12px; background:white; box-shadow:0 2px 5px #0001; color:#444; }.cp-safari-bottom>div:first-child span { flex:1; font-size:11px; text-align:center; }.cp-safari-bottom>div:last-child { display:flex; justify-content:space-between; padding:14px 3px 0; color:#007aff; font-size:21px; }.cp-system-browser .wc-ai-phone-ios-list { margin:0 12px; }
+.cp-system-wallet { background:#f2f2f7; }.cp-wallet-title { display:flex; justify-content:space-between; align-items:center; padding:17px 15px; }.cp-wallet-title h2 { margin:0; font-size:29px; }.cp-wallet-title>i { font-size:23px; }.cp-wallet-stack { padding:16px 13px 20px; position:relative; }.cp-wallet-stack>div { position:absolute; top:8px; left:20px; right:20px; height:40px; border-radius:13px; background:#baa275; }.cp-wallet-stack>section { position:relative; background:linear-gradient(135deg,#17191b,#34383d); color:white; padding:21px; border-radius:14px; min-height:165px; box-shadow:0 7px 15px #0002; overflow:hidden; }.cp-wallet-stack b { display:block; font-size:20px; }.cp-wallet-stack small { display:block; opacity:.5; font-size:10px; margin-top:20px; }.cp-wallet-stack strong { display:block; font-size:23px; margin-top:7px; }.cp-wallet-stack span { display:block; font-size:9px; color:#aaa; max-width:80%; margin-top:8px; }.cp-wallet-stack i { position:absolute; right:20px; bottom:20px; font-size:28px; opacity:.5; }.cp-wallet-history-title { margin:14px 15px; font-size:18px; }.cp-system-wallet .cp-system-record { margin:0 12px; }
+.cp-system-diary { background:linear-gradient(165deg,#ecedfe,#f4effa); }.cp-journal-header { padding:18px 15px; display:flex; justify-content:space-between; align-items:center; }.cp-journal-header h2 { margin:0; font-size:27px; }.cp-journal-header>i { font-size:22px; color:#7873ad; }.cp-system-diary .wc-ai-phone-letter-hero { margin:0 12px 12px; background:white; padding:17px; border-radius:12px; }.cp-system-diary .wc-ai-phone-letter-list { display:flex; flex-direction:column; margin:0 12px; gap:12px; }.cp-system-diary .wc-ai-phone-letter-card { background:white; border:0; border-radius:13px; min-height:110px; padding:18px; text-align:left; box-shadow:0 3px 10px #847baa12; }.cp-system-diary .wc-ai-phone-letter-card::before,.cp-system-diary .wc-ai-phone-letter-card::after { display:none; }.cp-system-diary .wc-ai-phone-letter-card span { color:#9d94bd; font-size:10px; }.cp-system-diary .wc-ai-phone-letter-card strong { font-size:17px; color:#35304e; }.cp-system-diary .wc-ai-phone-letter-card em { font-size:11px; color:#aaa; }.cp-system-diary .wc-ai-phone-diary-sync { padding:0 12px 10px; }
+.cp-map-search { display:flex; gap:10px; padding:13px 12px; align-items:center; background:white; font-size:12px; }.cp-map-search>i:first-child { color:#2687f4; font-size:23px; }.cp-map-search>span { flex:1; color:#999; }.cp-map-canvas { height:245px; position:relative; background:repeating-linear-gradient(0deg,transparent 0 37px,#fff7 38px 43px),repeating-linear-gradient(90deg,#e6ecd9 0 44px,#fff 45px 52px); overflow:hidden; }.cp-map-river { position:absolute; width:70px; height:400px; top:-70px; left:40%; background:#bfdfef; transform:rotate(-27deg); }.cp-map-road { position:absolute; height:9px; background:#f8edb5; border:2px solid white; width:150%; left:-25%; top:45%; transform:rotate(-20deg); }.cp-map-road.road-b { top:65%; transform:rotate(15deg); }.cp-map-road.road-c { transform:rotate(70deg); top:35%; }.cp-map-marker { position:absolute; color:#3288e4; text-align:center; width:75px; }.cp-map-marker i { display:block; font-size:30px; text-shadow:0 2px 4px #0003; }.cp-map-marker b { display:inline-block; max-width:100%; color:#333; background:white; padding:3px 5px; border-radius:4px; font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.marker-0 { left:15%; top:25%; }.marker-1 { left:57%; top:45%; }.marker-2 { left:30%; top:70%; }.marker-3 { left:66%; top:12%; }.cp-map-canvas>small { position:absolute; bottom:8px; right:9px; color:#7f918e; font-size:9px; }.cp-map-sheet { border-radius:17px 17px 0 0; margin-top:-13px; position:relative; background:white; padding-top:9px; }.cp-map-sheet-handle { width:30px; height:4px; border-radius:5px; margin:auto; background:#ddd; }.cp-map-sheet h3 { margin:15px; font-size:18px; }.cp-system-footprints .cp-native-nav button.active { color:#3288e4; }
+.cp-system-usage { background:#f2f2f7; }.cp-screen-time-summary { margin:0 12px 20px; padding:17px; border-radius:12px; background:white; }.cp-screen-time-summary>div:first-child { display:flex; justify-content:space-between; font-size:13px; }.cp-screen-time-summary>small { display:block; color:#999; font-size:10px; padding-top:17px; }.cp-screen-time-summary>strong { display:block; font-size:30px; margin:7px 0 18px; }.cp-screen-time-chart { height:105px; display:flex; gap:9px; padding:0 0 20px; border-bottom:1px solid #ddd; align-items:flex-end; }.cp-screen-time-chart>span { flex:1; height:100%; position:relative; display:flex; align-items:flex-end; }.cp-screen-time-chart i { width:100%; background:#528bea; border-radius:3px 3px 0 0; }.cp-screen-time-chart small { position:absolute; top:calc(100% + 6px); font-size:8px; color:#999; width:100%; text-align:center; white-space:nowrap; overflow:hidden; }.cp-screen-time-heading { margin:13px 15px; font-size:17px; }.cp-screen-time-list { margin:0 12px; padding:10px 14px; border-radius:12px; background:white; }.cp-screen-time-list>div { padding:14px 0; position:relative; border-bottom:1px solid #eee; }.cp-screen-time-list b { font-size:12px; }.cp-screen-time-list small { font-size:10px; color:#999; float:right; }.cp-screen-time-list span { margin-top:9px; display:block; height:4px; border-radius:3px; background:#eee; }.cp-screen-time-list i { display:block; background:#528bea; height:100%; border-radius:3px; }
+.cp-system-clock { background:#000; color:white; }.cp-clock-edit { display:flex; justify-content:space-between; padding:14px 15px 0; color:#ff9f0a; font-size:13px; }.cp-clock-edit i { font-size:22px; }.cp-clock-sleep { display:flex; flex-wrap:wrap; gap:8px; padding:15px; border-bottom:1px solid #333; font-size:14px; }.cp-clock-sleep>span { width:100%; color:#888; font-size:11px; padding-top:5px; }.cp-clock-alarm { display:flex; justify-content:space-between; align-items:center; padding:19px 15px; border-bottom:1px solid #333; }.cp-clock-alarm strong { display:block; font-size:43px; font-weight:300; }.cp-clock-alarm small { display:block; color:#888; font-size:12px; padding-top:5px; }.cp-clock-switch { width:43px; height:26px; border-radius:20px; background:#34c759; position:relative; flex:none; }.cp-clock-switch::after { content:''; position:absolute; width:22px; height:22px; right:2px; top:2px; border-radius:50%; background:white; }.cp-system-clock .cp-native-nav { background:#111; border-color:#222; }.cp-system-clock .cp-native-nav button.active { color:#ff9f0a; }.cp-system-clock .cp-brand-empty strong { color:#eee; }.cp-clock-world { padding:25px 15px; }.cp-clock-world>span { display:block; font-size:20px; }.cp-clock-world strong { display:block; font-size:60px; font-weight:200; margin:10px 0; }.cp-clock-world small { color:#999; }.cp-clock-instrument { padding:40px 15px; }.cp-clock-instrument>div:first-child { text-align:center; font-size:40px; font-weight:200; font-variant-numeric:tabular-nums; }.cp-clock-instrument>div:last-child { display:flex; justify-content:space-between; margin-top:35px; }.cp-clock-instrument button { width:60px; height:60px; border:3px double #000; border-radius:50%; background:#333; color:#bbb; font-size:12px; }.cp-clock-instrument button.start { background:#153d25; color:#34c759; }.cp-clock-instrument label { display:block; text-align:center; color:#aaa; font-size:12px; margin-top:22px; }.cp-clock-instrument input { width:60px; color:white; background:#222; border:1px solid #444; border-radius:5px; padding:8px; margin-left:10px; }
+.cp-system-settings { background:#f2f2f7; }.cp-system-settings .cp-scroll { padding:15px 12px; }.cp-system-settings .wc-ai-phone-app-title strong { font-size:29px; }.cp-system-settings .wc-ai-phone-settings-profile { background:white; border-radius:10px; padding:17px 12px; margin:18px 0; }.cp-system-settings .wc-ai-phone-settings-list { background:white; border-radius:10px; overflow:hidden; }.cp-system-settings .wc-ai-phone-ios-row { padding:15px 10px; }.cp-system-settings .wc-ai-phone-ios-row>i { width:26px; height:26px; display:grid; place-items:center; border-radius:6px; background:#007aff; color:white; font-size:17px; }.cp-system-settings .wc-ai-phone-ios-row:nth-child(2)>i { background:#f59d25; }.cp-system-settings .wc-ai-phone-ios-row em { font-size:9px; }.cp-system-settings .wc-ai-phone-ios-row strong { font-size:12px; }
+
+.cp-native-designed .cp-scroll,.cp-system-designed .cp-scroll,.cp-ig-stories,.cp-video-feed { scrollbar-width:none; }
+.cp-native-designed .cp-scroll::-webkit-scrollbar,.cp-system-designed .cp-scroll::-webkit-scrollbar,.cp-ig-stories::-webkit-scrollbar,.cp-video-feed::-webkit-scrollbar { display:none; }
+.cp-ig-stories { overflow-y:hidden; }
+.cp-red .cp-native-tabs button.active::after { background:#ff2442; }
+.cp-mail-search input { border:0; background:none; outline:none; flex:1; min-width:0; font-size:12px; }
+.cp-mail-message[hidden] { display:none; }
+.cp-system-diary .wc-ai-phone-diary-mailbox { background:transparent; }
+.cp-system-diary .wc-ai-phone-letter-hero { display:none; }
+.cp-fund-card em.down { color:#2daa81; }
+.cp-flight-heading { padding:14px 15px 6px; text-align:center; }
+.cp-flight-heading h2 { font:500 17px Arial,sans-serif; }
+.cp-flights .cp-native-header { color:#b51b2b; border-bottom:1px solid #ddd; font:24px Georgia,serif; }
+.cp-flights .cp-native-tabs { margin:8px 15px 15px; padding:0; border:1px solid #b51b2b; border-radius:3px; overflow:hidden; }
+.cp-flights .cp-native-tabs button { padding:9px 4px; color:#b51b2b; font-size:11px; }
+.cp-flights .cp-native-tabs button.active { background:#b51b2b; color:white; }
+.cp-flights .cp-native-tabs button.active::after { display:none; }
+.cp-flight-ticket { position:relative; border-radius:0; margin:0; border:0; border-bottom:1px solid #d7d7d7; box-shadow:none; background:#f5f5f5; padding:16px 24px 16px 16px; }
+.cp-flight-route { margin:12px 0; }
+.cp-flight-route b { font:600 17px Arial,sans-serif; }
+.cp-flight-ticket h3 { font-size:11px; margin:7px 0; }
+.cp-flight-ticket p { font-size:10px; margin-bottom:0; }
+.cp-flight-more { position:absolute; right:7px; top:50%; color:#bbb; }
+.cp-hotel-toolbar { display:flex; align-items:center; gap:12px; flex:none; background:#353e4b; color:white; padding:13px 12px; }
+.cp-hotel-toolbar button { color:inherit; background:none; border:0; padding:0; font-size:21px; }
+.cp-hotel-toolbar>span { flex:1; color:#d2d5db; font-size:11px; }
+.cp-hotels .cp-scroll { background:#353e4b; padding:0; }
+.cp-hotel-stay-strip { display:flex; gap:10px; padding:12px; background:#353e4b; overflow-x:auto; }
+.cp-hotel-stay { min-width:85%; position:relative; color:white; background:#485361; border:0; padding:15px; text-align:left; }
+.cp-hotel-stay small { display:block; font-size:8px; letter-spacing:1px; opacity:.7; }
+.cp-hotel-stay strong { display:block; font:16px Georgia,serif; margin:11px 0 9px; }
+.cp-hotel-stay span { font-size:10px; color:#ced5de; }
+.cp-hotel-stay>i { position:absolute; right:10px; top:50%; }
+.cp-hotel-destination { position:relative; min-height:390px; overflow:hidden; }
+.cp-hotel-destination>.cp-native-media,.cp-hotel-destination-empty { width:100%; height:390px; object-fit:cover; background:linear-gradient(140deg,#86988d,#53675c,#313d43); color:#c7d4cc; display:grid; place-items:center; }
+.cp-hotel-destination>.cp-native-media span { max-width:70%; color:#c7d4cc; }
+.cp-hotel-destination>div:last-child { position:absolute; bottom:0; inset-inline:0; padding:65px 20px 28px; background:linear-gradient(transparent,#101d2de8); color:white; text-align:center; }
+.cp-hotel-destination small { font-size:9px; letter-spacing:2px; }
+.cp-hotel-destination h2 { font:21px Georgia,serif; margin:12px 0; }
+.cp-hotel-destination p { font-size:11px; line-height:1.7; color:#ced6df; }
+.cp-hotel-destination button { margin-top:12px; width:100%; border:1px solid #ddd; padding:12px; background:none; color:white; font-size:11px; letter-spacing:1px; }
+.cp-golf .cp-native-header { background:#253749; color:white; }
+.cp-golf-hero { border-radius:0; margin:0; background:linear-gradient(140deg,#1169ae,#53a1cf); text-align:left; padding:27px 20px; color:white; }
+.cp-golf-hero h2 { font:700 29px/1.15 Arial,sans-serif; margin:12px 0 18px; }
+.cp-golf-hero>span { display:block; font-size:11px; }
+.cp-golf-hero>b { display:block; font-size:12px; margin-top:16px; }
+.cp-golf-membership { background:white; margin:0; padding:19px 15px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e4e8eb; font-size:12px; }
+.cp-golf-membership i { color:#367dab; margin-right:8px; }
+.cp-golf .cp-native-nav button.active { color:#2d83bc; }
+.cp-hotel-stay-strip { scrollbar-width:none; }
+.cp-hotel-stay-strip::-webkit-scrollbar { display:none; }
+.cp-hotel-destination>.cp-media-description span { display:none; }
+.cp-hotel-toolbar { min-height:48px; }
+.cp-hotel-toolbar>span { text-align:center; }
+.cp-item-detail .cp-scroll { padding:14px 18px 24px; }
+.cp-item-detail h2 { font-size:21px; overflow-wrap:anywhere; }
+.cp-item-detail img { width:100%; object-fit:contain; border-radius:10px; }
+.cp-item-detail .cp-letter { padding:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.8; font-size:13px; }
+.cp-item-detail dl { margin:20px 0; font-size:12px; }
+.cp-item-detail dl>div { display:flex; justify-content:space-between; gap:15px; border-bottom:1px solid #8883; padding:12px 0; }
+.cp-item-detail dt { color:#888; }
+.cp-item-detail dd { margin:0; text-align:right; }
+.cp-hotels .cp-hotel-toolbar>button { flex:none; width:24px; color:white; padding:0; font-size:21px; font-weight:400; }
+.cp-hotels .cp-hotel-toolbar>span { white-space:nowrap; font-size:11px; }

@@ -20,12 +20,16 @@ function getWechatAiPhoneAllApps() {
         { key: 'footprints', label: '足迹', icon: 'ri-map-pin-time-fill', tone: 'purple' },
         { key: 'usage', label: '使用记录', icon: 'ri-history-fill', tone: 'gray' },
         { key: 'clock', label: '时钟', icon: 'ri-time-fill', tone: 'orange' },
-        { key: 'settings', label: '设置', icon: 'ri-settings-3-fill', tone: 'gray' }
+        { key: 'settings', label: '设置', icon: 'ri-settings-3-fill', tone: 'gray' },
+        ...CHAR_PHONE_EXTRA_APPS
     ];
 }
 
 function getWechatAiPhoneApps(char = null, snapshot = null) {
-    return getWechatAiPhoneAllApps().filter(app => app.key !== 'games' || shouldWechatAiPhoneShowGames(char, snapshot));
+    const apps = getWechatAiPhoneAllApps();
+    const installed = snapshot?.installedApps;
+    if (Array.isArray(installed)) return apps.filter(app => installed.includes(app.key) || ['chat','settings'].includes(app.key)).map(app => ({...app,label:snapshot.appData?.[app.key]?.name || app.label}));
+    return apps.filter(app => app.key !== 'games' || shouldWechatAiPhoneShowGames(char, snapshot));
 }
 
 function getWechatAiPhoneAppMeta(tabName, char = null, snapshot = null) {

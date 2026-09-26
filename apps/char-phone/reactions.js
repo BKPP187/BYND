@@ -118,6 +118,7 @@ function flushWechatAiPhoneContactReplyReactions(char) {
 }
 
 function closeWechatAiPhone() {
+    resetCharPhoneClock();
     const charId = window._wechatAiPhoneOpenCharId;
     const char = (window.myCharacters || []).find(c => c.id === charId);
     const deferredTimer = window._wechatAiPhoneDeferredSyncTimers?.get(charId);
@@ -138,4 +139,3 @@ function closeWechatAiPhone() {
     window._wechatAiPhoneBrowserIndex = -1;
     flushWechatAiPhoneContactReplyReactions(char);
 }
-
