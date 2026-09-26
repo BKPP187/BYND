@@ -22,7 +22,7 @@ function pixels(width, height, cellX, cellY, mode = 'checker') {
 
 function harness() {
     const context = vm.createContext({ window: {} });
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-proportions.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/pet-proportions.js'), 'utf8'), context);
     return { context, proportions: context.window.ByndPetProportions };
 }
 

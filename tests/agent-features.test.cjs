@@ -34,7 +34,11 @@ function harness() {
     };
     sandbox.window = sandbox;
     const context = vm.createContext(sandbox);
-    for (const module of ['agent-tools', 'character-generator', 'openclaw-settings']) vm.runInContext(fs.readFileSync(path.join(root, 'modules/wechat/' + module + '.js'), 'utf8'), context);
+    for (const file of [
+        'systems/agent-runtime/agent-tools.js',
+        'apps/wechat/character/generator.js',
+        'apps/settings/openclaw-settings.js'
+    ]) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context);
     context.renderWechatAgentSettings = () => {};
     function connectionForm(values = {}) {
         const fields = Object.fromEntries(Object.entries({ endpoint: '', agentId: 'bynd-role-a', accountId: '', token: '', ...values }).map(([key, value]) => [key, { value, disabled: false }]));
@@ -191,7 +195,7 @@ test('streaming is a per-chat preference exposed in chat settings and off by def
     assert.equal(h.context.getWechatAgentPreferences(h.char).streamReplies, false);
     const panel = { dataset: {}, innerHTML: '', querySelectorAll: () => [] };
     h.nodes.set('wcs-agent-features', panel);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/wechat/agent-tools.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'systems/agent-runtime/agent-tools.js'), 'utf8'), h.context);
     h.context.renderWechatAgentSettings(h.char);
     assert.match(panel.innerHTML, /回复方式/);
     assert.match(panel.innerHTML, /data-agent-pref="streamReplies"/);

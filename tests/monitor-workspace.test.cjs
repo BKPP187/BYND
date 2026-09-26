@@ -188,7 +188,7 @@ test('a manual screen preview only reads one frame and a successful stop clears 
 
 test('monitor records and desktop-pet records are separate and keep their original timestamps', () => {
     const h = harness();
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/workspace.js'), 'utf8'), h.context);
     assert.equal(h.context.ByndMonitor.activity().length, 0);
     h.chars[0].history.push({ content: 'ordinary chat', timestamp: 900 });
     h.chars[0].history.push({ monitorEvent: true, content: '【旁观吐槽：你和B】hello', timestamp: 100, monitorLevel: 'island' });
@@ -203,7 +203,7 @@ test('monitor records and desktop-pet records are separate and keep their origin
 
 test('workspace image sources reject executable schemes and keep supported local images', () => {
     const h = harness();
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/workspace.js'), 'utf8'), h.context);
     const source = h.context.ByndMonitor.imageSource;
     for (const value of ['javascript:alert(1)', 'vbscript:test', 'data:text/html,<script>', '//untrusted.example/a']) assert.equal(source(value), '');
     for (const value of ['data:image/png;base64,AA==', 'blob:https://bynd.ccwu.cc/1', 'assets/avatar.png', 'https://example.test/a.png']) assert.equal(source(value), value);
@@ -211,7 +211,7 @@ test('workspace image sources reject executable schemes and keep supported local
 
 test('monitor and pet navigation persist separate tabs and do not affect either role binding', () => {
     const h = harness();
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/workspace.js'), 'utf8'), h.context);
     h.context.ByndPetWorkspace.navigate('phone');
     h.context.ByndMonitor.navigate('island');
     assert.equal(h.storage.getItem('bynd_pet_active_tool_v1'), 'phone');
@@ -226,13 +226,13 @@ async function rolePetWorkspace() {
     h.context.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options?.detail; } };
     h.context.dispatchEvent = () => {};
     h.context.saveMonitorPetAsset = async () => {};
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), h.context);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/character-pet.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), h.context);
     const C = h.context.ByndCharacterPet;
     const key = await C.storeAsset(h.chars[0], { url: 'data:image/png;base64,dGVzdA==', width: 3, height: 4, transparent: true });
     h.chars[0].chatConfig.characterPet = { active: false, baseKey: key, states: [] };
     h.storage.setItem('bynd_pet_selected_char_v1', h.chars[0].id);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/workspace.js'), 'utf8'), h.context);
     return { ...h, C, workspace: h.context.ByndPetWorkspace };
 }
 
@@ -436,7 +436,7 @@ test('a failed library preference write cannot deactivate a confirmed character 
 
 test('character-pet reactions from the persisted log appear in the pet 互动记录 page', () => {
     const h = harness();
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/workspace.js'), 'utf8'), h.context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/workspace.js'), 'utf8'), h.context);
     h.chars[0].chatConfig.characterPetLog = [{ text: '谢谢。', state: 'quiet_smile', at: 400 }, { text: '表情：浅笑', state: 'quiet_smile', at: 500 }, { text: '', at: 600 }];
     h.chars[0].chatConfig.monitorPetState = { bubbleText: 'pet', bubbleAt: 300 };
     assert.deepEqual(Array.from(h.context.ByndPetWorkspace.activity(), item => [item.text, item.kind, item.at]), [['表情：浅笑', 'pet', 500], ['谢谢。', 'pet', 400], ['pet', 'pet', 300]]);

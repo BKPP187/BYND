@@ -1,0 +1,35 @@
+@import url("../../apps/wechat/ui/base-overrides.css?v=1.1.698");
+@import url("../../apps/wechat/ui/reference-themes.css?v=1.1.698");
+
+/* style.css - main stylesheet */
+/* --- Core Utilities --- */
+.hidden { display: none !important; }
+
+:root {
+    --bg-color: #f2f4f6;
+    --bynd-mobile-bg: #f8f8f8;
+    --bynd-mobile-bg-image: none;
+    --accent-color: #333;
+    --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --lock-text: #222;
+    --lock-muted: #667085;
+    --lock-text-shadow: none;
+    --lock-chip-bg: rgba(255,255,255,0.56);
+    --lock-chip-border: rgba(255,255,255,0.72);
+    --lock-chip-text: #4c6f91;
+    --lock-control-bg: rgba(0,0,0,0.05);
+    --lock-control-text: #222;
+    --lock-swipe-bg: #ccc;
+    --lock-glass-shadow: 0 5px 14px rgba(112,145,180,0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--app-font-family); user-select: none; }
+
+body { background-color: #ddd; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+
+/* Hide the retired web splash in older cached HTML. */
+#bynd-startup { display: none !important; }
+
+.phone-container { width: 375px; height: 812px; background-color: var(--bynd-mobile-bg, var(--bg-color)); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 40px; position: relative; border: 8px solid #111; box-shadow: 0 30px 60px rgba(0,0,0,0.3); overflow: hidden; }
+.phone-container *::-webkit-scrollbar { display: none; }
+.phone-container * { scrollbar-width: none; -ms-overflow-style: none; }

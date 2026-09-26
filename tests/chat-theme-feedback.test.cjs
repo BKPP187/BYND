@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..');
 
 test('photo-header contrast stays in the BYND default theme and QQ keeps its own layout', () => {
     const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
-    const themeOverrides = fs.readFileSync(path.join(root, 'styles/wechat-themes/base-overrides.css'), 'utf8');
+    const themeOverrides = fs.readFileSync(path.join(root, 'apps/wechat/ui/base-overrides.css'), 'utf8');
     assert.match(css, /#app-wechat-window\.wc-ui-theme-bynd \.wc-chat-room\.has-custom-chat-bg \.wc-float-back/);
     assert.doesNotMatch(css, /#app-wechat-window\[class\*="wc-ui-theme-"\] \.wc-chat-room\.has-custom-chat-bg \.wc-float-back/);
     assert.match(css, /wc-ui-theme-qq \.wc-chat-room \.wc-rich-input\s*\{[\s\S]*?grid-column: 1 \/ 5 !important;/);
@@ -49,8 +49,8 @@ test('voice mode stays in the composer, monitor text is bounded, and the poke he
 });
 
 test('Rednote and WeChat composers keep compact controls while voice transcription stays available', () => {
-    const rednote = fs.readFileSync(path.join(root, 'styles/wechat-themes/reference-themes.css'), 'utf8');
-    const themeOverrides = fs.readFileSync(path.join(root, 'styles/wechat-themes/base-overrides.css'), 'utf8');
+    const rednote = fs.readFileSync(path.join(root, 'apps/wechat/ui/reference-themes.css'), 'utf8');
+    const themeOverrides = fs.readFileSync(path.join(root, 'apps/wechat/ui/base-overrides.css'), 'utf8');
     const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
     assert.match(rednote, /wc-ui-theme-rednote[\s\S]*?\.wc-input\s*\{[\s\S]*?font-size: 14px !important;[\s\S]*?font-weight: 650 !important;/);
     assert.match(themeOverrides, /WeChat hold-to-transcribe overlay[\s\S]*?\.wc-room-footer\s*\{[\s\S]*?height: 56px !important;[\s\S]*?gap: 7px !important;/);
@@ -73,7 +73,7 @@ test('Rednote and WeChat composers keep compact controls while voice transcripti
 test('inline emoji and Android backups use native representations instead of leaking markers or fake downloads', () => {
     const source = fs.readFileSync(path.join(root, 'wechat.js'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
-    const settings = fs.readFileSync(path.join(root, 'settings.js'), 'utf8');
+    const settings = fs.readFileSync(path.join(root, 'apps/settings/settings.js'), 'utf8');
     const activity = fs.readFileSync(path.join(root, 'android/app/src/main/java/cc/ccwu/bynd/MainActivity.java'), 'utf8');
     assert.match(source, /renderWechatAiPhoneInlineEmojiHtml/);
     assert.match(source, /wc-ai-phone-inline-emoji/);

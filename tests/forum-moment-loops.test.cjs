@@ -6,10 +6,10 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const worldSource = read('modules/living-world/living-world.js');
+const worldSource = read('systems/living-world/living-world.js');
 const wechat = read('wechat.js');
-const chatApi = read('chat-api.js');
-const comic = read('modules/comic/comic.js');
+const chatApi = read('core/api/chat-api.js');
+const comic = read('apps/comic/comic.js');
 const fn = (source, name) => {
     const from = source.search(new RegExp(`(?:async )?function ${name}\\(`));
     assert.ok(from >= 0, `missing function ${name}`);
@@ -166,8 +166,9 @@ test('drawing a forum post as a comic resolves the character id and lets NPC pos
     h.api.openPost('post_char'); h.api.comicCurrentPost();
     h.api.openPost('post_npc'); h.api.comicCurrentPost();
     assert.deepEqual(h.comicCalls.map(call => call[1]), ['friend', '']);
-    assert.match(comic, /const askChar = !prefill\.charId && !!state\.source && !charById\(state\.source\.charId\)/);
-    assert.match(comic, /\$\{askChar \? '<option value="" selected>请选择关联角色<\/option>' : ''\}/);
+    assert.match(comic, /const needsChar = !!source && !sourceChar && !prefill\.charId;/);
+    assert.match(comic, /const charId = needsChar \? '' :/);
+    assert.match(comic, /\$\{draft\.needsChar \? '<p class="ct-warn">这段内容来自论坛或梦境，请选择要画的角色。<\/p>' : ''\}/);
 });
 
 test('a world step can add one promotion once enough posts passed the configured gap', async () => {

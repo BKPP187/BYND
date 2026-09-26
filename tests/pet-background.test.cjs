@@ -80,10 +80,10 @@ function harness({ transparent = false, protocol = 'https:', mode = 'success', a
     });
     context.window = context;
     if (protocol === 'file:' && android) context.ByndAndroid = {};
-    vm.runInContext(sourceSection('modules/monitor/character-pet.js', 'function analyzeAlpha(', 'function imagePrompt('), context);
+    vm.runInContext(sourceSection('apps/monitor/character-pet.js', 'function analyzeAlpha(', 'function imagePrompt('), context);
     context.ByndCharacterPet = { analyzeAlpha: context.analyzeAlpha };
     context.ByndPetStudio = { sourceData: async source => source };
-    vm.runInContext(fs.readFileSync(path.join(root,'modules/monitor/pet-background.js'),'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root,'apps/monitor/pet-background.js'),'utf8'), context);
     return { state, B:context.ByndPetBackground, pixels, width, height };
 }
 
@@ -178,14 +178,14 @@ test('normal file previews skip blocked file XHR and fetch only public tool file
 });
 
 test('an HTTPS script uses its own app directory even when the embedding page has a file base URI', async () => {
-    const h = harness({protocol:'file:',android:false,scriptSource:'https://bynd.test/BYND/modules/monitor/pet-background.js?v=1.1.622'});
+    const h = harness({protocol:'file:',android:false,scriptSource:'https://bynd.test/BYND/apps/monitor/pet-background.js?v=1.1.622'});
     assert.equal((await h.B.remove(originalUrl)).transparent,true);
     assert.equal(h.state.requests.length,4);
     assert.ok(h.state.requests.every(request=>request.url.startsWith('https://bynd.test/BYND/') && request.transport==='fetch'));
 });
 
 test('nested preview pages cannot redirect resource paths away from the executing script', async () => {
-    const h = harness({baseURI:'https://preview.test/wrapper/session/',scriptSource:'https://bynd.test/modules/monitor/pet-background.js?v=1.1.622'});
+    const h = harness({baseURI:'https://preview.test/wrapper/session/',scriptSource:'https://bynd.test/apps/monitor/pet-background.js?v=1.1.622'});
     assert.equal((await h.B.remove(originalUrl)).transparent,true);
     assert.ok(h.state.requests.every(request=>request.url.startsWith('https://bynd.test/') && !request.url.includes('/wrapper/')));
 });

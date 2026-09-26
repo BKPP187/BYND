@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('modules/living-world/living-world.js');
+const source = read('systems/living-world/living-world.js');
 
 test('Living World has a local canonical store and does not generate feeds per perspective switch', () => {
     assert.match(source, /const STORAGE_KEY = 'bynd_living_world_v1'/);
@@ -34,7 +34,7 @@ test('Living World starts empty and accepts generated content through a validate
 });
 
 test('Living World keeps the mobile header quiet and makes the feed the first-screen subject', () => {
-    const css = read('modules/living-world/living-world.css');
+    const css = read('apps/forum/ui/forum.css');
     assert.match(source, /class="lw-search-pill"/);
     assert.match(source, /<span>搜索<\/span>/);
     assert.match(source, /\['home','主页'/);
@@ -370,8 +370,8 @@ test('Living World can promote a sufficiently known generated NPC into a saved c
 
 test('Living World is an app, uses safe areas, and is included in backup state', () => {
     const html = read('index.html');
-    const css = read('modules/living-world/living-world.css');
-    const settings = read('settings.js');
+    const css = read('apps/forum/ui/forum.css');
+    const settings = read('apps/settings/settings.js');
     assert.match(html, /data-app-id="living-world"/);
     assert.match(html, /id="app-living-world-window"/);
     assert.match(css, /safe-area-inset-top/);
@@ -458,7 +458,7 @@ test('blocking a member survives account refresh and hides their feed', async ()
 
 test('WeChat status and memory extraction consume only character-scoped forum context', () => {
     const wechat = read('wechat.js');
-    const chatApi = read('chat-api.js');
+    const chatApi = read('core/api/chat-api.js');
     assert.match(chatApi, /window\.getLivingWorldRelevantEventsForChar\(char, 4\)/);
     assert.match(wechat, /window\.getLivingWorldRelevantEventsForChar\(char, 3\)/);
     assert.match(wechat, /window\.getLivingWorldMemoryCandidatesForChar\(char, bucket\.meta\?\.lastExtractedAt \|\| 0\)/);

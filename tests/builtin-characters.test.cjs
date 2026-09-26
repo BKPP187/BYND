@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { root, memoryStorage } = require('./helpers/harness.cjs');
 
 const librarySource = fs.readFileSync(path.join(root, 'assets/characters/builtin/library.js'), 'utf8');
-const moduleSource = fs.readFileSync(path.join(root, 'modules/wechat/builtin-characters.js'), 'utf8');
+const moduleSource = fs.readFileSync(path.join(root, 'core/character/builtin-characters.js'), 'utf8');
 const artworkSource = fs.readFileSync(path.join(root, 'assets/characters/builtin/artwork.js'), 'utf8');
 
 function harness({ characters = [], ready = 'ready', fetchOk = true, saveResult = true, prompted = false } = {}) {

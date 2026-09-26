@@ -1,0 +1,51 @@
+    function togglePostMenu(id) { const menu = document.getElementById(`lw-menu-${id}`); if (menu) menu.hidden = !menu.hidden; }
+    function renderPostActionSheet() {
+        if (activeTab !== 'detail' || !postActionSheetOpen) return '';
+        const post = loadState().posts.find(item => item.id === activePostId); if (!post) return '';
+        const who = viewer().id, following = safeList(loadState().postFollows[who]).includes(post.id), saved = safeList(post.bookmarkedBy).includes(who);
+        const actions = [
+            ['ri-link','复制链接','copyPostLink'], ['ri-share-forward-line','分享','shareCurrentPost'],
+            [following ? 'ri-notification-off-line' : 'ri-notification-3-line',following ? '取消关注帖子' : '关注帖子','followCurrentPost'],
+            [saved ? 'ri-bookmark-fill' : 'ri-bookmark-line',saved ? '取消保存' : '保存','saveCurrentPost'],
+            ['ri-translate-2',showPostTranslation ? '显示原内容' : '翻译成中文','translateCurrentPost'],
+            ['ri-settings-3-line','语言和翻译','postLanguageInfo'],
+            ['ri-award-line','奖励此帖子','awardCurrentPost'], ['ri-file-copy-line','复制文本','copyPostText'],
+            ['ri-booklet-line','画成漫画','comicCurrentPost'],
+            ['ri-eye-off-line','隐藏','hideCurrentPost'],
+            ...(post.authorId === who ? [] : [['ri-user-unfollow-line','屏蔽账户','blockPostAuthor']]),
+            ['ri-flag-line','举报','reportCurrentPost'], ['ri-repeat-2-line','转载到社区','crosspostCurrentPost']
+        ];
+        return `<div class="lw-action-shade" role="presentation" onclick="if(event.target===this)LivingWorld.togglePostActions(false)"><section class="lw-action-sheet" role="dialog" aria-modal="true" aria-label="帖子操作"><div class="lw-action-grip"></div>${actions.map(([icon,label,method]) => `<button type="button" onclick="LivingWorld.${method}()"><i class="${icon}"></i><span>${label}</span></button>`).join('')}</section></div>`;
+    }
+    function togglePostActions(force) { postActionSheetOpen = typeof force === 'boolean' ? force : !postActionSheetOpen; render(); }
+    async function copyText(value) { try { if (!window.navigator?.clipboard?.writeText) throw new Error('当前环境不支持复制。'); await window.navigator.clipboard.writeText(value); showToast('已复制。'); } catch (error) { showToast(error.message || '复制失败。'); } }
+    function copyPostLink() { const id = activePostId; postActionSheetOpen = false; render(); void copyText(postLink(id)); }
+    function copyPostText() { const post = loadState().posts.find(item => item.id === activePostId); postActionSheetOpen = false; render(); if (post && !post.deletedAt) void copyText(`${post.title}\n\n${post.body || ''}`); }
+    function comicCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post || post.deletedAt) return; postActionSheetOpen = false; const author = String(post.authorId || ''); const charId = author.startsWith('char:') ? author.slice(5) : loadState().npcs.find(item => item.id === author)?.contactCharId || ''; window.ByndComic?.fromSource('forum', charId, `${post.title}\n\n${post.body || ''}`); }
+    function shareCurrentPost() { postActionSheetOpen = false; sharePost(activePostId); }
+    function saveCurrentPost() { postActionSheetOpen = false; toggleBookmark(activePostId); }
+    function followCurrentPost() { const id = activePostId; try { mutate(next => { const follows = new Set(safeList(next.postFollows[next.viewerId])); if (follows.has(id)) follows.delete(id); else follows.add(id); next.postFollows[next.viewerId] = [...follows]; }); postActionSheetOpen = false; render(); } catch (error) { showToast(error.message); } }
+    function hideCurrentPost() { const id = activePostId; try { mutate(next => { next.hiddenPosts[next.viewerId] = [...new Set([...safeList(next.hiddenPosts[next.viewerId]),id])]; }); postActionSheetOpen = false; activeTab = 'home'; activePostId = ''; render(); showToast('已隐藏，可在论坛设置中恢复。'); } catch (error) { showToast(error.message); } }
+    function restoreHiddenPost(id) { try { mutate(next => { next.hiddenPosts[next.viewerId] = safeList(next.hiddenPosts[next.viewerId]).filter(value => value !== id); }); render(); } catch (error) { showToast(error.message); } }
+    function blockPostAuthor() { const post = loadState().posts.find(item => item.id === activePostId); if (!post || post.authorId === viewer().id) return; postActionSheetOpen = false; toggleBlock(post.authorId); }
+    function reportCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post) return; const reason = window.prompt('举报原因（仅保存在本机，不会自动提交外部平台）'); if (reason === null) return; if (!reason.trim()) { showToast('请填写举报原因。'); return; } try { mutate(next => { next.reports.push({ id:uid('report'), postId:post.id, reporterId:next.viewerId, reason:reason.trim().slice(0,400), createdAt:now() }); next.reports = next.reports.slice(-100); }); postActionSheetOpen = false; render(); showToast('举报记录已保存在本机。'); } catch (error) { showToast(error.message); } }
+    function awardCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post) return; try { mutate(next => { next.awards.push({ id:uid('award'), postId:post.id, fromId:next.viewerId, createdAt:now() }); if (post.authorId !== next.viewerId) notify(next,post.authorId,'帖子收到奖励',`${account(next.viewerId).name} 向你的帖子送出了一枚徽章`,post.id); }); postActionSheetOpen = false; render(); showToast('已送出徽章。'); } catch (error) { showToast(error.message); } }
+    function crosspostCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post || post.deletedAt) return; postActionSheetOpen = false; previousTab = 'detail'; activeTab = 'create'; render(); const title = document.getElementById('lw-post-title'), body = document.getElementById('lw-post-body'); if (title) title.value = `转载：${post.title}`.slice(0,120); if (body) body.value = `${post.body || ''}\n\n来源：${community(post.communityId).name} · ${account(post.authorId).name}`.trim().slice(0,3000); updateCompose(); showToast('已填入转载草稿，请确认社区后发帖。'); }
+    function postLanguageInfo() { postActionSheetOpen = false; render(); showToast('英文内容可按需翻译成中文；翻译会调用外部服务。'); }
+    function sharePost(id) { const post = loadState().posts.find(item => item.id === id); if (!post || post.deletedAt) return; shareTarget = { type:'post', id }; render(); }
+    function tombstonePost(next, post, actorId, generated = false, deletedAt = now()) { if (!post || post.deletedAt) return; post.deletedAt = deletedAt; post.deletedBy = actorId; const event = generated ? addEvent(next, 'forum_delete', actorId, post.id, { title: post.title, generated: true }, 'public') : recordForumAction(next, 'forum_delete', actorId, post.id, { title: post.title }, 'critical'); event.createdAt = deletedAt; grantKnowledge(next, actorId, event, actorId, 'authored', 1); }
+    function deletePost(id) { const post = loadState().posts.find(item => item.id === id); if (!post || post.deletedAt || post.authorId !== viewer().id) return; if (!window.confirm('确定删除这条帖子吗？将显示“该贴已删”，原有记录不会消失。')) return; try { mutate(next => { tombstonePost(next, next.posts.find(item => item.id === id), next.viewerId); }); activeTab = 'home'; activePostId = ''; render(); showToast('帖子已删除，已看过的人仍可能记得内容。'); } catch (error) { showToast(error.message); } }
+    function toggleFollow(id) { if (id === viewer().id || !visibleMembers().some(item => item.id === id)) return; try { mutate(next => { const rows = new Set(safeList(next.follows[next.viewerId])); if (rows.has(id)) { rows.delete(id); recordForumAction(next, 'forum_unfollow', next.viewerId, id, {}, 'medium'); } else { rows.add(id); const action = recordForumAction(next, 'forum_follow', next.viewerId, id, {}, 'medium'); notify(next, id, '新关注', `${account(next.viewerId).name} 关注了你`, ''); grantKnowledge(next, id, action, next.viewerId, 'notification', 1); } next.follows[next.viewerId] = [...rows]; }); render(); } catch (error) { showToast(error.message); } }
+    function toggleBlock(id) { if (id === viewer().id || !account(id)?.id || account(id).id === 'unknown') return; try { mutate(next => { const who = next.accounts[next.viewerId] || next.npcs.find(item => item.id === next.viewerId); if (!who) throw new Error('当前论坛账号不可用。'); const blocked = new Set(safeList(who.blocked)); const adding = !blocked.has(id); if (adding) blocked.add(id); else blocked.delete(id); who.blocked = [...blocked]; const event = addEvent(next, adding ? 'forum_block' : 'forum_unblock', next.viewerId, id, {}, 'private'); grantKnowledge(next, 'user', event, 'user', 'direct', 1); if (next.viewerId !== 'user') { addEvent(next, 'forum_impersonation', 'user', next.viewerId, { action: event.type, publicEventId: event.id, targetId: id }, 'private'); recordTrace(next, next.viewerId, event.type, 'high', { targetId: id }); } }); render(); } catch (error) { showToast(error.message); } }
+    function votePoll(postId, optionId) { const who = viewer().id; try { mutate(next => { const post = next.posts.find(item => item.id === postId); if (!post || post.deletedAt || !isVisible(post, who) || !post.poll) throw new Error('投票已不可用。'); const option = safeList(post.poll.options).find(item => item.id === optionId); if (!option) throw new Error('投票选项不存在。'); post.poll.options.forEach(item => { item.voters = safeList(item.voters).filter(id => id !== who); }); option.voters.push(who); recordForumAction(next, 'forum_poll_vote', who, postId, { optionId }, 'medium', 'private'); }); render(); } catch (error) { showToast(error.message); } }
+    function recordForumAction(next, type, apparentActorId, targetId, metadata = {}, risk = 'low', visibility = 'public') {
+        const impersonated = apparentActorId !== 'user';
+        const publicEvent = addEvent(next, type, apparentActorId, targetId, metadata, visibility);
+        if (!impersonated) grantKnowledge(next, apparentActorId, publicEvent, apparentActorId, 'authored', 1);
+        if (impersonated) {
+            const privateEvent = addEvent(next, 'forum_impersonation', 'user', apparentActorId, { action: type, publicEventId: publicEvent.id, targetId, risk }, 'private');
+            grantKnowledge(next, 'user', privateEvent, 'user', 'direct', 1);
+            recordTrace(next, apparentActorId, type, risk, { publicEventId: publicEvent.id, targetId });
+        }
+        return publicEvent;
+    }

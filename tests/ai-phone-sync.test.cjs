@@ -58,7 +58,7 @@ function harness(savedChar) {
             return saved;
         }
     });
-    vm.runInContext(fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8'), context);
     context.callChatApi = async (messages, options) => {
         state.requests.push({ messages, options });
         return state.respond(messages, options);

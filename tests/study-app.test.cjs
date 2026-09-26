@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { root, memoryStorage, deferred } = require('./helpers/harness.cjs');
 
-const source = fs.readFileSync(path.join(root, 'modules/study/study-app.js'), 'utf8');
+const source = fs.readFileSync(path.join(root, 'apps/study/study-app.js'), 'utf8');
 const KEYS = { cards: 'bynd_study_cards_v1', languages: 'bynd_study_languages_v1', settings: 'bynd_study_settings_v1', chats: 'bynd_study_chats_v1', checkins: 'bynd_study_checkins_v1' };
 const plain = value => JSON.parse(JSON.stringify(value));
 const turn = (reply, extra = {}) => ({ ok: true, content: JSON.stringify({ reply, versions: {}, translation: '翻译：' + reply, correction: null, words: [], ...extra }) });

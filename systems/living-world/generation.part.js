@@ -1,0 +1,47 @@
+    async function generate(options = {}) {
+        if (isGenerating) return; if (typeof window.callChatApi !== 'function') { showToast('当前版本找不到 AI 调用层。'); return; }
+        isGenerating = true; render(); showToast('世界正在整理新的痕迹…');
+        const context = getGenerationContext(); const bootstrap = options.bootstrap === true || !context.communities.length; const prompt = `你是 BYND Living World 的批量演绎器。论坛是当前世界真实存在的公共空间，User、Char、NPC 都有自己的生活。程序保存的身份、关系、时间和事件是 Canon，不得修改。公开帖子只是某人说过的话，不代表内容真实；角色只能依据自己已知的事实行动，不能把本提示中的全局线索当作人人已知。knownPublicEventIds 是各角色已知的公开事件；没有来源的角色不要暗示知道私聊、匿名身份、他人的搜索或系统后台。不要代替 User 发帖、回复、传播知识或改变关系。允许任何角色保持沉默或潜水；不要为了填满数组强行制造互动。普通生活和兴趣内容应占多数，禁止所有 NPC 同一种语气、所有帖子都围绕 User 或无故制造冲突。模型只创作公开言论；新事实、关系、知识变化只能走下列结构化字段并由程序验证。所有内容、社区和 NPC 必须由你生成，不能使用示例或占位角色。只输出严格 JSON，不要 Markdown：{"newCommunities":[{"id":"英文唯一id","name":"","description":"","icon":"ri-community-line"}],"newNPCs":[{"id":"英文唯一id","name":"","username":"","summary":"","style":"说话风格","occupation":"职业身份","interests":["communityId"],"avatar":"可空"}],"newPosts":[{"authorId":"非User的现有或本批NPC ID","communityId":"现有或本批社区ID","title":"","body":"","imageUrl":"可空"}],"newComments":[{"authorId":"非User的现有角色ID","postId":"既有公开帖子ID","body":""}],"relationshipChanges":[{"fromId":"","toId":"","deltas":{"trust":1},"reasonEventId":"当事人已知且相关的公开事件ID"}],"knowledgeTransfers":[{"sourceId":"","recipientId":"","eventId":"来源者已知的公开事件ID","confidence":0.7}]}。没有合理来源就让关系变化和知识传播为空数组。${bootstrap ? '这是世界第一次启动：生成 4-6 个社区、6-10 个彼此风格不同的普通 NPC，以及 5-8 条主要与 User 无关的帖子。' : `世界经过约 ${Math.max(1, Math.floor(Number(options.elapsed || DAY) / DAY))} 天；只生成 3-6 条新帖和少量有来源的回复。` }\n\n本次可用的局部公开状态（不是任何角色的全知视角）：\n${JSON.stringify(context)}`;
+        let outcome = '';
+        try {
+        const enrichedPrompt = `${prompt}\n\n补充强制规则：worldSeeds 是现有 Char 的角色卡及世界书，只可用来构造与其世界合理相关的 NPC，不得视为每个人都知道的事实。每个 newNPC 必须增加 originCharId，值为 worldSeeds 中真实 charId；没有 worldSeeds 时 newNPCs 留空。若现有社区不适合角色主题，可由角色自然创建 newCommunities 并在同批 newPosts 引用，不要创建空泛重复社区。不得自行填 avatar 图片 URL；头像只走应用的生图 API。newNPC 可提供 avatarPrompt。额外可输出 profileUpdates:[{id,name,username:"@可变社交ID",summary,mood,followerCount,avatarPrompt}]，为现有非 User 角色或本批 NPC 生成会随心情变化的公开主页；followerCount 是公开粉丝总数，不得低于已知真实关注人数，不要凭空创建粉丝身份；mood 是当前状态，不必对用户公开；社交昵称、@ID 和签名要自然，不要照抄角色卡私密信息。可输出 deletePosts:[{postId,authorId}]，仅作者删除自己既有的 AI 帖；保留墓碑。newPosts 可选 deleteAfterMinutes（1-120），表示作者稍后反悔删帖；也可选 amaDurationHours（1、2、4、8、12、24）与 amaStartsInMinutes（0-43200），让非 User 角色合理举办限时问答，过期后不再公开。可输出 socialLinks:[{fromId,toId,kind:"met|heard",sourceEventId,viaId}]；必须有 fromId 已知的既有事件为依据，heard 要有传话者 viaId，不要制造双向全知关系。realNews 是外部真实标题与来源，不得改写为未经核实的事实；可输出 newNewsComments:[{authorId,newsId,body}]，让非 User 角色在 BYND 内讨论这些资讯，但不冒充外部平台发言。若 promotionsEnabled 为 true，可输出 newPromotions:[{sponsor,headline,body,detail,cta,targetCommunityIds:["社区ID"],privateFor:"user或空"}]，从角色世界书与 viewerSignals 出发写世界内的推广；明确是推广，不写真实广告商或外部跳转；privateFor=user 仅用户可见，禁止把私人搜索内容直接复述为确定的现实事实。promotionsEnabled 为 false 则此数组必须为空。除有据可依的内容外，上述数组留空。`;
+            const result = await window.callChatApi([{ role: 'system', content: '返回一段可以安全写入本地世界状态的 JSON。' }, { role: 'user', content: enrichedPrompt }], { background: true, backgroundPriority: -1, stream: false, temperature: .86, max_tokens: 6200, usageFeature: 'world' });
+            if (!result?.ok) throw new Error(result?.error || 'AI 世界演绎失败。'); const valid = validateBatch(parseJsonBatch(result.content));
+            mutate(next => {
+                next.communities.push(...valid.communities); next.npcs.push(...valid.newNpcs);
+                const span = options.offline ? Math.min(7 * DAY, Math.max(0, Number(options.elapsed || 0))) : 0;
+                valid.posts.forEach(item => {
+                    const createdAt = now() - (span ? Math.floor(Math.random() * span) : 0);
+                    const amaStartsAt = item.amaDurationHours ? createdAt + item.amaStartsInMinutes * 60000 : 0;
+                    const post = { id: uid('post'), ...item, createdAt, ama: !!item.amaDurationHours, amaStartsAt, expiresAt: amaStartsAt ? amaStartsAt + item.amaDurationHours * 3600000 : 0, plannedDeleteAt: item.deleteAfterMinutes ? createdAt + item.deleteAfterMinutes * 60000 : 0, likes: 0, commentCount: 0, bookmarks: 0, likedBy: [], bookmarkedBy: [], visibility: 'public', generated: true };
+                    next.posts.unshift(post);
+                    const event = addEvent(next, 'forum_post', post.authorId, post.id, { generated: true, communityId: post.communityId, title: post.title, excerpt: post.body.slice(0, 180) }, 'public'); event.createdAt = createdAt;
+                    grantKnowledge(next, post.authorId, event, post.authorId, 'authored', 1);
+                });
+                valid.comments.forEach(item => {
+                    const post = next.posts.find(row => row.id === item.postId);
+                    const createdAt = Math.max(Number(post.createdAt || 0) + 1, now() - (span ? Math.floor(Math.random() * span) : 0));
+                    const row = { id: uid('comment'), ...item, createdAt, generated: true };
+                    next.comments.push(row); post.commentCount = Number(post.commentCount || 0) + 1;
+                    const sourcePost = next.events.find(event => event.type === 'forum_post' && event.targetId === post.id && event.visibility === 'public');
+                    if (sourcePost) grantKnowledge(next, row.authorId, sourcePost, post.authorId, 'read', 1);
+                    const event = addEvent(next, 'forum_reply', row.authorId, post.id, { generated: true, commentId: row.id, excerpt: row.body.slice(0, 180) }, 'public'); event.createdAt = createdAt;
+                    grantKnowledge(next, row.authorId, event, row.authorId, 'authored', 1);
+                    if (post.authorId !== row.authorId) { const authorName = next.npcs.find(npc => npc.id === row.authorId)?.name || account(row.authorId).name; notify(next, post.authorId, '有人回复了你的帖子', `${authorName}：${row.body.slice(0, 70)}`, post.id); grantKnowledge(next, post.authorId, event, row.authorId, 'notification', 1); applyRelationshipDelta(next, row.authorId, post.authorId, { familiarity: 1 }, event.id); applyRelationshipDelta(next, post.authorId, row.authorId, { familiarity: 1, guardedness: 1 }, event.id); }
+                });
+                valid.newsComments.forEach(item => { const row = { id:uid('newscomment'), ...item, createdAt:now(), generated:true }; next.newsComments.push(row); const news = next.newsItems.find(entry => entry.id === item.newsId); const event = addEvent(next,'forum_news_reply',item.authorId,item.newsId,{ generated:true, commentId:row.id, title:news?.title || '', source:news?.source || '', excerpt:row.body.slice(0,140) },'public'); grantKnowledge(next,item.authorId,event,item.authorId,'authored',1); });
+                valid.promotions.forEach(item => next.promotions.push({ id:uid('promotion'), ...item, createdAt:now(), generated:true }));
+                next.promotions = next.promotions.slice(-40);
+                valid.relationships.forEach(item => applyRelationshipDelta(next, item.fromId, item.toId, item.deltas, item.reasonEventId));
+                valid.transfers.forEach(item => { const event = next.events.find(row => row.id === item.eventId); if (event) grantKnowledge(next, item.recipientId, event, item.sourceId, 'reported', item.confidence); });
+                valid.profiles.forEach(item => { const { avatarPrompt, id, ...publicFields } = item; const npc = next.npcs.find(row => row.id === id); if (npc) Object.assign(npc, publicFields, { profileGeneratedAt: now() }); else next.publicProfiles[id] = { ...next.publicProfiles[id], ...publicFields, profileGeneratedAt: now() }; if (next.accounts[id]) Object.assign(next.accounts[id],publicFields); next.profilePrompts[id] = avatarPrompt; const event = addEvent(next, 'forum_profile_change', id, id, { name: item.name, username: item.username, summary: item.summary }, 'public'); grantKnowledge(next, id, event, id, 'authored', 1); });
+                valid.newNpcs.forEach(item => { if (item.avatarPrompt) next.profilePrompts[item.id] = item.avatarPrompt; });
+                valid.deletions.forEach(item => tombstonePost(next, next.posts.find(post => post.id === item.postId), item.authorId, true));
+                valid.links.forEach(item => { const existing = next.socialLinks.find(link => link.fromId === item.fromId && link.toId === item.toId); const source = next.events.find(event => event.id === item.sourceEventId); const link = { ...item, sourceLabel: source?.type === 'forum_post' ? '曾看到公开发帖' : source?.type === 'forum_reply' ? '曾看到互动回复' : '已知事件', updatedAt: now() }; if (existing) Object.assign(existing, link); else next.socialLinks.push(link); });
+                next.lastSimulatedAt = now(); next.migration = { ...next.migration, apiGenerated: true };
+            });
+            const avatars = loadState().forumSettings.profileMode === 'full' ? await generatePendingAvatars(2) : { made: 0, error: '' };
+            outcome = `世界新增 ${valid.communities.length} 个社区、${valid.newNpcs.length} 位参与者和 ${valid.posts.length} 条帖子；更新 ${valid.profiles.length} 份资料、${valid.newsComments.length} 条资讯讨论和 ${valid.promotions.length} 条推广。${avatars.made ? `生成 ${avatars.made} 张头像。` : ''}${avatars.error ? `生图未完成：${avatars.error}` : ''}`;
+        } catch (error) { console.warn('Living World AI batch rejected', error); outcome = error?.message || '生成失败，世界状态未改动。'; }
+        finally { isGenerating = false; processPlannedDeletes(); render(); showToast(outcome); }
+    }

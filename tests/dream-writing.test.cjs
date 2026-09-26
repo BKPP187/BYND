@@ -73,7 +73,7 @@ test('writing choices persist, reject unknown values, and recover from malformed
     assert.deepEqual(plain(c.getDreamWritingPreferences()), { style: 'prose', viewpoint: 'second' });
     store.set(writingKey, '{broken');
     assert.deepEqual(plain(c.getDreamWritingPreferences()), { style: 'prose', viewpoint: 'character' });
-    const backup = fs.readFileSync('settings.js', 'utf8').split('const ALL_DATA_KEYS = [')[1].split('];')[0];
+    const backup = fs.readFileSync('apps/settings/settings.js', 'utf8').split('const ALL_DATA_KEYS = [')[1].split('];')[0];
     assert.ok(backup.includes("'" + writingKey + "'"), 'backups must retain dream preferences');
 });
 

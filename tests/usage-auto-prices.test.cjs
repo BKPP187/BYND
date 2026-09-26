@@ -24,7 +24,7 @@ function harness({ fetchImpl } = {}) {
         window, localStorage: storage, URL, setTimeout, clearTimeout, console: { warn() {}, error() {}, log() {} },
         fetch: fetchImpl || (async url => { calls.push(url); return { ok: true, json: async () => OPENROUTER }; })
     });
-    vm.runInContext(read('modules/usage/ledger.js'), context);
+    vm.runInContext(read('systems/usage/ledger.js'), context);
     return { ledger: window.ByndUsageLedger, storage, calls };
 }
 
@@ -70,7 +70,7 @@ test('a failed price fetch keeps the previous list and never throws', async () =
 });
 
 test('the bill shows automatic prices read-only and only asks for a manual price when none is found', () => {
-    const bill = read('modules/usage/bill-app.js');
+    const bill = read('systems/usage/bill-app.js');
     assert.match(bill, /OpenRouter 自动/);
     assert.match(bill, /查不到公开价格/);
     assert.match(bill, /data-action="refresh-prices"/);

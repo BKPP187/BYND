@@ -1,17 +1,25 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { scriptParts, wechatParts, styleParts, forumParts, comicParts, settingsParts } = require('../scripts/source-layout.cjs');
 
 const root = path.resolve(__dirname, '..');
 function javascriptFiles(directory, recurse = false) {
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
         const file = path.join(directory, entry.name);
         return entry.isDirectory() && recurse ? javascriptFiles(file, true)
-            : entry.isFile() && entry.name.endsWith('.js') ? [file] : [];
+            : entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.part.js') ? [file] : [];
     });
 }
 
-const scripts = [...javascriptFiles(root), ...javascriptFiles(path.join(root, 'modules'), true)];
+require('../scripts/assemble-sources.cjs');
+const scripts = [
+    ...javascriptFiles(root),
+    ...['apps', 'core', 'systems', 'ui'].flatMap(directory => javascriptFiles(path.join(root, directory), true))
+];
+for (const part of [...scriptParts, ...wechatParts, ...styleParts, ...forumParts, ...comicParts, ...settingsParts]) {
+    if (!fs.existsSync(path.join(root, part))) throw new Error(`Missing runtime source: ${part}`);
+}
 for (const file of scripts) {
     const check = spawnSync(process.execPath, ['--check', file], { cwd: root, encoding: 'utf8' });
     if (check.status !== 0) {

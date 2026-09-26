@@ -9,7 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
 const ok = (content, usage, finish = 'stop') => new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: finish }], usage }), { status: 200 });
 
-// chat-api.js + api-ticket.js + ledger.js in one vm; no indexedDB, so the ledger uses its in-memory store.
+// core/api/chat-api.js + api-ticket.js + ledger.js in one vm; no indexedDB, so the ledger uses its in-memory store.
 function harness({ withLedger = true, storage = memoryStorage() } = {}) {
     const requests = [];
     let respond = () => ok('你好', { prompt_tokens: 120, completion_tokens: 8, total_tokens: 128, prompt_tokens_details: { cached_tokens: 100 } });
@@ -20,9 +20,9 @@ function harness({ withLedger = true, storage = memoryStorage() } = {}) {
         getDefaultApi: () => ({ name: '我的中转', baseUrl: 'https://l0veyou.com/v1', model: 'claude-test', apiKey: 'sk-secretsecretsecret123' }),
         fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) }); return respond(requests.length); }
     });
-    vm.runInContext(read('chat-api.js'), context);
-    vm.runInContext(read('modules/wechat/api-ticket.js'), context);
-    if (withLedger) vm.runInContext(read('modules/usage/ledger.js'), context);
+    vm.runInContext(read('core/api/chat-api.js'), context);
+    vm.runInContext(read('systems/usage/api-ticket.js'), context);
+    if (withLedger) vm.runInContext(read('systems/usage/ledger.js'), context);
     return { context, window, requests, storage, ledger: window.ByndUsageLedger, setRespond: fn => { respond = fn; } };
 }
 

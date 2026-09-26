@@ -14,8 +14,8 @@ function harness() {
         getDefaultApi: () => ({ baseUrl: 'https://example.invalid/v1', model: 'debug-model' }),
         fetch: async (_url, options) => { requests.push(JSON.parse(options.body)); return respond(); }
     });
-    vm.runInContext(fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8'), context);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/wechat/api-ticket.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'systems/usage/api-ticket.js'), 'utf8'), context);
     return { context, requests, setRespond: fn => { respond = fn; } };
 }
 

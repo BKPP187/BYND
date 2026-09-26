@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { root } = require('./helpers/harness.cjs');
 
-const source = fs.readFileSync(path.join(root, 'modules/wechat/web-search.js'), 'utf8');
+const source = fs.readFileSync(path.join(root, 'systems/agent-runtime/web-search.js'), 'utf8');
 function harness({ answer = '{"search":true,"query":"今天新闻"}', fetchResult, fetchError } = {}) {
     const calls = [];
     const window = {

@@ -9,11 +9,11 @@ const plain = value => JSON.parse(JSON.stringify(value));
 function loadBillApp() {
     const window = {};
     const context = vm.createContext({ window, console, setTimeout, clearTimeout, requestAnimationFrame: fn => fn(), document: { getElementById: () => null } });
-    vm.runInContext(fs.readFileSync('modules/usage/bill-app.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('systems/usage/bill-app.js', 'utf8'), context);
     return window.ByndBillApp._internal;
 }
 
-// Tiny in-memory stand-in for window.ByndUsageLedger (modules/usage/ledger.js).
+// Tiny in-memory stand-in for window.ByndUsageLedger (systems/usage/ledger.js).
 function fakeLedger(entries, prices = {}) {
     const FEATURES = [
         { key: 'chat', label: '聊天' }, { key: 'forum', label: '论坛 Agent' }, { key: 'world', label: '世界轨迹' },
@@ -115,6 +115,49 @@ test('breadcrumb drills down to one second and back up', () => {
     assert.deepEqual(plain(inView), [2026, 8, 24, 10, 37]);
     const lastWithData = b.unitPath([2025], 'day', { range: b.buildRange([2025]), buckets: [{ from: at(2025, 2, 1), requests: 3 }, { from: at(2025, 6, 1), requests: 1 }, { from: at(2025, 7, 1), requests: 0 }], now: at(2026, 0, 1) });
     assert.deepEqual(plain(lastWithData), [2025, 6]);
+});
+
+test('date bounds validate the range and include the entire ending day', () => {
+    const { dateBounds } = loadBillApp();
+    assert.deepEqual(plain(dateBounds('2024-02-29', '2024-03-01')), {
+        valid: true, from: at(2024, 1, 29), to: at(2024, 2, 2)
+    });
+    assert.deepEqual(plain(dateBounds('', '2026-09-25')), { valid: true, from: null, to: at(2026, 8, 26) });
+    assert.deepEqual(plain(dateBounds('2027-01-01', '')), { valid: true, from: at(2027, 0, 1), to: null });
+    assert.equal(dateBounds('2026-02-29', '').valid, false);
+    assert.equal(dateBounds('2026-09-26', '2026-09-25').valid, false);
+});
+
+test('date filter narrows summary, chart and deeper queries without dropping the last day', async () => {
+    const b = loadBillApp();
+    const ledger = fakeLedger([
+        entry(at(2026, 8, 23, 23, 59)),
+        entry(at(2026, 8, 24, 10)),
+        entry(at(2026, 8, 25, 23, 59)),
+        entry(at(2026, 8, 26, 0))
+    ]);
+    const view = { path: [], metric: 'total', filters: {}, selected: null, dateFrom: '2026-09-24', dateTo: '2026-09-25' };
+    const model = await b.buildViewModel(ledger, view, at(2026, 8, 25));
+    assert.equal(model.summary.requests, 2);
+    assert.equal(model.buckets.reduce((sum, bucket) => sum + bucket.requests, 0), 2);
+    assert.equal(ledger.calls.at(-1).from, at(2026, 8, 24));
+    assert.equal(ledger.calls.at(-1).to, at(2026, 8, 26));
+    const html = b.renderHtml(model, view, {});
+    assert.match(html, /class="bill-date-filter"/);
+    assert.match(html, /name="from" value="2026-09-24"/);
+    assert.match(html, /name="to" value="2026-09-25"/);
+
+    const day = await b.buildViewModel(ledger, { ...view, path: [2026, 8, 25] }, at(2026, 8, 25));
+    assert.equal(day.summary.requests, 1);
+    assert.equal(ledger.calls.at(-1).from, at(2026, 8, 25));
+    assert.equal(ledger.calls.at(-1).to, at(2026, 8, 26));
+    const callCount = ledger.calls.length;
+    const outside = await b.buildViewModel(ledger, { ...view, path: [2026, 8, 26] }, at(2026, 8, 25));
+    assert.equal(outside.summary.requests, 0);
+    assert.equal(ledger.calls.length, callCount, 'a drill path outside the selected dates skips the ledger query');
+
+    const future = await b.buildViewModel(ledger, { ...view, dateFrom: '2027-01-01', dateTo: '' }, at(2026, 8, 25));
+    assert.deepEqual(plain(future.buckets.map(bucket => bucket.part)), [2027]);
 });
 
 test('summary totals, cache hit rate, estimated marker and partial cost', async () => {
@@ -300,13 +343,13 @@ test('账单 is registered as a dock app with a themable icon slot and window wi
     assert.match(html, /<div class="dock-item" onclick="openApp\('bill'\)">/);
     assert.match(html, /<div id="app-bill-window" class="app-window hidden/);
     assert.match(html, /closeApp\('bill'\)/);
-    assert.match(html, /styles\/bill-app\.css\?v=/);
-    const ticket = html.indexOf('modules/wechat/api-ticket.js');
-    const bill = html.indexOf('modules/usage/bill-app.js');
+    assert.match(html, /systems\/usage\/bill-app\.css\?v=/);
+    const ticket = html.indexOf('systems/usage/api-ticket.js');
+    const bill = html.indexOf('systems/usage/bill-app.js');
     assert.ok(ticket > 0 && bill > ticket, 'bill app loads after the receipt module');
-    const ledger = html.indexOf('modules/usage/ledger.js');
+    const ledger = html.indexOf('systems/usage/ledger.js');
     if (ledger > 0) assert.ok(bill > ledger, 'bill app loads after the ledger');
-    const css = fs.readFileSync('styles/bill-app.css', 'utf8');
+    const css = fs.readFileSync('systems/usage/bill-app.css', 'utf8');
     const selectors = Array.from(css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g), m => m[1].trim()).filter(s => s && !s.startsWith('@'));
     assert.ok(selectors.length > 50);
     for (const group of selectors) for (const selector of group.split(',').map(s => s.trim()).filter(Boolean)) {

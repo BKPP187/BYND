@@ -76,8 +76,8 @@ function harness() {
         wcEscapeHtml: value => String(value).replace(/[<>&"]/g, char => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[char]))
     });
     vm.runInContext(sourceSection('wechat.js', 'function buildWechatWorldBookPrompt(', 'function getWechatVoicePromptContent('), context);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), context);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/character-pet.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), context);
     return { context, C: context.window.ByndCharacterPet, studio: context.window.ByndPetStudio, char, other, data, state, timers };
 }
 
@@ -1218,8 +1218,8 @@ function imagePipelineHarness(shape = 'portrait', viaUrl = false, opaque = false
     };
     vm.runInContext(sourceSection('wechat.js', 'async function callWechatImageGenerationApi(', 'function getWechatImageReferenceForChar('), h.context);
     const reload = () => {
-        vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), h.context);
-        vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), h.context);
+        vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/character-pet.js'), 'utf8'), h.context);
+        vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), h.context);
         return { C: h.context.window.ByndCharacterPet, studio: h.context.window.ByndPetStudio };
     };
     return { ...h, requests, exported, removals, reload, original, file: () => new Blob([bytes(original)], { type: 'image/png' }) };

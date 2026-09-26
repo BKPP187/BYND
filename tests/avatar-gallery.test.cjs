@@ -102,5 +102,5 @@ test('the mood recognizer sends every avatar in one request and the prompt asks 
     const body = source.slice(source.indexOf('async function recognizeWechatAvatarMoods('), source.indexOf('function handleWechatAvatarGalleryTap('));
     assert.equal(body.match(/callChatApi\(/g).length, 1);
     assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /onclick="recognizeWechatAvatarMoods\(\)"/);
-    assert.match(fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8'), /每个普通气泡只放一句话[\s\S]{0,40}通常不超过 25 个字/);
+    assert.match(fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8'), /每个普通气泡只放一句话[\s\S]{0,40}通常不超过 25 个字/);
 });

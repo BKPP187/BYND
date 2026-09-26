@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
-const theme = fs.readFileSync('theme.js', 'utf8');
+const theme = fs.readFileSync('ui/theme/theme.js', 'utf8');
 const script = fs.readFileSync('script.js', 'utf8');
 const prefix = theme.slice(0, theme.indexOf('function migrateThemeIconData'));
 const iconFunctions = script.slice(script.indexOf('function getDesktopThemeData('), script.indexOf('function renderDesktopAppIcon('));

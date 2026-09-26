@@ -3,6 +3,49 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const { sourceSection } = require('./helpers/harness.cjs');
 
+function spacingPlan() {
+    const context = vm.createContext({});
+    vm.runInContext(sourceSection('ui/components/desktop-layout.js', 'function getDesktopAppRowSpacingPlan(', 'function tightenDesktopAppRowSpacing('), context);
+    return context.getDesktopAppRowSpacingPlan;
+}
+
+test('oversized legacy app rows tighten while the calendar stays put and the trailing photo follows', () => {
+    const planSpacing = spacingPlan();
+    const apps = [214, 348].flatMap((top, row) => [20, 110, 200, 290].map((left, column) => ({
+        id: `app-${row}-${column}`, isApp: true, left, top, width: 72, height: 110
+    })));
+    const calendar = { id: 'calendar', left: 18, top: 18, width: 339, height: 180 };
+    const photo = { id: 'photo', isPhoto: true, left: 18, top: 466, width: 339, height: 150 };
+    const records = [calendar, ...apps, photo];
+    const metrics = { iconHeight: 82, gapY: 18, canvasWidth: 375 };
+    const plan = planSpacing(records, metrics);
+    assert.equal(plan.length, 9);
+    assert.equal(plan.some(record => record.id === 'calendar'), false);
+    assert.equal(plan[0].top, 228, 'the first row keeps its original content centre');
+    assert.equal(plan[4].top, 328);
+    assert.equal(plan[4].top - plan[0].top, 100);
+    assert.equal(plan.at(-1).top, 418, 'the photo keeps the same clearance below the last row');
+    apps.forEach(record => {
+        const changed = plan.find(item => item.id === record.id);
+        assert.equal(changed.left, record.left);
+        assert.equal(changed.height, 82);
+    });
+    const applied = records.map(record => plan.find(change => change.id === record.id) || record);
+    assert.equal(planSpacing(applied, metrics).length, 0, 'reopening cannot shrink the rows repeatedly');
+});
+
+test('row spacing repair respects components between rows, folders and partial custom rows', () => {
+    const planSpacing = spacingPlan();
+    const apps = [200, 334].flatMap((top, row) => [20, 110, 200, 290].map((left, column) => ({
+        id: `app-${row}-${column}`, isApp: true, left, top, width: 72, height: 82
+    })));
+    const metrics = { iconHeight: 82, gapY: 18, canvasWidth: 375 };
+    assert.equal(planSpacing(apps, metrics)[4].top, 300, 'already small app boxes also lose the excessive row gap');
+    assert.equal(planSpacing([...apps, { id: 'note', left: 18, top: 290, width: 339, height: 35 }], metrics).length, 0);
+    assert.equal(planSpacing(apps.map((record, index) => index ? record : { ...record, isFolder: true }), metrics).length, 0);
+    assert.equal(planSpacing(apps.slice(0, -1), metrics).length, 0);
+});
+
 test('second-page app grid remains four centered columns on narrow screens', () => {
     const context = vm.createContext({});
     vm.runInContext(sourceSection('script.js', 'function getDesktopFourColumnAppGridMetrics(', 'function normalizeSecondPageAppGrid('), context);

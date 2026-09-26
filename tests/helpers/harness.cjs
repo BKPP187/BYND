@@ -76,7 +76,7 @@ function storageHarness({ local, meta, record = null, entries = {} } = {}) {
 
 function addBackupModule(harness) {
     const { context } = harness;
-    vm.runInContext(sourceSection('settings.js', 'const APP_VERSION =', '// ========== 字体设置'), context);
+    vm.runInContext(sourceSection('apps/settings/settings.js', 'const APP_VERSION =', '// ========== 字体设置'), context);
     context.getFontStore = () => ({ fonts: [] });
     context.exportMonitorPetAssetsForBackup = async () => ({});
     return harness;

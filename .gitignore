@@ -10,5 +10,13 @@ android/app/build/
 dist/
 BYND使用说明书.md
 
+# Generated compatibility snapshots and private-closure runtime bundles.
+/script.js
+/wechat.js
+/style.css
+/systems/living-world/living-world.js
+/apps/comic/comic.js
+/apps/settings/settings.js
+
 # 内置角色原图（本地交接用，发布时只用 assets/characters/builtin 里裁好的文件）
 内置角色的头像/

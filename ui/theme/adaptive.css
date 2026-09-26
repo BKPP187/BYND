@@ -1,0 +1,469 @@
+/* === BYND Adaptive System Theme === */
+.bynd-adaptive #app-regex-window,
+.bynd-adaptive #app-worldbook-window,
+.bynd-adaptive #app-settings-window,
+.bynd-adaptive #app-theme-window,
+.bynd-adaptive #app-preset-window {
+    background: var(--bynd-app-bg) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive #app-regex-window .window-header,
+.bynd-adaptive #app-worldbook-window .window-header,
+.bynd-adaptive #app-settings-window .window-header,
+.bynd-adaptive #app-theme-window .window-header,
+.bynd-adaptive #app-preset-window .window-header,
+.bynd-adaptive .regex-window-header {
+    background: var(--bynd-header) !important;
+    border-bottom: 1px solid var(--bynd-border) !important;
+    color: var(--bynd-text) !important;
+    backdrop-filter: blur(22px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.08) !important;
+}
+
+.bynd-adaptive #app-regex-window .window-header h3,
+.bynd-adaptive #app-worldbook-window .window-header h3,
+.bynd-adaptive #app-settings-window .window-header h3,
+.bynd-adaptive #app-theme-window .window-header h3,
+.bynd-adaptive #app-preset-window .window-header h3,
+.bynd-adaptive .regex-window-header h3 {
+    color: var(--bynd-text) !important;
+    font-weight: 860;
+    letter-spacing: 0;
+}
+
+.bynd-adaptive #app-regex-window .close-btn,
+.bynd-adaptive #app-worldbook-window .close-btn,
+.bynd-adaptive #app-settings-window .close-btn,
+.bynd-adaptive #app-theme-window .close-btn,
+.bynd-adaptive #app-preset-window .close-btn,
+.bynd-adaptive #app-worldbook-window .window-header i,
+.bynd-adaptive #app-theme-window .save-btn,
+.bynd-adaptive .regex-window-header .close-btn {
+    color: var(--bynd-muted) !important;
+}
+
+.bynd-adaptive #app-worldbook-window {
+    background: #fff !important;
+    color: #111 !important;
+}
+
+.bynd-adaptive #app-worldbook-window .window-header {
+    background: rgba(255,255,255,0.94) !important;
+    border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+    color: #111 !important;
+}
+
+.bynd-adaptive #app-regex-window .window-content,
+.bynd-adaptive #app-worldbook-window .window-content,
+.bynd-adaptive #app-settings-window .window-content,
+.bynd-adaptive #app-theme-window .window-content,
+.bynd-adaptive #app-preset-window .window-content,
+.bynd-adaptive .regex-content,
+.bynd-adaptive .wb-library,
+.bynd-adaptive .wb-detail-page,
+.bynd-adaptive .wb-detail-scroll {
+    background: var(--bynd-content-bg) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive #app-worldbook-window .window-content,
+.bynd-adaptive #app-worldbook-window .wb-library {
+    background: #fff !important;
+    color: #111 !important;
+}
+
+.bynd-adaptive .setting-card,
+.bynd-adaptive .api-card,
+.bynd-adaptive .manual-preset-editor,
+.bynd-adaptive .preset-card,
+.bynd-adaptive .preset-prompt-item,
+.bynd-adaptive .font-preview-box,
+.bynd-adaptive .font-preset-item,
+.bynd-adaptive .set-data-btn,
+.bynd-adaptive .re-script-card,
+.bynd-adaptive .re-empty,
+.bynd-adaptive .re-modal-card,
+.bynd-adaptive .wb-open-book,
+.bynd-adaptive .wb-list-item,
+.bynd-adaptive .cal-alpha-control,
+.bynd-adaptive .theme-check-card,
+.bynd-adaptive .desktop-layout-entry,
+.bynd-adaptive .widget-config-item,
+.bynd-adaptive .pretty-icon-item,
+.bynd-adaptive .theme-library-item,
+.bynd-adaptive .theme-library-empty,
+.bynd-adaptive .lockscreen-mode-card,
+.bynd-adaptive .music-empty-state,
+.bynd-adaptive .music-album-item,
+.bynd-adaptive .music-ai-panel,
+.bynd-adaptive .music-ai-message,
+.bynd-adaptive .music-ai-empty {
+    background: var(--bynd-surface) !important;
+    border-color: var(--bynd-border) !important;
+    color: var(--bynd-text) !important;
+    box-shadow: var(--bynd-shadow) !important;
+}
+
+.bynd-adaptive .setting-card,
+.bynd-adaptive .api-card,
+.bynd-adaptive .preset-card,
+.bynd-adaptive .re-script-card,
+.bynd-adaptive .wb-open-book,
+.bynd-adaptive .wb-list-item {
+    backdrop-filter: blur(18px) saturate(1.08);
+    -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+.bynd-adaptive .card-header,
+.bynd-adaptive .set-section-title,
+.bynd-adaptive .api-card-name,
+.bynd-adaptive .manual-preset-head strong,
+.bynd-adaptive .preset-card-name,
+.bynd-adaptive .preset-prompt-name,
+.bynd-adaptive .font-preview-text,
+.bynd-adaptive .re-list-head span,
+.bynd-adaptive .re-title-group strong,
+.bynd-adaptive .re-empty strong,
+.bynd-adaptive .wb-library-title strong,
+.bynd-adaptive .wb-title,
+.bynd-adaptive .wb-open-meta strong,
+.bynd-adaptive .wb-item-title,
+.bynd-adaptive .wb-empty strong,
+.bynd-adaptive .cal-alpha-control > div,
+.bynd-adaptive .icon-name,
+.bynd-adaptive .theme-library-meta strong,
+.bynd-adaptive .theme-library-empty strong,
+.bynd-adaptive .music-empty-state strong,
+.bynd-adaptive .music-ai-head strong,
+.bynd-adaptive .music-ai-message strong {
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .theme-section-note,
+.bynd-adaptive .prefix,
+.bynd-adaptive .bubble-label,
+.bynd-adaptive .sub-label,
+.bynd-adaptive .api-card-url,
+.bynd-adaptive .api-card-model,
+.bynd-adaptive .manual-preset-head span,
+.bynd-adaptive .manual-preset-actions button.subtle,
+.bynd-adaptive .preset-card-meta,
+.bynd-adaptive .preset-params,
+.bynd-adaptive .font-preview-label,
+.bynd-adaptive .set-data-hint,
+.bynd-adaptive .set-empty,
+.bynd-adaptive .re-list-head small,
+.bynd-adaptive .re-title-group span,
+.bynd-adaptive .re-code-row span,
+.bynd-adaptive .re-empty span,
+.bynd-adaptive .wb-library-title span,
+.bynd-adaptive .wb-library-title em,
+.bynd-adaptive .wb-book small,
+.bynd-adaptive .wb-open-meta span,
+.bynd-adaptive .wb-item-keys,
+.bynd-adaptive .wb-empty span,
+.bynd-adaptive .set-version,
+.bynd-adaptive .theme-library-meta span,
+.bynd-adaptive .music-empty-state,
+.bynd-adaptive .music-ai-head span,
+.bynd-adaptive .music-ai-message span,
+.bynd-adaptive .music-ai-empty {
+    color: var(--bynd-muted) !important;
+}
+
+.bynd-adaptive .card-icon,
+.bynd-adaptive .upload-icon,
+.bynd-adaptive .set-section-title i,
+.bynd-adaptive .set-data-btn i,
+.bynd-adaptive .font-upload-box i,
+.bynd-adaptive .preset-chevron,
+.bynd-adaptive .api-card-actions i,
+.bynd-adaptive .preset-card-actions i,
+.bynd-adaptive .wb-nav-bar i,
+.bynd-adaptive .cal-transparent-note i,
+.bynd-adaptive .lockscreen-mode-card i,
+.bynd-adaptive .theme-check-card i,
+.bynd-adaptive .re-empty i {
+    background: var(--bynd-accent-faint) !important;
+    color: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .input-bubble,
+.bynd-adaptive .upload-box,
+.bynd-adaptive .ls-shortcut-select,
+.bynd-adaptive .widget-text-input,
+.bynd-adaptive .theme-library-save input,
+.bynd-adaptive .font-select,
+.bynd-adaptive .font-url-row input,
+.bynd-adaptive .font-upload-box,
+.bynd-adaptive .manual-preset-input,
+.bynd-adaptive .manual-preset-textarea,
+.bynd-adaptive .preset-prompt-content textarea,
+.bynd-adaptive .re-modal-card input,
+.bynd-adaptive .re-modal-card select,
+.bynd-adaptive .re-code-row code {
+    background: var(--bynd-control-bg) !important;
+    border-color: var(--bynd-border) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .input-bubble:focus-within,
+.bynd-adaptive .upload-box:active,
+.bynd-adaptive .font-select:focus,
+.bynd-adaptive .font-url-row input:focus,
+.bynd-adaptive .manual-preset-input:focus,
+.bynd-adaptive .manual-preset-textarea:focus,
+.bynd-adaptive .preset-prompt-content textarea:focus,
+.bynd-adaptive .re-modal-card input:focus,
+.bynd-adaptive .re-modal-card select:focus {
+    background: var(--bynd-surface-strong) !important;
+    border-color: var(--bynd-accent) !important;
+    box-shadow: 0 0 0 3px var(--bynd-accent-soft) !important;
+}
+
+.bynd-adaptive .set-add-btn,
+.bynd-adaptive .font-upload-box {
+    background: var(--bynd-accent-faint) !important;
+    border-color: var(--bynd-accent-soft) !important;
+    color: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .regex-add-btn,
+.bynd-adaptive .re-empty button,
+.bynd-adaptive .re-modal-card .btn-confirm,
+.bynd-adaptive .font-url-apply,
+.bynd-adaptive .manual-preset-actions button:not(.subtle),
+.bynd-adaptive .music-ai-char-list button.active,
+.bynd-adaptive #app-theme-window .desktop-layout-entry button,
+.bynd-adaptive #app-theme-window .desktop-edit-actions .primary,
+.bynd-adaptive .theme-library-save button,
+.bynd-adaptive .theme-library-item .apply {
+    background: var(--bynd-accent) !important;
+    color: var(--bynd-on-accent) !important;
+    border-color: transparent !important;
+    box-shadow: 0 10px 24px var(--bynd-accent-soft) !important;
+}
+
+.bynd-adaptive .theme-library-item .overwrite {
+    background: var(--bynd-surface-strong) !important;
+    color: var(--bynd-text) !important;
+    box-shadow: none !important;
+}
+
+.bynd-adaptive .regex-tab-bar,
+.bynd-adaptive .cal-mode-toggle,
+.bynd-adaptive .preset-params {
+    background: var(--bynd-control-bg) !important;
+    border-color: var(--bynd-border) !important;
+}
+
+.bynd-adaptive .re-tab,
+.bynd-adaptive .cal-mode-btn {
+    color: var(--bynd-muted) !important;
+}
+.bynd-adaptive .cal-mode-btn::before {
+    color: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .re-tab.active,
+.bynd-adaptive .cal-mode-btn.active {
+    background: var(--bynd-surface-solid) !important;
+    color: var(--bynd-text) !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.08) !important;
+}
+
+.bynd-adaptive .re-list-head em,
+.bynd-adaptive .preset-prompt-role,
+.bynd-adaptive .cal-alpha-control em {
+    background: var(--bynd-accent-faint) !important;
+    color: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .re-slider,
+.bynd-adaptive .preset-toggle-slider {
+    background: var(--bynd-border-strong) !important;
+}
+
+.bynd-adaptive .re-switch input:checked + .re-slider,
+.bynd-adaptive .preset-toggle input:checked + .preset-toggle-slider {
+    background: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .preset-card.active,
+.bynd-adaptive .api-card.is-default,
+.bynd-adaptive .font-preset-item.selected {
+    border-color: var(--bynd-accent) !important;
+    box-shadow: 0 0 0 2px var(--bynd-accent-soft), var(--bynd-shadow) !important;
+}
+
+.bynd-adaptive .wb-string,
+.bynd-adaptive .wb-score-comet,
+.bynd-adaptive .wb-score-stars {
+    stroke: color-mix(in srgb, var(--bynd-text) 82%, transparent) !important;
+}
+
+.bynd-adaptive .wb-score-dot {
+    fill: color-mix(in srgb, var(--bynd-text) 78%, transparent) !important;
+}
+
+.bynd-adaptive .wb-cover,
+.bynd-adaptive .wb-open-cover {
+    border-color: var(--bynd-border-strong) !important;
+    box-shadow: 10px 16px 28px rgba(0,0,0,0.16), inset 9px 0 15px rgba(255,255,255,0.12), inset -8px 0 16px rgba(0,0,0,0.12) !important;
+}
+
+.bynd-adaptive .wb-transition-layer {
+    background: color-mix(in srgb, var(--bynd-surface-solid) 44%, transparent) !important;
+}
+
+.bynd-adaptive .cal-transparent-note {
+    background: var(--bynd-surface) !important;
+    border: 1px solid var(--bynd-border) !important;
+    color: var(--bynd-muted) !important;
+}
+
+.bynd-adaptive .set-version {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.bynd-adaptive[data-bynd-tone="dark"] .font-select,
+.bynd-adaptive[data-bynd-tone="dark"] .ls-shortcut-select {
+    background-image: none !important;
+}
+
+.bynd-adaptive .re-char-pill,
+.bynd-adaptive .re-code-row,
+.bynd-adaptive .wb-entry-card,
+.bynd-adaptive .wb-keys,
+.bynd-adaptive .wc-form-group input,
+.bynd-adaptive .wc-form-group textarea,
+.bynd-adaptive .wc-char-card,
+.bynd-adaptive .music-now-card,
+.bynd-adaptive .music-search,
+.bynd-adaptive .music-source-config,
+.bynd-adaptive .music-track-item,
+.bynd-adaptive .music-album-item,
+.bynd-adaptive .music-album-back,
+.bynd-adaptive .music-bottom-nav,
+.bynd-adaptive .music-detail-view,
+.bynd-adaptive .music-detail-hero,
+.bynd-adaptive .music-detail-actions button,
+.bynd-adaptive .music-ai-panel,
+.bynd-adaptive .music-ai-message,
+.bynd-adaptive .music-lyrics-box,
+.bynd-adaptive .music-comment-item,
+.bynd-adaptive .music-source-config input,
+.bynd-adaptive .music-source-config textarea,
+.bynd-adaptive .music-comment-compose input {
+    background: var(--bynd-surface) !important;
+    border-color: var(--bynd-border) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .re-char-pill.active,
+.bynd-adaptive .music-source-chips button.active,
+.bynd-adaptive .music-track-item.active,
+.bynd-adaptive .music-detail-actions button.active {
+    background: var(--bynd-accent) !important;
+    color: var(--bynd-on-accent) !important;
+    border-color: transparent !important;
+}
+
+.bynd-adaptive .re-char-pill.active span,
+.bynd-adaptive .music-track-item.active .music-track-meta span {
+    color: color-mix(in srgb, var(--bynd-on-accent) 68%, transparent) !important;
+}
+
+.bynd-adaptive .wb-card-title,
+.bynd-adaptive .wb-text,
+.bynd-adaptive .music-header strong,
+.bynd-adaptive .music-now-meta strong,
+.bynd-adaptive .music-list-title strong,
+.bynd-adaptive .music-track-meta strong,
+.bynd-adaptive .music-bottom-nav button.active,
+.bynd-adaptive .music-detail-header strong,
+.bynd-adaptive .music-detail-hero strong,
+.bynd-adaptive .music-lyric-line p,
+.bynd-adaptive .music-comment-item strong,
+.bynd-adaptive .music-comment-item p,
+.bynd-adaptive .music-lyrics-empty strong,
+.bynd-adaptive .music-comments-empty strong,
+.bynd-adaptive .music-ai-message p,
+.bynd-adaptive .music-lyric-line.active p,
+.bynd-adaptive .music-lyric-line.active span {
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .music-window {
+    background: var(--bynd-app-bg) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .music-header,
+.bynd-adaptive .music-content,
+.bynd-adaptive .music-detail-header,
+.bynd-adaptive .music-detail-content,
+.bynd-adaptive .music-comment-compose {
+    background: var(--bynd-content-bg) !important;
+    border-color: var(--bynd-border) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .music-header button,
+.bynd-adaptive .music-source-chips button,
+.bynd-adaptive .music-source-config-toggle,
+.bynd-adaptive .music-controls button,
+.bynd-adaptive .music-detail-header button,
+.bynd-adaptive .music-detail-tabs {
+    background: var(--bynd-control-bg) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .music-header span,
+.bynd-adaptive .music-source-link,
+.bynd-adaptive .music-source-config span,
+.bynd-adaptive .music-source-config p,
+.bynd-adaptive .music-now-meta span,
+.bynd-adaptive .music-now-meta em,
+.bynd-adaptive .music-list-title span,
+.bynd-adaptive .music-track-meta span,
+.bynd-adaptive .music-bottom-nav button,
+.bynd-adaptive .music-detail-hero span,
+.bynd-adaptive .music-detail-hero em,
+.bynd-adaptive .music-lyrics-toolbar,
+.bynd-adaptive .music-lyric-line span,
+.bynd-adaptive .music-comment-item span,
+.bynd-adaptive .music-lyrics-empty,
+.bynd-adaptive .music-comments-empty {
+    color: var(--bynd-muted) !important;
+}
+
+.bynd-adaptive .music-controls .music-play-btn,
+.bynd-adaptive .music-progress span,
+.bynd-adaptive .music-lyrics-toolbar button,
+.bynd-adaptive .music-source-config > button,
+.bynd-adaptive .music-comment-compose button,
+.bynd-adaptive .music-ai-head button {
+    background: var(--bynd-accent) !important;
+    color: var(--bynd-on-accent) !important;
+}
+
+.bynd-adaptive .music-detail-tabs button.active {
+    background: var(--bynd-surface-solid) !important;
+    color: var(--bynd-text) !important;
+}
+
+.bynd-adaptive .music-progress {
+    background: var(--bynd-border-strong) !important;
+}
+
+.bynd-adaptive .music-wave span {
+    background: var(--bynd-accent) !important;
+}
+
+.bynd-adaptive .music-lyric-line.active {
+    background: var(--bynd-accent-faint) !important;
+}
+

@@ -1,0 +1,263 @@
+/* Wolfcha mystic setup 20260523 */
+.game-window.game-mode-wolfcha .wolfcha-setup {
+    position: relative;
+    padding: 16px 14px 18px;
+    background:
+        radial-gradient(circle at 82% 8%, rgba(146,67,132,0.38), transparent 32%),
+        radial-gradient(circle at 14% 26%, rgba(73,151,184,0.22), transparent 38%),
+        linear-gradient(180deg, #101723 0%, #070a11 100%) !important;
+    color: #f7fbff;
+    isolation: isolate;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup::before,
+.game-window.game-mode-wolfcha .wolfcha-setup::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup::before {
+    left: 50%;
+    top: 164px;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background:
+        radial-gradient(circle, rgba(124,223,255,0.10), transparent 36%),
+        conic-gradient(from -32deg, transparent, rgba(120,220,255,0.18), transparent 24%, rgba(255,176,226,0.16), transparent 56%, rgba(120,220,255,0.14), transparent);
+    filter: blur(0.3px);
+    opacity: 0.86;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup::after {
+    inset: 0;
+    background:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 30px 30px;
+    mask-image: radial-gradient(circle at 50% 22%, #000 0 30%, transparent 66%);
+    opacity: 0.34;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-opening-back,
+.game-window.game-mode-wolfcha .wolfcha-setup-back {
+    display: none !important;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero {
+    min-height: 174px;
+    padding: 22px 20px;
+    border-radius: 30px;
+    background:
+        radial-gradient(circle at 83% 20%, rgba(255,255,255,0.22), transparent 19%),
+        radial-gradient(circle at 72% 35%, rgba(142,229,255,0.20), transparent 32%),
+        linear-gradient(135deg, rgba(22,34,51,0.94), rgba(47,23,48,0.92) 56%, rgba(92,47,84,0.86)) !important;
+    overflow: hidden;
+    border: 1px solid rgba(214,239,255,0.14);
+    box-shadow: 0 24px 54px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(22px) saturate(1.12);
+    -webkit-backdrop-filter: blur(22px) saturate(1.12);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero::before {
+    content: '';
+    position: absolute;
+    right: -68px;
+    top: -54px;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.30), rgba(185,114,180,0.18) 42%, transparent 68%);
+    filter: blur(1px);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 14px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(203,238,255,0.42), transparent);
+    opacity: 0.78;
+}
+
+.wolfcha-setup-sigil {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    width: 52px;
+    height: 52px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.095);
+    border: 1px solid rgba(223,245,255,0.16);
+    color: #dff8ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 23px;
+    box-shadow: 0 0 26px rgba(113,218,255,0.13), inset 0 0 20px rgba(255,255,255,0.035);
+}
+
+.wolfcha-setup-omens {
+    position: absolute;
+    left: 22px;
+    right: 22px;
+    bottom: 28px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    opacity: 0.48;
+}
+
+.wolfcha-setup-omens i {
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(211,239,255,0.72), transparent);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero span,
+.game-window.game-mode-wolfcha .wolfcha-user-card span,
+.game-window.game-mode-wolfcha .wolfcha-setup-char span {
+    color: rgba(211,226,244,0.62) !important;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero > span {
+    position: relative;
+    z-index: 1;
+    color: rgba(193,226,255,0.72) !important;
+    font-weight: 950;
+    letter-spacing: 0.16em;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero strong {
+    position: relative;
+    z-index: 1;
+    max-width: 242px;
+    margin-top: 12px;
+    color: #fff !important;
+    font-size: 30px;
+    line-height: 1.04;
+    font-weight: 960;
+    text-shadow: 0 12px 32px rgba(107,211,255,0.22);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-hero p {
+    position: relative;
+    z-index: 1;
+    max-width: 282px;
+    margin-top: 12px;
+    color: rgba(232,243,255,0.74) !important;
+    font-size: 13px;
+    line-height: 1.62;
+    font-weight: 720;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-user-card,
+.game-window.game-mode-wolfcha .wolfcha-setup-char {
+    min-height: 82px;
+    margin-top: 11px;
+    border: 1px solid rgba(211,238,255,0.13) !important;
+    border-radius: 24px;
+    background:
+        linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.055)),
+        rgba(12,18,30,0.62) !important;
+    color: #f7fbff !important;
+    box-shadow: 0 18px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.045);
+    backdrop-filter: blur(18px) saturate(1.12);
+    -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-user-card div,
+.game-window.game-mode-wolfcha .wolfcha-setup-avatar {
+    border-radius: 19px;
+    background: rgba(238,247,255,0.11) !important;
+    border: 1px solid rgba(222,244,255,0.13);
+    color: rgba(238,247,255,0.66);
+    box-shadow: 0 11px 22px rgba(0,0,0,0.22);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-user-card strong,
+.game-window.game-mode-wolfcha .wolfcha-setup-char strong {
+    color: #f8fbff !important;
+    font-weight: 930;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-user-card em {
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.08) !important;
+    color: rgba(232,243,255,0.66) !important;
+    font-weight: 900;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-head {
+    margin: 18px 2px 9px;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-head strong {
+    color: #f8fbff !important;
+    font-weight: 940;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-head span {
+    color: rgba(211,226,244,0.58) !important;
+    font-weight: 880;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-char {
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-char:active {
+    transform: scale(0.985);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-char.selected {
+    border-color: rgba(132,226,255,0.46) !important;
+    background:
+        linear-gradient(135deg, rgba(135,224,255,0.18), rgba(255,169,226,0.08)),
+        rgba(11,18,32,0.74) !important;
+    box-shadow: 0 0 0 1px rgba(119,222,255,0.08), 0 18px 38px rgba(35,151,206,0.16), inset 0 0 26px rgba(117,222,255,0.07);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-char > i {
+    color: rgba(211,226,244,0.46) !important;
+    font-size: 23px;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-char.selected > i {
+    color: #8fefff !important;
+    text-shadow: 0 0 18px rgba(116,232,255,0.58);
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-empty {
+    border-radius: 24px;
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px dashed rgba(221,244,255,0.18) !important;
+    color: rgba(232,243,255,0.62) !important;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-actions {
+    background: linear-gradient(180deg, rgba(7,10,17,0), rgba(7,10,17,0.92) 36%, #070a11) !important;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-actions button {
+    border-radius: 18px;
+    background: rgba(255,255,255,0.10) !important;
+    color: rgba(247,251,255,0.86) !important;
+    font-weight: 900;
+    box-shadow: 0 14px 28px rgba(0,0,0,0.18);
+    border: 1px solid rgba(211,238,255,0.12) !important;
+}
+
+.game-window.game-mode-wolfcha .wolfcha-setup-actions button.primary {
+    background: linear-gradient(135deg, #e6f9ff, #9fefff 48%, #e8d8ff) !important;
+    color: #08101a !important;
+    box-shadow: 0 18px 36px rgba(105,222,255,0.24);
+}
+

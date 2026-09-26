@@ -1,0 +1,1407 @@
+/* === AI Character Phone: iPhone Desktop and Apps === */
+.wc-ai-phone-overlay {
+    background:
+        radial-gradient(circle at 18% 12%, rgba(255,255,255,0.38), transparent 30%),
+        radial-gradient(circle at 82% 86%, rgba(79,70,229,0.22), transparent 34%),
+        rgba(15,23,42,0.48);
+}
+.wc-ai-phone-ios {
+    width: min(336px, calc(100% - 24px));
+    height: min(690px, calc(100% - 24px));
+    padding: 9px;
+    border-radius: 46px;
+    background: linear-gradient(145deg, #0a0b10, #242833 52%, #05060a);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.48), inset 0 0 0 1px rgba(255,255,255,0.12);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+.wc-ai-phone-ios::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 42px;
+    border: 1px solid rgba(255,255,255,0.10);
+    pointer-events: none;
+    z-index: 4;
+}
+.wc-ai-phone-ios .wc-ai-phone-status {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 15px;
+    height: 24px;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 86px 1fr;
+    align-items: center;
+    padding: 0;
+    color: rgba(255,255,255,0.96);
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-ios .wc-ai-phone-status b {
+    width: 82px;
+    height: 24px;
+    justify-self: center;
+    border-radius: 999px;
+    background: #05060a;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08);
+}
+.wc-ai-phone-ios .wc-ai-phone-status span:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    font-size: 14px;
+}
+.wc-ai-phone-wallpaper {
+    position: absolute;
+    inset: 9px;
+    border-radius: 38px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 18% 15%, rgba(255,255,255,0.92), transparent 12%),
+        radial-gradient(circle at 83% 22%, rgba(129,140,248,0.82), transparent 24%),
+        radial-gradient(circle at 25% 82%, rgba(244,114,182,0.62), transparent 26%),
+        linear-gradient(145deg, #28445f 0%, #7777a6 38%, #d88ca8 68%, #f3b58f 100%);
+    padding: 44px 14px 20px;
+}
+.wc-ai-phone-home {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+.wc-ai-phone-home-top {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    min-height: 34px;
+}
+.wc-ai-phone-close,
+.wc-ai-phone-generate,
+.wc-ai-phone-app-nav button {
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+.wc-ai-phone-close,
+.wc-ai-phone-generate { width: 34px; height: 34px; }
+.wc-ai-phone-generate { justify-self: end; }
+.wc-ai-phone-close i,
+.wc-ai-phone-generate i { font-size: 18px; }
+.wc-ai-phone-generate.is-loading i { animation: wcAiPhoneSpin 0.8s linear infinite; }
+@keyframes wcAiPhoneSpin { to { transform: rotate(360deg); } }
+.wc-ai-phone-sync {
+    grid-column: 2;
+    justify-self: center;
+    max-width: 190px;
+    height: 26px;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+button.wc-ai-phone-sync {
+    border: none;
+    font-family: inherit;
+    cursor: default;
+}
+.wc-ai-phone-sync.is-error {
+    background: rgba(255,80,80,0.24);
+    color: #fff5f5;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(120, 38, 58, 0.16);
+}
+.wc-ai-phone-error-modal {
+    position: absolute;
+    inset: 0;
+    z-index: 3920;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: rgba(15, 23, 42, 0.30);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.wc-ai-phone-error-card {
+    width: min(306px, 100%);
+    border-radius: 26px;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+    display: grid;
+    gap: 12px;
+    animation: popIn 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.wc-ai-phone-error-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #ffe4ed, #eef4ff);
+    color: #d14b73;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(209, 75, 115, 0.08);
+}
+.wc-ai-phone-error-icon i {
+    font-size: 24px;
+}
+.wc-ai-phone-error-copy strong {
+    display: block;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+.wc-ai-phone-error-copy span {
+    display: block;
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.42;
+    font-weight: 680;
+}
+.wc-ai-phone-error-reason {
+    padding: 11px 12px;
+    border-radius: 18px;
+    background: #f6f7fb;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+.wc-ai-phone-error-reason b {
+    display: block;
+    color: #8a5a72;
+    font-size: 11px;
+    font-weight: 900;
+}
+.wc-ai-phone-error-reason p {
+    margin: 5px 0 0;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.48;
+    font-weight: 690;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-error-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 9px;
+}
+.wc-ai-phone-error-actions button {
+    min-width: 0;
+    height: 42px;
+    border: none;
+    border-radius: 15px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 860;
+    font-family: inherit;
+    cursor: pointer;
+}
+.wc-ai-phone-error-actions button.primary {
+    background: #111827;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.20);
+}
+.wc-ai-phone-error-actions button:active {
+    transform: scale(0.985);
+}
+.wc-ai-phone-clock-widget,
+.wc-ai-phone-widget-stack {
+    border-radius: 24px;
+    background: rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 14px 34px rgba(15,23,42,0.16);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    cursor: pointer;
+}
+.wc-ai-phone-clock-widget {
+    min-height: 122px;
+    padding: 15px 17px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+.wc-ai-phone-clock-widget span {
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    font-weight: 760;
+}
+.wc-ai-phone-clock-widget strong {
+    color: #fff;
+    font-size: 47px;
+    line-height: 0.96;
+    font-weight: 760;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-clock-widget p {
+    margin: 7px 0 0;
+    color: rgba(255,255,255,0.76);
+    font-size: 12px;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-widget-stack {
+    min-height: 84px;
+    padding: 12px 13px;
+}
+.wc-ai-phone-widget-stack div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    font-weight: 820;
+}
+.wc-ai-phone-widget-stack i { color: #35c759; font-size: 19px; }
+.wc-ai-phone-widget-stack strong {
+    display: block;
+    margin-top: 8px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-widget-stack p {
+    margin: 3px 0 0;
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 13px 10px;
+    padding: 2px 3px 0;
+}
+.wc-ai-phone-app-icon {
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.42);
+}
+.wc-ai-phone-app-icon span {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 18px rgba(15,23,42,0.22), inset 0 0 0 1px rgba(255,255,255,0.22);
+}
+.wc-ai-phone-app-icon i { font-size: 25px; color: #fff; }
+.wc-ai-phone-app-icon b {
+    max-width: 58px;
+    color: #fff;
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-app-icon.tone-green span { background: linear-gradient(145deg, #45dd75, #11a84d); }
+.wc-ai-phone-app-icon.tone-yellow span { background: linear-gradient(145deg, #ffe68a, #f1b51d); }
+.wc-ai-phone-app-icon.tone-blue span { background: linear-gradient(145deg, #5ec8ff, #1677ff); }
+.wc-ai-phone-app-icon.tone-black span { background: linear-gradient(145deg, #353942, #07080b); }
+.wc-ai-phone-app-icon.tone-pink span { background: linear-gradient(145deg, #ff9fbe, #ff4f8f); }
+.wc-ai-phone-app-icon.tone-purple span { background: linear-gradient(145deg, #a78bfa, #6d28d9); }
+.wc-ai-phone-app-icon.tone-gray span { background: linear-gradient(145deg, #c9d1dc, #6b7280); }
+.wc-ai-phone-app-icon.tone-orange span { background: linear-gradient(145deg, #ffba73, #ff6b22); }
+.wc-ai-phone-dock {
+    margin-top: auto;
+    min-height: 74px;
+    padding: 10px 12px 8px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.26);
+    border: 1px solid rgba(255,255,255,0.24);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+}
+.wc-ai-phone-dock .wc-ai-phone-app-icon b { display: none; }
+.wc-ai-phone-app-page {
+    height: 100%;
+    min-height: 0;
+    border-radius: 30px;
+    background: rgba(248,250,252,0.94);
+    color: #111827;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72);
+}
+.wc-ai-phone-app-nav {
+    min-height: 52px;
+    padding: 8px 10px 6px;
+    display: grid;
+    grid-template-columns: 72px minmax(0,1fr) 34px;
+    align-items: center;
+    gap: 6px;
+    background: rgba(248,250,252,0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-app-nav button {
+    width: auto;
+    height: 32px;
+    padding: 0 9px;
+    background: rgba(17,24,39,0.06);
+    color: #111827;
+    font-size: 12px;
+    font-weight: 820;
+    gap: 1px;
+}
+.wc-ai-phone-app-nav button:last-child {
+    width: 32px;
+    padding: 0;
+    justify-self: end;
+}
+.wc-ai-phone-app-nav i { font-size: 17px; }
+.wc-ai-phone-app-nav strong {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-app-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wc-ai-phone-app-title strong {
+    display: block;
+    color: #111827;
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 920;
+    letter-spacing: 0;
+}
+.wc-ai-phone-app-title span {
+    display: block;
+    margin-top: 5px;
+    color: #7c8797;
+    font-size: 12px;
+    font-weight: 760;
+}
+.wc-ai-phone-ios-search,
+.wc-ai-phone-safari-bar {
+    min-height: 36px;
+    border-radius: 14px;
+    background: rgba(15,23,42,0.07);
+    color: #8b95a5;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 760;
+}
+.wc-ai-phone-wechat-list,
+.wc-ai-phone-ios-card {
+    border-radius: 18px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.055);
+}
+.wc-ai-phone-chat-row {
+    min-height: 62px;
+    padding: 9px 9px 9px 10px;
+    display: grid;
+    grid-template-columns: 42px minmax(0,1fr) auto;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-chat-row:last-child { border-bottom: none; }
+.wc-ai-phone-chat-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #dce7f4, #f5dedb);
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 900;
+}
+.wc-ai-phone-chat-avatar.primary {
+    background: linear-gradient(145deg, #5ee27f, #16a34a);
+    color: #fff;
+}
+.wc-ai-phone-chat-main { min-width: 0; }
+.wc-ai-phone-chat-main strong {
+    display: block;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 880;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-chat-main span {
+    display: block;
+    margin-top: 3px;
+    color: #7c8797;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-chat-row em {
+    align-self: start;
+    color: #a3acba;
+    font-size: 10px;
+    font-style: normal;
+    white-space: nowrap;
+}
+.wc-ai-phone-ios-card { padding: 12px; }
+.wc-ai-phone-ios-card h4 {
+    margin: 0 0 8px;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 900;
+}
+.wc-ai-phone-ios-card h4 i { color: #667085; font-size: 17px; }
+.wc-ai-phone-ios-card p {
+    margin: 7px 0 0;
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.48;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+.wc-ai-phone-wallet-card {
+    min-height: 154px;
+    padding: 18px;
+    border-radius: 22px;
+    background: linear-gradient(145deg, #171923, #303644);
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(15,23,42,0.18);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.wc-ai-phone-wallet-card span { color: rgba(255,255,255,0.58); font-size: 12px; font-weight: 820; }
+.wc-ai-phone-wallet-card strong { font-size: 18px; font-weight: 900; }
+.wc-ai-phone-wallet-card p { margin: 0; color: rgba(255,255,255,0.78); font-size: 12px; line-height: 1.45; }
+.wc-ai-phone-wallet-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.wc-ai-phone-wallet-actions button {
+    height: 38px;
+    border: none;
+    border-radius: 14px;
+    background: #fff;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 850;
+}
+.wc-ai-phone-diary-paper {
+    min-height: 270px;
+    padding: 18px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #fff8d9, #fff2b2);
+    color: #2f2414;
+    box-shadow: 0 10px 24px rgba(120,84,24,0.13);
+}
+.wc-ai-phone-diary-paper time {
+    display: block;
+    color: rgba(47,36,20,0.55);
+    font-size: 12px;
+    font-weight: 850;
+}
+.wc-ai-phone-diary-paper p {
+    margin: 14px 0 0;
+    color: #2f2414;
+    font-size: 14px;
+    line-height: 1.72;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-timeline {
+    border-radius: 18px;
+    background: #fff;
+    padding: 4px 12px;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.055);
+}
+.wc-ai-phone-timeline div {
+    display: grid;
+    grid-template-columns: 30px minmax(0,1fr);
+    gap: 9px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(15,23,42,0.055);
+}
+.wc-ai-phone-timeline div:last-child { border-bottom: none; }
+.wc-ai-phone-timeline b {
+    color: #a3acba;
+    font-size: 11px;
+    font-weight: 900;
+}
+.wc-ai-phone-timeline span {
+    color: #374151;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-clock-app {
+    flex: 1;
+    min-height: 360px;
+    border-radius: 22px;
+    background: #101318;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.wc-ai-phone-clock-face {
+    width: 142px;
+    height: 142px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #1f2937 0 52%, #0b0d12 53% 100%);
+    border: 7px solid #2d3748;
+    position: relative;
+}
+.wc-ai-phone-clock-face i,
+.wc-ai-phone-clock-face b {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 4px;
+    border-radius: 99px;
+    transform-origin: bottom center;
+    background: #fff;
+}
+.wc-ai-phone-clock-face i { height: 42px; transform: translateX(-50%) rotate(40deg); }
+.wc-ai-phone-clock-face b { height: 55px; transform: translateX(-50%) rotate(8deg); background: #ff453a; }
+.wc-ai-phone-clock-app strong {
+    font-size: 38px;
+    line-height: 1;
+    font-weight: 760;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-clock-app span {
+    color: rgba(255,255,255,0.58);
+    font-size: 12px;
+    font-weight: 780;
+}
+.wc-ai-phone-empty {
+    padding: 24px 12px;
+    color: #9aa3af;
+    text-align: center;
+    font-size: 13px;
+}
+.wc-ai-phone-empty strong {
+    display: block;
+    color: #4b5563;
+    font-size: 15px;
+}
+.wc-ai-phone-empty p {
+    margin: 8px auto 12px;
+    max-width: 250px;
+    line-height: 1.65;
+}
+.wc-ai-phone-empty .wc-ai-phone-letter-back {
+    color: #6f5b47;
+}
+.wc-ai-phone-home-indicator {
+    position: absolute;
+    left: 50%;
+    bottom: 15px;
+    width: 116px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.86);
+    transform: translateX(-50%);
+    z-index: 5;
+}
+
+/* === AI Character Phone: editable photo desktop === */
+.wc-ai-phone-home-top {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 7px;
+}
+.wc-ai-phone-home-actions {
+    display: grid;
+    grid-template-columns: 34px;
+    justify-self: end;
+}
+.wc-ai-phone-photo-widget,
+.wc-ai-phone-home-editor-preview {
+    position: relative;
+    flex-shrink: 0;
+}
+.wc-ai-phone-photo-hero {
+    position: relative;
+}
+.wc-ai-phone-photo-main {
+    display: flex;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 11 / 5;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #f2f2f7;
+    border: 1px solid #e5e5ea;
+    align-items: center;
+    justify-content: center;
+}
+.wc-ai-phone-photo-main img,
+.wc-ai-phone-photo-small img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+.wc-ai-phone-photo-main.is-empty,
+.wc-ai-phone-photo-small.is-empty {
+    color: #a8a8ad;
+    background:
+        linear-gradient(135deg, rgba(255,255,255,0.78), rgba(242,242,247,0.82)),
+        #f2f2f7;
+}
+.wc-ai-phone-photo-main.is-empty i {
+    font-size: 26px;
+}
+.wc-ai-phone-photo-avatar {
+    position: absolute;
+    z-index: 2;
+    bottom: -48px;
+    left: 50%;
+    width: 96px;
+    height: 96px;
+    border: 5px solid #fff;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+    transform: translateX(-50%);
+    box-shadow: 0 8px 22px rgba(17,24,39,0.18);
+}
+.wc-ai-phone-photo-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wc-ai-phone-photo-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 64px;
+}
+.wc-ai-phone-photo-small {
+    display: flex;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    border-radius: 13px;
+    overflow: hidden;
+    border: 1px solid #e5e5ea;
+    background: #f2f2f7;
+    align-items: center;
+    justify-content: center;
+}
+.wc-ai-phone-photo-small.is-empty i {
+    font-size: 18px;
+}
+.wc-ai-phone-grid {
+    gap: 10px 8px;
+    padding-top: 0;
+}
+.wc-ai-phone-app-icon {
+    gap: 4px;
+}
+.wc-ai-phone-app-icon span {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(17,24,39,0.06);
+    box-shadow: none;
+}
+.wc-ai-phone-app-icon i {
+    font-size: 23px;
+}
+.wc-ai-phone-app-icon.tone-green span { background: #e8f7ec; }
+.wc-ai-phone-app-icon.tone-green i { color: #218d4d; }
+.wc-ai-phone-app-icon.tone-yellow span { background: #fff7d8; }
+.wc-ai-phone-app-icon.tone-yellow i { color: #b47d00; }
+.wc-ai-phone-app-icon.tone-blue span { background: #e8f2ff; }
+.wc-ai-phone-app-icon.tone-blue i { color: #246fbd; }
+.wc-ai-phone-app-icon.tone-black span { background: #eceef1; }
+.wc-ai-phone-app-icon.tone-black i { color: #24272c; }
+.wc-ai-phone-app-icon.tone-pink span { background: #fcecf2; }
+.wc-ai-phone-app-icon.tone-pink i { color: #b74f74; }
+.wc-ai-phone-app-icon.tone-purple span { background: #f1ecfb; }
+.wc-ai-phone-app-icon.tone-purple i { color: #7054a6; }
+.wc-ai-phone-app-icon.tone-gray span { background: #eef0f2; }
+.wc-ai-phone-app-icon.tone-gray i { color: #68717b; }
+.wc-ai-phone-app-icon.tone-orange span { background: #fff0e5; }
+.wc-ai-phone-app-icon.tone-orange i { color: #bd6429; }
+.wc-ai-phone-dock {
+    min-height: 66px;
+    padding: 9px 12px 7px;
+    border-radius: 22px;
+}
+.wc-ai-phone-home-editor {
+    position: absolute;
+    inset: 0;
+    z-index: 3940;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: calc(18px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));
+    background: rgba(17,24,39,0.30);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.wc-ai-phone-home-editor-card {
+    width: min(380px, 100%);
+    max-height: min(720px, calc(100% - 18px));
+    overflow-y: auto;
+    border-radius: 24px;
+    padding: 16px;
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 28px 70px rgba(15,23,42,0.24);
+}
+.wc-ai-phone-home-editor-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.wc-ai-phone-home-editor-head strong,
+.wc-ai-phone-home-editor-head small {
+    display: block;
+}
+.wc-ai-phone-home-editor-head strong {
+    font-size: 17px;
+    font-weight: 800;
+}
+.wc-ai-phone-home-editor-head small {
+    margin-top: 3px;
+    color: #8e8e93;
+    font-size: 11px;
+}
+.wc-ai-phone-home-editor-head button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: #111827;
+    color: #fff;
+    font-size: 19px;
+}
+.wc-ai-phone-home-editor-preview {
+    min-height: 222px;
+    padding: 8px;
+    border-radius: 18px;
+    background: #f7f7fa;
+}
+.wc-ai-phone-photo-avatar.is-editing {
+    cursor: pointer;
+}
+.wc-ai-phone-photo-avatar.is-editing > i {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #111827;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+.wc-ai-phone-photo-avatar input,
+.wc-ai-phone-home-editor-preview input {
+    display: none;
+}
+.wc-ai-phone-photo-main.is-editing,
+.wc-ai-phone-photo-small.is-editing {
+    position: relative;
+}
+.wc-ai-phone-photo-pick {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.wc-ai-phone-photo-pick:focus-visible,
+.wc-ai-phone-photo-remove:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: -3px;
+}
+.wc-ai-phone-photo-pick:hover img {
+    opacity: 0.9;
+}
+.wc-ai-phone-photo-remove {
+    position: absolute;
+    z-index: 1;
+    top: 5px;
+    right: 5px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    background: rgba(17,24,39,0.78);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    cursor: pointer;
+}
+.wc-ai-phone-home-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 14px;
+}
+.wc-ai-phone-home-editor-actions button {
+    min-width: 0;
+    min-height: 42px;
+    border: none;
+    border-radius: 12px;
+    background: #f2f2f7;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}
+.wc-ai-phone-app-icon .wc-ai-phone-icon-image {
+    position: relative;
+    overflow: hidden;
+}
+.wc-ai-phone-icon-image img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wc-ai-phone-icon-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px 8px;
+    padding: 12px 0;
+}
+.wc-ai-phone-icon-edit-item {
+    min-width: 0;
+    min-height: 91px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.wc-ai-phone-icon-reset {
+    border: none;
+    background: transparent;
+    color: #697582;
+    font: inherit;
+    font-size: 11px;
+    padding: 4px 2px;
+}
+.wc-ai-phone-icons-reset-all {
+    width: 100%;
+    min-height: 42px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 12px;
+    background: #f2f2f7;
+    color: #374151;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+}
+.wc-ai-phone-icons-reset-all:disabled {
+    opacity: 0.45;
+}
+
+/* === AI Character Phone: iOS Page Polish v2 === */
+.wc-ai-phone-overlay {
+    background: rgba(246, 247, 249, 0.78);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+.wc-ai-phone-ios {
+    background: linear-gradient(145deg, #111318, #2b3038 54%, #0a0b0f);
+}
+.wc-ai-phone-wallpaper {
+    background: #fff;
+    color: #111827;
+    padding: 45px 13px 19px;
+}
+.wc-ai-phone-ios .wc-ai-phone-status {
+    color: #111827;
+}
+.wc-ai-phone-ios .wc-ai-phone-status b {
+    background: #050608;
+}
+.wc-ai-phone-ios .wc-ai-phone-status span:last-child {
+    color: #111827;
+}
+.wc-ai-phone-ios.is-app .wc-ai-phone-wallpaper {
+    padding: 39px 0 0;
+}
+.wc-ai-phone-ios.is-app .wc-ai-phone-home-indicator {
+    background: rgba(17,24,39,0.82);
+}
+.wc-ai-phone-home {
+    color: #111827;
+    position: relative;
+    z-index: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+}
+.wc-ai-phone-home > * {
+    flex-shrink: 0;
+}
+.wc-ai-phone-home::-webkit-scrollbar {
+    display: none;
+}
+.wc-ai-phone-wallpaper-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-wallpaper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(255,255,255,0.08), rgba(255,255,255,0) 40%, rgba(255,255,255,0.04));
+    pointer-events: none;
+}
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-status,
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-status span:last-child,
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-app-icon b {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.38);
+}
+.wc-ai-phone-ios.has-light-wallpaper .wc-ai-phone-status,
+.wc-ai-phone-ios.has-light-wallpaper .wc-ai-phone-status span:last-child,
+.wc-ai-phone-ios.has-light-wallpaper .wc-ai-phone-app-icon b {
+    color: #30444f;
+    text-shadow: 0 1px 1px rgba(255,255,255,0.65);
+}
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-close {
+    background: rgba(255,255,255,0.86);
+}
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-dock {
+    background: rgba(255,255,255,0.8);
+}
+.wc-ai-phone-ios.has-custom-wallpaper .wc-ai-phone-home-indicator {
+    background: rgba(255,255,255,0.9);
+}
+.wc-ai-phone-ios.has-light-wallpaper .wc-ai-phone-home-indicator {
+    background: rgba(48,68,79,0.7);
+}
+.wc-ai-phone-home-top {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+}
+.wc-ai-phone-close,
+.wc-ai-phone-generate {
+    background: rgba(17,24,39,0.07);
+    color: #111827;
+    border: 1px solid rgba(17,24,39,0.06);
+}
+.wc-ai-phone-generate {
+    background: rgba(255,255,255,0.68);
+    color: #8a5a72;
+    box-shadow: 0 10px 22px rgba(160,112,137,0.10);
+}
+.wc-ai-phone-sync {
+    background: #f2f2f7;
+    color: #6b7280;
+    border: 1px solid rgba(17,24,39,0.05);
+    box-shadow: none;
+}
+.wc-ai-phone-clock-widget,
+.wc-ai-phone-widget-stack {
+    background: #f2f2f7;
+    border: 1px solid rgba(17,24,39,0.04);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.wc-ai-phone-clock-widget span,
+.wc-ai-phone-clock-widget p,
+.wc-ai-phone-widget-stack div,
+.wc-ai-phone-widget-stack p {
+    color: #6b7280;
+}
+.wc-ai-phone-clock-widget strong,
+.wc-ai-phone-widget-stack strong {
+    color: #111827;
+}
+.wc-ai-phone-app-icon {
+    color: #111827;
+    text-shadow: none;
+}
+.wc-ai-phone-app-icon b {
+    color: #111827;
+    font-size: 10px;
+    font-weight: 650;
+}
+.wc-ai-phone-dock {
+    background: #f2f2f7;
+    border: 1px solid rgba(17,24,39,0.04);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.wc-ai-phone-app-page {
+    border-radius: 0 0 34px 34px;
+    background: #fff;
+    color: #111827;
+    box-shadow: none;
+}
+.wc-ai-phone-app-nav {
+    min-height: 54px;
+    padding: 7px 12px 6px;
+    grid-template-columns: 78px minmax(0, 1fr) 34px;
+    background: rgba(255,255,255,0.92);
+    border-bottom: 1px solid #e5e5ea;
+}
+.wc-ai-phone-app-nav button {
+    height: 34px;
+    padding: 0 4px;
+    background: transparent;
+    color: #007aff;
+    font-size: 14px;
+    font-weight: 600;
+    justify-content: flex-start;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.wc-ai-phone-app-nav button:first-child i {
+    margin-left: -6px;
+    font-size: 24px;
+}
+.wc-ai-phone-app-nav button:last-child {
+    width: 32px;
+    color: #6b7280;
+    justify-content: center;
+}
+.wc-ai-phone-app-nav strong {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 720;
+}
+.wc-ai-phone-app-nav strong i {
+    display: none;
+}
+.wc-ai-phone-app-body {
+    padding: 13px 13px 18px;
+    gap: 11px;
+    background: #fff;
+}
+.wc-ai-phone-app-title strong {
+    color: #111827;
+    font-size: 31px;
+    line-height: 1.02;
+    font-weight: 780;
+}
+.wc-ai-phone-app-title span {
+    color: #8e8e93;
+    font-size: 12px;
+    font-weight: 580;
+}
+.wc-ai-phone-ios-search,
+.wc-ai-phone-safari-bar {
+    min-height: 36px;
+    border-radius: 11px;
+    background: #f2f2f7;
+    color: #8e8e93;
+    box-shadow: none;
+    font-weight: 520;
+}
+.wc-ai-phone-wechat-list,
+.wc-ai-phone-ios-card,
+.wc-ai-phone-timeline {
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e9e9ee;
+    box-shadow: none;
+}
+.wc-ai-phone-chat-row {
+    width: 100%;
+    min-height: 66px;
+    padding: 9px 8px 9px 10px;
+    grid-template-columns: 44px minmax(0,1fr) auto 14px;
+    gap: 10px;
+    border: none;
+    border-bottom: 1px solid #efeff4;
+    background: #fff;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.wc-ai-phone-chat-row:last-child {
+    border-bottom: none;
+}
+.wc-ai-phone-chat-row > i {
+    color: #c7c7cc;
+    font-size: 18px;
+}
+.wc-ai-phone-chat-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #d9dee8, #f4f5f7);
+    color: #4b5563;
+    font-size: 16px;
+}
+.wc-ai-phone-chat-avatar.primary {
+    background: linear-gradient(145deg, #43d96f, #22c55e);
+    color: #fff;
+}
+.wc-ai-phone-chat-main strong {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 700;
+}
+.wc-ai-phone-chat-main span {
+    color: #8e8e93;
+    font-size: 12px;
+    line-height: 1.25;
+}
+.wc-ai-phone-chat-row em {
+    color: #8e8e93;
+    font-size: 11px;
+    font-weight: 500;
+}
+.wc-ai-phone-chat-room {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wc-ai-phone-chat-room-info {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 6px 1px 8px;
+}
+.wc-ai-phone-chat-room-info strong {
+    display: block;
+    color: #111827;
+    font-size: 20px;
+    line-height: 1.1;
+    font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-chat-room-info span {
+    display: block;
+    margin-top: 3px;
+    color: #8e8e93;
+    font-size: 12px;
+}
+.wc-ai-phone-conversation {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 11px 8px;
+    border-radius: 18px;
+    background: #f2f2f7;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.wc-ai-phone-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    max-width: 100%;
+}
+.wc-ai-phone-msg.is-me {
+    justify-content: flex-end;
+}
+.wc-ai-phone-mini-avatar {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #d8dde6;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 760;
+}
+.wc-ai-phone-msg-bubble {
+    max-width: 78%;
+    padding: 8px 10px 6px;
+    border-radius: 18px;
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.wc-ai-phone-msg.is-me .wc-ai-phone-msg-bubble {
+    background: #95ec69;
+    color: #111827;
+    border-bottom-right-radius: 5px;
+}
+.wc-ai-phone-msg.is-them .wc-ai-phone-msg-bubble {
+    border-bottom-left-radius: 5px;
+}
+.wc-ai-phone-msg-bubble p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.42;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+.wc-ai-phone-inline-emoji {
+    width: 24px;
+    height: 24px;
+    margin: 0 1px;
+    display: inline-block;
+    object-fit: contain;
+    vertical-align: -6px;
+}
+.wc-ai-phone-msg-bubble time {
+    display: block;
+    margin-top: 3px;
+    color: rgba(17,24,39,0.42);
+    font-size: 9px;
+    text-align: right;
+}
+.wc-ai-phone-compose {
+    min-height: 38px;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 7px;
+    padding: 0 2px;
+    color: #8e8e93;
+}
+.wc-ai-phone-compose span {
+    height: 32px;
+    border: 1px solid #d1d1d6;
+    border-radius: 999px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 13px;
+    background: #fff;
+}
+.wc-ai-phone-compose i {
+    font-size: 21px;
+    text-align: center;
+}
+.wc-ai-phone-ios-card {
+    padding: 13px;
+}
+.wc-ai-phone-ios-card h4 {
+    color: #111827;
+    font-size: 13px;
+}
+.wc-ai-phone-wallet-card {
+    background: linear-gradient(145deg, #1c1c1e, #3a3a3c);
+    box-shadow: none;
+}
+.wc-ai-phone-wallet-actions button {
+    background: #f2f2f7;
+}
+.wc-ai-phone-diary-paper {
+    background: #fff7c7;
+    box-shadow: none;
+}
+
+

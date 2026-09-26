@@ -48,7 +48,7 @@ test('usage tab has a live dashboard mount instead of an empty promise', () => {
     assert.match(settingsWindow, /id="settings-tab-usage" data-settings-panel="usage"/);
     assert.match(usage, /<div id="bynd-usage-dashboard"><\/div>/);
     assert.doesNotMatch(usage, /即将上线/);
-    assert.match(fs.readFileSync(path.join(root, 'settings.js'), 'utf8'), /if \(target === 'usage'\) void renderSettingsUsageDashboard\(\)/);
+    assert.match(fs.readFileSync(path.join(root, 'apps/settings/settings.js'), 'utf8'), /if \(target === 'usage'\) void renderSettingsUsageDashboard\(\)/);
 });
 
 function fakeSettingsWindow(names) {
@@ -76,7 +76,7 @@ function runTabNav(entries = {}) {
         window: {}, localStorage,
         document: { getElementById: id => id === 'app-settings-window' ? dom.win : null }
     });
-    vm.runInContext(sourceSection('settings.js', '// --- Settings tab navigation ---', '// --- /Settings tab navigation ---'), context);
+    vm.runInContext(sourceSection('apps/settings/settings.js', '// --- Settings tab navigation ---', '// --- /Settings tab navigation ---'), context);
     return { context, localStorage, dom };
 }
 
@@ -103,8 +103,8 @@ test('tab switching shows one panel, resets scroll and persists to bynd_settings
 test('opening settings restores the stored tab', () => {
     const { context } = runTabNav({ bynd_settings_tab_v1: 'font' });
     assert.equal(context.readSettingsTab(), 'font');
-    const initSettings = sourceSection('settings.js', 'function initSettings()', '// --- Settings tab navigation ---');
+    const initSettings = sourceSection('apps/settings/settings.js', 'function initSettings()', '// --- Settings tab navigation ---');
     assert.match(initSettings, /openSettingsTab\(readSettingsTab\(\), \{ persist: false/);
     assert.match(initSettings, /window\.ByndCharacterTools\?\.renderSettings\(\)/);
-    assert.match(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), /openApp\('settings'\); window\.openSettingsTab\?\.\('api'\)/);
+    assert.match(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), /openApp\('settings'\); window\.openSettingsTab\?\.\('api'\)/);
 });

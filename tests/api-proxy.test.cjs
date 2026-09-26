@@ -68,7 +68,7 @@ test('sticker relay requires its configured upstream and rejects unrelated paths
 
 function settingsHarness(hostname = 'localhost', protocol = 'http:') {
     const context = vm.createContext({ window: {}, URL, location: { protocol, hostname, origin: `${protocol}//${hostname}` } });
-    vm.runInContext(sourceSection('settings.js', '// Sites that refuse browser requests', '// 10. 核心测试逻辑'), context);
+    vm.runInContext(sourceSection('apps/settings/settings.js', '// Sites that refuse browser requests', '// 10. 核心测试逻辑'), context);
     return context;
 }
 
@@ -195,7 +195,7 @@ test('pinned proxies also answer under bynd.ccwu.cc/mcp/relay so the page never 
         assert.equal((await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/relay/unknown/v1/x', { method:'POST', headers, body:'{}' }), {})).status, 404);
         assert.equal((await worker.fetch(new Request('https://bynd.ccwu.cc/mcp/anything', { method:'POST', headers, body:'{}' }), {})).status, 404);
     } finally { globalThis.fetch = realFetch; }
-    for (const file of ['modules/decision/jev.js', 'settings.js']) {
+    for (const file of ['systems/agent-runtime/jev.js', 'apps/settings/settings.js']) {
         assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /workers\.dev/, `${file} must not expose the Worker host`);
     }
 });

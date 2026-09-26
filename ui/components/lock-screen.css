@@ -1,0 +1,31 @@
+/* --- Lock Screen --- */
+.lock-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #fcfcfc; z-index: 900; display: flex; flex-direction: column; padding-top: 80px; transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.lock-screen.unlocked { transform: translateY(-100%); }
+.ls-header { text-align: center; margin-bottom: 20px; }
+.ls-clock { font-size: 85px; font-weight: 800; line-height: 1; letter-spacing: -3px; color: var(--lock-text); text-shadow: var(--lock-text-shadow); transition: color 0.35s ease, text-shadow 0.35s ease; }
+.ls-date { font-size: 15px; color: var(--lock-muted); margin-top: 8px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: 0; text-shadow: var(--lock-text-shadow); transition: color 0.35s ease, text-shadow 0.35s ease; }
+.ls-weather-chip { min-height: 24px; padding: 4px 10px; border-radius: 999px; background: var(--lock-chip-bg); border: 1px solid var(--lock-chip-border); color: var(--lock-chip-text); box-shadow: var(--lock-glass-shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 12px; font-weight: 780; transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease; }
+.ls-collage { flex: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
+.photo-card { position: absolute; background: white; padding: 10px 10px 40px 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s; top: 50% !important; left: 50% !important; margin: 0 !important; }
+.photo-card img { width: 140px; height: 140px; object-fit: cover; display: block; background: #eee; }
+.photo-card:active { transform: scale(0.98); } 
+.photo-left { transform: translate(-90%, -80%) rotate(-6deg); z-index: 1; }
+.photo-right { right: auto !important; transform: translate(-10%, -20%) rotate(8deg); z-index: 2; }
+.tape { position: absolute; top: -15px; left: 40%; width: 40px; height: 20px; background: rgba(255,255,255,0.4); transform: rotate(-2deg); backdrop-filter: blur(2px); }
+.hand-write { position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-family: cursive; color: #555; font-size: 14px; }
+.clip-paper { position: absolute; top: -28px; left: 40%; z-index: 10; font-size: 32px; color: #444; transform: rotate(-10deg); filter: drop-shadow(0 2px 1px rgba(0,0,0,0.2)); }
+.sticker-star { position: absolute; bottom: -15px; right: -15px; font-size: 35px; color: #ffd700; transform: rotate(15deg); }
+.sticker-star.ri-heart-3-fill { color: #f7a6bd; }
+.sticker-star.ri-sparkling-2-fill { color: #9ebbe0; }
+.sticker-star.ri-flower-fill { color: #b7c9ef; }
+.sticker-star.ri-moon-clear-fill { color: #91a9ca; }
+.ls-widgets { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+.widget-pill { background: var(--lock-chip-bg); border: 1px solid var(--lock-chip-border); padding: 8px 16px; border-radius: 30px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--lock-chip-text); box-shadow: var(--lock-glass-shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.music-pill { width: 160px; overflow: hidden; white-space: nowrap; }
+.spin { animation: spin 4s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.ls-footer { display: flex; justify-content: space-between; align-items: center; padding: 0 40px calc(40px + env(safe-area-inset-bottom, 0px)) 40px; }
+.round-btn { width: 50px; height: 50px; background: var(--lock-control-bg); color: var(--lock-control-text); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 0.2s, box-shadow 0.2s, color 0.2s; }
+.round-btn.ls-flash-on { background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,200,0.8); color: #333; }
+.swipe-hint { width: 120px; height: 5px; background: var(--lock-swipe-bg); border-radius: 3px; transition: background 0.35s ease; }
+

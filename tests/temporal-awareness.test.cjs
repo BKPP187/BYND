@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { root, sourceSection } = require('./helpers/harness.cjs');
 
-const apiSource = fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8');
+const apiSource = fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8');
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-09-08T12:00:00Z').getTime();
 

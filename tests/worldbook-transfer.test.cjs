@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const source = fs.readFileSync('WorldBook.js', 'utf8');
+const source = fs.readFileSync('core/worldbook/worldbook.js', 'utf8');
 
 function createContext(saveResult = true) {
     const alerts = [];

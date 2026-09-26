@@ -1,0 +1,1455 @@
+/* === WeChat Music and Mini Phone iOS Page Enhancements === */
+.msg-music-card.resolving .msg-music-play {
+    animation: wcMusicSpin 1s linear infinite;
+}
+.wc-ai-phone-app-title-compact strong {
+    font-size: 28px;
+}
+.wc-ai-phone-ios-list {
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e5e5ea;
+}
+.wc-ai-phone-ios-row {
+    width: 100%;
+    min-height: 52px;
+    border: none;
+    border-bottom: 1px solid #efeff4;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) 18px;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    color: #111827;
+    text-align: left;
+}
+.wc-ai-phone-ios-row:last-child {
+    border-bottom: none;
+}
+.wc-ai-phone-ios-row > i {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #f2f2f7;
+    color: #007aff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.wc-ai-phone-ios-row span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wc-ai-phone-ios-row strong {
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.18;
+    font-weight: 680;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-ios-row em {
+    color: #8e8e93;
+    font-size: 11px;
+    line-height: 1.25;
+    font-style: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-ios-row b {
+    color: #c7c7cc;
+    font-size: 18px;
+    font-weight: 400;
+}
+.wc-ai-phone-settings-profile {
+    min-height: 82px;
+    padding: 12px;
+    border: 1px solid #e5e5ea;
+    border-radius: 14px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.wc-ai-phone-settings-profile img {
+    width: 56px;
+    height: 56px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #e5e5ea;
+}
+.wc-ai-phone-settings-profile span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.wc-ai-phone-settings-profile strong {
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.15;
+    font-weight: 720;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-settings-profile em {
+    color: #8e8e93;
+    font-size: 12px;
+    line-height: 1.2;
+    font-style: normal;
+}
+.wc-ai-phone-settings-list {
+    margin-top: 14px;
+}
+.wc-ai-phone-settings-list .wc-ai-phone-ios-row {
+    min-height: 62px;
+    cursor: pointer;
+}
+.wc-ai-phone-schedule-list {
+    border-radius: 18px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e5e5ea;
+}
+.wc-ai-phone-schedule-row {
+    width: 100%;
+    min-height: 56px;
+    border: none;
+    border-bottom: 1px solid #efeff4;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    color: #111827;
+    text-align: left;
+}
+.wc-ai-phone-schedule-row:last-child {
+    border-bottom: none;
+}
+.wc-ai-phone-schedule-time {
+    color: #007aff;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-schedule-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.wc-ai-phone-schedule-main strong {
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.18;
+    font-weight: 720;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-schedule-main em {
+    color: #8e8e93;
+    font-size: 11px;
+    line-height: 1.2;
+    font-style: normal;
+}
+.wc-ai-phone-schedule-row > i {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: #eaf3ff;
+    color: #007aff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+.wc-ai-phone-notes-folder,
+.wc-ai-phone-safari-page-card {
+    border-radius: 18px;
+    background: #f2f2f7;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.wc-ai-phone-folder-head {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 720;
+}
+.wc-ai-phone-folder-head i {
+    color: #ffcc00;
+    font-size: 21px;
+}
+.wc-ai-phone-folder-head span {
+    color: #8e8e93;
+    font-weight: 600;
+}
+.wc-ai-phone-safari-app {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wc-ai-phone-safari-toolbar {
+    height: 34px;
+    border-radius: 10px;
+    background: #fff;
+    color: #8e8e93;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 20px;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    font-size: 12px;
+}
+.wc-ai-phone-safari-toolbar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-safari-bottom {
+    margin-top: auto;
+    min-height: 42px;
+    border-radius: 16px;
+    background: #f2f2f7;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    color: #007aff;
+    font-size: 19px;
+    text-align: center;
+}
+.wc-ai-phone-note-detail,
+.wc-ai-phone-safari-reader {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wc-ai-phone-detail-back {
+    align-self: flex-start;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #007aff;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 650;
+}
+.wc-ai-phone-detail-back i {
+    font-size: 20px;
+    margin-left: -5px;
+}
+.wc-ai-phone-note-paper {
+    min-height: 360px;
+    border-radius: 18px;
+    background: #fffef8;
+    color: #1f2937;
+    padding: 18px 16px;
+    box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.05);
+}
+.wc-ai-phone-note-paper time {
+    color: #8e8e93;
+    font-size: 12px;
+    font-weight: 650;
+}
+.wc-ai-phone-note-paper h3 {
+    margin: 10px 0 0;
+    color: #111827;
+    font-size: 23px;
+    line-height: 1.14;
+    font-weight: 780;
+}
+.wc-ai-phone-note-paper p {
+    margin: 16px 0 0;
+    color: #374151;
+    font-size: 14px;
+    line-height: 1.68;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-safari-article {
+    min-height: 360px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    padding: 18px 16px;
+    color: #111827;
+}
+.wc-ai-phone-safari-article > span {
+    color: #8e8e93;
+    font-size: 11px;
+    font-weight: 720;
+    text-transform: uppercase;
+}
+.wc-ai-phone-safari-article h3 {
+    margin: 8px 0 0;
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.16;
+    font-weight: 780;
+}
+.wc-ai-phone-safari-article p {
+    margin: 14px 0 0;
+    color: #374151;
+    font-size: 14px;
+    line-height: 1.62;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-safari-article div {
+    margin-top: 18px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f2f2f7;
+    color: #007aff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 680;
+}
+.wc-ai-phone-wallet-pass {
+    min-height: 176px;
+    padding: 18px;
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 16% 18%, rgba(255,255,255,0.28), transparent 30%),
+        linear-gradient(145deg, #111827, #3b4254 62%, #111827);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 18px 36px rgba(15,23,42,0.18);
+}
+.wc-ai-phone-wallet-pass span {
+    color: rgba(255,255,255,0.62);
+    font-size: 12px;
+    font-weight: 720;
+}
+.wc-ai-phone-wallet-pass strong {
+    font-size: 31px;
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.wc-ai-phone-wallet-pass em {
+    margin-top: 4px;
+    color: rgba(255,255,255,0.86);
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 820;
+}
+.wc-ai-phone-wallet-pass p {
+    margin: 0;
+    color: rgba(255,255,255,0.78);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.wc-ai-phone-journal-entry {
+    min-height: 330px;
+    border-radius: 22px;
+    padding: 18px;
+    background: linear-gradient(180deg, #fff9d6, #fff3a8);
+    color: #2f2414;
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+}
+.wc-ai-phone-journal-entry time {
+    color: rgba(47,36,20,0.55);
+    font-size: 12px;
+    font-weight: 700;
+}
+.wc-ai-phone-journal-entry strong {
+    margin-top: 14px;
+    color: #2f2414;
+    font-size: 22px;
+    font-weight: 780;
+}
+.wc-ai-phone-journal-entry p {
+    margin: 12px 0 0;
+    color: #2f2414;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-map-preview {
+    min-height: 138px;
+    border-radius: 20px;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255,255,255,0.5) 1px, transparent 1px),
+        linear-gradient(145deg, #dbeafe, #dcfce7);
+    background-size: 32px 32px, 32px 32px, auto;
+    color: #0f766e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    padding: 12px;
+}
+.wc-ai-phone-map-preview i {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #34c759;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 23px;
+    box-shadow: 0 8px 18px rgba(52,199,89,0.25);
+}
+.wc-ai-phone-map-preview span {
+    color: #0f766e;
+    font-size: 13px;
+    font-weight: 700;
+}
+.wc-ai-phone-screen-time-card {
+    min-height: 154px;
+    border-radius: 20px;
+    background: #f2f2f7;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.wc-ai-phone-screen-time-card span {
+    color: #8e8e93;
+    font-size: 12px;
+    font-weight: 650;
+}
+.wc-ai-phone-screen-time-card strong {
+    color: #111827;
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 760;
+}
+.wc-ai-phone-screen-time-card div {
+    height: 58px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: end;
+    gap: 8px;
+}
+.wc-ai-phone-screen-time-card i {
+    border-radius: 999px 999px 4px 4px;
+    background: linear-gradient(180deg, #34c759, #007aff);
+}
+.wc-ai-phone-clock-native {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.wc-ai-phone-clock-tabs {
+    height: 34px;
+    padding: 3px;
+    border-radius: 11px;
+    background: #f2f2f7;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+}
+.wc-ai-phone-clock-tabs button {
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: #8e8e93;
+    font-size: 10px;
+    font-weight: 650;
+}
+.wc-ai-phone-clock-tabs button.active {
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.wc-ai-phone-clock-large {
+    padding: 34px 0 24px;
+    color: #111827;
+    font-size: 58px;
+    line-height: 1;
+    font-weight: 680;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+/* === AI phone iOS polish pass 3 === */
+.wc-ai-phone-app-icon b {
+    width: 64px;
+    max-width: 64px;
+    text-align: center;
+    display: block;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: clip;
+    line-height: 1.08;
+}
+.wc-ai-phone-app-nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 54px;
+    padding: 7px 12px 6px;
+}
+.wc-ai-phone-app-nav button {
+    position: absolute;
+    top: 10px;
+    z-index: 2;
+}
+.wc-ai-phone-app-nav button:first-child {
+    left: 8px;
+    max-width: 84px;
+}
+.wc-ai-phone-app-nav button:last-child {
+    right: 10px;
+}
+.wc-ai-phone-app-nav strong {
+    position: absolute;
+    left: 50%;
+    top: 16px;
+    transform: translateX(-50%);
+    width: min(156px, 52%);
+    max-width: 156px;
+    text-align: center;
+    justify-content: center;
+}
+.wc-ai-phone-ios-row {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+.wc-ai-phone-ios-row small {
+    color: #8e8e93;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+.wc-ai-phone-imessage-head {
+    min-height: 78px;
+    padding: 2px 0 7px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #111827;
+}
+.wc-ai-phone-imessage-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #d8dde6;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 760;
+}
+.wc-ai-phone-imessage-avatar.primary {
+    background: #dfe5ed;
+}
+.wc-ai-phone-imessage-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wc-ai-phone-imessage-head strong {
+    max-width: 180px;
+    color: #111827;
+    font-size: 13px;
+    line-height: 1.1;
+    font-weight: 720;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-imessage-head span {
+    color: #8e8e93;
+    font-size: 10px;
+    font-weight: 620;
+}
+.wc-ai-phone-conversation {
+    padding: 10px 6px 12px;
+    border-radius: 0;
+    background: #fff;
+    gap: 7px;
+}
+.wc-ai-phone-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    max-width: 100%;
+}
+.wc-ai-phone-msg.is-self {
+    justify-content: flex-end;
+}
+.wc-ai-phone-msg.is-other {
+    justify-content: flex-start;
+}
+.wc-ai-phone-mini-avatar {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #d8dde6;
+    color: #4b5563;
+    overflow: hidden;
+    font-size: 10px;
+}
+.wc-ai-phone-mini-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wc-ai-phone-msg-bubble {
+    max-width: 72%;
+    padding: 7px 10px 6px;
+    border-radius: 17px;
+    box-shadow: none;
+}
+.wc-ai-phone-msg.is-self .wc-ai-phone-msg-bubble {
+    background: #007aff;
+    color: #fff;
+    border-bottom-right-radius: 5px;
+}
+.wc-ai-phone-msg.is-other .wc-ai-phone-msg-bubble {
+    background: #e9e9eb;
+    color: #111827;
+    border-bottom-left-radius: 5px;
+}
+.wc-ai-phone-msg.is-self .wc-ai-phone-msg-bubble time {
+    color: rgba(255,255,255,0.72);
+}
+.wc-ai-phone-msg.is-other .wc-ai-phone-msg-bubble time {
+    color: rgba(17,24,39,0.42);
+}
+.wc-ai-phone-compose {
+    min-height: 40px;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    padding: 0 3px 2px;
+}
+.wc-ai-phone-compose span {
+    height: 31px;
+    background: #fff;
+    border-color: #d1d1d6;
+}
+.wc-ai-phone-compose-active input {
+    min-width: 0;
+    height: 31px;
+    border: 1px solid #d1d1d6;
+    border-radius: 16px;
+    background: #fff;
+    color: #111827;
+    padding: 0 11px;
+    font-size: 13px;
+    outline: none;
+}
+.wc-ai-phone-compose-active button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #007aff;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+.wc-ai-phone-proxy-tag {
+    display: block;
+    margin-top: 3px;
+    color: rgba(255,255,255,0.64);
+    font-size: 9px;
+    line-height: 1.2;
+}
+.wc-ai-phone-map-preview {
+    position: relative;
+    overflow: hidden;
+    min-height: 146px;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 14px;
+    background:
+        linear-gradient(90deg, rgba(120,144,156,0.14) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(120,144,156,0.14) 1px, transparent 1px),
+        linear-gradient(145deg, #eef7ff, #edf7ef 58%, #f7f2e8);
+    background-size: 30px 30px, 30px 30px, auto;
+    color: #1f2937;
+}
+.wc-ai-phone-map-preview::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 58px;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(0,122,255,0.38), rgba(52,199,89,0.42), transparent);
+    transform: rotate(-9deg);
+}
+.wc-ai-phone-map-route {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.wc-ai-phone-map-route b {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: #ff3b30;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+}
+.wc-ai-phone-map-route b:nth-child(1) { left: 26px; top: 35px; }
+.wc-ai-phone-map-route b:nth-child(2) { left: 108px; top: 58px; background: #007aff; }
+.wc-ai-phone-map-route b:nth-child(3) { right: 42px; top: 40px; background: #34c759; }
+.wc-ai-phone-map-route b:nth-child(4) { right: 72px; bottom: 32px; background: #ff9500; }
+.wc-ai-phone-map-preview i {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    background: #007aff;
+    box-shadow: 0 8px 18px rgba(0,122,255,0.22);
+}
+.wc-ai-phone-map-preview span {
+    position: relative;
+    z-index: 1;
+    margin-top: auto;
+    color: #111827;
+    font-size: 15px;
+    font-weight: 760;
+}
+.wc-ai-phone-map-preview small {
+    position: relative;
+    z-index: 1;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 620;
+}
+.wc-ai-phone-screen-time-card {
+    min-height: 144px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #f8f8fb, #ededf3);
+}
+.wc-ai-phone-clock-large {
+    padding: 28px 0 18px;
+}
+
+.bynd-ai-phone-mail-polish-pass4-marker { display: none; }
+.wc-ai-phone-imessage-head {
+    min-height: 62px;
+    padding-bottom: 6px;
+}
+.wc-ai-phone-imessage-head span {
+    display: none;
+}
+.wc-ai-phone-msg-bubble.is-music-card {
+    padding: 0;
+    background: transparent !important;
+    box-shadow: none;
+    max-width: 78%;
+}
+.wc-ai-phone-msg-bubble.is-image {
+    padding: 0;
+    background: transparent !important;
+    box-shadow: none;
+    max-width: 184px;
+}
+.wc-ai-phone-mini-music-card {
+    position: relative;
+    width: min(235px, 100%);
+    min-height: 76px;
+    padding: 10px 38px 18px 10px;
+    border-radius: 18px;
+    background: #e9e9eb;
+    color: #111827;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 9px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.wc-ai-phone-msg.is-self .wc-ai-phone-mini-music-card {
+    background: #007aff;
+    color: #fff;
+}
+.wc-ai-phone-mini-music-cover {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #ff9f0a, #ff375f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 20px;
+}
+.wc-ai-phone-mini-music-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wc-ai-phone-mini-music-main strong,
+.wc-ai-phone-mini-music-main span,
+.wc-ai-phone-mini-music-main em {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-ai-phone-mini-music-main strong {
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 760;
+}
+.wc-ai-phone-mini-music-main span {
+    font-size: 12px;
+    color: inherit;
+    opacity: 0.82;
+}
+.wc-ai-phone-mini-music-main em {
+    font-style: normal;
+    font-size: 10px;
+    opacity: 0.58;
+}
+.wc-ai-phone-mini-music-card button {
+    position: absolute;
+    right: 9px;
+    top: 18px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.88);
+    color: #007aff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.wc-ai-phone-msg.is-self .wc-ai-phone-mini-music-card button {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+}
+.wc-ai-phone-mini-music-card time {
+    position: absolute;
+    right: 10px;
+    bottom: 5px;
+    font-size: 9px;
+    opacity: 0.62;
+}
+.wc-ai-phone-mini-image {
+    position: relative;
+    width: 172px;
+    min-height: 120px;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #e9e9eb;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.wc-ai-phone-mini-image img {
+    display: block;
+    width: 100%;
+    max-height: 210px;
+    object-fit: cover;
+}
+.wc-ai-phone-mini-image > span {
+    display: block;
+    padding: 7px 9px 18px;
+    color: #3f3f46;
+    font-size: 11px;
+    line-height: 1.35;
+    background: rgba(255,255,255,0.82);
+}
+.wc-ai-phone-mini-image time {
+    position: absolute;
+    right: 8px;
+    bottom: 5px;
+    font-size: 9px;
+    color: rgba(17,24,39,0.52);
+}
+.wc-ai-phone-mini-image-placeholder {
+    min-height: 118px;
+    padding: 18px 12px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 12px;
+    text-align: center;
+}
+.wc-ai-phone-mini-image-placeholder i {
+    font-size: 26px;
+}
+.wc-ai-phone-mini-image.is-pending .wc-ai-phone-mini-image-placeholder i {
+    animation: spin 1.1s linear infinite;
+}
+.wc-ai-phone-mini-image.is-broken,
+.wc-ai-phone-mini-image.is-error {
+    background: #f4f4f5;
+}
+.wc-ai-phone-safari-page-card .wc-ai-phone-ios-row em {
+    max-width: 255px;
+}
+.wc-ai-phone-wallet-pass p {
+    font-size: 13px;
+    line-height: 1.5;
+}
+.wc-ai-phone-diary-mailbox {
+    min-height: 100%;
+    padding: 5px 0 18px;
+    background:
+        radial-gradient(circle at 25% 8%, rgba(255,255,255,0.72), transparent 28%),
+        linear-gradient(180deg, #f7f1e5, #efe6d6);
+    border-radius: 0 0 28px 28px;
+}
+.wc-ai-phone-letter-hero {
+    padding: 16px 18px 8px;
+    color: #241b14;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.wc-ai-phone-diary-sync {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 8px 14px 0;
+}
+.wc-ai-phone-diary-sync p {
+    align-self: stretch;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.65);
+    color: #795c42;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-letter-back:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.wc-ai-phone-diary-response {
+    align-self: stretch;
+    min-width: 0;
+    margin-top: 8px;
+    color: #795c42;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: left;
+}
+.wc-ai-phone-diary-response summary {
+    padding: 8px 0;
+    cursor: pointer;
+}
+.wc-ai-phone-diary-response pre {
+    max-height: 240px;
+    overflow: auto;
+    margin: 4px 0;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.7);
+    font: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.wc-ai-phone-letter-hero span,
+.wc-ai-phone-letter-hero em {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: rgba(36,27,20,0.62);
+    font-style: normal;
+}
+.wc-ai-phone-letter-hero strong {
+    font-size: 27px;
+    line-height: 1.05;
+    font-weight: 760;
+}
+.wc-ai-phone-letter-list {
+    position: relative;
+    min-height: 430px;
+    padding: 14px 16px 0;
+}
+.wc-ai-phone-letter-card {
+    position: relative;
+    width: 100%;
+    height: 130px;
+    margin-bottom: 14px;
+    border: 1px solid rgba(86,70,49,0.18);
+    border-radius: 4px;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,0.42), transparent 36%),
+        linear-gradient(180deg, #f8f2e7, #efe4d0);
+    color: #241b14;
+    box-shadow: 0 12px 26px rgba(86,70,49,0.12);
+    overflow: hidden;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+}
+.wc-ai-phone-letter-card::before,
+.wc-ai-phone-letter-card::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 64px;
+    border-top: 1px solid rgba(86,70,49,0.12);
+    transform-origin: top center;
+    pointer-events: none;
+}
+.wc-ai-phone-letter-card::before {
+    top: 0;
+    background: linear-gradient(160deg, transparent 49%, rgba(86,70,49,0.10) 50%, transparent 51%);
+}
+.wc-ai-phone-letter-card::after {
+    bottom: -32px;
+    background: linear-gradient(20deg, transparent 49%, rgba(86,70,49,0.10) 50%, transparent 51%);
+}
+.wc-ai-phone-letter-card span {
+    position: absolute;
+    top: 11px;
+    right: 14px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 10px;
+    color: rgba(36,27,20,0.55);
+}
+.wc-ai-phone-letter-card strong {
+    font-size: 20px;
+    font-weight: 760;
+    letter-spacing: 0;
+}
+.wc-ai-phone-letter-card em {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11px;
+    font-style: normal;
+    color: rgba(36,27,20,0.62);
+}
+.wc-ai-phone-letter-card i {
+    position: absolute;
+    right: 18px;
+    bottom: 13px;
+    width: 42px;
+    height: 22px;
+    border: 1px solid rgba(36,27,20,0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 10px;
+    font-style: normal;
+    color: rgba(36,27,20,0.72);
+}
+.wc-ai-phone-letter-card.card-1 {
+    transform: rotate(-1.2deg);
+}
+.wc-ai-phone-letter-card.card-2 {
+    transform: rotate(1deg);
+}
+.wc-ai-phone-diary-open {
+    min-height: 100%;
+    padding: 10px 13px 18px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.36), transparent 26%),
+        #efe5d3;
+}
+.wc-ai-phone-letter-back {
+    border: none;
+    background: transparent;
+    color: #3d342a;
+    height: 30px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.wc-ai-phone-letter-back i {
+    font-size: 22px;
+}
+.wc-ai-phone-open-envelope {
+    position: relative;
+    margin-top: 6px;
+    min-height: 510px;
+    perspective: 900px;
+}
+.wc-ai-phone-envelope-flap {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 8px;
+    height: 128px;
+    background: linear-gradient(180deg, #f8f2e8, #eadbc5);
+    clip-path: polygon(0 100%, 50% 0, 100% 100%);
+    border: 1px solid rgba(86,70,49,0.14);
+    transform-origin: bottom center;
+    animation: wcLetterFlap 620ms ease both;
+    z-index: 1;
+}
+.wc-ai-phone-letter-paper {
+    position: relative;
+    z-index: 2;
+    min-height: 470px;
+    padding: 25px 24px 28px;
+    border-radius: 3px;
+    background:
+        linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)),
+        repeating-linear-gradient(0deg, rgba(51,42,31,0.018) 0 2px, transparent 2px 5px),
+        #f7f1e6;
+    color: #241b14;
+    box-shadow: 0 18px 36px rgba(86,70,49,0.18);
+    animation: wcLetterRise 560ms cubic-bezier(.2,.8,.2,1) both;
+    font-family: Georgia, 'Times New Roman', 'SimSun', serif;
+}
+.wc-ai-phone-letter-paper header,
+.wc-ai-phone-letter-paper footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: rgba(36,27,20,0.68);
+    font-size: 11px;
+}
+.wc-ai-phone-letter-paper h3 {
+    margin: 64px 0 6px;
+    text-align: center;
+    font-size: 26px;
+    line-height: 1.15;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+.wc-ai-phone-letter-paper small {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(36,27,20,0.62);
+}
+.wc-ai-phone-letter-opening {
+    display: block;
+    margin: 38px 0 -22px;
+    color: #2f2418;
+    font-size: 14px;
+    font-style: normal;
+    line-height: 1.7;
+}
+.wc-ai-phone-letter-paper p {
+    margin: 44px 0 0;
+    color: #2f2418;
+    font-size: 14px;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-letter-formal {
+    margin-top: 4px;
+    color: #2f2418;
+    font-size: 14px;
+    line-height: 1.85;
+}
+.wc-ai-phone-letter-formal p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.wc-ai-phone-letter-greeting,
+.wc-ai-phone-letter-body p,
+.wc-ai-phone-letter-closing {
+    text-indent: 2em;
+}
+.wc-ai-phone-letter-body {
+    margin-top: 14px;
+}
+.wc-ai-phone-letter-body p + p {
+    margin-top: 10px;
+}
+.wc-ai-phone-letter-closing {
+    margin-top: 18px !important;
+}
+.wc-ai-phone-letter-wish {
+    margin-top: 2px !important;
+}
+.wc-ai-phone-letter-signature,
+.wc-ai-phone-letter-date {
+    text-align: right;
+}
+.wc-ai-phone-letter-signature {
+    margin-top: 22px !important;
+}
+.wc-ai-phone-letter-paper footer {
+    margin-top: 42px;
+    border-top: 1px solid rgba(36,27,20,0.42);
+    padding-top: 8px;
+}
+@keyframes wcLetterFlap {
+    from { transform: rotateX(0deg) translateY(46px); opacity: 0.9; }
+    to { transform: rotateX(168deg) translateY(0); opacity: 0.35; }
+}
+@keyframes wcLetterRise {
+    from { transform: translateY(76px) scale(.92); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.bynd-ai-phone-sticker-polish-pass1-marker { display: none; }
+.wc-ai-phone-msg-bubble.is-sticker {
+    padding: 0;
+    background: transparent !important;
+    box-shadow: none;
+    max-width: 172px;
+}
+.wc-ai-phone-mini-sticker {
+    position: relative;
+    min-width: 82px;
+    min-height: 82px;
+    padding: 6px 6px 18px;
+    border-radius: 18px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wc-ai-phone-mini-sticker img {
+    max-width: 132px;
+    max-height: 132px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+.wc-ai-phone-mini-sticker.is-emoji img {
+    max-width: 68px;
+    max-height: 68px;
+}
+.wc-ai-phone-mini-sticker span {
+    display: none;
+}
+.wc-ai-phone-mini-sticker time {
+    position: absolute;
+    right: 5px;
+    bottom: 1px;
+    color: rgba(17,24,39,0.42);
+    font-size: 9px;
+}
+.wc-ai-phone-msg.is-self .wc-ai-phone-mini-sticker time {
+    color: rgba(17,24,39,0.42);
+}
+.wc-ai-phone-mini-sticker.is-broken {
+    background: #e9e9eb;
+    color: #6b7280;
+    padding: 8px 10px 20px;
+}
+.wc-ai-phone-mini-sticker.is-broken::before {
+    content: "琛ㄦ儏鍔犺浇澶辫触";
+    font-size: 12px;
+}
+
+
+.bynd-music-invite-phoneapps1-marker { display: none; }
+.msg-music-invite-card {
+    min-width: 238px;
+    max-width: min(282px, 78vw);
+    padding: 12px;
+    border: 1px solid rgba(72, 91, 146, 0.12);
+    background: linear-gradient(145deg, #ffffff 0%, #f8fbff 58%, #eef4ff 100%);
+    color: #172033;
+    box-shadow: 0 10px 28px rgba(48, 65, 120, 0.10);
+}
+.msg-music-invite-head {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+}
+.msg-music-invite-card .msg-music-art {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #ff7aa8, #6f7cff);
+}
+.msg-music-invite-card .msg-music-main span { color: #6f7cff; }
+.msg-music-invite-copy {
+    margin: 10px 0 0;
+    color: #526071;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.msg-music-invite-actions {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+.msg-music-invite-card.rejected .msg-music-invite-actions {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+.msg-music-invite-actions button {
+    height: 31px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 999px;
+    background: #1677ff;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 760;
+    box-shadow: 0 8px 18px rgba(22, 119, 255, 0.22);
+}
+.msg-music-invite-actions button.reject {
+    background: #eef2f7;
+    color: #5f6b7a;
+    box-shadow: none;
+}
+.msg-music-invite-actions button:disabled {
+    background: #c7ced8;
+    box-shadow: none;
+}
+.msg-music-invite-status {
+    height: 31px;
+    padding: 0 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2f7;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 760;
+    white-space: nowrap;
+}
+.msg-music-invite-helper {
+    min-width: 0;
+    color: #8a94a6;
+    font-size: 11px;
+    line-height: 1.25;
+}
+.msg-music-invite-card.rejected {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-color: rgba(100, 116, 139, 0.14);
+}
+.msg-music-invite-card.rejected .msg-music-main span {
+    color: #8a94a6;
+}
+.msg-music-card.accepted-invite {
+    border-color: rgba(22, 119, 255, 0.16);
+    box-shadow: 0 8px 24px rgba(22, 119, 255, 0.10);
+}
+.wc-ai-phone-calendar-card,
+.wc-ai-phone-order-card,
+.wc-ai-phone-delivery-card,
+.wc-ai-phone-game-card {
+    border-radius: 22px;
+    padding: 15px;
+    color: #111827;
+    border: 1px solid rgba(17, 24, 39, 0.055);
+    box-shadow: none;
+}
+.wc-ai-phone-calendar-card { background: linear-gradient(145deg, #f8fbff, #edf4ff); }
+.wc-ai-phone-order-card { background: linear-gradient(145deg, #fff8ec, #fff1d6); }
+.wc-ai-phone-delivery-card { background: linear-gradient(145deg, #effdf4, #e7f8ee); }
+.wc-ai-phone-game-card { background: linear-gradient(145deg, #f4efff, #eef3ff); }
+.wc-ai-phone-calendar-card span,
+.wc-ai-phone-order-card span,
+.wc-ai-phone-game-card span {
+    display: block;
+    color: #8e8e93;
+    font-size: 11px;
+    font-weight: 680;
+}
+.wc-ai-phone-calendar-card strong,
+.wc-ai-phone-order-card strong,
+.wc-ai-phone-delivery-card strong,
+.wc-ai-phone-game-card strong {
+    display: block;
+    margin-top: 5px;
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.15;
+    font-weight: 780;
+}
+.wc-ai-phone-calendar-card p,
+.wc-ai-phone-order-card p,
+.wc-ai-phone-delivery-card p,
+.wc-ai-phone-game-card p {
+    margin: 7px 0 0;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.42;
+}
+.wc-ai-phone-order-card > i {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: #ff9500;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 9px;
+}
+.wc-ai-phone-delivery-card div {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.wc-ai-phone-delivery-card div i {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #34c759;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+}
+.wc-ai-phone-delivery-card div b {
+    height: 3px;
+    border-radius: 99px;
+    background: repeating-linear-gradient(90deg, #34c759 0 8px, transparent 8px 14px);
+}
+.wc-ai-phone-game-card span {
+    color: #6d28d9;
+    letter-spacing: 0.02em;
+}
+

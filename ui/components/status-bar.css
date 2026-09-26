@@ -1,0 +1,9 @@
+/* --- Status Bar --- */
+.status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
+html.bynd-statusbar-hidden .status-bar,
+body.bynd-statusbar-hidden .status-bar,
+.status-bar.bynd-statusbar-force-hidden { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+.status-bar.white-text { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.status-bar.white-text i { color: #ffffff; }
+.status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
+

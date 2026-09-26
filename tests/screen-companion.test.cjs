@@ -35,8 +35,8 @@ function harness({ web = false, settings = { enabled: true } } = {}) {
         saveCharactersToStorage: async () => true, showWechatToast: text => state.toasts.push(text), syncMonitorPetFloating() {},
         callChatApi: async (messages, options) => { state.calls.push({ messages, options }); return typeof state.answer === 'function' ? state.answer(messages) : state.answer; }
     });
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/character-pet.js'), 'utf8'), context);
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/screen-companion.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/character-pet.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/screen-companion.js'), 'utf8'), context);
     const companion = window.ByndScreenCompanion;
     const context_ = (patch = {}) => ({ package: 'com.ss.android.ugc.aweme', label: '抖音', imageDataUrl: null, at: state.now, reason: 'switch', secure: false, dwellMs: 0, ...patch });
     return { char, state, storage, companion, ctx: context_, advance: ms => { state.now += ms; } };

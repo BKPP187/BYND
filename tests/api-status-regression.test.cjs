@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { root, sourceSection, deferred } = require('./helpers/harness.cjs');
 
-const apiSource = fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8');
+const apiSource = fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8');
 const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const response = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers });
 const errorResponse = (status, message, code = '', headers = {}) => response(status, { error: { message, code } }, headers);

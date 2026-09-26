@@ -42,8 +42,8 @@ function harness({ prefs = { allowTools: true }, gate = async () => ({ allow: tr
     };
     sandbox.window = sandbox;
     const context = vm.createContext(sandbox);
-    vm.runInContext(read('modules/wechat/agent-tools.js'), context);
-    vm.runInContext(read('modules/wechat/character-tools.js'), context);
+    vm.runInContext(read('systems/agent-runtime/agent-tools.js'), context);
+    vm.runInContext(read('apps/wechat/character/character-tools.js'), context);
     return { context, tools: context.ByndCharacterTools, char, state };
 }
 
@@ -116,7 +116,7 @@ test('weather parses Open-Meteo and the prompt anchor reads only the cache', asy
     assert.match(h.tools.weatherAnchor(h.char), /杭州/, 'a slightly stale cache still answers synchronously');
     await flush();
     assert.ok(h.state.requests.some(request => request.url.startsWith('https://api.open-meteo.com/')), 'and refreshes in the background');
-    assert.match(read('chat-api.js'), /window\.ByndCharacterTools\?\.weatherAnchor\?\.\(char\)/);
+    assert.match(read('core/api/chat-api.js'), /window\.ByndCharacterTools\?\.weatherAnchor\?\.\(char\)/);
 });
 
 test('a weather call delivers a saved card and one background follow-up billed as tool', async () => {
@@ -138,8 +138,8 @@ test('a weather call delivers a saved card and one background follow-up billed a
     assert.match(messages.at(-1).content, /小雨/);
     assert.deepEqual(h.state.appended, ['带把伞吧', '别淋着']);
     assert.match(h.tools.renderCard(card), /bynd-tool-card--weather[\s\S]*明天/);
-    assert.match(read('chat-api.js'), /msg\.type === 'tool_result' \? 'system'/);
-    assert.ok(/key: 'tool', label: '角色工具'/.test(read('modules/usage/ledger.js')));
+    assert.match(read('core/api/chat-api.js'), /msg\.type === 'tool_result' \? 'system'/);
+    assert.ok(/key: 'tool', label: '角色工具'/.test(read('systems/usage/ledger.js')));
 });
 
 test('follow-ups respect the setting, react:false and a newer user message', async () => {
@@ -246,6 +246,6 @@ test('tool keys stay on the device: excluded from backup export and import', asy
     assert.equal(Object.prototype.hasOwnProperty.call(backup, 'bynd_tool_keys_v1'), false);
     assert.doesNotMatch(JSON.stringify(backup), /secret-amap|secret-tmdb/);
     assert.deepEqual(clone(backup.bynd_tool_config_v1), { city: '杭州' });
-    assert.match(read('settings.js'), /key !== \(window\.ByndCharacterTools\?\.secretStorageKey \|\| 'bynd_tool_keys_v1'\)/);
-    assert.doesNotMatch(read('modules/wechat/character-tools.js'), /console\.\w+\([^)]*(?:amapKey|tmdbToken|readKeys)/, 'keys are never logged');
+    assert.match(read('apps/settings/settings.js'), /key !== \(window\.ByndCharacterTools\?\.secretStorageKey \|\| 'bynd_tool_keys_v1'\)/);
+    assert.doesNotMatch(read('apps/wechat/character/character-tools.js'), /console\.\w+\([^)]*(?:amapKey|tmdbToken|readKeys)/, 'keys are never logged');
 });

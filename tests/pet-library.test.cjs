@@ -254,7 +254,7 @@ test('failed media tries each fallback once and exposes a readable failure when 
 test('workspace capture handlers leave pet media attached so its own fallback can run',()=>{
     const h=harness(), listeners={};
     h.context.keydown=()=>{};
-    h.read(sourceSection('modules/monitor/workspace.js','        function bind(host) {','        function screenChanged()'));
+    h.read(sourceSection('apps/monitor/workspace.js','        function bind(host) {','        function screenChanged()'));
     h.context.bind({dataset:{},addEventListener(type,callback){listeners[type]=callback;}});
     let removed=false;
     const target={tagName:'IMG',closest:()=>({}),remove(){removed=true;}};

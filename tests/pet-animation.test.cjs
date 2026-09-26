@@ -7,7 +7,7 @@ const { root } = require('./helpers/harness.cjs');
 
 function harness() {
     const context = vm.createContext({ window: { myCharacters: [] }, document: { addEventListener() {} }, console, Uint8Array, Uint8ClampedArray, ArrayBuffer, setTimeout, clearTimeout });
-    for (const file of ['assets/vendor/gifenc.js', 'assets/vendor/omggif.js', 'modules/monitor/character-pet.js', 'modules/monitor/pet-animation.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context);
+    for (const file of ['assets/vendor/gifenc.js', 'assets/vendor/omggif.js', 'apps/monitor/character-pet.js', 'apps/monitor/pet-animation.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context);
     return context.window;
 }
 function frame(offset = 0) {

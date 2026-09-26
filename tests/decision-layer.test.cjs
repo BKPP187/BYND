@@ -14,8 +14,8 @@ function harness(fetchImpl = async () => { throw new Error('unexpected request')
         window, fetch: fetchImpl, AbortController, setTimeout, clearTimeout, console: { warn() {} },
         localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
     };
-    vm.runInNewContext(read('modules/decision/jev.js'), context);
-    vm.runInNewContext(read('modules/decision/decider.js'), context);
+    vm.runInNewContext(read('systems/agent-runtime/jev.js'), context);
+    vm.runInNewContext(read('systems/agent-runtime/decider.js'), context);
     return { jev: window.ByndJev, decider: window.ByndDecider, values };
 }
 
@@ -96,13 +96,13 @@ test('the tool gate blocks only a confident out-of-character verdict', async () 
 
 test('chat follow-ups honour the decisions and the reply parser/preview strip the hidden block', () => {
     const wechat = read('wechat.js');
-    const tools = read('modules/wechat/agent-tools.js');
+    const tools = read('systems/agent-runtime/agent-tools.js');
     assert.match(wechat, /void runWechatTurnFollowUps\(char, \{ replyDecisions, textOnly: !!options\.textOnly, webSearched: !!webSearchContext\?\.sources\?\.length \}\);/);
     assert.match(wechat, /turn\?\.moment !== false\) void considerWechatCharMomentAfterReply\(char\)/);
     assert.match(wechat, /if \(snapshotAt && !options\.decided && now - snapshotAt < WECHAT_AI_STATUS_AUTO_REFRESH_COOLDOWN_MS\) return true;/);
     assert.match(wechat, /bynd_\(\?:summary\|tool\|pet\|decide\)/);
     assert.match(tools, /window\.ByndDecider\?\.replyInstructions\(char\)/);
     assert.match(tools, /decisions: decided\.decisions/);
-    assert.match(read('index.html'), /modules\/decision\/decider\.js/);
+    assert.match(read('index.html'), /systems\/agent-runtime\/decider\.js/);
     assert.match(read('index.html'), /console\.typesafe\.ai/);
 });

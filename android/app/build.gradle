@@ -16,8 +16,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 117
-        versionName '1.1.692'
+        versionCode 123
+        versionName '1.1.698'
     }
 
     signingConfigs {
@@ -54,7 +54,13 @@ android {
     }
 }
 
+tasks.register('assembleWebSources', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/assemble-sources.cjs'
+}
+
 tasks.register('syncWebAssets', Sync) {
+    dependsOn assembleWebSources
     from(rootProject.projectDir.parentFile) {
         include '*.html'
         include '*.js'
@@ -63,8 +69,15 @@ tasks.register('syncWebAssets', Sync) {
         include '*.png'
         include '*.webmanifest'
         include 'assets/**'
-        include 'modules/**'
-        include 'styles/**'
+        include 'apps/**'
+        include 'core/**'
+        include 'systems/**'
+        include 'ui/**'
+        exclude 'script.js'
+        exclude 'wechat.js'
+        exclude 'style.css'
+        exclude 'apps/settings/settings.js'
+        exclude '**/*.part.js'
         include '表情包/**'
         exclude 'android/**'
         exclude '.git/**'

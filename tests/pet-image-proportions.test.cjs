@@ -27,7 +27,7 @@ function harness(width, height, transparent = true) {
             analyzeAlpha: () => ({ transparent, coverage: 0.4, empty: false, bounds: { left: 20, top: 40, right: 400, bottom: 600 } })
         } }
     });
-    vm.runInContext(fs.readFileSync(path.join(root, 'modules/monitor/pet-studio.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), context);
     return { inspect: context.window.ByndPetStudio.inspectImage, canvases };
 }
 

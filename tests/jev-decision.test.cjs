@@ -11,7 +11,7 @@ function harness(fetchImpl = async () => { throw new Error('unexpected request')
     const values = new Map();
     const window = {};
     const context = { window, localStorage:{ getItem:key => values.get(key) || null, setItem:(key,value) => values.set(key,value) }, fetch:fetchImpl, AbortController, setTimeout, clearTimeout, console:{ warn() {} } };
-    vm.runInNewContext(read('modules/decision/jev.js'), context);
+    vm.runInNewContext(read('systems/agent-runtime/jev.js'), context);
     return { api:window.ByndJev, values };
 }
 
@@ -70,14 +70,14 @@ test('missing Jev proxy reports deployment status without blaming the key', asyn
 });
 
 test('the settings backup excludes the locally saved Jev secret', () => {
-    const settings = read('settings.js');
+    const settings = read('apps/settings/settings.js');
     assert.match(settings, /keys\.delete\(jevStorageKey\)/);
     assert.match(settings, /key !== \(window\.ByndJev\?\.storageKey \|\| 'bynd_jev_config_v1'\)/);
 });
 
 test('all BYND decision entry points keep their agent fallback', () => {
     const wechat = read('wechat.js');
-    const forum = read('modules/living-world/living-world.js');
+    const forum = read('systems/living-world/living-world.js');
     assert.match(wechat, /ByndJev\?\.choose\('moment'/);
     assert.match(wechat, /ByndJev\?\.choose\('momentEngagement'/);
     assert.match(forum, /ByndJev\?\.choose\('forumAction'/);

@@ -1,0 +1,45 @@
+@media (max-width: 600px) and (hover: none) and (pointer: coarse) {
+    body { background-color: var(--bg-color); }
+    .phone-container { width: 100vw; height: 100dvh; border: none; border-radius: 0; box-shadow: none; }
+}
+html.mobile-runtime, html.mobile-runtime body { width: 100%; height: 100%; overflow: hidden; background-color: var(--bynd-mobile-bg, #f8f8f8); background-image: var(--bynd-mobile-bg-image, none); background-size: cover; background-position: center; background-repeat: no-repeat; overscroll-behavior: none; }
+html.mobile-runtime body { display: block; min-height: 100dvh; padding: env(safe-area-inset-top) 0 0 0; }
+/* The body already reserves the native status bar here; headers must not reserve it again. */
+html.mobile-runtime .phone-container { --bynd-header-safe-top: 0px; width: 100vw; height: calc(100dvh - env(safe-area-inset-top)); max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+html.mobile-runtime.bynd-ios-pwa,
+html.mobile-runtime.bynd-ios-pwa body {
+    height: 100lvh;
+    min-height: 100lvh;
+}
+html.mobile-runtime.bynd-ios-pwa body {
+    position: relative;
+    isolation: isolate;
+}
+html.mobile-runtime.bynd-ios-pwa body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-color: var(--bynd-mobile-bg, #f8f8f8);
+    background-image: var(--bynd-mobile-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+html.mobile-runtime.bynd-ios-pwa .phone-container {
+    position: relative;
+    z-index: 1;
+    height: calc(100lvh - env(safe-area-inset-top));
+}
+html.mobile-runtime.bynd-android-app,
+html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
+html.mobile-runtime.bynd-android-app body { padding: 0; }
+html.mobile-runtime.bynd-android-app .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
+html.mobile-runtime:fullscreen body,
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding: 0; }
+html.mobile-runtime:fullscreen .phone-container,
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
+/* iOS PWA keeps top safe area for the native status bar; bottom controls handle home indicator spacing locally. */
+html.lockscreen-disabled .lock-screen { display: none !important; }
+

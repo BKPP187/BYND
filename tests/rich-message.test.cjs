@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { root, sourceSection } = require('./helpers/harness.cjs');
 
-const themeSource = fs.readFileSync(path.join(root, 'modules/wechat/ui-theme.js'), 'utf8');
+const themeSource = fs.readFileSync(path.join(root, 'apps/wechat/ui/ui-theme.js'), 'utf8');
 const themes = [...themeSource.matchAll(/^        id: '([^']+)'/gm)].map(match => match[1]);
 assert.equal(themes.length, 10);
 

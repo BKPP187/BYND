@@ -1,0 +1,13 @@
+/* --- Auto Dark Mode --- */
+.dark-mode .app-item span,
+.dark-mode .dock-label {
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    font-weight: 500;
+}
+.dark-mode .ls-date,
+.dark-mode .ls-vibe-text {
+    color: var(--lock-muted) !important;
+    text-shadow: var(--lock-text-shadow);
+}
+

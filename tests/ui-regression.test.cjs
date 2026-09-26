@@ -5,7 +5,7 @@ const html = fs.readFileSync('index.html', 'utf8');
 const script = fs.readFileSync('script.js', 'utf8');
 const style = fs.readFileSync('style.css', 'utf8');
 const wechat = fs.readFileSync('wechat.js', 'utf8');
-const theme = fs.readFileSync('theme.js', 'utf8');
+const theme = fs.readFileSync('ui/theme/theme.js', 'utf8');
 
 assert.doesNotMatch(html, /bynd-startup|startup-enabled|startupEnabled/, 'HTML must not render or enable the retired web splash');
 assert.doesNotMatch(style, /bynd-startup-wordmark|bynd-startup-breathe/, 'retired splash animations must be removed');

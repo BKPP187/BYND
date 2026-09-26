@@ -8,7 +8,7 @@ const { root, sourceSection } = require('./helpers/harness.cjs');
 // Dialogue that echoed the 【消息时间：…】 history label used to be saved as offline narration.
 function harness() {
     const context = vm.createContext({ window: {}, console: { log() {}, warn() {}, error() {} } });
-    vm.runInContext(fs.readFileSync(path.join(root, 'chat-api.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'core/api/chat-api.js'), 'utf8'), context);
     context.cleanWechatVisibleContent = value => context.cleanChatApiVisibleContent(String(value || ''));
     context.stripWechatUserAgencyFromNarration = value => value;
     context.hasWechatRichTag = () => false;

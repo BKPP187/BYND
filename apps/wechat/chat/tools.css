@@ -1,0 +1,131 @@
+/* === Chat tools compose polish 20260525 === */
+.wc-compose-hint {
+    margin-top: 4px;
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.045);
+    color: rgba(31, 41, 55, 0.58);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.wc-compose-music-picker select {
+    width: 100%;
+    height: 40px;
+    border: 1px solid rgba(15, 23, 42, 0.10);
+    border-radius: 12px;
+    background: #fff;
+    padding: 0 12px;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 760;
+    outline: none;
+}
+
+
+/* === Chat music search card 20260525 === */
+.wc-music-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    gap: 8px;
+}
+.wc-music-search-row button {
+    border: none;
+    border-radius: 12px;
+    background: #111827;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 820;
+    cursor: pointer;
+}
+.wc-music-result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+.wc-music-result-empty {
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.045);
+    color: rgba(31, 41, 55, 0.58);
+    font-size: 12px;
+    text-align: center;
+}
+.wc-music-result-item {
+    width: 100%;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 22px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+    color: #111827;
+    text-align: left;
+}
+.wc-music-result-item.active {
+    border-color: rgba(37, 99, 235, 0.44);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+.wc-music-result-cover {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #111827, #475569);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wc-music-result-cover img,
+.msg-music-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wc-music-result-item strong,
+.wc-music-result-item span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-music-result-item strong {
+    font-size: 13px;
+    line-height: 1.22;
+    font-weight: 860;
+}
+.wc-music-result-item span {
+    margin-top: 3px;
+    color: rgba(31, 41, 55, 0.56);
+    font-size: 11px;
+}
+.msg-music-card.playing .msg-music-play {
+    color: #16a34a;
+}
+.msg-music-card.playing .msg-music-play::before {
+    content: "\f04d";
+    font-family: remixicon !important;
+}
+
+
+/* === Chat music loading state 20260525 === */
+.msg-music-card.loading .msg-music-play {
+    animation: wcMusicSpin 0.8s linear infinite;
+    color: #64748b;
+}
+@keyframes wcMusicSpin {
+    to { transform: rotate(360deg); }
+}
+
+
+.msg-music-card.needs-tap .msg-music-play::after {
+    content: attr(data-play-hint);
+}
+
+

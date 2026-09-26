@@ -1,0 +1,53 @@
+/* === Regex Styles === */
+.regex-window { background: #f6f7f9 !important; color: #111827; }
+.regex-window-header { background: rgba(255,255,255,0.88) !important; border-bottom: 1px solid rgba(15,23,42,0.06) !important; color: #111827 !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.regex-window-header .close-btn { color: #64748b !important; }
+.regex-window-header h3 { color: #111827 !important; font-weight: 780; letter-spacing: 0; }
+.regex-add-btn { width: 34px; height: 34px; border: none; border-radius: 50%; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 20px rgba(15,23,42,0.14); }
+.regex-add-btn i { font-size: 20px; }
+.regex-tab-bar { margin: 10px 14px 0; padding: 3px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: 15px; background: #e9edf2; border: 1px solid rgba(15,23,42,0.04); }
+.re-tab { min-width: 0; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #6b7280; font-size: 13px; font-weight: 760; cursor: pointer; transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease; }
+.re-tab i { font-size: 16px; }
+.re-tab.active { background: #fff; color: #111827; box-shadow: 0 4px 14px rgba(15,23,42,0.08); }
+.regex-content { padding: 14px !important; background: #f6f7f9; }
+.re-char-selector { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; margin-bottom: 10px; }
+.re-char-pill { flex: 0 0 auto; max-width: 116px; min-height: 42px; padding: 5px 10px 5px 5px; border: 1px solid rgba(15,23,42,0.06); border-radius: 15px; background: #fff; color: #526173; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; box-shadow: 0 6px 18px rgba(15,23,42,0.045); }
+.re-char-pill img { width: 30px; height: 30px; border-radius: 10px; object-fit: cover; background: #eef1f4; flex-shrink: 0; }
+.re-char-pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 760; }
+.re-char-pill.active { color: #065f46; background: #ecfdf5; border-color: rgba(7,193,96,0.28); box-shadow: 0 8px 20px rgba(7,193,96,0.12); }
+.re-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 2px 2px 10px; }
+.re-list-head div { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.re-list-head span { color: #111827; font-size: 17px; font-weight: 850; }
+.re-list-head em { padding: 3px 7px; border-radius: 999px; background: #eaf7ef; color: #047857; font-size: 10px; font-style: normal; font-weight: 820; }
+.re-list-head small { color: #8a94a3; font-size: 11px; white-space: nowrap; }
+.re-script-card { margin-bottom: 10px; padding: 13px; border-radius: 16px; background: #fff; border: 1px solid rgba(15,23,42,0.055); box-shadow: 0 10px 26px rgba(15,23,42,0.055); transition: opacity 0.18s ease, transform 0.18s ease; }
+.re-script-card:active { transform: scale(0.992); }
+.re-script-card.disabled { opacity: 0.52; }
+.re-card-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 10px; }
+.re-title-group { min-width: 0; cursor: pointer; }
+.re-title-group strong { display: block; color: #111827; font-size: 14px; font-weight: 830; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-title-group span { display: inline-block; margin-top: 4px; color: #8a94a3; font-size: 10px; font-weight: 820; letter-spacing: 0; }
+.re-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.re-switch input { opacity: 0; width: 0; height: 0; }
+.re-slider { position: absolute; cursor: pointer; inset: 0; background: #d8dee7; transition: .22s; border-radius: 999px; }
+.re-slider:before { position: absolute; content: ""; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; transition: .22s; border-radius: 50%; box-shadow: 0 2px 6px rgba(15,23,42,0.20); }
+.re-switch input:checked + .re-slider { background: #07c160; }
+.re-switch input:checked + .re-slider:before { transform: translateX(18px); }
+.re-code-stack { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+.re-code-row { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: start; gap: 7px; margin: 0; }
+.re-code-row span { color: #8792a2; font-size: 11px; font-weight: 820; line-height: 24px; }
+.re-code-row code { min-width: 0; padding: 5px 7px; border-radius: 9px; background: #f4f6f8; color: #334155; font-size: 11px; line-height: 1.35; font-family: "SFMono-Regular", Consolas, monospace; word-break: break-all; }
+.re-empty { min-height: 210px; padding: 30px 22px; border-radius: 18px; background: #fff; color: #8a94a3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; box-shadow: 0 10px 26px rgba(15,23,42,0.045); }
+.re-empty i { width: 42px; height: 42px; border-radius: 15px; background: #f1f5f9; color: #111827; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.re-empty strong { color: #111827; font-size: 15px; font-weight: 820; }
+.re-empty span { max-width: 240px; font-size: 12px; line-height: 1.55; }
+.re-empty button { margin-top: 4px; height: 34px; padding: 0 14px; border: none; border-radius: 13px; background: #111827; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
+.re-modal-card { background: #fff !important; color: #111827 !important; border: 1px solid rgba(15,23,42,0.08) !important; border-radius: 22px !important; box-shadow: 0 24px 60px rgba(15,23,42,0.20); }
+.re-modal-header { border-bottom-color: rgba(15,23,42,0.06) !important; }
+.re-modal-header span { color: #111827 !important; font-weight: 850; }
+.re-modal-card .wc-form-group label { color: #64748b; font-size: 12px; font-weight: 760; }
+.re-modal-card input, .re-modal-card select { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid rgba(15,23,42,0.08); border-radius: 12px; background: #f7f8fa; color: #111827; outline: none; font-size: 13px; }
+.re-modal-card #re-new-regex, .re-modal-card #re-new-repl { font-family: "SFMono-Regular", Consolas, monospace; }
+.re-modal-card input:focus, .re-modal-card select:focus { border-color: rgba(7,193,96,0.42); background: #fff; box-shadow: 0 0 0 3px rgba(7,193,96,0.10); }
+.re-modal-card .btn-confirm { background: #111827 !important; color: #fff; border-radius: 14px !important; }
+
