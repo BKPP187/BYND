@@ -64,9 +64,20 @@ function addWechatFavorite(item) {
 
 function deleteWechatFavorite(id) {
     const store = getWechatFavoritesStore();
+    const item = store.items.find(row => row.id === id);
+    if (!item) return false;
     store.items = store.items.filter(item => item.id !== id);
-    saveWechatFavoritesStore(store);
+    try { saveWechatFavoritesStore(store); }
+    catch (error) { console.warn('收藏移除失败', error); showWechatToast('移除失败，请重试'); return false; }
     renderWechatFavoriteList();
+    window.ByndUndo?.offer({ label: '已移除收藏', undo: () => {
+        const latest = getWechatFavoritesStore();
+        if (!latest.items.some(row => row.id === id)) latest.items.push(item);
+        saveWechatFavoritesStore(latest);
+        renderWechatFavoriteList();
+        return true;
+    } });
+    return true;
 }
 
 function cloneWechatMessageForFavorite(msg) {
@@ -185,7 +196,7 @@ function renderWechatFavoriteList(query = '') {
                 <button onclick="deleteWechatFavorite(${quoteWechatJsString(item.id)})"><i class="ri-delete-bin-line"></i></button>
             </div>
         </div>
-    `).join('') : '<div class="wc-discover-empty">还没有收藏</div>';
+    `).join('') : '<div class="wc-discover-empty">值得留下的小事，还在路上<br><small>把聊天或朋友圈里的心动瞬间收藏在这里。</small></div>';
 }
 
 function getWechatFavoriteOpenAction(item) {
@@ -332,4 +343,3 @@ function shareWechatFavoriteNote() {
     saveWechatFavoriteNoteDraft();
     shareWechatFavorite(item.id);
 }
-

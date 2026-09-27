@@ -35,7 +35,23 @@
     function sharePost(id) { const post = loadState().posts.find(item => item.id === id); if (!post || post.deletedAt) return; shareTarget = { type:'post', id }; render(); }
     function tombstonePost(next, post, actorId, generated = false, deletedAt = now()) { if (!post || post.deletedAt) return; post.deletedAt = deletedAt; post.deletedBy = actorId; const event = generated ? addEvent(next, 'forum_delete', actorId, post.id, { title: post.title, generated: true }, 'public') : recordForumAction(next, 'forum_delete', actorId, post.id, { title: post.title }, 'critical'); event.createdAt = deletedAt; grantKnowledge(next, actorId, event, actorId, 'authored', 1); }
     function deletePost(id) { const post = loadState().posts.find(item => item.id === id); if (!post || post.deletedAt || post.authorId !== viewer().id) return; if (!window.confirm('确定删除这条帖子吗？将显示“该贴已删”，原有记录不会消失。')) return; try { mutate(next => { tombstonePost(next, next.posts.find(item => item.id === id), next.viewerId); }); activeTab = 'home'; activePostId = ''; render(); showToast('帖子已删除，已看过的人仍可能记得内容。'); } catch (error) { showToast(error.message); } }
-    function toggleFollow(id) { if (id === viewer().id || !visibleMembers().some(item => item.id === id)) return; try { mutate(next => { const rows = new Set(safeList(next.follows[next.viewerId])); if (rows.has(id)) { rows.delete(id); recordForumAction(next, 'forum_unfollow', next.viewerId, id, {}, 'medium'); } else { rows.add(id); const action = recordForumAction(next, 'forum_follow', next.viewerId, id, {}, 'medium'); notify(next, id, '新关注', `${account(next.viewerId).name} 关注了你`, ''); grantKnowledge(next, id, action, next.viewerId, 'notification', 1); } next.follows[next.viewerId] = [...rows]; }); render(); } catch (error) { showToast(error.message); } }
+    function toggleFollow(id) {
+        const who = viewer().id;
+        if (id === who || !visibleMembers().some(item => item.id === id)) return;
+        const removing = safeList(loadState().follows[who]).includes(id);
+        try {
+            mutate(next => {
+                const rows = new Set(safeList(next.follows[who]));
+                if (removing) { rows.delete(id); recordForumAction(next, 'forum_unfollow', who, id, {}, 'medium'); }
+                else { rows.add(id); const event = recordForumAction(next, 'forum_follow', who, id, {}, 'medium'); notify(next, id, '新关注', `${account(who).name} 关注了你`, ''); grantKnowledge(next, id, event, who, 'notification', 1); }
+                next.follows[who] = [...rows];
+            }); render();
+            if (removing) window.ByndUndo?.offer({ label: '已取消关注', undo: () => {
+                if (account(who).id === 'unknown' || account(id).id === 'unknown') throw new Error('账号已不可用');
+                mutate(next => { next.follows[who] = [...new Set([...safeList(next.follows[who]), id])]; recordForumAction(next, 'forum_follow', who, id, { restored: true }, 'medium'); }); render(); return true;
+            } });
+        } catch (error) { showToast(error.message); }
+    }
     function toggleBlock(id) { if (id === viewer().id || !account(id)?.id || account(id).id === 'unknown') return; try { mutate(next => { const who = next.accounts[next.viewerId] || next.npcs.find(item => item.id === next.viewerId); if (!who) throw new Error('当前论坛账号不可用。'); const blocked = new Set(safeList(who.blocked)); const adding = !blocked.has(id); if (adding) blocked.add(id); else blocked.delete(id); who.blocked = [...blocked]; const event = addEvent(next, adding ? 'forum_block' : 'forum_unblock', next.viewerId, id, {}, 'private'); grantKnowledge(next, 'user', event, 'user', 'direct', 1); if (next.viewerId !== 'user') { addEvent(next, 'forum_impersonation', 'user', next.viewerId, { action: event.type, publicEventId: event.id, targetId: id }, 'private'); recordTrace(next, next.viewerId, event.type, 'high', { targetId: id }); } }); render(); } catch (error) { showToast(error.message); } }
     function votePoll(postId, optionId) { const who = viewer().id; try { mutate(next => { const post = next.posts.find(item => item.id === postId); if (!post || post.deletedAt || !isVisible(post, who) || !post.poll) throw new Error('投票已不可用。'); const option = safeList(post.poll.options).find(item => item.id === optionId); if (!option) throw new Error('投票选项不存在。'); post.poll.options.forEach(item => { item.voters = safeList(item.voters).filter(id => id !== who); }); option.voters.push(who); recordForumAction(next, 'forum_poll_vote', who, postId, { optionId }, 'medium', 'private'); }); render(); } catch (error) { showToast(error.message); } }
     function recordForumAction(next, type, apparentActorId, targetId, metadata = {}, risk = 'low', visibility = 'public') {

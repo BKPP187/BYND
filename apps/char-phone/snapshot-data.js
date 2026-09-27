@@ -215,7 +215,7 @@ function syncWechatAiPhoneGeneratedContactContinuity(char, chats) {
 
 function buildWechatAiPhoneProxyContinuityContext(char) {
     const store = getWechatAiPhoneContactReplyStore(char);
-    const events = Array.isArray(store.events) ? store.events.slice(-6) : [];
+    const events = Array.isArray(store.events) ? store.events.filter(event=>event.type!=='view').slice(-6) : [];
     if (!events.length) return '';
     const blocks = events.map((event, index) => {
         const name = stripWechatPromptText(event.contactName || '联系人', 32);

@@ -4,6 +4,10 @@
 // share the browser's global lexical environment and inline HTML handlers.
 const scriptParts = [
     'ui/components/device.js',
+    'systems/experience/experience.js',
+    'ui/components/undo.js',
+    'ui/components/chat-clear.js',
+    'ui/components/global-search.js',
     'core/navigation/router.js',
     'core/api/mcp.js',
     'apps/manual/manual.js',
@@ -31,6 +35,7 @@ const scriptParts = [
     'apps/coreading/reader.js',
     'apps/coreading/discovery.js',
     'apps/album/album.js',
+    'apps/home3d/home3d.js',
     'ui/components/page-swipe.js',
     'ui/components/desktop-layout.js',
     'ui/components/desktop-dock.js',
@@ -38,6 +43,10 @@ const scriptParts = [
     'ui/components/desktop-lovely.js',
     'ui/components/desktop-widgets.js',
     'ui/components/desktop-edit.js',
+    'systems/life-state/life-state.js',
+    'systems/life-state/native-health.js',
+    'apps/role-tools/role-tools.js',
+    'apps/moon/moon.js',
     'ui/components/desktop-migrations.js'
 ];
 
@@ -86,6 +95,9 @@ const wechatParts = [
     'apps/wechat/chat/simulated-messages.js',
     'apps/char-phone/catalog.js',
     'apps/char-phone/brand-screens.js',
+    'apps/char-phone/viewing.js',
+    'apps/char-phone/photos.js',
+    'apps/char-phone/mail.js',
     'apps/char-phone/native-apps.js',
     'apps/char-phone/system-apps.js',
     'apps/char-phone/snapshot-data.js',
@@ -147,7 +159,10 @@ const styleParts = [
     'apps/wechat/ui/ios-safe-area.css',
     'apps/manual/manual.css',
     'apps/coreading/shelf-tools.css',
-    'core/api/mcp.css'
+    'core/api/mcp.css',
+    'apps/home3d/home3d.css',
+    'apps/settings/version-letter.css',
+    'ui/components/experience.css'
 ];
 
 // These two apps intentionally keep their private IIFE scope. Their feature
@@ -181,6 +196,8 @@ const settingsParts = [
     'apps/settings/image-provider.js',
     'apps/settings/presets.js',
     'core/storage/backup.js',
+    'apps/settings/releases.js',
+    'apps/settings/version-letter.js',
     'apps/settings/fonts.js'
 ];
 

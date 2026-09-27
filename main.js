@@ -2,6 +2,9 @@
 
 removeLegacyByndStartup();
 const byndStylesReady = waitForByndStyles();
+byndStylesReady.then(() => window.ByndVersionLetter?.init()).catch(error => {
+    console.error('版本来信初始化失败', error);
+});
 
 function removeLegacyByndStartup() {
     // Cached HTML may still contain the retired splash and its controller.
@@ -21,6 +24,7 @@ function initializeByndApp() {
     };
 
     run(initClock, '时钟');
+    run(() => window.ByndExperience?.init(), '第一次发现与相处痕迹');
     run(initBattery, '电池');
     run(initDate, '日期');
     run(initLockScreen, '锁屏');
@@ -67,4 +71,3 @@ if (document.readyState === 'loading') {
 } else {
     Promise.resolve().then(startByndAppInitialization);
 }
-

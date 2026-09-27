@@ -1321,6 +1321,11 @@ function buildSystemPrompt(char) {
     // Cached real-world weather only; the prompt never waits on the network.
     const weatherAnchor = !isGroupChat && typeof window !== 'undefined' ? window.ByndCharacterTools?.weatherAnchor?.(char) : '';
     if (weatherAnchor) prompt += `- ${weatherAnchor}\n`;
+    // Only authorized, fresh life summaries; never attach the raw device records.
+    const lifeState = !isGroupChat && typeof window !== 'undefined' ? window.ByndLifeState?.prompt?.(char) : '';
+    if (lifeState) prompt += `- ${lifeState}\n`;
+    const cycleContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndMoon?.prompt?.(char) : '';
+    if (cycleContext) prompt += `- ${cycleContext}\n`;
     if (typeof window !== 'undefined' && typeof window.buildProactiveNotifyPromptContext === 'function') {
         const notifyContext = window.buildProactiveNotifyPromptContext(char);
         if (notifyContext) prompt += `- ${notifyContext}\n`;
@@ -1461,6 +1466,10 @@ function buildMessages(char, history, maxMessages) {
             content: memoryAnchor
         });
     }
+    const phoneViewingAnchor=typeof buildCharPhoneViewingContext==='function'?buildCharPhoneViewingContext(char):'';
+    if(phoneViewingAnchor)messages.push({role:'system',content:phoneViewingAnchor});
+    const experienceAnchor = window.ByndExperience?.prompt(char);
+    if (experienceAnchor) messages.push({ role: 'system', content: experienceAnchor });
     // Living World provides a tiny, character-scoped canon slice. It is deliberately
     // separate from history and never includes the full forum/world database.
     if (typeof window !== 'undefined' && typeof window.getLivingWorldRelevantEventsForChar === 'function') {
@@ -1775,6 +1784,7 @@ async function callChatApi(messages, options = {}) {
         usageRecord = typeof window !== 'undefined' && window.ByndApiTicket
             ? window.ByndApiTicket.snapshot(messages, {
                 char: options.usageChar,
+                privateContext: options.privateUsage === true,
                 model: params.model,
                 outputLimit: params.max_tokens,
                 contextLimit: options.usageChar?.chatConfig?.apiContextWindow || api.contextWindow || api.context_window || api.maxContextTokens

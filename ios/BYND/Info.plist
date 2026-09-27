@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDisplayName</key><string>BYND</string>
+<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+<key>NSHealthShareUsageDescription</key><string>只读取你选择的睡眠、步数、运动或月经记录，在本机汇总。你可以另行决定哪些角色能知道哪些内容；月经样本需你确认开始日期后才用于月伴预计。</string>
+<key>NSHealthUpdateUsageDescription</key><string>BYND 不会向 Apple 健康写入或修改健康记录。</string>
+<key>NSCameraUsageDescription</key><string>拍照并发送给你选择的角色。</string>
+<key>NSMicrophoneUsageDescription</key><string>用于你主动发起的语音消息。</string>
+<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+<key>UILaunchScreen</key><dict/>
+<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+</dict></plist>

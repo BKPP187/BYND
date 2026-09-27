@@ -7,6 +7,9 @@ android/keystore.properties
 android/bynd-release.keystore
 android/.gradle/
 android/app/build/
+ios/BYND/www/
+ios/build/
+ios/**/xcuserdata/
 dist/
 BYND使用说明书.md
 

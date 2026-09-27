@@ -248,6 +248,7 @@
         const chat = getChat(charId);
         chat.messages.push(message);
         saveChat(charId, chat);
+        if (message.role === 'user' || message.isMe) window.ByndExperience?.checkpoint('study', charId, `上次语言练习停在：${plainText(message.content || message.text || '').slice(0, 100)}`);
         return message;
     }
     function patchMessage(charId, messageId, patch) {
@@ -564,6 +565,7 @@
         const card = getStudyCards().find(item => item.id === state.quiz.cardId);
         if (card) updateCard(card.id, { stats: { asked: (card.stats.asked || 0) + 1, correct: (card.stats.correct || 0) + (correct ? 1 : 0), lastAsked: Date.now() } });
         bumpProgress();
+        if (card && tutor()) window.ByndExperience?.checkpoint('study', tutor().id, `上次词卡复习停在「${Object.values(card.lines || {}).join(' / ').slice(0, 90)}」，用户标记为${correct ? '记住了' : '还需复习'}。`);
         state.quiz = null;
         toast(correct ? '记住了' : '下次再抽一次');
         render();
@@ -631,6 +633,7 @@
         checkins[key] = { ...prev, done: true, mood: prev.mood || 'calm', progress, note, updatedAt: Date.now() };
         saveCheckins(checkins);
         toast(`今日打卡已保存：${progress}%`);
+        if (tutor()) window.ByndExperience?.checkpoint('study', tutor().id, `今天语言练习的自述进度是 ${progress}%，不是计时或成绩。`);
         render();
     }
 
@@ -656,7 +659,7 @@
         try { if (!localStorage.getItem(KEYS.settings)) saveSettings({}); } catch (_) {}
         const saved = localStorage.getItem(KEYS.tab);
         state.tab = TABS.some(item => item.id === saved) ? saved : 'chat';
-        state.quiz = null;
+        // Reopening keeps the current quiz and its answer state.
         setStatus('');
         render();
         if (canSpeak() && typeof speechSynthesis.getVoices === 'function') speechSynthesis.getVoices();
@@ -907,16 +910,22 @@
     function setTutor(id) {
         if (!characters().some(char => char.id === id)) return;
         saveSettings({ tutorId: id });
+        window.ByndExperience?.startStudy();
         setStatus('');
         render();
     }
     function clearChatConfirm() {
         const char = tutor();
         if (!char) return;
-        if (typeof confirm === 'function' && !confirm(`清空和「${charName(char)}」的练习记录？词本里已收藏的内容会保留。`)) return;
-        clearChat(char.id);
-        toast('已清空');
+        const previous = getChat(char.id);
+        try { clearChat(char.id); }
+        catch (error) { setStatus('练习记录清空失败，请重试。', 'error'); render(); return false; }
         render();
+        window.ByndUndo?.offer({ label: '已清空练习记录', undo: () => {
+            const latest = getChat(char.id);
+            latest.messages = [...new Map([...previous.messages, ...latest.messages].map(item => [item.id, item])).values()];
+            saveChat(char.id, latest); render(); return true;
+        } });
     }
     function setNative(id) {
         if (!language(id)) return;
@@ -1000,9 +1009,14 @@
     function deleteCard(id) {
         const card = getStudyCards().find(item => item.id === id);
         if (!card) return;
-        if (typeof confirm === 'function' && !confirm('删除这条词卡？')) return;
-        saveStudyCards(getStudyCards().filter(item => item.id !== id));
+        try { saveStudyCards(getStudyCards().filter(item => item.id !== id)); }
+        catch (error) { setStatus('词卡删除失败，请重试。', 'error'); render(); return false; }
         render();
+        window.ByndUndo?.offer({ label: '已移除词卡', undo: () => {
+            const latest = getStudyCards();
+            if (!latest.some(item => item.id === id)) latest.push(card);
+            saveStudyCards(latest); render(); return true;
+        } });
     }
     function previewProgress(value) {
         const el = byId('study-progress-value');

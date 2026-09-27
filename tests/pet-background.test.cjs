@@ -13,7 +13,7 @@ function harness({ transparent = false, protocol = 'https:', mode = 'success', a
         pixels.set(y < height / 2 ? [25, 30, 40, 255] : [255, 255, 255, 255], offset);
         if (transparent && (!x || !y || x === width - 1 || y === height - 1)) pixels[offset + 3] = 0;
     }
-    const state = { mode, requests: [], workers: [], revoked: [], timers: new Map(), exports: [], started: deferred(), status: 0 };
+    const state = { mode, requests: [], scripts: [], workers: [], revoked: [], timers: new Map(), exports: [], started: deferred(), status: 0 };
     class AssetUrl extends URL {
         static createObjectURL() { return 'blob:test/' + (state.workers.length + 1); }
         static revokeObjectURL(url) { state.revoked.push(url); }
@@ -70,10 +70,23 @@ function harness({ transparent = false, protocol = 'https:', mode = 'success', a
     }
     let timerId = 0;
     const context = vm.createContext({
-        Blob, URL: AssetUrl, AbortSignal, Worker: LocalWorker, XMLHttpRequest: FileRequest,
+        Blob, URL: AssetUrl, AbortSignal, Worker: LocalWorker, XMLHttpRequest: FileRequest, atob,
         console: { warn() {} },
         Image: class { set src(url) { this.url = url; this.naturalWidth = width; this.naturalHeight = height; this.pixels = pixels; queueMicrotask(() => this.onload()); } },
-        document: { baseURI: baseURI || (protocol === 'file:' ? 'file:///android_asset/www/index.html' : 'https://bynd.test/index.html'), currentScript: scriptSource ? {src:scriptSource} : null, createElement: tag => { assert.equal(tag,'canvas'); return canvas(); } },
+        document: {
+            baseURI: baseURI || (protocol === 'file:' ? 'file:///android_asset/www/index.html' : 'https://bynd.test/index.html'), currentScript: scriptSource ? {src:scriptSource} : null,
+            createElement: tag => tag === 'script' ? { remove() { this.removed = true; } } : canvas(),
+            head: { appendChild(node) {
+                state.scripts.push(node);
+                queueMicrotask(() => {
+                    if (state.scriptFailure) { node.onerror(); return; }
+                    const pathname = new URL(node.src).pathname;
+                    const resource = pathname.slice(pathname.indexOf('/apps/monitor/') >= 0 ? pathname.indexOf('/apps/monitor/') + 1 : pathname.indexOf('/assets/vendor/') + 1, -3);
+                    context.ByndPetBackground.registerResource(resource, Buffer.from('local resource').toString('base64'));
+                    node.onload();
+                });
+            } }
+        },
         fetch: async (url, options) => { state.requests.push({url,transport:'fetch',credentials:options.credentials}); return { ok: !state.resourceFailure && !(state.primaryFailure && new URL(url).origin !== 'https://bynd.ccwu.cc'), status: 503, arrayBuffer: async () => new ArrayBuffer(state.emptyWeb ? 0 : 8) }; },
         setTimeout: (fn, delay) => { state.timers.set(++timerId,{fn,delay}); return timerId; },
         clearTimeout: id => state.timers.delete(id)
@@ -160,21 +173,20 @@ test('packaged Android resources use file XHR with status 0 and no web requests'
 });
 
 for (const settings of [{status:404},{emptyFile:true},{fileError:true}]) {
-    test(`missing packaged assets can use public tool files: ${JSON.stringify(settings)}`, async () => {
+    test(`missing packaged binary assets can use local script mirrors: ${JSON.stringify(settings)}`, async () => {
         const h = harness({protocol:'file:'}); Object.assign(h.state,settings);
         assert.equal((await h.B.remove(originalUrl)).transparent, true);
         const downloads = h.state.requests.filter(request=>request.transport==='fetch');
-        assert.equal(downloads.length, 4);
-        assert.ok(downloads.every(request=>request.url.startsWith('https://bynd.ccwu.cc/')));
+        assert.equal(downloads.length, 0);
+        assert.equal(h.state.scripts.length, 4); assert.ok(h.state.scripts.every(node => node.removed));
     });
 }
 
-test('normal file previews skip blocked file XHR and fetch only public tool files', async () => {
+test('normal file previews use packaged script bytes without file XHR or public downloads', async () => {
     const h = harness({protocol:'file:',android:false});
     assert.equal((await h.B.remove(originalUrl)).transparent, true);
-    assert.equal(h.state.requests.length,4);
-    assert.ok(h.state.requests.every(request=>request.transport==='fetch' && request.url.startsWith('https://bynd.ccwu.cc/') && request.credentials==='omit'));
-    assert.ok(h.state.requests.every(request=>!request.url.includes(originalUrl)));
+    assert.equal(h.state.requests.length,0); assert.equal(h.state.scripts.length,4);
+    assert.ok(h.state.scripts.every(node => node.src.startsWith('file:///android_asset/www/') && node.removed));
 });
 
 test('an HTTPS script uses its own app directory even when the embedding page has a file base URI', async () => {
@@ -191,33 +203,56 @@ test('nested preview pages cannot redirect resource paths away from the executin
 });
 
 test('failed mirror resources use the published copies once and remain retryable', async () => {
-    const h = harness(); h.state.primaryFailure=true;
+    const h = harness(); h.state.primaryFailure=true; h.state.scriptFailure=true;
     assert.equal((await h.B.remove(originalUrl)).transparent,true);
     assert.equal(h.state.requests.length,8);
     assert.equal(h.state.requests.filter(request=>request.url.startsWith('https://bynd.ccwu.cc/')).length,4);
 });
 
 test('failed file and web loads identify the failed resource without saving a false result', async () => {
-    const h = harness({protocol:'file:'}); Object.assign(h.state,{fileError:true,resourceFailure:true});
+    const h = harness({protocol:'file:'}); Object.assign(h.state,{fileError:true,resourceFailure:true,scriptFailure:true});
     await assert.rejects(h.B.remove(originalUrl), /去背景资源加载失败（.+HTTP 503）/);
     assert.equal(h.state.exports.length,0);
     assert.equal(h.state.workers.length,0);
 });
 
 test('empty HTTP files and unknown resource paths are rejected', async () => {
-    const h = harness(); h.state.emptyWeb=true;
+    const h = harness(); h.state.emptyWeb=true; h.state.scriptFailure=true;
     await assert.rejects(h.B.remove(originalUrl), /去背景资源加载失败/);
     await assert.rejects(h.B.readResource('../private-file'), /未知的去背景资源/);
     assert.equal(h.state.workers.length,0);
 });
 
 test('failed HTTP resources leave the source intact and can be loaded on retry', async () => {
-    const h = harness(); h.state.resourceFailure = true;
+    const h = harness(); h.state.resourceFailure = true; h.state.scriptFailure = true;
     await assert.rejects(h.B.remove(originalUrl), /资源加载失败/);
     assert.equal(h.state.workers.length, 0);
     assert.equal(h.state.exports.length, 0);
     h.state.resourceFailure = false;
     assert.equal((await h.B.remove(originalUrl)).transparent, true);
+});
+
+test('a missing file-preview script can retry the same path without keeping failed nodes or timers', async () => {
+    const h = harness({protocol:'file:',android:false});
+    h.state.scriptFailure = true; h.state.resourceFailure = true;
+    await assert.rejects(h.B.readResource('apps/monitor/pet-background-worker.js'), /资源加载失败/);
+    assert.ok(h.state.scripts.every(node => node.removed)); assert.equal(h.state.timers.size, 0);
+    h.state.scriptFailure = false;
+    assert.ok((await h.B.readResource('apps/monitor/pet-background-worker.js')).byteLength > 0);
+    assert.equal(h.state.scripts.length, 2); assert.ok(h.state.scripts.every(node => node.removed));
+});
+
+test('classic-script copies preserve all reviewed worker/runtime/model bytes exactly', () => {
+    const { resources } = require('../scripts/prepare-pet-background-file-resources.cjs');
+    for (const name of resources) {
+        let delivered = false;
+        const context = vm.createContext({ window: { ByndPetBackground: { registerResource: (key, encoded) => {
+            assert.equal(key, name);
+            assert.ok(Buffer.from(encoded, 'base64').equals(fs.readFileSync(path.join(root, name)))); delivered = true;
+        } } } });
+        vm.runInContext(fs.readFileSync(path.join(root, name + '.js'), 'utf8'), context);
+        assert.equal(delivered, true);
+    }
 });
 
 test('empty, flat, incomplete and nonfinite predictions are never accepted as alpha masks', () => {

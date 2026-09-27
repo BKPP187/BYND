@@ -185,3 +185,35 @@ test('stored 代发 threads are capped to the most recently used contacts', () =
     assert.ok(store.threadsByName['联系人30']);
     assert.equal(store.threadsByName['联系人2'], undefined);
 });
+
+test('closing a viewing session triggers a persona reaction to the actual viewed content without inventing proxy replies', async()=>{
+    const h=harness();
+    vm.runInContext(require('node:fs').readFileSync(require('node:path').join(__dirname,'../apps/char-phone/viewing.js'),'utf8'),h.context);
+    h.char.chatConfig.aiPhoneContactReplies={pending:[],events:[]};
+    h.context.beginCharPhoneViewing(h.char);
+    h.context.recordCharPhoneViewing(h.char,'mail','邮箱','打开了林然的海边来信：周末一起去书店。');
+    const event=h.context.finishCharPhoneViewing(h.char);
+    assert.ok(h.context.flushWechatAiPhoneContactReplyReactions(h.char));
+    assert.equal(await h.context.window._wechatAiPhoneContactReplyGenerating.get(h.char.id),true);
+    const prompt=h.state.requests[0].messages[1].content;
+    assert.match(prompt,/海边来信/);assert.match(prompt,/周末一起去书店/);assert.match(prompt,/禁止把单纯查看说成/);
+    assert.doesNotMatch(prompt,/替 char 发出的回复：undefined/);
+    assert.equal(h.char.chatConfig.aiPhoneContactReplies.pending.length,0);
+    assert.equal(h.char.chatConfig.aiPhoneContactReplies.events[0].id,event.id);
+});
+
+test('viewing reactions retain the pending event when API or persistence fails and make no false success', async()=>{
+    for(const failure of ['api','before-save','reply-save']){
+        const h=harness();
+        vm.runInContext(require('node:fs').readFileSync(require('node:path').join(__dirname,'../apps/char-phone/viewing.js'),'utf8'),h.context);
+        const event={id:'view-event',type:'view',visits:[{app:'bank',label:'私人银行',content:'看了资产明细'}]};
+        h.char.chatConfig.aiPhoneContactReplies={pending:[event],events:[event]};
+        if(failure==='api')h.state.respond=async()=>({ok:false,error:'HTTP 429'});
+        if(failure==='before-save')h.state.saveResult=()=>false;
+        if(failure==='reply-save')h.state.saveResult=n=>n!==2;
+        assert.equal(await h.context.triggerWechatAiPhoneContactReplyReaction(h.char,[event]),false);
+        assert.equal(h.char.chatConfig.aiPhoneContactReplies.pending[0].id,event.id);
+        assert.equal(h.char.history.length,1);
+        assert.equal(h.state.requests.length,failure==='before-save'?0:1);
+    }
+});

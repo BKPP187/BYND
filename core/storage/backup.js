@@ -1,6 +1,6 @@
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.704';
+const APP_VERSION = 'v1.1.727';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -60,6 +60,7 @@ const ALL_DATA_KEYS = [
     'bynd_coread_shelf_settings_v1',
     'bynd_coread_shelf_meta_v1',
     'bynd_living_world_v1',
+    'bynd_home3d_v1',
     'bynd_monitor_pet_enabled_v1',
     'bynd_monitor_pet_observe_interval_v1',
     'bynd_proactive_notify_settings_v1',
@@ -111,13 +112,15 @@ function getBackupLocalStorageKeys() {
     const jevStorageKey = window.ByndJev?.storageKey || 'bynd_jev_config_v1';
     // Character tool keys (AMap / TMDB) are device secrets like the Jev key.
     const toolSecretStorageKey = window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1';
+    const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1']);
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (isByndStorageKey(key) && key !== jevStorageKey && key !== toolSecretStorageKey) keys.add(key);
+        if (isByndStorageKey(key) && key !== jevStorageKey && key !== toolSecretStorageKey && !lifePrivateStorageKeys.has(key)) keys.add(key);
     }
     keys.delete(jevStorageKey);
     keys.delete(toolSecretStorageKey);
+    lifePrivateStorageKeys.forEach(key => keys.delete(key));
     return Array.from(keys);
 }
 
@@ -422,6 +425,15 @@ async function importAllData(input) {
         // 先确认完整角色数据可保存，再恢复其他设置。
         if (Array.isArray(data.my_characters_data)) {
             if (typeof saveWechatImportedCharactersData !== 'function') throw new Error('角色存储模块尚未准备好');
+            // Imported characters can reuse an existing ID. Local health consent must be renewed.
+            if (localStorage.getItem('bynd_life_state_private_v1')) {
+                if (!window.ByndLifeState?.revokeAll) throw new Error('生活授权模块尚未准备好，无法安全导入角色');
+                window.ByndLifeState.revokeAll();
+            }
+            if (localStorage.getItem('bynd_moon_private_v1')) {
+                if (!window.ByndMoon?.revokeAll) throw new Error('月伴授权模块尚未准备好，无法安全导入角色');
+                window.ByndMoon.revokeAll();
+            }
             await saveWechatImportedCharactersData(data.my_characters_data);
         }
 
@@ -429,7 +441,7 @@ async function importAllData(input) {
         const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
         Object.keys(data).forEach(key => {
             if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (isByndStorageKey(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1') && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1')) {
+            if (isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1') && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1')) {
                 localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });

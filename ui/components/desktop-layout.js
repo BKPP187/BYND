@@ -46,7 +46,7 @@ const DESKTOP_SNAP_TOLERANCE = 9;
 const DESKTOP_DOCK_LAYOUT_MAX = 4;
 const DESKTOP_DELETABLE_BUILTIN_IDS = new Set(['widget-calendar', 'widget-photo-1', 'widget-photo-2']);
 const DESKTOP_STATIC_PAGE2_APP_LAYOUT_IDS = new Set();
-const DESKTOP_PAGE2_APP_IDS = new Set(['dream', 'monitor', 'pet', 'outing', 'coread', 'living-world', 'album', 'manual', 'mcp', 'comic']);
+const DESKTOP_PAGE2_APP_IDS = new Set(['dream', 'moon', 'monitor', 'pet', 'outing', 'coread', 'living-world', 'album', 'manual', 'mcp', 'comic']);
 window._editMode = false;
 window._desktopSelectedLayoutItem = null;
 let _editLongPressTimer = null;
@@ -226,7 +226,7 @@ function clampDesktopLayoutRect(rect, pageArea) {
             ? Math.max(8, Math.min(areaWidth - width - 8, Number.isFinite(left) ? left : 8))
             : Math.max(8, Number.isFinite(left) ? left : 8),
         top: hasMeasuredBounds
-            ? Math.max(8, Math.min(areaHeight - height - 8, Number.isFinite(top) ? top : 8))
+            ? Math.max(8, Math.min(areaHeight - height, Number.isFinite(top) ? top : 8))
             : Math.max(8, Number.isFinite(top) ? top : 8),
         width,
         height
@@ -243,11 +243,16 @@ function getDesktopRawStyleRect(item, fallback = {}) {
     const styleTop = parseFloat(item.style.top);
     const styleWidth = parseFloat(item.style.width);
     const styleHeight = parseFloat(item.style.height);
+    // CSS can override a legacy saved dimension (the lovely photo is fixed at
+    // 248px). Occupancy must match that resolved box. offset sizes are local
+    // CSS pixels, unaffected by the edit scale or page slide transforms.
+    const width = item.offsetWidth > 0 ? item.offsetWidth : styleWidth;
+    const height = item.offsetHeight > 0 ? item.offsetHeight : styleHeight;
     return {
         left: Number.isFinite(styleLeft) ? styleLeft : (Number(fallback.left) || item.offsetLeft || 0),
         top: Number.isFinite(styleTop) ? styleTop : (Number(fallback.top) || item.offsetTop || 0),
-        width: Number.isFinite(styleWidth) && styleWidth > 0 ? styleWidth : (item.offsetWidth || Number(fallback.width) || 72),
-        height: Number.isFinite(styleHeight) && styleHeight > 0 ? styleHeight : (item.offsetHeight || Number(fallback.height) || 82)
+        width: Number.isFinite(width) && width > 0 ? width : (Number(fallback.width) || 72),
+        height: Number.isFinite(height) && height > 0 ? height : (Number(fallback.height) || 82)
     };
 }
 
@@ -325,7 +330,8 @@ function syncDesktopPagesAndDots(activeIndex) {
     pages.forEach((page, index) => { page.dataset.page = String(index); });
     const dots = document.getElementById('page-dots');
     if (dots) {
-        dots.innerHTML = pages.map((_, index) => `<div class="page-dot ${index === activeIndex ? 'active' : ''}"></div>`).join('');
+        dots.setAttribute('aria-label', '桌面屏幕');
+        dots.innerHTML = pages.map((_, index) => `<button type="button" class="page-dot ${index === activeIndex ? 'active' : ''}" aria-label="切换到第 ${index + 1} 屏" aria-current="${index === activeIndex ? 'page' : 'false'}"></button>`).join('');
     }
 }
 
@@ -394,7 +400,8 @@ function addDesktopItemControls(item) {
     move.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        moveSelectedDesktopItemToOtherPage();
+        selectDesktopLayoutItem(item);
+        promptDesktopMovePage(item);
     });
     item.appendChild(move);
     if (!item.classList.contains('layout-app')) {
@@ -533,31 +540,16 @@ function getDesktopOrderedSlotItems(pageArea, includeDraggedItem) {
 }
 
 function getDesktopFallbackSlotMetrics(pageArea) {
-    const width = Math.max(300, pageArea?.clientWidth || 375);
-    const iconWidth = 72;
-    const iconHeight = 82;
-    const columns = Math.max(3, Math.min(4, Math.floor((width - 34) / iconWidth)));
-    const gapX = columns > 1 ? Math.max(10, Math.floor((width - (columns * iconWidth) - 24) / (columns - 1))) : 12;
-    const startX = Math.max(12, Math.round((width - (columns * iconWidth + gapX * (columns - 1))) / 2));
-    return {
-        columns,
-        iconWidth,
-        iconHeight,
-        startX,
-        startY: 18,
-        gapX,
-        gapY: 18
-    };
+    return getDesktopFourColumnAppGridMetrics(pageArea);
 }
 
 function getDesktopFourColumnAppGridMetrics(pageArea) {
-    const width = Math.max(300, pageArea?.clientWidth || 375);
+    const width = Math.max(240, pageArea?.clientWidth || 375);
     const columns = 4;
-    const iconWidth = Math.min(72, Math.floor((width - 24) / columns));
+    const iconWidth = Math.min(72, Math.floor((width - 24 - 18) / columns));
     const iconHeight = 82;
-    const gapX = Math.max(0, (width - iconWidth * columns - 24) / (columns - 1));
-    const startX = Math.max(8, (width - (iconWidth * columns + gapX * (columns - 1))) / 2);
-    return { columns, iconWidth, iconHeight, gapX, gapY: 18, startX, startY: 18 };
+    const gapX = (width - iconWidth * columns - 24) / (columns - 1);
+    return { columns, iconWidth, iconHeight, gapX, gapY: 8, startX: 12, startY: 18 };
 }
 
 function normalizeSecondPageAppGrid(pageArea) {
@@ -611,146 +603,66 @@ function normalizeSecondPageAppGrid(pageArea) {
 }
 
 function getDesktopFlowSlotRects(pageArea) {
-    if (!pageArea) return [];
-    const metrics = getDesktopFallbackSlotMetrics(pageArea);
-    const areaHeight = Math.max(520, pageArea.clientHeight || 590);
-    const maxTop = Math.max(metrics.startY, areaHeight - metrics.iconHeight - 8);
-    const maxRows = Math.max(1, Math.floor((maxTop - metrics.startY) / (metrics.iconHeight + metrics.gapY)) + 1);
-    const widgetRects = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
-        .map(item => getDesktopStyleRect(item, pageArea))
-        .filter(Boolean);
-    const obstacles = widgetRects.map(rect => ({
-        left: rect.left - 8,
-        top: rect.top - 12,
-        width: rect.width + 16,
-        height: rect.height + 20
-    }));
-    const slots = [];
-    const seen = new Set();
-    const pushSlot = rect => {
-        const safe = clampDesktopLayoutRect(rect, pageArea);
-        const key = `${Math.round(safe.left)}:${Math.round(safe.top)}`;
-        if (seen.has(key)) return;
-        const iconCoreRect = {
-            left: safe.left + 8,
-            top: safe.top + 4,
-            width: Math.max(36, safe.width - 16),
-            height: Math.max(48, safe.height - 18)
-        };
-        const blocked = obstacles.some(obstacle => (
-            getDesktopRectIntersectionRatio(safe, obstacle) > 0.52
-            || getDesktopRectIntersectionRatio(iconCoreRect, obstacle) > 0.18
-        ));
-        if (blocked) return;
-        seen.add(key);
-        slots.push(safe);
-    };
-    for (let row = 0; row < maxRows; row += 1) {
-        for (let col = 0; col < metrics.columns; col += 1) {
-            const top = metrics.startY + row * (metrics.iconHeight + metrics.gapY);
-            if (top > maxTop + 1) continue;
-            pushSlot({
-                left: metrics.startX + col * (metrics.iconWidth + metrics.gapX),
-                top,
-                width: metrics.iconWidth,
-                height: metrics.iconHeight
-            });
-        }
-    }
-    widgetRects.forEach(widget => {
-        const edgeTops = [
-            widget.top + widget.height + 8,
-            widget.top - metrics.iconHeight - 8
-        ];
-        edgeTops.forEach(top => {
-            if (top < metrics.startY - 1 || top > maxTop + 1) return;
-            for (let col = 0; col < metrics.columns; col += 1) {
-                pushSlot({
-                    left: metrics.startX + col * (metrics.iconWidth + metrics.gapX),
-                    top,
-                    width: metrics.iconWidth,
-                    height: metrics.iconHeight
-                });
-            }
-        });
+    if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return [];
+    const m = getDesktopFourColumnAppGridMetrics(pageArea);
+    // A card ending exactly at the canvas edge is fully visible. The vertical
+    // gap belongs between rows, not below the final row (328/418/508 in the
+    // reported 590px canvas). Use this same boundary when clamping and dragging.
+    const bottom = pageArea.clientHeight;
+    const widgets = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app), :scope > .desktop-layout-item.is-folder'))
+        .map(getDesktopRawStyleRect);
+    const apps = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app:not(.is-folder)'))
+        .filter(item => !item.classList.contains('desktop-slot-dragging'))
+        .map(getDesktopRawStyleRect);
+    // A wide component splits the canvas into bands. Restart the row grid at
+    // its lower edge instead of losing a usable row to the page's old phase.
+    const barriers = widgets.filter(rect => rect.width >= pageArea.clientWidth * 0.7)
+        .sort((a, b) => a.top - b.top);
+    const bands = [];
+    let start = m.startY;
+    barriers.forEach(rect => {
+        if (rect.top - 8 > start) bands.push([start, Math.min(bottom, rect.top - 8)]);
+        start = Math.max(start, rect.top + rect.height + 8);
     });
-    return slots.sort((a, b) => (a.top - b.top) || (a.left - b.left));
-}
-
-function getDesktopStableSlotRects(pageArea, items, flowSlots = []) {
-    if (!pageArea) return [];
-    const orderedItems = Array.isArray(items) ? items : [];
+    if (start < bottom) bands.push([start, bottom]);
     const slots = [];
-    const pushSlot = rect => {
-        if (!rect) return;
-        const safe = clampDesktopLayoutRect(rect, pageArea);
-        const duplicate = slots.some(slot => (
-            getDesktopRectIntersectionRatio(safe, slot) > 0.68
-            || (
-                Math.abs((safe.left + safe.width / 2) - (slot.left + slot.width / 2)) < 12
-                && Math.abs((safe.top + safe.height / 2) - (slot.top + slot.height / 2)) < 12
-            )
-        ));
-        if (!duplicate) slots.push(safe);
-    };
-
-    orderedItems
-        .map(item => getDesktopStyleRect(item, pageArea))
-        .filter(Boolean)
-        .sort((a, b) => (a.top - b.top) || (a.left - b.left))
-        .forEach(pushSlot);
-
-    if (slots.length < orderedItems.length && Array.isArray(flowSlots)) {
-        for (const slot of flowSlots) {
-            if (slots.length >= orderedItems.length) break;
-            pushSlot(slot);
+    bands.forEach(([minTop, maxBottom]) => {
+        const capacity = Math.floor((maxBottom - minTop + m.gapY) / (m.iconHeight + m.gapY));
+        if (capacity <= 0) return;
+        const rowTops = [];
+        apps.map(rect => rect.top + (rect.height - m.iconHeight) / 2)
+            .filter(top => top >= minTop - 1 && top + m.iconHeight <= maxBottom + 1)
+            .sort((a, b) => a - b).forEach(top => {
+                if (!rowTops.length || top - rowTops[rowTops.length - 1] > m.iconHeight / 2) rowTops.push(top);
+            });
+        const step = m.iconHeight + m.gapY;
+        // Keep existing row baselines. A legacy 100px gap between two rows
+        // must not force that same gap on a third row, or shift every row to
+        // a new phase and make physically empty cells appear occupied.
+        const availableRows = [...rowTops];
+        if (rowTops.length) {
+            for (let top = minTop; top + m.iconHeight + m.gapY <= rowTops[0]; top += step) availableRows.push(top);
+            rowTops.forEach((top, index) => {
+                const end = index + 1 < rowTops.length ? rowTops[index + 1] - m.gapY : maxBottom;
+                for (let next = top + step; next + m.iconHeight <= end; next += step) availableRows.push(next);
+            });
+        } else {
+            for (let top = minTop; top + m.iconHeight <= maxBottom; top += step) availableRows.push(top);
         }
-    }
-
-    let fallbackIndex = 0;
-    const fallbackLimit = Math.max(orderedItems.length + 12, 24);
-    while (slots.length < orderedItems.length && fallbackIndex < fallbackLimit) {
-        pushSlot(getDesktopFallbackSlotRect(pageArea, fallbackIndex));
-        fallbackIndex += 1;
-    }
-
-    return slots;
-}
-
-function getDesktopCompactSlotRects(pageArea, items, flowSlots = []) {
-    if (!pageArea) return [];
-    const orderedItems = Array.isArray(items) ? items : [];
-    const slots = [];
-    const pushSlot = rect => {
-        if (!rect || slots.length >= orderedItems.length) return;
-        const safe = clampDesktopLayoutRect(rect, pageArea);
-        const duplicate = slots.some(slot => (
-            getDesktopRectIntersectionRatio(safe, slot) > 0.68
-            || (
-                Math.abs((safe.left + safe.width / 2) - (slot.left + slot.width / 2)) < 12
-                && Math.abs((safe.top + safe.height / 2) - (slot.top + slot.height / 2)) < 12
-            )
-        ));
-        if (!duplicate) slots.push(safe);
-    };
-
-    if (Array.isArray(flowSlots)) {
-        flowSlots.forEach(pushSlot);
-    }
-
-    let fallbackIndex = 0;
-    const fallbackLimit = Math.max(orderedItems.length + 12, 24);
-    while (slots.length < orderedItems.length && fallbackIndex < fallbackLimit) {
-        pushSlot(getDesktopFallbackSlotRect(pageArea, fallbackIndex));
-        fallbackIndex += 1;
-    }
-
+        availableRows.sort((a, b) => a - b);
+        for (const top of availableRows) {
+            for (let col = 0; col < m.columns; col++) {
+                const rect = { left: Math.round(m.startX + col * (m.iconWidth + m.gapX)), top: Math.round(top), width: m.iconWidth, height: m.iconHeight };
+                if (widgets.every(widget => desktopAppRectsHaveClearance(rect, widget))) slots.push(rect);
+            }
+        }
+    });
     return slots;
 }
 
 function getNearestDesktopFlowSlotIndex(pageArea, item, slots, usedSlots = new Set(), preferredIndex = null) {
     if (!pageArea || !item || !Array.isArray(slots) || !slots.length) return 0;
-    const preferred = Number(preferredIndex);
+    const preferred = preferredIndex == null ? NaN : Number(preferredIndex);
     if (Number.isFinite(preferred) && preferred >= 0 && preferred < slots.length && !usedSlots.has(preferred)) return preferred;
     const rect = getDesktopStyleRect(item, pageArea);
     if (!rect) return Math.max(0, slots.findIndex((_, index) => !usedSlots.has(index)));
@@ -784,32 +696,24 @@ function getDesktopFallbackSlotRect(pageArea, slotIndex, item) {
 function captureDesktopPageSlotRects(pageArea, options = {}) {
     if (!pageArea) return [];
     const items = getDesktopOrderedSlotItems(pageArea, true);
-    const flowSlots = getDesktopFlowSlotRects(pageArea);
-    const slotRects = options.compact
-        ? getDesktopCompactSlotRects(pageArea, items, flowSlots)
-        : getDesktopStableSlotRects(pageArea, items, flowSlots);
-    if (slotRects.length) {
-        const usedSlots = new Set();
-        items.forEach(item => {
-            const index = options.compact
-                ? usedSlots.size
-                : getNearestDesktopFlowSlotIndex(pageArea, item, slotRects, usedSlots, null);
-            usedSlots.add(index);
-            item.dataset.desktopSlot = String(index);
-        });
-        pageArea._desktopSlotRects = slotRects;
-        return slotRects;
-    }
-    const slots = items.map((item, index) => {
-        const rect = clampDesktopLayoutRect({
-            left: parseFloat(item.style.left) || item.offsetLeft || 0,
-            top: parseFloat(item.style.top) || item.offsetTop || 0,
-            width: item.offsetWidth || parseFloat(item.style.width) || 72,
-            height: item.offsetHeight || parseFloat(item.style.height) || 82
-        }, pageArea);
-        item.dataset.desktopSlot = String(index);
-        return rect;
+    const slots = [...getDesktopFlowSlotRects(pageArea), ...items.filter(item => item.classList.contains('is-folder')).map(getDesktopRawStyleRect)]
+        .sort((a, b) => a.top - b.top || a.left - b.left);
+    const used = new Set();
+    // Reserve component-sized folders before assigning icon cells. A nearby
+    // icon must not take the folder's physical rectangle during legacy repair.
+    const folders = items.filter(item => item.classList.contains('is-folder'));
+    folders.forEach(item => {
+        const rect = getDesktopRawStyleRect(item);
+        const index = slots.findIndex((slot, i) => !used.has(i) && slot.left === rect.left && slot.top === rect.top && slot.width === rect.width && slot.height === rect.height);
+        if (index >= 0) { used.add(index); item.dataset.desktopSlot = String(index); }
     });
+    items.filter(item => !item.classList.contains('is-folder')).forEach(item => {
+        const index = getNearestDesktopFlowSlotIndex(pageArea, item, slots, used, null);
+        if (slots[index] && !used.has(index)) { used.add(index); item.dataset.desktopSlot = String(index); }
+        else delete item.dataset.desktopSlot;
+    });
+    // Keep empty cells too: capacity and drop targets are properties of the
+    // canvas, never of the number of icons currently occupying it.
     pageArea._desktopSlotRects = slots;
     return slots;
 }
@@ -850,9 +754,7 @@ function getDesktopSlotIndexFromPoint(pageArea, point, item) {
     const x = (point.x - rect.left) / scale + (pageArea.scrollLeft || 0);
     const y = (point.y - rect.top) / scale + (pageArea.scrollTop || 0);
     const slots = ensureDesktopPageSlotRects(pageArea);
-    const items = getDesktopOrderedSlotItems(pageArea, true);
-    const reorderCount = Math.max(1, items.length + (item && !items.includes(item) ? 1 : 0));
-    const maxIndex = Math.max(0, Math.min(slots.length || reorderCount, reorderCount) - 1);
+    const maxIndex = Math.max(0, slots.length - 1);
     if (!slots.length) {
         const metrics = getDesktopFallbackSlotMetrics(pageArea);
         const column = Math.max(0, Math.min(metrics.columns - 1, Math.round((x - metrics.startX - metrics.iconWidth / 2) / (metrics.iconWidth + metrics.gapX))));
@@ -874,22 +776,52 @@ function getDesktopSlotIndexFromPoint(pageArea, point, item) {
 }
 
 function applyDesktopSlotOrder(pageArea, draggedItem, targetIndex) {
-    if (!pageArea || !draggedItem || !draggedItem.classList.contains('layout-app')) return;
+    if (!pageArea || !draggedItem || !draggedItem.classList.contains('layout-app')) return false;
     const slots = ensureDesktopPageSlotRects(pageArea);
-    if (!slots.length) return;
-    const items = getDesktopOrderedSlotItems(pageArea, true).filter(item => item !== draggedItem);
-    const index = Math.max(0, Math.min(Number(targetIndex) || 0, Math.min(slots.length, items.length + 1) - 1));
-    const orderedItems = [...items];
-    orderedItems.splice(index, 0, draggedItem);
-    orderedItems.forEach((item, slotIndex) => {
-        if (slotIndex >= slots.length) return;
-        item.dataset.desktopSlot = String(slotIndex);
-        const rect = getDesktopSlotRect(pageArea, slotIndex, item);
-        item.style.left = `${Math.round(rect.left)}px`;
-        item.style.top = `${Math.round(rect.top)}px`;
-        item.style.width = `${Math.round(rect.width)}px`;
-        item.style.height = `${Math.round(rect.height)}px`;
+    const index = Number(targetIndex);
+    if (!Number.isInteger(index) || !slots[index]) return false;
+    const metrics = getDesktopFallbackSlotMetrics(pageArea);
+    const rectFor = (item, slotIndex) => {
+        if (item.classList.contains('is-folder')) return getDesktopSlotRect(pageArea, slotIndex, item);
+        const slot = slots[slotIndex];
+        return { left: slot.left + Math.round((slot.width - metrics.iconWidth) / 2),
+            top: slot.top + Math.round((slot.height - metrics.iconHeight) / 2),
+            width: metrics.iconWidth, height: metrics.iconHeight };
+    };
+    // Slot IDs are bookkeeping, not occupancy: a recapture, folder or page
+    // transfer can change them while the pointer is still down. Check the
+    // physical destination and plan every displacement before writing any DOM.
+    const others = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item')).filter(item => item !== draggedItem);
+    const target = rectFor(draggedItem, index);
+    const footprints = new Map(others.map(item => [item, getDesktopTransferFootprint(item, pageArea)]));
+    const blockers = others.filter(item => !desktopAppRectsHaveClearance(target, footprints.get(item)));
+    if (blockers.some(item => !item.classList.contains('layout-app') || item.classList.contains('is-folder'))
+        || (blockers.length && draggedItem.classList.contains('is-folder'))) return false;
+    const previous = Number(draggedItem.dataset.desktopSlot);
+    const candidates = slots.map((_, i) => i).filter(i => i !== index);
+    if (slots[previous] && previous !== index) {
+        candidates.splice(candidates.indexOf(previous), 1); candidates.unshift(previous);
+    }
+    const fixed = others.filter(item => !blockers.includes(item));
+    const plan = [];
+    for (const item of blockers) {
+        const free = candidates.find(slotIndex => {
+            const rect = rectFor(item, slotIndex);
+            return desktopAppRectsHaveClearance(rect, target)
+                && fixed.every(other => desktopAppRectsHaveClearance(rect, footprints.get(other)))
+                && plan.every(entry => desktopAppRectsHaveClearance(rect, entry.rect));
+        });
+        if (free === undefined) return false;
+        plan.push({ item, index: free, rect: rectFor(item, free) });
+    }
+    plan.forEach(entry => {
+        entry.item.dataset.desktopSlot = String(entry.index);
+        setDesktopLayoutItemRect(entry.item, entry.rect);
     });
+    draggedItem.dataset.desktopSlot = String(index);
+    if (!draggedItem.classList.contains('is-folder')) normalizeDesktopLayoutAppSlotSize(draggedItem, pageArea);
+    setDesktopLayoutItemRect(draggedItem, target);
+    return true;
 }
 
 function normalizeDesktopLayoutAppSlotSize(item, pageArea) {
@@ -900,43 +832,20 @@ function normalizeDesktopLayoutAppSlotSize(item, pageArea) {
 }
 
 function insertDesktopAppAtSlot(pageArea, item, targetIndex) {
-    if (!pageArea || !item || !item.classList.contains('layout-app')) return;
+    if (!pageArea || !item || !item.classList.contains('layout-app')) return false;
     delete pageArea._desktopSlotRects;
-    const slots = ensureDesktopPageSlotRects(pageArea);
-    const existingItems = getDesktopOrderedSlotItems(pageArea, true).filter(entry => entry !== item);
-    const index = Math.max(0, Math.min(Number(targetIndex) || 0, existingItems.length));
-    const orderedItems = [...existingItems];
-    orderedItems.splice(index, 0, item);
-    const capacity = slots.length || orderedItems.length;
-    const overflowItems = [];
-    orderedItems.forEach((entry, slotIndex) => {
-        if (slotIndex >= capacity) {
-            overflowItems.push(entry);
-            return;
-        }
-        normalizeDesktopLayoutAppSlotSize(entry, pageArea);
-        entry.dataset.desktopSlot = String(slotIndex);
-        const rect = getDesktopSlotRect(pageArea, slotIndex, entry);
-        entry.style.left = `${Math.round(rect.left)}px`;
-        entry.style.top = `${Math.round(rect.top)}px`;
-        entry.style.width = `${Math.round(rect.width)}px`;
-        entry.style.height = `${Math.round(rect.height)}px`;
-    });
-    if (overflowItems.length) {
-        const currentPage = pageArea.closest('.desktop-page');
-        const nextIndex = getDesktopPageIndex(currentPage) + 1;
-        const nextArea = ensureDesktopPage(nextIndex)?.querySelector('.desktop-scroll-area');
-        if (nextArea) {
-            nextArea.classList.add('layout-canvas');
-            nextArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
-            overflowItems.forEach((entry, overflowIndex) => {
-                nextArea.appendChild(entry);
-                entry.classList.add('desktop-layout-item', 'layout-app');
-                setupDesktopLayoutItem(entry);
-                placeDesktopAppInFirstOpenSlot(entry, nextArea, overflowIndex);
-            });
-        }
-    }
+    captureDesktopPageSlotRects(pageArea);
+    if (applyDesktopSlotOrder(pageArea, item, targetIndex)) return true;
+    const free = findDesktopTransferRect(pageArea, item);
+    if (free) { setDesktopLayoutItemRect(item, free); captureDesktopPageSlotRects(pageArea); return true; }
+    // An added icon overflows only when every real cell is occupied.
+    const nextArea = ensureDesktopPage(getDesktopPageIndex(pageArea.closest('.desktop-page')) + 1)?.querySelector('.desktop-scroll-area');
+    if (!nextArea) return false;
+    const next = findDesktopTransferRect(nextArea, item);
+    if (!next) return false;
+    prepareDesktopLayoutItem(item, nextArea, next);
+    captureDesktopPageSlotRects(pageArea); captureDesktopPageSlotRects(nextArea);
+    return true;
 }
 
 function compactDesktopSlotOrder(pageArea, excludedItem = null, options = {}) {
@@ -1172,25 +1081,44 @@ function repairDesktopComicOverlap(pageArea) {
 
 function repairDesktopAppOverlaps(pageArea) {
     if (!pageArea || !hasDesktopUsableLayoutBounds(pageArea)) return false;
+    let changed = normalizeDesktopIconRows(pageArea);
+    const grid = captureDesktopPageSlotRects(pageArea);
     const items = getDesktopOrderedSlotItems(pageArea, true);
+    items.filter(item => !item.classList.contains('is-folder') && !item.classList.contains('desktop-slot-dragging')).forEach(item => {
+        const slot = grid[Number(item.dataset.desktopSlot)];
+        if (slot && setDesktopLayoutItemRect(item, slot)) changed = true;
+    });
     const placed = [];
-    let changed = false;
     items.forEach(item => {
-        let rect = getDesktopStyleRect(item, pageArea);
-        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.08);
+        let rect = getDesktopTransferFootprint(item, pageArea);
+        const overlapsPlaced = placed.some(entry => getDesktopRectIntersectionRatio(rect, entry.rect) > 0.001);
         const overlapsWidget = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item:not(.layout-app)'))
-            .some(widget => getDesktopRectIntersectionRatio(rect, getDesktopStyleRect(widget, pageArea)) > 0.34);
+            .some(widget => getDesktopRectIntersectionRatio(rect, getDesktopRawStyleRect(widget)) > 0.001);
         if (overlapsPlaced || overlapsWidget) {
-            rect = findDesktopOpenAppRect(pageArea, item, rect);
-            item.style.left = `${Math.round(rect.left)}px`;
-            item.style.top = `${Math.round(rect.top)}px`;
-            item.style.width = `${Math.round(rect.width)}px`;
-            item.style.height = `${Math.round(rect.height)}px`;
+            const free = findDesktopTransferRect(pageArea, item);
+            if (free) { setDesktopLayoutItemRect(item, free); rect = free; }
+            else {
+                // Overflow only the conflicting icon; never hide a collision by
+                // selecting the least-overlapping position on a full screen.
+                const sourceIndex = getDesktopPageIndex(pageArea.closest('.desktop-page'));
+                const limit = getDesktopPages().length;
+                for (let index = sourceIndex + 1; index <= limit; index++) {
+                    const targetArea = ensureDesktopPage(index)?.querySelector('.desktop-scroll-area');
+                    const targetRect = targetArea && findDesktopTransferRect(targetArea, item);
+                    if (!targetRect) continue;
+                    prepareDesktopLayoutItem(item, targetArea, targetRect);
+                    delete item.dataset.desktopSlot;
+                    captureDesktopPageSlotRects(targetArea);
+                    changed = true;
+                    return;
+                }
+                return;
+            }
             changed = true;
         }
         placed.push({ item, rect });
     });
-    if (changed) captureDesktopPageSlotRects(pageArea);
+    if (changed) { captureDesktopPageSlotRects(pageArea); syncDesktopPagesAndDots(window._desktopCurrentPage || 0); }
     return changed;
 }
 
@@ -1241,7 +1169,9 @@ function getDesktopAppRowSpacingPlan(records, metrics) {
     const centerY = row => row.reduce((sum, record) => sum + record.top + record.height / 2, 0) / row.length;
     const step = metrics.iconHeight + metrics.gapY;
     if (rows.some(row => row.some((record, column) => Math.abs(record.left + record.width / 2 - rows[0][column].left - rows[0][column].width / 2) > 8))) return [];
-    if (!rows.some((row, index) => index && centerY(row) - centerY(rows[index - 1]) > step + 12)) return [];
+    // Normal custom spacing must survive saving/reopening. Only compress the
+    // excessive gaps left by the old oversized icon cards.
+    if (!rows.some((row, index) => index && centerY(row) - centerY(rows[index - 1]) > step + 32)) return [];
     const firstTop = Math.min(...rows[0].map(record => record.top));
     const lastBottom = Math.max(...rows[rows.length - 1].map(record => record.top + record.height));
     // A component between the rows can be intentional; only tighten an uninterrupted app grid.

@@ -1,14 +1,28 @@
 function charPhoneSystemRecords(key, rows, icon) {
     return rows.map((row,index)=>`<details class="cp-system-record"><summary><i class="${icon}"></i><div><b>${wcEscapeHtml(row.title)}</b><small>${wcEscapeHtml(row.meta||row.time||'')}</small></div><i class="ri-arrow-right-s-line"></i></summary><p>${wcEscapeHtml(row.detail||row.content||'')}</p></details>`).join('');
 }
+function renderCharPhoneWechatDiscover(view,snapshot,char) {
+    const e=wcEscapeHtml,data=snapshot.appData?.chat||{},rows=data[view]||[],isMoments=view==='moments';
+    const title=isMoments?'朋友圈':'视频号',detail=window._charPhoneDetail;
+    const header=`<div class="cp-wechat-subnav"><button aria-label="返回发现" onclick="setCharPhoneNativeView('chat','discover')"><i class="ri-arrow-left-s-line"></i></button><b>${title}</b><i class="${isMoments?'ri-camera-line':'ri-search-line'}"></i></div>`;
+    const avatar=`<img src="${wcEscapeAttr(getWechatAiPhoneHomeAvatar(char))}" alt="">`;
+    if(detail?.key===view && rows[detail.index]) {
+        const i=rows[detail.index];
+        return `<section class="cp-native cp-wechat-${view}">${header}<div class="cp-scroll cp-wechat-post-detail"><button class="cp-back" onclick="closeCharPhoneItem()">‹ ${title}</button><h2>${e(i.title)}</h2><p>${e(i.author||getWechatCharDisplayName(char))} · ${e(i.time)}</p>${i.image?`<img src="${wcEscapeAttr(i.image)}" alt="${wcEscapeAttr(i.title)}">`:''}<div class="cp-letter">${e(i.body)}</div><p>${e(i.likes)}${i.replies?' · '+e(i.replies):''}</p></div></section>`;
+    }
+    const open=(i)=>`openCharPhoneItem('${view}',${rows.indexOf(i)})`;
+    const body=isMoments?`<div class="cp-moments-cover"><div class="cp-moments-owner"><b>${e(getWechatCharDisplayName(char))}</b>${avatar}</div></div><div class="cp-moments-feed">${rows.map(i=>`<button class="cp-moment-post" aria-label="${wcEscapeAttr(i.title)}" onclick="${open(i)}"><span class="cp-moment-avatar">${e((i.author||char.name).slice(0,1))}</span><div><b>${e(i.author||getWechatCharDisplayName(char))}</b><p>${e(i.title)}${i.body?'\n'+e(i.body):''}</p>${i.image?`<img src="${wcEscapeAttr(i.image)}" alt="${wcEscapeAttr(i.title)}">`:''}<div class="cp-moment-meta"><small>${e(i.time)}</small><i class="ri-more-fill"></i></div>${i.likes||i.replies?`<div class="cp-moment-interactions">${i.likes?`<span>♡ ${e(i.likes)}</span>`:''}${i.replies?`<p>${e(i.replies)}</p>`:''}</div>`:''}</div></button>`).join('')||charPhoneBrandEmpty(snapshot,'暂无朋友圈动态')}</div>`:`<div class="cp-channels-tabs"><b>关注</b><b class="active">朋友</b><b>推荐</b></div><div class="cp-channels-feed">${rows.map(i=>`<button class="cp-channel-post" aria-label="${wcEscapeAttr(i.title)}" onclick="${open(i)}"><div class="cp-channel-cover">${charPhoneNativeMedia(i,'chat')}<i class="ri-play-circle-line"></i></div><div class="cp-channel-caption"><b>${e(i.author||getWechatCharDisplayName(char))}</b><p>${e(i.title)}</p><small>${e(i.time)}</small><span><i class="ri-heart-line"></i> ${e(i.likes)}</span></div></button>`).join('')||charPhoneBrandEmpty(snapshot,'暂无视频号内容')}</div>`;
+    return `<section class="cp-native cp-wechat-${view}" data-app-layout="wechat-${view}">${header}<div class="cp-scroll">${body}</div></section>`;
+}
 function renderCharPhoneSystemApp(key,snapshot,char,isLoading) {
     const e=wcEscapeHtml, view=window._charPhoneNativeViews?.[key]||'home';
     const empty=label=>charPhoneBrandEmpty(snapshot,label);
     const avatar=`<img src="${wcEscapeAttr(getWechatAiPhoneHomeAvatar(char))}" alt="">`;
     let header='',body='',bottom='';
     if(key==='chat') {
+        if(['moments','channels'].includes(view))return renderCharPhoneWechatDiscover(view,snapshot,char);
         header=`<div class="cp-wc-header"><b>${view==='contacts'?'通讯录':view==='discover'?'发现':view==='profile'?'我':'微信'}</b><i class="ri-add-circle-line"></i></div><div class="cp-wc-search"><i class="ri-search-line"></i><input aria-label="搜索聊天" placeholder="搜索" oninput="filterCharPhoneSystemRows(this.value,'.wc-ai-phone-chat-row')"></div>`;
-        body=view==='profile'?`<div class="cp-wc-profile">${avatar}<div><h2>${e(getWechatCharDisplayName(char))}</h2><p>${e(snapshot.userRemark||'')}</p></div><i class="ri-qr-code-line"></i></div><button class="cp-wc-feature" onclick="switchWechatAiPhoneTab('wallet')"><i class="ri-wallet-line"></i> 服务 <i class="ri-arrow-right-s-line"></i></button>`:view==='discover'?`<button class="cp-wc-feature" onclick="switchWechatAiPhoneTab('weibo')"><i class="ri-camera-line"></i> 朋友圈 <i class="ri-arrow-right-s-line"></i></button><button class="cp-wc-feature" onclick="switchWechatAiPhoneTab('douyin')"><i class="ri-video-line"></i> 视频号 <i class="ri-arrow-right-s-line"></i></button>`:renderWechatAiPhoneChatRows(snapshot,char);
+        body=view==='profile'?`<div class="cp-wc-profile">${avatar}<div><h2>${e(getWechatCharDisplayName(char))}</h2><p>${e(snapshot.userRemark||'')}</p></div><i class="ri-qr-code-line"></i></div><button class="cp-wc-feature" onclick="switchWechatAiPhoneTab('wallet')"><i class="ri-wallet-line"></i> 服务 <i class="ri-arrow-right-s-line"></i></button>`:view==='discover'?`<button class="cp-wc-feature" onclick="setCharPhoneNativeView('chat','moments')"><i class="ri-camera-line"></i> 朋友圈 <i class="ri-arrow-right-s-line"></i></button><button class="cp-wc-feature" onclick="setCharPhoneNativeView('chat','channels')"><i class="ri-video-line"></i> 视频号 <i class="ri-arrow-right-s-line"></i></button>`:renderWechatAiPhoneChatRows(snapshot,char);
         bottom=charPhoneNativeNav(key,[['home','微信','ri-wechat-line'],['contacts','通讯录','ri-contacts-line'],['discover','发现','ri-compass-3-line'],['profile','我','ri-user-line']],view);
     } else if(key==='memo') {
         const rows=getWechatAiPhoneMemoItems(snapshot);

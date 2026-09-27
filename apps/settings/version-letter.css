@@ -1,0 +1,44 @@
+/* Monochrome release receipt: compact paper, engraving, perforations and serif type. */
+.bynd-version-letter { position: absolute; inset: 0; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; background: #eaeae7; color: #1c1d1b; padding-top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)); }
+.bynd-version-letter::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .12; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23888' filter='url(%23n)' opacity='.35' d='M0 0h140v140H0z'/%3E%3C/svg%3E"); }
+.bynd-letter-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px max(18px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); }
+.bynd-letter-ticket { position: relative; width: 100%; max-width: 430px; margin: 0 auto; background: #fffefb; box-shadow: 0 5px 18px #00000015; padding-bottom: 14px; }
+.bynd-letter-ticket::after { content: ''; position: absolute; height: 12px; bottom: -10px; left: 0; right: 0; background: radial-gradient(circle at 12px 12px, transparent 8px, #fffefb 8.5px) 0 0 / 24px 12px repeat-x; }
+.bynd-letter-art { display: block; width: 100%; height: auto; aspect-ratio: 640 / 228; object-fit: cover; }
+.bynd-letter-content { padding: 22px 23px 0; }
+.bynd-letter-brand { text-align: center; font: 10px/1.4 'Courier New', monospace; letter-spacing: 2px; color: #555650; }
+.bynd-letter-title { margin: 10px 0 8px; text-align: center; font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif; font-size: clamp(22px, 6vw, 29px); font-weight: 900; letter-spacing: 1px; color: #141513; }
+.bynd-letter-subtitle { text-align: center; font: 8px/1.5 'Courier New', monospace; letter-spacing: 1.4px; padding-bottom: 16px; border-bottom: 1px dotted #777; }
+.bynd-letter-meta { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 17px 0; border-bottom: 1px dashed #858580; }
+.bynd-letter-meta p { font: 10px/1.9 'Courier New', monospace; color: #3f413b; letter-spacing: .2px; }
+.bynd-letter-meta::before, .bynd-letter-meta::after { content: ''; position: absolute; width: 19px; height: 19px; top: 50%; background: #eaeae7; border-radius: 50%; }
+.bynd-letter-meta::before { left: -33px; }
+.bynd-letter-meta::after { right: -33px; }
+.bynd-letter-stamp { flex: none; display: grid; place-content: center; width: 68px; height: 47px; border: 1px solid #373b35; border-radius: 50%; outline: 1px solid #373b35; outline-offset: -4px; transform: rotate(-13deg); text-align: center; white-space: pre-line; font: 9px/1.5 'Songti SC', 'SimSun', serif; color: #373b35; letter-spacing: 1px; opacity: .75; }
+.bynd-letter-intro { margin: 17px 0 21px; font: 12px/1.9 'Songti SC', 'SimSun', serif; color: #5c5e57; }
+.bynd-release-section + .bynd-release-section { margin-top: 23px; }
+.bynd-release-section h3 { display: flex; align-items: baseline; gap: 8px; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px dashed #888; font: 700 10px/1.4 'Courier New', monospace; letter-spacing: 1px; color: #252722; }
+.bynd-release-count { font-size: 8px; font-weight: 400; letter-spacing: .5px; color: #686c62; }
+.bynd-release-section ul { list-style: none; padding: 0; margin: 0; }
+.bynd-release-section li { display: flex; gap: 8px; margin-top: 11px; font: 12px/1.85 'Noto Serif SC', 'Songti SC', 'SimSun', serif; color: #262922; overflow-wrap: anywhere; }
+.bynd-release-number { flex: none; padding-top: 2px; color: #75796e; font: 8px/2 'Courier New', monospace; }
+.bynd-release-text { min-width: 0; }
+.bynd-letter-footer { width: 100%; padding: 24px 23px 17px; text-align: center; }
+.bynd-version-letter .bynd-letter-go { display: block; width: 100%; min-height: 47px; padding: 13px 12px; border: 0; border-radius: 0; background: #1b1d19; color: #fffefb; font: 600 13px/1.5 'Songti SC', 'SimSun', serif; letter-spacing: 2px; cursor: pointer; }
+.bynd-letter-end { padding: 20px 0 11px; font: 13px/1.6 'Courier New', monospace; letter-spacing: 1px; border-bottom: 1px dashed #96998e; }
+.bynd-letter-go:focus-visible, .bynd-letter-scroll:focus-visible, .bynd-history-replay:focus-visible { outline: 2px solid #555e47; outline-offset: -3px; }
+.bynd-letter-hint { margin-top: 12px; white-space: pre-line; font: 10px/1.8 'Songti SC', 'SimSun', serif; color: #7c8074; }
+.bynd-letter-status:empty { display: none; }
+.bynd-letter-status { margin-top: 8px; color: #a0513e; font-size: 11px; line-height: 1.6; }
+.bynd-about-card { padding: 22px; border: 1px solid #e1e2db; border-radius: 6px; background: #fffefb; color: #292c25; }
+.bynd-about-card > h2 { font: 700 24px/1.4 'Songti SC', 'SimSun', serif; letter-spacing: 3px; }
+.bynd-about-card > p { margin-top: 8px; font-size: 12px; color: #777e70; line-height: 1.8; }
+.bynd-about-card > h3 { margin: 26px 0 8px; font: 700 16px/1.4 'Songti SC', 'SimSun', serif; }
+.bynd-history-entry { padding: 24px 0; border-top: 1px dashed #c0c3b7; }
+.bynd-history-entry:last-child { padding-bottom: 0; }
+.bynd-history-heading { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
+.bynd-history-heading h3 { font: 700 12px/1.6 'Courier New', monospace; }
+.bynd-history-heading time { font: 9px/1.6 'Courier New', monospace; color: #828879; }
+.bynd-history-intro { font: 12px/1.8 'Songti SC', 'SimSun', serif; color: #777e70; margin: 12px 0 20px; }
+.bynd-history-replay { margin-top: 20px; min-height: 44px; padding: 10px 14px; background: #1b1d19; color: #fffefb; border: 0; border-radius: 0; font-size: 12px; cursor: pointer; }
+@media (max-width: 340px) { .bynd-letter-scroll { padding-left: 13px; padding-right: 13px; } .bynd-letter-content { padding-left: 18px; padding-right: 18px; } .bynd-letter-footer { padding-left: 18px; padding-right: 18px; } .bynd-letter-meta::before { left: -28px; } .bynd-letter-meta::after { right: -28px; } }

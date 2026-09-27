@@ -717,3 +717,8 @@ test('saving a partial diary failure cannot replace cached letters when storage 
 });
 
 test('phone JSON repair provider error is retained instead of replaced by a generic parse failure',async()=>{const h=harness();h.state.respond=async()=>h.state.requests.length===1?{ok:true,content:'invalid JSON'}:{ok:false,error:'API 错误 (429): rate limit exceeded'};const result=await h.context.requestWechatAiPhoneSnapshot(h.char,{force:true});assert.equal(result.generatedBy,'error');assert.match(result.syncError,/429/);assert.match(result.syncError,/JSON/);assert.equal(h.state.requests.length,2);});
+
+test('an unselected diary does not request extra content or schedule a background retry',()=>{
+ const h=harness();h.char.chatConfig.aiPhoneSnapshot=savedPhone({installedApps:['chat','memo','settings'],diaryLetters:[]});
+ assert.equal(h.context.isWechatAiPhoneDiaryFollowUpDue(h.char),false);h.context.scheduleWechatAiPhoneDiaryFollowUp(h.char);assert.equal(h.timers.size,0);assert.equal(h.state.requests.length,0);
+});

@@ -48,7 +48,7 @@ function renderCharPhoneNativeApp(key,snapshot,char) {
         bottom=charPhoneNativeNav(key,[['home','首页','ri-home-5-fill'],['friends','朋友','ri-group-line'],['posts','作品','ri-add-box-line'],['messages','消息','ri-chat-3-line'],['profile','我','ri-user-line']],view);
     } else if(key==='album') {
         header=`<div class="cp-photos-header"><h2>照片</h2><span>${items.length} 张照片</span><i class="ri-search-line"></i></div>`;
-        body=`<div class="cp-photos-date">最近项目</div><div class="cp-photos-grid">${rows.map(i=>itemButton(i,charPhoneNativeMedia(i,key),'cp-photo-tile')).join('')||empty('暂无照片')}</div>`;
+        body=`<div class="cp-photos-date">最近项目</div><div class="cp-photos-grid">${rows.map(i=>itemButton(i,charPhoneNativeMedia({...i,image:charPhonePhotoState(char,i).url},key),'cp-photo-tile')).join('')||empty('暂无照片')}</div>`;
         bottom=charPhoneNativeNav(key,[['home','图库','ri-image-line'],['albums','相簿','ri-folders-line'],['saved','收藏','ri-heart-line']],view);
     } else if(key==='music') {
         header=`<div class="cp-music-header"><i class="ri-menu-line"></i><b>我的音乐</b><i class="ri-search-line"></i></div>`;

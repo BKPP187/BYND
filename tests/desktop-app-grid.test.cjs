@@ -46,6 +46,13 @@ test('row spacing repair respects components between rows, folders and partial c
     assert.equal(planSpacing(apps.slice(0, -1), metrics).length, 0);
 });
 
+test('modern rows with normal custom gaps do not shrink when reopening', () => {
+    const apps = [304, 394, 500].flatMap((top, row) => [12, 105, 198, 291].map((left, column) => ({
+        id: `app-${row}-${column}`, isApp: true, left, top, width: 72, height: 82
+    })));
+    assert.equal(spacingPlan()(apps, { iconHeight: 82, gapY: 8, canvasWidth: 375 }).length, 0);
+});
+
 test('second-page app grid remains four centered columns on narrow screens', () => {
     const context = vm.createContext({});
     vm.runInContext(sourceSection('script.js', 'function getDesktopFourColumnAppGridMetrics(', 'function normalizeSecondPageAppGrid('), context);

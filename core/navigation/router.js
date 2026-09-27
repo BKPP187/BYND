@@ -1,6 +1,7 @@
 // --- 🌟 路由控制 (这里修复了！) ---
 
 function openApp(appName) {
+    if (document.getElementById('app-home3d-window')?.classList.contains('active')) window.ByndHome3D?.close();
     window._activeAppOriginPageByApp = window._activeAppOriginPageByApp || {};
     window._activeAppOriginPageByApp[appName] = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
     document.querySelectorAll('.app-window.active').forEach(w => {
@@ -52,6 +53,22 @@ function openApp(appName) {
             win.classList.remove('hidden');
             setTimeout(() => win.classList.add('active'), 10);
             if (typeof initSettings === 'function') initSettings();
+        }
+    }
+    else if (appName === 'role-tools') {
+        const win = document.getElementById('app-role-tools-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            window.ByndRoleTools?.open();
+        }
+    }
+    else if (appName === 'moon') {
+        const win = document.getElementById('app-moon-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            window.ByndMoon?.open();
         }
     }
     // 6. 预设 App
@@ -147,7 +164,14 @@ function openApp(appName) {
         if (win) {
             win.classList.remove('hidden');
             setTimeout(() => win.classList.add('active'), 10);
-            if (typeof initLivingWorld === 'function') initLivingWorld();
+            if (typeof initLivingWorld === 'function') window._byndForumOpenPromise = initLivingWorld();
+        }
+    }
+    else if (appName === 'home3d') {
+        const win = document.getElementById('app-home3d-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => { win.classList.add('active'); window.ByndHome3D?.open(); }, 10);
         }
     }
     // 15. 相册
@@ -166,7 +190,7 @@ function openApp(appName) {
             setTimeout(() => win.classList.add('active'), 10);
             const source = window._comicPendingSource || null;
             window._comicPendingSource = null;
-            window.ByndComic?.open(source);
+            window._byndComicOpenPromise = window.ByndComic?.open(source);
         }
     }
     // 16. 说明书
@@ -204,6 +228,7 @@ function openApp(appName) {
     else {
         alert("正在打开: " + appName + " (功能开发中...)");
     }
+    window.ByndExperience?.opened(appName);
     if (typeof syncMonitorPetFloating === 'function') setTimeout(syncMonitorPetFloating, 40);
 }
 
@@ -419,12 +444,15 @@ function readByndCameraFile(file) {
 }
 
 function closeApp(appName) {
+    window.ByndExperience?.closed(appName);
     let winId = '';
     if (appName === 'theme') winId = 'app-theme-window';
     else if (appName === 'wechat') winId = 'app-wechat-window';
     else if (appName === 'worldbook') winId = 'app-worldbook-window';
     else if (appName === 'regex') winId = 'app-regex-window';
     else if (appName === 'settings') winId = 'app-settings-window';
+    else if (appName === 'role-tools') winId = 'app-role-tools-window';
+    else if (appName === 'moon') winId = 'app-moon-window';
     else if (appName === 'preset') winId = 'app-preset-window';
     else if (appName === 'music') winId = 'app-music-window';
     else if (appName === 'study') winId = 'app-study-window';
@@ -438,6 +466,7 @@ function closeApp(appName) {
     else if (appName === 'living-world') winId = 'app-living-world-window';
     else if (appName === 'album') winId = 'app-album-window';
     else if (appName === 'comic') winId = 'app-comic-window';
+    else if (appName === 'home3d') winId = 'app-home3d-window';
     else if (appName === 'manual') winId = 'app-manual-window';
     else if (appName === 'mcp') winId = 'app-mcp-window';
     else if (appName === 'bill') winId = 'app-bill-window';
@@ -449,6 +478,7 @@ function closeApp(appName) {
         if (appName === 'pet') window.ByndPetWorkspace?.close();
         if (appName === 'manual') resetManualSearchState();
         if (appName === 'bill') window.ByndBillApp?.close();
+        if (appName === 'home3d') window.ByndHome3D?.close();
         setTimeout(() => win.classList.add('hidden'), 300);
 
         if (appName === 'wechat' && typeof closeChat === 'function') {

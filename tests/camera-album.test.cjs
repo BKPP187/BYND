@@ -105,6 +105,31 @@ test('album accepts generated incoming images, excludes camera photos, and dedup
     assert.equal(h.events.saved, 2);
 });
 
+test('removing a generated photo hides its history aliases, survives reopening, and Undo retains later photos', async () => {
+    const h = cameraHarness(), a = h.context.window.myCharacters[0];
+    a.history = [{ type: 'image', isMe: false, content: 'https://example.test/old.png', timestamp: 1 }];
+    await h.context.saveChatAlbumStore(h.context.getChatAlbumStore());
+    let action;
+    h.context.window.ByndUndo = { offer: value => { action = value; } };
+    const id = h.context.getChatAlbumStore()[0].id;
+    assert.equal(h.context.removeAlbumPhoto(id), true);
+    assert.equal(h.context.getChatAlbumStore().length, 0);
+    a.history.push({ type: 'image', isMe: false, content: 'https://example.test/new.png', timestamp: 2 });
+    assert.equal(h.context.getChatAlbumStore().length, 1);
+    assert.equal(action.undo(), true);
+    assert.equal(h.context.getChatAlbumStore().length, 2);
+    assert.equal(a.history.length, 2, 'album removal never removes the original chat message');
+});
+
+test('photo removal storage failure reports failure and leaves the album unchanged', () => {
+    const h = cameraHarness();
+    h.context.window.myCharacters[0].history = [{ type: 'image', isMe: false, content: 'https://example.test/photo.png', timestamp: 1 }];
+    const id = h.context.getChatAlbumStore()[0].id;
+    h.localStorage.setItem = () => { throw Error('quota'); };
+    assert.equal(h.context.removeAlbumPhoto(id), false);
+    assert.equal(h.context.getChatAlbumStore()[0].id, id);
+});
+
 test('album recovers legacy and historical image stacks, keeps photos after chat clearing, and never copies them to localStorage', async () => {
     const h = cameraHarness();
     const a = h.context.window.myCharacters[0];

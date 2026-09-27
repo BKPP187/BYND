@@ -56,6 +56,9 @@
     }
     function recordView(postId, sensitivity = 'low') {
         const who = loadState().viewerId;
+        const post = loadState().posts.find(item => item.id === postId);
+        const charId = who.startsWith('char:') ? who.slice(5) : loadState().npcs.find(item => item.id === who)?.contactCharId;
+        if (post && charId) window.ByndExperience?.checkpoint('living-world', charId, `上次透过你的论坛账号看到《${post.title || '未命名帖子'}》。只记住这次浏览位置，不推断你已知私密内容。`);
         mutate(next => {
             next.views[who] = safeList(next.views[who]);
             if (!next.views[who].includes(postId)) next.views[who].push(postId);

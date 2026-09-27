@@ -47,6 +47,9 @@ function initPageSwipe(options = {}) {
         idx = Math.max(0, Math.min(idx, totalPages - 1));
         currentPage = idx;
         window._desktopCurrentPage = currentPage;
+        // Pages move with transforms. Focus/scrollIntoView can also scroll this
+        // overflow-hidden flex container, which would offset every screen twice.
+        container.scrollLeft = 0;
         pages.forEach(p => {
             p.style.transition = '';
             p.style.transform = `translateX(-${currentPage * 100}%)`;
@@ -63,7 +66,7 @@ function initPageSwipe(options = {}) {
 
     function updateDots() {
         const dots = document.querySelectorAll('#page-dots .page-dot');
-        dots.forEach((d, i) => d.classList.toggle('active', i === currentPage));
+        dots.forEach((d, i) => { d.classList.toggle('active', i === currentPage); d.setAttribute('aria-current', i === currentPage ? 'page' : 'false'); });
     }
 
     function isDesktopSwipeInteractiveTarget(target) {
@@ -264,6 +267,15 @@ function initPageSwipe(options = {}) {
     };
 
     const swipeTargets = [container];
+    bindSwipe(container, 'scroll', () => { if (container.scrollLeft !== 0) container.scrollLeft = 0; }, { passive: true });
+    bindSwipe(document.getElementById('page-dots'), 'click', e => {
+        const dot = e.target.closest('.page-dot');
+        if (!dot) return;
+        const index = Array.from(document.querySelectorAll('#page-dots .page-dot')).indexOf(dot);
+        if (index < 0) return;
+        suppressNextSwipeClick = false; clearTimeout(suppressNextSwipeClickTimer);
+        e.preventDefault(); e.stopPropagation(); goToPage(index);
+    });
     if (homeScreen && homeScreen !== container) swipeTargets.push(homeScreen);
     swipeTargets.forEach(target => {
         bindSwipe(target, 'touchstart', onTouchStart, { passive: true });
@@ -291,4 +303,3 @@ function initPageSwipe(options = {}) {
 
     goToPage(currentPage);
 }
-

@@ -431,11 +431,11 @@
     function availability(kind) {
         const config = readConfig();
         const keys = readKeys();
-        if (kind === 'weather') return { ok: true, hint: config.city ? `免 Key · 默认城市：${config.city}` : '免 Key · 可在「设置 → 工具」填写你所在的城市' };
-        if (kind === 'places') return keys.amapKey ? { ok: true, hint: '高德地图 · Key 已填写' } : { ok: false, reason: '需要先在「设置 → 工具」填写高德 Key' };
-        if (kind === 'movies') return keys.tmdbToken ? { ok: true, hint: 'TMDB · 令牌已填写' } : { ok: false, reason: '需要先在「设置 → 工具」填写 TMDB 令牌' };
+        if (kind === 'weather') return { ok: true, hint: config.city ? `免 Key · 默认城市：${config.city}` : '免 Key · 可在「角色台 → 现实工具」填写你所在的城市' };
+        if (kind === 'places') return keys.amapKey ? { ok: true, hint: '高德地图 · Key 已填写' } : { ok: false, reason: '需要先在「角色台 → 现实工具」填写高德 Key' };
+        if (kind === 'movies') return keys.tmdbToken ? { ok: true, hint: 'TMDB · 令牌已填写' } : { ok: false, reason: '需要先在「角色台 → 现实工具」填写 TMDB 令牌' };
         if (kind === 'shop') {
-            if (config.shopMode === 'off') return { ok: false, reason: '购物工具已在「设置 → 工具」关闭' };
+            if (config.shopMode === 'off') return { ok: false, reason: '购物工具已在「角色台 → 现实工具」关闭' };
             return { ok: true, hint: config.shopMode === 'desktop' ? '淘宝桌面版 MCP · 仅限电脑' : '免 Key · 发淘宝搜索卡片' };
         }
         if (kind === 'mcp') {
@@ -467,7 +467,7 @@
             const tools = allowedMcpTools(char, catalog).slice(0, 12).map(tool => `${tool.name}${tool.required.length ? `(${tool.required.join(',')})` : ''}${tool.description ? `：${tool.description}` : ''}`);
             lines.push(`{"name":"mcp.call","server":"${catalog.name}","tool":"工具名","arguments":{}}：可用工具 —— ${tools.join('；')}`);
         }
-        return `【角色工具箱】你可以真的去用下面这些现实工具，但只能在「${name}」按人设、世界观和此刻处境会自然去做的时候用：没有手机和网络的世界观（古代、仙侠、异世界等）不要用；与人设气质明显不符的事（比如冷淡毒舌的人给别人挑粉色蝴蝶结）不要做；用户没提、情境也不需要时不要用。`
+        return `【现实工具】你可以真的去用下面这些现实工具，但只能在「${name}」按人设、世界观和此刻处境会自然去做的时候用：没有手机和网络的世界观（古代、仙侠、异世界等）不要用；与人设气质明显不符的事（比如冷淡毒舌的人给别人挑粉色蝴蝶结）不要做；用户没提、情境也不需要时不要用。`
             + `要用时，正文先用角色自己的口吻自然带一句（比如“我帮你看看”），再在正文之后附上 <bynd_tool>{JSON}</bynd_tool>，本轮所有工具合计最多 3 个；结果会以卡片发给用户，之后你会看到结果再接着聊。如果正文已经说完、不需要看结果再回应，可在 JSON 里加 "react":false。`
             + `绝不要提到工具、API、插件、系统或 AI，也不要编造还没查到的结果。\n可用：\n- ${lines.join('\n- ')}`;
     }
@@ -694,8 +694,8 @@
         const config = readConfig();
         const keys = readKeys();
         root.innerHTML = `<section class="bynd-jev-card bynd-tools-card" aria-label="角色工具">
-            <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-tools-line"></i></span><div><strong>角色工具箱</strong><small>让角色在不出戏的前提下用真实工具</small></div></div>
-            <p class="bynd-jev-intro">角色只会在符合人设和世界观时才用这些工具，比如提醒你明天带伞、帮你找附近的店、聊最近的电影。每个角色还要在「聊天设置 → 角色工具箱」里单独打开。配置了 Jev 时由 Jev 先判断是否符合人设（智能决策 → 工具人设把关），没有 Jev 时由聊天模型按人设自己判断。</p>
+            <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-tools-line"></i></span><div><strong>现实工具</strong><small>让角色在不出戏的前提下用真实工具</small></div></div>
+            <p class="bynd-jev-intro">角色只会在符合人设和世界观时才用这些工具，比如提醒你明天带伞、帮你找附近的店、聊最近的电影。每个角色还要在「角色台 → 角色授权」里单独打开，也可在聊天设置中调整。配置了 Jev 时由 Jev 先判断是否符合人设（智能决策 → 工具人设把关），没有 Jev 时由聊天模型按人设自己判断。</p>
             <label class="bynd-jev-key-label" for="bynd-tools-city">我所在的城市</label>
             <input class="bynd-jev-key" id="bynd-tools-city" maxlength="30" placeholder="例如：杭州" autocomplete="off">
             <label class="bynd-jev-enable bynd-tools-toggle"><span><strong>让角色知道天气</strong><small>每隔几小时更新一次天气（Open-Meteo，免 Key），角色会像平常一样顺口提醒带伞、防晒</small></span><input type="checkbox" id="bynd-tools-weather-anchor"></label>
@@ -744,9 +744,11 @@
         if (!root) return false;
         const field = id => root.querySelector(`#${id}`);
         const status = field('bynd-tools-status');
+        let snapshots;
         try {
             const endpoint = taobaoEndpoint(field('bynd-tools-taobao').value || TAOBAO_ENDPOINT);
             const before = readConfig();
+            snapshots = [CONFIG_KEY, SECRET_KEY].map(key => [key, localStorage.getItem(key)]);
             const config = writeConfig({
                 city: clip(field('bynd-tools-city').value, 30),
                 weatherAnchor: !!field('bynd-tools-weather-anchor').checked,
@@ -757,10 +759,17 @@
             writeKeys({ amapKey: field('bynd-tools-amap').value, tmdbToken: field('bynd-tools-tmdb').value });
             if (config.city && config.city !== before.city) scheduleWeatherRefresh(config.city);
             if (endpoint !== before.taobaoEndpoint) { taobaoSession.ready = ''; taobaoSession.sessionId = ''; }
-            if (status && !options.silent) status.textContent = '已保存。记得在角色的聊天设置里打开「允许使用工具」。';
+            if (status && !options.silent) status.textContent = '已保存。记得在「角色授权」里打开「允许使用现实工具」。';
             return true;
         } catch (error) {
-            if (status) status.textContent = `未保存：${error.message}`;
+            let rollbackFailed = false;
+            for (const [key, raw] of snapshots || []) {
+                try {
+                    if (localStorage.getItem(key) === raw) continue;
+                    if (raw === null) localStorage.removeItem(key); else localStorage.setItem(key, raw);
+                } catch (_) { rollbackFailed = true; }
+            }
+            if (status) status.textContent = `${rollbackFailed ? '保存失败，部分配置可能已写入，请重新检查' : '未保存'}：${error.message}`;
             return false;
         }
     }

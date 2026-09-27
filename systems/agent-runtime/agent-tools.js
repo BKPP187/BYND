@@ -123,10 +123,10 @@
             ${row('allowMemory', '自动整理记忆', '允许角色从当前聊天整理自己的记忆')}
             ${row('allowTodos', '记录待办', '允许角色在当前聊天里添加自己的待办事项')}
             <p class="bynd-agent-note">以上权限仅作用于当前角色。小手机和记忆仍可手动更新。OpenClaw 的权限需在服务端单独设置。</p>
-        </div><div class="wcs-section-title">角色工具箱</div><div class="wcs-section bynd-agent-settings">
+        </div><div class="wcs-section-title">现实工具</div><div class="wcs-section bynd-agent-settings">
             ${row('allowTools', '允许使用工具', '角色按人设自然需要时会查天气、找店、聊电影、搜商品；不符合人设的调用会被拦下')}
             ${window.ByndCharacterTools?.renderAgentToolRows(char, row) || ''}
-            <p class="bynd-agent-note">Key、城市和购物方式在「设置 → 工具」里配置。</p>
+            <p class="bynd-agent-note">Key、城市和购物方式在「角色台 → 现实工具」里配置。现实生活状态在「角色台 → 角色授权」中独立授权。</p>
         </div><div class="wcs-section-title">角色桌宠</div><div class="wcs-section">
             <button type="button" class="bynd-agent-nav" onclick="openMonitorPetStudio(document.getElementById('wcs-agent-features').dataset.charId)"><span><strong>专属形象与人设互动</strong><small>沿用生图设置，制作透明 3D 形象和专属表情</small></span><i class="ri-arrow-right-s-line"></i></button>
         </div><div class="wcs-section-title">OpenClaw · 微信</div><div class="wcs-section">

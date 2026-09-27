@@ -1937,6 +1937,7 @@ function openChat(charId) {
     recoverWechatInputLockIfStale();
     room.classList.remove('hidden');
     setTimeout(() => room.classList.add('active'), 10);
+    setTimeout(() => { window.ByndMoon?.maybeRemind(char, { requireOpen: true }).catch(error => console.warn('月伴检查失败', error?.message)); }, 500);
 }
 
 
@@ -1963,4 +1964,3 @@ function openWechatMessageSource(charId, msgKey) {
 function getWechatMessageSourceKey(charId, msg, msgIdx) {
     return `message:${charId}:${msg?.id || msg?.timestamp || msg?.createdAt || msgIdx}`;
 }
-

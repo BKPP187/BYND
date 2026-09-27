@@ -14,6 +14,39 @@
         [assetRoot + 'u2netp.onnx']: '人物识别模型'
     };
     let pending = Promise.resolve();
+    const scriptBuffers = new Map(), scriptLoads = new Map();
+    function registerResource(path, encoded) {
+        if (!Object.hasOwn(resourceNames, path) || !scriptLoads.has(path)) return;
+        const bytes = new Uint8Array(Math.floor(encoded.length / 4) * 3 - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0));
+        let cursor = 0;
+        for (let i = 0; i < encoded.length; i += 65536) {
+            const chunk = atob(encoded.slice(i, i + 65536));
+            for (let j = 0; j < chunk.length; j++) bytes[cursor++] = chunk.charCodeAt(j);
+        }
+        scriptBuffers.set(path, bytes.buffer);
+    }
+    function readBundledScript(path) {
+        if (scriptLoads.has(path)) return scriptLoads.get(path);
+        // Defer insertion so registerResource can see the pending operation even
+        // when a script is already in the browser cache.
+        const operation = Promise.resolve().then(() => new Promise((resolve, reject) => {
+            const node = document.createElement('script');
+            let timer, settled = false;
+            const finish = (error) => {
+                if (settled) return; settled = true;
+                clearTimeout(timer); node.remove();
+                const bytes = scriptBuffers.get(path); scriptBuffers.delete(path);
+                if (error || !bytes?.byteLength) reject(error || new Error('本地工具文件内容为空'));
+                else resolve(bytes);
+            };
+            node.src = new URL(path + '.js', appRoot).href; node.async = true;
+            node.onload = () => finish(); node.onerror = () => finish(new Error('本地工具文件未能加载'));
+            timer = setTimeout(() => finish(new Error('本地工具文件加载超时')), 20000);
+            document.head.appendChild(node);
+        })).finally(() => { scriptLoads.delete(path); scriptBuffers.delete(path); });
+        scriptLoads.set(path, operation);
+        return operation;
+    }
     function readFile(url) {
         return new Promise((resolve, reject) => {
             const request = new XMLHttpRequest();
@@ -25,7 +58,7 @@
         });
     }
     async function readWeb(url, path) {
-        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.704');
+        url.searchParams.set('v', path.startsWith(assetRoot) ? '1.29.0-u2netp-v1' : '1.1.727');
         const response = await fetch(url.href, { credentials: 'omit', signal: AbortSignal.timeout(45000) });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const bytes = await response.arrayBuffer();
@@ -43,10 +76,14 @@
                     try { return await readFile(url); }
                     catch (error) { console.warn('桌宠本地资源读取失败，将获取官网工具文件', path, error); }
                 }
+                try { return await readBundledScript(path); }
+                catch (error) { console.warn('本地去背景工具未能加载，将获取官网工具文件', path, error); }
                 return await readWeb(fallback, path);
             }
             try { return await readWeb(url, path); }
             catch (error) {
+                try { return await readBundledScript(path); }
+                catch (_) {}
                 if (url.origin === fallback.origin && url.pathname === fallback.pathname) throw error;
                 console.warn('桌宠资源地址不可用，将获取官网工具文件', path, error);
                 return await readWeb(fallback, path);
@@ -138,5 +175,5 @@
         pending = operation;
         return operation;
     }
-    window.ByndPetBackground = { remove, inputPixels, alphaPixels, readResource };
+    window.ByndPetBackground = { remove, inputPixels, alphaPixels, readResource, registerResource };
 })();

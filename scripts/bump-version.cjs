@@ -24,7 +24,7 @@ function nextPatch(version) {
 }
 
 // A local asset reference: relative path (no scheme) ending in a cacheable extension, followed by ?v=...
-const LOCAL_ASSET = /((?:src|href)=["'])(?![a-z]+:|\/\/)([^"'?#]+\.(?:js|css|png|webmanifest|json))\?v=[^"'#]+/g;
+const LOCAL_ASSET = /((?:src|href)=["'])(?![a-z]+:|\/\/)([^"'?#]+\.(?:js|css|svg|png|webmanifest|json))\?v=[^"'#]+/g;
 
 // Each rule: [file, transform(text, version) -> text]. Rules must be idempotent.
 const RULES = [

@@ -12,7 +12,8 @@ const THEME_ICON_TARGETS = [
     {i:'ri-equalizer-line', n:'预设'}, {i:'ri-file-text-line', n:'说明书'},
     {i:'ri-github-fill', n:'MCP'}, {i:'ri-bear-smile-line', n:'桌宠'},
     {i:'ri-discuss-line', n:'论坛'}, {i:'ri-booklet-line', n:'漫画'},
-    {i:'ri-bill-line', n:'账单'}
+    {i:'ri-bill-line', n:'账单'}, {i:'ri-tools-line', n:'角色台'},
+    {i:'ri-home-heart-line', n:'小屋'}, {i:'ri-moon-line', n:'月伴'}
 ];
 // 已保存的图标按槽位存储；新增 App 追加到末尾，保留旧版 Dock 的位置。
 const THEME_DESKTOP_ICON_COUNT = 13;

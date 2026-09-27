@@ -21,6 +21,61 @@
 .wcs-header span { font-size: 18px; font-weight: 760; color: #111827; }
 .wcs-header i { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 25px; cursor: pointer; color: #111827; background: rgba(255,255,255,0.74); box-shadow: 0 6px 18px rgba(15,23,42,0.08); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .wcs-body { flex: 1; overflow-y: auto; padding: 0 14px 0; }
+
+/* Category navigation shares the parent's safe area on iOS and reserves it on Android. */
+#app-wechat-window #wc-chat-settings-panel > .wcs-header {
+    height: calc(58px + var(--bynd-header-safe-top, 36px)) !important;
+    min-height: calc(58px + var(--bynd-header-safe-top, 36px)) !important;
+    padding: calc(8px + var(--bynd-header-safe-top, 36px)) 16px 8px !important;
+    display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 8px; box-sizing: border-box;
+}
+#wc-chat-settings-panel .wcs-back-btn {
+    width: 40px; height: 40px; padding: 0; border: 0; border-radius: 14px;
+    display: grid; place-items: center; background: transparent; cursor: pointer;
+}
+#wc-chat-settings-panel #wcs-page-title { text-align: center; font-size: 17px; line-height: 1.3; }
+#wc-chat-settings-panel .wcs-header-spacer { width: 40px; }
+#app-wechat-window #wc-chat-settings-panel > .wcs-body {
+    min-height: 0; padding: 0 14px 18px !important; overscroll-behavior: contain;
+}
+#wc-chat-settings-panel [data-chat-settings-page][hidden] { display: none !important; }
+.wcs-context { display: flex; align-items: center; gap: 12px; padding: 12px 4px 16px; }
+.wcs-context img { width: 46px; height: 46px; flex-shrink: 0; border-radius: 16px; object-fit: cover; background: #e7ebf0; }
+.wcs-context > div { min-width: 0; }
+.wcs-context strong { display: block; color: #1f2937; font-size: 18px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcs-category-group { margin-bottom: 12px; border: 1px solid rgba(255,255,255,.8); border-radius: 20px; overflow: hidden; background: rgba(255,255,255,.88); box-shadow: 0 3px 16px rgba(31,41,55,.035); }
+.wcs-category-group:last-child { margin-bottom: 0; }
+.wcs-category-row { width: 100%; min-height: 64px; display: grid; grid-template-columns: 40px minmax(0,1fr) 16px; align-items: center; gap: 12px; padding: 10px 14px; border: 0; background: transparent; color: #253044; text-align: left; cursor: pointer; position: relative; }
+.wcs-category-row + .wcs-category-row::before { content: ''; position: absolute; top: 0; left: 66px; right: 14px; height: 1px; background: rgba(31,41,55,.055); }
+.wcs-category-row:active { background: rgba(31,41,55,.045); }
+.wcs-category-row > span { min-width: 0; }
+.wcs-category-row strong { display: block; font-size: 14px; line-height: 1.4; font-weight: 650; }
+.wcs-category-row small { display: block; margin-top: 3px; color: #9097a3; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.wcs-category-row > i:last-child { color: #b2b8c2; font-size: 18px; }
+.wcs-category-icon {
+    display: block; width: 40px; height: 40px; padding: 1px; justify-self: center;
+    border-radius: 12px; object-fit: contain;
+    background: radial-gradient(ellipse at 42% 30%, #403746, #24212b 68%, #1a1821);
+    border: 1px solid rgba(222,207,225,.26);
+    box-shadow: inset 0 0 8px rgba(238,215,237,.06), 0 2px 6px rgba(29,24,37,.10);
+}
+.wcs-page-intro { padding: 16px 4px 4px; }
+.wcs-page-intro h2 { margin: 0; color: #202c3b; font-size: 23px; font-weight: 750; line-height: 1.4; outline: none; }
+.wcs-page-intro p, .wcs-page-note { margin: 7px 0 0; color: #9097a3; font-size: 12px; line-height: 1.65; }
+.wcs-page-note { padding: 0 4px; }
+.wcs-footer { flex-shrink: 0; padding: 10px 18px calc(12px + env(safe-area-inset-bottom, 0px)); background: rgba(247,248,250,.93); border-top: 1px solid rgba(31,41,55,.045); }
+#wc-chat-settings-panel .wcs-footer .wcs-save-btn { height: 44px; border-radius: 15px; font-size: 14px; font-weight: 650; box-shadow: 0 4px 12px rgba(15,23,42,.1); }
+#wc-chat-settings-panel .wcs-save-btn:disabled { opacity: .55; cursor: wait; }
+#wc-chat-settings-panel button:focus-visible { outline: 2px solid #7181a4; outline-offset: -3px; }
+#app-wechat-window #wc-chat-settings-panel .wcs-qq-group-header { height: calc(58px + var(--bynd-header-safe-top, 36px)); min-height: calc(58px + var(--bynd-header-safe-top, 36px)); padding: calc(8px + var(--bynd-header-safe-top, 36px)) 16px 8px; }
+@media (max-width: 350px) {
+    #app-wechat-window #wc-chat-settings-panel > .wcs-body { padding-left: 10px !important; padding-right: 10px !important; }
+    .wcs-category-row { gap: 9px; padding-left: 12px; padding-right: 12px; }
+    #wc-chat-settings-panel .wcs-row { flex-wrap: wrap; }
+    #wc-chat-settings-panel .wcs-row-value { margin-left: auto; max-width: 100%; }
+    #wc-chat-settings-panel .wcs-avatar-mood-hint { flex-wrap: wrap; }
+}
 .wcs-section { background: rgba(255,255,255,0.72); margin-top: 9px; border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,0.78); box-shadow: 0 10px 34px rgba(15,23,42,0.075); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .wcs-section:first-child { margin-top: 0; }
 .wcs-section-title { font-size: 11px; color: #8b95a5; padding: 18px 8px 1px; font-weight: 760; letter-spacing: 0; }
@@ -373,4 +428,3 @@
 .chat-config-pill { margin: 10px auto 0; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; font-size: 10px; color: #999; display: flex; gap: 10px; }
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
-

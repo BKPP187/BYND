@@ -11,10 +11,10 @@
     const PROXY_ENDPOINTS = ['https://bynd.ccwu.cc/mcp/relay/jev/v1/systemone'];
     const PROXY_ENDPOINT = PROXY_ENDPOINTS[0];
     let directBlocked = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
-    const SCOPES = ['turn', 'toolGate', 'webSearch', 'moment', 'momentEngagement', 'forumAction', 'forumReply', 'profile'];
+    const SCOPES = ['turn', 'toolGate', 'webSearch', 'moment', 'momentEngagement', 'forumAction', 'forumReply', 'profile', 'cycleCompanion', 'cycleReview'];
     const DEFAULT_MIN_PROBABILITY = 0.55;
     const clampProbability = value => Math.min(0.95, Math.max(0.34, Number(value) || DEFAULT_MIN_PROBABILITY));
-    const defaults = () => ({ enabled: false, apiKey: '', minProbability: DEFAULT_MIN_PROBABILITY, scopes: Object.fromEntries(SCOPES.map(scope => [scope, true])) });
+    const defaults = () => ({ enabled: false, apiKey: '', minProbability: DEFAULT_MIN_PROBABILITY, scopes: Object.fromEntries(SCOPES.map(scope => [scope, scope !== 'cycleReview'])) });
 
     function read() {
         try {
@@ -34,7 +34,7 @@
             enabled: config.enabled === true,
             apiKey: String(config.apiKey || '').trim(),
             minProbability: clampProbability(config.minProbability ?? DEFAULT_MIN_PROBABILITY),
-            scopes: Object.fromEntries(SCOPES.map(scope => [scope, config.scopes?.[scope] !== false]))
+            scopes: Object.fromEntries(SCOPES.map(scope => [scope, typeof config.scopes?.[scope] === 'boolean' ? config.scopes[scope] : defaults().scopes[scope]]))
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         return next;
@@ -128,12 +128,12 @@
             const result = {};
             for (const [key, question] of Object.entries(questions)) {
                 result[key] = interpret(question, answers[key], config.minProbability);
-                logDecision({ scope, route: 'jev', charName: meta.charName || '', key, label: meta.labels?.[key] || key, answer: result[key]?.value ?? null, probability: result[key]?.probability ?? null, applied: !!result[key]?.confident });
+                if (!meta.private) logDecision({ scope, route: 'jev', charName: meta.charName || '', key, label: meta.labels?.[key] || key, answer: result[key]?.value ?? null, probability: result[key]?.probability ?? null, applied: !!result[key]?.confident });
             }
             return result;
         } catch (error) {
             console.warn('Jev 决策不可用，沿用 BYND 角色决策：', error?.message || error);
-            logDecision({ scope, route: 'jev-error', charName: meta.charName || '', key: 'error', label: '调用失败，已回到 BYND 路径', answer: String(error?.message || error).slice(0, 120), probability: null, applied: false });
+            if (!meta.private) logDecision({ scope, route: 'jev-error', charName: meta.charName || '', key: 'error', label: '调用失败，已回到 BYND 路径', answer: String(error?.message || error).slice(0, 120), probability: null, applied: false });
             return null;
         }
     }
@@ -182,7 +182,7 @@
         if (threshold) threshold.value = String(Math.round(config.minProbability * 100));
         const thresholdLabel = root.querySelector('#bynd-jev-threshold-value');
         if (thresholdLabel) thresholdLabel.textContent = `${Math.round(config.minProbability * 100)}%`;
-        SCOPES.forEach(scope => { const input = root.querySelector(`[data-jev-scope="${scope}"]`); if (input) input.checked = config.scopes[scope] !== false; });
+        SCOPES.forEach(scope => { const input = root.querySelector(`[data-jev-scope="${scope}"]`); if (input) input.checked = config.scopes[scope] === true; });
         const route = root.querySelector('#bynd-jev-route');
         if (route) route.textContent = config.enabled && config.apiKey ? '当前路径：Jev 优先，失败或不确定时回到 BYND Agent' : '当前路径：BYND 内置 Agent（未启用 Jev）';
         renderLog();
@@ -195,12 +195,12 @@
         const apiKey = root.querySelector('#bynd-jev-key').value.trim();
         const status = root.querySelector('#bynd-jev-status');
         if (enabled && !apiKey) { status.textContent = '启用 Jev 前请填写密钥；未保存。'; return; }
-        const scopes = Object.fromEntries(SCOPES.map(scope => [scope, root.querySelector(`[data-jev-scope="${scope}"]`)?.checked !== false]));
+        const scopes = Object.fromEntries(SCOPES.map(scope => [scope, root.querySelector(`[data-jev-scope="${scope}"]`)?.checked ?? defaults().scopes[scope]]));
         const thresholdInput = root.querySelector('#bynd-jev-threshold');
         const minProbability = thresholdInput ? Number(thresholdInput.value) / 100 : read().minProbability;
         try {
             write({ enabled, apiKey, scopes, minProbability });
-            status.textContent = enabled ? '已保存。Jev 不可用或把握不足时会自动沿用 BYND 决策。' : '已保存。当前只使用 BYND 内置 Agent 决策。';
+            status.textContent = enabled ? '已保存。一般决策在 Jev 不可用时沿用 BYND；月伴人设检查不确定时暂缓提醒。' : '已保存。当前只使用 BYND 内置 Agent 决策。';
             renderSettings();
         } catch (error) { status.textContent = `保存失败：${error.message}`; }
     }

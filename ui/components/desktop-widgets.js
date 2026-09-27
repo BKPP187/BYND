@@ -231,7 +231,117 @@ function deleteEmptyDesktopScreen() {
 }
 window.deleteEmptyDesktopScreen = deleteEmptyDesktopScreen;
 
-function moveSelectedDesktopItemToOtherPage() {
+function normalizeDesktopIconRows(pageArea) {
+    const cards = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item.layout-app:not(.is-folder)'))
+        .map(item => ({ item, rect: getDesktopRawStyleRect(item) })).sort((a, b) => a.rect.top - b.rect.top);
+    const rows = [];
+    cards.forEach(card => {
+        const row = rows.at(-1);
+        if (row && Math.abs(card.rect.top - row[0].rect.top) <= 16) row.push(card);
+        else rows.push([card]);
+    });
+    let changed = false;
+    rows.forEach(row => {
+        const largest = row.reduce((a, b) => a.rect.height >= b.rect.height ? a : b);
+        const centers = row.map(card => card.rect.top + card.rect.height / 2).sort((a, b) => a - b);
+        const center = largest.rect.height > 83 ? largest.rect.top + largest.rect.height / 2 : centers[Math.floor(centers.length / 2)];
+        row.forEach(({ item, rect }) => { if (setDesktopLayoutItemRect(item, { ...rect, top: center - 41, height: 82 })) changed = true; });
+    });
+    return changed;
+}
+
+function getDesktopTransferFootprint(item, pageArea) {
+    const raw = getDesktopRawStyleRect(item);
+    if (!item.classList.contains('layout-app') || !item.getBoundingClientRect) return raw;
+    const frame = item.getBoundingClientRect(), scale = frame.width / (item.offsetWidth || raw.width);
+    if (!(scale > 0)) return raw;
+    // Measure content overflow relative to the card. Absolute DOM positions can
+    // lag behind saved coordinates during transitions and drag transforms.
+    const rects = Array.from(item.querySelectorAll('.app-icon, :scope > span')).map(node => node.getBoundingClientRect()).filter(rect => rect.width && rect.height);
+    const left = Math.min(0, ...rects.map(rect => (rect.left - frame.left) / scale));
+    const top = Math.min(0, ...rects.map(rect => (rect.top - frame.top) / scale));
+    const right = Math.max(raw.width, ...rects.map(rect => (rect.right - frame.left) / scale));
+    const bottom = Math.max(raw.height, ...rects.map(rect => (rect.bottom - frame.top) / scale));
+    return { left: raw.left + left, top: raw.top + top, width: right - left, height: bottom - top };
+}
+
+function findDesktopTransferRect(pageArea, item) {
+    if (!pageArea || !item || !hasDesktopUsableLayoutBounds(pageArea)) return null;
+    const isApp = item.classList.contains('layout-app');
+    const source = getDesktopRawStyleRect(item);
+    const metrics = getDesktopFourColumnAppGridMetrics(pageArea);
+    const size = clampDesktopLayoutRect({ ...source, ...(isApp && !item.classList.contains('is-folder') ? { width: metrics.iconWidth, height: metrics.iconHeight } : {}) }, pageArea);
+    const occupiedItems = Array.from(pageArea.querySelectorAll(':scope > .desktop-layout-item')).filter(other => other !== item);
+    const occupied = occupiedItems.map(other => getDesktopTransferFootprint(other, pageArea));
+    const candidates = [];
+    const push = (left, top) => candidates.push(clampDesktopLayoutRect({ left, top, width: size.width, height: size.height }, pageArea));
+    if (isApp) {
+        const rows = occupiedItems.filter(other => other.classList.contains('layout-app') && !other.classList.contains('is-folder')).map(other => getDesktopRawStyleRect(other).top);
+        const slots = getDesktopFlowSlotRects(pageArea).sort((a, b) => Number(rows.some(top => Math.abs(top - b.top) < 2)) - Number(rows.some(top => Math.abs(top - a.top) < 2)) || a.top - b.top || a.left - b.left);
+        slots.forEach(slot => push(slot.left + (slot.width - size.width) / 2, slot.top + (slot.height - size.height) / 2));
+    }
+    // Also support components and irregular layouts; a fully occupied screen
+    // has no valid result rather than a least-overlapping fallback position.
+    const maxLeft = Math.max(8, pageArea.clientWidth - size.width - 8);
+    const maxTop = Math.max(8, pageArea.clientHeight - size.height - 8);
+    if (!isApp) {
+        for (let top = 8; top <= maxTop; top += 12) {
+            for (let left = 8; left <= maxLeft; left += 12) push(left, top);
+        }
+    }
+    const clear = rect => rect.left >= 8 && rect.top >= 8
+        && rect.left + rect.width <= pageArea.clientWidth - 8
+        && rect.top + rect.height <= pageArea.clientHeight - (isApp ? 0 : 8)
+        && occupied.every(other => desktopAppRectsHaveClearance(rect, other));
+    return candidates.find(clear) || null;
+}
+
+function promptDesktopMovePage(item) {
+    const home = document.getElementById('home-screen');
+    if (!home || !window._editMode || !item || document.getElementById('desktop-save-modal')) return;
+    if (getDesktopPages().length < 2) ensureDesktopPage(1);
+    const pages = getDesktopPages(), current = getDesktopPageIndex(item.closest('.desktop-page'));
+    const modal = document.createElement('div');
+    modal.id = 'desktop-save-modal'; modal.className = 'desktop-save-modal';
+    modal.innerHTML = '<section class="desktop-save-card desktop-move-card" role="dialog" aria-modal="true" aria-labelledby="desktop-move-title"><strong id="desktop-move-title">移到哪一屏？</strong><span>会放入空位，避开照片组件和其他图标。</span><label>目标屏幕<select aria-label="目标屏幕">' + pages.map((_, index) => '<option value="' + index + '" ' + (index === current ? 'disabled' : '') + (index === (current + 1) % pages.length ? ' selected' : '') + '>第 ' + (index + 1) + ' 屏' + (index === current ? '（当前）' : '') + '</option>').join('') + '</select></label><div><button type="button" data-move-cancel>取消</button><button type="button" class="primary" data-move-confirm>移过去</button></div></section>';
+    const dismiss = () => { modal.remove(); item.querySelector('.desktop-item-move-page')?.focus({ preventScroll: true }); };
+    modal.querySelector('[data-move-cancel]').onclick = dismiss;
+    modal.querySelector('[data-move-confirm]').onclick = () => {
+        if (!window._editMode || !item.isConnected) { modal.remove(); return; }
+        selectDesktopLayoutItem(item);
+        if (moveSelectedDesktopItemToOtherPage(Number(modal.querySelector('select').value))) modal.remove();
+    };
+    modal.onclick = event => { if (event.target === modal) dismiss(); };
+    modal.onkeydown = event => { if (event.key === 'Escape') { event.preventDefault(); dismiss(); } };
+    const diagnostic = document.createElement('button');
+    diagnostic.type = 'button'; diagnostic.hidden = true;
+    diagnostic.dataset.moveDiagnostic = ''; diagnostic.textContent = '复制布局诊断';
+    diagnostic.onclick = async () => {
+        const target = ensureDesktopPage(Number(modal.querySelector('select').value))?.querySelector('.desktop-scroll-area');
+        const text = JSON.stringify({
+            version: typeof APP_VERSION === 'string' ? APP_VERSION : '',
+            viewport: { width: innerWidth, height: innerHeight, scale: getDesktopEditScale() },
+            source: item.dataset.layoutId,
+            target: target ? { width: target.clientWidth, height: target.clientHeight,
+                slots: getDesktopFlowSlotRects(target),
+                items: Array.from(target.querySelectorAll(':scope > .desktop-layout-item')).map(node => ({ id: node.dataset.layoutId, rect: getDesktopRawStyleRect(node), footprint: getDesktopTransferFootprint(node, target) })) } : null
+        }, null, 2);
+        try {
+            if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+            await navigator.clipboard.writeText(text);
+            if (typeof showWechatToast === 'function') showWechatToast('布局诊断已复制，可以粘贴给我。');
+        } catch (_) {
+            let field = modal.querySelector('[data-layout-diagnostic-text]');
+            if (!field) { field = document.createElement('textarea'); field.dataset.layoutDiagnosticText = ''; field.readOnly = true; field.setAttribute('aria-label', '布局诊断'); modal.querySelector('section').appendChild(field); }
+            field.value = text; field.focus(); field.select();
+            if (typeof showWechatToast === 'function') showWechatToast('请复制选中的布局诊断文字。');
+        }
+    };
+    modal.querySelector('section').appendChild(diagnostic);
+    home.appendChild(modal); modal.querySelector('select').focus();
+}
+
+function moveSelectedDesktopItemToOtherPage(targetIndex) {
     const item = window._desktopSelectedLayoutItem;
     if (!item) return;
     let pages = getDesktopPages();
@@ -241,20 +351,33 @@ function moveSelectedDesktopItemToOtherPage() {
     }
     const currentPage = item.closest('.desktop-page');
     const currentIndex = getDesktopPageIndex(currentPage);
-    const nextIndex = (currentIndex + 1) % Math.max(1, pages.length);
+    const nextIndex = Number.isInteger(targetIndex) ? targetIndex : (currentIndex + 1) % Math.max(1, pages.length);
+    if (nextIndex < 0 || nextIndex >= pages.length || nextIndex === currentIndex) return false;
     const targetPage = ensureDesktopPage(nextIndex);
     const targetArea = targetPage?.querySelector('.desktop-scroll-area');
-    if (!targetArea) return;
+    if (!targetArea) return false;
+    const rect = findDesktopTransferRect(targetArea, item);
+    if (!rect) {
+        const diagnostic = document.querySelector('#desktop-save-modal [data-move-diagnostic]');
+        if (diagnostic) diagnostic.hidden = false;
+        if (typeof showWechatToast === 'function') showWechatToast('目标屏幕没有足够空位，请先腾出位置或添加新屏幕。');
+        return false;
+    }
+    const sourceArea = item.closest('.desktop-scroll-area');
     targetArea.classList.add('layout-canvas');
     targetArea.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
     targetArea.appendChild(item);
-    item.style.left = '24px';
-    item.style.top = '64px';
+    setDesktopLayoutItemRect(item, rect);
+    delete item.dataset.desktopSlot;
+    delete item.dataset.desktopNudgedBy;
+    captureDesktopPageSlotRects(sourceArea);
+    captureDesktopPageSlotRects(targetArea);
     if (['pet', 'comic'].includes(getDesktopAppIdFromElement(item))) {
         try { localStorage.setItem('bynd_desktop_page2_custom_v1', '1'); } catch (_) {}
     }
     if (typeof window.goToDesktopPage === 'function') window.goToDesktopPage(nextIndex);
     selectDesktopLayoutItem(item);
+    return true;
 }
 
 function getDesktopWidgetLibraryItems() {

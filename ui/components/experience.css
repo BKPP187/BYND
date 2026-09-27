@@ -1,0 +1,27 @@
+#home-screen .app-icon > .bynd-feature-dot, #home-screen .dock-icon-box > .bynd-feature-dot, #home-screen .bynd-feature-dot {
+    position: absolute !important; top: -2px !important; right: -2px !important; left: auto !important; bottom: auto !important; z-index: 3;
+    display: block !important; width: 8px !important; height: 8px !important; min-width: 8px !important; max-width: 8px !important;
+    padding: 0 !important; margin: 0 !important; border: 1.5px solid #fff !important; border-radius: 50% !important;
+    background: #e45b56 !important; box-shadow: none !important; transform: none !important; font-size: 0 !important; line-height: 0 !important; pointer-events: none;
+}
+#home-screen .app-icon, #home-screen .dock-icon-box { position: relative; }
+#bynd-undo-tray { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; z-index: 90000; display: grid; gap: 8px; max-height: 45%; overflow-y: auto; }
+.bynd-undo-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 54px; padding: 10px 16px; border-radius: 16px; background: #343d32; color: #fff; box-shadow: 0 5px 20px #0002; }
+.bynd-undo-row span { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.bynd-undo-row button { flex: none; min-height: 40px; padding: 8px; border: 0; background: transparent; color: #d5e4b9; font-size: 13px; cursor: pointer; }
+.album-photo { position: relative; }
+.album-photo .album-delete { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fffdf0e8; color: #555b4d; }
+.bynd-settings-search { width: 40px; height: 40px; flex: none; border: 0; background: transparent; color: #8d927f; font-size: 24px; cursor: pointer; }
+.bynd-search-panel { position: absolute; inset: 0; z-index: 80000; display: flex; flex-direction: column; background: #fcfaf6; padding: calc(16px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) max(20px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); }
+.bynd-search-head { display: flex; align-items: center; gap: 10px; }
+.bynd-search-head input { flex: 1; min-width: 0; height: 46px; padding: 10px 14px; border: 1px solid #dadfcf; border-radius: 14px; background: #fff; color: #353932; font-size: 15px; user-select: text; }
+.bynd-search-head button { flex: none; min-height: 44px; background: transparent; border: 0; color: #65765a; font-size: 13px; }
+.bynd-search-results { overflow-y: auto; overscroll-behavior: contain; flex: 1; min-height: 0; padding-top: 20px; }
+.bynd-search-results > p { color: #818978; font-size: 13px; line-height: 1.8; padding: 12px 4px; }
+.bynd-search-result { width: 100%; display: block; text-align: left; background: #fff; border: 1px solid #e8eadd; border-radius: 15px; padding: 15px; margin-bottom: 9px; color: #3c4536; }
+.bynd-search-result strong, .bynd-search-result small { display: block; }
+.bynd-search-result strong { font-size: 13px; line-height: 1.6; }
+.bynd-search-result small { font-size: 11px; line-height: 1.6; margin-top: 4px; color: #87917e; }
+.cp-postcard-empty > i { display: inline-block; transform-origin: 50% 80%; animation: bynd-envelope-sway 4s ease-in-out infinite; }
+@keyframes bynd-envelope-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .cp-postcard-empty > i { animation: none; } }

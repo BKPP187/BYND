@@ -446,7 +446,7 @@ async function saveChatSettings() {
     return true;
 }
 
-function resetWechatChatDerivedContext(char) {
+function resetWechatChatDerivedContext(char, { strict = false } = {}) {
     if (!char) return;
     char.chatConfig = char.chatConfig || {};
     const resetAt = Date.now();
@@ -478,7 +478,7 @@ function resetWechatChatDerivedContext(char) {
     char.unreadCount = 0;
     // Cleared chats must not linger as Living World private-chat memories.
     try { window.LivingWorld?.clearPrivateChatEvents?.(char); }
-    catch (error) { console.warn('论坛私聊记录清理失败', error); }
+    catch (error) { if (strict) throw error; console.warn('论坛私聊记录清理失败', error); }
 }
 
 function pruneWechatAutoMemoryForChar(charId) {
@@ -558,6 +558,7 @@ function sanitizeWechatEmptyChatDerivedContext(char) {
 function clearCurrentWechatChatHistory() {
     const char = getCurrentChatChar();
     if (!char) return;
+    if (window.ByndChatClear) return window.ByndChatClear.clear(char);
     const displayName = (char.chatConfig && char.chatConfig.nickname) || char.name || '该角色';
     if (!confirm(`确定删除「${displayName}」的所有聊天记录吗？\n会同时清空该角色的自动记忆、状态栏记录、小手机快照和关系称呼；不会删除角色卡、贴纸包和基础聊天设置。`)) return;
     char.history = [];
@@ -731,4 +732,3 @@ function applyChatConfig(char) {
     requestAnimationFrame(() => applyWechatBubbleMetaContrast(contentEl));
     if (window.ByndApiTicket?.refreshEntryTones) requestAnimationFrame(() => window.ByndApiTicket.refreshEntryTones(contentEl, char));
 }
-

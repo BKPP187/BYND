@@ -47,21 +47,25 @@
         })();
     </script>
     <title>BYND</title>
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.704">
-    <link rel="icon" href="bynd-icon.png?v=1.1.704" type="image/png">
+    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.727">
+    <link rel="icon" href="bynd-icon.png?v=1.1.727" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="apps/study/study.css?v=1.1.704" media="all">
-    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.704" media="all">
-    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.704" data-bynd-core-style media="all">
-    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.704" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/study/study.css?v=1.1.727" media="all">
+    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.727" media="all">
+    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.727" data-bynd-core-style media="all">
+    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.727" data-bynd-core-style media="all">
 </head>
 <body>
 
@@ -138,9 +142,13 @@
                                     <div class="app-icon icon-black"><i class="ri-book-read-line"></i></div>
                                     <span>世界书</span>
                                 </div>
-                                <div class="app-item" onclick="openApp('settings')">
+                                <div class="app-item" data-app-id="settings" onclick="openApp('settings')">
                                     <div class="app-icon icon-black"><i class="ri-settings-4-line"></i></div>
                                     <span>设置</span>
+                                </div>
+                                <div class="app-item" data-app-id="role-tools" onclick="openApp('role-tools')">
+                                    <div class="app-icon icon-black"><i class="ri-tools-line"></i></div>
+                                    <span>角色台</span>
                                 </div>
                             </div>
                             <div class="photo-large">
@@ -180,6 +188,7 @@
                                 <div class="app-icon icon-black"><i class="ri-moon-cloudy-line"></i></div>
                                 <span>盗梦空间</span>
                             </div>
+                            <div class="app-item" data-app-id="moon" onclick="openApp('moon')"><div class="app-icon icon-black"><i class="ri-moon-line"></i></div><span>月伴</span></div>
                             <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')">
                                 <div class="app-icon icon-black"><i class="ri-eye-line"></i></div>
                                 <span>监控</span>
@@ -207,6 +216,10 @@
                             <div class="app-item" data-app-id="comic" data-layout-id="app-comic" onclick="openApp('comic')">
                                 <div class="app-icon icon-black"><i class="ri-booklet-line"></i></div>
                                 <span>漫画</span>
+                            </div>
+                            <div class="app-item" data-app-id="home3d" data-layout-id="app-home3d" onclick="openApp('home3d')">
+                                <div class="app-icon icon-black"><i class="ri-home-heart-line"></i></div>
+                                <span>小屋</span>
                             </div>
                             <div class="app-item" data-app-id="manual" data-layout-id="app-manual" onclick="openApp('manual')">
                                 <div class="app-icon icon-black"><i class="ri-book-2-line"></i></div>
@@ -249,6 +262,8 @@
                 </div>
             </div>
         </div>
+
+        <div id="app-home3d-window" class="app-window hidden home3d-window"><div id="home3d-root"></div></div>
 
         <div id="app-music-window" class="app-window hidden music-window">
             <div class="music-header">
@@ -1557,21 +1572,42 @@
             </div>
         </div>
 
+        <div id="app-role-tools-window" class="app-window hidden">
+            <header class="role-tools-header"><button type="button" onclick="closeApp('role-tools')" aria-label="关闭角色台"><i class="ri-arrow-left-line"></i></button><div><h3>角色台</h3><small>角色的工具与现实生活权限</small></div><i class="ri-tools-line" aria-hidden="true"></i></header>
+            <nav class="role-tabs" role="tablist" aria-label="角色台分类">
+                <button id="role-tab-life" type="button" data-role-tab="life" role="tab" aria-controls="role-life-panel" aria-selected="true" class="active" onclick="ByndRoleTools.tab('life')">生活状态</button>
+                <button id="role-tab-tools" type="button" data-role-tab="tools" role="tab" aria-controls="role-real-tools-panel" aria-selected="false" onclick="ByndRoleTools.tab('tools')">现实工具</button>
+                <button id="role-tab-permissions" type="button" data-role-tab="permissions" role="tab" aria-controls="role-permissions-panel" aria-selected="false" onclick="ByndRoleTools.tab('permissions')">角色授权</button>
+            </nav>
+            <div id="role-tools-status" class="role-tools-status" role="status" aria-live="polite"></div>
+            <div class="role-tools-content">
+                <div id="role-life-panel" data-role-panel="life" role="tabpanel" aria-labelledby="role-tab-life"></div>
+                <div id="role-real-tools-panel" data-role-panel="tools" role="tabpanel" aria-labelledby="role-tab-tools" hidden><div id="bynd-tools-settings"></div></div>
+                <div id="role-permissions-panel" data-role-panel="permissions" role="tabpanel" aria-labelledby="role-tab-permissions" hidden></div>
+            </div>
+        </div>
+
+        <div id="app-moon-window" class="app-window hidden">
+            <header class="role-tools-header"><button type="button" onclick="closeApp('moon')" aria-label="关闭月伴">‹</button><div><h3>月伴</h3><small>你自己的节奏，TA 的陪伴</small></div><i class="ri-moon-line" aria-hidden="true"></i></header>
+            <div id="moon-status" class="role-tools-status" role="status" aria-live="polite"></div>
+            <div id="moon-content" class="role-tools-content"></div>
+        </div>
+
         <div id="app-settings-window" class="app-window hidden" style="background: #faf5f0;">
             <div class="window-header" style="background: linear-gradient(135deg, #fff5f5, #fef0f5, #f5f0ff); border-bottom: 1px solid rgba(248,164,184,0.2);">
                 <span onclick="closeApp('settings')" class="close-btn" style="color: #c9a0b5;">关闭</span>
                 <h3 style="color: #d4749a;">设置</h3>
-                <span style="width:40px;"></span>
+                <button type="button" class="bynd-settings-search" aria-label="全局搜索" title="全局搜索" onclick="ByndSearch.open()"><i class="ri-search-line" aria-hidden="true"></i></button>
             </div>
             <nav class="set-nav" id="settings-nav" role="tablist" aria-label="设置分类">
                 <button type="button" class="set-nav-tab active" role="tab" id="settings-nav-api" data-settings-tab="api" aria-controls="settings-tab-api" aria-selected="true" onclick="openSettingsTab('api')"><i class="ri-link"></i><span>API</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-voice" data-settings-tab="voice" aria-controls="settings-tab-voice" aria-selected="false" tabindex="-1" onclick="openSettingsTab('voice')"><i class="ri-volume-up-line"></i><span>语音</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-decision" data-settings-tab="decision" aria-controls="settings-tab-decision" aria-selected="false" tabindex="-1" onclick="openSettingsTab('decision')"><i class="ri-git-branch-line"></i><span>智能决策</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-tools" data-settings-tab="tools" aria-controls="settings-tab-tools" aria-selected="false" tabindex="-1" onclick="openSettingsTab('tools')"><i class="ri-tools-line"></i><span>工具</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-notify" data-settings-tab="notify" aria-controls="settings-tab-notify" aria-selected="false" tabindex="-1" onclick="openSettingsTab('notify')"><i class="ri-notification-3-line"></i><span>提醒</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-font" data-settings-tab="font" aria-controls="settings-tab-font" aria-selected="false" tabindex="-1" onclick="openSettingsTab('font')"><i class="ri-font-size-2"></i><span>字体</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-data" data-settings-tab="data" aria-controls="settings-tab-data" aria-selected="false" tabindex="-1" onclick="openSettingsTab('data')"><i class="ri-database-2-line"></i><span>数据</span></button>
                 <button type="button" class="set-nav-tab" role="tab" id="settings-nav-usage" data-settings-tab="usage" aria-controls="settings-tab-usage" aria-selected="false" tabindex="-1" onclick="openSettingsTab('usage')"><i class="ri-bar-chart-2-line"></i><span>用量</span></button>
+                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-about" data-settings-tab="about" aria-controls="settings-tab-about" aria-selected="false" tabindex="-1" onclick="openSettingsTab('about')"><i class="ri-information-line"></i><span>关于 BYND</span></button>
             </nav>
             <div class="window-content" style="padding: 20px; background: #faf5f0;">
                 <div class="set-nav-panel" id="settings-tab-api" data-settings-panel="api" role="tabpanel" aria-labelledby="settings-nav-api">
@@ -1610,6 +1646,8 @@
                     <div class="bynd-jev-scopes" role="group" aria-label="Jev 决策场景">
                         <label><input type="checkbox" data-jev-scope="turn"><span>每轮回复后</span></label>
                         <label><input type="checkbox" data-jev-scope="toolGate"><span>工具人设把关</span></label>
+                        <label><input type="checkbox" data-jev-scope="cycleCompanion"><span>月伴人设与时机</span></label>
+                        <label><input type="checkbox" data-jev-scope="cycleReview"><span>月伴发送前自查（额外决策）</span></label>
                         <label><input type="checkbox" data-jev-scope="webSearch"><span>主动搜索</span></label>
                         <label><input type="checkbox" data-jev-scope="moment"><span>角色朋友圈</span></label>
                         <label><input type="checkbox" data-jev-scope="momentEngagement"><span>朋友圈互动</span></label>
@@ -1627,9 +1665,6 @@
                 </section>
                 </div>
 
-                <div class="set-nav-panel" id="settings-tab-tools" data-settings-panel="tools" role="tabpanel" aria-labelledby="settings-nav-tools" hidden>
-                    <div id="bynd-tools-settings"></div>
-                </div>
 
                 <div class="set-nav-panel" id="settings-tab-notify" data-settings-panel="notify" role="tabpanel" aria-labelledby="settings-nav-notify" hidden>
                 <div style="margin-top: 25px;">
@@ -1765,9 +1800,19 @@
                     <div id="bynd-usage-dashboard"></div>
                 </div>
 
+                <div class="set-nav-panel" id="settings-tab-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-nav-about" hidden>
+                    <section class="bynd-about-card">
+                        <h2>BYND</h2>
+                        <p id="bynd-about-version"></p>
+                        <p>小手机，在一点点长出新的东西。</p>
+                        <h3>更新记录</h3>
+                        <div id="bynd-update-history"></div>
+                    </section>
+                </div>
+
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.704
+                    Beyond Screen v1.1.727
                 </div>
             </div>
         </div>
@@ -2280,6 +2325,7 @@
                     </button>
                     <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></textarea>
                     <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></div>
+                    <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn wc-voice-hold-surface" hidden aria-label="长按说话" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onselectstart="return false" ondragstart="return false" ontouchstart="handleWechatVoiceButtonTouchStart(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)">长按说话</button>
                     <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i></button>
                     <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
@@ -2421,44 +2467,15 @@
                     </div>
                 </div>
 
-                <!-- 💬 聊天设置面板 -->
-                <div id="wc-chat-settings-panel" class="wc-chat-settings">
+                <!-- 💬 聊天设置：一级分类 → 二级设置，切换页面保留表单 -->
+                <div id="wc-chat-settings-panel" class="wc-chat-settings" data-settings-page="home">
                     <div class="wcs-header">
-                        <i class="ri-arrow-left-s-line" onclick="closeChatSettings(event)"></i>
-                        <span>聊天设置</span>
-                        <span style="width:36px;"></span>
+                        <button type="button" class="wcs-back-btn" onclick="backWechatChatSettings(event)" aria-label="返回聊天" id="wcs-back-btn"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+                        <span id="wcs-page-title">聊天设置</span>
+                        <span class="wcs-header-spacer" aria-hidden="true"></span>
                     </div>
-                    <div class="wcs-body">
-                        <div id="wcs-agent-features"></div>
-                        <div class="wcs-section-title">共同创作</div>
-                        <div class="wcs-section"><button type="button" class="wcs-nav-row" onclick="ByndComic.fromChat(getCurrentChatChar()?.id)"><span><i class="ri-booklet-line"></i> 选择聊天生成漫画</span><em>将剧情画成连续分镜</em><i class="ri-arrow-right-s-line"></i></button></div>
-                        <!-- 聊天外观 -->
-                        <div class="wcs-section-title">聊天外观</div>
-                        <div class="wcs-section">
-                            <div class="wcs-row">
-                                <div class="wcs-row-label"><i class="ri-image-line"></i> 背景图片</div>
-                                <div class="wcs-row-value">
-                                    <span style="font-size:13px; color:#999;" id="wcs-bg-img-hint">未设置</span>
-                                    <i class="ri-upload-2-line" style="font-size:18px; color:#07c160; cursor:pointer;" onclick="document.getElementById('wcs-bg-img-file').click()"></i>
-                                    <input type="file" id="wcs-bg-img-file" accept="image/*" style="display:none" onchange="uploadChatBgImage(this)">
-                                </div>
-                            </div>
-                            <div class="wcs-full-row wcs-bg-gallery-row">
-                                <div class="wcs-bg-gallery" id="wcs-bg-gallery"></div>
-                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                                    <div style="font-size:11px;color:#999;">点击切换背景，长按/右键删除；AI 也会按场景自行切换</div>
-                                    <span class="font-reset-btn" id="wcs-bg-clear" style="display:none" onclick="clearWechatChatBg()">不用背景</span>
-                                </div>
-                            </div>
-                            <div class="wcs-row">
-                                <div class="wcs-row-label"><i class="ri-font-size"></i> 字体大小</div>
-                                <div class="wcs-row-value">
-                                    <input type="range" class="wcs-range" id="wcs-font-size" min="12" max="22" value="15" oninput="document.getElementById('wcs-font-val').textContent=this.value+'px'">
-                                    <span class="wcs-range-val" id="wcs-font-val">15px</span>
-                                </div>
-                            </div>
-                        </div>
-
+                    <div class="wcs-body"><section id="wcs-page-home" data-chat-settings-page="home" aria-label="聊天设置分类">
+                        <div class="wcs-context"><img id="wcs-context-avatar" src="" alt=""><div><strong id="wcs-context-name">当前聊天</strong></div></div>
                         <div id="wcs-qq-group-entry-wrap" class="hidden">
                             <div class="wcs-section-title">QQ 群</div>
                             <div class="wcs-section">
@@ -2469,42 +2486,17 @@
                                 </button>
                             </div>
                         </div>
-
-                        <!-- 气泡样式 CSS -->
-                        <div class="wcs-section-title">气泡样式 CSS</div>
-                        <div class="wcs-section">
-                            <div class="wcs-preset-bar">
-                                <div class="wcs-bubble-preset-wrap">
-                                    <select id="wcs-bubble-preset" class="wcs-select wcs-select-hidden" onchange="applyBubblePreset(this.value)"></select>
-                                    <button type="button" id="wcs-bubble-preset-trigger" class="wcs-bubble-trigger" onclick="toggleBubblePresetPicker(event)">
-                                        <span id="wcs-bubble-preset-label">默认</span>
-                                        <i class="ri-arrow-down-s-line"></i>
-                                    </button>
-                                    <div id="wcs-bubble-preset-menu" class="wcs-bubble-menu"></div>
-                                </div>
-                                <button class="wcs-mini-btn" onclick="saveCurrentCssAsPreset()"><i class="ri-bookmark-line"></i>保存</button>
-                                <button class="wcs-mini-btn subtle" onclick="deleteSelectedPreset()"><i class="ri-delete-bin-6-line"></i></button>
-                            </div>
-                            <div class="wcs-bubble-preview">
-                                <div class="wcs-preview-row">
-                                    <div class="wcs-preview-bubble ai">角色气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
-                                </div>
-                                <div class="wcs-preview-row right">
-                                    <div class="wcs-preview-bubble user">我的气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
-                                </div>
-                            </div>
-                            <div class="wcs-full-row">
-                                <label>自定义 CSS <span style="font-weight:normal;color:#bbb;font-size:11px;">（作用于 .msg-bubble）</span></label>
-                                <textarea class="wcs-textarea wcs-css-editor" id="wcs-custom-css" placeholder="例如：&#10;.msg-bubble { border-radius: 18px; border: 2px dashed pink; }&#10;.msg-bubble.green { border-radius: 18px 18px 4px 18px; }" rows="6" oninput="previewBubbleCss(this.value)"></textarea>
-                            </div>
-                            <div class="wcs-row-actions">
-                                <button class="wcs-mini-btn subtle" onclick="clearBubbleCssPreset()"><i class="ri-eraser-line"></i>清除 CSS</button>
-                            </div>
-                        </div>
-
-                        <!-- 我的资料 -->
-                        <div class="wcs-section-title">我的资料</div>
-                        <div class="wcs-section">
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.727" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                    </section>
+<section id="wcs-page-profile" data-chat-settings-page="profile" aria-labelledby="wcs-heading-profile" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-profile" tabindex="-1">资料与人设</h2><p>让彼此的身份、形象和关系定位更清晰。</p></div><div class="wcs-section-title">我的资料</div>
+<div class="wcs-section">
                             <div class="wcs-avatar-row">
                                 <img class="wcs-avatar-img" id="wcs-user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f8c8dc'/%3E%3Cstop offset='100%25' stop-color='%23d4a5f5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='200' rx='100' fill='url(%23bg)'/%3E%3Ccircle cx='100' cy='80' r='35' fill='%23fff' opacity='0.9'/%3E%3Cellipse cx='100' cy='155' rx='50' ry='35' fill='%23fff' opacity='0.9'/%3E%3Ccircle cx='88' cy='75' r='4' fill='%23555'/%3E%3Ccircle cx='112' cy='75' r='4' fill='%23555'/%3E%3Cpath d='M92 90 Q100 98 108 90' stroke='%23e88' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" onclick="document.getElementById('wcs-user-avatar-file').click()">
                                 <input type="file" id="wcs-user-avatar-file" accept="image/*" style="display:none" onchange="uploadUserAvatar(this)">
@@ -2534,11 +2526,8 @@
                                 </div>
                                 <div id="wcs-user-persona-list" class="wcs-user-persona-list"></div>
                             </div>
-                        </div>
-
-                        <!-- 角色资料 -->
-                        <div class="wcs-section-title">角色资料</div>
-                        <div class="wcs-section">
+                        </div><div class="wcs-section-title">角色资料</div>
+<div class="wcs-section">
                             <div class="wcs-avatar-row">
                                 <img class="wcs-avatar-img" id="wcs-char-avatar" src="" style="cursor:pointer;" onclick="document.getElementById('wcs-char-avatar-input').click()">
                                 <input type="file" id="wcs-char-avatar-input" accept="image/*" style="display:none" onchange="uploadCharAvatar(this)">
@@ -2565,11 +2554,81 @@
                                     <input type="file" id="wcs-portrait-ref-input" accept="image/*" style="display:none" onchange="uploadCharPortraitReference(this)">
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- 称呼设置 -->
-                        <div class="wcs-section-title">互动设定</div>
-                        <div class="wcs-section">
+                        </div><div class="wcs-section-title">角色头像集</div>
+<div class="wcs-section">
+                            <div class="wcs-full-row">
+                                <div class="wcs-avatar-gallery" id="wcs-avatar-gallery"></div>
+                                <div class="wcs-avatar-actions">
+                                    <button type="button" class="wcs-avatar-add" id="wcs-avatar-add-btn" onclick="document.getElementById('wcs-add-avatar-file').click()"><i class="ri-add-line"></i>添加头像</button>
+                                    <div class="wcs-avatar-manage-actions">
+                                        <button type="button" class="wcs-avatar-manage" id="wcs-avatar-manage-btn" onclick="beginWechatAvatarManagement()"><i class="ri-delete-bin-6-line"></i>删除</button>
+                                        <button type="button" class="wcs-avatar-cancel hidden" id="wcs-avatar-cancel-btn" onclick="cancelWechatAvatarManagement()">取消</button>
+                                        <button type="button" class="wcs-avatar-delete-selected hidden" id="wcs-avatar-delete-selected-btn" onclick="requestDeleteSelectedWechatAvatars()" disabled>删除</button>
+                                    </div>
+                                    <input type="file" id="wcs-add-avatar-file" accept="image/*" style="display:none" onchange="addCharAvatarToGallery(this)">
+                                </div>
+                                <div class="wcs-avatar-mood-hint">
+                                    <span>AI 按心情标签自行切换头像</span>
+                                    <button type="button" id="wcs-avatar-mood-ai-btn" onclick="recognizeWechatAvatarMoods()"><i class="ri-sparkling-line"></i>AI 识别心情</button>
+                                </div>
+                            </div>
+                        </div></section>
+<section id="wcs-page-appearance" data-chat-settings-page="appearance" aria-labelledby="wcs-heading-appearance" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-appearance" tabindex="-1">聊天外观</h2><p>为这段聊天搭配喜欢的背景和消息样式。</p></div><div class="wcs-section-title">聊天外观</div>
+<div class="wcs-section">
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-image-line"></i> 背景图片</div>
+                                <div class="wcs-row-value">
+                                    <span style="font-size:13px; color:#999;" id="wcs-bg-img-hint">未设置</span>
+                                    <i class="ri-upload-2-line" style="font-size:18px; color:#07c160; cursor:pointer;" onclick="document.getElementById('wcs-bg-img-file').click()"></i>
+                                    <input type="file" id="wcs-bg-img-file" accept="image/*" style="display:none" onchange="uploadChatBgImage(this)">
+                                </div>
+                            </div>
+                            <div class="wcs-full-row wcs-bg-gallery-row">
+                                <div class="wcs-bg-gallery" id="wcs-bg-gallery"></div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                    <div style="font-size:11px;color:#999;">点击切换背景，长按/右键删除；AI 也会按场景自行切换</div>
+                                    <span class="font-reset-btn" id="wcs-bg-clear" style="display:none" onclick="clearWechatChatBg()">不用背景</span>
+                                </div>
+                            </div>
+                            <div class="wcs-row">
+                                <div class="wcs-row-label"><i class="ri-font-size"></i> 字体大小</div>
+                                <div class="wcs-row-value">
+                                    <input type="range" class="wcs-range" id="wcs-font-size" min="12" max="22" value="15" oninput="document.getElementById('wcs-font-val').textContent=this.value+'px'">
+                                    <span class="wcs-range-val" id="wcs-font-val">15px</span>
+                                </div>
+                            </div>
+                        </div><div class="wcs-section-title">气泡样式 CSS</div>
+<div class="wcs-section">
+                            <div class="wcs-preset-bar">
+                                <div class="wcs-bubble-preset-wrap">
+                                    <select id="wcs-bubble-preset" class="wcs-select wcs-select-hidden" onchange="applyBubblePreset(this.value)"></select>
+                                    <button type="button" id="wcs-bubble-preset-trigger" class="wcs-bubble-trigger" onclick="toggleBubblePresetPicker(event)">
+                                        <span id="wcs-bubble-preset-label">默认</span>
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </button>
+                                    <div id="wcs-bubble-preset-menu" class="wcs-bubble-menu"></div>
+                                </div>
+                                <button class="wcs-mini-btn" onclick="saveCurrentCssAsPreset()"><i class="ri-bookmark-line"></i>保存</button>
+                                <button class="wcs-mini-btn subtle" onclick="deleteSelectedPreset()"><i class="ri-delete-bin-6-line"></i></button>
+                            </div>
+                            <div class="wcs-bubble-preview">
+                                <div class="wcs-preview-row">
+                                    <div class="wcs-preview-bubble ai">角色气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
+                                </div>
+                                <div class="wcs-preview-row right">
+                                    <div class="wcs-preview-bubble user">我的气泡 <span class="wcs-preview-meta">02:20 ✓✓</span></div>
+                                </div>
+                            </div>
+                            <div class="wcs-full-row">
+                                <label>自定义 CSS <span style="font-weight:normal;color:#bbb;font-size:11px;">（作用于 .msg-bubble）</span></label>
+                                <textarea class="wcs-textarea wcs-css-editor" id="wcs-custom-css" placeholder="例如：&#10;.msg-bubble { border-radius: 18px; border: 2px dashed pink; }&#10;.msg-bubble.green { border-radius: 18px 18px 4px 18px; }" rows="6" oninput="previewBubbleCss(this.value)"></textarea>
+                            </div>
+                            <div class="wcs-row-actions">
+                                <button class="wcs-mini-btn subtle" onclick="clearBubbleCssPreset()"><i class="ri-eraser-line"></i>清除 CSS</button>
+                            </div>
+                        </div></section>
+<section id="wcs-page-interaction" data-chat-settings-page="interaction" aria-labelledby="wcs-heading-interaction" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-interaction" tabindex="-1">互动与剧情</h2><p>设定你们如何相处，以及故事发生的场景和时间。</p></div><div class="wcs-section-title">互动设定</div>
+<div class="wcs-section">
                             <div class="wcs-row">
                                 <div class="wcs-row-label"><i class="ri-heart-line"></i> 角色对你的称呼</div>
                                 <div class="wcs-row-value"><input type="text" class="wcs-input" id="wcs-user-title" placeholder="我" value="我" style="width:100px;"></div>
@@ -2613,16 +2672,11 @@
                                     <b id="wcs-monitor-barrage-speed-label">标准</b>
                                 </div>
                             </div>
-                            <div class="wcs-worldbook-box">
-                                <div class="wcs-worldbook-head">
-                                    <span><i class="ri-book-open-line"></i> 聊天世界书</span>
-                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(true)">全选</button>
-                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(false)">清空</button>
-                                </div>
-                                <div class="wcs-worldbook-list" id="wcs-prompt-worldbook-list"></div>
-                                <p>只勾选要进入聊天提示词的世界书；表情包、贴纸世界书可以不勾，但不会影响贴纸读取。</p>
-                            </div>
-                            <div class="wcs-full-row">
+
+
+
+
+                        </div><div class="wcs-section-title">故事时间</div><div class="wcs-section"><div class="wcs-full-row">
                                 <label>时间模式</label>
                                 <div class="wcs-time-mode">
                                     <button type="button" id="wcs-time-real" onclick="toggleWechatTimeMode('real')"><i class="ri-global-line"></i>真实世界</button>
@@ -2633,8 +2687,16 @@
                                     <button type="button" class="wcs-mini-btn subtle" onclick="setWechatVirtualTimeNow()">现在</button>
                                 </div>
                                 <div class="wcs-time-preview" id="wcs-time-preview"></div>
-                            </div>
-                            <div class="wcs-full-row">
+                            </div></div></section>
+<section id="wcs-page-memory" data-chat-settings-page="memory" aria-labelledby="wcs-heading-memory" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-memory" tabindex="-1">世界书与记忆</h2><p>选择角色需要知道的背景，调整聊天记忆的整理方式。</p></div><div class="wcs-section-title">聊天世界书</div><div class="wcs-section"><div class="wcs-worldbook-box">
+                                <div class="wcs-worldbook-head">
+                                    <span><i class="ri-book-open-line"></i> 聊天世界书</span>
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(true)">全选</button>
+                                    <button type="button" class="wcs-mini-btn subtle" onclick="selectAllWechatPromptWorldBook(false)">清空</button>
+                                </div>
+                                <div class="wcs-worldbook-list" id="wcs-prompt-worldbook-list"></div>
+                                <p>只勾选要进入聊天提示词的世界书；表情包、贴纸世界书可以不勾，但不会影响贴纸读取。</p>
+                            </div></div><div class="wcs-section-title">记忆整理</div><div class="wcs-section"><div class="wcs-full-row">
                                 <label>记忆阈值</label>
                                 <div class="wcs-memory-grid">
                                     <div>
@@ -2654,47 +2716,9 @@
                                         <input type="number" id="wcs-memory-extract" min="2" max="30" value="4">
                                     </div>
                                 </div>
-                            </div>
-                            <div class="wcs-full-row">
-                                <label>视频通话画面</label>
-                                <div class="wcs-video-call-grid">
-                                    <div class="wcs-video-bg-card" onclick="document.getElementById('wcs-video-bg-input').click()">
-                                        <img id="wcs-video-bg-preview" src="" alt="">
-                                        <span id="wcs-video-bg-hint">上传视频通话背景</span>
-                                    </div>
-                                    <div class="wcs-video-call-controls">
-                                        <label class="wcs-toggle-line">
-                                            <input type="checkbox" id="wcs-video-real-camera">
-                                            <span>通话时打开真实前置相机</span>
-                                        </label>
-                                        <button type="button" class="wcs-mini-btn subtle" onclick="clearCharVideoCallBg()">清除背景</button>
-                                        <small>接通视频通话后会调用生图 API 生成 AI 画面。</small>
-                                    </div>
-                                    <input type="file" id="wcs-video-bg-input" accept="image/*" style="display:none" onchange="uploadCharVideoCallBg(this)">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="wcs-section-title">聊天记录</div>
-                        <div class="wcs-section">
-                            <div class="wcs-danger-row">
-                                <div>
-                                    <strong>删除该角色的所有聊天记录</strong>
-                                    <span>只清空当前聊天对象，不会删除角色卡、记忆、贴纸包和设置。</span>
-                                </div>
-                                <button type="button" onclick="clearCurrentWechatChatHistory()">删除</button>
-                            </div>
-                            <div class="wcs-danger-row">
-                                <div>
-                                    <strong>拉黑联系人</strong>
-                                    <span>拉黑后会按当前聊天上下文触发一次角色回复，之后可在联系人资料页同意重新添加。</span>
-                                </div>
-                                <button type="button" onclick="blacklistCurrentWechatContact()">拉黑</button>
-                            </div>
-                        </div>
-
-                        <div class="wcs-section-title">角色专属音色</div>
-                        <div class="wcs-section">
+                            </div></div></section>
+<section id="wcs-page-voice" data-chat-settings-page="voice" aria-labelledby="wcs-heading-voice" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-voice" tabindex="-1">语音与通话</h2><p>设置角色说话的声音，以及视频通话时的画面。</p></div><div class="wcs-section-title">角色专属音色</div>
+<div class="wcs-section">
                             <div class="wcs-full-row wcs-character-voice-box">
                                 <label>付费 TTS 服务</label>
                                 <select id="wcs-char-voice-provider" class="wcs-select" onchange="handleWechatCharacterVoiceProviderChange()">
@@ -2717,31 +2741,28 @@
                                 </div>
                                 <div class="wcs-character-voice-hint" id="wcs-char-voice-hint">密钥统一保存在设置 → TTS，角色卡仅记录服务商、模型和音色 ID。</div>
                             </div>
-                        </div>
-
-                        <!-- 角色头像集 -->
-                        <div class="wcs-section-title">角色头像集</div>
-                        <div class="wcs-section">
-                            <div class="wcs-full-row">
-                                <div class="wcs-avatar-gallery" id="wcs-avatar-gallery"></div>
-                                <div class="wcs-avatar-actions">
-                                    <button type="button" class="wcs-avatar-add" id="wcs-avatar-add-btn" onclick="document.getElementById('wcs-add-avatar-file').click()"><i class="ri-add-line"></i>添加头像</button>
-                                    <div class="wcs-avatar-manage-actions">
-                                        <button type="button" class="wcs-avatar-manage" id="wcs-avatar-manage-btn" onclick="beginWechatAvatarManagement()"><i class="ri-delete-bin-6-line"></i>删除</button>
-                                        <button type="button" class="wcs-avatar-cancel hidden" id="wcs-avatar-cancel-btn" onclick="cancelWechatAvatarManagement()">取消</button>
-                                        <button type="button" class="wcs-avatar-delete-selected hidden" id="wcs-avatar-delete-selected-btn" onclick="requestDeleteSelectedWechatAvatars()" disabled>删除</button>
+                        </div><div class="wcs-section-title">视频通话</div><div class="wcs-section"><div class="wcs-full-row">
+                                <label>视频通话画面</label>
+                                <div class="wcs-video-call-grid">
+                                    <div class="wcs-video-bg-card" onclick="document.getElementById('wcs-video-bg-input').click()">
+                                        <img id="wcs-video-bg-preview" src="" alt="">
+                                        <span id="wcs-video-bg-hint">上传视频通话背景</span>
                                     </div>
-                                    <input type="file" id="wcs-add-avatar-file" accept="image/*" style="display:none" onchange="addCharAvatarToGallery(this)">
+                                    <div class="wcs-video-call-controls">
+                                        <label class="wcs-toggle-line">
+                                            <input type="checkbox" id="wcs-video-real-camera">
+                                            <span>通话时打开真实前置相机</span>
+                                        </label>
+                                        <button type="button" class="wcs-mini-btn subtle" onclick="clearCharVideoCallBg()">清除背景</button>
+                                        <small>接通视频通话后会调用生图 API 生成 AI 画面。</small>
+                                    </div>
+                                    <input type="file" id="wcs-video-bg-input" accept="image/*" style="display:none" onchange="uploadCharVideoCallBg(this)">
                                 </div>
-                                <div class="wcs-avatar-mood-hint">
-                                    <span>AI 按心情标签自行切换头像</span>
-                                    <button type="button" id="wcs-avatar-mood-ai-btn" onclick="recognizeWechatAvatarMoods()"><i class="ri-sparkling-line"></i>AI 识别心情</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="wcs-section-title">AI 朋友圈</div>
-                        <div class="wcs-section">
+                            </div></div></section>
+<section id="wcs-page-abilities" data-chat-settings-page="abilities" aria-labelledby="wcs-heading-abilities" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-abilities" tabindex="-1">角色能力</h2><p>管理角色可以做的事，以及回复时展示的内容。</p></div><p class="wcs-page-note">开关与独立保存按钮会立即生效。</p><div id="wcs-agent-features"></div><div class="wcs-section-title">共同创作</div>
+<div class="wcs-section"><button type="button" class="wcs-nav-row" onclick="ByndComic.fromChat(getCurrentChatChar()?.id)"><span><i class="ri-booklet-line"></i> 选择聊天生成漫画</span><em>将剧情画成连续分镜</em><i class="ri-arrow-right-s-line"></i></button></div></section>
+<section id="wcs-page-moments" data-chat-settings-page="moments" aria-labelledby="wcs-heading-moments" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-moments" tabindex="-1">AI 朋友圈</h2><p>布置角色的朋友圈，记录聊天之外的日常。</p></div><div class="wcs-section-title">AI 朋友圈</div>
+<div class="wcs-section">
                             <div class="wcs-full-row">
                                 <label>个性签名</label>
                                 <div class="wcs-inline-action">
@@ -2769,18 +2790,30 @@
                                 </div>
                                 <div id="wcs-ai-moment-list" class="wcs-ai-moment-list"></div>
                             </div>
-                        </div>
-
-                        <!-- 保存按钮 -->
-                        <div style="padding: 20px 16px 40px;">
-                            <button class="wcs-save-btn" onclick="saveChatSettings()">保存设置</button>
-                        </div>
-                    </div>
+                        </div></section>
+<section id="wcs-page-management" data-chat-settings-page="management" aria-labelledby="wcs-heading-management" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-management" tabindex="-1">聊天管理</h2><p>管理当前聊天的记录和联系人。</p></div><div class="wcs-section-title">聊天记录</div>
+<div class="wcs-section">
+                            <div class="wcs-danger-row">
+                                <div>
+                                    <strong>删除该角色的所有聊天记录</strong>
+                                    <span>只清空当前聊天对象，不会删除角色卡、记忆、贴纸包和设置。</span>
+                                </div>
+                                <button type="button" onclick="clearCurrentWechatChatHistory()">删除</button>
+                            </div>
+                            <div class="wcs-danger-row">
+                                <div>
+                                    <strong>拉黑联系人</strong>
+                                    <span>拉黑后会按当前聊天上下文触发一次角色回复，之后可在联系人资料页同意重新添加。</span>
+                                </div>
+                                <button type="button" onclick="blacklistCurrentWechatContact()">拉黑</button>
+                            </div>
+                        </div></section></div>
+                    <div class="wcs-footer"><button type="button" class="wcs-save-btn" id="wcs-save-settings" onclick="submitWechatChatSettings(this)">保存设置</button></div>
                 </div>
             </div>
         </div>
 
-        <div id="wc-action-sheet" class="wc-action-sheet hidden">
+<div id="wc-action-sheet" class="wc-action-sheet hidden">
             <div class="wc-sheet-content">
                 <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
                 <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
@@ -3017,143 +3050,157 @@
         <div class="home-indicator"></div>
     </div>
     
-    <script src="systems/usage/ledger.js?v=1.1.704"></script>
-    <script src="core/api/chat-api.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/ui-theme.js?v=1.1.704"></script>
-    <script src="systems/agent-runtime/jev.js?v=1.1.704"></script>
-    <script src="systems/agent-runtime/decider.js?v=1.1.704"></script>
-    <script src="core/character/avatars.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/render.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/message-core.js?v=1.1.704"></script>
-    <script src="apps/music/wechat-music.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/composer.js?v=1.1.704"></script>
-    <script src="apps/wechat/contacts/group-directives.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/media-directives.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/reply-parser.js?v=1.1.704"></script>
-    <script src="apps/wechat/moments/reply-actions.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/message-cards.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/message-render.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.704"></script>
-    <script src="core/events/script-activation.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/send.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/reply.js?v=1.1.704"></script>
-    <script src="core/api/ai-reply.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/streaming.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/toolbar.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/calls.js?v=1.1.704"></script>
-    <script src="core/character/card-parser.js?v=1.1.704"></script>
-    <script src="apps/wechat/character/import.js?v=1.1.704"></script>
-    <script src="apps/wechat/character/delete.js?v=1.1.704"></script>
-    <script src="core/storage/characters.js?v=1.1.704"></script>
-    <script src="apps/wechat/contacts/news-reader.js?v=1.1.704"></script>
-    <script src="apps/wechat/contacts/tabs.js?v=1.1.704"></script>
-    <script src="apps/wechat/moments/favorites.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/sticker-store.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/me-settings.js?v=1.1.704"></script>
-    <script src="apps/wechat/moments/moments.js?v=1.1.704"></script>
-    <script src="apps/wechat/moments/channels.js?v=1.1.704"></script>
-    <script src="apps/wechat/moments/live.js?v=1.1.704"></script>
-    <script src="apps/wechat/shop/shop.js?v=1.1.704"></script>
-    <script src="core/api/novelai.js?v=1.1.704"></script>
-    <script src="core/api/image-generation.js?v=1.1.704"></script>
-    <script src="apps/wechat/shop/checkout.js?v=1.1.704"></script>
-    <script src="apps/wechat/shop/takeout.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/chat-settings.js?v=1.1.704"></script>
-    <script src="apps/wechat/ui/backgrounds.js?v=1.1.704"></script>
-    <script src="apps/wechat/character/avatars.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/image-send.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.704"></script>
-    <script src="apps/char-phone/catalog.js?v=1.1.704"></script>
-    <script src="apps/char-phone/brand-screens.js?v=1.1.704"></script>
-    <script src="apps/char-phone/native-apps.js?v=1.1.704"></script>
-    <script src="apps/char-phone/system-apps.js?v=1.1.704"></script>
-    <script src="apps/char-phone/snapshot-data.js?v=1.1.704"></script>
-    <script src="apps/char-phone/sync.js?v=1.1.704"></script>
-    <script src="apps/char-phone/home.js?v=1.1.704"></script>
-    <script src="apps/char-phone/mini-chat.js?v=1.1.704"></script>
-    <script src="apps/char-phone/contacts.js?v=1.1.704"></script>
-    <script src="apps/char-phone/screens.js?v=1.1.704"></script>
-    <script src="apps/char-phone/reactions.js?v=1.1.704"></script>
-    <script src="systems/memory/wechat-memory.js?v=1.1.704"></script>
-    <script src="apps/wechat/chat/stickers.js?v=1.1.704"></script>
-    <script src="systems/living-world/living-world.js?v=1.1.704"></script>
-    <script src="ui/theme/theme.js?v=1.1.704"></script>
-    <script src="apps/settings/bootstrap.js?v=1.1.704"></script>
-    <script src="apps/settings/api-load.js?v=1.1.704"></script>
-    <script src="apps/settings/api-list.js?v=1.1.704"></script>
-    <script src="apps/settings/api-edit.js?v=1.1.704"></script>
-    <script src="apps/settings/api-test-list.js?v=1.1.704"></script>
-    <script src="apps/settings/api-test-modal.js?v=1.1.704"></script>
-    <script src="apps/settings/api-test.js?v=1.1.704"></script>
-    <script src="apps/settings/image-provider.js?v=1.1.704"></script>
-    <script src="apps/settings/presets.js?v=1.1.704"></script>
-    <script src="core/storage/backup.js?v=1.1.704"></script>
-    <script src="apps/settings/fonts.js?v=1.1.704"></script>
-    <script src="ui/components/device.js?v=1.1.704"></script>
-    <script src="core/navigation/router.js?v=1.1.704"></script>
-    <script src="core/api/mcp.js?v=1.1.704"></script>
-    <script src="apps/manual/manual.js?v=1.1.704"></script>
-    <script src="systems/proactive-notifications/notifications.js?v=1.1.704"></script>
-    <script src="apps/music/music.js?v=1.1.704"></script>
-    <script src="apps/money/money.js?v=1.1.704"></script>
-    <script src="apps/dream/dream.js?v=1.1.704"></script>
-    <script src="apps/monitor/monitor.js?v=1.1.704"></script>
-    <script src="apps/outing/outing.js?v=1.1.704"></script>
-    <script src="apps/games/hub-wolfcha.js?v=1.1.704"></script>
-    <script src="apps/games/acting.js?v=1.1.704"></script>
-    <script src="apps/games/sync-cardmatch.js?v=1.1.704"></script>
-    <script src="apps/games/cat-pot.js?v=1.1.704"></script>
-    <script src="apps/games/twenty-forty-eight.js?v=1.1.704"></script>
-    <script src="apps/games/jump.js?v=1.1.704"></script>
-    <script src="apps/games/water-sort.js?v=1.1.704"></script>
-    <script src="apps/games/board-games.js?v=1.1.704"></script>
-    <script src="ui/components/folders.js?v=1.1.704"></script>
-    <script src="apps/coreading/library.js?v=1.1.704"></script>
-    <script src="apps/coreading/sources.js?v=1.1.704"></script>
-    <script src="apps/coreading/shelf.js?v=1.1.704"></script>
-    <script src="apps/coreading/thoughts.js?v=1.1.704"></script>
-    <script src="apps/coreading/toc-stats.js?v=1.1.704"></script>
-    <script src="apps/coreading/reviews.js?v=1.1.704"></script>
-    <script src="apps/coreading/reader.js?v=1.1.704"></script>
-    <script src="apps/coreading/discovery.js?v=1.1.704"></script>
-    <script src="apps/album/album.js?v=1.1.704"></script>
-    <script src="ui/components/page-swipe.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-layout.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-dock.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-status.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-lovely.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-widgets.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-edit.js?v=1.1.704"></script>
-    <script src="ui/components/desktop-migrations.js?v=1.1.704"></script>
-    <script src="main.js?v=1.1.704"></script>
-    <script src="apps/comic/comic.js?v=1.1.704"></script>
-    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.704">
-    <script src="apps/music/netease.js?v=1.1.704"></script>
-    <script src="core/worldbook/worldbook.js?v=1.1.704"></script>
-    <script src="core/character/regex.js?v=1.1.704"></script>
-    <script src="systems/agent-runtime/agent-tools.js?v=1.1.704"></script>
-    <script src="systems/agent-runtime/web-search.js?v=1.1.704"></script>
-    <script src="apps/wechat/character/character-tools.js?v=1.1.704"></script>
-    <script src="systems/usage/api-ticket.js?v=1.1.704"></script>
-    <script src="systems/usage/bill-app.js?v=1.1.704"></script>
-    <script src="apps/wechat/character/generator.js?v=1.1.704"></script>
-    <script src="apps/settings/openclaw-settings.js?v=1.1.704"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.704"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.704"></script>
-    <script src="core/character/builtin-characters.js?v=1.1.704"></script>
-    <script src="apps/study/study-app.js?v=1.1.704"></script>
-    <script src="apps/monitor/character-pet.js?v=1.1.704"></script>
-    <script src="apps/monitor/screen-companion.js?v=1.1.704"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.704"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.704"></script>
-    <script src="apps/monitor/pet-animation.js?v=1.1.704"></script>
-    <script src="apps/monitor/pet-proportions.js?v=1.1.704"></script>
-    <script src="apps/monitor/pet-background.js?v=1.1.704"></script>
-    <script src="apps/monitor/pet-studio.js?v=1.1.704"></script>
-    <script src="apps/monitor/pet-history.js?v=1.1.704"></script>
-    <script src="apps/monitor/workspace.js?v=1.1.704"></script>
+    <script src="systems/usage/ledger.js?v=1.1.727"></script>
+    <script src="core/api/chat-api.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/ui-theme.js?v=1.1.727"></script>
+    <script src="systems/agent-runtime/jev.js?v=1.1.727"></script>
+    <script src="systems/agent-runtime/decider.js?v=1.1.727"></script>
+    <script src="core/character/avatars.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/render.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/message-core.js?v=1.1.727"></script>
+    <script src="apps/music/wechat-music.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/composer.js?v=1.1.727"></script>
+    <script src="apps/wechat/contacts/group-directives.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/media-directives.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/reply-parser.js?v=1.1.727"></script>
+    <script src="apps/wechat/moments/reply-actions.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/message-cards.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/message-render.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.727"></script>
+    <script src="core/events/script-activation.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/send.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/reply.js?v=1.1.727"></script>
+    <script src="core/api/ai-reply.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/streaming.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/toolbar.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/calls.js?v=1.1.727"></script>
+    <script src="core/character/card-parser.js?v=1.1.727"></script>
+    <script src="apps/wechat/character/import.js?v=1.1.727"></script>
+    <script src="apps/wechat/character/delete.js?v=1.1.727"></script>
+    <script src="core/storage/characters.js?v=1.1.727"></script>
+    <script src="apps/wechat/contacts/news-reader.js?v=1.1.727"></script>
+    <script src="apps/wechat/contacts/tabs.js?v=1.1.727"></script>
+    <script src="apps/wechat/moments/favorites.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/sticker-store.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/me-settings.js?v=1.1.727"></script>
+    <script src="apps/wechat/moments/moments.js?v=1.1.727"></script>
+    <script src="apps/wechat/moments/channels.js?v=1.1.727"></script>
+    <script src="apps/wechat/moments/live.js?v=1.1.727"></script>
+    <script src="apps/wechat/shop/shop.js?v=1.1.727"></script>
+    <script src="core/api/novelai.js?v=1.1.727"></script>
+    <script src="core/api/image-generation.js?v=1.1.727"></script>
+    <script src="apps/wechat/shop/checkout.js?v=1.1.727"></script>
+    <script src="apps/wechat/shop/takeout.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/chat-settings.js?v=1.1.727"></script>
+    <script src="apps/wechat/ui/backgrounds.js?v=1.1.727"></script>
+    <script src="apps/wechat/character/avatars.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/image-send.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.727"></script>
+    <script src="apps/char-phone/catalog.js?v=1.1.727"></script>
+    <script src="apps/char-phone/brand-screens.js?v=1.1.727"></script>
+    <script src="apps/char-phone/viewing.js?v=1.1.727"></script>
+<script src="apps/char-phone/photos.js?v=1.1.727"></script>
+<script src="apps/char-phone/mail.js?v=1.1.727"></script>
+<script src="apps/char-phone/native-apps.js?v=1.1.727"></script>
+    <script src="apps/char-phone/system-apps.js?v=1.1.727"></script>
+    <script src="apps/char-phone/snapshot-data.js?v=1.1.727"></script>
+    <script src="apps/char-phone/sync.js?v=1.1.727"></script>
+    <script src="apps/char-phone/home.js?v=1.1.727"></script>
+    <script src="apps/char-phone/mini-chat.js?v=1.1.727"></script>
+    <script src="apps/char-phone/contacts.js?v=1.1.727"></script>
+    <script src="apps/char-phone/screens.js?v=1.1.727"></script>
+    <script src="apps/char-phone/reactions.js?v=1.1.727"></script>
+    <script src="systems/memory/wechat-memory.js?v=1.1.727"></script>
+    <script src="apps/wechat/chat/stickers.js?v=1.1.727"></script>
+    <script src="systems/living-world/living-world.js?v=1.1.727"></script>
+    <script src="ui/theme/theme.js?v=1.1.727"></script>
+    <script src="apps/settings/bootstrap.js?v=1.1.727"></script>
+    <script src="apps/settings/api-load.js?v=1.1.727"></script>
+    <script src="apps/settings/api-list.js?v=1.1.727"></script>
+    <script src="apps/settings/api-edit.js?v=1.1.727"></script>
+    <script src="apps/settings/api-test-list.js?v=1.1.727"></script>
+    <script src="apps/settings/api-test-modal.js?v=1.1.727"></script>
+    <script src="apps/settings/api-test.js?v=1.1.727"></script>
+    <script src="apps/settings/image-provider.js?v=1.1.727"></script>
+    <script src="apps/settings/presets.js?v=1.1.727"></script>
+    <script src="core/storage/backup.js?v=1.1.727"></script>
+    <script src="apps/settings/releases.js?v=1.1.727"></script>
+    <script src="apps/settings/version-letter.js?v=1.1.727"></script>
+    <script src="apps/settings/fonts.js?v=1.1.727"></script>
+    <script src="ui/components/device.js?v=1.1.727"></script>
+    <script src="systems/experience/experience.js?v=1.1.727"></script>
+    <script src="ui/components/undo.js?v=1.1.727"></script>
+    <script src="ui/components/chat-clear.js?v=1.1.727"></script>
+    <script src="ui/components/global-search.js?v=1.1.727"></script>
+    <script src="core/navigation/router.js?v=1.1.727"></script>
+    <script src="core/api/mcp.js?v=1.1.727"></script>
+    <script src="apps/manual/manual.js?v=1.1.727"></script>
+    <script src="systems/proactive-notifications/notifications.js?v=1.1.727"></script>
+    <script src="apps/music/music.js?v=1.1.727"></script>
+    <script src="apps/money/money.js?v=1.1.727"></script>
+    <script src="apps/dream/dream.js?v=1.1.727"></script>
+    <script src="apps/monitor/monitor.js?v=1.1.727"></script>
+    <script src="apps/outing/outing.js?v=1.1.727"></script>
+    <script src="apps/games/hub-wolfcha.js?v=1.1.727"></script>
+    <script src="apps/games/acting.js?v=1.1.727"></script>
+    <script src="apps/games/sync-cardmatch.js?v=1.1.727"></script>
+    <script src="apps/games/cat-pot.js?v=1.1.727"></script>
+    <script src="apps/games/twenty-forty-eight.js?v=1.1.727"></script>
+    <script src="apps/games/jump.js?v=1.1.727"></script>
+    <script src="apps/games/water-sort.js?v=1.1.727"></script>
+    <script src="apps/games/board-games.js?v=1.1.727"></script>
+    <script src="ui/components/folders.js?v=1.1.727"></script>
+    <script src="apps/coreading/library.js?v=1.1.727"></script>
+    <script src="apps/coreading/sources.js?v=1.1.727"></script>
+    <script src="apps/coreading/shelf.js?v=1.1.727"></script>
+    <script src="apps/coreading/thoughts.js?v=1.1.727"></script>
+    <script src="apps/coreading/toc-stats.js?v=1.1.727"></script>
+    <script src="apps/coreading/reviews.js?v=1.1.727"></script>
+    <script src="apps/coreading/reader.js?v=1.1.727"></script>
+    <script src="apps/coreading/discovery.js?v=1.1.727"></script>
+    <script src="apps/album/album.js?v=1.1.727"></script>
+    <script src="apps/home3d/home3d.js?v=1.1.727"></script>
+    <script src="ui/components/page-swipe.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-layout.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-dock.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-status.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-lovely.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-widgets.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-edit.js?v=1.1.727"></script>
+    <script src="systems/life-state/life-state.js?v=1.1.727"></script>
+    <script src="systems/life-state/native-health.js?v=1.1.727"></script>
+    <script src="apps/role-tools/role-tools.js?v=1.1.727"></script>
+    <script src="apps/moon/moon.js?v=1.1.727"></script>
+    <script src="ui/components/desktop-migrations.js?v=1.1.727"></script>
+    <script src="main.js?v=1.1.727"></script>
+    <script src="apps/comic/comic.js?v=1.1.727"></script>
+    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.727">
+    <script src="apps/music/netease.js?v=1.1.727"></script>
+    <script src="core/worldbook/worldbook.js?v=1.1.727"></script>
+    <script src="core/character/regex.js?v=1.1.727"></script>
+    <script src="systems/agent-runtime/agent-tools.js?v=1.1.727"></script>
+    <script src="systems/agent-runtime/web-search.js?v=1.1.727"></script>
+    <script src="apps/wechat/character/character-tools.js?v=1.1.727"></script>
+    <script src="systems/usage/api-ticket.js?v=1.1.727"></script>
+    <script src="systems/usage/bill-app.js?v=1.1.727"></script>
+    <script src="apps/wechat/character/generator.js?v=1.1.727"></script>
+    <script src="apps/settings/openclaw-settings.js?v=1.1.727"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.727"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.727"></script>
+    <script src="core/character/builtin-characters.js?v=1.1.727"></script>
+    <script src="apps/study/study-app.js?v=1.1.727"></script>
+    <script src="apps/monitor/character-pet.js?v=1.1.727"></script>
+    <script src="apps/monitor/screen-companion.js?v=1.1.727"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.727"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.727"></script>
+    <script src="apps/monitor/pet-animation.js?v=1.1.727"></script>
+    <script src="apps/monitor/pet-proportions.js?v=1.1.727"></script>
+    <script src="apps/monitor/pet-background.js?v=1.1.727"></script>
+    <script src="apps/monitor/pet-studio.js?v=1.1.727"></script>
+    <script src="apps/monitor/pet-history.js?v=1.1.727"></script>
+    <script src="apps/monitor/workspace.js?v=1.1.727"></script>
 </body>
 </html>

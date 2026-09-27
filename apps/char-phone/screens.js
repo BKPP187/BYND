@@ -320,6 +320,10 @@ function renderWechatAiPhone(char) {
             <div class="wc-ai-phone-home-indicator"></div>
         </div>
     `;
+    if(typeof recordCharPhoneViewingScreen==='function') {
+        recordCharPhoneViewingScreen(char,activeTab,modal);
+        bindCharPhoneViewing(char,modal);
+    }
     const pager = modal.querySelector('.cp-home-pages');
     if (pager) {
         pager.scrollLeft = Number(pager.dataset.page || 0) * pager.clientWidth;

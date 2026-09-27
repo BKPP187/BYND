@@ -56,7 +56,21 @@
 
     window.LivingWorld = { init, render, setTab, setCommunity, openCommunity, openPost, openPostLink, openProfile, refreshProfile, back, toggleMenu, menuGo, returnToDesktop, saveForumSettings, setPromotionEnabled, updatePromotionGap, restoreHiddenPost, getVisibleSocialLinks: visibleSocialLinks, togglePerspective, toggleSearch, submitSearch, searchFor, clearSearch, toggleCommentSearch, submitCommentSearch, clearCommentSearch, openReplyComposer, closeReplyComposer, updateReplyDraft, setReplyMedia, clearReplyMedia, pickReplyImage, togglePostActions, copyPostLink, copyPostText, comicCurrentPost, shareCurrentPost, saveCurrentPost, followCurrentPost, hideCurrentPost, blockPostAuthor, reportCurrentPost, awardCurrentPost, crosspostCurrentPost, postLanguageInfo, translateCurrentPost, translateNews, openChat, setActivityTab, setProfileTab, editProfile, pickProfileAvatar, saveProfile, setViewer, createPost, reply, replyToComment, clearReplyTarget, toggleCommentSort, voteComment, vote, votePoll, toggleLike, toggleBookmark, toggleBlock, togglePostMenu, sharePost, shareNews, closeShare, shareToForumDm, shareToCharacterChat, deletePost, toggleFollow, toggleCommunityPicker, selectComposeCommunity, showComposeCommunityForm, updateCompose, toggleLinkInput, togglePoll, addPollOption, toggleAma, openAmaPicker, closeAmaPicker, selectAmaOption, updateAmaStart, removeDraftImage, pickImage, startMessage, filterRecipients, openThread, sendMessage, retryDirectReply, markAllRead, toggleCommunityForm, createCommunity, toggleSubscribe, promoteNpc, openNotice, fetchRealNews, openNews, commentNews, updateNewsDraft, openPromotion, generate, advanceWorld, maybeRunInteraction, progressWorld, getRelevantEventsForChar, recordPrivateChatMessage, clearPrivateChatEvents, storageKey: STORAGE_KEY };
     window.initLivingWorld = init;
+    window.LivingWorld.searchVisible = query => loadState().posts.filter(post => !post.deletedAt && isVisible(post, viewer().id) && `${post.title || ''} ${post.body || ''}`.toLowerCase().includes(String(query || '').toLowerCase())).slice(0, 30).map(post => ({ id: post.id, title: post.title || '帖子' }));
     window.LivingWorld.getRelationshipGraph = relationshipGraphData;
+    window.LivingWorld.capturePrivateChatState = char => {
+        const world = loadState(), actors = new Set([`char:${char.id}`, ...world.npcs.filter(item => item.contactCharId === char.id).map(item => item.id)]);
+        const events = world.events.filter(item => item.type === 'private_chat' && safeList(item.metadata?.privateTo).some(id => actors.has(id))), ids = new Set(events.map(item => item.id));
+        return JSON.parse(JSON.stringify({ events, knowledge: Object.fromEntries(Object.entries(world.knowledge).map(([id, rows]) => [id, safeList(rows).filter(row => ids.has(row.eventId))])) }));
+    };
+    window.LivingWorld.restorePrivateChatState = saved => {
+        if (!saved?.events?.length) return;
+        mutate(next => {
+            const ids = new Set(next.events.map(item => item.id)); next.events.push(...saved.events.filter(item => !ids.has(item.id))); next.events.sort((a,b) => a.createdAt - b.createdAt);
+            for (const [id, rows] of Object.entries(saved.knowledge)) { const old = safeList(next.knowledge[id]), known = new Set(old.map(row => row.eventId)); next.knowledge[id] = [...old, ...rows.filter(row => !known.has(row.eventId))]; }
+        });
+    };
+    window.LivingWorld.removePrivateChatState = saved => { const ids = new Set(saved?.events?.map(item => item.id) || []); if (ids.size) mutate(next => { next.events = next.events.filter(item => !ids.has(item.id)); }); };
     window.LivingWorld.openRelation = openRelation;
     window.LivingWorld.retryRelationImpression = retryRelationImpression;
     window.LivingWorld.closeRelation = closeRelation;

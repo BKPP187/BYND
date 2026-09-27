@@ -1161,24 +1161,37 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
     background: rgba(248,164,184,0.18);
     color: #c94f7e;
 }
-.wc-chat-room.is-voice-input .wc-voice-press-btn,
 .wc-chat-room.is-voice-input .wc-send-btn {
-    display: none !important;
-}
-.wc-chat-room.is-voice-input:not(.uses-rich-voice-input) .wc-input,
-.wc-chat-room.is-voice-input.uses-rich-voice-input .wc-rich-input {
-    display: block !important;
-}
-.wc-chat-room.is-voice-input.uses-rich-voice-input .wc-input,
-.wc-chat-room.is-voice-input:not(.uses-rich-voice-input) .wc-rich-input {
     display: none !important;
 }
 .wc-voice-hold-surface {
     cursor: pointer !important;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none;
     text-align: center !important;
+}
+/* Voice mode uses a real button, never a read-only textarea/contenteditable surface. */
+#app-wechat-window #wechat-chat-room.is-voice-input #wc-msg-input,
+#app-wechat-window #wechat-chat-room.is-voice-input #wc-rich-msg-input,
+#app-wechat-window #wc-voice-press-btn[hidden] { display: none !important; }
+#app-wechat-window #wechat-chat-room.is-voice-input #wc-voice-press-btn:not([hidden]) {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    order: 2;
+    grid-column: 2;
+    grid-row: 1;
+    position: relative;
+    z-index: 3;
+    text-align: center !important;
+    -webkit-appearance: none;
+    appearance: none;
+}
+#app-wechat-window.wc-ui-theme-qq #wechat-chat-room.is-voice-input #wc-voice-press-btn {
+    grid-column: 1 / 5;
+    grid-row: 1;
 }
 .wc-voice-hold-surface::placeholder { text-align: center; }
 .wc-rich-input.wc-voice-hold-surface:empty::before { width: 100%; text-align: center; }
@@ -1288,4 +1301,3 @@ textarea.wc-input { display: block; white-space: pre-wrap; word-break: break-wor
 .wc-reply-preview-main span { color: #64748b; font-size: 12px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-reply-preview button { width: 26px; height: 26px; border: none; border-radius: 50%; background: rgba(15,23,42,0.06); color: #526173; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .wc-reply-preview button i { font-size: 15px; color: inherit; }
-

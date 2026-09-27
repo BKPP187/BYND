@@ -407,6 +407,73 @@ function selectAllWechatPromptWorldBook(checked) {
 }
 window.selectAllWechatPromptWorldBook = selectAllWechatPromptWorldBook;
 
+// Keep the same form nodes mounted so moving between categories never loses a draft.
+const wechatChatSettingsScroll = new Map();
+
+function openWechatChatSettingsPage(name = 'home', { focus = true, reset = false } = {}) {
+    const panel = document.getElementById('wc-chat-settings-panel');
+    if (!panel) return 'home';
+    const pages = Array.from(panel.querySelectorAll('[data-chat-settings-page]'));
+    const target = pages.find(page => page.dataset.chatSettingsPage === name)
+        || pages.find(page => page.dataset.chatSettingsPage === 'home');
+    if (!target) return 'home';
+    const body = panel.querySelector('.wcs-body');
+    const previous = panel.dataset.settingsPage || 'home';
+    if (reset) wechatChatSettingsScroll.clear();
+    else if (body) wechatChatSettingsScroll.set(previous, body.scrollTop);
+    const selected = target.dataset.chatSettingsPage;
+    pages.forEach(page => { page.hidden = page !== target; });
+    panel.dataset.settingsPage = selected;
+    const heading = target.querySelector('h2');
+    document.getElementById('wcs-page-title').textContent = heading?.textContent || '聊天设置';
+    document.getElementById('wcs-back-btn').setAttribute('aria-label', selected === 'home' ? '返回聊天' : '返回设置分类');
+    if (body) body.scrollTop = wechatChatSettingsScroll.get(selected) || 0;
+    if (focus) {
+        const focusTarget = selected === 'home'
+            ? panel.querySelector(`[data-chat-settings-entry="${previous}"]`)
+            : heading;
+        focusTarget?.focus({ preventScroll: true });
+    }
+    return selected;
+}
+
+function backWechatChatSettings(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (document.getElementById('wcs-qq-group-resource-page')) {
+        closeWechatQQGroupResource();
+        return;
+    }
+    const groupPage = document.getElementById('wcs-qq-group-settings-page');
+    if (groupPage?.classList.contains('active')) {
+        closeWechatQQGroupSettings();
+        return;
+    }
+    const panel = document.getElementById('wc-chat-settings-panel');
+    if (panel?.dataset.settingsPage && panel.dataset.settingsPage !== 'home') {
+        closeBubblePresetPicker();
+        openWechatChatSettingsPage('home');
+        return;
+    }
+    closeChatSettings(event);
+}
+
+async function submitWechatChatSettings(button) {
+    if (!button || button.disabled) return false;
+    button.disabled = true;
+    button.textContent = '正在保存…';
+    try {
+        return await saveChatSettings();
+    } catch (error) {
+        console.error('聊天设置保存失败:', error);
+        showWechatToast('设置保存失败，请重试');
+        return false;
+    } finally {
+        button.disabled = false;
+        button.textContent = '保存设置';
+    }
+}
+
 function openChatSettings() {
     const charId = window.currentChatCharId;
     if (!charId) return;
@@ -501,6 +568,14 @@ function openChatSettings() {
     renderWechatMomentCoverGallery(char);
     renderWechatAiMomentsEditor(char);
 
+    const contextAvatar = document.getElementById('wcs-context-avatar');
+    if (contextAvatar) {
+        contextAvatar.src = char.avatar || document.getElementById('wcs-user-avatar').src;
+    }
+    const contextName = document.getElementById('wcs-context-name');
+    if (contextName) contextName.textContent = config.nickname || char.name || '当前聊天';
+    openWechatChatSettingsPage('home', { focus: false, reset: true });
+
     // 婊戝叆
     const panel = document.getElementById('wc-chat-settings-panel');
     if (panel) {
@@ -550,4 +625,3 @@ function closeChatSettings(event) {
         room.classList.add('active');
     }
 }
-

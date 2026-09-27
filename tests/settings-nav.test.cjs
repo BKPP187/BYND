@@ -34,7 +34,9 @@ test('existing settings markup keeps its ids inside the matching panel', () => {
     assert.match(panelSource('api'), /id="api-route-panel"[\s\S]*id="api-list-container"[\s\S]*onclick="openApiModal\(\)"/);
     assert.match(panelSource('voice'), /id="api-voice-route-panel"/);
     assert.match(panelSource('decision'), /id="bynd-jev-settings"/);
-    assert.match(panelSource('tools'), /<div id="bynd-tools-settings"><\/div>/);
+    assert.doesNotMatch(settingsWindow, /data-settings-panel="tools"|id="bynd-tools-settings"/);
+    const roleWindow = sourceSection('index.html', '<div id="app-role-tools-window"', '<div id="app-settings-window"');
+    assert.match(roleWindow, /id="bynd-tools-settings"/);
     assert.match(panelSource('notify'), /id="notify-enabled"[\s\S]*id="notify-interval"/);
     assert.match(panelSource('font'), /id="font-select"[\s\S]*id="font-file-input"/);
     assert.match(panelSource('data'), /onclick="exportAllData\(\)"[\s\S]*id="import-data-file"[\s\S]*clearInvalidCache\(\)/);
@@ -105,6 +107,7 @@ test('opening settings restores the stored tab', () => {
     assert.equal(context.readSettingsTab(), 'font');
     const initSettings = sourceSection('apps/settings/settings.js', 'function initSettings()', '// --- Settings tab navigation ---');
     assert.match(initSettings, /openSettingsTab\(readSettingsTab\(\), \{ persist: false/);
-    assert.match(initSettings, /window\.ByndCharacterTools\?\.renderSettings\(\)/);
+    assert.doesNotMatch(initSettings, /window\.ByndCharacterTools\?\.renderSettings\(\)/);
+    assert.match(fs.readFileSync(path.join(root, 'apps/role-tools/role-tools.js'), 'utf8'), /ByndCharacterTools\?\.renderSettings\(\)/);
     assert.match(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), /openApp\('settings'\); window\.openSettingsTab\?\.\('api'\)/);
 });

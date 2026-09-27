@@ -338,6 +338,8 @@ function isWechatNativeVoiceTheme() {
 }
 
 function getWechatVoiceHoldSurface() {
+    // A read-only editor still exposes Samsung's native text actions on long press.
+    if (isWechatVoiceInputMode()) return document.getElementById('wc-voice-press-btn');
     const room = document.getElementById('wechat-chat-room');
     if (room?.classList.contains('uses-rich-voice-input')) return getWechatRichInputElement();
     if (isWechatNativeVoiceTheme()) return getWechatRichInputElement() || document.getElementById('wc-msg-input');
@@ -500,6 +502,13 @@ function handleWechatVoiceInputContextMenu(event) {
     if (isWechatVoiceInputMode() || window._wechatVoiceHoldPending || window._wechatVoiceHold) event.preventDefault();
 }
 
+function handleWechatVoiceButtonTouchStart(event) {
+    if (isWechatVoiceInputMode() && event.currentTarget === getWechatVoiceHoldSurface()) {
+        // Cancel native long-press actions; Pointer Events still own the recording gesture.
+        event.preventDefault();
+    }
+}
+
 function setWechatVoiceToolMode(mode) {
     const nextMode = mode === 'tts' ? 'tts' : 'speech';
     document.querySelectorAll('.wc-voice-mode-tabs button').forEach(btn => {
@@ -521,11 +530,20 @@ function setWechatVoiceInputMode(active, options = {}) {
     // 微信主题的输入框始终保持可编辑：长按本身就是录音手势，不再先切换录音模式。
     const useDirectHold = isWechatNativeVoiceTheme();
     const nextActive = useDirectHold ? false : !!active;
+    if (isWechatVoiceInputMode() !== nextActive) {
+        clearWechatVoiceInputHoldPending();
+        if (window._wechatVoiceHold) cancelWechatHoldVoice();
+    }
     room.classList.toggle('is-voice-input', nextActive);
     room.classList.toggle('uses-rich-voice-input', nextActive && isWechatRichInputEnabled());
     if (panel) panel.classList.add('hidden');
     if (icon) icon.className = nextActive ? 'ri-keyboard-line' : 'ri-mic-line';
     setWechatVoiceInputSurfaceActive(nextActive);
+    const pressBtn = document.getElementById('wc-voice-press-btn');
+    if (pressBtn) {
+        pressBtn.hidden = !nextActive;
+        if (nextActive) setWechatVoiceHoldSurfaceLabel(pressBtn, '长按说话');
+    }
     if (useDirectHold) {
         document.querySelector('.wc-voice-btn')?.setAttribute('aria-label', '长按输入框说话');
     } else if (nextActive) {
@@ -1218,4 +1236,3 @@ function recoverWechatInputLockIfStale() {
         setWechatBusyState(false);
     }
 }
-

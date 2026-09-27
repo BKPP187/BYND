@@ -37,7 +37,7 @@ function migrateDesktopDefaultLovelyWidget() {
         }
         const height = Number(item.height);
         const defaultHeight = getDesktopCustomWidgetSize('lovely').height;
-        if (!Number.isFinite(height) || height < defaultHeight || height > defaultHeight * 1.35 || height === 264 || height === 304) {
+        if (height !== defaultHeight) {
             item.height = defaultHeight;
             changed = true;
         }
@@ -63,6 +63,36 @@ function migrateDesktopStoryAppsToIcons() {
     saved.items = saved.items.filter(item => !isDesktopStaticPage2AppLayoutId(item && item.id));
     const changed = saved.items.length !== before;
     if (changed) localStorage.setItem(DESKTOP_LAYOUT_KEY, JSON.stringify(saved));
+}
+
+function migrateDesktopRoleToolsApp() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {}; }
+    catch (_) { return false; }
+    if (!Array.isArray(saved.items) && !Array.isArray(saved.dock)) return false;
+    const inFolder = (window._folders || []).some(folder => (folder.apps || []).some(app => String(app?.id || app) === 'role-tools'));
+    if (inFolder || (saved.items || []).some(item => item?.id === 'app-role-tools') || (saved.dock || []).includes('role-tools')) return false;
+    const allApps = Array.from(document.querySelectorAll('#pages-container .app-item'));
+    const settings = allApps.find(item => getDesktopAppIdFromElement(item) === 'settings' && item.classList.contains('desktop-layout-item'));
+    const area = settings?.closest('.desktop-scroll-area') || ensureDesktopPage(0)?.querySelector('.desktop-scroll-area');
+    if (!area?.classList.contains('layout-canvas')) return false;
+    const app = getDesktopAppDefinition('role-tools');
+    const item = allApps.find(item => getDesktopAppIdFromElement(item) === 'role-tools') || createDesktopAppElement(app);
+    const anchor = settings ? getDesktopStyleRect(settings, area) : { left: 16, top: 18 };
+    const metrics = getDesktopFallbackSlotMetrics(area);
+    const slots = getDesktopFlowSlotRects(area).filter(rect => scoreDesktopCandidateOverlap(rect, area, [item]) < 0.08);
+    // Pick the closest free slot to settings; custom icons and widgets never get displaced.
+    const rect = slots.sort((a, b) => Math.abs(a.top - anchor.top) * 2 + Math.abs(a.left - anchor.left) - Math.abs(b.top - anchor.top) * 2 - Math.abs(b.left - anchor.left))[0];
+    let placed = item;
+    if (rect) prepareDesktopLayoutItem(item, area, { ...rect, width: metrics.iconWidth, height: metrics.iconHeight, canvasWidth: area.clientWidth });
+    else {
+        placed = addDesktopAppAfterFolderPage(app, area, 0);
+        if (!placed) return false;
+        if (placed !== item) item.remove();
+    }
+    if (hasDesktopMeasurableLayoutCanvas()) persistDesktopLayoutRepair(saved);
+    else _desktopLayoutNeedsVisiblePersist = true;
+    return true;
 }
 
 function migrateDesktopManualApp() {
@@ -128,6 +158,42 @@ function migrateDesktopMcpApp() {
     } else {
         _desktopLayoutNeedsVisiblePersist = true;
     }
+    return true;
+}
+
+function migrateDesktopHome3dApp() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {}; }
+    catch (_) { return false; }
+    if (!Array.isArray(saved.items) && !Array.isArray(saved.dock) && !Array.isArray(saved.deletedBuiltins)) return false;
+    if ((saved.deletedBuiltins || []).some(id => id === 'home3d' || id === 'app-home3d')) return false;
+    const inFolder = (window._folders || []).some(folder => (folder.apps || []).some(app => String(app?.id || app) === 'home3d'));
+    const inSaved = (saved.items || []).some(item => item?.id === 'app-home3d') || (saved.dock || []).includes('home3d');
+    const onDesktop = Array.from(document.querySelectorAll('#pages-container .desktop-layout-item.layout-app')).some(item => getDesktopAppIdFromElement(item) === 'home3d');
+    if (inFolder || inSaved || collectDesktopDockLayout().includes('home3d')) return false;
+    const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+    const app = DESKTOP_APPS.find(item => item.id === 'home3d');
+    if (!onDesktop && (!area?.classList.contains('layout-canvas') || !app || !addDesktopAppAfterFolderPage(app, area, 0))) return false;
+    if (hasDesktopMeasurableLayoutCanvas()) persistDesktopLayoutRepair(saved);
+    else _desktopLayoutNeedsVisiblePersist = true;
+    return true;
+}
+
+function migrateDesktopMoonApp() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {}; }
+    catch (_) { return false; }
+    if (!Array.isArray(saved.items) && !Array.isArray(saved.dock) && !Array.isArray(saved.deletedBuiltins)) return false;
+    if ((saved.deletedBuiltins || []).some(id => id === 'moon' || id === 'app-moon')) return false;
+    const inFolder = (window._folders || []).some(folder => (folder.apps || []).some(app => String(app?.id || app) === 'moon'));
+    const inSaved = (saved.items || []).some(item => item?.id === 'app-moon') || (saved.dock || []).includes('moon');
+    const onDesktop = Array.from(document.querySelectorAll('#pages-container .desktop-layout-item.layout-app')).some(item => getDesktopAppIdFromElement(item) === 'moon');
+    if (inFolder || inSaved || collectDesktopDockLayout().includes('moon')) return false;
+    const area = ensureDesktopPage(1)?.querySelector('.desktop-scroll-area');
+    const app = DESKTOP_APPS.find(item => item.id === 'moon');
+    if (!onDesktop && (!area?.classList.contains('layout-canvas') || !app || !addDesktopAppAfterFolderPage(app, area, 0))) return false;
+    if (hasDesktopMeasurableLayoutCanvas()) persistDesktopLayoutRepair(saved);
+    else _desktopLayoutNeedsVisiblePersist = true;
     return true;
 }
 
@@ -281,7 +347,7 @@ function ensureMonitorDesktopEntry() {
         area.insertBefore(grid, area.firstChild);
     }
 
-    ['dream', 'monitor', 'pet', 'outing', 'coread', 'album', 'comic', 'manual', 'mcp'].forEach(appId => {
+    ['dream', 'moon', 'monitor', 'pet', 'outing', 'coread', 'album', 'comic', 'manual', 'mcp'].forEach(appId => {
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -337,9 +403,12 @@ function initEditMode() {
         migrateDesktopDefaultLovelyWidget();
         migrateDesktopStoryAppsToIcons();
         applySavedDesktopLayout();
+        migrateDesktopRoleToolsApp();
         migrateDesktopManualApp();
         migrateDesktopMcpApp();
         migrateDesktopPetApp();
+        migrateDesktopHome3dApp();
+        migrateDesktopMoonApp();
         migrateDesktopBillDockApp();
         ensureMonitorDesktopEntry();
         ensureDesktopLovelyWidget();

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 228" fill="none">
+  <defs>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" seed="12"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".35"/></feComponentTransfer><feBlend in="SourceGraphic" mode="screen"/></filter>
+    <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path d="M0 0v7" stroke="#fff" stroke-width=".7"/></pattern>
+    <mask id="moon"><circle cx="118" cy="73" r="29" fill="#fff"/><circle cx="130" cy="59" r="29" fill="#000"/></mask>
+  </defs>
+  <path fill="#111" d="M0 0h640v228H0z"/>
+  <g filter="url(#grain)">
+    <path fill="#fff" mask="url(#moon)" d="M80 32h80v80H80z"/>
+    <path fill="#fafaf7" d="m146 228 96-83 43 13 47-47 39 8 60-77 31 19 28-32 43 47 107 62v90z"/>
+    <path fill="#111" d="m177 228 108-70-31 44 71-37 42-42-11 66 75-147-32 99 37-45-12 85 38-120-12 92 27-35 15-46 27 80 71 55v31z"/>
+    <path fill="#fff" d="m246 216 89-59-27 30 32-9-47 50h-47Zm147 12 45-79-9 49 26-34-20 64h-42Zm99-152 16 46-12-8-4-38Zm31 83 37 19-12 16 51 34h-40z"/>
+    <path fill="url(#hatch)" d="M0 189 68 120l48 40 43-23 74 91H0z"/>
+    <g fill="#fff"><circle cx="30" cy="32" r="1.4"/><circle cx="183" cy="39" r="1"/><circle cx="216" cy="18" r="2"/><circle cx="268" cy="76" r="1.6"/><circle cx="325" cy="24" r="1"/><circle cx="377" cy="54" r="1.7"/><circle cx="576" cy="29" r="1.3"/><circle cx="614" cy="58" r="2"/><circle cx="185" cy="115" r="1.5"/><circle cx="40" cy="112" r="1"/><circle cx="247" cy="101" r="1.4"/><circle cx="554" cy="63" r="1"/><circle cx="608" cy="119" r="1.2"/></g>
+    <path stroke="#ddd" stroke-width="1" d="m45 52 3-7m190 38 2-5m80 23 4-8m240-24 4-7M87 174l4-5m486-12 3-6M158 37l3-6"/>
+  </g>
+</svg>

@@ -9,6 +9,7 @@
     const textOf = content => typeof content === 'string' ? content : Array.isArray(content)
         ? content.map(part => typeof part === 'string' ? part : (part?.type === 'text' ? part.text || '' : '[图片输入]')).join('\n') : '';
     const clipped = (value, length = 1800) => String(value ?? '').replace(/data:image\/[^\s"']+/gi, '[图片数据]').slice(0, length);
+    const privatePreview = value => String(value).replace(/【用户授权的现实生活状态】[\s\S]*?【生活状态参考结束】/g, '[生活状态授权内容已隐藏]').replace(/【用户单独授权的月伴参考】[\s\S]*?【月伴参考结束】/g, '[月伴授权内容已隐藏]');
     const sourceLabel = { system: '系统 Prompt / 预设', character: 'Char 卡', persona: 'User Persona', worldbook: '世界书', regex: '正则相关', sticker: '表情包 / 变量', dynamic: '动态注入', history: '聊天历史' };
     const sum = values => values.reduce((total, value) => total + (Number(value) || 0), 0);
     const readable = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString('zh-CN') : '—';
@@ -158,7 +159,7 @@
             else if (/表情包|贴纸|sticker/i.test(content) && message?.role === 'system') source = 'sticker';
             const tokens = estimate(content);
             sources[source] += tokens;
-            return { role: message?.role || '?', source, tokens, preview: clipped(content, index < 2 ? 2600 : 950) };
+            return { role: message?.role || '?', source, tokens, preview: options.privateContext ? '[月伴请求内容已隐藏]' : clipped(privatePreview(content), index < 2 ? 2600 : 950) };
         });
         const prompt = safeMessages.slice(0, 2).map(msg => textOf(msg?.content)).join('\n');
         const char = options.char;
@@ -177,7 +178,7 @@
         const historyCount = Array.isArray(char?.history) ? char.history.length : 0;
         const historySent = rows.filter(row => row.source === 'history').length;
         return {
-            at: Date.now(), model: String(options.model || ''), sources, rows, worldbook,
+            at: Date.now(), model: String(options.model || ''), sources, rows, worldbook: options.privateContext ? [] : worldbook,
             historyCount, historySent, historyWindow: Math.min(historyCount, 30),
             historyTruncated: historyCount > 30,
             inputEstimate: sum(Object.values(sources)),

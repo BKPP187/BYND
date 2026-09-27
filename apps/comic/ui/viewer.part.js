@@ -43,6 +43,8 @@
         const startAt = book.lastReadId === part.id ? Math.min(part.progress || 0, panels.length - 1) : 0;
         if (startAt > 0 && panels[startAt]) requestAnimationFrame(() => panels[startAt].scrollIntoView({ block: 'start' }));
         let lastTop = 0;
+        const rememberReading = () => window.ByndExperience?.checkpoint('comic', book.charId, `上次看《${book.title}》的「${part.title}」，停在第 ${(part.progress || 0) + 1} 格。`);
+        rememberReading();
         main.onscroll = () => {
             const top = main.scrollTop;
             if (Math.abs(top - lastTop) > 8) shell.classList.toggle('bars-hidden', top > lastTop && top > 80);
@@ -52,6 +54,7 @@
             panels.forEach((node, at) => { if (node.getBoundingClientRect().top < limit) visible = at; });
             if (visible !== part.progress || book.lastReadId !== part.id) {
                 part.progress = visible;
+                rememberReading();
                 clearTimeout(state.progressTimer);
                 state.progressTimer = setTimeout(() => mutateChapter(book.id, part.id, (item, target) => { item.progress = visible; target.lastReadId = part.id; }).catch(error => say(`阅读位置保存失败：${error.message}`, true)), 700);
             }

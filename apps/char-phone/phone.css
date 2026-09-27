@@ -1440,6 +1440,7 @@ button.wc-ai-phone-sync {
     font-size: 10px; line-height: 1.15; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.wc-ai-phone-app-icon.is-pending .wc-ai-phone-icon-image { opacity:.48; border:1px dashed #92929c; }
 .cp-home-page.has-widgets .wc-ai-phone-photo-widget {
     display: grid; grid-template-rows: minmax(70px,1fr) minmax(36px,.4fr);
     gap: 20px; min-height: 0; max-height: none; overflow: visible;
@@ -1526,6 +1527,12 @@ button.wc-ai-phone-sync {
 .cp-brand-shell .wc-ai-phone-app-nav strong { position:static; transform:none; width:auto; max-width:none; }
 .cp-brand-shell .wc-ai-phone-app-nav strong { font-size:11px; color:#8e8e93; }
 .cp-brand-shell .wc-ai-phone-app-nav button { font-size:11px; }
+/* Equal side columns keep the title at the phone's center, even with a wide back label. */
+.wc-ai-phone-ios .wc-ai-phone-app-page .wc-ai-phone-app-nav { display:grid; grid-template-columns:minmax(64px,1fr) minmax(0,2fr) minmax(64px,1fr); }
+.wc-ai-phone-ios .wc-ai-phone-app-page .wc-ai-phone-app-nav>button { position:static; top:auto; }
+.wc-ai-phone-ios .wc-ai-phone-app-page .wc-ai-phone-app-nav>button:first-child { justify-self:start; }
+.wc-ai-phone-ios .wc-ai-phone-app-page .wc-ai-phone-app-nav>button:last-child { justify-self:end; }
+.wc-ai-phone-ios .wc-ai-phone-app-page .wc-ai-phone-app-nav>strong { position:static; transform:none; width:100%; max-width:100%; display:block; text-align:center; justify-self:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cp-app-host > .cp-brand-screen { padding:0; }
 .cp-brand-screen button { cursor:pointer; font-family:inherit; }
 .cp-brand-screen .cp-scroll { scrollbar-width:none; }
@@ -1731,5 +1738,83 @@ button.wc-ai-phone-sync {
 .cp-item-detail dl>div { display:flex; justify-content:space-between; gap:15px; border-bottom:1px solid #8883; padding:12px 0; }
 .cp-item-detail dt { color:#888; }
 .cp-item-detail dd { margin:0; text-align:right; }
+
+/* WeChat discovery stays inside WeChat, with independent persona data. */
+.cp-app-host > .cp-wechat-moments,.cp-app-host > .cp-wechat-channels { padding:0; background:#fff; }
+.cp-wechat-subnav { display:grid; grid-template-columns:32px 1fr 32px; align-items:center; padding:10px 12px; background:#ededed; font-size:14px; text-align:center; flex:none; }
+.cp-wechat-subnav button { background:none; border:0; padding:0; font-size:24px; text-align:left; }
+.cp-wechat-subnav>i { font-size:21px; text-align:right; }
+.cp-moments-cover { height:160px; position:relative; background:linear-gradient(160deg,#a1aca2 0%,#6b7c75 45%,#3f5650 46%,#b2b8ad 47%,#d7d7c8 65%,#798d88); margin-bottom:28px; }
+.cp-moments-owner { position:absolute; right:14px; bottom:-21px; display:flex; align-items:center; gap:12px; }
+.cp-moments-owner>b { color:white; font-size:15px; text-shadow:0 1px 5px #333; margin-top:-17px; }
+.cp-native .cp-moments-owner img { width:62px; height:62px; object-fit:cover; border:2px solid #fff; border-radius:6px; }
+.cp-moment-post { width:100%; display:flex; align-items:flex-start; gap:9px; padding:16px 12px; background:#fff; border:0; border-bottom:1px solid #ededed; text-align:left; }
+.cp-moment-avatar { width:35px; height:35px; border-radius:4px; background:#d5ddd7; display:grid; place-items:center; flex:none; color:#51614f; }
+.cp-moment-post>div { min-width:0; flex:1; }
+.cp-moment-post b { color:#576b95; font-size:12px; }
+.cp-moment-post p { white-space:pre-wrap; font-size:12px; line-height:1.7; margin:4px 0 8px; overflow-wrap:anywhere; }
+.cp-moment-meta { display:flex; align-items:center; justify-content:space-between; color:#aaa; font-size:11px; }
+.cp-moment-meta i { color:#576b95; background:#f4f4f4; border-radius:3px; padding:0 5px; }
+.cp-moment-interactions { margin-top:8px; padding:6px 8px; background:#f5f5f5; color:#576b95; font-size:11px; }
+.cp-moment-interactions p { margin:4px 0 0; font-size:11px; }
+.cp-channels-tabs { display:flex; justify-content:center; gap:30px; padding:14px; font-size:13px; color:#999; }
+.cp-channels-tabs .active { color:#222; border-bottom:2px solid #e6b04e; padding-bottom:5px; }
+.cp-channel-post { padding:0; margin-bottom:12px; background:white; border:0; width:100%; text-align:left; }
+.cp-channel-cover { position:relative; min-height:210px; background:#e5e6e2; }
+.cp-channel-cover .cp-native-media { width:100%; aspect-ratio:4/3; height:auto; border-radius:0; color:#77817a; }
+.cp-channel-cover>.ri-play-circle-line { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#fff; font-size:38px; text-shadow:0 2px 7px #3335; }
+.cp-channel-caption { padding:12px 14px; font-size:12px; }
+.cp-channel-caption p { margin:6px 0; }.cp-channel-caption small { color:#999; }.cp-channel-caption>span { float:right; color:#555; }
+.cp-wechat-post-detail { padding:16px; }.cp-wechat-post-detail h2 { font-size:19px; }.cp-wechat-post-detail>p { color:#888; font-size:11px; }
+.cp-photo-preview { height:240px; display:grid; place-items:center; color:#aaa; background:#f0f1f3; font-size:48px; }
+.cp-photo-generate { width:100%; border:0; border-radius:12px; background:#007aff; color:#fff; padding:13px; margin-top:18px; font-size:13px; }
+.cp-photo-generate:disabled { opacity:.6; }.cp-photo-route { font-size:10px; color:#999; text-align:center; }.cp-photo-error { color:#c94343; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+
+/* Correspondence: cool coastal backdrop, paper postcards and full letter sheets. */
+.cp-app-host > .cp-mail-stationery { padding:0; background:radial-gradient(ellipse at 0 100%,#5c6461 0%,transparent 40%),linear-gradient(160deg,#d0d3d0,#b1b9b8 45%,#d6d8d3 70%,#737d7c); color:#383b36; }
+.cp-app-host > .cp-mail-stationery > .cp-correspondence-heading { display:block; padding:23px 20px 14px; text-align:center; flex:none; border:0; }
+.cp-correspondence-heading>span { font:9px Georgia,serif; letter-spacing:3px; color:#626960; }
+.cp-correspondence-heading h2 { font:26px 'Noto Serif SC','Songti SC',SimSun,serif; letter-spacing:6px; margin:8px 0 5px; }
+.cp-correspondence-heading p { font-size:10px; color:#60685f; margin:0; }
+.cp-correspondence-tabs { display:flex; gap:20px; align-self:center; margin-bottom:12px; flex:none; }
+.cp-correspondence-tabs button { padding:7px 2px; background:none; border:0; border-bottom:1px solid transparent; font-size:11px; color:#68716b; }
+.cp-correspondence-tabs button[aria-pressed="true"] { border-color:#62685c; color:#343c33; }
+.cp-correspondence-tabs small { margin-left:4px; font-size:9px; }
+.cp-correspondence-search { display:flex; align-items:center; gap:6px; margin:0 20px 14px; border-bottom:1px solid #727c6a44; padding:7px 0; color:#71786b; font-size:12px; flex:none; }
+.cp-correspondence-search input { background:none; border:0; outline:none; min-width:0; flex:1; font-size:11px; color:#39433a; }
+.cp-correspondence-search input::placeholder { color:#737b72; }
+.cp-mail-stationery .cp-postcard-list { padding:8px 22px 24px; }
+.cp-mail-stationery .cp-scroll { scrollbar-width:none; }.cp-mail-stationery .cp-scroll::-webkit-scrollbar { display:none; }
+.cp-postcard-entry { position:relative; width:100%; margin:0 0 28px; border:1px solid #eeeada; border-radius:0; text-align:left; padding:15px 15px 0; background:repeating-linear-gradient(15deg,#fbfaf1 0px,#f4f2e8 1px,#f8f6ed 3px); color:#383e35; box-shadow:0 7px 15px #39443e28; }
+.cp-postcard-entry[hidden] { display:none; }
+.cp-postcard-entry:nth-child(2n) { transform:rotate(.7deg); }.cp-postcard-entry:nth-child(2n+1) { transform:rotate(-.6deg); }
+.cp-postcard-top { height:54px; position:relative; }
+.cp-postcard-top>span:first-child { font:9px Georgia,serif; letter-spacing:2px; position:relative; top:3px; }
+.cp-postage { position:absolute; top:0; right:0; width:42px; height:50px; padding:3px; background:#fffdf7; border:2px dotted #adad9f; transform:rotate(3deg); }
+.cp-native .cp-postage img,.cp-postage .cp-mail-landscape { width:100%; height:29px; object-fit:cover; border-radius:0; display:block; }
+.cp-postage small { display:block; text-align:center; font:6px Georgia,serif; letter-spacing:2px; margin:3px 0; }
+.cp-postmark { position:absolute; right:25px; top:13px; z-index:2; width:39px; height:39px; border:1px solid #746f5c66; border-radius:50%; font:7px/10px Georgia,serif; padding-top:9px; text-align:center; transform:rotate(-20deg); color:#777360aa; }
+.cp-postcard-address { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr); gap:12px; }
+.cp-postcard-address>div:first-child { border-right:1px solid #b9bcaf; padding:6px 9px 6px 0; display:flex; flex-direction:column; gap:5px; }
+.cp-postcard-address small { font:7px/1.5 Georgia,'Songti SC',serif; letter-spacing:1px; overflow-wrap:anywhere; }
+.cp-postcard-address strong { font:14px/1.7 'Noto Serif SC','Songti SC',SimSun,serif; overflow-wrap:anywhere; }
+.cp-postcard-address h3 { font:14px/1.5 'Noto Serif SC','Songti SC',SimSun,serif; margin:5px 0 7px; overflow-wrap:anywhere; }
+.cp-postcard-address p { font:11px/22px 'Kaiti SC',KaiTi,serif; margin:0; height:66px; overflow:hidden; background:repeating-linear-gradient(transparent 0 21px,#8b96803b 21px 22px); }
+.cp-postcard-photo { width:calc(100% + 6px); margin:15px -3px -12px; padding:5px 5px 0; background:#fafbf6; box-shadow:0 4px 9px #313e3528; transform:rotate(2deg); border:2px dotted #9ba09877; }
+.cp-native .cp-postcard-photo img,.cp-postcard-photo .cp-mail-landscape { width:100%; height:94px; object-fit:cover; display:block; border-radius:0; }
+.cp-postcard-photo>span { display:block; font-size:8px; text-align:center; padding:5px; color:#787d70; }
+.cp-paperclip { position:absolute; bottom:77px; left:9px; font-size:25px; color:#a1a59e; transform:rotate(-26deg); filter:drop-shadow(0 1px 1px #fff); }
+.cp-correspondence-footer { padding:7px 14px 14px; text-align:center; font-size:9px; color:#3f5147; background:#c7cec6b8; flex:none; letter-spacing:1px; }
+.cp-postcard-empty { text-align:center; padding:45px 8px; font-size:12px; color:#546354; }.cp-postcard-empty>i { font-size:32px; }.cp-postcard-empty small { display:block; font-size:10px; line-height:1.7; }
+.cp-correspondence-toolbar { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:13px 16px; flex:none; }
+.cp-correspondence-toolbar button { border:0; background:none; padding:0; color:#465646; font-size:12px; }.cp-correspondence-toolbar>span { font-size:9px; color:#606c5f; }
+.cp-mail-open>.cp-scroll { padding:12px 20px 30px; }
+.cp-writing-paper { padding:23px 20px 25px; background:repeating-linear-gradient(15deg,#faf8ee 0px,#f7f5ec 1px,#f9f7ee 4px); box-shadow:0 7px 16px #303a322d; min-height:340px; }
+.cp-paper-heading { height:57px; position:relative; }.cp-paper-heading>small { font:7px Georgia,serif; letter-spacing:1.4px; }
+.cp-writing-paper h2 { font:20px/1.6 'Noto Serif SC','Songti SC',SimSun,serif; margin:4px 0 10px; overflow-wrap:anywhere; }
+.cp-letter-address { border-bottom:1px solid #b0b8a56b; padding:0 0 14px; margin-bottom:19px; display:flex; flex-direction:column; gap:5px; font:8px/1.6 Georgia,'Songti SC',serif; letter-spacing:1px; overflow-wrap:anywhere; }
+.cp-handwritten-body { white-space:pre-wrap; overflow-wrap:anywhere; font:16px/1.95 'Kaiti SC',KaiTi,'Noto Serif SC',serif; color:#42463d; }
+.cp-writing-paper footer { margin-top:26px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; font:13px/1.6 'Kaiti SC',KaiTi,serif; }.cp-writing-paper time { font-size:10px; color:#777d6b; }
+.cp-letter-enclosure { transform:rotate(-2deg); padding:6px; margin:20px 6px 0; background:#fafbf6; box-shadow:0 3px 10px #3333; }.cp-native .cp-letter-enclosure img { display:block; width:100%; border-radius:0; }
 .cp-hotels .cp-hotel-toolbar>button { flex:none; width:24px; color:white; padding:0; font-size:21px; font-weight:400; }
 .cp-hotels .cp-hotel-toolbar>span { white-space:nowrap; font-size:11px; }

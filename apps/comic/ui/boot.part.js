@@ -112,6 +112,7 @@
     }
     window.ByndComic = {
         open,
+        openBook,
         fromChat(charId) { window._comicPendingSource = { kind: 'chat', charId }; openApp('comic'); },
         fromSource(kind, charId, text) { window._comicPendingSource = { kind, charId, text }; openApp('comic'); },
         storage: { all, get, put, remove },

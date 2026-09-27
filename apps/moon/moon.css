@@ -1,0 +1,14 @@
+#app-moon-window { background: #faf4f6; color: #51454c; }
+#app-moon-window .role-tools-header { background: #fffafb; border-color: #f0e4e8; }
+.moon-hero { margin-bottom: 16px; padding: 24px 20px; border-radius: 22px; background: linear-gradient(135deg, #fae3ea, #fffafb); }
+.moon-hero small { font-size: 11px; color: #a6788a; }
+.moon-hero h2 { font-size: 25px; margin: 14px 0; color: #85556b; font-weight: 600; }
+.moon-hero p { font-size: 12px; line-height: 1.7; color: #9c8290; }
+#app-moon-window button { min-height: 40px; padding: 9px 14px; border: 1px solid #eedce3; border-radius: 12px; color: #875e70; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+#app-moon-window .role-primary { background: #b38699; border-color: #b38699; color: #fff; margin-top: 12px; }
+#app-moon-window input:not([type=checkbox]), #app-moon-window select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid #eddfe5; border-radius: 10px; background: #fffafb; color: #67525d; font: inherit; font-size: 12px; }
+.moon-record { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 9px 0; font-size: 12px; border-bottom: 1px solid #f4e9ee; }
+.moon-audit { display: grid; gap: 5px; padding: 12px 0; font-size: 12px; border-bottom: 1px solid #f4e9ee; }
+.moon-audit span, .moon-audit small { color: #a48994; line-height: 1.6; }
+
+.moon-health-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }

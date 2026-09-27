@@ -25,21 +25,57 @@ function getWechatAlbumMessageRows(char, msg) {
     }));
 }
 
-function getChatAlbumStore() {
+function getChatAlbumRows() {
     const rows = getLegacyChatAlbumStore();
     for (const char of (window.myCharacters || [])) {
         if (!char?.id) continue;
         rows.push(...(Array.isArray(char.chatConfig?.generatedImages) ? char.chatConfig.generatedImages : []));
         for (const msg of (char.history || [])) rows.push(...getWechatAlbumMessageRows(char, msg));
     }
+    return rows.map(row => {
+        if (!row || row.id) return row;
+        let hash = 2166136261;
+        const text = String(row.url || '');
+        for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+        return { ...row, id: `album_legacy_${row.charId}_${(hash >>> 0).toString(36)}_${text.length}` };
+    });
+}
+
+function getChatAlbumStore() {
+    const rows = getChatAlbumRows();
+    const hidden = new Set(JSON.parse(localStorage.getItem('bynd_album_removed_v1') || '[]'));
     const seen = new Map();
     rows.forEach(row => {
         if (!row?.charId || typeof row.url !== 'string' || !/^(?:https?:\/\/|data:image\/)/i.test(row.url)) return;
+        if (hidden.has(row.id)) return;
         const key = row.charId + '\n' + row.url;
         if (!seen.has(key)) seen.set(key, row);
     });
     return Array.from(seen.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
+
+function removeAlbumPhoto(id) {
+    try {
+        const item = getChatAlbumStore().find(row => row.id === id);
+        if (!item) return false;
+        const ids = getChatAlbumRows().filter(row => row.charId === item.charId && row.url === item.url).map(row => row.id).filter(Boolean);
+        if (!ids.length) throw new Error('照片标识缺失');
+        const key = 'bynd_album_removed_v1';
+        const previous = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+        const added = ids.filter(value => !previous.has(value));
+        ids.forEach(value => previous.add(value));
+        localStorage.setItem(key, JSON.stringify([...previous]));
+        renderAlbumApp();
+        window.ByndUndo?.offer({ label: '已移除照片', undo: () => {
+            const latest = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+            added.forEach(value => latest.delete(value));
+            localStorage.setItem(key, JSON.stringify([...latest]));
+            renderAlbumApp(); return true;
+        } });
+        return true;
+    } catch (error) { console.warn('照片移除失败', error); window.showWechatToast?.('照片移除失败，请重试'); return false; }
+}
+window.removeAlbumPhoto = removeAlbumPhoto;
 
 async function saveChatAlbumStore(list) {
     // Store full-size images with the character's IndexedDB-backed data, not a second localStorage copy.
@@ -110,13 +146,15 @@ function renderAlbumApp() {
     const rows = store.filter(item => !active || item.charId === active);
     grid.innerHTML = rows.map(item => `
         <figure class="album-photo">
+            <button type="button" class="album-delete" data-remove-photo="${musicEscapeAttr(item.id || '')}" aria-label="移除照片">×</button>
             <img src="${musicEscapeAttr(item.url)}" alt="${musicEscapeAttr(item.description || item.charName || '聊天图片')}" loading="lazy">
             <figcaption>
                 <strong>${musicEscapeHtml(item.charName || '角色')}</strong>
                 <span>${musicEscapeHtml(item.description || '聊天生成图片')}</span>
             </figcaption>
         </figure>
-    `).join('') || `<div class="album-empty">${active ? '这个角色' : '相册'}还没有聊天生成图</div>`;
+    `).join('') || '<div class="album-empty">这里还没有我们的照片<br><small>TA 发来的生成图，会一张张留在这里。</small></div>';
+    grid.querySelectorAll('[data-remove-photo]').forEach(button => { button.onclick = () => removeAlbumPhoto(button.dataset.removePhoto); });
     if (status) status.innerHTML = window._chatAlbumSaveError ? `${store.length} 张 · <button type="button" onclick="initAlbumApp()">重试保存</button>` : `已收录 ${store.length} 张聊天生成图`;
 }
 
@@ -151,6 +189,8 @@ const DESKTOP_APPS = [
     { id: 'regex', name: '正则', icon: 'ri-code-s-slash-line' },
     { id: 'worldbook', name: '世界书', icon: 'ri-book-read-line' },
     { id: 'settings', name: '设置', icon: 'ri-settings-4-line' },
+    { id: 'role-tools', name: '角色台', icon: 'ri-tools-line' },
+    { id: 'moon', name: '月伴', icon: 'ri-moon-line' },
     { id: 'theme', name: '美化', icon: 'ri-palette-line' },
     { id: 'study', name: '学习', icon: 'ri-graduation-cap-line' },
     { id: 'money', name: '记账', icon: 'ri-money-cny-box-line' },
@@ -162,6 +202,7 @@ const DESKTOP_APPS = [
     { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
     { id: 'living-world', name: '论坛', icon: 'ri-discuss-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' },
+    { id: 'home3d', name: '小屋', icon: 'ri-home-heart-line' },
     { id: 'comic', name: '漫画', icon: 'ri-booklet-line' },
     { id: 'manual', name: '说明书', icon: 'ri-book-2-line' },
     { id: 'mcp', name: 'MCP', icon: 'ri-github-fill' }

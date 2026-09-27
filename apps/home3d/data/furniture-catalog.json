@@ -1,0 +1,619 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    "quaternius": {
+      "author": "Quaternius",
+      "source": "https://quaternius.com/packs/ultimatehomeinterior.html",
+      "license": "CC0-1.0",
+      "attributionRequired": false,
+      "commercialUse": true,
+      "modificationAllowed": true,
+      "localSource": "FBX-20260926T073204Z-1-001/FBX",
+      "note": "Local user-supplied home furniture FBX; converted to GLB with normalized runtime scale and BYND materials."
+    },
+    "kenney": {
+      "author": "Kenney",
+      "source": "https://kenney.nl/assets/furniture-kit",
+      "license": "CC0-1.0",
+      "attributionRequired": false,
+      "commercialUse": true,
+      "modificationAllowed": true,
+      "localSource": "kenney_furniture-kit/Models/GLTF format"
+    },
+    "bynd": {
+      "author": "BYND",
+      "source": "local procedural geometry",
+      "license": "project-owned",
+      "attributionRequired": false,
+      "commercialUse": true,
+      "modificationAllowed": true
+    }
+  },
+  "items": [
+    {
+      "id": "sofa_cream_01",
+      "name": "奶油软沙发",
+      "type": "sofa",
+      "model": "q-Sofa.glb",
+      "source": "quaternius",
+      "width": 2.65,
+      "footprint": [
+        2.65,
+        1.15
+      ],
+      "materials": [
+        "cream_fabric",
+        "soft_wood"
+      ],
+      "actions": [
+        "Sit",
+        "Lie",
+        "Hug",
+        "Use Phone",
+        "Read",
+        "Watch",
+        "Look At"
+      ],
+      "positions": [
+        [
+          -0.62,
+          0.46,
+          0.25
+        ],
+        [
+          0.62,
+          0.46,
+          0.25
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "seated",
+      "sound": "soft",
+      "state": {
+        "occupiedBy": null
+      }
+    },
+    {
+      "id": "bed_cloud_01",
+      "name": "云朵双人床",
+      "type": "bed",
+      "model": "q-BedDouble.glb",
+      "source": "quaternius",
+      "width": 2.4,
+      "footprint": [
+        2.4,
+        2.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "rose"
+      ],
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Hug"
+      ],
+      "positions": [
+        [
+          -0.5,
+          0.53,
+          0.28
+        ],
+        [
+          0.5,
+          0.53,
+          0.28
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "sleep",
+      "sound": "soft",
+      "state": {
+        "occupiedBy": null
+      }
+    },
+    {
+      "id": "desk_oak_01",
+      "name": "蜂蜜木工作桌",
+      "type": "desk",
+      "model": "q-Desk.glb",
+      "source": "quaternius",
+      "width": 2.05,
+      "footprint": [
+        2.05,
+        0.85
+      ],
+      "materials": [
+        "soft_wood",
+        "warm_metal"
+      ],
+      "actions": [
+        "Use Computer",
+        "Game",
+        "Work"
+      ],
+      "positions": [
+        [
+          0,
+          0.45,
+          0.8
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "typing",
+      "sound": "keys",
+      "state": {
+        "occupiedBy": null
+      },
+      "height": 0.82
+    },
+    {
+      "id": "nightstand_01",
+      "name": "床头小柜",
+      "type": "cabinet",
+      "model": "q-NightStand.glb",
+      "source": "quaternius",
+      "width": 0.65,
+      "footprint": [
+        0.65,
+        0.6
+      ],
+      "materials": [
+        "soft_wood",
+        "warm_metal"
+      ],
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {},
+      "height": 0.66
+    },
+    {
+      "id": "bookcase_01",
+      "name": "故事书架",
+      "type": "bookcase",
+      "model": "q-Bookcase_Books.glb",
+      "source": "quaternius",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {}
+    },
+    {
+      "id": "chair_01",
+      "name": "软软游戏椅",
+      "type": "chair",
+      "model": "q-OfficeChair.glb",
+      "source": "quaternius",
+      "width": 0.62,
+      "footprint": [
+        0.62,
+        0.62
+      ],
+      "materials": [
+        "sage",
+        "warm_metal"
+      ],
+      "actions": [
+        "Sit"
+      ],
+      "positions": [
+        [
+          0,
+          0.48,
+          0
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "seated",
+      "state": {}
+    },
+    {
+      "id": "armchair_01",
+      "name": "抹茶小扶手椅",
+      "type": "chair",
+      "model": "k-loungeChair.glb",
+      "source": "kenney",
+      "width": 0.98,
+      "footprint": [
+        0.98,
+        0.85
+      ],
+      "materials": [
+        "sage",
+        "soft_wood"
+      ],
+      "actions": [
+        "Sit",
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0.42,
+          0.12
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {}
+    },
+    {
+      "id": "coffee_01",
+      "name": "圆角茶几",
+      "type": "table",
+      "model": "k-tableCoffee.glb",
+      "source": "kenney",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood"
+      ],
+      "actions": [
+        "Drink",
+        "Eat"
+      ],
+      "positions": [
+        [
+          -0.45,
+          0,
+          0.7
+        ],
+        [
+          0.45,
+          0,
+          0.7
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "drink",
+      "state": {},
+      "height": 0.43
+    },
+    {
+      "id": "tv_01",
+      "name": "复古小电视",
+      "type": "television",
+      "model": "k-televisionVintage.glb",
+      "source": "kenney",
+      "width": 0.95,
+      "footprint": [
+        0.95,
+        0.6
+      ],
+      "materials": [
+        "milky_plastic",
+        "screen",
+        "warm_metal"
+      ],
+      "actions": [
+        "Watch"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "on": true
+      }
+    },
+    {
+      "id": "tv_cabinet_01",
+      "name": "电视矮柜",
+      "type": "cabinet",
+      "model": "k-cabinetTelevision.glb",
+      "source": "kenney",
+      "width": 1.6,
+      "footprint": [
+        1.6,
+        0.6
+      ],
+      "materials": [
+        "soft_wood"
+      ],
+      "actions": [],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {},
+      "height": 0.6
+    },
+    {
+      "id": "computer_01",
+      "name": "一起打游戏的电脑",
+      "type": "computer",
+      "model": "k-computerScreen.glb",
+      "source": "kenney",
+      "width": 0.75,
+      "footprint": [
+        0.75,
+        0.2
+      ],
+      "materials": [
+        "milky_plastic",
+        "screen"
+      ],
+      "actions": [
+        "Use Computer",
+        "Game"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "typing",
+      "state": {
+        "on": true
+      }
+    },
+    {
+      "id": "keyboard_01",
+      "name": "奶白键盘",
+      "type": "prop",
+      "model": "k-computerKeyboard.glb",
+      "source": "kenney",
+      "width": 0.65,
+      "footprint": [
+        0.65,
+        0.22
+      ],
+      "materials": [
+        "milky_plastic"
+      ],
+      "actions": [],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {}
+    },
+    {
+      "id": "radio_01",
+      "name": "小屋收音机",
+      "type": "speaker",
+      "model": "k-radio.glb",
+      "source": "kenney",
+      "width": 0.46,
+      "footprint": [
+        0.46,
+        0.22
+      ],
+      "materials": [
+        "rose",
+        "warm_metal"
+      ],
+      "actions": [
+        "Play Music"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "playing": false
+      }
+    },
+    {
+      "id": "plant_01",
+      "name": "窗边绿植",
+      "type": "plant",
+      "model": "k-pottedPlant.glb",
+      "source": "kenney",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "sage",
+        "pastel_ceramic"
+      ],
+      "actions": [
+        "Look At",
+        "Care"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "wateredAt": 0
+      }
+    },
+    {
+      "id": "lamp_01",
+      "name": "蘑菇落地灯",
+      "type": "lamp",
+      "model": "k-lampRoundFloor.glb",
+      "source": "kenney",
+      "width": 0.52,
+      "footprint": [
+        0.52,
+        0.52
+      ],
+      "materials": [
+        "milky_plastic",
+        "warm_metal"
+      ],
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "on": true
+      }
+    },
+    {
+      "id": "table_lamp_01",
+      "name": "床头小夜灯",
+      "type": "lamp",
+      "model": "k-lampRoundTable.glb",
+      "source": "kenney",
+      "width": 0.38,
+      "footprint": [
+        0.38,
+        0.38
+      ],
+      "materials": [
+        "milky_plastic",
+        "warm_metal"
+      ],
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "on": true
+      }
+    },
+    {
+      "id": "bear_01",
+      "name": "陪伴小熊",
+      "type": "keepsake",
+      "model": "k-bear.glb",
+      "source": "kenney",
+      "width": 0.46,
+      "footprint": [
+        0.46,
+        0.4
+      ],
+      "materials": [
+        "cream_fabric",
+        "rose"
+      ],
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {}
+    },
+    {
+      "id": "frame_01",
+      "name": "我们的相框",
+      "type": "frame",
+      "model": null,
+      "source": "bynd",
+      "width": 0.72,
+      "footprint": [
+        0.72,
+        0.15
+      ],
+      "materials": [
+        "soft_wood",
+        "paper"
+      ],
+      "actions": [
+        "Photo",
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "photoId": null
+      }
+    },
+    {
+      "id": "memory_01",
+      "name": "记忆小星星",
+      "type": "keepsake",
+      "model": null,
+      "source": "bynd",
+      "width": 0.35,
+      "footprint": [
+        0.35,
+        0.35
+      ],
+      "materials": [
+        "pastel_ceramic",
+        "warm_metal"
+      ],
+      "actions": [
+        "Memory",
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {
+        "memoryId": null
+      }
+    }
+  ]
+}

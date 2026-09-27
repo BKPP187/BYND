@@ -87,7 +87,10 @@ function getDesktopThemeIconUrl(appId, source) {
         pet: 18,
         'living-world': 19,
         comic: 20,
-        bill: 21
+        bill: 21,
+        'role-tools': 22,
+        home3d: 23,
+        moon: 24
     }[appId];
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);

@@ -30,7 +30,7 @@ function closeChat(event) {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
     if (isWechatChatSettingsOpen()) {
-        closeChatSettings(event);
+        backWechatChatSettings(event);
         return;
     }
     closeChatToolbar();
@@ -43,4 +43,3 @@ function closeChat(event) {
     window.currentChatCharId = null;
     if (typeof updateWechatUiThemeStructure === 'function') updateWechatUiThemeStructure(getWechatUiTheme());
 }
-

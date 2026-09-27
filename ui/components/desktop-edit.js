@@ -245,9 +245,16 @@ function restoreDesktopRuntimeAfterEdit() {
     resetDesktopInteractionStateAfterEdit();
 }
 
+function getDesktopFolderAppIds() {
+    return new Set((Array.isArray(window._folders) ? window._folders : []).flatMap(folder =>
+        (Array.isArray(folder?.apps) ? folder.apps : []).map(app => String(app?.id || app || ''))
+    ).filter(Boolean));
+}
+
 function normalizeDesktopSavedLayoutItems(items, dockItems = []) {
     if (!Array.isArray(items)) return [];
     const dockAppIds = new Set((Array.isArray(dockItems) ? dockItems : []).map(appId => String(appId || '')).filter(Boolean));
+    const folderAppIds = getDesktopFolderAppIds();
     const seen = new Set();
     const normalized = [];
     for (let i = items.length - 1; i >= 0; i -= 1) {
@@ -255,7 +262,7 @@ function normalizeDesktopSavedLayoutItems(items, dockItems = []) {
         if (!record || typeof record !== 'object') continue;
         const id = String(record.id || '').trim();
         if (!id || seen.has(id) || isDesktopStaticPage2AppLayoutId(id)) continue;
-        if (id.startsWith('app-') && dockAppIds.has(id.slice(4))) continue;
+        if (id.startsWith('app-') && (dockAppIds.has(id.slice(4)) || folderAppIds.has(id.slice(4)))) continue;
         const type = String(record.type || (id.startsWith('app-') ? 'app' : 'builtin'));
         const kind = String(record.kind || '');
         if (type === 'custom' && !DESKTOP_CUSTOM_WIDGET_KINDS.has(kind)) continue;
@@ -456,7 +463,9 @@ function applySavedDesktopLayout() {
     // Saved layouts intentionally preserve the user's arrangement. New built-in apps
     // therefore need an explicit migration instead of relying on the static HTML grid.
     // Keep Living World directly under PageMate on page two when an older layout lacks it.
+    const folderAppIds = getDesktopFolderAppIds();
     const hasLivingWorld = savedItems.some(item => item?.id === 'app-living-world')
+        || folderAppIds.has('living-world')
         || (Array.isArray(saved.dock) && saved.dock.includes('living-world'));
     let livingWorldAdded = false;
     if (!hasLivingWorld) {
@@ -480,6 +489,7 @@ function applySavedDesktopLayout() {
         }
     }
     const hasComic = savedItems.some(item => item?.id === 'app-comic')
+        || folderAppIds.has('comic')
         || (Array.isArray(saved.dock) && saved.dock.includes('comic'));
     let comicAdded = false;
     if (!hasComic) {

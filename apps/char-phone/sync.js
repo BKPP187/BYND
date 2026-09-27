@@ -144,6 +144,7 @@ function getWechatAiPhoneSnapshotGapSummary(snapshot, { includeDiary = true } = 
     const missing = required
         .filter(([key, , minCount = 1]) => !Array.isArray(snapshot[key]) || snapshot[key].length < minCount)
         .map(([, label, minCount = 1]) => minCount > 1 ? `${label}（需 ${minCount} 封完整信件）` : label);
+    if (snapshot.appSelectionMissing) missing.push('角色 App 列表（installedApps）');
     if ((!selected || selected.includes('wallet')) && !formatWechatAiPhoneMoneyText(snapshot.wallet)) missing.push('钱包余额');
     for (const key of snapshot.appSyncMissing || []) missing.push(getWechatAiPhoneAllApps().find(app=>app.key===key)?.label || key);
     if (selected && !missing.length) return '';
@@ -242,6 +243,7 @@ const WECHAT_AI_PHONE_DIARY_AUTO_ATTEMPTS = 3;
 function isWechatAiPhoneDiaryFollowUpDue(char) {
     const snapshot = char?.chatConfig?.aiPhoneSnapshot;
     if (!snapshot || snapshot.generatedBy !== 'api' || snapshot.schemaVersion !== WECHAT_AI_PHONE_SCHEMA_VERSION) return false;
+    if (snapshot.appSelectionMissing || (Array.isArray(snapshot.installedApps) && !snapshot.installedApps.includes('diary'))) return false;
     if (getWechatAiPhoneDiaryLetters(snapshot).length >= 2) return false;
     const attempts = Number(snapshot.diarySyncAttempts) || 0;
     if (attempts >= WECHAT_AI_PHONE_DIARY_AUTO_ATTEMPTS) return false;
@@ -410,16 +412,16 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
                     role: 'system',
                     content: `你是「${char.name}」本人手机的数据生成器。读角色卡/世界书/记忆后，按这个角色真实生活合理生成 iPhone 数据。只返回一个可 JSON.parse 的压缩 JSON 对象；不要 Markdown、不要解释、不要换行排版、不要省略号。
 基础字段：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary${preserveDiary ? '' : ',diaryLetters'}。所有业务内容都必须由你依据当前角色资料生成；前端不会用固定角色模板补齐任何缺项。
-wallet 必须是字符串且包含具体余额/可用额度数字，不要返回对象；格式示例："零钱 ¥328.60 · 工资卡可用额度 ¥12000 · 日常消费正常"。
+只有 installedApps 选中 wallet 时，wallet 才需要写含具体余额/可用额度数字的字符串，不要返回对象；格式示例："零钱 ¥328.60 · 工资卡可用额度 ¥12000 · 日常消费正常"。未选中 wallet 时返回空字符串。
 数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]${preserveDiary ? '' : '；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]'}。walletRecords.meta 必须写具体金额，例如 "-25.00"、"+8000.00" 或 "¥128.50"。
-数量：除 gameRecords 外，每个数组 2-3 条；chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。chats.name 必须是明确联系人身份或姓名，禁止写“联系人/好友/朋友/NPC/工作联系人”；chats.text 禁止写“最近一条未读消息/有一条新消息/聊天/消息”等占位文案。${preserveDiary ? '' : 'diaryLetters 2 条。'}memos.content 30-90 字；diary 30-90 字；${preserveDiary ? '' : 'diaryLetters.body 必须分为 2-4 段、总长 120-260 字；'}其他字符串 8-38 字。
+数量：只生成 installedApps 中已选应用的数据，除 gameRecords 外，已选应用每个数组 2-3 条，未选应用的数组返回 []、字符串返回空字符串。chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。chats.name 必须是明确联系人身份或姓名，禁止写“联系人/好友/朋友/NPC/工作联系人”；chats.text 禁止写“最近一条未读消息/有一条新消息/聊天/消息”等占位文案。${preserveDiary ? '' : '选中 diary 时 diaryLetters 2 条。'}memos.content 30-90 字；diary 30-90 字；${preserveDiary ? '' : '选中 diary 时 diaryLetters.body 必须分为 2-4 段、总长 120-260 字；'}其他字符串 8-38 字。
 如果【小手机代发连续性】不为空，chats 优先保留其中 1-2 个联系人/NPC，并自然续写他们在 char 手机里的下一条聊天预览。NPC 可以察觉语气变化、追问、误会、接受、顺着办理、谨慎确认或觉得不像本人，但必须按联系人身份、上下文、关系和语气灵活变化；不要每次固定说“不像你发的”。
 gameRecords 只能写这个 char 自己按人设、世界书、职业、年龄、生活方式会玩的游戏；禁止复制用户手机/桌面/BYND 小游戏库里的游戏，也不要因为用户手机里有某个游戏就让 char 玩。若角色人设明显不玩游戏，gameRecords 可以为空数组。
 【状态】只可作为时间/地点/最近上下文的参考；memos、scheduleRecords${preserveDiary ? '' : '、diaryLetters'} 禁止直接复制状态栏字段、innerMonologue、thoughts、action、miniDiary 原文，也不要写成情绪独白。
 memos 是 char 认为重要、需要自己记住或回头处理的事情；必须来自角色卡/世界书/长期记忆/最近聊天的推演，例如承诺、禁忌、任务、关系要点、职业待办。不要把状态栏、身体动作、当前心情搬进备忘录。
 scheduleRecords 必须按 char 的人设世界推演：身份/职业/阶层、时代或世界规则、当天责任、当前剧情、与 user 的关系都要影响行程。现代角色写真实日历；古风/异能/末世/架空角色也要把小手机视为 BYND 映射界面，行程内容仍遵守其世界逻辑。禁止套“整理灵感/创作录制/私密日记”等模板，除非角色资料明确支持。
-${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只更新其他手机数据，不要返回 diaryLetters，也不要重写、补写或替换已保存的信件。' : `diaryLetters 必须是 char 第一人称正式写给 user 的中文书信，不是日记、草稿、内心独白、状态复述或旁白。每封都必须由 AI 原创并完整返回 title、subtitle、meta、salutation、greeting、body、closing、wish、signature、date 十个非空字段，缺一不可；不得依赖系统补默认值。title 是结合角色身份、世界规则、关系阶段、近期事件和当天安排生成的独特信题；subtitle 是本封信独有的副题；meta 是本封信独有的简短信封信息。title/subtitle/meta 禁止使用通用模板、占位、品牌字样或 Letter From、For、Saved by、PRIVATE、BYND、FOURTEEN。salutation 只能写收信称呼，必须顶格并以中文全角冒号结尾；greeting 必须另起一段，不能与称呼合并。body 必须至少两段，在 JSON 字符串中用 \n 分隔，总长 120-260 字；必须自然结合【角色资料/世界书】中的具体身份、经历或世界规则、char 与 user 的真实关系，以及【最近聊天】里确实出现的具体话题、约定或事件。只能引用真实聊天，不得虚构、改写或替 user 补说过的话；若最近聊天没有可用事实，就明确立足角色资料、长期记忆和当前关系写角色自己的内容。正文必须用“我”对“你”写，禁止第三视角、模板段落、空泛占位、万能情话、固定套话、状态栏/innerMonologue/thoughts/action/miniDiary 复制，也不能出现“根据角色卡”“结合世界书”“最近真实聊天”等生成说明。closing 与 wish 必须分别独立成行并构成规范祝颂；signature 必须是符合角色身份的真实署名；date 必须是 YYYY年M月D日 的完整中文日期并单独成行。严禁“${char.name}希望/他把/她觉得/TA会/这个角色想”等旁白句式。禁止使用“没有发出去的话/夜里的草稿/折起来的便签/未寄出的信/私密日记/日记/草稿/便签/未命名信件”等通用信题。`}
-规则：不能空白；不能写未授权查看；不能套模板或固定低余额；不能复制用户手机/桌面/应用使用记录；所有字段必须是 char 自己手机里的数据。必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。严禁根据【最近聊天】改写、续写、概括成 user 没说过的新句子；user 聊天预览只能由系统真实聊天记录生成。${charPhoneCatalogPrompt()}${extraRule ? `\n修正：${extraRule}` : ''}`
+${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只更新其他手机数据，不要返回 diaryLetters，也不要重写、补写或替换已保存的信件。' : `仅选中 diary 时，diaryLetters 必须是 char 第一人称正式写给 user 的中文书信，不是日记、草稿、内心独白、状态复述或旁白。每封都必须由 AI 原创并完整返回 title、subtitle、meta、salutation、greeting、body、closing、wish、signature、date 十个非空字段，缺一不可；不得依赖系统补默认值。title 是结合角色身份、世界规则、关系阶段、近期事件和当天安排生成的独特信题；subtitle 是本封信独有的副题；meta 是本封信独有的简短信封信息。title/subtitle/meta 禁止使用通用模板、占位、品牌字样或 Letter From、For、Saved by、PRIVATE、BYND、FOURTEEN。salutation 只能写收信称呼，必须顶格并以中文全角冒号结尾；greeting 必须另起一段，不能与称呼合并。body 必须至少两段，在 JSON 字符串中用 \n 分隔，总长 120-260 字；必须自然结合【角色资料/世界书】中的具体身份、经历或世界规则、char 与 user 的真实关系，以及【最近聊天】里确实出现的具体话题、约定或事件。只能引用真实聊天，不得虚构、改写或替 user 补说过的话；若最近聊天没有可用事实，就明确立足角色资料、长期记忆和当前关系写角色自己的内容。正文必须用“我”对“你”写，禁止第三视角、模板段落、空泛占位、万能情话、固定套话、状态栏/innerMonologue/thoughts/action/miniDiary 复制，也不能出现“根据角色卡”“结合世界书”“最近真实聊天”等生成说明。closing 与 wish 必须分别独立成行并构成规范祝颂；signature 必须是符合角色身份的真实署名；date 必须是 YYYY年M月D日 的完整中文日期并单独成行。严禁“${char.name}希望/他把/她觉得/TA会/这个角色想”等旁白句式。禁止使用“没有发出去的话/夜里的草稿/折起来的便签/未寄出的信/私密日记/日记/草稿/便签/未命名信件”等通用信题。`}
+规则：已选应用不能空白，未选应用必须留空；不能写未授权查看；不能套模板或固定低余额；不能复制用户手机/桌面/应用使用记录；所有字段必须是 char 自己手机里的数据。必须从【角色资料】里提取这个 char 的真实身份、职业、经济水平、世界观、关系网和说话风格，再定制生成。副市长/公务员/政务角色要写政务会议、规划院/文旅/民生/调研/上会/公文/舆情等痕迹，禁止写成偶像妆发舞台粉丝营业；只有角色资料明确是偶像/艺人时才写经纪、妆造、舞台、粉丝运营、品牌/录音/拍摄。没有明写手机记录也要基于人设合理创作。userRemark 是角色在自己手机里给用户存的备注，不是用户设置里的称呼。严禁根据【最近聊天】改写、续写、概括成 user 没说过的新句子；user 聊天预览只能由系统真实聊天记录生成。${charPhoneCatalogPrompt()}${extraRule ? `\n修正：${extraRule}` : ''}`
                 },
                 {
                     role: 'user',
@@ -465,7 +467,7 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
                 if ((!result || !result.ok) && /空内容/.test(String(result && result.error || ''))) {
                     repairUsed = true;
                     result = await callChatApi(
-                        buildMessages('上一次响应没有 JSON 正文。现在必须直接输出一个 minified JSON 对象，禁止 thinking、reasoning、分析、解释、Markdown。每组数组最多 2 条；' + (preserveDiary ? '不要返回 diaryLetters。' : '非信件字符串可以更短，但 diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信。')),
+                        buildMessages('上一次响应没有 JSON 正文。现在必须直接输出一个 minified JSON 对象，禁止 thinking、reasoning、分析、解释、Markdown。每组数组最多 2 条；' + (preserveDiary ? '不要返回 diaryLetters。' : '非信件字符串可以更短；先返回 installedApps，只生成已选 App 的内容；选中 diary 时，diaryLetters 仍须返回 2 封各含十个字段、正文至少两段的完整正式书信。')),
                         { ...phoneApiOptions, temperature: 0.42 }
                     );
                 }
@@ -571,6 +573,7 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
 function openWechatAiPhone(charId) {
     const char = (window.myCharacters || []).find(c => c.id === charId);
     if (!char) return;
+    if(typeof beginCharPhoneViewing==='function')beginCharPhoneViewing(char);
     window._wechatAiPhoneOpenCharId = charId;
     window._wechatAiPhoneTab = 'home';
     window._wechatAiPhoneChatIndex = 0;

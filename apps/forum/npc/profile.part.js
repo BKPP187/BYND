@@ -36,4 +36,20 @@
         } catch (error) { showToast(error.message); }
     }
     function toggleLike(postId) { vote(postId, 1); }
-    function toggleBookmark(postId) { const who = viewer().id; try { mutate(next => { const post = next.posts.find(item => item.id === postId); if (!post || post.deletedAt || !isVisible(post, who)) throw new Error('帖子不可访问。'); post.bookmarkedBy = safeList(post.bookmarkedBy); const index = post.bookmarkedBy.indexOf(who); if (index >= 0) { post.bookmarkedBy.splice(index, 1); post.bookmarks = Math.max(0, Number(post.bookmarks || 0) - 1); } else { post.bookmarkedBy.push(who); post.bookmarks = Number(post.bookmarks || 0) + 1; recordForumAction(next, 'forum_bookmark', who, postId, {}, 'medium', 'private'); } }); render(); } catch (error) { showToast(error.message); } }
+    function toggleBookmark(postId) {
+        const who = viewer().id;
+        const removing = safeList(loadState().posts.find(item => item.id === postId)?.bookmarkedBy).includes(who);
+        try {
+            mutate(next => {
+                const post = next.posts.find(item => item.id === postId);
+                if (!post || post.deletedAt || !isVisible(post, who)) throw new Error('帖子不可访问。');
+                const saved = new Set(safeList(post.bookmarkedBy));
+                if (removing) saved.delete(who); else saved.add(who);
+                post.bookmarkedBy = [...saved]; post.bookmarks = Math.max(0, Number(post.bookmarks || 0) + (removing ? -1 : 1));
+                if (!removing) recordForumAction(next, 'forum_bookmark', who, postId, {}, 'medium', 'private');
+            }); render();
+            if (removing) window.ByndUndo?.offer({ label: '已移除论坛收藏', undo: () => {
+                mutate(next => { const post = next.posts.find(item => item.id === postId); if (!post || post.deletedAt || !isVisible(post, who)) throw new Error('帖子已不可访问'); if (!safeList(post.bookmarkedBy).includes(who)) { post.bookmarkedBy = [...safeList(post.bookmarkedBy), who]; post.bookmarks = Number(post.bookmarks || 0) + 1; } }); render(); return true;
+            } });
+        } catch (error) { showToast(error.message); }
+    }

@@ -332,7 +332,7 @@ test('check-ins persist mood, progress and notes and a failed card save reports 
     assert.equal(h.context.getStudyCards().length, 0, 'nothing was written');
 });
 
-test('the word book editor creates and updates cards and deletion asks first', () => {
+test('the word book editor creates and updates cards and deletion can be undone without losing later cards', () => {
     const h = harness();
     h.S.init();
     h.S.setTab('words');
@@ -352,11 +352,15 @@ test('the word book editor creates and updates cards and deletion asks first', (
     assert.equal(cards[0].lines.ja, 'ありがとうございます');
     assert.equal(cards.length, 3);
     h.state.confirmAnswer = false;
-    h.S.deleteCard(cards[0].id);
-    assert.equal(h.context.getStudyCards().length, 3);
-    h.state.confirmAnswer = true;
+    let action;
+    h.context.window.ByndUndo = { offer: value => { action = value; } };
     h.S.deleteCard(cards[0].id);
     assert.equal(h.context.getStudyCards().length, 2);
+    const later = { id: 'later', lines: { ja: 'またね' }, note: '', createdAt: Date.now() };
+    h.context.saveStudyCards([...h.context.getStudyCards(), later]);
+    assert.equal(action.undo(), true);
+    assert.equal(h.context.getStudyCards().length, 4);
+    assert.ok(h.context.getStudyCards().some(item => item.id === later.id));
 });
 
 test('without any character the chat explains what to do and never calls the API', async () => {

@@ -29,7 +29,21 @@ function getWechatAiPhoneApps(char = null, snapshot = null) {
     const apps = getWechatAiPhoneAllApps();
     const installed = snapshot?.installedApps;
     if (Array.isArray(installed)) return apps.filter(app => installed.includes(app.key) || ['chat','settings'].includes(app.key)).map(app => ({...app,label:snapshot.appData?.[app.key]?.name || app.label}));
-    return apps.filter(app => app.key !== 'games' || shouldWechatAiPhoneShowGames(char, snapshot));
+    // An app catalog is not an installation list. Until the model chooses,
+    // show a small provisional desktop without assigning a lifestyle.
+    if (!snapshot?.appSelectionMissing && ['api','error'].includes(snapshot?.generatedBy)) {
+        const fields = {memo:'memos',schedule:'scheduleRecords',shopping:'shoppingRecords',takeout:'takeoutRecords',games:'gameRecords',browser:'browser',wallet:'walletRecords',diary:'diaryLetters',footprints:'footprints',usage:'usageRecords'};
+        const saved = apps.filter(app => {
+            if (['chat','settings'].includes(app.key)) return true;
+            const rows = snapshot[fields[app.key]];
+            if (Array.isArray(rows) && rows.length && (app.key !== 'games' || shouldWechatAiPhoneShowGames(char,snapshot))) return true;
+            if (app.key==='wallet' && /\d/.test(String(snapshot.wallet||''))) return true;
+            return Array.isArray(snapshot.appData?.[app.key]?.items) && snapshot.appData[app.key].items.length>0;
+        });
+        // Keep legacy saved content accessible; do not invent empty apps.
+        if (saved.length>2) return saved.map(app=>({...app,label:snapshot.appData?.[app.key]?.name||app.label}));
+    }
+    return apps.filter(app=>['chat','memo','schedule','browser','clock','settings'].includes(app.key)).map(app=>({...app,pending:!['chat','clock','settings'].includes(app.key)}));
 }
 
 function getWechatAiPhoneAppMeta(tabName, char = null, snapshot = null) {
@@ -45,7 +59,7 @@ function renderWechatAiPhoneAppIcon(app, char) {
 
 function renderWechatAiPhoneAppButton(app, char) {
     return `
-        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone}" onclick="switchWechatAiPhoneTab('${app.key}')" aria-label="${wcEscapeAttr(app.label)}">
+        <button type="button" class="wc-ai-phone-app-icon tone-${app.tone} ${app.pending?'is-pending':''}" onclick="switchWechatAiPhoneTab('${app.key}')" aria-label="${wcEscapeAttr(app.label)}" ${app.pending?'title="待角色生成"':''}>
             ${renderWechatAiPhoneAppIcon(app, char)}
             <b>${wcEscapeHtml(app.label)}</b>
         </button>
