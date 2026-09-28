@@ -361,6 +361,7 @@ function scheduleDesktopVisibleLayoutRepair(options = {}) {
 function exitEditMode(saveChanges) {
     if (!window._editMode) return;
     window._editMode = false;
+    if (typeof closeFolderOverlay === 'function') closeFolderOverlay();
     document.getElementById('home-screen')?.classList.remove('desktop-editing');
     clearDesktopEditChrome();
     resetDesktopInteractionStateAfterEdit();

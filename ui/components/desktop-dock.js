@@ -741,7 +741,9 @@ function startDesktopItemDrag(e) {
             clearPendingFolderMergeTarget();
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
-            openFolder(item.dataset.folderId);
+            // Open after the synthetic click from a touch release. Otherwise
+            // that click can land on the new backdrop and close it immediately.
+            setTimeout(() => { if (window._editMode && item.isConnected) openFolder(item.dataset.folderId); }, 0);
             return;
         }
         if (isAppIcon && (isPointInsideDesktopDock(point) || pendingDockIndex >= 0)) {

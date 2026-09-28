@@ -135,7 +135,27 @@ fs.mkdirSync(output, { recursive: true });
             await page.waitForTimeout(250);
             assert.equal(await page.locator('#folder-overlay').evaluate(el => el.classList.contains('hidden')), false);
             assert.deepEqual((await page.locator('#folder-grid .folder-grid-item').evaluateAll(items => items.map(item => item.dataset.appId))).sort(), ['dream', 'living-world', 'monitor']);
+            assert.equal(await page.locator('#folder-overlay .folder-size-toggle, #folder-overlay .folder-move-out-btn, #folder-overlay .folder-resize-handle').count(), 0,
+                'normal viewing does not expose folder editing controls');
             await page.screenshot({ path: path.join(output, touch ? 'folder-open-touch.png' : 'folder-open-mouse.png') });
+            await page.evaluate(id => {
+                const before = window._folders.find(folder => folder.id === id).size;
+                toggleDesktopFolderSize(id);
+                if (window._folders.find(folder => folder.id === id).size !== before) throw new Error('folder size changed outside edit mode');
+                closeFolderOverlay(); enterEditMode(); goToDesktopPage(1);
+            }, created.folder.id);
+            if (touch) await folderLocator.tap(); else await folderLocator.click();
+            await page.waitForTimeout(150);
+            assert.equal(await page.locator('#folder-overlay').evaluate(el => el.classList.contains('hidden')), false,
+                'folder editing controls are shown in the open folder');
+            assert.equal(await page.locator('#folder-overlay .folder-size-toggle').isVisible(), true);
+            assert.equal(await page.locator('#folder-overlay .folder-size-toggle').count(), 1);
+            assert.equal(await page.locator('#folder-overlay .folder-move-out-btn').count(), 3);
+            assert.equal(await page.locator('#folder-overlay .folder-resize-handle').count(), 1);
+            await page.screenshot({ path: path.join(output, touch ? 'folder-edit-touch.png' : 'folder-edit-mouse.png') });
+            await page.evaluate(() => exitEditMode(true));
+            assert.equal(await page.locator('#folder-overlay').evaluate(el => el.classList.contains('hidden')), true,
+                'leaving edit mode closes an open folder with editing controls');
             assert.deepEqual(errors, []); checks.push({ touch, created, saved, errors });
             if (cdp) await cdp.detach(); await context.close();
         }

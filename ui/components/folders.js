@@ -197,6 +197,7 @@ function ensureFolderResizeHandle(popup) {
 }
 
 function startFolderPopupResize(e) {
+    if (!window._editMode) return;
     const popup = e.currentTarget.closest('.folder-popup');
     const overlay = popup?.closest('.folder-overlay');
     const folderId = popup?.dataset.folderId;
@@ -257,7 +258,8 @@ function openFolder(folderId) {
     popup.classList.toggle('large-folder', folder.size === 'large');
     overlay.classList.toggle('folder-editing', isEditing);
     applyFolderPopupSize(folder, popup);
-    ensureFolderResizeHandle(popup);
+    if (isEditing) ensureFolderResizeHandle(popup);
+    else popup.querySelector('.folder-resize-handle')?.remove();
     nameInput.value = folder.name;
     nameInput.oninput = () => {
         folder.name = nameInput.value.trim() || '文件夹';
@@ -265,12 +267,12 @@ function openFolder(folderId) {
         syncDesktopFolderIcon(folderId);
     };
 
-    grid.innerHTML = `
+    grid.innerHTML = isEditing ? `
         <button type="button" class="folder-size-toggle" onclick="event.stopPropagation();toggleDesktopFolderSize('${desktopEscapeAttr(folderId)}')">
             <i class="${folder.size === 'large' ? 'ri-collapse-diagonal-line' : 'ri-expand-diagonal-line'}"></i>
             <span>${folder.size === 'large' ? '小文件夹' : '大文件夹'}</span>
         </button>
-    `;
+    ` : '';
     getDesktopFolderApps(folder).forEach(app => {
         const item = document.createElement('div');
         item.className = 'app-item folder-grid-item';
@@ -288,9 +290,9 @@ function openFolder(folderId) {
         item.innerHTML = `
             <div class="app-icon icon-black">${renderDesktopAppIcon(app)}</div>
             <span>${desktopEscapeHtml(app.name)}</span>
-            <button type="button" class="folder-move-out-btn" aria-label="移出到桌面">
+            ${isEditing ? `<button type="button" class="folder-move-out-btn" aria-label="移出到桌面">
                 <i class="ri-logout-box-r-line"></i>
-            </button>
+            </button>` : ''}
         `;
         item.querySelector('.folder-move-out-btn')?.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -311,6 +313,7 @@ function closeFolderOverlay(e) {
 }
 
 function toggleDesktopFolderSize(folderId) {
+    if (!window._editMode) return;
     const folder = window._folders.find(f => f.id === folderId);
     if (!folder) return;
     folder.size = folder.size === 'large' ? 'small' : 'large';
