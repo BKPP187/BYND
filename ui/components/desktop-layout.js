@@ -649,6 +649,20 @@ function getDesktopFlowSlotRects(pageArea) {
         } else {
             for (let top = minTop; top + m.iconHeight <= maxBottom; top += step) availableRows.push(top);
         }
+        // On a narrow screen a saved row can start slightly below the widget's
+        // first usable cell (for example 400px instead of 328px). Preserving
+        // that old phase then reports only two rows, although three fit in the
+        // 590px canvas. Rephase only when every cell in the compact grid is
+        // clear of components; the normal overlap repair snaps existing icons
+        // into the new grid before a transfer or drag begins.
+        if (minTop > m.startY && availableRows.length < capacity) {
+            const compactRows = Array.from({ length: capacity }, (_, index) => minTop + index * step);
+            const allCellsClear = compactRows.every(top => Array.from({ length: m.columns }, (_, col) => ({
+                left: Math.round(m.startX + col * (m.iconWidth + m.gapX)),
+                top: Math.round(top), width: m.iconWidth, height: m.iconHeight
+            })).every(rect => widgets.every(widget => desktopAppRectsHaveClearance(rect, widget))));
+            if (allCellsClear) availableRows.splice(0, availableRows.length, ...compactRows);
+        }
         availableRows.sort((a, b) => a - b);
         for (const top of availableRows) {
             for (let col = 0; col < m.columns; col++) {

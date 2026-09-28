@@ -12,8 +12,18 @@ function harness(width = 375, height = 590) {
     vm.runInContext(sourceSection('ui/components/desktop-layout.js', 'function getDesktopFlowSlotRects(', 'function getNearestDesktopFlowSlotIndex('), context);
     vm.runInContext(sourceSection('ui/components/desktop-layout.js', 'function desktopAppRectsHaveClearance(', 'function findDesktopComicBesidePetRect('), context);
     vm.runInContext(sourceSection('ui/components/desktop-widgets.js', 'function getDesktopTransferFootprint(', 'function promptDesktopMovePage('), context);
-    return { node, items, area, find: item => context.findDesktopTransferRect(area, item), clear: context.desktopAppRectsHaveClearance };
+    return { node, items, area, slots: () => context.getDesktopFlowSlotRects(area), find: item => context.findDesktopTransferRect(area, item), clear: context.desktopAppRectsHaveClearance };
 }
+test('mobile saved rows below a wide widget expose all three possible rows', () => {
+    const h = harness(384, 590);
+    h.items.push(h.node({ left: 17, top: 72, width: 349, height: 248 }, false));
+    for (const top of [400, 500]) for (const left of [12, 108, 204, 300]) h.items.push(h.node({ left, top, width: 72, height: 82 }));
+    const before = JSON.stringify(h.items);
+    const slots = h.slots();
+    assert.equal(slots.length, 12);
+    assert.deepEqual([...new Set(slots.map(slot => slot.top))], [328, 418, 508]);
+    assert.equal(JSON.stringify(h.items), before, 'slot discovery does not mutate the saved layout');
+});
 test('cross-screen placement fills an icon-row hole instead of covering the header photo', () => {
     const h = harness();
     h.items.push(h.node({ left: 18, top: 30, width: 339, height: 248 }, false));
