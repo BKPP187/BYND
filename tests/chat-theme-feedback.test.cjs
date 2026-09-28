@@ -45,7 +45,7 @@ test('voice mode stays in the composer, monitor text is bounded, and the poke he
     assert.match(source, /stripWechatPromptText\(phrase, 72\)/);
     assert.doesNotMatch(html, /填写“的”后面的内容/);
     assert.match(css, /\.wc-message-island-text span\s*\{[\s\S]*?-webkit-line-clamp: 2/);
-    assert.match(css, /\.wc-monitor-barrage span\s*\{[\s\S]*?white-space: normal/);
+    assert.match(css, /\.wc-monitor-comment-text\s*\{[\s\S]*?white-space: normal/);
 });
 
 test('Rednote and WeChat composers keep compact controls while voice transcription stays available', () => {

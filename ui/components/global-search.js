@@ -50,11 +50,15 @@
         if (!phone) return;
         const previous = document.activeElement;
         const panel = document.createElement('section'); panel.id = 'bynd-global-search'; panel.className = 'bynd-search-panel'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-label', '全局搜索');
+        const sheet = document.createElement('div'); sheet.className = 'bynd-search-sheet';
         const head = document.createElement('div'); head.className = 'bynd-search-head';
+        const field = document.createElement('label'); field.className = 'bynd-search-field';
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); icon.setAttribute('class', 'bynd-search-leading'); icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>';
         const input = document.createElement('input'); input.type = 'search'; input.placeholder = '应用、气泡、Token、世界书…'; input.setAttribute('aria-label', '搜索全部应用、设置和内容'); input.value = initial;
         const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
         const results = document.createElement('div'); results.className = 'bynd-search-results'; results.setAttribute('aria-live', 'polite');
-        head.append(input, cancel); panel.append(head, results); phone.appendChild(panel);
+        field.append(icon, input); head.append(field, cancel); sheet.append(head, results); panel.append(sheet); phone.appendChild(panel);
         let generation = 0, debounce;
         const close = () => { generation++; clearTimeout(debounce); panel.remove(); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
         const note = text => { results.replaceChildren(); const p = document.createElement('p'); p.textContent = text; results.appendChild(p); };
@@ -67,18 +71,21 @@
                 if (own !== generation || !panel.isConnected) return;
                 if (!items.length) { note(items.partialErrors?.length ? `${items.partialErrors.join('、')}暂时无法读取，请稍后重试。` : '还没找到这件东西，换个词试试。'); return; }
                 results.replaceChildren();
+                const summary = document.createElement('div'); summary.className = 'bynd-search-summary'; summary.textContent = `搜索结果 · ${items.length}`; results.appendChild(summary);
                 if (items.partialErrors?.length) { const warning = document.createElement('p'); warning.textContent = `${items.partialErrors.join('、')}暂时无法读取，其余结果仍可打开。`; results.appendChild(warning); }
                 items.forEach(item => {
                     const button = document.createElement('button'); button.type = 'button'; button.className = 'bynd-search-result';
                     const title = document.createElement('strong'); title.textContent = item.title;
                     const detail = document.createElement('small'); detail.textContent = item.detail || '';
-                    button.append(title, detail); results.appendChild(button);
+                    const arrow = document.createElement('span'); arrow.className = 'bynd-search-arrow'; arrow.textContent = '↗'; arrow.setAttribute('aria-hidden', 'true');
+                    button.append(title, detail, arrow); results.appendChild(button);
                     button.addEventListener('click', async () => { close(); try { await item.run(); } catch (error) { console.warn('搜索跳转失败', error); window.showWechatToast?.('打开失败，请稍后重试'); } });
                 });
             } catch (error) { if (own === generation) note('有些内容暂时读不到，请稍后重试。'); console.warn('全局搜索读取失败', error); }
         };
         input.addEventListener('input', () => { generation++; clearTimeout(debounce); debounce = setTimeout(render, 120); });
         cancel.addEventListener('click', close);
+        panel.addEventListener('click', event => { if (event.target === panel) close(); });
         panel.addEventListener('keydown', event => {
             if (event.key === 'Escape') { event.preventDefault(); close(); }
             if (event.key === 'Tab') {
