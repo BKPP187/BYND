@@ -46,6 +46,11 @@ const RULES = [
         let next = text.replace(/versionName '[^']+'/, `versionName '${v}'`);
         if (bumped) next = next.replace(/versionCode (\d+)/, (_, code) => `versionCode ${Number(code) + 1}`);
         return next;
+    }],
+    ['ios/BYND.xcodeproj/project.pbxproj', (text, v) => {
+        const androidCode = read('android/app/build.gradle').match(/versionCode (\d+)/)?.[1];
+        return text.replace(/MARKETING_VERSION = \d+\.\d+\.\d+;/g, `MARKETING_VERSION = ${v};`)
+            .replace(/CURRENT_PROJECT_VERSION = \d+;/g, `CURRENT_PROJECT_VERSION = ${androidCode};`);
     }]
 ];
 
