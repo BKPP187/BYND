@@ -170,6 +170,49 @@
 .desktop-layout-item.is-folder.folder-small-icon .app-icon { grid-template-columns: repeat(2, 18px) !important; grid-template-rows: repeat(2, 18px) !important; place-content: center !important; gap: 4px !important; padding: 5px !important; overflow: hidden !important; }
 .desktop-layout-item.is-folder.folder-small-icon .folder-mini-icon { width: 18px !important; height: 18px !important; aspect-ratio: auto; border-radius: 5px; }
 .desktop-layout-item.is-folder > span { width: 100%; max-width: 100% !important; margin-top: 4px; align-self: center; text-align: center; font-size: 12px; }
+/* A small folder occupies the same icon and caption cell as a regular app. */
+.desktop-layout-item.layout-app.is-folder.folder-small-icon {
+    box-sizing: border-box;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    justify-content: center;
+    gap: 5px;
+}
+.desktop-layout-item.layout-app.is-folder.folder-small-icon > .app-icon {
+    box-sizing: border-box;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    max-width: 48px !important;
+    max-height: 48px !important;
+    flex: 0 0 48px !important;
+    grid-template-columns: repeat(2, 19px) !important;
+    grid-template-rows: repeat(2, 19px) !important;
+    gap: 2px !important;
+    padding: 4px !important;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.82) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+.desktop-layout-item.layout-app.is-folder.folder-small-icon .folder-mini-icon {
+    width: 19px !important;
+    height: 19px !important;
+    border-radius: 4px;
+    background: transparent;
+}
+.desktop-layout-item.layout-app.is-folder.folder-small-icon > span {
+    height: 27px;
+    min-height: 27px;
+    flex: 0 0 27px;
+    margin-top: 0;
+    font: inherit;
+}
 .desktop-layout-item.desktop-folder-created .app-icon { animation: desktopFolderCreated 0.38s cubic-bezier(0.2, 0.9, 0.2, 1); }
 .folder-resize-handle { position: absolute; right: 8px; bottom: 8px; width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(255,255,255,0.94); color: #6b7280; box-shadow: 0 8px 18px rgba(15,23,42,0.14); display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: nwse-resize; touch-action: none; z-index: 3; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

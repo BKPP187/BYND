@@ -169,7 +169,12 @@ function normalizeDesktopLayoutRect(item, pageArea) {
 function prepareDesktopLayoutItem(item, pageArea, rect) {
     if (!item || !pageArea) return;
     const id = getDesktopItemId(item);
-    const safeRect = clampDesktopLayoutRect(projectDesktopLayoutRect(rect, pageArea.clientWidth), pageArea);
+    const projectedRect = projectDesktopLayoutRect(rect, pageArea.clientWidth);
+    const isSmallFolder = item.classList.contains('is-folder') && !item.classList.contains('folder-large-icon');
+    const metrics = isSmallFolder ? getDesktopFourColumnAppGridMetrics(pageArea) : null;
+    const safeRect = clampDesktopLayoutRect(metrics
+        ? { ...projectedRect, width: metrics.iconWidth, height: metrics.iconHeight }
+        : projectedRect, pageArea);
     if (pageArea.clientWidth > 0) pageArea._byndLayoutWidth = pageArea.clientWidth;
     else if (rect.canvasWidth > 0) pageArea._byndLayoutWidth = rect.canvasWidth;
     item.dataset.layoutId = id;
@@ -384,7 +389,7 @@ function setupDesktopLayoutItem(item) {
 
 function addDesktopItemControls(item) {
     item.querySelectorAll(':scope > .desktop-resize-handle, :scope > .desktop-item-center, :scope > .desktop-item-move-page, :scope > .desktop-item-delete').forEach(el => el.remove());
-    if (!item.classList.contains('layout-app') || item.classList.contains('is-folder')) {
+    if (!item.classList.contains('layout-app') || item.classList.contains('folder-large-icon')) {
         const resize = document.createElement('div');
         resize.className = 'desktop-resize-handle';
         resize.setAttribute('role', 'button');
