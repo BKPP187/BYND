@@ -80,17 +80,13 @@
         // A Sprite ignores its parent's orientation. Furniture poses instead use
         // world-space planes: upright at a seat, horizontal along a mattress.
         const poseMaterial = new T.MeshBasicMaterial({ map: texture, alphaTest: 0.025, side: T.DoubleSide, toneMapped: false });
-        const surface = new T.Mesh(new T.PlaneGeometry(1, 1, 1, 12), poseMaterial); surface.visible = false;
+        const surface = new T.Mesh(new T.PlaneGeometry(1, 1, 1, 20), poseMaterial); surface.visible = false;
         surface.userData.ownedMaterial = poseMaterial; body.add(surface);
         if (sleepTexture) surface.userData.ownedTexture = sleepTexture;
-        const legTexture = texture.clone(); legTexture.needsUpdate = true; legTexture.repeat.set(1, 0.35);
-        const legMaterial = new T.MeshBasicMaterial({ map: legTexture, alphaTest: 0.025, side: T.DoubleSide, toneMapped: false });
-        const feet = new T.Mesh(new T.PlaneGeometry(1, 1), legMaterial); feet.visible = false;
-        feet.userData.ownedTexture = legTexture; feet.userData.ownedMaterial = legMaterial; body.add(feet);
         const head = new T.Group(); body.add(head);
         const groups = () => [new T.Group(), new T.Group()];
         root.userData.actor = who;
-        return { who, root, body, head, arms: groups(), legs: groups(), eyes: [], phone: new T.Group(), book: new T.Group(), cup: new T.Group(), sprite, surface, feet, sleepTexture, spriteMaterial: material, portraitWidth: sprite.scale.x, visual: 'portrait', action: 'Idle', path: [], destination: null, anchor: null, startedAt: 0 };
+        return { who, root, body, head, arms: groups(), legs: groups(), eyes: [], phone: new T.Group(), book: new T.Group(), cup: new T.Group(), sprite, surface, sleepTexture, spriteMaterial: material, portraitWidth: sprite.scale.x, visual: 'portrait', action: 'Idle', path: [], destination: null, anchor: null, startedAt: 0 };
     }
     function pose(actor, action, anchor) {
         actor.action = action; actor.anchor = anchor || null; actor.startedAt = performance.now();
@@ -100,21 +96,23 @@
         actor.phone.visible = action === 'Use Phone'; actor.book.visible = action === 'Read'; actor.cup.visible = ['Drink', 'Eat'].includes(action);
         if (actor.sprite) {
             const seated = anchor?.seated && !anchor.lying;
-            actor.spriteMaterial.map.offset.set(0, seated ? 0.35 : 0);
-            actor.spriteMaterial.map.repeat.set(1, seated ? 0.65 : 1);
+            actor.spriteMaterial.map.offset.set(0, 0);
+            actor.spriteMaterial.map.repeat.set(1, 1);
             actor.spriteMaterial.rotation = 0;
             actor.surface.material.map = action === 'Sleep' && actor.sleepTexture ? actor.sleepTexture : actor.spriteMaterial.map;
             actor.sprite.visible = !seated && !anchor?.lying;
-            actor.surface.visible = !!(seated || anchor?.lying); actor.feet.visible = !!seated;
+            actor.surface.visible = !!(seated || anchor?.lying);
             actor.surface.rotation.set(0, 0, 0);
             const vertices = actor.surface.geometry.attributes.position;
-            for (let i = 0; i < vertices.count; i++) vertices.setZ(i, 0);
+            const uv = actor.surface.geometry.attributes.uv;
+            for (let i = 0; i < vertices.count; i++) vertices.setXYZ(i, uv.getX(i) - .5, uv.getY(i) - .5, 0);
             vertices.needsUpdate = true;
             if (seated) {
-                const width = Math.min(actor.portraitWidth, anchor.poseWidth || actor.portraitWidth), height = 0.962;
-                actor.surface.scale.set(width, height, 1); actor.surface.position.set(0, height / 2, 0);
-                const legHeight = Math.min(0.48, Math.max(0.12, anchor.y - 0.07));
-                actor.feet.rotation.set(0, 0, 0); actor.feet.scale.set(width, legHeight, 1); actor.feet.position.set(0, -legHeight / 2, anchor.seatFront || 0);
+                const width = Math.min(actor.portraitWidth, anchor.poseWidth || actor.portraitWidth);
+                actor.seatedHeight = 1.48 * width / actor.portraitWidth;
+                actor.surface.scale.set(1, 1, 1); actor.surface.position.set(0, .018, 0);
+                actor.seatedWidth = width;
+                seatedSurface(actor, 0);
             } else if (anchor?.lying) {
                 const ratio = actor.portraitWidth / 1.48, width = Math.min((anchor.poseLength || 1.7) * ratio, anchor.poseWidth || 1), length = width / ratio;
                 actor.surface.scale.set(width, length, 1); actor.surface.rotation.x = -Math.PI / 2;
@@ -139,17 +137,37 @@
         if (action === 'Hug') actor.arms.forEach((arm, i) => { arm.rotation.x = -1.1; arm.rotation.z = i ? 0.42 : -0.42; });
         if (['Wave', 'Happy'].includes(action)) { actor.arms[1].rotation.z = -2.25; }
     }
+    function seatedSurface(actor, yaw) {
+        const positions = actor.surface.geometry.attributes.position, uv = actor.surface.geometry.attributes.uv;
+        const height = actor.seatedHeight, front = actor.anchor.seatFront || .14;
+        const drop = Math.min(height * .25, Math.max(.12, actor.anchor.y - .09));
+        // One UV surface joins torso -> lap -> knees -> shins. Rotating only the
+        // torso used to leave a furniture-sized gap between two separate images.
+        // Blend the lap into the furniture frame so the feet stay beyond its edge.
+        const turn = Math.atan(Math.tan(yaw));
+        for (let i = 0; i < positions.count; i++) {
+            const v = uv.getY(i), x = (uv.getX(i) - .5) * actor.seatedWidth;
+            const bend = Math.max(0, Math.min(1, (v - .25) / .10));
+            const angle = turn * bend;
+            const y = v >= .35 ? (v - .35) * height : v >= .25 ? 0 : (v / .25 - 1) * drop;
+            const z = v >= .35 ? 0 : v >= .25 ? (1 - bend) * front : front;
+            positions.setXYZ(i, x * Math.cos(angle), y, z - x * Math.sin(angle));
+        }
+        positions.needsUpdate = true; actor.surface.geometry.computeBoundingSphere();
+    }
     function faceCamera(actor, camera) {
         if (!actor.surface?.visible || actor.anchor?.lying) return;
         const direction = actor.cameraDirection || (actor.cameraDirection = new ByndHomeEngine.Vector3()); camera.getWorldDirection(direction);
         const yaw = Math.atan2(-direction.x, -direction.z) - actor.root.rotation.y;
-        actor.surface.rotation.y = yaw;
+        seatedSurface(actor, yaw);
     }
     function geometry(actor) {
         if (!actor.surface?.visible) return { kind: 'standing' };
         const T = ByndHomeEngine; actor.root.updateWorldMatrix(true, true);
         const point = (mesh, y, z = 0) => { const p = mesh.localToWorld(new T.Vector3(0, y, z)); return { x: p.x, y: p.y, z: p.z }; };
-        return { kind: actor.anchor?.lying ? 'lying' : 'seated', eyesClosed: actor.action === 'Sleep' && !!actor.sleepTexture, head: point(actor.surface, .5, actor.anchor?.lying ? actor.anchor.headLift || 0 : 0), feet: actor.feet.visible ? point(actor.feet, -.5) : point(actor.surface, -.5), depthTest: actor.surface.material.depthTest, width: actor.surface.scale.x, length: actor.surface.scale.y };
+        const seated = actor.anchor?.seated && !actor.anchor.lying;
+        const drop = seated ? Math.min(actor.seatedHeight * .25, Math.max(.12, actor.anchor.y - .09)) : 0;
+        return { kind: actor.anchor?.lying ? 'lying' : 'seated', eyesClosed: actor.action === 'Sleep' && !!actor.sleepTexture, head: point(actor.surface, seated ? actor.seatedHeight * .65 : .5, actor.anchor?.lying ? actor.anchor.headLift || 0 : 0), feet: point(actor.surface, seated ? -drop : -.5, seated ? actor.anchor.seatFront || .14 : 0), depthTest: actor.surface.material.depthTest, width: seated ? actor.seatedWidth : actor.surface.scale.x, length: seated ? actor.seatedHeight : actor.surface.scale.y };
     }
     H.Characters = { create, createPortrait, pose, faceCamera, geometry, defaultProfile, validateProfile };
 })(window.ByndHome3D);

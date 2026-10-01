@@ -117,7 +117,7 @@
                 const actor = await H.Characters.createPortrait(portrait, who);
                 if (disposed || token !== generation) { H.Shapes.disposeGeometry(actor.root); return false; }
                 actor.root.position.set(who === 'user' ? 1.25 : -0.8, 0.07, 1.6); targetGroup.add(actor.root);
-                if (materials.night) for (const material of [actor.spriteMaterial, actor.surface.material, actor.feet.material]) material.color.set('#dcd3d4');
+                if (materials.night) for (const material of [actor.spriteMaterial, actor.surface.material]) material.color.set('#dcd3d4');
                 if (who === 'char' && activity.room !== roomId) actor.root.visible = false;
                 actors.push(actor);
             }

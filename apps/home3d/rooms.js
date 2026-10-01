@@ -125,7 +125,9 @@
             poseLength = item.footprint[0] - .5; poseWidth = item.footprint[1] * .63;
             headOffset = -poseLength / 2; headLift = .06;
         }
-        if (action === 'Hug') offset[0] = actor === 'user' ? .25 : -.25;
+        // Keep each person on their own cushion. Compressing the two portrait
+        // roots to +/- .25 made the heads and bodies occupy the same space.
+        if (action === 'Hug' && item.type !== 'sofa') offset[0] = actor === 'user' ? .25 : -.25;
         return { placementId: placement.id, x: placement.position[0] + offset[0] * Math.cos(r) + offset[2] * Math.sin(r), y: placement.position[1] + offset[1] + (seated || lying ? 0 : .07), z: placement.position[2] - offset[0] * Math.sin(r) + offset[2] * Math.cos(r), rotation, lying, seated, poseWidth, poseLength, headOffset, headLift, seatFront };
     }
     function approaches(placement) {

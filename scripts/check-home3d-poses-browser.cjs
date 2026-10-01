@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
 (async () => {
     await new Promise(resolve => server.listen(8795, '127.0.0.1', resolve));
     const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); const errors = [], checks = [];
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); const errors = [], checks = [], occlusionChecks = [];
     page.on('pageerror', e => errors.push(e.message));
     const ready = () => page.waitForFunction(() => ByndHome3D.runtime?.stats().actors.length === 2 && !document.querySelector('.home3d-scene.is-loading'));
     const load = async (room, action, target, theme = 'cream') => {
@@ -26,6 +26,43 @@ const server = http.createServer((req, res) => {
     const rotateCamera = async (dx, dy) => {
         const rect = await page.locator('canvas').boundingBox(), x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
         await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 12 }); await page.mouse.up(); await page.waitForTimeout(100);
+    };
+    const clearTorso = async () => {
+        await page.evaluate(() => {
+            const group = ByndHome3D.runtime.furniture()[0].model.parent;
+            for (const actor of group.children.filter(node => node.userData.actor)) {
+                const surface = actor.children[0].children.find(node => node.isMesh && node.visible);
+                if (surface) surface.onBeforeRender = (_, __, camera) => { window.__seatCamera = camera; };
+            }
+        });
+        await page.waitForTimeout(100);
+        const result = await page.evaluate(() => {
+            const H = ByndHome3D, T = ByndHomeEngine, rows = H.runtime.furniture(), group = rows[0].model.parent, camera = window.__seatCamera;
+            const reports = [];
+            for (const actor of group.children.filter(node => node.userData.actor)) {
+                const surface = actor.children[0].children.find(node => node.isMesh && node.visible);
+                if (!surface) continue;
+                if (surface.geometry.parameters.heightSegments !== 20 || surface.material.map.repeat.y !== 1) throw new Error('Seated portrait must use one continuous, uncropped surface');
+                const image = surface.material.map.image, mask = document.createElement('canvas'); mask.width = image.width; mask.height = image.height;
+                const ctx = mask.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
+                const pixels = ctx.getImageData(0, 0, mask.width, mask.height).data, positions = surface.geometry.attributes.position;
+                const segments = surface.geometry.parameters.heightSegments, ray = new T.Raycaster(), blocked = [];
+                let sampled = 0;
+                for (const v of [.4, .5, .6, .7, .8, .9]) for (const u of [.35, .5, .65]) {
+                    if (pixels[(Math.floor((1 - v) * mask.height) * mask.width + Math.floor(u * mask.width)) * 4 + 3] < 230) continue;
+                    const row = Math.round((1 - v) * segments), a = new T.Vector3().fromBufferAttribute(positions, row * 2), b = new T.Vector3().fromBufferAttribute(positions, row * 2 + 1);
+                    const point = surface.localToWorld(a.lerp(b, u)), distance = camera.position.distanceTo(point);
+                    ray.set(camera.position, point.clone().sub(camera.position).normalize()); ray.far = distance - .005; sampled++;
+                    const hits = ray.intersectObjects(rows.map(row => row.model), true);
+                    if (hits.length) { let root = hits[0].object; while (root.parent && !root.userData.furniture) root = root.parent; const bounds = new T.Box3().setFromObject(hits[0].object); blocked.push({ u, v, furniture: root.userData.furniture, name: hits[0].object.name, point: point.toArray(), min: bounds.min.toArray(), max: bounds.max.toArray() }); }
+                }
+                reports.push({ who: actor.userData.actor, sampled, blocked });
+            }
+            return reports;
+        });
+        occlusionChecks.push(result);
+        fs.writeFileSync(path.join(output, 'sofa-occlusion.json'), JSON.stringify(occlusionChecks, null, 2));
+        for (const actor of result) { assert.ok(actor.sampled >= 6); assert.equal(actor.blocked.length, 0, `furniture cuts into ${actor.who}'s torso: ${JSON.stringify(actor.blocked)}`); }
     };
     try {
         await page.goto('http://127.0.0.1:8795/__poses__'); await page.locator('[data-action="enter"]').click(); await ready();
@@ -58,15 +95,18 @@ const server = http.createServer((req, res) => {
         await load('living_room', 'Read', 'sofa');
         await page.evaluate(() => ByndHome3D.runtime.interact('sofa', 'Sit'));
         await page.waitForFunction(() => ByndHome3D.runtime.stats().actors.find(a => a.who === 'user').action === 'Sit', null, { timeout: 20000 });
-        await shot('sofa-together'); await page.evaluate(() => ByndHome3D.runtime.zoom(.45)); await shot('sofa-detail');
+        await shot('sofa-together'); await page.evaluate(() => ByndHome3D.runtime.zoom(.45)); await shot('sofa-detail'); await clearTorso();
         for (const [dx, dy, name] of [[70, -50, 'sofa-left'], [-140, 90, 'sofa-right']]) {
             await rotateCamera(dx, dy); await shot(name);
+            await clearTorso();
             const poses = await page.evaluate(() => ByndHome3D.runtime.stats().actors);
             for (const a of poses) { assert.equal(a.pose.kind, 'seated'); assert.ok(a.pose.feet.y >= .07 && a.pose.head.y > 1.3); assert.ok(a.pose.feet.z > a.position.z + .3); assert.equal(a.pose.depthTest, true); }
         }
         await page.evaluate(() => { ByndHome3D.State.withHome(h => { h.consentHug = true; }); ByndHome3D.runtime.interact('sofa', 'Hug'); });
         await page.waitForFunction(() => ByndHome3D.runtime.stats().actors.every(a => a.action === 'Hug'), null, { timeout: 20000 });
+        await shot('sofa-hug'); await clearTorso();
         const hugging = await page.evaluate(() => ByndHome3D.runtime.stats().actors); for (const a of hugging) assert.ok(a.pose.feet.z > a.position.z + .3, 'hugging cannot swing feet through the seat');
+        assert.ok(Math.abs(hugging[0].position.x - hugging[1].position.x) > Math.max(...hugging.map(a => a.pose.width)), 'hugging keeps two independent seats instead of intersecting portraits');
         const rejectLie = await page.evaluate(() => { try { ByndHome3D.runtime.interact('sofa', 'Lie'); return ''; } catch (error) { return error.message; } }); assert.match(rejectLie, /正在用/);
         await load('living_room', 'Lie', 'sofa');
         const rejectSit = await page.evaluate(() => { try { ByndHome3D.runtime.interact('sofa', 'Sit'); return ''; } catch (error) { return error.message; } }); assert.match(rejectSit, /正在用/);
@@ -81,6 +121,7 @@ const server = http.createServer((req, res) => {
                 return { feetZ: (a.pose.feet.x - p[0]) * Math.sin(r) + (a.pose.feet.z - p[2]) * Math.cos(r), feetY: a.pose.feet.y, depth: row.item.footprint[1] };
             });
             assert.ok(result.feetZ > result.depth / 2 && result.feetY > .07, 'legs stay in front of the cushion after furniture rotation');
+            await clearTorso();
             if (rotation === Math.PI / 2) await shot('sofa-rotated');
         }
         await page.evaluate(() => ByndHome3D.State.withHome(h => { delete h.layouts.living_room; }));
@@ -96,6 +137,8 @@ const server = http.createServer((req, res) => {
             assert.ok(Math.abs(pose.width / pose.length - Math.round(256 * ratio) / 256) < .001); assert.ok(pose.head.z < -1.9);
             await page.evaluate(() => ByndHome3D.runtime.setCharActivity({ action: 'Sit', target: 'bed', room: 'bedroom' }, true));
             await page.waitForTimeout(100); assert.equal(await page.evaluate(() => ByndHome3D.runtime.stats().actors.find(a => a.who === 'char').pose.kind), 'seated');
+            const seated = await page.evaluate(() => ByndHome3D.runtime.stats().actors.find(a => a.who === 'char').pose);
+            assert.ok(Math.abs(seated.width / seated.length - Math.round(256 * ratio) / 256) < .001, 'seated body keeps the custom portrait aspect instead of stretching it');
         }
         await page.evaluate(() => ByndHome3D.State.withHome(h => { h.portrait = null; })); await load('bedroom', 'Sleep', 'bed');
         // Both supported safe-area ownership conventions, with two iPhone insets.
@@ -110,7 +153,7 @@ const server = http.createServer((req, res) => {
             if (width === 320 || (width === 430 && inset === 59)) await shot(`safe-${width}-${inset}-${owner}`);
         }
         assert.deepEqual(errors, []); await page.evaluate(() => ByndHome3D.close()); assert.equal(await page.locator('canvas').count(), 0);
-        fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify({ result: 'passed', errors, bedPoses: checks, sofaRotations: 4, safeInsets: [47, 59], safeOwners: ['parent', 'header'], widths: [320, 375, 390, 430], checked: ['rotated-bed-head-at-pillow', 'closed-eye-initial-portraits', 'pillow-clearance', 'seat-height-and-front', 'paired-sofa', 'occupied-sofa-and-reservations', 'camera-independent-lying', 'portrait-aspect', 'lie-to-sit', 'day-night', 'dispose'] }, null, 2));
+        fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify({ result: 'passed', errors, bedPoses: checks, sofaRotations: 4, occlusionChecks, safeInsets: [47, 59], safeOwners: ['parent', 'header'], widths: [320, 375, 390, 430], checked: ['rotated-bed-head-at-pillow', 'closed-eye-initial-portraits', 'pillow-clearance', 'seat-height-and-front', 'continuous-seat-surface', 'torso-furniture-occlusion', 'paired-sofa', 'hug-independent-seats', 'occupied-sofa-and-reservations', 'camera-independent-lying', 'portrait-aspect', 'lie-to-sit', 'day-night', 'dispose'] }, null, 2));
         console.log('Home pose and cozy-room browser checks passed.');
     } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
