@@ -203,6 +203,28 @@ test('storage errors leave prior draft and active policy intact', () => {
     assert.throws(() => store.disable(), /disk full/);
 });
 
+test('built-in and custom draft modes persist atomically, including intentional empty drafts', () => {
+    const storage = memoryStorage(), store = create(storage, cases);
+    store.saveDraft(E.SEED, 'builtin');
+    assert.equal(store.read().draftMode, 'builtin');
+    store.saveDraft(E.BASELINE);
+    assert.equal(store.read().draftMode, 'custom');
+    assert.equal(E.fingerprint(store.read().draft), E.fingerprint(E.BASELINE));
+    const saved = storage.getItem(KEY);
+    assert.throws(() => store.saveDraft(E.SEED, 'unknown'), /策略类型/);
+    assert.equal(storage.getItem(KEY), saved);
+    storage.setItem = () => { throw new Error('disk full'); };
+    assert.throws(() => store.saveDraft(E.SEED, 'builtin'), /disk full/);
+    assert.equal(store.read().draftMode, 'custom');
+});
+
+test('imported empty draft stays explicitly custom instead of selecting a built-in policy', () => {
+    const store = create(memoryStorage(), cases);
+    store.importData(JSON.stringify({ cases, draft: E.BASELINE }));
+    assert.equal(store.read().draftMode, 'custom');
+    assert.equal(E.fingerprint(store.read().draft), E.fingerprint(E.BASELINE));
+});
+
 test('persisted reports deduplicate repeated long prompts without losing exact text', () => {
     const storage = memoryStorage(), store = create(storage, cases);
     const text = 'same full prompt '.repeat(100);
@@ -236,6 +258,35 @@ test('only locally completed matching reports activate, and rollback restores th
     store.rollback(); assert.equal(store.read().active, null);
     store.activate(runtime); store.disable(); assert.equal(store.read().active, null);
     store.rollback(); assert.ok(store.read().active);
+});
+
+test('backup roundtrip restores experiment configuration without exporting credentials or importing activation evidence', () => {
+    const storage = memoryStorage(), store = create(storage, cases);
+    const settings = { draftMode: 'builtin', modelPreferences: { experiment: 'model-id', judge: 'follow-experiment', proposer: 'follow-experiment', apiKey: 'private-secret' }, config: { rounds: 4, repeats: 3, maxCalls: 500, maxMinutes: 25, apiKey: 'private-secret' }, apiKey: 'private-secret' };
+    const before = store.exportData(), backup = store.exportData(settings);
+    assert.equal(store.exportData(), before, 'export does not mutate saved state');
+    assert.equal(backup.includes('private-secret'), false);
+    const data = JSON.parse(backup);
+    data.report = { eligible: true }; data.active = { policy: E.SEED };
+    store.importData(JSON.stringify(data));
+    assert.deepEqual(store.read().experimentSettings.config, E.config({ rounds: 4, repeats: 3, maxCalls: 500, maxMinutes: 25 }));
+    assert.equal(store.read().experimentSettings.modelPreferences.experiment, 'model-id');
+    assert.equal(store.read().draftMode, 'builtin');
+    assert.equal(store.read().report, null); assert.equal(store.read().active, null);
+});
+
+test('invalid or unsavable experiment backup leaves previous data intact', () => {
+    const storage = memoryStorage(), store = create(storage, cases);
+    store.saveDraft(E.SEED);
+    const settings = { draftMode: 'custom', modelPreferences: { experiment: '', judge: 'follow-experiment', proposer: 'follow-experiment' }, config: { rounds: 2 } };
+    const backup = JSON.parse(store.exportData(settings)), before = storage.getItem(KEY);
+    for (const invalid of [null, { ...settings, config: { rounds: 0 } }, { ...settings, config: null }, { ...settings, modelPreferences: {} }, { ...settings, draftMode: 'unknown' }]) {
+        assert.throws(() => store.importData(JSON.stringify({ ...backup, experimentSettings: invalid })));
+        assert.equal(storage.getItem(KEY), before);
+    }
+    storage.setItem = () => { throw new Error('disk full'); };
+    assert.throws(() => store.importData(JSON.stringify(backup)), /disk full/);
+    assert.equal(storage.getItem(KEY), before);
 });
 
 test('checkpoint write failure propagates and cannot return a fake success', async () => {

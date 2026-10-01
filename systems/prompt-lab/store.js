@@ -5,6 +5,19 @@
     'use strict';
     const KEY = 'bynd_prompt_lab_v1';
     const PREFIX = '\u0000BYND-LAB:';
+    function experimentSettings(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('实验配置格式无效');
+        if (!['builtin', 'custom'].includes(value.draftMode)) throw new Error('实验策略类型无效');
+        const modelPreferences = Object.fromEntries(['experiment', 'judge', 'proposer'].map(key => {
+            const id = value.modelPreferences?.[key];
+            if (typeof id !== 'string' || id.length > 1024) throw new Error('实验模型选择格式无效');
+            return [key, id];
+        }));
+        const config = value.config;
+        if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('实验预算格式无效');
+        const budget = Object.fromEntries(['rounds', 'repeats', 'maxCalls', 'maxMinutes', 'minGain', 'patience'].filter(key => Object.hasOwn(config, key)).map(key => [key, config[key]]));
+        return { config: E.config(budget), modelPreferences, draftMode: value.draftMode };
+    }
     function pack(data) {
         const strings = [], seen = new Map();
         function encode(value) {
@@ -51,7 +64,11 @@
             return data;
         }
         function update(fn) { const data = read(); fn(data); return write(data); }
-        function saveDraft(value) { const draft = E.candidate(value); return update(data => { data.draft = draft; }); }
+        function saveDraft(value, mode = 'custom') {
+            if (!['builtin', 'custom'].includes(mode)) throw new Error('无效策略类型');
+            const draft = E.candidate(value);
+            return update(data => { data.draft = draft; data.draftMode = mode; });
+        }
         function eligible(report, runtime) {
             if (report?.status !== 'complete' || report.eligible !== true || report.identity !== E.fingerprint({ version: E.VERSION, cases: E.suite(read().cases), limits: E.config(report.config), initial: E.candidate(report.initial), runtime })) return false;
             const before = report.rows.filter(r => r.split === 'test' && r.candidateId === E.fingerprint(report.initial));
@@ -69,12 +86,17 @@
         }
         function rollback() { return update(data => { if (!data.history.length) throw new Error('没有可回滚版本'); data.active = data.history.pop(); }); }
         function disable() { return update(data => { data.history = [...data.history, data.active].slice(-10); data.active = null; }); }
-        function exportData() { return JSON.stringify(read(), null, 2); }
+        function exportData(settings) {
+            const data = read();
+            if (settings !== undefined) data.experimentSettings = experimentSettings(settings);
+            return JSON.stringify(data, null, 2);
+        }
         function importData(text) {
             if (typeof text !== 'string' || text.length > 10000000) throw new Error('导入文件超过 10 MB');
             const imported = JSON.parse(text);
             const cases = E.suite(imported.cases), draft = E.candidate(imported.draft);
-            return update(data => { data.cases = cases; data.draft = draft; data.report = null; });
+            const settings = imported.experimentSettings === undefined ? null : experimentSettings(imported.experimentSettings);
+            return update(data => { data.cases = cases; data.draft = draft; data.draftMode = settings?.draftMode || 'custom'; data.experimentSettings = settings; data.report = null; });
         }
         return { read, write, update, saveDraft, activate, rollback, disable, exportData, importData, eligible };
     }

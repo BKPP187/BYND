@@ -5,6 +5,16 @@
 #bynd-prompt-lab .lab-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
 #bynd-prompt-lab .lab-top strong { font-size: 20px; }
 #bynd-prompt-lab .lab-top span, #bynd-prompt-lab .lab-note { color: #6c6c6c; }
+#bynd-prompt-lab .lab-experiment { font-size: 15px; font-weight: 600; gap: 9px; }
+#bynd-prompt-lab .lab-experiment select { min-height: 46px; font-weight: 400; }
+#bynd-prompt-lab details.lab-model-config { margin: 4px 0 14px; padding-top: 0; border-top: 0; }
+#bynd-prompt-lab .lab-model-config > summary { display: flex; align-items: center; gap: 5px; list-style: none; min-height: 40px; color: #777; font-size: 13px; }
+#bynd-prompt-lab .lab-model-config > summary::-webkit-details-marker { display: none; }
+#bynd-prompt-lab .lab-model-config > summary::after { content: '›'; font-size: 18px; }
+#bynd-prompt-lab .lab-model-config[open] > summary::after { transform: rotate(90deg); }
+#bynd-prompt-lab .lab-primary > button[data-lab="run"] { flex: 1; min-height: 46px; }
+#bynd-prompt-lab .lab-start-note { font-size: 13px; margin: -4px 0 16px; }
+#bynd-prompt-lab [hidden] { display: none !important; }
 #bynd-prompt-lab .lab-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 #bynd-prompt-lab button { padding: 10px 13px; min-height: 42px; border: 1px solid #ddd; border-radius: 10px; background: #fff; color: #242424; font: inherit; cursor: pointer; }
 #bynd-prompt-lab button[data-lab="run"] { background: #262626; color: white; border-color: #262626; }
@@ -21,3 +31,6 @@
 #bynd-prompt-lab summary { cursor: pointer; min-height: 32px; }
 #bynd-prompt-lab pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; background: #f5f5f5; padding: 10px; border-radius: 8px; }
 #prompt-lab-status { overflow-wrap: anywhere; padding: 10px 0; min-height: 42px; }
+#bynd-prompt-lab .lab-data { margin: 16px 0; border-top: 1px solid #eee; padding-top: 16px; }
+#bynd-prompt-lab .lab-data h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+#bynd-prompt-lab .lab-data > p { margin: 0; }
