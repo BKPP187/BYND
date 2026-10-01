@@ -60,8 +60,12 @@ function waitForByndStyles() {
 }
 
 function startByndAppInitialization() {
+    window.__byndResourceLoading?.initializing();
     window.__byndCoreReady = byndStylesReady.then(initializeByndApp);
-    window.__byndCoreReady.catch(error => {
+    window.__byndCoreReady.then(() => {
+        window.__byndResourceLoading?.ready();
+    }).catch(error => {
+        window.__byndResourceLoading?.fail();
         console.error('BYND 初始化失败', error);
     });
 }

@@ -2,13 +2,13 @@
   "name": "Beyond Screen",
   "short_name": "BYND",
   "description": "BYND phone-style AI companion app.",
-  "start_url": "/?v=1.1.733",
+  "start_url": "/?v=1.1.761",
   "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
   "id": "/",
-  "background_color": "#0B0D10",
-  "theme_color": "#0B0D10",
+  "background_color": "#c7d9f7",
+  "theme_color": "#c7d9f7",
   "orientation": "portrait",
   "icons": [
     {
