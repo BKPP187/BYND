@@ -103,11 +103,20 @@ const server = http.createServer((request, response) => {
         assert.deepEqual(frame.phone, { x: 532.5, y: 94, width: 375, height: 812 });
         assert.deepEqual(frame.loader, { x: 540.5, y: 102, width: 359, height: 796 });
         assert.equal(frame.overflow, false);
+        const scrollbar = await desktop.locator('.bynd-loading-scroll').evaluate(node => ({
+            width: getComputedStyle(node).scrollbarWidth,
+            display: getComputedStyle(node, '::-webkit-scrollbar').display,
+            gutter: node.offsetWidth - node.clientWidth
+        }));
+        assert.deepEqual(scrollbar, { width: 'none', display: 'none', gutter: 0 }, 'scrollbar must be hidden even before application CSS loads');
         await desktop.screenshot({ path: path.join(output, 'loading-desktop.png') });
+        await desktop.locator('.bynd-loading-scroll').hover();
+        await desktop.mouse.wheel(0, 500);
+        await desktop.waitForFunction(() => document.querySelector('.bynd-loading-scroll').scrollTop > 0);
         releaseDesktopStyle();
         await desktop.locator('#bynd-resource-loading').waitFor({ state: 'detached' });
         await desktopContext.close();
-        results.push('Desktop loading stays inside the centered 375 × 812 phone frame without page scrolling.');
+        results.push('Desktop loading stays inside the centered 375 × 812 phone frame; scrollbar is hidden before CSS loads and wheel scrolling works.');
 
         for (const failure of ['css', 'script', 'initialize']) {
             const failed = await context.newPage();
