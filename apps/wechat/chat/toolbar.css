@@ -1,5 +1,12 @@
 /* --- Chat Toolbar + AI Button --- */
 .wc-ai-btn { color: #a855f7 !important; font-size: 24px; cursor: pointer; transition: transform 0.15s; }
+#app-wechat-window.wc-ui-theme-bynd .wc-chat-room .wc-room-footer .wc-ai-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    color: #111827 !important;
+    flex: none;
+}
 .wc-ai-btn:active { transform: scale(0.8); }
 .wc-send-btn.is-disabled,
 .wc-ai-btn.is-disabled,

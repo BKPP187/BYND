@@ -2,14 +2,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require(process.env.BYND_PLAYWRIGHT || 'C:/Users/l/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root = path.resolve(__dirname, '..');
+const deployedFiles = process.env.BYND_TRACKED_ONLY === '1' ? new Set(execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).trim().split(/\r?\n/)) : null;
 const output = path.join(root, 'artifacts/web-loading');
 fs.mkdirSync(output, { recursive: true });
 const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
     const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
     if (!file.startsWith(root + path.sep)) { response.writeHead(403).end(); return; }
+    if (deployedFiles && !deployedFiles.has(path.relative(root, file).replaceAll('\\', '/'))) { response.writeHead(404).end(); return; }
     fs.readFile(file, (error, data) => {
         if (error) { response.writeHead(404).end(); return; }
         const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.png': 'image/png' };
@@ -85,7 +88,18 @@ const server = http.createServer((request, response) => {
         await page.waitForFunction(() => window.__byndCoreReady);
         await page.evaluate(() => window.__byndCoreReady);
         assert.equal(await loader.count(), 0, 'repeat visits must not add a playback delay');
+        assert.equal(await page.evaluate(() => typeof window.LivingWorld === 'object' && typeof window.ByndComic === 'object'), true, 'the deployed tree must include working forum and comic runtime bundles');
         results.push('Repeat visit exits immediately when core readiness resolves.');
+
+        const optional = await context.newPage();
+        await optional.route('**/systems/living-world/living-world.js?*', route => route.abort());
+        await optional.route('**/apps/comic/comic.js?*', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: 'throw new Error("proof optional comic error");' }));
+        await optional.goto(origin, { waitUntil: 'domcontentloaded' });
+        await optional.waitForFunction(() => window.__byndCoreReady && !document.getElementById('bynd-resource-loading'));
+        await optional.evaluate(() => { window.ByndBuiltinLibrary?.close(); unlockPhone(); });
+        assert.equal(await optional.locator('#home-screen').isVisible(), true, 'optional feature errors must never keep a ready home screen covered');
+        await optional.close();
+        results.push('Optional forum download failure and comic execution error do not prevent entering the home screen.');
 
         const desktopContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
         await desktopContext.route('https://**/*', route => route.abort());
@@ -120,7 +134,7 @@ const server = http.createServer((request, response) => {
 
         for (const failure of ['css', 'script', 'initialize']) {
             const failed = await context.newPage();
-            const pattern = failure === 'css' ? '**/ui/theme/style.css?*' : failure === 'script' ? '**/systems/usage/ledger.js?*' : '**/main.js?*';
+            const pattern = failure === 'css' ? '**/ui/theme/style.css?*' : '**/main.js?*';
             await failed.route(pattern, async route => {
                 if (failure !== 'initialize') { await route.abort(); return; }
                 const response = await route.fetch();

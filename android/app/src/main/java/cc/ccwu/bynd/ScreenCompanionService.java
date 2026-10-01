@@ -259,6 +259,7 @@ public class ScreenCompanionService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!LicenseManager.canEnter(this)) { shutdown(); return START_NOT_STICKY; }
         String action = intent != null ? intent.getAction() : ACTION_SYNC;
         boolean wantsProjection = ACTION_PROJECTION.equals(action);
         // Android 14+: the mediaProjection type must be active before getMediaProjection().

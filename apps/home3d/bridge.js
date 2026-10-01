@@ -51,6 +51,7 @@
             phone: item?.chatConfig?.aiPhoneSnapshot || {},
             events: Array.isArray(events) ? events.slice(-6) : events ? [String(events).slice(0, 3000)] : [],
             life: window.ByndLifeState?.prompt(item) || '',
+            status: typeof window.getWechatAiStatusSnapshot === 'function' ? JSON.stringify(window.getWechatAiStatusSnapshot(item)?.fields || {}).slice(0, 600) : '',
             memories: memories(item)
         };
     }

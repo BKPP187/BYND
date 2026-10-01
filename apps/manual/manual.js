@@ -110,9 +110,7 @@ function initManualApp() {
     win?.classList.toggle('manual-dark-mode', !!(home?.classList.contains('dark-mode') || window.homeIsDark));
     resetManualSearchState();
     const sections = getManualSections();
-    sections.forEach((section, index) => {
-        section.open = index === 0;
-    });
+    sections.forEach(section => { section.open = false; });
     const scroll = document.getElementById('manual-scroll');
     if (scroll) scroll.scrollTop = 0;
     requestAnimationFrame(() => win?.querySelector('.manual-back')?.focus({ preventScroll: true }));

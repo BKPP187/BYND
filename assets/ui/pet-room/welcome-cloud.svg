@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" fill="none">
+  <title>待选择桌宠的欢迎插画</title>
+  <ellipse cx="130" cy="211" rx="91" ry="14" fill="#F3B6CC"/>
+  <g stroke="#263758" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M66 193C36 189 32 159 44 145C23 120 38 96 61 95C53 70 75 51 95 60C94 31 117 21 137 36C161 19 184 38 180 61C205 60 222 83 208 103C235 118 230 145 213 157C226 183 207 206 181 201C159 214 91 212 66 193Z" fill="#FFF3CA"/>
+    <path d="M71 171C55 170 56 193 76 197C90 200 103 189 95 180C89 174 78 174 71 171ZM167 178C155 187 167 201 185 195C201 190 197 173 184 172C175 173 172 174 167 178Z" fill="#FFF7DA"/>
+    <path d="M122 132Q130 145 138 132"/>
+    <path d="M121 153Q130 159 140 152" stroke-width="3"/>
+  </g>
+  <ellipse cx="100" cy="120" rx="5" ry="6" fill="#263758"/>
+  <ellipse cx="160" cy="120" rx="5" ry="6" fill="#263758"/>
+  <ellipse cx="130" cy="128" rx="5" ry="4" fill="#263758"/>
+  <ellipse cx="81" cy="140" rx="12" ry="8" fill="#F3B6CC"/>
+  <ellipse cx="178" cy="140" rx="12" ry="8" fill="#F3B6CC"/>
+  <path d="M220 41L224 51L235 53L226 59L226 70L217 63L207 67L211 56L204 48L215 49Z" fill="#9FD9EF" stroke="#263758" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M34 59L34 70M27 65L40 65" stroke="#739ABD" stroke-width="3" stroke-linecap="round"/>
+</svg>

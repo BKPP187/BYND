@@ -26,6 +26,26 @@
             if (preset.bump) { material.bumpMap = texture(preset.bump); material.bumpScale = preset.bump === 'wood' ? 0.008 : 0.006; }
             cache.set(key, material); return material;
         }
+        function woven(color, pattern = 'knit') {
+            const key = 'woven:' + pattern + ':' + color; if (cache.has(key)) return cache.get(key);
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 128;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = color; ctx.fillRect(0, 0, 128, 128);
+            if (pattern === 'gingham') {
+                ctx.fillStyle = '#ffffff55'; for (let i = 0; i < 128; i += 32) { ctx.fillRect(i, 0, 16, 128); ctx.fillRect(0, i, 128, 16); }
+            } else if (pattern === 'stripe') {
+                ctx.fillStyle = '#ffffff44'; for (let i = 0; i < 128; i += 16) ctx.fillRect(i, 0, 5, 128);
+            } else {
+                ctx.strokeStyle = '#ffffff32'; ctx.lineWidth = 1;
+                for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 8) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 4, y + 6); ctx.lineTo(x + 8, y); ctx.stroke(); }
+            }
+            const map = new T.CanvasTexture(canvas); map.colorSpace = T.SRGBColorSpace; textures.set(key, map);
+            const material = new T.MeshStandardMaterial({ map, roughness: .96, bumpMap: texture('fabric'), bumpScale: .004 });
+            cache.set(key, material); return material;
+        }
+        function glow(color, intensity = .7) {
+            const key = 'glow:' + color + ':' + intensity; if (cache.has(key)) return cache.get(key);
+            const material = new T.MeshStandardMaterial({ color, roughness: .8, emissive: color, emissiveIntensity: intensity }); cache.set(key, material); return material;
+        }
         function role(original, item, index) {
             const name = String(original?.name || '').toLowerCase();
             if (['television', 'computer'].includes(item.type) && /metaldark|metalmedium|screen/.test(name)) return 'screen';
@@ -59,7 +79,7 @@
             originals.forEach(material => { for (const value of Object.values(material || {})) if (value?.isTexture) value.dispose(); material?.dispose(); });
         }
         function dispose() { dead = true; cache.forEach(material => material.dispose()); textures.forEach(map => map.dispose()); cache.clear(); textures.clear(); }
-        return { get, apply, theme, dispose, disposed: () => dead };
+        return { get, woven, glow, apply, theme, night: themeId === 'night', dispose, disposed: () => dead };
     }
     H.Materials = { create };
     H.Shapes = {

@@ -236,10 +236,11 @@ async function rolePetWorkspace() {
     return { ...h, C, workspace: h.context.ByndPetWorkspace };
 }
 
-test('pet home presents the role switch first and routes it to the same persisted activation used by the studio', async () => {
+test('pet home presents the character first and keeps persisted activation in expandable settings', async () => {
     const h = await rolePetWorkspace();
     const html = h.workspace.petView();
-    assert.ok(html.indexOf('启用角色桌宠') < html.indexOf('当前展示'));
+    assert.ok(html.indexOf('当前展示') < html.indexOf('启用角色桌宠'));
+    assert.match(html, /<details class="mh-companion-settings"/);
     assert.match(html, /aria-label="启用角色桌宠"[^>]+aria-checked="false"/);
     assert.match(html, /已收藏的社区桌宠/);
     assert.doesNotMatch(html, /小伙伴|hello, friend/);

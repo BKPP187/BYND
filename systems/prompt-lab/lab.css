@@ -1,0 +1,23 @@
+#app-settings-window:has(#settings-tab-lab:not([hidden])),
+#app-settings-window:has(#settings-tab-lab:not([hidden])) .window-content { background: #fff !important; }
+#bynd-prompt-lab { color: #242424; font-size: 14px; line-height: 1.55; padding: 4px 0 24px; }
+#bynd-prompt-lab * { box-sizing: border-box; }
+#bynd-prompt-lab .lab-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+#bynd-prompt-lab .lab-top strong { font-size: 20px; }
+#bynd-prompt-lab .lab-top span, #bynd-prompt-lab .lab-note { color: #6c6c6c; }
+#bynd-prompt-lab .lab-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+#bynd-prompt-lab button { padding: 10px 13px; min-height: 42px; border: 1px solid #ddd; border-radius: 10px; background: #fff; color: #242424; font: inherit; cursor: pointer; }
+#bynd-prompt-lab button[data-lab="run"] { background: #262626; color: white; border-color: #262626; }
+#bynd-prompt-lab button:disabled { opacity: .4; cursor: default; }
+#bynd-prompt-lab .lab-models, #bynd-prompt-lab .lab-editor { display: grid; gap: 12px; }
+#bynd-prompt-lab label { display: grid; gap: 6px; min-width: 0; }
+#bynd-prompt-lab input, #bynd-prompt-lab select, #bynd-prompt-lab textarea { width: 100%; min-width: 0; max-width: 100%; border: 1px solid #ddd; border-radius: 9px; background: #fff; color: #252525; padding: 10px; font: inherit; }
+#bynd-prompt-lab textarea { resize: vertical; font-size: 14px; }
+#bynd-prompt-lab .lab-budget { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+#bynd-prompt-lab .lab-summary { display: grid; gap: 8px; padding: 12px; background: #f2f2f2; border-radius: 12px; }
+#bynd-prompt-lab .lab-summary span { display: flex; justify-content: space-between; }
+#bynd-prompt-lab .lab-categories > div { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+#bynd-prompt-lab details { margin: 16px 0; border-top: 1px solid #eee; padding-top: 12px; }
+#bynd-prompt-lab summary { cursor: pointer; min-height: 32px; }
+#bynd-prompt-lab pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; background: #f5f5f5; padding: 10px; border-radius: 8px; }
+#prompt-lab-status { overflow-wrap: anywhere; padding: 10px 0; min-height: 42px; }

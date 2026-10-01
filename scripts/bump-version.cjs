@@ -28,6 +28,7 @@ const LOCAL_ASSET = /((?:src|href)=["'])(?![a-z]+:|\/\/)([^"'?#]+\.(?:js|css|svg
 
 // Each rule: [file, transform(text, version) -> text]. Rules must be idempotent.
 const RULES = [
+    ['systems/prompt-lab/sandbox.html', (text, v) => text.replace(LOCAL_ASSET, (_, prefix, file) => `${prefix}${file}?v=${v}`)],
     ['index.html', (text, v) => text
         .replace(LOCAL_ASSET, (_, prefix, file) => `${prefix}${file}?v=${v}`)
         .replace(/Beyond Screen v\d+\.\d+\.\d+/g, `Beyond Screen v${v}`)],

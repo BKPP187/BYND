@@ -55,6 +55,7 @@ function openSettingsTab(name, options = {}) {
         try { localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, target); } catch (e) {}
     }
     if (target === 'usage') void renderSettingsUsageDashboard();
+    if (target === 'lab') window.ByndPromptLab?.render();
     if (target === 'about') window.ByndVersionLetter?.renderAbout();
     return target;
 }

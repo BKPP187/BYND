@@ -4,6 +4,21 @@ const WECHAT_TAB_KEYS = ['chat', 'contacts', 'discover', 'me'];
 const WECHAT_UI_THEME_DEFAULT_ID = 'bynd';
 const WECHAT_UI_THEMES = [
     {
+        id: 'pixel',
+        name: '像素灰主题',
+        tone: '复古像素',
+        desc: '灰色复古窗口、深蓝细节、常驻工具栏与像素兔表情包。',
+        accent: '#292654',
+        preview: ['#c3c3c5', '#292654', '#f3f3ee'],
+        searchPlaceholder: '搜索聊天',
+        tabs: {
+            chat: { label: '聊天', title: '聊天', icon: 'ri-chat-1-line' },
+            contacts: { label: '联系人', title: '联系人', icon: 'ri-contacts-line' },
+            discover: { label: '动态', title: '动态', icon: 'ri-star-line' },
+            me: { label: '我的', title: '我的', icon: 'ri-user-line' }
+        }
+    },
+    {
         id: 'qq',
         name: 'QQ 主题',
         tone: '蓝紫',
@@ -178,6 +193,7 @@ function applyWechatUiTheme(themeId = getWechatUiThemeId(), options = {}) {
         root.classList.add(`wc-ui-theme-${theme.id}`);
         root.dataset.uiTheme = theme.id;
     }
+    if (typeof syncWechatPixelTheme === 'function') syncWechatPixelTheme(theme);
     if (options.update !== false) updateWechatUiThemeStructure(theme);
 }
 
@@ -469,6 +485,7 @@ function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
 }
 
 function getWechatChatInputPlaceholder(themeId = getWechatUiThemeId()) {
+    if (themeId === 'pixel') return '今天有什么新想法？';
     if (themeId === 'wechat') return '\u53ef\u6309\u4f4f \u8f6c\u6587\u5b57';
     if (themeId === 'telegram') return '\u8f93\u5165\u6d88\u606f';
     if (themeId === 'claude') return 'Reply to Claude';
@@ -805,7 +822,10 @@ function selectWechatUiTheme(themeId) {
     const theme = getWechatUiTheme(themeId);
     try {
         localStorage.setItem(WECHAT_UI_THEME_STORAGE_KEY, theme.id);
-    } catch (e) {}
+    } catch (e) {
+        showWechatToast('主题未能保存，请检查存储空间后重试');
+        return false;
+    }
     applyWechatUiTheme(theme.id);
     document.querySelectorAll('.wc-ui-theme-card').forEach(card => {
         card.classList.toggle('active', card.dataset.themeId === theme.id);

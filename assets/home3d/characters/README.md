@@ -21,3 +21,13 @@ A single adorable full-body chibi young man game character, approximately 2.5 he
 ```
 
 The live personalized prompt is `ByndHome3D.Portraits.prompt` in `apps/home3d/portraits.js`. It preserves the reference identity and asks for a single full-body, transparent, rounded 2.5-head-height illustration. Runtime alpha-bound cropping prepares a small saved portrait; it does not modify the packaged original PNGs.
+
+## Closed-eye sleep variants (2026-10-01)
+
+`default-char-sleep-v1.png` and `default-user-sleep-v1.png` were edited with the built-in `image_gen` tool, preserving transparent PNG bytes. `initial-sleep-portraits.js` mirrors those bytes for file-origin loading. Only generic initial characters use these variants; personalized portraits are never replaced by a generic sleeping face.
+
+Exact edit prompt for both, each with its corresponding standing portrait as the edit target:
+
+```text
+Use case: identity-preserve. Edit target: the referenced full-body chibi character on transparent background. This is a game texture variant for sleeping in a cozy dollhouse. Make the eyes gently and peacefully CLOSED with delicate curved eyelids, a relaxed sleepy expression, keeping the face identity and mouth. Preserve EVERYTHING ELSE: same character, same hairstyle, hair color, skin, exact same knitted outfit and accessories, same full-body front facing pose, hands and feet, same size, proportions, placement and silhouette, same lighting and rendering style. The head stays at the top and feet at the bottom of the image. Do not rotate the character, do not add furniture, bed, pillow, blankets, shadows, scene, text or watermark. Genuine transparent background; preserve transparency. Make only the eyes change.
+```

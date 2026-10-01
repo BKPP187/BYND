@@ -32,11 +32,40 @@ fs.mkdirSync(output, { recursive: true });
             window.myCharacters = [{ id: 'qq-toolbar-proof', name: '林间', avatar: document.getElementById('wcs-user-avatar').src, history: [], chatConfig: {} }];
             openApp('wechat');
             openChat('qq-toolbar-proof');
-            applyWechatUiTheme('qq');
+            applyWechatUiTheme('bynd');
             ByndBuiltinLibrary?.close();
         });
         await page.locator('#wechat-chat-room:not(.hidden)').waitFor();
         await page.waitForFunction(() => document.querySelector('.wc-room-footer')?.getBoundingClientRect().left === 0);
+
+        for (const width of [320, 375, 430]) {
+            await page.setViewportSize({ width, height: 844 });
+            const defaultFooter = page.locator('#wechat-chat-room .wc-room-footer');
+            const ai = defaultFooter.locator('.wc-ai-btn');
+            const send = defaultFooter.locator('.wc-send-btn');
+            const icon = await ai.evaluate(svg => ({
+                width: svg.getBoundingClientRect().width,
+                stroke: getComputedStyle(svg).stroke,
+                shapeWidth: svg.querySelector('path').getBBox().width
+            }));
+            const aiBox = await ai.boundingBox();
+            const sendBox = await send.boundingBox();
+            assert.equal(await defaultFooter.evaluate(el => el.scrollWidth <= el.clientWidth), true, `default footer fits ${width}px`);
+            assert.equal(icon.width, 24, `default AI icon has a readable size at ${width}px`);
+            assert.equal(icon.stroke, 'rgb(17, 24, 39)', `default AI icon uses dark ink at ${width}px`);
+            assert.ok(icon.shapeWidth >= 16, `default AI symbol has a clear silhouette at ${width}px`);
+            assert.ok(aiBox.x + aiBox.width <= sendBox.x, `default AI and send controls do not overlap at ${width}px`);
+            assert.ok(sendBox.x + sendBox.width <= width, `default send control remains visible at ${width}px: ${JSON.stringify({ aiBox, sendBox })}`);
+            if (width === 375) await defaultFooter.screenshot({ path: path.join(output, 'bynd-footer-375.png') });
+        }
+        await page.evaluate(() => {
+            window._byndAiClicks = 0;
+            window.triggerAiReply = () => { window._byndAiClicks += 1; };
+        });
+        await page.locator('#wechat-chat-room .wc-room-footer .wc-ai-btn').click();
+        await page.locator('#wechat-chat-room .wc-room-footer .wc-ai-btn').press('Enter');
+        assert.equal(await page.evaluate(() => window._byndAiClicks), 2, 'default AI button responds to touch and keyboard activation');
+        await page.evaluate(() => applyWechatUiTheme('qq'));
 
         for (const width of [320, 375, 430]) {
             await page.setViewportSize({ width, height: 844 });
@@ -97,10 +126,34 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(await page.locator('#wechat-chat-room').evaluate(el => el.classList.contains('is-voice-input')), false);
         await page.locator('#wechat-chat-room .wc-room-footer .wc-add-btn').click();
         assert.equal(await page.locator('#wc-chat-toolbar').evaluate(el => el.classList.contains('hidden')), false);
+        await page.waitForTimeout(220);
+        for (const width of [320, 375, 430]) {
+            await page.setViewportSize({ width, height: 844 });
+            const placement = await page.evaluate(() => {
+                const popup = document.getElementById('wc-chat-toolbar');
+                const panel = popup.getBoundingClientRect();
+                const plus = document.querySelector('#wechat-chat-room .wc-add-btn').getBoundingClientRect();
+                const tail = getComputedStyle(popup, '::after');
+                return {
+                    panelLeft: panel.left,
+                    panelRight: panel.right,
+                    plusCenter: plus.left + plus.width / 2,
+                    tailCenter: panel.right - parseFloat(tail.right) - parseFloat(tail.width) / 2
+                };
+            });
+            assert.ok(placement.panelLeft >= 0 && placement.panelRight <= width, `QQ tools panel fits ${width}px viewport`);
+            assert.ok(Math.abs(placement.tailCenter - placement.plusCenter) < 4, `QQ tools pointer aligns with plus at ${width}px: ${JSON.stringify(placement)}`);
+            if (width === 375) await page.screenshot({ path: path.join(output, 'qq-popup-375.png') });
+        }
         await page.evaluate(() => applyWechatUiTheme('wechat'));
         assert.equal(await page.locator('#wechat-chat-room .wc-room-footer .wc-qq-source-icon').filter({ visible: true }).count(), 0);
+        for (const width of [320, 375, 430]) {
+            await page.setViewportSize({ width, height: 844 });
+            const ai = page.locator('#wechat-chat-room .wc-room-footer .wc-ai-btn');
+            assert.equal(await ai.isVisible(), false, `WeChat theme keeps the separate AI icon hidden at ${width}px`);
+        }
         assert.deepEqual(errors, []);
-        console.log('QQ toolbar browser checks passed: six reference icons, equal spacing at 320–430px, actions, voice toggle, and theme isolation.');
+        console.log('Toolbar browser checks passed: default AI icon and activation, QQ six-icon spacing at 320–430px, voice toggle, and theme isolation.');
     } finally {
         await browser.close();
     }

@@ -155,6 +155,15 @@ ${scope} .msg-bubble.sticker {
 }
 
 function previewBubbleCss(cssText) {
+    const preview = document.querySelector('.wcs-bubble-preview');
+    if (preview && getWechatUiThemeId() === 'pixel') {
+        const config = getCurrentChatChar()?.chatConfig || {};
+        preview.style.setProperty('--wcs-preview-ai-bg', config.bubbleAi || '#e4e4e5');
+        preview.style.setProperty('--wcs-preview-user-bg', config.bubbleUser || '#cbcbd3');
+    } else if (preview) {
+        preview.style.removeProperty('--wcs-preview-ai-bg');
+        preview.style.removeProperty('--wcs-preview-user-bg');
+    }
     // 移除旧的预览样式
     let previewStyle = document.getElementById('wcs-css-preview-style');
     if (!previewStyle) {
@@ -162,11 +171,24 @@ function previewBubbleCss(cssText) {
         previewStyle.id = 'wcs-css-preview-style';
         document.head.appendChild(previewStyle);
     }
-    // 预览里区分左右气泡，避免角色预览被 .wcs-preview-bubble.ai 默认色覆盖。
+    // Apply shared bubble rules to both sides, then let .green override the user side.
     let previewCss = cssText
         .replace(/\.msg-bubble\.green/g, '.wcs-preview-bubble.user')
-        .replace(/\.msg-bubble/g, '.wcs-preview-bubble.ai');
-    previewStyle.textContent = previewCss;
+        .replace(/\.msg-bubble/g, '.wcs-preview-bubble')
+        .replace(/\.msg-meta/g, '.wcs-preview-meta')
+        .replace(/\.wc-room-content/g, '.wcs-bubble-preview');
+    const scope = '#app-wechat-window #wc-chat-settings-panel';
+    previewCss = previewCss.replace(/(^|})(\s*)([^@{}][^{}]*)\{/g, (match, close, space, selectors) =>
+        `${close}${space}${selectors.split(/,(?![^()]*\))/).map(selector => `${scope} ${selector.trim()}`).join(', ')} {`);
+    const pixelDefaults = getWechatUiThemeId() === 'pixel' ? `
+${scope} .wcs-preview-bubble {
+    background: var(--wcs-preview-ai-bg, #e4e4e5); color: #24242a;
+    border: 0; border-radius: 3px;
+    box-shadow: inset 1px 1px #fafafa, inset -1px -1px #9b9ba1;
+}
+${scope} .wcs-preview-bubble:where(.user) { background: var(--wcs-preview-user-bg, #cbcbd3); }
+` : '';
+    previewStyle.textContent = pixelDefaults + previewCss;
 }
 
 function setWechatTimeModeControls(mode) {
@@ -505,9 +527,10 @@ function openChatSettings() {
     // CSS 编辑器
     const cssEl = document.getElementById('wcs-custom-css');
     if (cssEl) {
-        cssEl.value = config.customCss || '';
-        previewBubbleCss(config.customCss || '');
-        renderBubblePresetDropdown(config.customCss || '');
+        const bubbleCss = getEffectiveBubbleCss(config);
+        cssEl.value = bubbleCss;
+        previewBubbleCss(bubbleCss);
+        renderBubblePresetDropdown(bubbleCss);
     }
 
     // 用户资料（当前聊天独立）

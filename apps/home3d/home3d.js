@@ -2,6 +2,16 @@
 (function () {
     'use strict';
     const H = window.ByndHome3D = { runtime: null, session: 0, open: null, close: null };
+    // Chat and single-actor Living World can read a saved home without loading WebGL.
+    window.getByndHomeLifePrompt = char => {
+        if (H.Living) return H.Living.prompt(char);
+        if (!char?.id) return '';
+        try {
+            const home = JSON.parse(localStorage.getItem('bynd_home3d_v1') || '{}').homes?.[String(char.id)];
+            if (!home) return '';
+            return '【小屋生活】这是这个角色私密小屋的本地存档，不是公开消息，不得让其他角色自动知道。离开期间的记录属于本地生活推演，不要声称做了现实中的事。' + JSON.stringify({ relationship: home.relationship, lastActivity: home.activity, updatedAt: home.lastLifeAt, recent: (home.moments || []).slice(-5) }).slice(0, 2400);
+        } catch (_) { return ''; }
+    };
     let pending = null;
     const loaded = new Set();
     function script(url) {
@@ -21,7 +31,8 @@
             await script('assets/vendor/home3d/engine.js');
             await script('apps/home3d/data/catalogs.js');
             await script('assets/home3d/characters/initial-portraits.js');
-            for (const name of ['materials', 'furniture', 'rooms', 'characters', 'animation', 'state', 'bridge', 'portraits', 'living', 'scene', 'interactions', 'icons', 'ui']) await script('apps/home3d/' + name + '.js');
+            await script('assets/home3d/characters/initial-sleep-portraits.js');
+            for (const name of ['materials', 'furniture-visuals', 'furniture', 'rooms', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'living', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
         })().catch(error => { pending = null; throw error; });
         return pending;
     }

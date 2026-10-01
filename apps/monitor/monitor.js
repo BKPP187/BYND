@@ -559,6 +559,20 @@ function renderMonitorPetUseButton(pet, saved) {
 }
 
 function renderMonitorPetCard(pet, saved, activeId, localOnly = false) {
+    if (!localOnly) {
+        const id = musicEscapeAttr(pet.id);
+        const title = musicEscapeHtml(pet.displayName);
+        return `<article class="monitor-pet-card mh-pet-scrapbook ${activeId === pet.id ? 'active' : ''}">
+            <div class="mh-scrapbook-art">
+                <button type="button" class="mh-photo-main" data-monitor-pet-id="${id}" data-monitor-pet-operation="preview-image" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="预览 ${musicEscapeAttr(pet.displayName)}">${renderMonitorPetMedia(pet)}<span>${title}</span></button>
+                <div class="mh-photo-grid" aria-label="动画取帧">${[0, 1, 2, 3].map(frame => `<button type="button" class="mh-photo-small" data-monitor-pet-id="${id}" data-monitor-pet-operation="preview-frame-${frame}" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="查看 ${musicEscapeAttr(pet.displayName)} 的预览 ${frame + 1}">${renderMonitorPetMedia(pet, '', '', frame)}<span>0${frame + 1}</span></button>`).join('')}</div>
+                <span class="mh-scrapbook-sticker" aria-hidden="true">✧</span><span class="mh-scrapbook-stamp" aria-hidden="true">PET<br>COLLECTION</span>
+            </div>
+            <div class="monitor-pet-card-copy"><strong>${title}</strong><span>by ${musicEscapeHtml(pet.ownerName || pet.ownerHandle || 'unknown')}</span>${pet.description ? `<p>${musicEscapeHtml(pet.description)}</p>` : ''}${pet.tags.length ? `<div>${pet.tags.slice(0, 3).map(tag => `<em>${musicEscapeHtml(tag)}</em>`).join('')}</div>` : ''}</div>
+            <div class="monitor-pet-card-stats"><span><i class="ri-eye-line"></i>${Number(pet.viewCount || 0) || 0}</span><span><i class="ri-heart-line"></i>${Number(pet.likeCount || 0) || 0}</span>${saved ? '<span class="mh-collected">已收藏</span>' : ''}</div>
+            <div class="monitor-pet-card-actions"><button type="button" data-monitor-pet-id="${id}" data-monitor-pet-operation="preview" onclick="previewMonitorPet(this.dataset.monitorPetId, this)">预览动作</button>${renderMonitorPetUseButton(pet, saved)}</div>
+        </article>`;
+    }
     return `
         <article class="monitor-pet-card ${activeId === pet.id ? 'active' : ''}">
             <button type="button" class="monitor-pet-card-image" data-monitor-pet-id="${musicEscapeAttr(pet.id)}" data-monitor-pet-operation="preview-image" onclick="previewMonitorPet(this.dataset.monitorPetId, this)" aria-label="预览 ${musicEscapeAttr(pet.displayName)}">${renderMonitorPetMedia(pet)}</button>
@@ -1054,11 +1068,11 @@ function getMonitorPetStripLayout(width, height, source) {
         ? { width: 96, height: 104, frames } : null;
 }
 
-function renderMonitorPetMedia(pet, extraClass = '', visualId = '') {
+function renderMonitorPetMedia(pet, extraClass = '', visualId = '', sampleFrame = null) {
     const sources = [...new Set([pet?.posterDataUrl, pet?.previewUrl, pet?.posterUrl, pet?.shareImageUrl].filter(value =>
         typeof value === 'string' && /^(?:https?:\/\/|blob:|data:image\/)/i.test(value)))];
     const source = sources[0] || '';
-    return `<span class="monitor-pet-media ${musicEscapeAttr(extraClass)}" role="img" aria-label="${musicEscapeAttr(pet?.displayName || '桌宠预览')}" data-media-source="${musicEscapeAttr(source)}" data-media-fallbacks="${musicEscapeAttr(JSON.stringify(sources.slice(1)))}" ${visualId ? `data-mh-visual="${musicEscapeAttr(visualId)}"` : ''}>
+    return `<span class="monitor-pet-media ${musicEscapeAttr(extraClass)}" role="img" aria-label="${musicEscapeAttr(pet?.displayName || '桌宠预览')}" data-media-source="${musicEscapeAttr(source)}" data-media-fallbacks="${musicEscapeAttr(JSON.stringify(sources.slice(1)))}" ${sampleFrame != null ? `data-media-sample="${sampleFrame}"` : ''} ${visualId ? `data-mh-visual="${musicEscapeAttr(visualId)}"` : ''}>
         ${source ? `<img src="${musicEscapeAttr(source)}" alt="" aria-hidden="true" loading="lazy" draggable="false" onload="monitorPetMediaLoaded(this)" onerror="monitorPetMediaFailed(this)">` : ''}
         <span class="monitor-pet-media-status">${source ? '加载预览…' : '暂无预览'}</span>
     </span>`;
@@ -1085,7 +1099,10 @@ function monitorPetMediaLoaded(image) {
         track.setAttribute('href', source);
         track.setAttribute('width', image.naturalWidth);
         track.setAttribute('height', layout.height);
-        track.setAttribute('class', 'monitor-pet-strip-track');
+        if (media.dataset.mediaSample != null) {
+            const sample = Math.max(0, Math.min(3, Number(media.dataset.mediaSample) || 0));
+            track.setAttribute('x', String(-Math.floor((layout.frames - 1) * sample / 3) * layout.width));
+        } else track.setAttribute('class', 'monitor-pet-strip-track');
         track.style.setProperty('--pet-strip-end', `-${image.naturalWidth}px`);
         track.style.setProperty('--pet-strip-frames', String(layout.frames));
         track.style.setProperty('--pet-strip-duration', `${layout.frames * 0.2}s`);

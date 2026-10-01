@@ -10,7 +10,7 @@ function harness(extra = {}) {
     const localStorage = memoryStorage();
     const window = { ByndHome3D: {}, myCharacters: [{ id: 'a', name: 'A', history: [], chatConfig: {} }, { id: 'b', name: 'B', history: [], chatConfig: {} }] };
     const context = vm.createContext({ window, localStorage, Date, console, performance, ...extra });
-    for (const name of ['data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'living', 'animation']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
+    for (const name of ['data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'living', 'animation', 'build']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
     const H = window.ByndHome3D;
     H.State.bind('a', { avatar: H.Characters.defaultProfile('user') });
     return { H, localStorage, context, window };
@@ -209,4 +209,118 @@ test('all room geometry is local, licensed, self-contained GLB with canonical ca
         const json = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
         assert.ok(!json.buffers.some(buffer => buffer.uri), 'no missing external buffers');
     }
+});
+
+function emptyRoom(H, id = 'living_room') {
+    H.State.withHome(home => { home.layouts[id] = { items: {}, removed: H.Rooms.get(id).furniture.map(p => p.id) }; });
+}
+const placement = (id, furnitureId, x = 0, z = -1, rotation = 0) => ({ id, furnitureId, position: [x, 0, z], rotation });
+
+test('five complete furniture series share functional definitions but have independent visuals', () => {
+    const { H } = harness();
+    for (const type of ['bed', 'sofa', 'desk', 'chair', 'table', 'lamp', 'cabinet', 'plant', 'piano', 'stove', 'tub']) {
+        const variants = Object.keys(H.catalogs.furnitureCatalog.styles).map(style => H.Furniture.get(style + '_' + type));
+        assert.equal(variants.length, 5);
+        for (const item of variants) {
+            assert.ok(item.procedural);
+            assert.deepEqual(item.actions, H.catalogs.furnitureCatalog.types[type].actions);
+            assert.deepEqual(item.positions, H.catalogs.furnitureCatalog.types[type].positions);
+        }
+    }
+});
+
+test('free placements persist rotation, can move and delete, and remain per-character', () => {
+    const { H } = harness(); emptyRoom(H);
+    H.Build.commit('living_room', placement('placed_bed', 'japanese_bed'));
+    H.Build.commit('living_room', placement('placed_bed', 'japanese_bed', -.7, 0, Math.PI / 2));
+    const saved = H.Rooms.placements(H.Rooms.get('living_room'), H.State.home());
+    assert.equal(saved.length, 1); assert.equal(saved[0].rotation, Math.PI / 2);
+    H.State.bind('b'); assert.equal(H.State.home().layouts.living_room, undefined);
+    H.State.bind('a'); H.Build.remove('living_room', 'placed_bed');
+    assert.equal(H.Rooms.placements(H.Rooms.get('living_room'), H.State.home()).length, 0);
+});
+
+test('collision, rotated footprints, invalid IDs and blocked approaches reject before saving', () => {
+    const { H, localStorage } = harness(); emptyRoom(H);
+    H.Build.commit('living_room', placement('bed', 'cream_bed'));
+    const before = localStorage.getItem(H.State.key);
+    for (const draft of [placement('bad', 'cream_bed'), placement('bad', 'cream_bed', 2.5, 1, Math.PI / 2), placement('__proto__', 'cream_plant', 2, 1), { ...placement('bad', 'cream_plant'), position: [NaN, 0, 0] }]) assert.throws(() => H.Build.commit('living_room', draft));
+    assert.equal(localStorage.getItem(H.State.key), before);
+});
+
+test('moving original furniture preserves supported items and a quota failure keeps the preview unsaved', () => {
+    const { H, localStorage } = harness();
+    // Remove everything except the TV and its cabinet, to isolate support semantics.
+    H.State.withHome(home => { home.layouts.living_room = { items: {}, removed: H.Rooms.get('living_room').furniture.filter(p => !['tv', 'tv-cabinet'].includes(p.id)).map(p => p.id) }; });
+    H.Build.commit('living_room', placement('tv-cabinet', 'tv_cabinet_01', 0, -1));
+    const rows = H.Rooms.placements(H.Rooms.get('living_room'), H.State.home());
+    const tv = rows.find(p => p.id === 'tv'); assert.equal(tv.position[0], 0); assert.equal(tv.position[2], -1);
+    const before = localStorage.getItem(H.State.key); localStorage.setItem = () => { throw Error('quota'); };
+    assert.throws(() => H.Build.commit('living_room', placement('placed_plant', 'cream_plant', 2, 1)), /没有保存成功/);
+    assert.equal(localStorage.getItem(H.State.key), before);
+});
+
+test('expansion enables real rooms and living facilities only for that character', () => {
+    const { H } = harness();
+    assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), false);
+    H.Build.expand('bathroom');
+    assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), true);
+    const activities = Array.from({ length: 12 }, (_, minute) => H.Living.plan(H.State.home(), { history: [], personality: '', events: [] }, new Date(2026, 8, 27, 21, minute * 2).getTime()));
+    const bath = activities.find(p => p.action === 'Bathe');
+    assert.ok(bath, 'an available tub enables autonomous bathing during the evening'); assert.equal(bath.room, 'bathroom');
+    H.State.bind('b'); assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), false);
+});
+
+test('plans use installed furniture and invalidated AI plans cannot use a removed bed or desk', () => {
+    const { H } = harness(), night = new Date(2026, 8, 27, 1).getTime();
+    H.Build.remove('bedroom', 'bed');
+    H.State.withHome(home => { home.activity = { action: 'Sleep', room: 'bedroom', target: 'bed', until: night + 600000 }; });
+    const next = H.Living.plan(H.State.home(), { history: [], events: [] }, night);
+    assert.notEqual(next.action, 'Sleep'); assert.ok(H.Living.usable(H.State.home(), next));
+    H.Build.remove('game_room', 'desk');
+    assert.throws(() => H.Living.validateDecision({ action: 'Work', room: 'game_room', target: 'desk' }));
+    emptyRoom(H); H.Build.commit('living_room', placement('mydesk', 'chinese_desk'));
+    const work = H.Living.plan(H.State.home(), { history: [], events: ['学习工作'], personality: '' }, new Date(2026, 8, 27, 10).getTime());
+    assert.equal(work.action, 'Work'); assert.equal(work.target, 'mydesk'); assert.equal(work.room, 'living_room');
+});
+
+test('offline catch-up is bounded, idempotent, atomic and distinguished from shared interactions', () => {
+    const { H, localStorage } = harness(), now = new Date(2026, 8, 27, 18).getTime();
+    H.State.withHome(home => { home.lastLifeAt = now - 3 * 86400000; home.activity = null; });
+    H.Living.advance({ history: [], events: [], personality: '喜欢阅读' }, now);
+    const home = H.State.home(); assert.ok(home.moments.length > 0 && home.moments.length <= 48);
+    assert.ok(home.moments.every(row => row.source === 'simulation' && row.at >= now - 86400000 && row.at <= now));
+    H.Living.advance({ history: [], events: [], personality: '喜欢阅读' }, now + 1000);
+    assert.equal(H.State.home().moments.length, home.moments.length);
+    const before = localStorage.getItem(H.State.key); localStorage.setItem = () => { throw Error('quota'); };
+    assert.throws(() => H.Living.advance({ history: [], events: [] }, now + 900000), /没有保存成功/);
+    assert.equal(localStorage.getItem(H.State.key), before);
+});
+
+test('invalid imported layouts never overwrite storage and private home context stays scoped', () => {
+    const { H, localStorage } = harness(); H.State.moment('Read', '只有A知道的日子');
+    assert.match(H.Living.prompt({ id: 'a' }), /只有A知道/); assert.equal(H.Living.prompt({ id: 'b' }), '');
+    const data = H.State.load(); data.homes.a.layouts.living_room = { removed: [], items: { broken: { id: 'broken', furnitureId: 'unknown', position: [0, 0, 0], rotation: 0 } } };
+    const raw = JSON.stringify(data); localStorage.setItem(H.State.key, raw);
+    assert.throws(() => H.State.visit(), /家具存档/); assert.equal(localStorage.getItem(H.State.key), raw);
+});
+
+test('the navigation grid includes the narrow corridor at the right edge of the initial room', () => {
+    const { H } = harness(), home = H.State.home(), room = H.Rooms.get('living_room');
+    const layout = H.Rooms.placements(room, home), sofa = layout.find(p => p.id === 'sofa');
+    const obstacles = layout.filter(p => p.position[1] < .2 && !['frame', 'prop', 'keepsake'].includes(H.Furniture.get(p.furnitureId).type)).map(H.Build.extent);
+    const end = H.Animation.approach({ x: 2.9, z: 2.4 }, sofa, obstacles, room.size);
+    assert.ok(end, 'the default sofa must be reachable');
+    const route = H.Animation.path({ x: 2.9, z: 2.3 }, { x: 2.9, z: -2.3 }, [{ x: -.2, z: 0, width: 5.4, depth: 3.2 }], room.size);
+    assert.ok(route.length && route.some(point => point.x > 2.68), 'route uses the edge corridor');
+    assert.ok(route.every(p => Math.abs(p.x) <= 3.05 && Math.abs(p.z) <= 2.55));
+});
+
+test('a delayed AI plan cannot restore furniture removed while its request was pending', async () => {
+    const { H, context } = harness(); let reply;
+    context.callChatApi = () => new Promise(resolve => { reply = resolve; });
+    const pending = H.Living.decide(); H.Build.remove('living_room', 'sofa');
+    const before = JSON.stringify(H.State.home());
+    reply({ ok: true, content: '{"action":"Read","room":"living_room","target":"sofa","reason":"看书"}' });
+    await assert.rejects(pending, /家具/); assert.equal(JSON.stringify(H.State.home()), before);
 });

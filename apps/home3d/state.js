@@ -9,6 +9,17 @@
         let data;
         try { data = JSON.parse(raw); } catch (_) { throw new Error('小屋存档无法读取。原存档已保留，请先从设置导出备份。'); }
         if (data?.version !== 1 || !data.homes || typeof data.homes !== 'object' || Array.isArray(data.homes)) throw new Error('小屋存档版本不兼容，请先备份。');
+        for (const current of Object.values(data.homes)) {
+            if (!current || typeof current !== 'object') throw new Error('小屋存档内容无效，请先备份。');
+            if (current.openRooms && (!Array.isArray(current.openRooms) || current.openRooms.some(id => !H.Rooms.get(id)?.expandable))) throw new Error('小屋扩建存档无效，原存档已保留。');
+            if (current.layouts) {
+                if (typeof current.layouts !== 'object' || Array.isArray(current.layouts)) throw new Error('装修存档无效，原存档已保留。');
+                for (const [roomId, layout] of Object.entries(current.layouts)) {
+                    if (!H.Rooms.get(roomId) || !layout?.items || typeof layout.items !== 'object' || Array.isArray(layout.items) || Object.keys(layout.items).length > 80 || !Array.isArray(layout.removed) || layout.removed.some(id => typeof id !== 'string')) throw new Error('装修存档无效，原存档已保留。');
+                    for (const [id, p] of Object.entries(layout.items)) if (!/^[\w-]{1,100}$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id) || p?.id !== id || !H.Furniture.get(p.furnitureId) || !Array.isArray(p.position) || p.position.length !== 3 || !p.position.every(Number.isFinite) || p.position.some(v => Math.abs(v) > 20) || !Number.isFinite(p.rotation)) throw new Error('家具存档位置无效，原存档已保留。');
+                }
+            }
+        }
         return { ...defaults(), ...data, user: { ...defaults().user, ...data.user } };
     }
     function update(mutator) {
@@ -19,7 +30,7 @@
         return next;
     }
     function createHome(now = Date.now()) {
-        return { createdAt: now, room: 'living_room', theme: 'cream', charAvatar: H.Characters?.defaultProfile('char') || {}, avatarReference: '', visits: [], moments: [], keepsakes: [], placements: [], activity: null, relationship: '亲近', consentHug: true };
+        return { createdAt: now, room: 'living_room', theme: 'auto', charAvatar: H.Characters?.defaultProfile('char') || {}, avatarReference: '', visits: [], moments: [], keepsakes: [], placements: [], layouts: {}, openRooms: [], lastLifeAt: now, needs: { energy: 80, comfort: 80 }, activity: null, relationship: '亲近', consentHug: true };
     }
     function bind(charId, user) {
         if (['__proto__', 'constructor', 'prototype'].includes(String(charId))) throw new Error('角色标识无效。');

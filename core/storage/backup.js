@@ -1,11 +1,12 @@
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.761';
+const APP_VERSION = 'v1.1.771';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
 const DREAM_IMAGE_BACKUP_DB_STORE = 'images';
 const ALL_DATA_KEYS = [
+    'bynd_prompt_lab_v1',
     'my_characters_data',
     'my_characters_data_meta',
     'my_api_data',

@@ -10,6 +10,8 @@ const web = path.join(ios, 'BYND', 'www');
 execFileSync(process.execPath, [path.join(__dirname, 'assemble-sources.cjs')], { cwd: root, stdio: 'inherit' });
 fs.mkdirSync(web, { recursive: true });
 function copyWeb(source, destination) {
+    const relative = path.relative(root, source).split(path.sep).join('/');
+    if (relative === 'shop.html' || relative === 'assets/website' || relative.startsWith('assets/website/')) return;
     const stat = fs.lstatSync(source);
     if (stat.isSymbolicLink()) throw new Error(`Web assets cannot be symbolic links: ${source}`);
     if (stat.isDirectory()) {

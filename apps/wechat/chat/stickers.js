@@ -566,7 +566,7 @@ function getQqBuiltinEmojiPack() {
 }
 
 function isWechatBuiltinStickerPackId(packId) {
-    return [WECHAT_BUILTIN_EMOJI_PACK_ID, QQ_BUILTIN_EMOJI_PACK_ID].includes(String(packId || ''));
+    return [WECHAT_BUILTIN_EMOJI_PACK_ID, QQ_BUILTIN_EMOJI_PACK_ID, 'pack_pixel_builtin'].includes(String(packId || ''));
 }
 
 function isWechatBuiltinEmojiUrl(url) {
@@ -619,6 +619,7 @@ function shouldShowQqBuiltinEmojiPack() {
 
 function getActiveWechatBuiltinEmojiPacks() {
     const packs = [];
+    if (getWechatUiThemeId() === 'pixel' && typeof getWechatPixelStickerPack === 'function') packs.push(getWechatPixelStickerPack());
     if (shouldShowWechatBuiltinEmojiPack()) packs.push(getWechatBuiltinEmojiPack());
     if (shouldShowQqBuiltinEmojiPack()) packs.push(getQqBuiltinEmojiPack());
     return packs;
@@ -1303,7 +1304,8 @@ function insertWechatEmojiToInput(name, url = '') {
     closeStickerPicker();
 }
 
-function sendSticker(url, name, isWechatEmoji = false) {
+const wechatPendingStickerSends = new Set();
+async function sendSticker(url, name, isWechatEmoji = false) {
     if (isWechatEmoji) {
         insertWechatEmojiToInput(name, url);
         return;
@@ -1312,6 +1314,7 @@ function sendSticker(url, name, isWechatEmoji = false) {
     if (!charId) return;
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char) return;
+    if (wechatPendingStickerSends.has(charId)) return false;
     if (isWechatQQGroupSpeechMuted(char)) {
         showWechatToast('当前群已开启全员禁言');
         return;
@@ -1328,11 +1331,23 @@ function sendSticker(url, name, isWechatEmoji = false) {
     };
     if (!char.history) char.history = [];
     char.history.push(msg);
+    wechatPendingStickerSends.add(charId);
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('贴纸未能保存');
+    } catch (error) {
+        const index = char.history.indexOf(msg);
+        if (index !== -1) char.history.splice(index, 1);
+        showWechatToast('贴纸发送失败，请重试');
+        return false;
+    } finally {
+        wechatPendingStickerSends.delete(charId);
+    }
     if (typeof recordWechatUserContact === 'function') recordWechatUserContact(char.id);
-
-    refreshChatView(char);
-    closeStickerPicker();
-    saveCharactersToStorage();
+    if (window.currentChatCharId === charId) {
+        refreshChatView(char);
+        closeStickerPicker();
+    }
+    return true;
 }
 
 // --- 贴纸包管理器 ---
@@ -1677,7 +1692,9 @@ function openPackDetail(packId) {
     const listEl = document.getElementById('sticker-pack-list');
     const stickers = Array.isArray(pack.stickers) ? pack.stickers : [];
     const canEdit = !pack.builtin && !isWechatBuiltinStickerPackId(pack.id);
-    const builtinNote = pack.id === QQ_BUILTIN_EMOJI_PACK_ID
+    const builtinNote = pack.id === 'pack_pixel_builtin'
+        ? '本地内置的 40 个像素兔贴纸，支持离线使用。'
+        : pack.id === QQ_BUILTIN_EMOJI_PACK_ID
         ? '来自 qiuyinghua/wechat-emoticons 的 QQ Emoji，只能发送，不能删除。'
         : '来自 airinghost/wechat-emoji 的微信内置表情，只能发送，不能删除。';
 

@@ -12,7 +12,7 @@ manifest = json.loads((root / 'assets/home3d/asset-manifest.json').read_text(enc
 with zipfile.ZipFile(apk) as package:
     prefix = 'assets/www/'
     checked = 0
-    paths = [root / 'index.html', root / 'core/navigation/router.js', root / 'assets/vendor/home3d/engine.js']
+    paths = [root / 'index.html', root / 'core/navigation/router.js', root / 'core/api/chat-api.js', root / 'core/storage/backup.js', root / 'systems/living-world/living-world.js', root / 'assets/vendor/home3d/engine.js']
     paths += [p for p in (root / 'apps/home3d').rglob('*') if p.is_file()]
     paths += [p for p in (root / 'assets/home3d').rglob('*') if p.is_file()]
     for file in paths:

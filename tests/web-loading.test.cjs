@@ -24,6 +24,7 @@ function page({ native = false, early = false } = {}) {
     const document = {
         documentElement: { classList: { add: name => classes.add(name), remove: name => classes.delete(name) } },
         getElementById: () => available && !layer.removed ? layer : null,
+        querySelectorAll: () => [{ src: 'http://localhost/main.js?v=1' }],
         addEventListener: (name, handler) => listeners.set(name, handler),
         removeEventListener: (name, handler) => { if (listeners.get(name) === handler) listeners.delete(name); }
     };
@@ -45,7 +46,7 @@ test('loading view exits synchronously on real readiness and removes error handl
 
 test('resource failure before body parsing survives mounting, repeated errors and readiness', () => {
     const proof = page({ early: true });
-    proof.listeners.get('error')({ target: { tagName: 'SCRIPT', src: 'http://localhost/main.js', getAttribute: () => 'main.js?v=1' } });
+    proof.listeners.get('error')({ target: { tagName: 'SCRIPT', hasAttribute: () => true } });
     proof.mount();
     proof.window.__byndResourceLoading.fail();
     proof.window.__byndResourceLoading.initializing();
@@ -56,10 +57,10 @@ test('resource failure before body parsing survives mounting, repeated errors an
     assert.match(proof.message.textContent, /加载未完成/);
 });
 
-test('optional remote resources and images do not block entry; core CSS errors do', () => {
+test('optional resources and features do not block entry; required CSS errors do', () => {
     const proof = page();
     const error = proof.listeners.get('error');
-    error({ target: { tagName: 'SCRIPT', src: 'https://cdn.test/optional.js', getAttribute: () => 'https://cdn.test/optional.js' } });
+    error({ target: { tagName: 'SCRIPT', hasAttribute: () => false } });
     error({ target: { tagName: 'IMG' } });
     error({ target: { tagName: 'LINK', hasAttribute: () => false } });
     assert.equal(proof.retry.hidden, true);
@@ -71,7 +72,9 @@ test('optional remote resources and images do not block entry; core CSS errors d
 
 test('initial script execution errors provide retry; Android does not create a second splash', () => {
     const proof = page();
-    proof.windowListeners.get('error')({ error: new Error('script failed') });
+    proof.windowListeners.get('error')({ error: new Error('optional feature failed'), filename: 'http://localhost/apps/comic/comic.js?v=1' });
+    assert.equal(proof.retry.hidden, true);
+    proof.windowListeners.get('error')({ error: new Error('script failed'), filename: 'http://localhost/main.js?v=1' });
     assert.equal(proof.retry.hidden, false);
     const native = page({ native: true });
     assert.equal(native.window.__byndResourceLoading, undefined);

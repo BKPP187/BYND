@@ -61,7 +61,7 @@
         } catch (_) {}
     }
 
-    async function requestQuestions(apiKey, state, questions, timeoutMs = 8000) {
+    async function requestQuestions(apiKey, state, questions, timeoutMs = 8000, onReceipt = null) {
         const payload = JSON.stringify({ model: 'jev-latest', state, questions });
         if (payload.length > 30000) throw new Error('Jev 决策上下文过长');
         const endpoints = directBlocked ? PROXY_ENDPOINTS : [ENDPOINT, ...PROXY_ENDPOINTS];
@@ -83,6 +83,7 @@
                 const answered = !!data?.answers && Object.keys(questions).every(key => data.answers[key]);
                 try { window.ByndUsageLedger?.record({ feature: 'jev', provider: 'api.typesafe.ai', apiName: 'Jev', model: 'jev-latest', usage: data?.usage || null, ok: answered, ticket: null, source: null }); } catch (_) {}
                 if (!data || typeof data !== 'object' || !answered) throw new Error('Jev 没有返回有效决策');
+                onReceipt?.({ model: 'jev-latest', endpoint, answers: data.answers, usage: data.usage || null });
                 return data.answers;
             } catch (error) {
                 const networkLike = error?.name === 'TypeError' || error?.name === 'AbortError';
@@ -124,7 +125,8 @@
         if (!available(scope) || !questions || !Object.keys(questions).length) return null;
         const config = read();
         try {
-            const answers = await requestQuestions(config.apiKey, state, questions);
+            const labPolicy = !meta.private && window.ByndPromptLab?.decisionPrompt?.();
+            const answers = await requestQuestions(config.apiKey, labPolicy ? { ...state, evaluationPolicy: labPolicy } : state, questions, 8000, meta.onReceipt);
             const result = {};
             for (const [key, question] of Object.entries(questions)) {
                 result[key] = interpret(question, answers[key], config.minProbability);
@@ -222,5 +224,5 @@
         if (label) label.textContent = `${Math.round(Number(value) || 0)}%`;
     }
 
-    window.ByndJev = { read, write, available, ask, choose, request, testConnection, renderSettings, saveSettings, testSettings, previewThreshold, readLog, logDecision, renderLog, storageKey: STORAGE_KEY, logKey: LOG_KEY, scopes: SCOPES.slice() };
+    window.ByndJev = { read, write, available, ask, choose, request, interpret, testConnection, renderSettings, saveSettings, testSettings, previewThreshold, readLog, logDecision, renderLog, storageKey: STORAGE_KEY, logKey: LOG_KEY, scopes: SCOPES.slice() };
 })();

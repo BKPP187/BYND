@@ -7,7 +7,10 @@
         checkins: 'bynd_study_checkins_v1',
         settings: 'bynd_study_settings_v1',
         chats: 'bynd_study_chats_v1',
-        tab: 'bynd_study_tab_v1'
+        tab: 'bynd_study_tab_v1',
+        focus: 'bynd_study_focus_v1',
+        trace: 'bynd_study_trace_v1',
+        lessonMarks: 'bynd_study_lesson_marks_v1'
     };
     const PRESET_LANGUAGES = [
         { id: 'cn', label: '中文', short: '中', code: 'zh-CN', placeholder: '我今天想认真学习。' },
@@ -44,7 +47,14 @@
         { id: 'focus', label: '燃起', tone: '#5b7cfa' }
     ];
 
-    const state = { tab: 'chat', busy: false, status: '', quiz: null, wordQuery: '', editingCard: null, translationOpen: {} };
+    const state = {
+        tab: 'chat', busy: false, status: '', quiz: null, wordQuery: '', editingCard: null, translationOpen: {},
+        learningView: 'book', foundationLang: '', foundationGroup: 0, foundationGlyph: 0,
+        drillIndex: 0, drillDetails: false, drillUndo: null,
+        traceStrokes: [], traceActive: null,
+        focusMode: 'focus', focusRemaining: 25 * 60, focusRunning: false, focusTickAt: 0, focusPending: 0,
+        scrollPositions: {}
+    };
 
     // ---------- helpers ----------
     const escapeHtml = value => (typeof musicEscapeHtml === 'function' ? musicEscapeHtml(value) : String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])));
@@ -200,6 +210,53 @@
             { id: 'study_seed_1', cn: '我想慢慢变得更稳定。', ja: '少しずつ安定した自分になりたい。', th: 'ฉันอยากค่อยๆ เป็นคนที่มั่นคงขึ้น', note: '中文的“慢慢”偏过程；日语用少しずつ；泰语用ค่อยๆ。', createdAt: Date.now(), source: 'seed' },
             { id: 'study_seed_2', cn: '今天先学十分钟就好。', ja: '今日はまず十分だけ勉強すればいい。', th: 'วันนี้เรียนแค่สิบนาทีก่อนก็พอ', note: '“就好/ก็พอ”都有降低压力的语气，适合做每日学习目标。', createdAt: Date.now() - 1000, source: 'seed' }
         ]);
+    }
+
+    // Small, inspectable starter charts. Readings are learning cues; the speech button supplies pronunciation.
+    const foundationRows = (name, values) => ({ name, items: values.split(' ').map(part => { const [glyph, reading] = part.split(':'); return { glyph, reading: reading || '' }; }) });
+    const FOUNDATIONS = {
+        ko: [
+            foundationRows('基本辅音', 'ㄱ:g ㄴ:n ㄷ:d ㄹ:r/l ㅁ:m ㅂ:b ㅅ:s ㅇ:∅/ng ㅈ:j ㅊ:ch ㅋ:k ㅌ:t ㅍ:p ㅎ:h'),
+            foundationRows('基本元音', 'ㅏ:a ㅑ:ya ㅓ:eo ㅕ:yeo ㅗ:o ㅛ:yo ㅜ:u ㅠ:yu ㅡ:eu ㅣ:i'),
+            foundationRows('双辅音与复合元音', 'ㄲ:kk ㄸ:tt ㅃ:pp ㅆ:ss ㅉ:jj ㅐ:ae ㅔ:e ㅘ:wa ㅝ:wo ㅚ:oe ㅟ:wi ㅢ:ui'),
+            foundationRows('拼成音节', '가:ga 나:na 다:da 마:ma 바:ba 사:sa 아:a 자:ja')
+        ],
+        ja: [
+            foundationRows('平假名 · 五十音', 'あ:a い:i う:u え:e お:o か:ka き:ki く:ku け:ke こ:ko さ:sa し:shi す:su せ:se そ:so た:ta ち:chi つ:tsu て:te と:to な:na に:ni ぬ:nu ね:ne の:no は:ha ひ:hi ふ:fu へ:he ほ:ho ま:ma み:mi む:mu め:me も:mo や:ya ゆ:yu よ:yo ら:ra り:ri る:ru れ:re ろ:ro わ:wa を:o ん:n'),
+            foundationRows('片假名 · 五十音', 'ア:a イ:i ウ:u エ:e オ:o カ:ka キ:ki ク:ku ケ:ke コ:ko サ:sa シ:shi ス:su セ:se ソ:so タ:ta チ:chi ツ:tsu テ:te ト:to ナ:na ニ:ni ヌ:nu ネ:ne ノ:no ハ:ha ヒ:hi フ:fu ヘ:he ホ:ho マ:ma ミ:mi ム:mu メ:me モ:mo ヤ:ya ユ:yu ヨ:yo ラ:ra リ:ri ル:ru レ:re ロ:ro ワ:wa ヲ:o ン:n'),
+            foundationRows('浊音与半浊音', 'が:ga ぎ:gi ぐ:gu げ:ge ご:go ざ:za じ:ji ず:zu ぜ:ze ぞ:zo だ:da ぢ:ji づ:zu で:de ど:do ば:ba び:bi ぶ:bu べ:be ぼ:bo ぱ:pa ぴ:pi ぷ:pu ぺ:pe ぽ:po'),
+            foundationRows('小假名与拗音', 'ゃ:ya ゅ:yu ょ:yo っ:small-tsu きゃ:kya きゅ:kyu きょ:kyo しゃ:sha しゅ:shu しょ:sho ちゃ:cha ちゅ:chu ちょ:cho')
+        ],
+        th: [
+            foundationRows('常用辅音', 'ก:k ข:kh ค:kh ง:ng จ:ch ฉ:ch ช:ch ซ:s ด:d ต:t ถ:th ท:th น:n บ:b ป:p ผ:ph พ:ph ม:m ย:y ร:r ล:l ว:w ส:s ห:h อ:ʔ ฮ:h'),
+            foundationRows('辅音全表 · 44', 'ก ข ฃ ค ฅ ฆ ง จ ฉ ช ซ ฌ ญ ฎ ฏ ฐ ฑ ฒ ณ ด ต ถ ท ธ น บ ป ผ ฝ พ ฟ ภ ม ย ร ล ว ศ ษ ส ห ฬ อ ฮ'),
+            foundationRows('常见元音写法', 'า:aa ิ:i ี:ii ึ:ue ื:uee ุ:u ู:uu เ:e แ:ae โ:o ไ:ai ใ:ai')
+        ],
+        cn: [foundationRows('拼音声母', 'b:b p:p m:m f:f d:d t:t n:n l:l g:g k:k h:h j:j q:q x:x zh:zh ch:ch sh:sh r:r z:z c:c s:s'), foundationRows('拼音韵母', 'a:a o:o e:e i:i u:u ü:ü ai:ai ei:ei ao:ao ou:ou an:an en:en ang:ang eng:eng ong:ong'), foundationRows('四声示例', 'ā:一声 á:二声 ǎ:三声 à:四声')],
+        en: [foundationRows('字母 A–Z', 'A:A B:B C:C D:D E:E F:F G:G H:H I:I J:J K:K L:L M:M N:N O:O P:P Q:Q R:R S:S T:T U:U V:V W:W X:X Y:Y Z:Z')],
+        fr: [foundationRows('字母 A–Z', 'A:A B:B C:C D:D E:E F:F G:G H:H I:I J:J K:K L:L M:M N:N O:O P:P Q:Q R:R S:S T:T U:U V:V W:W X:X Y:Y Z:Z'), foundationRows('常见变音符号', 'é:é è:è ê:ê ë:ë à:à â:â ç:ç î:î ï:ï ô:ô ù:ù û:û ü:ü œ:œ')],
+        de: [foundationRows('字母 A–Z', 'A:A B:B C:C D:D E:E F:F G:G H:H I:I J:J K:K L:L M:M N:N O:O P:P Q:Q R:R S:S T:T U:U V:V W:W X:X Y:Y Z:Z'), foundationRows('特殊字母', 'Ä:Ä Ö:Ö Ü:Ü ß:ß')],
+        es: [foundationRows('字母 A–Z', 'A:A B:B C:C D:D E:E F:F G:G H:H I:I J:J K:K L:L M:M N:N Ñ:Ñ O:O P:P Q:Q R:R S:S T:T U:U V:V W:W X:X Y:Y Z:Z'), foundationRows('重音与分音', 'á:á é:é í:í ó:ó ú:ú ü:ü')]
+    };
+    const STARTER_PHRASES = {
+        cn: [['你好', '你好'], ['谢谢', '谢谢'], ['今天先学十分钟。', '今天先学十分钟。']],
+        en: [['hello', '你好'], ['thank you', '谢谢'], ['I am learning English.', '我正在学英语。']],
+        ja: [['こんにちは', '你好'], ['ありがとう', '谢谢'], ['日本語を勉強しています。', '我正在学日语。']],
+        ko: [['안녕하세요', '你好'], ['감사합니다', '谢谢'], ['한국어를 공부하고 있어요.', '我正在学韩语。']],
+        fr: [['bonjour', '你好'], ['merci', '谢谢'], ["J'apprends le français.", '我正在学法语。']],
+        de: [['Hallo', '你好'], ['Danke', '谢谢'], ['Ich lerne Deutsch.', '我正在学德语。']],
+        es: [['hola', '你好'], ['gracias', '谢谢'], ['Estoy aprendiendo español.', '我正在学西班牙语。']],
+        th: [['สวัสดี', '你好'], ['ขอบคุณ', '谢谢'], ['ฉันกำลังเรียนภาษาไทย', '我正在学泰语。']]
+    };
+    function lessonCards(langId) {
+        const marks = readJson(KEYS.lessonMarks, {});
+        const glyphs = (FOUNDATIONS[langId]?.[0]?.items || []).slice(0, 8).map((item, index) => ({
+            id: `study_lesson_${langId}_glyph_${index}`, source: 'lesson', lines: langId === 'cn' ? { cn: item.glyph } : { [langId]: item.glyph, cn: `读音提示：${item.reading}` }
+        }));
+        const phrases = (STARTER_PHRASES[langId] || []).map(([target, meaning], index) => ({
+            id: `study_lesson_${langId}_phrase_${index}`, source: 'lesson', lines: { [langId]: target, cn: meaning }
+        }));
+        return [...glyphs, ...phrases].map(card => ({ ...card, mnemonic: marks[card.id]?.mnemonic || '' }));
     }
 
     // ---------- progress / check-ins ----------
@@ -637,6 +694,140 @@
         render();
     }
 
+    // ---------- focus timer / actual daily duration ----------
+    let focusTimerHandle = null;
+    const FOCUS_DEFAULTS = { focus: 25, short: 5, long: 15 };
+    function getFocusData() {
+        const value = readJson(KEYS.focus, {});
+        return {
+            days: value?.days && typeof value.days === 'object' ? value.days : {},
+            durations: Object.fromEntries(Object.keys(FOCUS_DEFAULTS).map(key => [key, Math.max(1, Math.min(120, Number(value?.durations?.[key]) || FOCUS_DEFAULTS[key]))]))
+        };
+    }
+    function focusSeconds(mode = state.focusMode) { return getFocusData().durations[mode] * 60; }
+    function formatFocus(seconds) { const safe = Math.max(0, Math.floor(seconds)); return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`; }
+    function formatStudyTime(seconds) { const safe = Math.max(0, Math.floor(Number(seconds) || 0)); const minutes = Math.round(safe / 60); return safe > 0 && safe < 60 ? `${safe} 秒` : minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`; }
+    function studyWindowVisible() {
+        const app = byId('app-study-window');
+        return !(typeof document.hidden === 'boolean' && document.hidden) && !app?.classList?.contains('hidden');
+    }
+    function flushFocus() {
+        if (!state.focusPending) return true;
+        const data = getFocusData();
+        const key = dateKey();
+        data.days[key] = { ...(data.days[key] || {}), seconds: Number(data.days[key]?.seconds || 0) + state.focusPending };
+        try { writeJson(KEYS.focus, data); }
+        catch (error) { state.focusRunning = false; setStatus(`专注时长没有保存：${error.message || error}`, 'error'); render(); return false; }
+        state.focusPending = 0;
+        return true;
+    }
+    function tickFocus(now = Date.now()) {
+        if (!state.focusRunning) return;
+        if (!studyWindowVisible()) { pauseFocus(); return; }
+        const elapsed = Math.max(0, Math.min(5000, now - state.focusTickAt));
+        state.focusTickAt = now;
+        state.focusRemainderMs = (state.focusRemainderMs || 0) + elapsed;
+        const seconds = Math.min(state.focusRemaining, Math.floor(state.focusRemainderMs / 1000));
+        if (!seconds) return;
+        state.focusRemainderMs -= seconds * 1000;
+        state.focusRemaining -= seconds;
+        if (state.focusMode === 'focus') state.focusPending += seconds;
+        const display = byId('study-timer-display');
+        if (display) display.textContent = formatFocus(state.focusRemaining);
+        if (state.focusPending >= 5 && !flushFocus()) return;
+        if (state.focusRemaining === 0) completeFocus();
+    }
+    function startFocus() {
+        if (!studyWindowVisible()) return;
+        if (!flushFocus()) return;
+        if (state.focusRemaining <= 0) state.focusRemaining = focusSeconds();
+        state.focusRunning = true;
+        state.focusTickAt = Date.now();
+        state.focusRemainderMs = 0;
+        render();
+    }
+    function pauseFocus() {
+        if (state.focusRunning && studyWindowVisible()) tickFocus(Date.now());
+        state.focusRunning = false;
+        state.focusTickAt = 0;
+        flushFocus();
+        render();
+    }
+    function resetFocus() {
+        state.focusRunning = false;
+        if (!flushFocus()) return;
+        state.focusRemaining = focusSeconds();
+        state.focusRemainderMs = 0;
+        render();
+    }
+    function setFocusMode(mode) {
+        if (!FOCUS_DEFAULTS[mode]) return;
+        state.focusRunning = false;
+        if (!flushFocus()) return;
+        state.focusMode = mode;
+        state.focusRemaining = focusSeconds(mode);
+        render();
+    }
+    function saveFocusDuration(mode, value) {
+        if (!FOCUS_DEFAULTS[mode]) return;
+        const minutes = Math.max(1, Math.min(120, Math.round(Number(value) || FOCUS_DEFAULTS[mode])));
+        const data = getFocusData();
+        data.durations[mode] = minutes;
+        try { writeJson(KEYS.focus, data); }
+        catch (error) { setStatus(`计时设置没有保存：${error.message || error}`, 'error'); render(); return; }
+        if (mode === state.focusMode && !state.focusRunning) state.focusRemaining = minutes * 60;
+        render();
+    }
+    function completeFocus() {
+        state.focusRunning = false;
+        if (!flushFocus()) return;
+        if (state.focusMode === 'focus') {
+            const data = getFocusData();
+            const key = dateKey();
+            data.days[key] = { ...(data.days[key] || {}), sessions: Number(data.days[key]?.sessions || 0) + 1 };
+            try { writeJson(KEYS.focus, data); }
+            catch (error) { setStatus(`番茄钟次数没有保存：${error.message || error}`, 'error'); render(); return; }
+            const duration = formatStudyTime(data.days[key].seconds);
+            if (tutor()) window.ByndExperience?.checkpoint('study', tutor().id, `今天已专注学习 ${duration}，完成 ${data.days[key].sessions} 轮番茄钟。`);
+            toast(`完成一轮专注 · 今天 ${duration}`);
+        } else toast('休息结束');
+        state.focusRemaining = focusSeconds();
+        render();
+    }
+    function renderFocus() {
+        const data = getFocusData();
+        const week = recentDays(7);
+        const monday = new Date();
+        monday.setHours(12, 0, 0, 0);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - 11 * 7);
+        const days = Array.from({ length: 84 }, (_, index) => { const date = new Date(monday); date.setDate(date.getDate() + index); return { date, key: dateKey(date) }; });
+        const today = data.days[dateKey()] || {};
+        const maxWeek = Math.max(60, ...week.map(day => Number(data.days[day.key]?.seconds || 0)));
+        const levels = [0, 5 * 60, 15 * 60, 30 * 60, 60 * 60];
+        const selectedDay = days.find(day => day.key === state.activityDay) || days.find(day => day.key === dateKey());
+        const selectedData = data.days[selectedDay.key] || {};
+        const weekStarts = days.filter((_, index) => index % 7 === 0);
+        return `<section class="study-panel study-focus">
+            <div class="study-panel-head"><span>FOCUS</span><strong>番茄专注</strong><em>今天 ${formatStudyTime(today.seconds)} · ${Number(today.sessions || 0)} 轮</em></div>
+            <div class="study-segment">${[['focus','专注'],['short','短休息'],['long','长休息']].map(([id,label]) => `<button type="button" class="${id === state.focusMode ? 'active' : ''}" onclick="ByndStudy.setFocusMode('${id}')">${label}</button>`).join('')}</div>
+            <div class="study-timer" id="study-timer-display" role="timer" aria-live="off">${formatFocus(state.focusRemaining)}</div>
+            <div class="study-inline-actions study-timer-actions"><button type="button" class="study-ghost" onclick="ByndStudy.resetFocus()">重置</button><button type="button" class="study-primary" onclick="ByndStudy.${state.focusRunning ? 'pauseFocus' : 'startFocus'}()">${state.focusRunning ? '暂停' : '开始'}</button></div>
+            <details class="study-focus-settings"><summary>计时长度</summary>${[['focus','专注'],['short','短休息'],['long','长休息']].map(([id,label]) => `<label>${label}<input type="number" min="1" max="120" value="${data.durations[id]}" onchange="ByndStudy.saveFocusDuration('${id}',this.value)">分</label>`).join('')}</details>
+        </section>
+        <section class="study-panel study-activity"><div class="study-panel-head"><span>ACTIVITY</span><strong>每日学习时长</strong><em>近 12 周</em></div>
+            <div class="study-activity-months">${weekStarts.map((day, index) => `<span>${index === 0 || day.date.getMonth() !== weekStarts[index - 1].date.getMonth() ? `${day.date.getMonth() + 1}月` : ''}</span>`).join('')}</div>
+            <div class="study-activity-layout"><div class="study-activity-weekdays"><span>一</span><span>三</span><span>五</span><span>日</span></div><div class="study-activity-grid" aria-label="近十二周每日学习时长">${days.map(day => { const seconds = Number(data.days[day.key]?.seconds || 0); const level = levels.reduce((result, threshold, index) => seconds >= threshold ? index : result, 0); const future = day.key > dateKey(); return `<button type="button" class="level-${level} ${day.key === selectedDay.key ? 'selected' : ''} ${future ? 'future' : ''}" title="${day.key} · ${formatStudyTime(seconds)}" aria-label="${day.key}，${formatStudyTime(seconds)}" ${future ? 'disabled' : `onclick="ByndStudy.selectActivityDay('${day.key}')"`}></button>`; }).join('')}</div></div>
+            <div class="study-activity-detail"><strong>${selectedDay.date.getMonth() + 1}月${selectedDay.date.getDate()}日</strong><span>${formatStudyTime(selectedData.seconds)} · ${Number(selectedData.sessions || 0)} 轮专注</span></div>
+            <div class="study-activity-legend"><span>少</span>${levels.map((_, index) => `<i class="level-${index}"></i>`).join('')}<span>多</span></div>
+            <div class="study-week-heading">最近 7 天</div><div class="study-week-bars">${week.map(day => { const seconds = Number(data.days[day.key]?.seconds || 0); return `<div title="${day.key} · ${formatStudyTime(seconds)}"><b style="height:${Math.max(seconds ? 5 : 2, Math.round(seconds / maxWeek * 100))}%"></b><span>${'日一二三四五六'[day.date.getDay()]}</span></div>`; }).join('')}</div>
+        </section>`;
+    }
+    function selectActivityDay(key) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key > dateKey()) return;
+        state.activityDay = key;
+        render();
+    }
+
     // ---------- UI ----------
     function toast(text) {
         if (typeof showWechatToast === 'function') showWechatToast(text);
@@ -647,10 +838,13 @@
     }
     function setTab(tab) {
         if (!TABS.some(item => item.id === tab)) return;
+        const content = byId('study-content');
+        if (content) state.scrollPositions[state.tab === 'words' ? `words:${state.learningView}` : state.tab] = content.scrollTop;
         state.tab = tab;
         try { localStorage.setItem(KEYS.tab, tab); } catch (_) {}
         setStatus('');
         render();
+        if (content) content.scrollTop = state.scrollPositions[tab === 'words' ? `words:${state.learningView}` : tab] || 0;
     }
     function init() {
         // A full localStorage must not keep the app from opening; saving surfaces its own error later.
@@ -659,6 +853,12 @@
         try { if (!localStorage.getItem(KEYS.settings)) saveSettings({}); } catch (_) {}
         const saved = localStorage.getItem(KEYS.tab);
         state.tab = TABS.some(item => item.id === saved) ? saved : 'chat';
+        state.focusRemaining = focusSeconds();
+        if (!focusTimerHandle && typeof setInterval === 'function') focusTimerHandle = setInterval(() => tickFocus(Date.now()), 250);
+        if (typeof document.addEventListener === 'function' && !state.focusVisibilityBound) {
+            document.addEventListener('visibilitychange', () => { if (document.hidden && state.focusRunning) pauseFocus(); });
+            state.focusVisibilityBound = true;
+        }
         // Reopening keeps the current quiz and its answer state.
         setStatus('');
         render();
@@ -685,6 +885,7 @@
             const list = byId('study-chat-list');
             if (list) list.scrollTop = list.scrollHeight;
         }
+        if (state.tab === 'words' && state.learningView === 'trace') setupTraceCanvas();
     }
     function renderChat(char, settings, statusHtml) {
         if (!char) return `<div class="study-empty-state"><i class="ri-user-add-line"></i><strong>还没有角色</strong><p>先在小手机里导入或添加一个角色，TA 会用自己的方式陪你学。</p></div>`;
@@ -753,13 +954,234 @@
                 </div>
             </div>`;
     }
+    function setLearningView(view) {
+        if (!['book', 'cards', 'guide', 'trace'].includes(view)) return;
+        const content = byId('study-content');
+        if (content) state.scrollPositions[`words:${state.learningView}`] = content.scrollTop;
+        state.learningView = view;
+        state.traceStrokes = [];
+        render();
+        if (content) content.scrollTop = state.scrollPositions[`words:${view}`] || 0;
+    }
+    function learningTarget() {
+        return language(state.foundationLang) || primaryTarget() || getStudyLanguages()[0];
+    }
+    function setFoundationLang(id) {
+        if (!language(id)) return;
+        state.foundationLang = id;
+        state.foundationGroup = 0;
+        state.foundationGlyph = 0;
+        state.drillIndex = 0;
+        state.traceStrokes = [];
+        render();
+    }
+    function setFoundationGroup(index) {
+        const groups = FOUNDATIONS[learningTarget()?.id] || [];
+        if (!groups[index]) return;
+        state.foundationGroup = index;
+        state.foundationGlyph = 0;
+        state.traceStrokes = [];
+        render();
+    }
+    function selectFoundationGlyph(index) {
+        const group = (FOUNDATIONS[learningTarget()?.id] || [])[state.foundationGroup];
+        if (!group?.items[index]) return;
+        state.foundationGlyph = index;
+        state.traceStrokes = [];
+        render();
+    }
+    function foundationPicker() {
+        const current = learningTarget();
+        const active = getStudyLanguages();
+        const choices = [...active, ...PRESET_LANGUAGES.filter(lang => !active.some(item => item.id === lang.id))];
+        return `<label class="study-learning-picker">学习语言<select aria-label="选择学习语言" onchange="ByndStudy.setFoundationLang(this.value)">${choices.map(lang => `<option value="${escapeAttr(lang.id)}" ${lang.id === current?.id ? 'selected' : ''}>${escapeHtml(lang.label)}</option>`).join('')}</select></label>`;
+    }
+    function selectedGlyph() {
+        return (FOUNDATIONS[learningTarget()?.id] || [])[state.foundationGroup]?.items[state.foundationGlyph] || null;
+    }
+    function renderFoundation() {
+        const lang = learningTarget();
+        const groups = FOUNDATIONS[lang?.id] || [];
+        if (!groups.length) return `${foundationPicker()}<div class="study-empty-state"><strong>${escapeHtml(lang?.label || '这门语言')}的字表还在等你</strong><p>可以先用词本收藏词句，再到学习卡片里练习。</p></div>`;
+        const group = groups[state.foundationGroup] || groups[0];
+        const selected = group.items[state.foundationGlyph] || group.items[0];
+        const associations = { 'ㄱ': '像舌根抬起的轮廓', 'ㄴ': '像舌尖抵住上齿龈', 'ㅁ': '像合拢的双唇', 'ㅅ': '像牙齿的形状', 'ㅇ': '像喉部的轮廓' };
+        return `${foundationPicker()}
+            <section class="study-panel study-foundation">
+                <div class="study-panel-head"><span>FOUNDATIONS</span><strong>${escapeHtml(lang.label)} · 入门字表</strong></div>
+                <div class="study-segment">${groups.map((item, index) => `<button type="button" class="${group === item ? 'active' : ''}" onclick="ByndStudy.setFoundationGroup(${index})">${escapeHtml(item.name)}</button>`).join('')}</div>
+                <div class="study-foundation-grid">${group.items.map((item, index) => `<button type="button" class="${index === state.foundationGlyph ? 'active' : ''}" onclick="ByndStudy.selectFoundationGlyph(${index})"><b>${escapeHtml(item.glyph)}</b><small>${escapeHtml(item.reading)}</small></button>`).join('')}</div>
+            </section>
+            <section class="study-panel study-glyph-detail">
+                <div><b lang="${escapeAttr(lang.code)}">${escapeHtml(selected.glyph)}</b><span>${escapeHtml(selected.reading || '听读音')}</span></div>
+                ${associations[selected.glyph] && lang.id === 'ko' ? `<p>形状联想：${escapeHtml(associations[selected.glyph])}</p>` : '<p>先看字形，再听发音；试着给它找一个自己的记忆线索。</p>'}
+                <div class="study-inline-actions"><button type="button" class="study-ghost" onclick="ByndStudy.speakFoundation()"><i class="ri-volume-up-line"></i>听读音</button><button type="button" class="study-primary" onclick="ByndStudy.setLearningView('trace')"><i class="ri-pencil-line"></i>照着写</button></div>
+            </section>`;
+    }
+    function speakFoundation() {
+        const glyph = selectedGlyph();
+        if (glyph) speak(glyph.glyph, learningTarget()?.code);
+    }
+    function cardKind(text) {
+        const value = plainText(text).trim();
+        if (Array.from(value).length === 1) return 'glyph';
+        if (/[。！？.!?]/.test(value) || Array.from(value).length > 12 || value.split(/\s+/).length > 3) return 'sentence';
+        return 'word';
+    }
+    function drillCards() {
+        const target = learningTarget();
+        return [...getStudyCards(), ...lessonCards(target?.id)].filter(card => card.lines?.[target?.id] && (state.cardKind === 'all' || !state.cardKind || cardKind(card.lines[target.id]) === state.cardKind));
+    }
+    function renderLearningCards() {
+        const target = learningTarget();
+        const cards = drillCards();
+        const index = cards.length ? state.drillIndex % cards.length : 0;
+        const card = cards[index];
+        const native = language(getSettings().nativeId);
+        const readingCue = card?.note?.match(/(?:读音|reading)[：:]\s*([^；;。\n]{1,60})/i)?.[1] || '';
+        const meaningId = card && (native?.id !== target?.id && card.lines[native?.id] ? native.id : Object.keys(card.lines).find(id => id !== target?.id));
+        const meaning = meaningId && card.lines[meaningId];
+        return `${foundationPicker()}
+            <div class="study-segment">${[['all', '全部'], ['glyph', '单字'], ['word', '词汇'], ['sentence', '句子']].map(([id, label]) => `<button type="button" class="${(state.cardKind || 'all') === id ? 'active' : ''}" onclick="ByndStudy.setCardKind('${id}')">${label}</button>`).join('')}</div>
+            ${!card ? `<div class="study-empty-state"><strong>还没有这类学习卡片</strong><p>在对话里收藏${state.cardKind === 'sentence' ? '句子' : '词汇'}，或在词本中手动添加。</p><button type="button" class="study-ghost" onclick="ByndStudy.setLearningView('book')">去词本</button></div>` : `
+            <article class="study-learn-card">
+                <div class="study-learn-card-top"><span>${escapeHtml(target.label)} · ${index + 1} / ${cards.length}</span><span>${card.source === 'lesson' ? '入门 · ' : ''}${escapeHtml({glyph:'单字',word:'词汇',sentence:'句子'}[cardKind(card.lines[target.id])])}</span></div>
+                <div class="study-learn-front is-${cardKind(card.lines[target.id])}" lang="${escapeAttr(target.code)}">${escapeHtml(card.lines[target.id])}</div>
+                ${readingCue ? `<p class="study-learn-reading">${escapeHtml(readingCue)}</p>` : ''}
+                <div class="study-inline-actions"><button type="button" class="study-ghost" onclick="ByndStudy.speakCard('${escapeAttr(card.id)}')"><i class="ri-volume-up-line"></i>读音</button><button type="button" class="study-ghost" onclick="ByndStudy.toggleDrillDetails()"><i class="ri-information-line"></i>${state.drillDetails ? '收起' : '详情 / 联想'}</button></div>
+                ${state.drillDetails ? `<div class="study-learn-detail"><div><small>${escapeHtml(language(meaningId)?.label || '提示')}</small><strong>${escapeHtml(meaning || '先听发音，再写下你记住它的方法')}</strong></div>${card.note ? `<p>${escapeHtml(card.note)}</p>` : ''}<label>我的联想<textarea id="study-mnemonic-input" rows="2" maxlength="300" placeholder="写下读音、字形或场景给你的联想…">${escapeHtml(card.mnemonic || '')}</textarea></label><button type="button" class="study-ghost" onclick="ByndStudy.saveMnemonic('${escapeAttr(card.id)}')">保存联想</button></div>` : ''}
+            </article>
+            <div class="study-learn-vote"><button type="button" onclick="ByndStudy.markRead(false)"><i class="ri-close-line"></i>还不会读</button><button type="button" onclick="ByndStudy.markRead(true)"><i class="ri-check-line"></i>会读了</button></div>
+            <div class="study-learn-foot"><button type="button" onclick="ByndStudy.undoRead()" ${state.drillUndo ? '' : 'disabled'}>撤销上次</button><button type="button" onclick="ByndStudy.nextDrill()">换一张 <i class="ri-arrow-right-s-line"></i></button></div>`}`;
+    }
+    function setCardKind(kind) { if (['all', 'glyph', 'word', 'sentence'].includes(kind)) { state.cardKind = kind; state.drillIndex = 0; render(); } }
+    function toggleDrillDetails() { state.drillDetails = !state.drillDetails; render(); }
+    function nextDrill() { state.drillIndex += 1; state.drillDetails = false; render(); }
+    function markRead(canRead) {
+        const cards = drillCards();
+        const card = cards[state.drillIndex % cards.length];
+        const lang = learningTarget();
+        if (!card || !lang) return;
+        const marks = card.source === 'lesson' ? readJson(KEYS.lessonMarks, {}) : null;
+        const previous = card.source === 'lesson' ? (marks[card.id] || null) : (card.reading?.[lang.id] || null);
+        const reading = { ...(card.reading || {}), [lang.id]: { seen: (previous?.seen || 0) + 1, can: (previous?.can || 0) + (canRead ? 1 : 0), lastRead: Date.now(), needsReview: !canRead } };
+        try {
+            if (card.source === 'lesson') writeJson(KEYS.lessonMarks, { ...marks, [card.id]: { ...reading[lang.id], mnemonic: previous?.mnemonic || '' } });
+            else if (!updateCard(card.id, { reading })) throw new Error('词卡已不存在');
+        }
+        catch (error) { setStatus(`学习进度没有保存：${error.message || error}`, 'error'); render(); return; }
+        state.drillUndo = { id: card.id, langId: lang.id, previous, source: card.source };
+        if (tutor()) window.ByndExperience?.checkpoint('study', tutor().id, `语言学习卡片「${plainText(card.lines[lang.id]).slice(0, 60)}」：${canRead ? '会读' : '还不会读'}。`);
+        nextDrill();
+    }
+    function undoRead() {
+        const last = state.drillUndo;
+        const card = last && (last.source === 'lesson' ? lessonCards(last.langId) : getStudyCards()).find(item => item.id === last.id);
+        if (!card) return;
+        const reading = { ...(card.reading || {}) };
+        if (last.previous) reading[last.langId] = last.previous;
+        else delete reading[last.langId];
+        try {
+            if (last.source === 'lesson') {
+                const marks = readJson(KEYS.lessonMarks, {});
+                const mnemonic = marks[last.id]?.mnemonic || '';
+                if (last.previous) marks[last.id] = { ...last.previous, mnemonic };
+                else if (mnemonic) marks[last.id] = { mnemonic };
+                else delete marks[last.id];
+                writeJson(KEYS.lessonMarks, marks);
+            } else if (!updateCard(card.id, { reading })) throw new Error('词卡已不存在');
+        }
+        catch (error) { setStatus(`撤销没有保存：${error.message || error}`, 'error'); render(); return; }
+        state.drillUndo = null;
+        state.drillIndex = Math.max(0, state.drillIndex - 1);
+        render();
+    }
+    function saveMnemonic(id) {
+        const mnemonic = clean(byId('study-mnemonic-input')?.value, 300);
+        try {
+            if (id.startsWith('study_lesson_')) {
+                const marks = readJson(KEYS.lessonMarks, {});
+                writeJson(KEYS.lessonMarks, { ...marks, [id]: { ...(marks[id] || {}), mnemonic } });
+            } else if (!updateCard(id, { mnemonic })) throw new Error('词卡已不存在');
+        }
+        catch (error) { setStatus(`联想没有保存：${error.message || error}`, 'error'); render(); return; }
+        toast('联想已保存'); render();
+    }
+    function renderTrace() {
+        const lang = learningTarget();
+        const groups = FOUNDATIONS[lang?.id] || [];
+        const group = groups[state.foundationGroup] || groups[0];
+        const glyph = selectedGlyph();
+        if (!glyph) return `${foundationPicker()}<div class="study-empty-state"><strong>这门语言暂时没有可描写的字表</strong><p>先在词本里练习已有的词句。</p></div>`;
+        const progress = readJson(KEYS.trace, {});
+        const done = Number(progress?.[lang.id]?.[glyph.glyph] || 0);
+        return `${foundationPicker()}
+            <div class="study-segment">${groups.map((item, index) => `<button type="button" class="${group === item ? 'active' : ''}" onclick="ByndStudy.setFoundationGroup(${index})">${escapeHtml(item.name)}</button>`).join('')}</div>
+            <div class="study-trace-strip">${group.items.map((item, index) => `<button type="button" class="${index === state.foundationGlyph ? 'active' : ''}" onclick="ByndStudy.selectFoundationGlyph(${index})">${escapeHtml(item.glyph)}</button>`).join('')}</div>
+            <section class="study-panel study-trace-panel">
+                <div class="study-panel-head"><span>WRITE</span><strong>照着写 · ${escapeHtml(glyph.glyph)}</strong><em>${done ? `练过 ${done} 次` : '第一次练习'}</em></div>
+                <p class="study-panel-text">看淡灰色字形，用手指描一遍。自由描写，不做识别评分。</p>
+                <div class="study-trace-paper"><span aria-hidden="true">${escapeHtml(glyph.glyph)}</span><canvas id="study-trace-canvas" width="560" height="560" aria-label="描写 ${escapeAttr(glyph.glyph)}"></canvas></div>
+                <div class="study-inline-actions"><button type="button" class="study-ghost" onclick="ByndStudy.undoTrace()">撤销一笔</button><button type="button" class="study-ghost" onclick="ByndStudy.clearTrace()">清空</button><button type="button" class="study-ghost" onclick="ByndStudy.speakFoundation()"><i class="ri-volume-up-line"></i>听读音</button></div>
+                <button type="button" class="study-primary" onclick="ByndStudy.finishTrace()">完成描写</button>
+            </section>`;
+    }
+    function drawTrace() {
+        const canvas = byId('study-trace-canvas');
+        const context = canvas?.getContext?.('2d');
+        if (!context) return;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.strokeStyle = '#1b1b1b';
+        context.lineWidth = 13;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        for (const stroke of state.traceStrokes) {
+            context.beginPath();
+            stroke.forEach((point, index) => { if (index) context.lineTo(point.x * canvas.width, point.y * canvas.height); else context.moveTo(point.x * canvas.width, point.y * canvas.height); });
+            if (stroke.length === 1) { const point = stroke[0]; context.lineTo(point.x * canvas.width + 0.1, point.y * canvas.height + 0.1); }
+            context.stroke();
+        }
+    }
+    function setupTraceCanvas() {
+        const canvas = byId('study-trace-canvas');
+        if (!canvas) return;
+        drawTrace();
+        const point = event => { const rect = canvas.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) }; };
+        canvas.onpointerdown = event => { event.preventDefault(); canvas.setPointerCapture?.(event.pointerId); state.traceActive = [point(event)]; state.traceStrokes.push(state.traceActive); drawTrace(); };
+        canvas.onpointermove = event => { if (!state.traceActive) return; event.preventDefault(); state.traceActive.push(point(event)); drawTrace(); };
+        const finish = () => { state.traceActive = null; };
+        canvas.onpointerup = finish;
+        canvas.onpointercancel = finish;
+    }
+    function undoTrace() { state.traceStrokes.pop(); drawTrace(); }
+    function clearTrace() { state.traceStrokes = []; drawTrace(); }
+    function finishTrace() {
+        const glyph = selectedGlyph();
+        const lang = learningTarget();
+        if (!glyph || !lang || !state.traceStrokes.length) { setStatus('先描写至少一笔。', 'warn'); render(); return; }
+        const progress = readJson(KEYS.trace, {});
+        progress[lang.id] = { ...(progress[lang.id] || {}), [glyph.glyph]: Number(progress[lang.id]?.[glyph.glyph] || 0) + 1 };
+        try { writeJson(KEYS.trace, progress); }
+        catch (error) { setStatus(`描写记录没有保存：${error.message || error}`, 'error'); render(); return; }
+        state.traceStrokes = [];
+        toast('这次描写已记录');
+        if (tutor()) window.ByndExperience?.checkpoint('study', tutor().id, `刚练习描写${lang.label}字形「${glyph.glyph}」。`);
+        render();
+    }
     function renderWords(statusHtml) {
+        const studyNav = `<div class="study-learning-nav" role="group" aria-label="学习方式">${[
+            ['book', '词本'], ['cards', '学习卡片'], ['guide', '入门字表'], ['trace', '照着写']
+        ].map(([id, label]) => `<button type="button" class="${state.learningView === id ? 'active' : ''}" onclick="ByndStudy.setLearningView('${id}')" aria-pressed="${state.learningView === id}">${label}</button>`).join('')}</div>`;
+        if (state.learningView === 'cards') return `<div class="study-page">${studyNav}${statusHtml}${renderLearningCards()}</div>`;
+        if (state.learningView === 'guide') return `<div class="study-page">${studyNav}${statusHtml}${renderFoundation()}</div>`;
+        if (state.learningView === 'trace') return `<div class="study-page">${studyNav}${statusHtml}${renderTrace()}</div>`;
         const langs = getStudyLanguages();
         const query = state.wordQuery.trim().toLowerCase();
         const cards = getStudyCards().filter(card => !query || Object.values(card.lines || {}).some(line => String(line).toLowerCase().includes(query)) || String(card.note || '').toLowerCase().includes(query));
         const editor = state.editingCard ? renderCardEditor(state.editingCard, langs) : '';
         return `
             <div class="study-page">
+                ${studyNav}
                 <div class="study-page-head">
                     <div><span>WORD BOOK</span><strong>词本 · ${cards.length}</strong></div>
                     <button type="button" class="study-ghost" onclick="ByndStudy.editCard('')"><i class="ri-add-line"></i>手动添加</button>
@@ -828,6 +1250,7 @@
             <div class="study-page">
                 <div class="study-page-head"><div><span>REVIEW</span><strong>复习</strong></div></div>
                 ${statusHtml}
+                ${renderFocus()}
                 ${quizHtml}
                 <section class="study-panel">
                     <div class="study-panel-head"><span>DAILY CHECK-IN</span><strong>${today.done ? '今日已打卡' : '今日还未打卡'}</strong><em>最近 21 天 ${checkedDays} 天</em></div>
@@ -902,8 +1325,8 @@
         if (message) speak(message.text, primaryTarget()?.code);
     }
     function speakCard(id) {
-        const card = getStudyCards().find(item => item.id === id);
-        const target = primaryTarget();
+        const target = state.tab === 'words' && state.learningView === 'cards' ? learningTarget() : primaryTarget();
+        const card = getStudyCards().find(item => item.id === id) || lessonCards(target?.id).find(item => item.id === id);
         const line = card && (card.lines[target?.id] || Object.values(card.lines)[0]);
         if (line) speak(line, target?.code);
     }
@@ -1033,7 +1456,11 @@
         saveSentence, saveWord, saveCorrection, setTutor, clearChat: clearChatConfirm, setNative, toggleTarget, addLanguage, removeLanguage,
         setLevel, setStrictness, setAutoTranslate, setVoice, searchWords, editCard, cancelEdit, saveCardForm, deleteCard,
         startQuiz, revealQuiz, markQuiz, gradeQuiz, setMood, saveCheckin, previewProgress,
+        setLearningView, setFoundationLang, setFoundationGroup, selectFoundationGlyph, speakFoundation,
+        setCardKind, toggleDrillDetails, nextDrill, markRead, undoRead, saveMnemonic,
+        undoTrace, clearTrace, finishTrace, startFocus, pauseFocus, resetFocus, setFocusMode, saveFocusDuration, selectActivityDay,
         // exposed for tests
-        getSettings, saveSettings, getChat, buildTurnMessages, normalizeTurn, parseJson, tutor, characters, primaryTarget, allLanguages, language, plainText, rubyHtml, PRESET_LANGUAGES, LEVELS, STRICTNESS
+        getSettings, saveSettings, getChat, buildTurnMessages, normalizeTurn, parseJson, tutor, characters, primaryTarget, allLanguages, language, plainText, rubyHtml, PRESET_LANGUAGES, LEVELS, STRICTNESS,
+        getFocusData, tickFocus, drillCards, selectedGlyph
     };
 })();

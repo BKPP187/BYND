@@ -243,9 +243,9 @@
           "id": "bear",
           "furnitureId": "bear_01",
           "position": [
-            0.6,
-            0.58,
-            -1.2
+            -2.98,
+            0.92,
+            -0.5
           ]
         }
       ]
@@ -396,37 +396,225 @@
       "id": "kitchen",
       "name": "厨房",
       "icon": "ri-restaurant-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "stove",
+          "furnitureId": "cream_stove",
+          "position": [
+            -1,
+            0,
+            -1.8
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "table",
+          "furnitureId": "cream_table",
+          "position": [
+            0.6,
+            0,
+            0.5
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "cabinet",
+          "furnitureId": "cream_cabinet",
+          "position": [
+            1.8,
+            0,
+            -1.7
+          ],
+          "rotation": 0
+        }
+      ]
     },
     {
       "id": "bathroom",
       "name": "浴室",
       "icon": "ri-drop-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "tub",
+          "furnitureId": "cream_tub",
+          "position": [
+            0,
+            0,
+            -1.4
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "plant",
+          "furnitureId": "cream_plant",
+          "position": [
+            2,
+            0,
+            -1.8
+          ],
+          "rotation": 0
+        }
+      ]
     },
     {
       "id": "balcony",
       "name": "阳台",
       "icon": "ri-plant-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "plant",
+          "furnitureId": "japanese_plant",
+          "position": [
+            -2,
+            0,
+            -1.6
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "plant2",
+          "furnitureId": "cream_plant",
+          "position": [
+            2,
+            0,
+            -1.6
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "chair",
+          "furnitureId": "japanese_chair",
+          "position": [
+            0,
+            0,
+            -1.2
+          ],
+          "rotation": 0
+        }
+      ]
     },
     {
       "id": "wardrobe",
       "name": "衣帽间",
       "icon": "ri-shirt-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "cabinet",
+          "furnitureId": "european_cabinet",
+          "position": [
+            -1.4,
+            0,
+            -1.7
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "chair",
+          "furnitureId": "european_chair",
+          "position": [
+            1,
+            0,
+            -1.2
+          ],
+          "rotation": 0
+        }
+      ]
     },
     {
       "id": "studio",
       "name": "工作室",
       "icon": "ri-pencil-ruler-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "desk",
+          "furnitureId": "chinese_desk",
+          "position": [
+            -1.5,
+            0,
+            -1.6
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "piano",
+          "furnitureId": "chinese_piano",
+          "position": [
+            1.5,
+            0,
+            -1.6
+          ],
+          "rotation": 0
+        }
+      ]
     },
     {
       "id": "collection",
       "name": "收藏空间",
       "icon": "ri-gift-line",
-      "open": false
+      "open": false,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "cabinet",
+          "furnitureId": "modern_cabinet",
+          "position": [
+            -1.5,
+            0,
+            -1.7
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "sofa",
+          "furnitureId": "modern_sofa",
+          "position": [
+            0.4,
+            0,
+            -1.6
+          ],
+          "rotation": 0
+        }
+      ]
     }
   ]
 }
