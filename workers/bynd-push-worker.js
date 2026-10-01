@@ -51,6 +51,10 @@ const PINNED_API_PROXIES = new Map([
       ['/v1/images/edits', 'POST']
     ])
   }],
+  ['/tripo', {
+    origin: 'https://openapi.tripo3d.ai',
+    routes: new Map([['/v3/account/balance', 'GET']])
+  }],
   ['/jev', {
     origin: 'https://api.typesafe.ai',
     jsonOnly: true,

@@ -694,8 +694,8 @@
         const config = readConfig();
         const keys = readKeys();
         root.innerHTML = `<section class="bynd-jev-card bynd-tools-card" aria-label="角色工具">
-            <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-tools-line"></i></span><div><strong>现实工具</strong><small>让角色在不出戏的前提下用真实工具</small></div></div>
-            <p class="bynd-jev-intro">角色只会在符合人设和世界观时才用这些工具，比如提醒你明天带伞、帮你找附近的店、聊最近的电影。每个角色还要在「角色台 → 角色授权」里单独打开，也可在聊天设置中调整。配置了 Jev 时由 Jev 先判断是否符合人设（智能决策 → 工具人设把关），没有 Jev 时由聊天模型按人设自己判断。</p>
+            <div class="bynd-jev-heading"><span class="bynd-jev-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><div><strong>现实工具</strong><small>让角色按人设使用真实信息</small></div></div>
+            <p class="bynd-jev-intro">配置天气、地点、电影和购物查询，再到「角色授权」决定谁能使用。角色会结合自己的人设与当前对话判断是否调用。</p><details class="bynd-jev-guide"><summary>角色怎样决定何时使用工具？</summary><p>配置 Jev 后由 Jev 先判断是否符合人设与世界观（智能决策 → 工具人设把关）；未配置时由聊天模型按人设判断。角色权限也可在聊天设置中调整。</p></details>
             <label class="bynd-jev-key-label" for="bynd-tools-city">我所在的城市</label>
             <input class="bynd-jev-key" id="bynd-tools-city" maxlength="30" placeholder="例如：杭州" autocomplete="off">
             <label class="bynd-jev-enable bynd-tools-toggle"><span><strong>让角色知道天气</strong><small>每隔几小时更新一次天气（Open-Meteo，免 Key），角色会像平常一样顺口提醒带伞、防晒</small></span><input type="checkbox" id="bynd-tools-weather-anchor"></label>

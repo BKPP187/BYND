@@ -10,6 +10,7 @@
 | `/wisart/*` | Wisart 生图接口转发 |
 | `/l0veyou/*` | l0veyou 中转站转发（模型列表、聊天、生图） |
 | `/jev/*` | TypeSafe Jev 决策接口转发 |
+| `/mcp/relay/tripo/v3/account/balance` | Tripo 用户个人 API 余额查询（GET），不创建付费生成任务 |
 | `/mcp/web-search` | 公开网页搜索，返回最多 5 条来源 |
 | `/mcp/demo` | 无需密钥的只读 MCP 示例工具 |
 | `/mcp/relay/giphy/*` | 表情包代理，私有上游地址由 Worker Secret 提供 |
@@ -88,3 +89,4 @@ wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新
 - 2026-09-24：上线 `/l0veyou`、`/jev` 转发。
 - 2026-09-25：所有固定转发加上 `/mcp/relay/*` 入口，前端改走 `bynd.ccwu.cc`，不再出现 workers.dev 地址。
 - 2026-09-25：增加网页搜索、MCP 示例服务和表情包同域代理。
+- 2026-10-01：上线 Tripo 个人 API 余额查询路由；线上预检 204，真实浏览器余额请求通过，Worker 版本 `46fa0171-a739-47a9-b4ce-902cb6b10f16`。

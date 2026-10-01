@@ -1071,7 +1071,8 @@ function buildChatApiCoreIdentityAnchor(char) {
         parts.push(`【角色开场/语气样例】\n${greetingHints.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
     }
 
-    const worldBookEntries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    const worldBookEntries = typeof window !== 'undefined' && window.ByndPromptLab?.worldBook
+        ? window.ByndPromptLab.worldBook(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : []);
     const worldBook = worldBookEntries
         .filter(entry => entry && entry.enabled !== false)
         .map(entry => {
@@ -1273,7 +1274,7 @@ function buildSystemPrompt(char) {
     // 世界书条目（如果有）
     if (char.worldBook && char.worldBook.length > 0) {
         let totalWorldBookLength = 0;
-        const entries = char.worldBook
+        const entries = (typeof window !== 'undefined' && window.ByndPromptLab?.worldBook ? window.ByndPromptLab.worldBook(char) : char.worldBook)
             .map(e => {
                 const key = e.key || e.keys || e.keyword || '';
                 const rawContent = e.content || e.entry || e.value || '';
@@ -1416,6 +1417,7 @@ function buildSystemPrompt(char) {
     prompt += `  [旁白:环境、动作或神态描写] 例如 [旁白:窗外的雨声贴着玻璃滑下来，他把手机扣在掌心，抬眼看你]\n`;
     prompt += `- 只有在剧情确实需要时才使用这些特殊消息指令，不要解释指令本身\n`;
 
+    if (typeof window !== 'undefined' && window.ByndPromptLab?.prompt) prompt += window.ByndPromptLab.prompt(char);
     return prompt;
 }
 
@@ -1477,6 +1479,10 @@ function buildMessages(char, history, maxMessages) {
         if (livingWorldAnchor) messages.push({ role: 'system', content: livingWorldAnchor });
     }
     const regexAnchor = buildRegexAnchor(char);
+    if (typeof window !== 'undefined' && typeof window.getByndHomeLifePrompt === 'function') {
+        const homeAnchor = window.getByndHomeLifePrompt(char);
+        if (homeAnchor) messages.push({ role: 'system', content: homeAnchor });
+    }
     if (regexAnchor) {
         messages.push({
             role: 'system',
@@ -1718,7 +1724,7 @@ async function callChatApi(messages, options = {}) {
         );
     }
 
-    const api = typeof getDefaultApi === 'function' ? getDefaultApi() : null;
+    const api = options.apiOverride || (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
 
     if (!api) {
         return { ok: false, error: '还没有设置 API 哦～\n去桌面「设置」里添加一个吧' };
@@ -1746,7 +1752,8 @@ async function callChatApi(messages, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (api.apiKey) headers['Authorization'] = `Bearer ${api.apiKey}`;
 
-    const preset = (typeof getActivePreset === 'function') ? getActivePreset() : null;
+    const preset = Object.prototype.hasOwnProperty.call(options, 'presetOverride')
+        ? options.presetOverride : ((typeof getActivePreset === 'function') ? getActivePreset() : null);
     const params = {
         model: api.model,
         messages: messages,

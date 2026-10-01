@@ -1,0 +1,16 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const root = path.resolve(__dirname, '..');
+const common = path.resolve(root, execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim());
+const hooks = path.resolve(root, execFileSync('git', ['rev-parse', '--git-path', 'hooks'], { cwd: root, encoding: 'utf8' }).trim());
+const checker = path.join(path.dirname(common), 'scripts/check-publish-target.cjs').replaceAll('\\', '/');
+const target = path.join(hooks, 'pre-push');
+const marker = '# BYND main publish guard';
+if (!fs.existsSync(checker)) throw new Error('Shared checkout is missing the publish checker: ' + checker);
+if (fs.existsSync(target) && !fs.readFileSync(target, 'utf8').includes(marker)) throw new Error('Existing pre-push hook must be preserved and integrated manually.');
+if (/["$`\n]/.test(checker)) throw new Error('Unsupported checkout path for shell hook.');
+fs.mkdirSync(hooks, { recursive: true });
+fs.writeFileSync(target, '#!/bin/sh\n' + marker + '\nexec node "' + checker + '"\n', { mode: 0o755 });
+console.log('Installed shared main publish guard.');

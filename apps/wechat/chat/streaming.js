@@ -67,7 +67,7 @@ function createWechatStreamPreview(char, contentEl) {
             let entry = state.bubbles[index];
             if (!entry) {
                 const bubble = document.createElement('div');
-                bubble.className = 'msg-bubble';
+                bubble.className = 'msg-bubble wc-text-bubble';
                 bubble.style.fontSize = `${fontSize}px`;
                 const text = document.createElement('div');
                 text.className = 'msg-text';

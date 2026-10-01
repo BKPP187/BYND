@@ -2712,6 +2712,18 @@
 }
 /* === End QQ chat footer smaller controls 20260525 === */
 
+/* Keep the QQ tools panel and its pointer anchored to the rightmost plus button. */
+#app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-chat-toolbar {
+    left: auto;
+    right: 20px;
+    width: min(282px, calc(100% - 40px));
+    transform-origin: calc(100% - 24px) calc(100% + 8px);
+}
+#app-wechat-window.wc-ui-theme-qq .wc-chat-room .wc-chat-toolbar::after {
+    left: auto;
+    right: var(--wc-qq-toolbar-pointer-right, 17px);
+}
+
 /* === Douyin me page separator fix 20260525 === */
 #app-wechat-window.wc-ui-theme-douyin .wc-me-profile {
     border-bottom: none;

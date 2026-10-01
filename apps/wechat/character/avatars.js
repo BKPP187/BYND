@@ -363,8 +363,8 @@ async function saveChatSettings() {
         ...prevConfig,
         chatBg: prevConfig.chatBg || '#ededed',
         chatBgImage: window._tempChatBgImage || prevConfig.chatBgImage || '',
-        bubbleAi: prevConfig.bubbleAi || '#ffffff',
-        bubbleUser: prevConfig.bubbleUser || '#95ec69',
+        bubbleAi: prevConfig.bubbleAi || (getWechatUiThemeId() === 'pixel' ? '#e4e4e5' : '#ffffff'),
+        bubbleUser: prevConfig.bubbleUser || (getWechatUiThemeId() === 'pixel' ? '#cbcbd3' : '#95ec69'),
         fontSize: parseInt(document.getElementById('wcs-font-size').value) || 15,
         userTitle: document.getElementById('wcs-user-title').value.trim() || '我',
         nickname: document.getElementById('wcs-char-nickname').value.trim() || '',
@@ -405,7 +405,8 @@ async function saveChatSettings() {
         aiStatusHistory: Array.isArray(prevConfig.aiStatusHistory) ? prevConfig.aiStatusHistory : [],
         aiPhoneSnapshot: prevConfig.aiPhoneSnapshot || null,
         userProfile: prevConfig.userProfile || null,
-        customCss: (document.getElementById('wcs-custom-css') || {}).value || ''
+        customCss: (document.getElementById('wcs-custom-css') || {}).value || '',
+        bubblePresetId: getActiveKawaiiBubblePreset({ customCss: (document.getElementById('wcs-custom-css') || {}).value || '' })?.id || ''
     };
     window._tempChatBgImage = null;
 
@@ -707,20 +708,22 @@ function applyChatConfig(char) {
     // 气泡颜色 + 字体大小（通过 CSS 变量注入）
     const room = document.getElementById('wechat-chat-room');
     if (room) {
-        room.style.setProperty('--bubble-ai', config.bubbleAi || '#ffffff');
-        room.style.setProperty('--bubble-user', config.bubbleUser || '#95ec69');
+        const pixel = getWechatUiThemeId() === 'pixel';
+        room.style.setProperty('--bubble-ai', config.bubbleAi || (pixel ? '#e4e4e5' : '#ffffff'));
+        room.style.setProperty('--bubble-user', config.bubbleUser || (pixel ? '#cbcbd3' : '#95ec69'));
         room.style.setProperty('--chat-font-size', (config.fontSize || 15) + 'px');
     }
 
     // 自定义气泡 CSS
     let customStyle = document.getElementById('chat-custom-css');
-    if (config.customCss) {
+    const bubbleCss = getEffectiveBubbleCss(config);
+    if (bubbleCss) {
         if (!customStyle) {
             customStyle = document.createElement('style');
             customStyle.id = 'chat-custom-css';
             document.head.appendChild(customStyle);
         }
-        customStyle.textContent = scopeWechatChatCustomCss(config.customCss);
+        customStyle.textContent = scopeWechatChatCustomCss(bubbleCss);
     } else if (customStyle) {
         customStyle.remove();
     }

@@ -181,6 +181,12 @@
         if (!root) return;
         document.getElementById('bynd-about-version').textContent = `v${currentVersion}`;
         root.replaceChildren();
+        if (window.ByndAndroid?.updatesEnabled?.()) {
+            const check = element('button', 'bynd-history-replay', '检查 Android 更新');
+            check.type = 'button';
+            check.addEventListener('click', () => window.ByndAndroid.openUpdates());
+            root.appendChild(check);
+        }
         for (const release of releasedNotes()) {
             const article = element('article', 'bynd-history-entry');
             const heading = element('header', 'bynd-history-heading');

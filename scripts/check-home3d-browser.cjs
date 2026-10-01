@@ -77,7 +77,7 @@ const server = http.createServer((req, res) => {
             window.imageCalls = 0; window.avatarCalls = 0;
             window.callChatApi = async () => { window.avatarCalls++; throw new Error('Portraits must use the image API'); };
             window.callWechatImageGenerationApi = async (prompt, options) => { window.imageCalls++; window.lastImageOptions = options; return { ok: true, url: ByndHome3D.initialPortraits.char }; };
-            ByndHome3D.close(); await ByndHome3D.open();
+            ByndHome3D.close(); await ByndHome3D.open(); await ByndHome3D.UI.arrive();
         });
         assert.equal(await page.evaluate(() => imageCalls), 0, 'entering the home never starts a paid image request automatically');
         assert.equal(await page.evaluate(() => avatarCalls), 0);
@@ -102,7 +102,7 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.locator('[data-action="generate-user"]').isDisabled(), true);
         assert.equal(await page.locator('[data-action="generate-char"]').isDisabled(), true);
         assert.match(await page.locator('[data-image-cooldown]').textContent(), /当前形象已保留/);
-        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); });
+        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); await ByndHome3D.UI.arrive(); });
         await page.locator('[data-action="settings"]').click();
         assert.equal(await page.locator('[data-action="generate-user"]').isDisabled(), true);
         assert.equal(await page.evaluate(() => imageCalls), 2, 'reopening cannot bypass an image cooldown');
@@ -119,14 +119,14 @@ const server = http.createServer((req, res) => {
         await page.evaluate(() => { window.pendingCalls = 0; window.callWechatImageGenerationApi = () => { window.pendingCalls++; return new Promise(resolve => { window.finishPortrait = resolve; }); }; });
         await page.locator('[data-action="generate-user"]').click();
         await page.waitForFunction(() => window.pendingCalls === 1);
-        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); });
+        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); await ByndHome3D.UI.arrive(); });
         await page.locator('[data-action="settings"]').click();
         assert.equal(await page.locator('[data-action="generate-user"]').isDisabled(), true);
         await page.evaluate(() => window.finishPortrait({ ok: true, url: ByndHome3D.initialPortraits.user }));
         await page.waitForFunction(() => !document.querySelector('[data-action="generate-user"]').disabled);
         assert.equal(await page.evaluate(() => pendingCalls), 1);
         await page.evaluate(() => { Date.now = window.realDateNow; });
-        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); });
+        await page.evaluate(async () => { ByndHome3D.close(); await ByndHome3D.open(); await ByndHome3D.UI.arrive(); });
         assert.equal(await page.evaluate(() => !!ByndHome3D.State.load().user.portrait && !!ByndHome3D.State.home().portrait), true);
         await page.evaluate(() => { ByndHome3D.close(); }); assert.equal(await page.locator('canvas').count(), 0);
         assert.deepEqual(errors, []);
@@ -184,6 +184,7 @@ const server = http.createServer((req, res) => {
                 await actual.reload({ waitUntil: 'domcontentloaded' });
                 await actual.evaluate(async () => { await byndStylesReady; window.unlockPhone?.(); window.goToDesktopPage?.(1); });
                 await actual.locator('#pages-container [data-layout-id="app-home3d"]:visible').first().waitFor({ state: 'visible' });
+                await actual.waitForFunction(() => JSON.parse(localStorage.getItem('desktop_layout_v2')).items.some(item => item.id === 'app-home3d'));
                 assert.ok(await actual.evaluate(() => JSON.parse(localStorage.getItem('desktop_layout_v2')).items.some(item => item.id === 'app-home3d')), 'new home entry migrates into an existing saved desktop');
             }
             integration.push({ origin: url.startsWith('file:') ? 'file' : 'http', pageErrors }); await actual.close();

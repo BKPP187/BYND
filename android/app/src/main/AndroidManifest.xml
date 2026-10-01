@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 后台陪伴: floating pet over other apps, its foreground service and the foreground-app name. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -44,6 +45,9 @@
                 <data android:scheme="bynd" android:host="forum" android:pathPrefix="/post/" />
             </intent-filter>
         </activity>
+        <activity android:name=".LicenseActivity" android:theme="@style/DistributionTheme" android:exported="false" />
+        <activity android:name=".UpdateActivity" android:theme="@style/DistributionTheme" android:exported="false" />
+        <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
         <service
             android:name=".ScreenCompanionService"
             android:exported="false"

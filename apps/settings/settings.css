@@ -1,4 +1,31 @@
 /* --- Settings App Styles --- */
+/* The mobile parent owns the inset on iOS; fullscreen parents pass it to the header. */
+html.mobile-runtime #app-settings-window > .window-header { box-sizing: border-box; height: calc(52px + var(--bynd-header-safe-top, 0px)) !important; padding-top: var(--bynd-header-safe-top, 0px) !important; }
+html.mobile-runtime #app-settings-window > .window-header .close-btn { min-height: 44px; display: flex; align-items: center; }
+.tripo-settings { padding: 20px; border: 1px solid #e6e6e6; border-radius: 18px; background: #fff; color: #262626; }
+.tripo-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.tripo-heading h3 { margin: 0 0 5px; font-size: 17px; font-weight: 650; }
+.tripo-heading p { margin: 0; color: #707070; font-size: 13px; }
+.tripo-heading a { flex-shrink: 0; font-size: 13px; color: #333; text-decoration: underline; text-underline-offset: 4px; }
+.tripo-settings > label { display: block; margin: 16px 0 8px; font-size: 14px; font-weight: 600; }
+.tripo-settings input { box-sizing: border-box; width: 100%; min-width: 0; height: 46px; padding: 0 12px; border: 1px solid #dedede; border-radius: 10px; background: #fafafa; color: #262626; font-size: 16px; }
+.tripo-settings input:focus { outline: 2px solid #858585; outline-offset: 2px; }
+.tripo-secret { display: flex; align-items: center; position: relative; }
+.tripo-secret input { padding-right: 60px; }
+.tripo-secret button { position: absolute; right: 3px; top: 3px; height: 40px; padding: 0 10px; border: 0; background: transparent; color: #555; font-size: 13px; }
+.tripo-privacy, .tripo-guide { font-size: 13px; line-height: 1.7; color: #6b6b6b; overflow-wrap: anywhere; }
+.tripo-actions { display: flex; gap: 10px; margin-top: 18px; }
+.tripo-actions button { flex: 1; min-height: 44px; border: 1px solid #dcdcdc; border-radius: 10px; background: #fff; color: #333; font-size: 14px; font-weight: 600; }
+.tripo-actions .tripo-save { border-color: #333; background: #333; color: #fff; }
+.tripo-actions button:disabled { opacity: .5; cursor: wait; }
+#tripo-status { min-height: 20px; margin: 12px 0; font-size: 13px; line-height: 1.6; color: #555; overflow-wrap: anywhere; }
+#tripo-status[data-error="true"] { color: #b33b37; }
+.tripo-guide { padding-top: 14px; border-top: 1px solid #eee; }
+.tripo-guide summary { cursor: pointer; color: #444; font-size: 14px; }
+.tripo-guide ol { padding-left: 21px; }
+.tripo-guide a { color: #444; }
+.tripo-clear { display: block; margin-top: 16px; padding: 10px 0; border: 0; background: none; color: #9d3636; font-size: 13px; }
+@media (max-width: 380px) { .tripo-settings { padding: 16px; } .tripo-heading { align-items: flex-start; flex-direction: column; gap: 10px; } }
 .set-section-title {
     font-size: 13px; font-weight: 700; color: #c9a0b5;
     display: flex; align-items: center; gap: 6px;

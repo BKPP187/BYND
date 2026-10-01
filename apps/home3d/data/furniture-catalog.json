@@ -74,7 +74,9 @@
       "sound": "soft",
       "state": {
         "occupiedBy": null
-      }
+      },
+      "style": "cream",
+      "category": "沙发"
     },
     {
       "id": "bed_cloud_01",
@@ -118,7 +120,9 @@
       "sound": "soft",
       "state": {
         "occupiedBy": null
-      }
+      },
+      "style": "cream",
+      "category": "床"
     },
     {
       "id": "desk_oak_01",
@@ -156,7 +160,9 @@
       "state": {
         "occupiedBy": null
       },
-      "height": 0.82
+      "height": 0.82,
+      "style": "cream",
+      "category": "桌椅"
     },
     {
       "id": "nightstand_01",
@@ -182,7 +188,9 @@
         "char": true
       },
       "state": {},
-      "height": 0.66
+      "height": 0.66,
+      "style": "cream",
+      "category": "收纳"
     },
     {
       "id": "bookcase_01",
@@ -217,7 +225,9 @@
         "char": true
       },
       "animation": "reading",
-      "state": {}
+      "state": {},
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "chair_01",
@@ -249,7 +259,9 @@
         "char": true
       },
       "animation": "seated",
-      "state": {}
+      "state": {},
+      "style": "cream",
+      "category": "桌椅"
     },
     {
       "id": "armchair_01",
@@ -283,7 +295,9 @@
         "char": true
       },
       "animation": "reading",
-      "state": {}
+      "state": {},
+      "style": "cream",
+      "category": "桌椅"
     },
     {
       "id": "coffee_01",
@@ -321,7 +335,9 @@
       },
       "animation": "drink",
       "state": {},
-      "height": 0.43
+      "height": 0.43,
+      "style": "cream",
+      "category": "桌椅"
     },
     {
       "id": "tv_01",
@@ -349,7 +365,9 @@
       },
       "state": {
         "on": true
-      }
+      },
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "tv_cabinet_01",
@@ -372,7 +390,9 @@
         "char": true
       },
       "state": {},
-      "height": 0.6
+      "height": 0.6,
+      "style": "cream",
+      "category": "收纳"
     },
     {
       "id": "computer_01",
@@ -401,7 +421,9 @@
       "animation": "typing",
       "state": {
         "on": true
-      }
+      },
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "keyboard_01",
@@ -423,7 +445,9 @@
         "user": true,
         "char": true
       },
-      "state": {}
+      "state": {},
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "radio_01",
@@ -450,7 +474,9 @@
       },
       "state": {
         "playing": false
-      }
+      },
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "plant_01",
@@ -478,7 +504,9 @@
       },
       "state": {
         "wateredAt": 0
-      }
+      },
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "lamp_01",
@@ -505,7 +533,9 @@
       },
       "state": {
         "on": true
-      }
+      },
+      "style": "cream",
+      "category": "灯"
     },
     {
       "id": "table_lamp_01",
@@ -532,7 +562,9 @@
       },
       "state": {
         "on": true
-      }
+      },
+      "style": "cream",
+      "category": "灯"
     },
     {
       "id": "bear_01",
@@ -557,7 +589,9 @@
         "user": true,
         "char": true
       },
-      "state": {}
+      "state": {},
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "frame_01",
@@ -585,7 +619,9 @@
       },
       "state": {
         "photoId": null
-      }
+      },
+      "style": "cream",
+      "category": "装饰"
     },
     {
       "id": "memory_01",
@@ -613,7 +649,1618 @@
       },
       "state": {
         "memoryId": null
+      },
+      "style": "cream",
+      "category": "装饰"
+    },
+    {
+      "id": "cream_bed",
+      "name": "奶油 · 软被床",
+      "type": "bed",
+      "style": "cream",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_sofa",
+      "name": "奶油 · 双人沙发",
+      "type": "sofa",
+      "style": "cream",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_desk",
+      "name": "奶油 · 小书桌",
+      "type": "desk",
+      "style": "cream",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.5,
+      "footprint": [
+        1.5,
+        0.75
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_table",
+      "name": "奶油 · 茶桌",
+      "type": "table",
+      "style": "cream",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_chair",
+      "name": "奶油 · 靠背椅",
+      "type": "chair",
+      "style": "cream",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_lamp",
+      "name": "奶油 · 落地灯",
+      "type": "lamp",
+      "style": "cream",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_cabinet",
+      "name": "奶油 · 收纳柜",
+      "type": "cabinet",
+      "style": "cream",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_plant",
+      "name": "奶油 · 小花盆",
+      "type": "plant",
+      "style": "cream",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_tub",
+      "name": "奶油 · 泡泡浴缸",
+      "type": "tub",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.65,
+      "footprint": [
+        1.65,
+        1.05
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_piano",
+      "name": "奶油 · 小钢琴",
+      "type": "piano",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_stove",
+      "name": "奶油 · 料理台",
+      "type": "stove",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_bed",
+      "name": "欧式 · 软被床",
+      "type": "bed",
+      "style": "european",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_sofa",
+      "name": "欧式 · 双人沙发",
+      "type": "sofa",
+      "style": "european",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_desk",
+      "name": "欧式 · 小书桌",
+      "type": "desk",
+      "style": "european",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.5,
+      "footprint": [
+        1.5,
+        0.75
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_table",
+      "name": "欧式 · 茶桌",
+      "type": "table",
+      "style": "european",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_chair",
+      "name": "欧式 · 靠背椅",
+      "type": "chair",
+      "style": "european",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_lamp",
+      "name": "欧式 · 落地灯",
+      "type": "lamp",
+      "style": "european",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_cabinet",
+      "name": "欧式 · 收纳柜",
+      "type": "cabinet",
+      "style": "european",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_plant",
+      "name": "欧式 · 小花盆",
+      "type": "plant",
+      "style": "european",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_tub",
+      "name": "欧式 · 泡泡浴缸",
+      "type": "tub",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.65,
+      "footprint": [
+        1.65,
+        1.05
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_piano",
+      "name": "欧式 · 小钢琴",
+      "type": "piano",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_stove",
+      "name": "欧式 · 料理台",
+      "type": "stove",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_bed",
+      "name": "日式 · 软被床",
+      "type": "bed",
+      "style": "japanese",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.38,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_sofa",
+      "name": "日式 · 双人沙发",
+      "type": "sofa",
+      "style": "japanese",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_desk",
+      "name": "日式 · 小书桌",
+      "type": "desk",
+      "style": "japanese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.5,
+      "footprint": [
+        1.5,
+        0.75
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_table",
+      "name": "日式 · 茶桌",
+      "type": "table",
+      "style": "japanese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_chair",
+      "name": "日式 · 靠背椅",
+      "type": "chair",
+      "style": "japanese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_lamp",
+      "name": "日式 · 落地灯",
+      "type": "lamp",
+      "style": "japanese",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_cabinet",
+      "name": "日式 · 收纳柜",
+      "type": "cabinet",
+      "style": "japanese",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_plant",
+      "name": "日式 · 小花盆",
+      "type": "plant",
+      "style": "japanese",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_tub",
+      "name": "日式 · 泡泡浴缸",
+      "type": "tub",
+      "style": "japanese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.65,
+      "footprint": [
+        1.65,
+        1.05
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_piano",
+      "name": "日式 · 小钢琴",
+      "type": "piano",
+      "style": "japanese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "japanese_stove",
+      "name": "日式 · 料理台",
+      "type": "stove",
+      "style": "japanese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_bed",
+      "name": "现代 · 软被床",
+      "type": "bed",
+      "style": "modern",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_sofa",
+      "name": "现代 · 双人沙发",
+      "type": "sofa",
+      "style": "modern",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_desk",
+      "name": "现代 · 小书桌",
+      "type": "desk",
+      "style": "modern",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.5,
+      "footprint": [
+        1.5,
+        0.75
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_table",
+      "name": "现代 · 茶桌",
+      "type": "table",
+      "style": "modern",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_chair",
+      "name": "现代 · 靠背椅",
+      "type": "chair",
+      "style": "modern",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_lamp",
+      "name": "现代 · 落地灯",
+      "type": "lamp",
+      "style": "modern",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_cabinet",
+      "name": "现代 · 收纳柜",
+      "type": "cabinet",
+      "style": "modern",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_plant",
+      "name": "现代 · 小花盆",
+      "type": "plant",
+      "style": "modern",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_tub",
+      "name": "现代 · 泡泡浴缸",
+      "type": "tub",
+      "style": "modern",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.65,
+      "footprint": [
+        1.65,
+        1.05
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_piano",
+      "name": "现代 · 小钢琴",
+      "type": "piano",
+      "style": "modern",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "modern_stove",
+      "name": "现代 · 料理台",
+      "type": "stove",
+      "style": "modern",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_bed",
+      "name": "中式 · 软被床",
+      "type": "bed",
+      "style": "chinese",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_sofa",
+      "name": "中式 · 双人沙发",
+      "type": "sofa",
+      "style": "chinese",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_desk",
+      "name": "中式 · 小书桌",
+      "type": "desk",
+      "style": "chinese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.5,
+      "footprint": [
+        1.5,
+        0.75
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_table",
+      "name": "中式 · 茶桌",
+      "type": "table",
+      "style": "chinese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_chair",
+      "name": "中式 · 靠背椅",
+      "type": "chair",
+      "style": "chinese",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_lamp",
+      "name": "中式 · 落地灯",
+      "type": "lamp",
+      "style": "chinese",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_cabinet",
+      "name": "中式 · 收纳柜",
+      "type": "cabinet",
+      "style": "chinese",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_plant",
+      "name": "中式 · 小花盆",
+      "type": "plant",
+      "style": "chinese",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_tub",
+      "name": "中式 · 泡泡浴缸",
+      "type": "tub",
+      "style": "chinese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.65,
+      "footprint": [
+        1.65,
+        1.05
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_piano",
+      "name": "中式 · 小钢琴",
+      "type": "piano",
+      "style": "chinese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.35,
+      "footprint": [
+        1.35,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "chinese_stove",
+      "name": "中式 · 料理台",
+      "type": "stove",
+      "style": "chinese",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
       }
     }
-  ]
+  ],
+  "styles": {
+    "cream": {
+      "name": "奶油童话",
+      "wood": "#d7b687",
+      "fabric": "#f5dbc9",
+      "accent": "#a9c6a5"
+    },
+    "european": {
+      "name": "欧式复古",
+      "wood": "#997052",
+      "fabric": "#e8c3cd",
+      "accent": "#dac08c"
+    },
+    "japanese": {
+      "name": "日式和风",
+      "wood": "#c5a474",
+      "fabric": "#e9e1bb",
+      "accent": "#91ab8c"
+    },
+    "modern": {
+      "name": "现代简约",
+      "wood": "#b9b8b0",
+      "fabric": "#d6e1ea",
+      "accent": "#afa9cc"
+    },
+    "chinese": {
+      "name": "中式古风",
+      "wood": "#895b45",
+      "fabric": "#ead3ab",
+      "accent": "#b95851"
+    }
+  },
+  "types": {
+    "bed": {
+      "category": "床",
+      "actions": [
+        "Sit",
+        "Sleep",
+        "Lie",
+        "Read",
+        "Hug"
+      ],
+      "positions": [
+        [
+          -0.55,
+          0.73,
+          0
+        ],
+        [
+          0.55,
+          0.73,
+          0
+        ]
+      ],
+      "intent": [
+        "rest",
+        "sleep"
+      ]
+    },
+    "sofa": {
+      "category": "沙发",
+      "actions": [
+        "Sit",
+        "Lie",
+        "Read",
+        "Watch",
+        "Use Phone",
+        "Hug"
+      ],
+      "positions": [
+        [
+          -0.55,
+          0.54,
+          0.15
+        ],
+        [
+          0.55,
+          0.54,
+          0.15
+        ]
+      ],
+      "intent": [
+        "rest",
+        "read",
+        "relax"
+      ]
+    },
+    "desk": {
+      "category": "桌椅",
+      "actions": [
+        "Sit",
+        "Work",
+        "Read",
+        "Use Computer",
+        "Game"
+      ],
+      "positions": [
+        [
+          0,
+          0.48,
+          0.82
+        ]
+      ],
+      "intent": [
+        "work",
+        "study",
+        "play"
+      ]
+    },
+    "table": {
+      "category": "桌椅",
+      "actions": [
+        "Drink",
+        "Eat"
+      ],
+      "positions": [
+        [
+          -0.45,
+          0,
+          0.7
+        ],
+        [
+          0.45,
+          0,
+          0.7
+        ]
+      ],
+      "intent": [
+        "eat",
+        "drink"
+      ]
+    },
+    "chair": {
+      "category": "桌椅",
+      "actions": [
+        "Sit",
+        "Read"
+      ],
+      "positions": [
+        [
+          0,
+          0.45,
+          0.08
+        ]
+      ],
+      "intent": [
+        "rest",
+        "read"
+      ]
+    },
+    "lamp": {
+      "category": "灯",
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "intent": []
+    },
+    "cabinet": {
+      "category": "收纳",
+      "actions": [],
+      "positions": [],
+      "intent": []
+    },
+    "plant": {
+      "category": "装饰",
+      "actions": [
+        "Care",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.65
+        ]
+      ],
+      "intent": [
+        "care"
+      ]
+    },
+    "tub": {
+      "category": "生活设施",
+      "actions": [
+        "Bathe",
+        "Lie"
+      ],
+      "positions": [
+        [
+          0,
+          0.25,
+          0
+        ]
+      ],
+      "intent": [
+        "bathe",
+        "rest"
+      ]
+    },
+    "piano": {
+      "category": "生活设施",
+      "actions": [
+        "Play Music"
+      ],
+      "positions": [
+        [
+          0,
+          0.46,
+          0.8
+        ]
+      ],
+      "intent": [
+        "music"
+      ]
+    },
+    "stove": {
+      "category": "生活设施",
+      "actions": [
+        "Cook",
+        "Eat"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "intent": [
+        "cook",
+        "eat"
+      ]
+    }
+  }
 }

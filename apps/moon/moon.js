@@ -6,6 +6,7 @@
     const locks = new Set();
     const attempts = new Map();
     let selectedId = '';
+    let activeTab = 'home';
     const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     const today = (now = Date.now()) => window.ByndLifeState.localDate(now);
     const dayNumber = date => Date.parse(date + 'T12:00:00Z') / DAY;
@@ -204,31 +205,82 @@
     function clear() { localStorage.removeItem(storageKey); attempts.clear(); }
     const el = id => document.getElementById(id);
     function report(text, error = false) { const root = el('moon-status'); if (root) { root.textContent = text; root.classList.toggle('is-error', error); } }
+    const shortDate = date => date ? `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日` : '—';
+
+    function renderHome(state, estimate) {
+        const current = today();
+        const weekday = new Date(`${current}T12:00:00Z`).getUTCDay();
+        const weekStart = dateAfter(current, -((weekday + 6) % 7));
+        const records = state.records.slice().sort((a, b) => a.start.localeCompare(b.start));
+        const week = Array.from({ length: 7 }, (_, index) => {
+            const day = dateAfter(weekStart, index);
+            const recorded = records.some(record => record.start === day);
+            return `<div class="moon-day ${day === current ? 'is-today' : ''} ${recorded ? 'has-record' : ''}" aria-label="${escape(day)}${recorded ? '，有开始记录' : ''}"><span>${'一二三四五六日'[index]}</span><strong>${Number(day.slice(-2))}</strong><i aria-hidden="true"></i></div>`;
+        }).join('');
+        const latest = records.at(-1);
+        const upcoming = estimate.expected && estimate.phase !== 'past-estimate';
+        const forecastLabel = upcoming ? shortDate(estimate.expected) : estimate.phase === 'past-estimate' ? '等待新记录' : '暂未推算';
+        const recent = records.slice(-2).reverse().map(record => `<div class="moon-list-row"><span class="moon-list-dot" aria-hidden="true"></span><div><strong>${shortDate(record.start)}</strong><small>${record.end ? `结束于 ${shortDate(record.end)}` : '结束日期未记录'}</small></div><span>${escape(record.start.slice(0, 4))}</span></div>`).join('');
+        return `<div class="moon-page-heading"><div><small>MY CYCLE</small><h2>我的周期</h2></div><button type="button" class="moon-primary moon-heading-action" onclick="ByndMoon.navigate('records')">＋ 记一次</button></div>
+            <section class="moon-surface moon-calendar"><div class="moon-section-title"><h3>${Number(current.slice(0, 4))} 年 ${Number(current.slice(5, 7))} 月</h3><span>本周</span></div><div class="moon-week" aria-label="本周日期">${week}</div><div class="moon-calendar-key"><i aria-hidden="true"></i>粉点表示已记录的开始日期</div></section>
+            <section class="moon-summary-grid" aria-label="周期概览"><div class="moon-summary-cell"><span>上次开始</span><strong>${latest ? shortDate(latest.start) : '暂无记录'}</strong><small>以你填写的日期为准</small></div><div class="moon-summary-cell"><span>下次参考</span><strong>${forecastLabel}</strong><small>${upcoming ? escape(estimate.method || '大致估算') : '需要更多记录或个人周期'}</small></div></section>
+            <p class="moon-quiet-note">${records.length && estimate.phase === 'unknown' ? `${escape(estimate.reason)}。` : ''}预计日期只作参考，不用于判断怀孕或避孕。</p>
+            <section class="moon-surface moon-recent"><div class="moon-section-title"><h3>最近记录</h3><button type="button" class="moon-text-action" onclick="ByndMoon.navigate('records')">查看全部 <span aria-hidden="true">›</span></button></div>${recent || '<p class="moon-empty-line">还没有记录，点右上角开始。</p>'}</section>`;
+    }
+
+    function renderRecords(state) {
+        const records = state.records.slice().reverse().map(record => `<div class="moon-list-row moon-record"><span class="moon-list-dot" aria-hidden="true"></span><div><strong>${shortDate(record.start)}</strong><small>${record.end ? `结束于 ${shortDate(record.end)}` : '结束日期未记录'}</small></div><button type="button" class="moon-remove" data-moon-remove="${escape(record.start)}" onclick="ByndMoon.removeRecord(this.dataset.moonRemove)" aria-label="删除 ${escape(record.start)} 的记录">删除</button></div>`).join('');
+        const days = state.nativeDays || [];
+        return `<div class="moon-page-heading"><div><small>JOURNAL</small><h2>记录</h2></div><span class="moon-heading-count">${state.records.length} 次</span></div>
+            <section class="moon-surface"><div class="moon-section-title"><h3>记录一次月经</h3></div><form class="moon-record-form" onsubmit="event.preventDefault();ByndMoon.saveFromForm()"><div class="moon-form-grid"><label><span class="moon-label-title">开始日期</span><input id="moon-start" type="date" max="${today()}" required></label><label><span class="moon-label-title">结束日期 <em>选填</em></span><input id="moon-end" type="date" max="${today()}"></label></div><button class="moon-primary" type="submit">保存记录</button></form><p class="moon-form-hint">修改同一次记录时，填写相同的开始日期。</p></section>
+            <section class="moon-surface"><div class="moon-section-title"><h3>我的记录</h3><span>最近 ${Math.min(state.records.length, 36)} 次</span></div>${records || '<p class="moon-empty-line">暂无记录。</p>'}</section>
+            <details class="moon-disclosure moon-surface"><summary><span><strong>Apple 健康日期</strong><small>${days.length ? `${days.length} 个样本，可选择并确认` : '连接后可选择已有日期'}</small></span><i aria-hidden="true">⌄</i></summary><div class="moon-disclosure-body"><p>健康样本是记录到月经流量的日期，不会自动当作每次开始日期。</p>${days.length ? `<div class="moon-health-days">${days.slice(-30).map(day => `<button type="button" onclick="ByndMoon.pickStart('${escape(day)}')">${escape(day)}</button>`).join('')}</div>` : '<p>暂无可读取的样本。</p>'}<button type="button" class="moon-secondary" onclick="openApp('role-tools')">连接与刷新健康数据</button></div></details>`;
+    }
+
+    function renderCompanion(chars, char, consent) {
+        const checks = audit().map(item => `<div class="moon-audit"><strong>${escape(chars.find(entry => entry.id === item.charId)?.name || '角色')}</strong><span>${escape(item.reason)}</span>${item.error ? `<small>${escape(item.error)}</small>` : ''}</div>`).join('');
+        return `<div class="moon-page-heading"><div><small>COMPANION</small><h2>TA 的陪伴</h2></div></div>
+            <section class="moon-surface"><div class="moon-section-title"><h3>角色授权</h3><span>${char ? '仅对当前角色生效' : '尚无单聊角色'}</span></div>${char ? `<div class="moon-field-stack"><label>当前角色<select id="moon-char" onchange="ByndMoon.select(this.value)">${chars.map(item => `<option value="${escape(item.id)}" ${String(item.id) === selectedId ? 'selected' : ''}>${escape(item.chatConfig?.nickname || item.name)}</option>`).join('')}</select></label><label>TA 可以知道<select id="moon-level"><option value="off" ${consent.level === 'off' ? 'selected' : ''}>不允许</option><option value="overview" ${consent.level === 'overview' ? 'selected' : ''}>生活概况，不提供具体日期</option><option value="dates" ${consent.level === 'dates' ? 'selected' : ''}>开始与预计日期</option></select></label></div><label class="moon-toggle"><span><strong>允许 TA 主动关心</strong><small>进入聊天时检查，每个预计周期最多一条</small></span><input type="checkbox" id="moon-remind" ${consent.remind ? 'checked' : ''}></label><div class="moon-actions"><button type="button" class="moon-primary" onclick="ByndMoon.saveConsent()">保存授权</button><button type="button" class="moon-secondary" onclick="ByndMoon.revokeSelected()">撤销授权</button></div>` : '<p class="moon-empty-line">请先在微信添加单聊角色。</p>'}</section>
+            ${char ? `<section class="moon-surface moon-share-preview"><div class="moon-section-title"><h3>TA 实际知道什么</h3></div><p>${escape(context(char)?.text || '目前没有已授权且有效的周期参考。')}</p></section>` : ''}
+            <details class="moon-disclosure moon-surface"><summary><span><strong>授权与提醒说明</strong><small>了解信息如何发送给角色</small></span><i aria-hidden="true">⌄</i></summary><div class="moon-disclosure-body"><p>月伴授权与角色台的生活授权分开。开启后，选中的内容会发给聊天模型；启用 Jev 月伴决策后，也会发给 Jev。已发送内容不能撤回。角色会按人设和当前话题决定是否提醒。</p></div></details>
+            <details class="moon-disclosure moon-surface"><summary><span><strong>提醒自查</strong><small>查看每位角色当前的提醒状态</small></span><i aria-hidden="true">⌄</i></summary><div class="moon-disclosure-body">${checks || '<p>暂无可检查的角色。</p>'}</div></details>`;
+    }
+
+    function renderSettings(state) {
+        return `<div class="moon-page-heading"><div><small>PREFERENCES</small><h2>设置</h2></div></div>
+            <section class="moon-surface"><div class="moon-section-title"><h3>周期与提醒</h3></div><div class="moon-form-grid"><label><span class="moon-label-title">个人周期 <em>天</em></span><input id="moon-cycle" type="number" min="10" max="90" step="1" placeholder="留空自动估算" value="${state.cycleLength ?? ''}"></label><label><span class="moon-label-title">提前提醒</span><select id="moon-lead">${[1,2,3,4,5,6,7].map(n => `<option value="${n}" ${state.leadDays === n ? 'selected' : ''}>${n} 天</option>`).join('')}</select></label></div><label class="moon-toggle"><span><strong>暂停所有读取与提醒</strong><small>打开后，角色不会收到月伴参考</small></span><input type="checkbox" id="moon-paused" ${state.paused ? 'checked' : ''}></label><button type="button" class="moon-primary" onclick="ByndMoon.savePreferences()">保存设置</button></section>
+            <details class="moon-disclosure moon-surface"><summary><span><strong>数据与隐私</strong><small>本机记录和清除选项</small></span><i aria-hidden="true">⌄</i></summary><div class="moon-disclosure-body"><p>月伴记录与授权只保存在本机，不进入普通应用备份。角色已经发出的聊天内容仍会保留在聊天记录中。</p><button type="button" class="moon-danger" onclick="ByndMoon.clearFromUi()">清除月伴数据与全部授权</button></div></details>`;
+    }
+
     function render() {
         try {
             const state = read();
             const estimate = forecast();
             const chars = (window.myCharacters || []).filter(char => char?.id && !char.isGroupChat);
             if (!chars.some(char => String(char.id) === selectedId)) selectedId = String(chars[0]?.id || '');
-            const char = chars.find(char => String(char.id) === selectedId);
+            const char = chars.find(item => String(item.id) === selectedId);
             const consent = grant(char, state);
-            el('moon-content').innerHTML = `<section class="moon-hero"><small>记录你的节奏 · 由 TA 自然陪伴</small><h2>${estimate.expected ? `下次大约 ${escape(estimate.expected.slice(5).replace('-', ' / '))}` : '先记下这一次'}</h2><p>${escape(estimate.reason)}。预测不代表实际来潮，也不用于判断怀孕或避孕。</p></section>
-            <section class="role-card"><h3>Apple 健康里的记录</h3><p>在「角色台」连接 Apple 健康并选择月经记录后，这里列出记录到月经流量的日期。它们不等于每次月经的开始日期，请你确认后再记录。</p>${(state.nativeDays || []).length ? `<div class="moon-health-days">${state.nativeDays.slice(-30).map(day => `<button type="button" onclick="ByndMoon.pickStart('${escape(day)}')">${escape(day)}</button>`).join('')}</div>` : '<p>暂无可读取的样本；可能未记录、未授权或尚未同步。</p>'}<button type="button" onclick="openApp('role-tools')">连接与刷新健康数据</button></section>
-            <section class="role-card"><h3>记录一次月经</h3><form onsubmit="event.preventDefault();ByndMoon.saveFromForm()"><div class="role-form-grid"><label>开始日期<input id="moon-start" type="date" max="${today()}" required></label><label>结束日期（可留空）<input id="moon-end" type="date" max="${today()}"></label></div><button class="role-primary" type="submit">保存记录</button></form><p>修正同一次记录时，填相同的开始日期。结束日期留空表示未记录结束，不会自动说你正在经期。</p></section>
-            <section class="role-card"><h3>我的周期与提醒</h3><div class="role-form-grid"><label>个人周期（天）<input id="moon-cycle" type="number" min="10" max="90" step="1" placeholder="留空则等待足够记录" value="${state.cycleLength ?? ''}"></label><label>提前多少天<select id="moon-lead">${[1,2,3,4,5,6,7].map(n => `<option value="${n}" ${state.leadDays === n ? 'selected' : ''}>${n} 天</option>`).join('')}</select></label></div><label class="role-toggle"><span><strong>暂停所有月伴读取与提醒</strong></span><input type="checkbox" id="moon-paused" ${state.paused ? 'checked' : ''}></label><button type="button" onclick="ByndMoon.savePreferences()">保存</button></section>
-            <section class="role-card"><h3>告诉哪些角色</h3><p>经期授权与「角色台」的生活授权分开。开启后，选中的内容会发送给聊天模型；启用 Jev 月伴决策后，同一份授权参考也会发给 Jev。已发送内容不能撤回。</p>${char ? `<label class="role-select">当前角色<select id="moon-char" onchange="ByndMoon.select(this.value)">${chars.map(item => `<option value="${escape(item.id)}" ${String(item.id) === selectedId ? 'selected' : ''}>${escape(item.chatConfig?.nickname || item.name)}</option>`).join('')}</select></label><label class="role-select">TA 可以知道<select id="moon-level"><option value="off" ${consent.level === 'off' ? 'selected' : ''}>不允许</option><option value="overview" ${consent.level === 'overview' ? 'selected' : ''}>生活概况，不提供具体日期</option><option value="dates" ${consent.level === 'dates' ? 'selected' : ''}>开始与预计日期</option></select></label><label class="role-toggle"><span><strong>允许 TA 在聊天中主动关心</strong><small>进入这个角色的聊天时检查；每个预计周期最多一条，按人设和当前话题决定，可选择不说</small></span><input type="checkbox" id="moon-remind" ${consent.remind ? 'checked' : ''}></label><div class="role-actions"><button type="button" onclick="ByndMoon.saveConsent()">保存角色授权</button><button type="button" onclick="ByndMoon.revokeSelected()">撤销 TA 的授权</button></div><div class="role-preview"><h4>TA 实际知道什么</h4><p>${escape(context(char)?.text || '没有已授权且有效的周期参考。')}</p></div>` : '<p>先在微信添加一个单聊角色。</p>'}</section>
-            <section class="role-card"><h3>提醒自查</h3><p>核对授权、预计窗口、是否重复、发送是否成功。配置 Jev 后会判断人设与时机，可另开“月伴发送前自查”。不确定时暂缓；不会为了补遗漏强迫角色提醒。</p>${audit().map(item => `<div class="moon-audit"><strong>${escape(chars.find(char => char.id === item.charId)?.name || '角色')}</strong><span>${escape(item.reason)}</span>${item.error ? `<small>${escape(item.error)}</small>` : ''}</div>`).join('')}</section>
-            <section class="role-card"><h3>我的记录</h3>${state.records.slice().reverse().map(record => `<div class="moon-record"><span>${escape(record.start)} → ${escape(record.end || '结束未记录')}</span><button type="button" data-moon-remove="${escape(record.start)}" onclick="ByndMoon.removeRecord(this.dataset.moonRemove)">删除</button></div>`).join('') || '<p>还没有记录。</p>'}<p>月伴记录和授权只保存在本机，不进入普通应用备份。角色在已保存的聊天中说过的内容仍然存在。</p><button type="button" class="role-danger" onclick="ByndMoon.clearFromUi()">清除月伴数据与全部授权</button></section>`;
+            const pages = { home: () => renderHome(state, estimate), records: () => renderRecords(state), companion: () => renderCompanion(chars, char, consent), settings: () => renderSettings(state) };
+            el('moon-content').innerHTML = `<div class="moon-page" data-moon-page="${activeTab}">${pages[activeTab]()}</div>`;
+            el('moon-nav')?.querySelectorAll('[data-moon-tab]').forEach(button => {
+                const current = button.dataset.moonTab === activeTab;
+                button.classList.toggle('active', current);
+                if (current) button.setAttribute('aria-current', 'page');
+                else button.removeAttribute('aria-current');
+            });
+            return true;
         } catch (error) {
-            el('moon-content').innerHTML = '<section class="role-card"><h3>月伴记录暂时无法读取</h3><p>已停止提供周期信息。</p><button type="button" onclick="ByndMoon.clearFromUi()">清除本机月伴数据与授权</button></section>';
+            el('moon-content').innerHTML = '<section class="moon-surface moon-error"><h3>月伴记录暂时无法读取</h3><p>已停止提供周期信息。</p><button type="button" class="moon-danger" onclick="ByndMoon.clearFromUi()">清除本机月伴数据与授权</button></section>';
             report(`读取失败：${error.message}`, true);
+            return false;
         }
     }
-    function ui(action, success) { try { action(); render(); report(success); return true; } catch (error) { report(`操作失败：${error.message}`, true); return false; } }
+    function ui(action, success) { try { action(); if (!render()) return false; report(success); return true; } catch (error) { report(`操作失败：${error.message}`, true); return false; } }
+    function navigate(tab) { if (!['home', 'records', 'companion', 'settings'].includes(tab)) return; activeTab = tab; report(''); render(); if (el('moon-content')) el('moon-content').scrollTop = 0; }
     const selected = () => (window.myCharacters || []).find(char => String(char.id) === selectedId && !char.isGroupChat);
     window.ByndMoon = {
-        storageKey, read, saveRecord, settings, forecast, context, prompt, grant, setGrant, candidate, audit, reviewText, maybeRemind, replaceNativeDays, revokeAll, clear, pickStart: day => { el('moon-start').value = dateValue(day); el('moon-start').focus(); report('请确认这是本次开始日期，再点击保存记录。'); },
-        open: () => { render(); }, select: id => { selectedId = String(id); render(); },
+        storageKey, read, saveRecord, settings, forecast, context, prompt, grant, setGrant, candidate, audit, reviewText, maybeRemind, replaceNativeDays, revokeAll, clear, pickStart: day => { navigate('records'); el('moon-start').value = dateValue(day); el('moon-start').focus(); report('请确认这是本次开始日期，再点击保存记录。'); },
+        open: () => { activeTab = 'home'; render(); }, navigate, select: id => { selectedId = String(id); render(); },
         saveFromForm: () => ui(() => saveRecord({ start: el('moon-start').value, end: el('moon-end').value }), '记录已保存，预计日期已重新计算。'),
         savePreferences: () => ui(() => settings({ cycleLength: el('moon-cycle').value === '' ? null : Number(el('moon-cycle').value), leadDays: Number(el('moon-lead').value), paused: el('moon-paused').checked }), '周期与提醒设置已保存。'),
         saveConsent: () => ui(() => setGrant(selected(), { level: el('moon-level').value, remind: el('moon-remind').checked }), '这个角色的月伴授权已保存。'),

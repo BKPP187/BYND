@@ -98,6 +98,26 @@ test('the Worker route table and the web resolver agree on every pinned proxy', 
     }
 });
 
+test('Tripo relay only queries official account balance with a client-provided key', async () => {
+    const { default: worker } = await workerModule;
+    const original = globalThis.fetch, calls = [];
+    globalThis.fetch = async (url, init) => { calls.push({ url, init }); return new Response('{"code":0,"data":{"balance":10}}', { headers: { 'Content-Type': 'application/json' } }); };
+    try {
+        const url = 'https://bynd.ccwu.cc/mcp/relay/tripo/v3/account/balance';
+        const headers = { Origin: 'https://bynd.ccwu.cc', Authorization: 'Bearer example-personal-key' };
+        const response = await worker.fetch(new Request(url, { headers }), {});
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('Cache-Control'), 'no-store');
+        assert.equal(calls[0].url, 'https://openapi.tripo3d.ai/v3/account/balance');
+        assert.equal(calls[0].init.headers.get('Authorization'), headers.Authorization);
+        assert.equal((await worker.fetch(new Request(url, { method: 'POST', headers }), {})).status, 405);
+        assert.equal((await worker.fetch(new Request(url + '?url=https://evil.example', { headers }), {})).status, 404);
+        assert.equal((await worker.fetch(new Request(url.replace('account/balance', 'generation/image-to-model'), { method: 'POST', headers }), {})).status, 404);
+        assert.equal((await worker.fetch(new Request(url, { headers: { ...headers, Origin: 'https://evil.example' } }), {})).status, 403);
+        assert.equal(calls.length, 1);
+    } finally { globalThis.fetch = original; }
+});
+
 test('Jev proxy is pinned to TypeSafe System One and never stores the user key', async () => {
     const { default: worker } = await workerModule;
     const realFetch = globalThis.fetch;

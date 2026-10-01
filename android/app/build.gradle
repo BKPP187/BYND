@@ -8,16 +8,45 @@ if (keystorePropsFile.exists()) {
     keystorePropsFile.withInputStream { keystoreProps.load(it) }
 }
 
+// Sale and update services are deliberately opt-in, independently of debug/release.
+def requireLicense = providers.gradleProperty('byndRequireLicense').orElse('false').get()
+def enableUpdates = providers.gradleProperty('byndEnableUpdates').orElse('false').get()
+if (!(requireLicense in ['true', 'false']) || !(enableUpdates in ['true', 'false'])) {
+    throw new GradleException('BYND distribution switches must be true or false')
+}
+def publicKeysPath = providers.gradleProperty('byndPublicKeysFile').orElse('').get()
+def publicKeys = publicKeysPath ? rootProject.file(publicKeysPath).getText('UTF-8').trim() : '{}'
+def parsedPublicKeys = new groovy.json.JsonSlurper().parseText(publicKeys)
+if (!(parsedPublicKeys instanceof Map) || !parsedPublicKeys.every { key, value -> key ==~ /[A-Za-z0-9_-]{1,64}/ && value instanceof String && value ==~ /[A-Za-z0-9_-]+/ }) {
+    throw new GradleException('BYND public keys must map key ids to base64url SPKI values')
+}
+if ((requireLicense == 'true' || enableUpdates == 'true') && parsedPublicKeys.isEmpty()) {
+    throw new GradleException('Pin public keys before enabling BYND licensing or updates')
+}
+def serviceUrl = providers.gradleProperty('byndServiceUrl').orElse('https://bynd.ccwu.cc').get().replaceAll('/+$', '')
+def serviceUri = new URI(serviceUrl)
+if (serviceUri.scheme != 'https' || !serviceUri.host || serviceUri.userInfo || serviceUri.rawQuery || serviceUri.rawFragment || serviceUri.path) {
+    throw new GradleException('BYND service URL must be an HTTPS origin')
+}
+def apkHosts = providers.gradleProperty('byndApkHosts').orElse('bynd.ccwu.cc').get()
+def javaString = { value -> groovy.json.JsonOutput.toJson(value) }
+
 android {
     namespace 'cc.ccwu.bynd'
     compileSdk 35
+    buildFeatures { buildConfig true }
 
     defaultConfig {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 189
-        versionName '1.1.764'
+        versionCode 207
+        versionName '1.1.782'
+        buildConfigField 'boolean', 'BYND_REQUIRE_LICENSE', requireLicense
+        buildConfigField 'boolean', 'BYND_ENABLE_UPDATES', enableUpdates
+        buildConfigField 'String', 'BYND_PUBLIC_KEYS', javaString(publicKeys)
+        buildConfigField 'String', 'BYND_SERVICE_URL', javaString(serviceUrl)
+        buildConfigField 'String', 'BYND_APK_HOSTS', javaString(apkHosts)
     }
 
     signingConfigs {
@@ -69,6 +98,8 @@ tasks.register('syncWebAssets', Sync) {
         include '*.png'
         include '*.webmanifest'
         include 'assets/**'
+        exclude 'shop.html'
+        exclude 'assets/website/**'
         include 'apps/**'
         include 'core/**'
         include 'systems/**'

@@ -403,3 +403,115 @@ test('readings render as ruby, every selected language appears, and storage and 
     assert.match(rules, /versions 留空对象/);
     assert.doesNotMatch(rules, /缺一不可/);
 });
+
+test('learning cards use saved vocabulary, persist reading marks, and undo the last mark', () => {
+    const h = harness();
+    h.S.init();
+    h.S.setTab('words');
+    h.S.setLearningView('cards');
+    assert.match(h.content(), /学习卡片/);
+    assert.match(h.content(), /少しずつ安定した自分になりたい/);
+    const card = h.S.drillCards()[0];
+    h.S.markRead(false);
+    assert.equal(h.context.getStudyCards().find(item => item.id === card.id).reading.ja.needsReview, true);
+    h.S.undoRead();
+    assert.equal(h.context.getStudyCards().find(item => item.id === card.id).reading?.ja, undefined);
+});
+
+test('a failed reading mark leaves the original card untouched and shows the write error', () => {
+    const h = harness({
+        entries: { [KEYS.cards]: JSON.stringify([{ id: 'one', cn: '你好', ja: 'こんにちは', source: 'manual' }]) },
+        storageFailKey: KEYS.cards
+    });
+    h.S.init();
+    h.S.setTab('words');
+    h.S.setLearningView('cards');
+    h.S.markRead(true);
+    assert.equal(h.context.getStudyCards()[0].reading, undefined);
+    assert.match(h.content(), /学习进度没有保存/);
+});
+
+test('built-in starter cards make glyphs, vocabulary and sentences available without adding them to the word book', () => {
+    const h = harness();
+    h.S.init();
+    h.S.setTab('words');
+    h.S.setLearningView('cards');
+    h.S.setCardKind('glyph');
+    assert.match(h.content(), /あ/);
+    assert.equal(h.context.getStudyCards().length, 2, 'starter lessons stay separate from user cards');
+    h.S.markRead(true);
+    const marks = JSON.parse(h.storage.getItem('bynd_study_lesson_marks_v1'));
+    assert.equal(marks.study_lesson_ja_glyph_0.can, 1);
+    h.S.undoRead();
+    assert.equal(JSON.parse(h.storage.getItem('bynd_study_lesson_marks_v1')).study_lesson_ja_glyph_0, undefined);
+    h.S.setCardKind('word');
+    assert.match(h.content(), /こんにちは/);
+    h.S.setFoundationLang('ko');
+    assert.match(h.content(), /안녕하세요/);
+    h.S.setCardKind('sentence');
+    assert.match(h.content(), /한국어를 공부/);
+});
+
+test('a failed starter-card mark is visible and does not fabricate saved progress', () => {
+    const h = harness({ storageFailKey: 'bynd_study_lesson_marks_v1' });
+    h.S.init();
+    h.S.setTab('words');
+    h.S.setLearningView('cards');
+    h.S.setCardKind('glyph');
+    h.S.markRead(true);
+    assert.equal(h.storage.getItem('bynd_study_lesson_marks_v1'), null);
+    assert.match(h.content(), /学习进度没有保存/);
+});
+
+test('foundation charts switch across Japanese, Korean and Thai, and handwriting requires a stroke before saving', () => {
+    const h = harness({ entries: { [KEYS.languages]: JSON.stringify([
+        { id: 'cn', label: '中文' }, { id: 'ja', label: '日本語' }, { id: 'ko', label: '한국어' }, { id: 'th', label: 'ไทย' }
+    ]) } });
+    h.S.init();
+    h.S.setTab('words');
+    h.S.setLearningView('guide');
+    h.S.setFoundationLang('ko');
+    assert.match(h.content(), /基本辅音/);
+    assert.match(h.content(), /ㄱ/);
+    h.S.setFoundationLang('th');
+    assert.match(h.content(), /常用辅音/);
+    h.S.setFoundationLang('ja');
+    h.S.setFoundationGroup(1);
+    assert.match(h.content(), /片假名/);
+    h.S.setLearningView('trace');
+    h.S.finishTrace();
+    assert.match(h.content(), /先描写至少一笔/);
+    assert.equal(h.storage.getItem('bynd_study_trace_v1'), null);
+});
+
+test('focus counts foreground seconds, keeps them by day, and reports storage failure instead of success', () => {
+    const h = harness();
+    h.S.init();
+    h.S.setTab('review');
+    h.S.saveFocusDuration('focus', 1);
+    h.S.startFocus();
+    h.S.tickFocus(Date.now() + 5000);
+    assert.equal(Object.values(h.S.getFocusData().days)[0].seconds, 5);
+    assert.match(h.content(), /每日学习时长/);
+    h.S.pauseFocus();
+    h.S.resetFocus();
+    h.S.startFocus();
+    const base = Date.now();
+    for (let step = 1; step <= 12; step += 1) h.S.tickFocus(base + step * 5000);
+    assert.equal(Object.values(h.S.getFocusData().days)[0].sessions, 1, 'only a completed focus round increments sessions');
+    assert.equal(Object.values(h.S.getFocusData().days)[0].seconds, 65);
+    const hidden = harness();
+    hidden.S.init();
+    hidden.S.setTab('review');
+    hidden.S.startFocus();
+    hidden.context.document.hidden = true;
+    hidden.S.tickFocus(Date.now() + 5000);
+    assert.equal(Object.keys(hidden.S.getFocusData().days).length, 0, 'background time is not counted');
+    const failed = harness({ storageFailKey: 'bynd_study_focus_v1' });
+    failed.S.init();
+    failed.S.setTab('review');
+    failed.S.startFocus();
+    failed.S.tickFocus(Date.now() + 5000);
+    assert.match(failed.content(), /专注时长没有保存/);
+    assert.equal(failed.storage.getItem('bynd_study_focus_v1'), null);
+});

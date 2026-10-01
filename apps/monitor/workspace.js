@@ -35,6 +35,7 @@
         const escape = value => musicEscapeHtml(String(value ?? ''));
         const attr = value => musicEscapeAttr(String(value ?? ''));
         const icon = name => `<i class="${name}" aria-hidden="true"></i>`;
+        const petNavIcon = tab => `<img class="mh-pet-nav-icon" src="assets/ui/pet-nav/${({ pet: 'home', library: 'materials', phone: 'screen', island: 'records' })[tab.id]}.svg?v=${attr(typeof APP_VERSION === 'string' ? APP_VERSION : 'pet-nav-reference-1')}" alt="" aria-hidden="true" width="36" height="36">`;
         const disabled = () => busy ? 'disabled' : '';
         const name = char => char ? getMonitorCharName(char) : '选择角色';
         function character() {
@@ -66,18 +67,32 @@
             const stock = imageSource(getMonitorPetDisplayImage(saved));
             const source = custom || stock;
             if (source) return renderMonitorPetMedia(custom ? { posterDataUrl: custom, displayName: material?.displayName || name(char) } : saved, 'mh-pet-art', char?.id || 'pet');
-            return `<div class="mh-portrait-art">${avatar(char, 'mh-portrait')}<span class="mh-orbit mh-orbit-one" aria-hidden="true">✦</span><span class="mh-orbit mh-orbit-two" aria-hidden="true">✧</span><span class="mh-orbit-dot" aria-hidden="true"></span></div>`;
+            const config = char && window.ByndCharacterPet?.profile(char);
+            const draft = !saved && window.ByndCharacterPet?.cached(config?.baseKey || config?.draftBaseKey);
+            const draftSource = imageSource(draft?.posterUrl || draft?.url);
+            if (draftSource) return renderMonitorPetMedia({ posterDataUrl: draftSource, displayName: name(char) }, 'mh-pet-art', char.id + ':preview');
+            return `<span class="mh-empty-pet-art"><img src="assets/ui/pet-room/cream-cloud.png?v=${attr(typeof APP_VERSION === 'string' ? APP_VERSION : 'cream-cloud-1')}" alt="待选择桌宠的奶油团子插画"><span>还没有选择桌宠</span></span>`;
         }
         function stage(char) {
             const material = char && window.ByndCharacterPet?.material(char);
             const saved = getMonitorPetLibrary().find(pet => pet.id === getActiveMonitorPetId());
             const hasPet = !!(material || saved);
             const displayed = hasPet && isMonitorPetEnabled();
-            return `<section class="mh-stage mh-stage-pet" aria-label="当前桌宠">
-                <div class="mh-stage-top">${chooseButton(char, 'screen-role')}${badge(displayed ? '显示中' : hasPet ? '已暂停' : '等待相遇', displayed ? 'is-on' : '')}</div>
-                <div class="mh-scene"><span class="mh-scene-word" aria-hidden="true">在你身边</span>${petVisual(char)}</div>
-                <div class="mh-stage-bottom"><div><span>${material ? '角色专属 · ' + escape(window.ByndCharacterPet?.visual(char)?.label || '待机') : saved ? '社区桌宠' : '从喜欢的形象开始'}</span><strong>${escape(material?.displayName || saved?.displayName || '挑选你的第一只桌宠')}</strong></div>
-                    <button type="button" class="mh-round-button" data-mh-tab="library" aria-label="挑选在线桌宠">${icon('ri-add-line')}</button>
+            const visual = char && window.ByndCharacterPet?.visual(char);
+            const reaction = visual?.bubble || char?.chatConfig?.monitorPetState?.bubbleText;
+            const note = visual?.note || char?.chatConfig?.monitorPetState?.lastError;
+            const canInteract = displayed && !!getMonitorPetBoundChar();
+            const dialogue = note || reaction || (canInteract ? '' : hasPet ? displayed ? '绑定互动角色，一起聊聊吧。' : '形象已就位，开启桌面显示就能继续陪伴。' : '选一只喜欢的桌宠，或制作 TA 的专属形象。');
+            const title = material?.displayName || saved?.displayName || (char ? name(char) : '等待与你相遇');
+            const action = (key, symbol, label, off = false) => `<button type="button" data-mh-action="${key}" ${off ? 'disabled' : ''}>${icon(symbol)}<span>${label}</span></button>`;
+            return `<section class="mh-stage mh-stage-pet mh-pet-room" aria-label="当前展示">
+                <div class="mh-room-awning" aria-hidden="true"><span>我的桌宠</span></div>
+                <div class="mh-room-hud"><div class="mh-room-identity">${chooseButton(char, 'screen-role')}</div><button type="button" class="mh-room-outfit" data-mh-tab="library">${icon('ri-shirt-line')}<span>换形象</span></button></div>
+                <div class="mh-room-scene"><span class="mh-room-star mh-room-star-one" aria-hidden="true">✦</span><span class="mh-room-star mh-room-star-two" aria-hidden="true">✧</span>
+                    <button type="button" class="mh-room-character" data-mh-action="pet-interact" aria-label="${canInteract ? '轻点桌宠互动' : '设置桌宠互动'}">${petVisual(char)}</button>
+                    <div class="mh-room-side mh-room-right">${action('studio', 'ri-palette-line', '制作')}<button type="button" data-mh-tab="phone">${icon('ri-screenshot-2-line')}<span>陪看</span></button></div>
+                    <div class="mh-room-dialogue ${dialogue ? '' : 'is-idle'}" aria-live="polite"><strong>${escape(title)}<span>${material ? escape(visual?.label || '待机') : '在你身边'}</span></strong>${dialogue ? `<p>${escape(dialogue)}</p>` : ''}</div>
+                    <div class="mh-room-actions">${action('pet-interact', 'ri-hand-heart-line', '互动一下', busy || !!visual?.pending)}${action('chat-bound', 'ri-chat-smile-2-line', '聊聊天', !getMonitorPetBoundChar())}</div>
                 </div>
             </section>`;
         }
@@ -144,10 +159,10 @@
         }
         function homeView() {
             const chars = getMonitorCharacters(), stats = getMonitorStats(chars), latest = activity()[0];
-            return `${heading('聊天，多一个视角。', '选择监控者，让角色参与剧情、发弹幕和提醒。')}
+            return `${heading('正在陪你看', '谁在留意聊天里的故事？')}
                 <div class="mh-monitor-stats" aria-label="监控运行状态"><div><span>接入角色</span><strong>${stats.enabled}<small> / ${stats.total}</small></strong></div><div><span>本人 / 第三方</span><strong>${stats.persona}<small> / ${stats.observer}</small></strong></div><div class="${stats.errors ? 'has-error' : ''}"><span>待处理</span><strong>${stats.errors}<small> 条</small></strong></div></div>
-                <section class="mh-monitor-live"><div><span class="mh-eyebrow">${icon('ri-chat-quote-line')}弹幕与提醒</span><h2>${latest ? '最近的一次反应' : '留意聊天里的小变化'}</h2><p>${latest ? escape(name(latest.char)) + '：' + escape(latest.text) : '角色会根据剧情和人设选择回应方式。'}</p></div><button type="button" class="mh-round-button" data-mh-tab="island" aria-label="查看弹幕与提醒">${icon('ri-arrow-right-line')}</button></section>
-                <section class="mh-watchers"><div class="mh-section-heading"><h2>监控者</h2><button type="button" class="mh-text-button" data-mh-action="refresh">${icon('ri-refresh-line')}刷新状态</button></div>
+                <section class="mh-monitor-live"><div><span class="mh-eyebrow">${icon('ri-chat-quote-line')}最新动态</span><h2>${latest ? escape(name(latest.char)) + ' 有新反应' : '等待新的故事发生'}</h2><p>${latest ? escape(latest.text) : '接入角色后，这里会出现 TA 对聊天的回应。'}</p></div><button type="button" class="mh-round-button" data-mh-tab="island" aria-label="查看弹幕与提醒">${icon('ri-arrow-right-line')}</button></section>
+                <section class="mh-watchers"><div class="mh-section-heading"><h2>监控角色</h2><button type="button" class="mh-text-button" data-mh-action="refresh">${icon('ri-refresh-line')}刷新状态</button></div>
                     <div class="mh-watcher-toolbar"><label class="mh-search">${icon('ri-search-line')}<input id="${appName}-watcher-search" type="search" aria-label="搜索监控者" placeholder="搜索角色" value="${attr(watcherQuery)}"></label><div class="mh-segmented" aria-label="监控者筛选">${[['all','全部'],['enabled','已接入']].map(([value,label]) => `<button type="button" data-mh-watch-filter="${value}" aria-pressed="${watcherFilter === value}">${label}</button>`).join('')}</div></div>
                     <div class="mh-watcher-grid" data-mh-watchers>${chars.length ? watcherCards() : empty('还没有角色', '先到微信添加角色，再选择谁来参与监控。', '<button type="button" class="mh-secondary" data-mh-action="contacts">添加角色</button>')}</div>
                 </section>
@@ -177,7 +192,7 @@
                 </div></div>${window.ByndScreenCompanion?.renderSection?.() || ''}`;
         }
         function libraryView() {
-            return `${heading('发现喜欢的桌宠。', '先预览，喜欢就导入并使用。')}
+            return `<div class="mh-collection-title"><h1>桌宠小铺<span aria-hidden="true">✦</span></h1></div>
                 <div class="mh-library-intro"><span>${icon('ri-compass-3-line')}codex-pets 社区素材</span><a href="${MONITOR_PET_ORIGIN}" target="_blank" rel="noopener noreferrer">访问网站${icon('ri-external-link-line')}</a></div>
                 ${renderMonitorPetLibrary(true)}`;
         }
@@ -199,7 +214,8 @@
             }
             const status = petProgress || (petFailure && petFailure.id === char?.id && petFailure.revision === config?.revision ? petFailure.text : '') || (!char ? '先选择陪伴你的角色' : on ? `${name(char)} 已来到你的桌面` : config?.baseKey ? '开启后，TA 会沿用角色人设与你互动' : config?.draftBaseKey ? (preview && !preview.transparent ? '开启时会自动去背景，并使用这张形象' : '开启后即可使用这张形象') : '点击开启，前往制作 TA 的基础形象');
             const previewSource = imageSource(preview?.posterUrl || preview?.url);
-            return `${heading('让 TA，来到你身边。', '从对话到陪伴，延续你们的故事与默契。')}
+            return `${stage(bound || (!saved.some(item => item.id === getActiveMonitorPetId()) ? char : null))}
+                <details class="mh-companion-settings" id="pet-companion-settings"><summary>${icon('ri-settings-3-line')}陪伴设置<span>角色 · 显示 · 动作</span>${icon('ri-arrow-down-s-line')}</summary>
                 <div class="mh-pet-layout"><section class="mh-pet-tools mh-character-pet-card" aria-label="角色桌宠"><div class="mh-section-heading"><h2>角色桌宠</h2>${chooseButton(char)}</div>
                         <div class="mh-pet-toggle-row mh-character-toggle"><span><strong>启用角色桌宠</strong><small id="pet-character-status" role="status" aria-live="polite">${escape(status)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="启用角色桌宠" aria-describedby="pet-character-status" aria-checked="${on}" aria-busy="${busy}" data-mh-action="toggle-character-pet" ${busy || !char ? 'disabled' : ''}><span></span></button></div>
                         ${previewSource ? `<div class="mh-character-preview"><img src="${attr(previewSource)}" alt="${attr(name(char))}的${config?.baseKey ? '已确认形象' : '待确认形象'}"><span>${config?.baseKey ? on ? '正在陪伴你' : '已确认 · 随时开启' : '待确认的形象'}</span></div>` : ''}
@@ -207,8 +223,8 @@
                         <div class="mh-state-strip">${states.length ? states.map(item => { const asset = window.ByndCharacterPet.cached(item.assetKey); const source = imageSource(asset?.posterUrl || asset?.url); return `<div class="mh-state-tile">${source ? `<img src="${attr(source)}" alt="${attr(item.label)}">` : icon('ri-emotion-line')}<span>${escape(item.label)}</span></div>`; }).join('') : '<div class="mh-state-empty">' + icon('ri-emotion-line') + '<span>从基础形象开始，慢慢添上坐姿、动作和表情。</span></div>'}</div>
                         <button type="button" class="mh-history-link" id="mh-pet-history" data-mh-action="history" ${!char ? 'disabled' : ''}>${icon('ri-history-line')}生成历史<span>PNG / GIF</span>${icon('ri-arrow-right-s-line')}</button>
                         <p class="mh-caption">回应沿着 TA 的性格，也承接你们的关系与故事。</p></section>
-                    <div><div class="mh-section-heading"><h2>当前展示</h2></div>${stage(bound)}<div class="mh-pet-toggle-row"><span><strong>桌面显示</strong><small>${bound ? `互动角色 · ${escape(name(bound))}` : '选择形象后，可绑定角色开启互动'}</small></span><button type="button" class="mh-switch" role="switch" aria-label="显示当前桌宠" aria-checked="${enabled}" data-mh-action="toggle-pet"><span></span></button></div>
-                    <button type="button" class="mh-browse-entry" data-mh-tab="library">${icon('ri-compass-3-line')}浏览社区桌宠${icon('ri-arrow-right-line')}</button></div></div>
+                    <div><div class="mh-pet-toggle-row"><span><strong>桌面显示</strong><small>${bound ? `互动角色 · ${escape(name(bound))}` : '选择形象后，可绑定角色开启互动'}</small></span><button type="button" class="mh-switch" role="switch" aria-label="显示当前桌宠" aria-checked="${enabled}" data-mh-action="toggle-pet"><span></span></button></div>
+                    <button type="button" class="mh-bind-button" data-mh-action="screen-role">${icon('ri-user-heart-line')}绑定互动角色${icon('ri-arrow-right-s-line')}</button></div></div></details>
                 <section class="mh-saved-pets"><div class="mh-section-heading"><h2>已收藏的社区桌宠</h2><span>${saved.length} 个形象</span></div>
                     ${saved.length ? renderMonitorPetLibrary(false) : '<div class="mh-saved-empty"><span>' + icon('ri-bear-smile-line') + '</span><div><strong>收藏喜欢的形象</strong><p>在线素材可直接使用，随时回来切换。</p></div><button type="button" class="mh-text-button" data-mh-tab="library">去挑选' + icon('ri-arrow-right-s-line') + '</button></div>'}
                 </section>${!saved.length ? `<p class="mh-inline-note" data-mh-pet-status role="status">${escape(monitorPetStatus)}</p>` : ''}`;
@@ -247,15 +263,18 @@
             const token = focusToken(focused), position = focused?.selectionStart;
             const content = host.querySelector('.mh-content'), scroll = content.scrollTop;
             const panel = host.querySelector('.mh-view');
+            const settingsOpen = panel.querySelector('#pet-companion-settings')?.open;
             // Reuse the same image node when only a control changed, preserving a GIF loop.
             const pictures = new Map(Array.from(panel.querySelectorAll('[data-mh-visual]')).map(img => [img.dataset.mhVisual + ':' + img.dataset.mediaSource, img]));
             const stats = getMonitorStats(getMonitorCharacters());
             const petRunning = isPet && isMonitorPetEnabled() && (window.ByndCharacterPet?.active(getMonitorPetBoundChar()) || getMonitorPetLibrary().some(item => item.id === getActiveMonitorPetId()));
             host.querySelector('.mh-overview').innerHTML = `<span class="mh-presence ${(isPet ? petRunning : stats.enabled) ? 'is-on' : ''}"><span aria-hidden="true"></span>${isPet ? (petRunning ? '陪伴中' : '未开启') : `${stats.enabled} 位接入`}</span>`;
-            host.querySelector('.mh-nav').innerHTML = tabs.map(tab => `<button type="button" id="${appName}-tab-${tab.id}" role="tab" aria-selected="${activeTab === tab.id}" aria-controls="${appName}-tool-panel" tabindex="${activeTab === tab.id ? 0 : -1}" data-mh-tab="${tab.id}">${icon(tab.icon)}<span>${tab.label}</span>${tab.id === 'phone' && isMonitorScreenSharingActive() ? '<b class="mh-nav-dot" aria-label="正在共享"></b>' : ''}</button>`).join('');
+            host.querySelector('.mh-nav').innerHTML = tabs.map(tab => `<button type="button" id="${appName}-tab-${tab.id}" role="tab" aria-selected="${activeTab === tab.id}" aria-controls="${appName}-tool-panel" tabindex="${activeTab === tab.id ? 0 : -1}" data-mh-tab="${tab.id}">${isPet ? petNavIcon(tab) : icon(tab.icon)}<span>${tab.label}</span>${tab.id === 'phone' && isMonitorScreenSharingActive() ? '<b class="mh-nav-dot" aria-label="正在共享"></b>' : ''}</button>`).join('');
             panel.dataset.tool = activeTab;
+            host.dataset.petView = isPet ? activeTab : '';
             panel.setAttribute('aria-labelledby', appName + '-tab-' + activeTab);
             panel.innerHTML = activeTab === 'phone' ? screenView() : activeTab === 'library' ? libraryView() : activeTab === 'pet' ? petView() : activeTab === 'island' ? activityView() : homeView();
+            if (settingsOpen && activeTab === 'pet') panel.querySelector('#pet-companion-settings').open = true;
             for (const img of panel.querySelectorAll('[data-mh-visual]')) {
                 const previous = pictures.get(img.dataset.mhVisual + ':' + img.dataset.mediaSource);
                 if (previous) img.replaceWith(previous);
@@ -394,6 +413,17 @@
                 case 'toggle-watcher': if (char) await toggleMonitorWatcher(char.id); break;
                 case 'toggle-pet': setMonitorPetEnabled(!isMonitorPetEnabled()); break;
                 case 'toggle-character-pet': await toggleCharacterPet(char); break;
+                case 'pet-options': { const settings = root()?.querySelector('#pet-companion-settings'); if (settings) { settings.open = true; settings.scrollIntoView({ behavior: 'smooth', block: 'start' }); } break; }
+                case 'pet-interact': {
+                    const bound = getMonitorPetBoundChar();
+                    const hasPet = !!window.ByndCharacterPet?.material(bound) || getMonitorPetLibrary().some(pet => pet.id === getActiveMonitorPetId());
+                    if (!hasPet) navigate('library');
+                    else if (!bound) openLayer('roles', '', 'binding');
+                    else if (!isMonitorPetEnabled()) showWechatToast('请在陪伴设置中开启桌面显示。');
+                    else { await requestMonitorPetReaction('tap'); render(); }
+                    break;
+                }
+                case 'chat-bound': { const bound = getMonitorPetBoundChar(); if (bound) { closeLayer(false); closeApp(appName); openApp('wechat'); openChat(bound.id); } break; }
                 case 'bind-pet': if (char) { setMonitorPetBoundChar(char.id); syncMonitorPetFloating(); render(); showWechatToast('已绑定桌宠角色：' + name(char)); } break;
                 case 'chat': if (char) { closeLayer(false); closeApp(appName); openApp('wechat'); openChat(char.id); } break;
                 case 'contacts': closeLayer(false); closeApp(appName); openApp('wechat'); break;

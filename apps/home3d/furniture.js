@@ -3,7 +3,19 @@
     const byteCache = new Map();
     const pendingBuffers = new Map(), scriptReceivers = new Map();
     let cachedBytes = 0;
-    function get(id) { return H.catalogs.furnitureCatalog.items.find(item => item.id === id); }
+    function get(id) {
+        const item = H.catalogs.furnitureCatalog.items.find(item => item.id === id);
+        if (!item) return null;
+        const definition = H.catalogs.furnitureCatalog.types?.[item.type] || {};
+        return { ...definition, ...item, actions: item.actions || definition.actions || [], positions: item.positions || definition.positions || [] };
+    }
+    // This contract is shared by the geometry and character anchors. Seat heights
+    // are the top of the cushion, never an arbitrary character-root subtraction.
+    function support(item) {
+        if (item.type === 'bed') { const h = item.seatHeight ?? .65; return { baseHeight: h, seatHeight: h + .35, sleepHeight: h + .24 }; }
+        if (['sofa', 'chair'].includes(item.type)) return { seatHeight: .62, seatDepth: .20, seatFront: item.footprint[1] / 2 + .025 };
+        return { seatHeight: item.positions?.[0]?.[1] || .45, seatDepth: item.positions?.[0]?.[2] || .08, seatFront: item.footprint[1] / 2 + .02 };
+    }
     function readBuffer(url) {
         if (location.protocol !== 'file:') return fetch(url).then(response => { if (!response.ok) throw new Error('家具资源读取失败：' + response.status); return response.arrayBuffer(); });
         return new Promise((resolve, reject) => {
@@ -66,6 +78,7 @@
         H.Shapes.rounded(root, [0.35, 0.09, 0.25], [0, 0.04, 0.04], materials.get('soft_wood')); return root;
     }
     async function load(item, materials) {
+        if (item.procedural || ['bed', 'sofa', 'chair'].includes(item.type) || ['nightstand_01', 'table_lamp_01'].includes(item.id)) return H.FurnitureVisuals.create(item, materials);
         if (!item.model) return item.type === 'frame' ? frame(materials) : star(materials);
         const T = ByndHomeEngine;
         const gltf = await new T.GLTFLoader().parseAsync(await buffer(item.model), '');
@@ -84,19 +97,6 @@
             H.Shapes.disposeGeometry(root); throw new Error('房间已离开。');
         }
         materials.apply(root, item);
-        // Small rounded textile layers unify the geometry with the dollhouse art direction.
-        if (item.type === 'sofa') {
-            H.Shapes.rounded(root, [2.45, 0.61, 0.25], [0, 0.73, -0.43], materials.get('cream_fabric'), 0.1);
-            for (const x of [-1.2, 1.2]) H.Shapes.rounded(root, [0.26, 0.5, 0.96], [x, 0.56, 0.035], materials.get('cream_fabric'), 0.12);
-            for (const x of [-0.61, 0.61]) {
-                H.Shapes.rounded(root, [1.08, 0.15, 0.75], [x, 0.48, 0.08], materials.get('cream_fabric'), 0.075);
-                const cushion = H.Shapes.rounded(root, [0.43, 0.42, 0.16], [x * 1.2, 0.79, -0.18], materials.get(x < 0 ? 'rose' : 'sage'), 0.075); cushion.rotation.z = x < 0 ? 0.14 : -0.14;
-            }
-        }
-        if (item.type === 'bed') {
-            H.Shapes.rounded(root, [2.1, 0.16, 1.45], [0, 0.63, 0.3], materials.get('cream_fabric'), 0.075);
-            for (const x of [-0.55, 0.55]) H.Shapes.rounded(root, [0.82, 0.16, 0.47], [x, 0.72, -0.77], materials.get('paper'), 0.08);
-        }
         if (item.type === 'table') {
             for (const x of [-0.34, 0.34]) {
                 const cup = new T.Mesh(new T.CylinderGeometry(0.075, 0.06, 0.14, 18), materials.get(x < 0 ? 'rose' : 'sage'));
@@ -125,5 +125,5 @@
         const imagePlane = new T.Mesh(new T.PlaneGeometry(0.59, 0.49), material); imagePlane.position.set(0, 0.31, 0.074);
         imagePlane.userData.ownedTexture = texture; imagePlane.userData.ownedMaterial = material; root.add(imagePlane);
     }
-    H.Furniture = { get, load, readBuffer, setPhoto, registerBuffer, cacheInfo: () => ({ models: byteCache.size, bytes: cachedBytes }) };
+    H.Furniture = { get, support, load, readBuffer, setPhoto, registerBuffer, cacheInfo: () => ({ models: byteCache.size, bytes: cachedBytes }) };
 })(window.ByndHome3D);

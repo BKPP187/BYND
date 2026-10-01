@@ -157,6 +157,90 @@
 #bynd-pet-studio .bynd-agent-header, .pet-history .bynd-agent-header { background: var(--mh-surface); color: var(--mh-ink); border-color: var(--mh-line); }
 #bynd-pet-studio .bynd-agent-header > button, .pet-history .bynd-agent-header > button { background: var(--mh-soft); color: var(--mh-accent); }
 
+/* The making tools share the pet app's illustrated stationery surfaces. */
+#bynd-pet-studio .pet-studio-panel, .pet-history .pet-studio-main { background: var(--mh-canvas); }
+#bynd-pet-studio .bynd-agent-header, .pet-history .bynd-agent-header {
+    min-height: calc(62px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding: calc(9px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 13px 9px;
+    border-bottom: 2px solid var(--mh-ink); background: var(--mh-surface); gap: 11px;
+}
+#bynd-pet-studio .bynd-agent-header > button, .pet-history .bynd-agent-header > button {
+    width: 40px; height: 40px; border: 2px solid var(--mh-ink); border-radius: 48% 44% 48% 43%;
+    background: var(--mh-surface); color: var(--mh-ink); padding: 7px;
+}
+#bynd-pet-studio .bynd-agent-header .pet-history-entry { background: var(--pet-blue); border-radius: 13px 15px 12px 14px; }
+#bynd-pet-studio .bynd-agent-header strong, .pet-history .bynd-agent-header strong { font-size: 18px; }
+#bynd-pet-studio .bynd-agent-header small, .pet-history .bynd-agent-header small { color: var(--mh-muted); font-size: 11px; }
+#bynd-pet-studio .pet-studio-main, .pet-history .pet-studio-main { padding: 14px 13px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.pet-studio-icon { display: block; flex-shrink: 0; width: 26px; height: 26px; }
+#bynd-pet-studio .pet-studio-main button, .pet-history .pet-studio-main button {
+    min-height: 44px; padding: 10px 12px; border: 2px solid var(--mh-ink);
+    border-radius: 14px 17px 13px 16px; background: var(--pet-yellow); color: var(--mh-ink);
+    font-size: 13px; line-height: 1.5; box-shadow: 0 2px 0 rgb(var(--mh-shadow) / .10);
+}
+#bynd-pet-studio .pet-studio-main button.secondary, .pet-history .pet-studio-main button.secondary { background: var(--mh-soft); color: var(--mh-ink); }
+#bynd-pet-studio .pet-studio-main button:focus-visible, #bynd-pet-studio summary:focus-visible,
+#bynd-pet-studio .pet-role-picker button:focus-visible, .pet-history button:focus-visible { outline: 3px solid var(--mh-accent); outline-offset: 3px; }
+#bynd-pet-studio .pet-studio-main .pet-role-button { padding: 10px 12px; background: var(--mh-surface); box-shadow: none; }
+#bynd-pet-studio .pet-role-avatar { width: 42px; height: 42px; flex-basis: 42px; background: var(--pet-pink); border: 1.5px solid var(--mh-ink); border-radius: 13px 15px 12px 14px; }
+#bynd-pet-studio .pet-role-copy strong { font-size: 15px; }
+#bynd-pet-studio .pet-role-copy small, #bynd-pet-studio .pet-role-change { font-size: 11px; }
+#bynd-pet-studio .pet-tabs { background: transparent; gap: 7px; padding: 0; margin: 14px 0 12px; }
+#bynd-pet-studio .pet-tabs button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 1px; background: var(--mh-surface); font-size: 12px; font-weight: 600; box-shadow: none; }
+#bynd-pet-studio .pet-tabs button.active { background: var(--pet-pink); box-shadow: 0 3px 0 rgb(var(--mh-shadow) / .14); }
+#bynd-pet-studio .pet-tabs button:nth-child(2).active { background: var(--pet-blue); }
+#bynd-pet-studio .pet-tabs button:nth-child(3).active { background: var(--pet-yellow); }
+#bynd-pet-studio .pet-tabs button:nth-child(4).active { background: var(--pet-green); }
+#bynd-pet-studio .pet-api { gap: 7px; padding: 0 2px; font-size: 11px; }
+#bynd-pet-studio .pet-api button { min-height: 32px; padding: 4px 9px; font-size: 11px; border-width: 1.5px; background: var(--mh-surface); box-shadow: none; }
+#bynd-pet-studio .pet-card { margin: 14px 0 0; padding: 15px 13px; background: var(--mh-surface); border: 2px solid var(--mh-ink); border-radius: 19px 23px 20px 22px; box-shadow: 0 3px 0 rgb(var(--mh-shadow) / .08); }
+#bynd-pet-studio .pet-section-title { align-items: center; margin-bottom: 14px; }
+#bynd-pet-studio .pet-section-title > b { width: 34px; height: 34px; background: var(--pet-yellow); color: var(--mh-ink); border: 1.5px solid var(--mh-ink); border-radius: 11px 13px 10px 12px; font-size: 13px; }
+#bynd-pet-studio .pet-card:nth-of-type(even) .pet-section-title > b { background: var(--pet-blue); }
+#bynd-pet-studio .pet-section-title h3 { margin: 0 0 4px; font-size: 16px; line-height: 1.5; }
+#bynd-pet-studio .pet-section-title p { font-size: 12px; }
+#bynd-pet-studio .pet-preview { position: relative; background: #fff; border: 1.5px solid var(--mh-ink); border-radius: 7px 9px 6px 8px; padding: 8px; }
+#bynd-pet-studio .pet-preview figcaption { font-size: 11px; }
+#bynd-pet-studio .pet-preview .pet-image { border-radius: 3px; background-color: #fff; }
+#bynd-pet-studio .pet-reference-layout { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1fr); align-items: center; gap: 13px; }
+#bynd-pet-studio .pet-reference-layout .pet-preview { width: 100%; max-width: none; margin: 8px 0; transform: rotate(-1.5deg); }
+#bynd-pet-studio .pet-reference-layout .pet-preview::before { content: ''; position: absolute; z-index: 1; width: 48px; height: 15px; left: calc(50% - 24px); top: -8px; transform: rotate(-8deg); background: #a6d8f2c9; border-top: 1px dashed #5b8cac; border-bottom: 1px dashed #5b8cac; }
+#bynd-pet-studio .pet-reference-tools { min-width: 0; }
+#bynd-pet-studio .pet-reference-tools .pet-style-note { margin: 0 0 10px; font-size: 11px; text-align: left; }
+#bynd-pet-studio .pet-reference-tools .pet-actions { display: grid; gap: 8px; margin: 0; }
+#bynd-pet-studio .pet-reference-tools button { padding: 8px 5px; font-size: 12px; }
+#bynd-pet-studio .pet-reference-tools button:nth-child(2) { background: var(--pet-blue); }
+#bynd-pet-studio .pet-reference-tools button:nth-child(3) { background: var(--mh-surface); }
+#bynd-pet-studio .pet-field > span { color: var(--mh-ink); font-size: 13px; font-weight: 600; }
+#bynd-pet-studio .pet-field textarea, #bynd-pet-studio .pet-field input { border: 1.5px solid #8d98ab; border-radius: 12px 14px 11px 13px; padding: 10px; font-size: 16px; line-height: 1.6; background: #fffef8; }
+#bynd-pet-studio .pet-details { padding: 10px 12px; border: 1.5px solid #8d98ab; border-radius: 12px 14px 11px 13px; background: var(--mh-soft); font-size: 12px; }
+#bynd-pet-studio .pet-details > summary { color: var(--mh-ink); font-size: 12px; font-weight: 600; }
+#bynd-pet-studio .pet-hint, #bynd-pet-studio .pet-persona-summary { font-size: 12px; line-height: 1.8; }
+#bynd-pet-studio .pet-studio-main .pet-text-button { border: 0; box-shadow: none; background: transparent; font-size: 12px; color: var(--mh-accent); padding: 8px 0; }
+#bynd-pet-studio .pet-toggle { font-size: 13px; }
+#bynd-pet-studio .pet-toggle small { font-size: 12px; }
+#bynd-pet-studio .pet-toggle input, #bynd-pet-studio .pet-state-heading input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--mh-accent); }
+#bynd-pet-studio .pet-plan, #bynd-pet-studio .pet-test-result blockquote { background: var(--mh-soft); border: 1.5px solid var(--mh-ink); }
+#bynd-pet-studio .pet-state-heading { gap: 8px; }
+#bynd-pet-studio .pet-state-heading > input { font-size: 16px; }
+#bynd-pet-studio .pet-image-feedback { border-width: 1.5px; }
+#bynd-pet-studio .pet-empty { font-size: 13px; }
+#bynd-pet-studio .pet-role-sheet { background: var(--mh-surface); border: 2px solid var(--mh-ink); border-bottom: 0; border-radius: 24px 28px 0 0; }
+#bynd-pet-studio .pet-role-close { border: 2px solid var(--mh-ink); color: var(--mh-ink); background: var(--pet-pink); }
+#bynd-pet-studio .pet-role-search { border: 1.5px solid var(--mh-ink); }
+#bynd-pet-studio .pet-role-option { border: 1.5px solid var(--mh-ink); background: #fffef8; }
+#bynd-pet-studio .pet-role-option.selected { background: var(--pet-blue); }
+#bynd-pet-studio .pet-role-check { border-color: var(--mh-ink); }
+.pet-history .pet-history-card, .pet-history .pet-history-detail { border: 2px solid var(--mh-ink); border-radius: 12px 15px 11px 14px; background: var(--mh-surface); }
+#bynd-pet-studio .pet-studio-main .pet-history-view, .pet-history .pet-history-main .pet-history-view { border: 0; border-radius: 0; background: var(--mh-surface); box-shadow: none; padding: 7px; }
+.pet-history .pet-history-view .pet-image { border-radius: 5px; }
+.pet-history .pet-history-caption { padding: 9px 3px 4px; }
+.pet-history .pet-history-caption strong { font-size: 13px; }
+.pet-history .pet-history-caption small, .pet-history .pet-history-toolbar p { font-size: 11px; }
+.pet-history .pet-history-tag, .pet-history .pet-history-used { font-size: 10px; background: var(--pet-blue); color: var(--mh-ink); }
+.pet-history .pet-history-used { background: var(--pet-pink); }
+#bynd-pet-studio .pet-studio-main button.pet-history-delete, .pet-history .pet-studio-main button.pet-history-delete { background: var(--mh-danger-bg); color: var(--mh-danger-ink); border-color: var(--mh-danger-line); }
+
 /* 后台陪伴（仅安卓）settings in the pet app's 屏幕陪看 tab. */
 .sc-section { margin-top: 22px; }
 .sc-block, .sc-checklist { margin-top: 10px; }

@@ -11,4 +11,9 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#111318</item>
     </style>
+    <style name="DistributionTheme" parent="AppTheme">
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:statusBarColor">#FAF9F5</item>
+        <item name="android:navigationBarColor">#FAF9F5</item>
+    </style>
 </resources>

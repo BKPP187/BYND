@@ -7,7 +7,8 @@ const { root, sourceSection } = require('./helpers/harness.cjs');
 
 const themeSource = fs.readFileSync(path.join(root, 'apps/wechat/ui/ui-theme.js'), 'utf8');
 const themes = [...themeSource.matchAll(/^        id: '([^']+)'/gm)].map(match => match[1]);
-assert.equal(themes.length, 10);
+assert.equal(themes.length, 11);
+assert.ok(themes.includes('pixel'));
 
 function render(theme, content, isMe = false) {
     const rows = [];

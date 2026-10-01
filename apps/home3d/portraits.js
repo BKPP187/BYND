@@ -91,9 +91,10 @@
         });
     }
     function discard(who) { H.State.update(data => { delete target(data, who).portraitDraft; }); }
-    function initial(who) {
-        if (!initialImages.has(who)) initialImages.set(who, inspect(H.initialPortraits[who]).catch(error => { initialImages.delete(who); throw error; }));
-        return initialImages.get(who);
+    function initial(who, pose = 'standing') {
+        const key = who + ':' + pose, images = pose === 'sleep' ? H.initialSleepPortraits : H.initialPortraits;
+        if (!initialImages.has(key)) initialImages.set(key, inspect(images[who]).catch(error => { initialImages.delete(key); throw error; }));
+        return initialImages.get(key);
     }
     H.Portraits = { generate, confirm, discard, inspect, initial, bounds, prompt, cooldownRemaining, busy: () => pending };
 })(window.ByndHome3D);

@@ -139,8 +139,8 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         }
         const textBubbleHtml = hasVisibleText && !isRich
             ? forumPreview
-                ? `<div class="msg-forum-preview-stack" style="font-size:${fontSize}px;">${quoteHtml || rawContent ? `<div class="msg-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${douyinQuoteBubbleClass}${emojiTextClass}">${quoteHtml}${rawContent ? `<div class="msg-text">${rawContent}</div>` : ''}</div>` : ''}<div class="msg-forum-card">${renderWechatForumPostPreview(forumPreview)}${metaHtml}</div></div>`
-                : `<div class="msg-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${douyinQuoteBubbleClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}${rawContent ? `<div class="msg-text">${rawContent}</div>` : ''}${metaHtml}</div>`
+                ? `<div class="msg-forum-preview-stack" style="font-size:${fontSize}px;">${quoteHtml || rawContent ? `<div class="msg-bubble wc-text-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${douyinQuoteBubbleClass}${emojiTextClass}">${quoteHtml}${rawContent ? `<div class="msg-text">${rawContent}</div>` : ''}</div>` : ''}<div class="msg-forum-card">${renderWechatForumPostPreview(forumPreview)}${metaHtml}</div></div>`
+                : `<div class="msg-bubble wc-text-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${douyinQuoteBubbleClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}${rawContent ? `<div class="msg-text">${rawContent}</div>` : ''}${metaHtml}</div>`
             : '';
         const richCardHtml = hasVisibleText && isRich
             ? `<div class="msg-rich-card${msg.isMe ? ' is-self' : ''}" style="font-size:${fontSize}px;">${quoteHtml}${rawContent}${metaHtml}</div>`

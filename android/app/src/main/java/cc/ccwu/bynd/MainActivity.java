@@ -71,6 +71,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!LicenseManager.canEnter(this)) {
+            Intent activation = new Intent(this, LicenseActivity.class);
+            activation.setData(getIntent().getData());
+            startActivity(activation);
+            finish();
+            return;
+        }
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         configureSystemBars();
 
@@ -199,6 +206,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView webView, String url) {
                 super.onPageFinished(webView, url);
                 openForumPostLink(getIntent() != null ? getIntent().getData() : null);
+                if ("file:///android_asset/www/index.html".equals(url)) UpdateManager.autoCheck(MainActivity.this);
             }
 
             @Override
@@ -619,6 +627,19 @@ public class MainActivity extends Activity {
     }
 
     public class ByndAndroidBridge {
+        @JavascriptInterface
+        public boolean updatesEnabled() { return BuildConfig.BYND_ENABLE_UPDATES; }
+
+        @JavascriptInterface
+        public void openUpdates() {
+            mainHandler.post(() -> {
+                if (BuildConfig.BYND_ENABLE_UPDATES && webView != null && !isFinishing()
+                    && "file:///android_asset/www/index.html".equals(webView.getUrl())) {
+                    startActivity(new Intent(MainActivity.this, UpdateActivity.class));
+                }
+            });
+        }
+
         // Opens a shopping deep link (e.g. taobao://) in its app. Only a few schemes are allowed;
         // false tells the page to fall back to the https search page (app not installed, blocked scheme).
         @JavascriptInterface

@@ -1,0 +1,30 @@
+name = "bynd-license"
+main = "license/worker.mjs"
+compatibility_date = "2026-09-30"
+workers_dev = false
+# Copy to wrangler-license.toml, configure the database, then deliberately add
+# routes. This template does not deploy or attach routes by itself.
+# routes = [
+#   { pattern = "bynd.ccwu.cc/license/v1/*", zone_name = "bynd.ccwu.cc" },
+#   { pattern = "bynd.ccwu.cc/updates/v1/*", zone_name = "bynd.ccwu.cc" },
+#   { pattern = "bynd.ccwu.cc/admin/v1/*", zone_name = "bynd.ccwu.cc" }
+# ]
+
+[vars]
+LICENSE_ACTIVATION_ENABLED = "false"
+SIGNING_KEY_ID = "bynd-2026-01"
+APK_ALLOWED_HOSTS = "bynd.ccwu.cc"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bynd-license"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "license/migrations"
+
+[[ratelimits]]
+name = "ACTIVATION_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# Secrets: ADMIN_TOKEN, LICENSE_KEY_SECRET, SIGNING_PRIVATE_JWK
+# Keep LICENSE_KEY_SECRET stable: it derives recoverable, idempotent codes.

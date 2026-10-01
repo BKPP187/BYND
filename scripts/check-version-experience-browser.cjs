@@ -65,6 +65,29 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(await page.locator('#home-screen .bynd-desktop-search').count(), 0);
         await page.evaluate(() => openApp('settings'));
         await page.locator('#app-settings-window .bynd-settings-search').click();
+        const floating = await page.locator('#bynd-global-search').evaluate(panel => {
+            const card = panel.querySelector('.bynd-search-sheet'), box = card.getBoundingClientRect();
+            return { background: getComputedStyle(panel).backgroundColor, card: { top: box.top, height: box.height }, viewport: innerHeight,
+                settingsVisible: getComputedStyle(document.getElementById('app-settings-window')).display !== 'none' };
+        });
+        assert.ok(floating.background.startsWith('rgba(') && floating.card.height < floating.viewport / 2 && floating.settingsVisible, JSON.stringify(floating));
+        await page.screenshot({ path: path.join(output, 'search-floating-empty.png') });
+        for (const [width, height] of [[320, 568], [430, 932]]) {
+            await page.setViewportSize({ width, height });
+            await page.evaluate(() => document.querySelector('.phone-container').style.setProperty('--bynd-header-safe-top', '47px'));
+            const box = await page.locator('.bynd-search-sheet').evaluate(card => {
+                const r = card.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, width: r.width, scrollWidth: card.scrollWidth };
+            });
+            assert.ok(box.top >= 47 && box.left >= 0 && box.right <= width && box.scrollWidth <= box.width + 1, JSON.stringify({ width, box }));
+        }
+        await page.setViewportSize({ width: 375, height: 844 });
+        await page.evaluate(() => document.querySelector('.phone-container').style.removeProperty('--bynd-header-safe-top'));
+        await page.locator('#bynd-global-search').click({ position: { x: 4, y: 450 } });
+        assert.equal(await page.locator('#bynd-global-search').count(), 0, 'tapping outside the floating sheet closes it');
+        await page.locator('#app-settings-window .bynd-settings-search').click();
+        await page.locator('#bynd-global-search input').press('Escape');
+        assert.equal(await page.locator('#bynd-global-search').count(), 0, 'Escape closes the floating sheet');
+        await page.locator('#app-settings-window .bynd-settings-search').click();
         await page.locator('#bynd-global-search input').fill('气泡');
         await page.locator('.bynd-search-result').first().waitFor();
         await page.screenshot({ path: path.join(output, 'search-bubble.png') });

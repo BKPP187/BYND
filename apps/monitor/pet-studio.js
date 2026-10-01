@@ -418,9 +418,9 @@
         const poseOpen = root.querySelector('.pet-pose-extra')?.open;
         let panel = root.querySelector('.pet-studio-panel');
         if (!panel) { panel = document.createElement('section'); panel.className = 'bynd-agent-panel pet-studio-panel'; root.prepend(panel); }
-        panel.innerHTML = `<header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">‹</button><span><strong>角色专属桌宠</strong><small>保持 TA 的样子，也保持 TA 的性格</small></span><button type="button" class="pet-history-entry" aria-label="桌宠图片历史" aria-haspopup="dialog" ${!char || state?.busy ? 'disabled' : ''} onclick="ByndPetStudio.history()"><i class="ri-image-2-line" aria-hidden="true"></i></button></header><main class="pet-studio-main">
+        panel.innerHTML = `<header class="bynd-agent-header"><button type="button" onclick="ByndPetStudio.close()" aria-label="返回">${studioIcon('back')}</button><span><strong>桌宠制作</strong><small>角色专属小工坊</small></span><button type="button" class="pet-history-entry" aria-label="桌宠图片历史" aria-haspopup="dialog" ${!char || state?.busy ? 'disabled' : ''} onclick="ByndPetStudio.history()">${studioIcon('album')}</button></header><main class="pet-studio-main" data-pet-studio-tab="${tab}">
             ${char ? roleButton(char) : ''}
-            ${!char ? '<div class="pet-empty">先在微信添加一个角色，再为 TA 制作桌宠。</div>' : `<nav class="pet-tabs" aria-label="桌宠设置">${[['look', '角色形象'], ['persona', '角色列表'], ['reactions', '专属表情'], ['test', '试互动']].map(([id, label]) => `<button type="button" class="${tab === id ? 'active' : ''}" onclick="ByndPetStudio.tab('${id}')">${label}</button>`).join('')}</nav>
+            ${!char ? '<div class="pet-empty">先在微信添加一个角色，再为 TA 制作桌宠。</div>' : `<nav class="pet-tabs" aria-label="桌宠设置">${[['look', '角色形象'], ['persona', '角色列表'], ['reactions', '专属表情'], ['test', '试互动']].map(([id, label]) => `<button type="button" class="${tab === id ? 'active' : ''}" aria-current="${tab === id ? 'page' : 'false'}" onclick="ByndPetStudio.tab('${id}')">${studioIcon(id)}<span>${label}</span></button>`).join('')}</nav>
             <div class="pet-api"><i class="ri-palette-line"></i><span>沿用现有生图设置 · ${escape(api?.imageModel || '尚未选择生图模型')}</span><button type="button" onclick="ByndPetStudio.api()">设置</button></div>
             <div class="pet-progress" role="status" aria-live="${inlineFeedback ? 'off' : 'polite'}" ${inlineFeedback ? 'aria-hidden="true"' : ''}>${state.busy ? `<i class="ri-loader-4-line"></i> ${escape(state.busy)}` : escape(state.notice)}</div>
             ${state.error && !inlineFeedback ? `<p class="pet-error" role="alert">${escape(state.error)}</p>` : ''}
@@ -432,11 +432,22 @@
         if (poseOpen && root.querySelector('.pet-pose-extra')) root.querySelector('.pet-pose-extra').open = true;
         if (focusedTrigger) { roleTrigger = focusedTrigger; focusRoleTrigger(); }
     }
+    function studioIcon(id) {
+        const paths = {
+            back: '<path d="m19 8-8 8 8 8"/>',
+            album: '<path d="M7 5h17q3 0 3 3v17q0 3-3 3H7q-3 0-3-3V8q0-3 3-3Z"/><path d="m5 24 8-9 5 5 4-4 5 7"/><circle cx="21" cy="11" r="2"/>',
+            look: '<path d="M8 28q-3-1-3-4V8q0-4 4-4h14q4 0 4 4v16q0 4-4 4Z"/><path d="M9 24q1-6 7-6t7 6"/><path d="M11 11q0-5 5-5t5 5v2q0 5-5 5t-5-5Z"/>',
+            persona: '<circle cx="12" cy="10" r="5"/><path d="M2 26v-3q0-6 10-6t10 6v3Z"/><path d="M23 6q5 0 5 5t-5 5m3 3q4 1 4 6"/>',
+            reactions: '<path d="M16 3q13 0 13 13T16 29 3 16 16 3Z"/><path d="m8 12 3-2 3 2m5 0 2-2 3 2m-13 7q5 7 10 0"/>',
+            test: '<path d="M16 4q13 0 13 11t-13 11h-3l-8 4 2-8q-4-3-4-7T16 4Z"/><path d="M10 15h.1m6 0h.1m6 0h.1"/>'
+        };
+        return `<svg class="pet-studio-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[id] || ''}</svg>`;
+    }
     function renderLook(char, config, state, off) {
         const draft = C.cached(config.draftBaseKey);
         const imageLabel = state.imageTaskId === 'idle' && state.busy ? state.busy : state.imageTaskId === 'idle' && state.error ? '本次操作未完成 · 查看下方原因' : '等待生成基础形象';
-        return `<section class="pet-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留角色的辨识特征，做成圆脸短身、柔光哑光的呆萌 3D 小玩偶。</p></div></div>${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<p class="pet-style-note">约 2 头身 · 圆润呆萌 · 透明 PNG</p>
-            <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div>
+        return `<section class="pet-card pet-reference-card"><div class="pet-section-title"><b>01</b><div><h3>从角色参考图开始</h3><p>保留 TA 的发型、服装与代表特征。</p></div></div><div class="pet-reference-layout">${imageBox(config.referenceKey, config.referenceKey ? '角色参考' : '待上传角色图', true)}<div class="pet-reference-tools"><p class="pet-style-note">圆润 3D 小玩偶<br>约 2 头身 · 透明 PNG</p>
+            <div class="pet-actions"><button type="button" ${off} onclick="ByndPetStudio.pick('reference')">${config.referenceKey ? '更换参考图' : '上传角色图'}</button><button type="button" class="secondary" ${off} onclick="ByndPetStudio.useChatReference()">使用现有生图参考</button><button type="button" class="secondary" ${off || (!config.referenceKey ? 'disabled' : '')} onclick="ByndPetStudio.identify()">识别图中外观</button></div></div></div>
             ${imageFeedback(char, 'reference')}
             ${field('appearance', '确认外观特征', state.form.appearance, '核对发型发色、眼睛、服装和配饰；也可直接手动填写。', state.busy, 4)}
             <details class="pet-details pet-pose-extra"><summary>姿态与角色代表元素</summary><p class="pet-hint">可以坐着、趴着、躺着，也可以与属于 TA 的物品互动。留空时按人设选择自然姿态。</p><div class="pet-form-modes" role="group" aria-label="桌宠形态">${[['character', '人物形态'], ['symbol', '代表形态']].map(([id, label]) => `<button type="button" class="${state.form.formMode === id ? 'active' : 'secondary'}" aria-pressed="${state.form.formMode === id}" ${off} onclick="ByndPetStudio.formMode('${id}')">${label}</button>`).join('')}</div>${field('pose', '姿态与动作', state.form.pose, '例如：坐着阅读、趴着休息、侧躺放松，或与身边的物品互动。', state.busy, 2)}${field('motifs', '角色标志物 / 代表元素', state.form.motifs, '填写符合角色设定的动物、植物、物品或符号，并注明是陪伴物，还是角色的代表形态。', state.busy, 3)}<p class="pet-hint">人物形态可带陪伴物；代表形态会把指定元素做成桌宠。新基础图确认后才替换当前形象，已有表情继续以母版为准。</p></details><button type="button" class="pet-text-button" ${off} onclick="ByndPetStudio.save()">保存外观与设定</button></section>

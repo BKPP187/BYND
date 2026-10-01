@@ -2,9 +2,9 @@
     'use strict';
     // A small navigation grid prevents wandering through solid furniture.
     function path(start, end, obstacles, size = [6.6, 5.6]) {
-        const step = 0.28, cols = Math.floor((size[0] - 0.5) / step), rows = Math.floor((size[1] - 0.5) / step);
+        const step = 0.28, cols = Math.ceil((size[0] - 0.5) / step) + 1, rows = Math.ceil((size[1] - 0.5) / step) + 1;
         const cell = point => [Math.max(0, Math.min(cols - 1, Math.round((point.x + size[0] / 2 - 0.25) / step))), Math.max(0, Math.min(rows - 1, Math.round((point.z + size[1] / 2 - 0.25) / step)))];
-        const point = ([x, z]) => ({ x: x * step - size[0] / 2 + 0.25, z: z * step - size[1] / 2 + 0.25 });
+        const point = ([x, z]) => ({ x: Math.min(size[0] / 2 - .25, x * step - size[0] / 2 + 0.25), z: Math.min(size[1] / 2 - .25, z * step - size[1] / 2 + 0.25) });
         const key = ([x, z]) => x + ':' + z;
         const a = cell(start), b = cell(end), blocked = c => {
             if (key(c) === key(a) || key(c) === key(b)) return false;
@@ -31,6 +31,9 @@
         if (!route.length && Math.hypot(actor.root.position.x - destination.x, actor.root.position.z - destination.z) > 0.4) return false;
         H.Characters.pose(actor, 'Walk'); actor.path = route; actor.destination = { ...destination, finish }; return true;
     }
+    function approach(start, placement, obstacles, size) {
+        return H.Rooms.approaches(placement).find(end => Math.abs(end.x) <= size[0] / 2 - .25 && Math.abs(end.z) <= size[1] / 2 - .25 && !obstacles.some(o => Math.abs(end.x - o.x) < o.width / 2 + .18 && Math.abs(end.z - o.z) < o.depth / 2 + .18) && (Math.hypot(start.x - end.x, start.z - end.z) < .4 || path(start, end, obstacles, size).length));
+    }
     function tick(actor, time, dt, reduced) {
         const t = time * 0.001;
         if (actor.path.length) {
@@ -52,5 +55,5 @@
         const blink = actor.action === 'Sleep' || (!reduced && (t + (actor.who === 'user' ? 1.3 : 0)) % 5 < 0.14);
         actor.eyes.forEach(eye => { eye.scale.y = blink ? 0.006 : 0.048; });
     }
-    H.Animation = { path, walk, tick };
+    H.Animation = { path, walk, tick, approach };
 })(window.ByndHome3D);

@@ -194,6 +194,7 @@ const settingsParts = [
     'apps/settings/api-test-modal.js',
     'apps/settings/api-test.js',
     'apps/settings/image-provider.js',
+    'apps/settings/tripo.js',
     'apps/settings/presets.js',
     'core/storage/backup.js',
     'apps/settings/releases.js',

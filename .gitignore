@@ -11,15 +11,17 @@ ios/BYND/www/
 ios/build/
 ios/**/xcuserdata/
 dist/
+/.bynd-license-secrets/
+/workers/wrangler-license.toml
 BYND使用说明书.md
 
 # Generated compatibility snapshots and private-closure runtime bundles.
 /script.js
 /wechat.js
 /style.css
+# GitHub Pages serves these generated runtime bundles directly; keep them tracked.
 /apps/settings/settings.js
+/artifacts/prompt-lab/runs/
 
 # 内置角色原图（本地交接用，发布时只用 assets/characters/builtin 里裁好的文件）
 内置角色的头像/
-
-# GitHub Pages serves the generated comic and forum runtime bundles directly.

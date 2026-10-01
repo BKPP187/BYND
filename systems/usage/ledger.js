@@ -29,6 +29,7 @@
         { key: 'relation', label: '关系网络', icon: 'ri-share-circle-line' },
         { key: 'memory', label: '总结记忆', icon: 'ri-brain-line' },
         { key: 'agent', label: 'Agent 行为', icon: 'ri-robot-2-line' },
+        { key: 'prompt-lab', label: 'Prompt Lab', icon: 'ri-flask-line' },
         { key: 'pet', label: '桌宠', icon: 'ri-ghost-smile-line' },
         { key: 'study', label: '学习', icon: 'ri-graduation-cap-line' },
         { key: 'game', label: '游戏', icon: 'ri-gamepad-line' },

@@ -680,13 +680,33 @@ function showWechatMonitorBarrage(watcher, phrases) {
     const safePhrases = (phrases || [])
         .map(phrase => stripWechatPromptText(phrase, 72))
         .filter(Boolean)
-        .slice(0, 16);
+        .slice(0, 6);
+    if (!safePhrases.length) return;
     const speed = getWechatMonitorBarrageSpeed(watcher);
+    const compact = host.clientHeight < 650;
+    const duration = (compact ? 4.6 : 6.2) / speed;
+    const delays = (compact ? [0, 0.24, 0.48, 0.72, 4, 4.24] : [0, 0.28, 0.56, 0.84, 1.12, 1.4]).map(value => value / speed);
+    const name = wcEscapeHtml(getWechatCharDisplayName(watcher));
+    const avatar = wcEscapeHtml(watcher.avatar || DEFAULT_AVATAR);
+    const positions = compact ? [12, 30, 48, 66, 24, 52] : [17, 29, 42, 55, 68, 79];
+    const shifts = [-7, 10, -11, 7, -8, 9];
+    const tilts = [-2.5, 1.8, -1.4, 2.2, -1.8, 1.5];
     barrage.innerHTML = safePhrases.map((phrase, index) => `
-        <span style="--i:${index};--top:${10 + (index % 6) * 14}%;--dur:${((5.2 + Math.random() * 1.7) / speed).toFixed(2)}s;">${wcEscapeHtml(phrase)}</span>
+        <article class="wc-monitor-comment" style="--i:${index};--top:${positions[index]}%;--shift:${shifts[index]}px;--tilt:${tilts[index]}deg;--dur:${duration.toFixed(2)}s;--delay:${delays[index].toFixed(2)}s;">
+            <img class="wc-monitor-comment-avatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
+            <div class="wc-monitor-comment-main">
+                <div class="wc-monitor-comment-byline"><strong>${name}</strong><time>刚刚</time></div>
+                <p class="wc-monitor-comment-text">${wcEscapeHtml(phrase)}</p>
+            </div>
+            <svg class="wc-monitor-comment-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 5.6a5.1 5.1 0 0 0-7.2 0L12 6.8l-1.2-1.2a5.1 5.1 0 0 0-7.2 7.2L12 21l8.4-8.2a5.1 5.1 0 0 0 0-7.2Z"/></svg>
+        </article>
     `).join('');
     host.appendChild(barrage);
-    setTimeout(() => barrage.remove(), Math.max(4800, Math.round(7800 / speed)));
+    const height = barrage.clientHeight;
+    barrage.querySelectorAll('.wc-monitor-comment').forEach((card, index) => {
+        card.style.top = `${Math.min(height * positions[index] / 100, Math.max(8, height - card.offsetHeight - 24))}px`;
+    });
+    setTimeout(() => barrage.remove(), Math.ceil((duration + delays[safePhrases.length - 1]) * 1000) + 250);
 }
 
 function showWechatMonitorLockdown(watcher, text) {
@@ -1459,4 +1479,3 @@ function openWechatCallPortraitPreview(event) {
 }
 
 window.openWechatCallPortraitPreview = openWechatCallPortraitPreview;
-

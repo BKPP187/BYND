@@ -305,7 +305,9 @@ function getWechatActiveMemories(char) {
 }
 
 function buildWechatMemoryPrompt(char) {
-    const memories = getWechatActiveMemories(char);
+    const original = getWechatActiveMemories(char);
+    const memories = typeof window !== 'undefined' && window.ByndPromptLab?.memories
+        ? window.ByndPromptLab.memories(char, original) : original;
     const sections = [];
     const renderLines = list => list.map(item => {
         const title = item.title ? `${item.title}：` : '';
