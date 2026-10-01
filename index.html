@@ -114,11 +114,16 @@
             }
             function resourceError(event) {
                 var target = event.target;
-                if (target && ((target.tagName === 'SCRIPT' && target.src && !/^https?:\/\//.test(target.getAttribute('src'))) ||
-                    (target.tagName === 'LINK' && target.hasAttribute('data-bynd-core-style')))) fail();
+                if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK') && target.hasAttribute('data-bynd-entry-required')) fail();
             }
             document.addEventListener('error', resourceError, true);
-            function scriptError(event) { if (event.error) fail(); }
+            function scriptError(event) {
+                if (!event.filename) return;
+                var scripts = document.querySelectorAll('script[data-bynd-entry-required]');
+                for (var i = 0; i < scripts.length; i++) {
+                    if (scripts[i].src.split('?')[0] === event.filename.split('?')[0]) { fail(); return; }
+                }
+            }
             window.addEventListener('error', scriptError);
             window.__byndResourceLoading = {
                 activate: function () { if (failed) fail(); },
@@ -135,25 +140,25 @@
             };
         })();
     </script>
-    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.761">
-    <link rel="icon" href="bynd-icon.png?v=1.1.761" type="image/png">
+    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.763">
+    <link rel="icon" href="bynd-icon.png?v=1.1.763" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/study/study.css?v=1.1.761" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.761" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.761" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'" data-bynd-entry-required>
+    <link rel="stylesheet" href="apps/study/study.css?v=1.1.763" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.763" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.763" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
 </head>
 <body>
 
@@ -1984,7 +1989,7 @@ FOREVER FREE</p></section>
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.761
+                    Beyond Screen v1.1.763
                 </div>
             </div>
         </div>
@@ -2658,14 +2663,14 @@ FOREVER FREE</p></section>
                                 </button>
                             </div>
                         </div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.761" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.763" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
                     </section>
 <section id="wcs-page-profile" data-chat-settings-page="profile" aria-labelledby="wcs-heading-profile" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-profile" tabindex="-1">资料与人设</h2><p>让彼此的身份、形象和关系定位更清晰。</p></div><div class="wcs-section-title">我的资料</div>
 <div class="wcs-section">
@@ -3222,157 +3227,157 @@ FOREVER FREE</p></section>
         <div class="home-indicator"></div>
     </div>
     
-    <script src="systems/usage/ledger.js?v=1.1.761"></script>
-    <script src="core/api/chat-api.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/ui-theme.js?v=1.1.761"></script>
-    <script src="systems/agent-runtime/jev.js?v=1.1.761"></script>
-    <script src="systems/agent-runtime/decider.js?v=1.1.761"></script>
-    <script src="core/character/avatars.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/render.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/message-core.js?v=1.1.761"></script>
-    <script src="apps/music/wechat-music.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/composer.js?v=1.1.761"></script>
-    <script src="apps/wechat/contacts/group-directives.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/media-directives.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/reply-parser.js?v=1.1.761"></script>
-    <script src="apps/wechat/moments/reply-actions.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/message-cards.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/message-render.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.761"></script>
-    <script src="core/events/script-activation.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/send.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/reply.js?v=1.1.761"></script>
-    <script src="core/api/ai-reply.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/streaming.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/toolbar.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/calls.js?v=1.1.761"></script>
-    <script src="core/character/card-parser.js?v=1.1.761"></script>
-    <script src="apps/wechat/character/import.js?v=1.1.761"></script>
-    <script src="apps/wechat/character/delete.js?v=1.1.761"></script>
-    <script src="core/storage/characters.js?v=1.1.761"></script>
-    <script src="apps/wechat/contacts/news-reader.js?v=1.1.761"></script>
-    <script src="apps/wechat/contacts/tabs.js?v=1.1.761"></script>
-    <script src="apps/wechat/moments/favorites.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/sticker-store.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/me-settings.js?v=1.1.761"></script>
-    <script src="apps/wechat/moments/moments.js?v=1.1.761"></script>
-    <script src="apps/wechat/moments/channels.js?v=1.1.761"></script>
-    <script src="apps/wechat/moments/live.js?v=1.1.761"></script>
-    <script src="apps/wechat/shop/shop.js?v=1.1.761"></script>
-    <script src="core/api/novelai.js?v=1.1.761"></script>
-    <script src="core/api/image-generation.js?v=1.1.761"></script>
-    <script src="apps/wechat/shop/checkout.js?v=1.1.761"></script>
-    <script src="apps/wechat/shop/takeout.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/chat-settings.js?v=1.1.761"></script>
-    <script src="apps/wechat/ui/backgrounds.js?v=1.1.761"></script>
-    <script src="apps/wechat/character/avatars.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/image-send.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.761"></script>
-    <script src="apps/char-phone/catalog.js?v=1.1.761"></script>
-    <script src="apps/char-phone/brand-screens.js?v=1.1.761"></script>
-    <script src="apps/char-phone/viewing.js?v=1.1.761"></script>
-<script src="apps/char-phone/photos.js?v=1.1.761"></script>
-<script src="apps/char-phone/mail.js?v=1.1.761"></script>
-<script src="apps/char-phone/native-apps.js?v=1.1.761"></script>
-    <script src="apps/char-phone/system-apps.js?v=1.1.761"></script>
-    <script src="apps/char-phone/snapshot-data.js?v=1.1.761"></script>
-    <script src="apps/char-phone/sync.js?v=1.1.761"></script>
-    <script src="apps/char-phone/home.js?v=1.1.761"></script>
-    <script src="apps/char-phone/mini-chat.js?v=1.1.761"></script>
-    <script src="apps/char-phone/contacts.js?v=1.1.761"></script>
-    <script src="apps/char-phone/screens.js?v=1.1.761"></script>
-    <script src="apps/char-phone/reactions.js?v=1.1.761"></script>
-    <script src="systems/memory/wechat-memory.js?v=1.1.761"></script>
-    <script src="apps/wechat/chat/stickers.js?v=1.1.761"></script>
-    <script src="systems/living-world/living-world.js?v=1.1.761"></script>
-    <script src="ui/theme/theme.js?v=1.1.761"></script>
-    <script src="apps/settings/bootstrap.js?v=1.1.761"></script>
-    <script src="apps/settings/api-load.js?v=1.1.761"></script>
-    <script src="apps/settings/api-list.js?v=1.1.761"></script>
-    <script src="apps/settings/api-edit.js?v=1.1.761"></script>
-    <script src="apps/settings/api-test-list.js?v=1.1.761"></script>
-    <script src="apps/settings/api-test-modal.js?v=1.1.761"></script>
-    <script src="apps/settings/api-test.js?v=1.1.761"></script>
-    <script src="apps/settings/image-provider.js?v=1.1.761"></script>
-    <script src="apps/settings/presets.js?v=1.1.761"></script>
-    <script src="core/storage/backup.js?v=1.1.761"></script>
-    <script src="apps/settings/releases.js?v=1.1.761"></script>
-    <script src="apps/settings/version-letter.js?v=1.1.761"></script>
-    <script src="apps/settings/fonts.js?v=1.1.761"></script>
-    <script src="ui/components/device.js?v=1.1.761"></script>
-    <script src="systems/experience/experience.js?v=1.1.761"></script>
-    <script src="ui/components/undo.js?v=1.1.761"></script>
-    <script src="ui/components/chat-clear.js?v=1.1.761"></script>
-    <script src="ui/components/global-search.js?v=1.1.761"></script>
-    <script src="core/navigation/router.js?v=1.1.761"></script>
-    <script src="core/api/mcp.js?v=1.1.761"></script>
-    <script src="apps/manual/manual.js?v=1.1.761"></script>
-    <script src="systems/proactive-notifications/notifications.js?v=1.1.761"></script>
-    <script src="apps/music/music.js?v=1.1.761"></script>
-    <script src="apps/money/money.js?v=1.1.761"></script>
-    <script src="apps/dream/dream.js?v=1.1.761"></script>
-    <script src="apps/monitor/monitor.js?v=1.1.761"></script>
-    <script src="apps/outing/outing.js?v=1.1.761"></script>
-    <script src="apps/games/hub-wolfcha.js?v=1.1.761"></script>
-    <script src="apps/games/acting.js?v=1.1.761"></script>
-    <script src="apps/games/sync-cardmatch.js?v=1.1.761"></script>
-    <script src="apps/games/cat-pot.js?v=1.1.761"></script>
-    <script src="apps/games/twenty-forty-eight.js?v=1.1.761"></script>
-    <script src="apps/games/jump.js?v=1.1.761"></script>
-    <script src="apps/games/water-sort.js?v=1.1.761"></script>
-    <script src="apps/games/board-games.js?v=1.1.761"></script>
-    <script src="ui/components/folders.js?v=1.1.761"></script>
-    <script src="apps/coreading/library.js?v=1.1.761"></script>
-    <script src="apps/coreading/sources.js?v=1.1.761"></script>
-    <script src="apps/coreading/shelf.js?v=1.1.761"></script>
-    <script src="apps/coreading/thoughts.js?v=1.1.761"></script>
-    <script src="apps/coreading/toc-stats.js?v=1.1.761"></script>
-    <script src="apps/coreading/reviews.js?v=1.1.761"></script>
-    <script src="apps/coreading/reader.js?v=1.1.761"></script>
-    <script src="apps/coreading/discovery.js?v=1.1.761"></script>
-    <script src="apps/album/album.js?v=1.1.761"></script>
-    <script src="apps/home3d/home3d.js?v=1.1.761"></script>
-    <script src="ui/components/page-swipe.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-layout.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-dock.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-status.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-lovely.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-widgets.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-edit.js?v=1.1.761"></script>
-    <script src="systems/life-state/life-state.js?v=1.1.761"></script>
-    <script src="systems/life-state/native-health.js?v=1.1.761"></script>
-    <script src="apps/role-tools/role-tools.js?v=1.1.761"></script>
-    <script src="apps/moon/moon.js?v=1.1.761"></script>
-    <script src="ui/components/desktop-migrations.js?v=1.1.761"></script>
-    <script src="main.js?v=1.1.761"></script>
-    <script src="apps/comic/comic.js?v=1.1.761"></script>
-    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.761" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <script src="apps/music/netease.js?v=1.1.761"></script>
-    <script src="core/worldbook/worldbook.js?v=1.1.761"></script>
-    <script src="core/character/regex.js?v=1.1.761"></script>
-    <script src="systems/agent-runtime/agent-tools.js?v=1.1.761"></script>
-    <script src="systems/agent-runtime/web-search.js?v=1.1.761"></script>
-    <script src="apps/wechat/character/character-tools.js?v=1.1.761"></script>
-    <script src="systems/usage/api-ticket.js?v=1.1.761"></script>
-    <script src="systems/usage/bill-app.js?v=1.1.761"></script>
-    <script src="apps/wechat/character/generator.js?v=1.1.761"></script>
-    <script src="apps/settings/openclaw-settings.js?v=1.1.761"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.761"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.761"></script>
-    <script src="core/character/builtin-characters.js?v=1.1.761"></script>
-    <script src="apps/study/study-app.js?v=1.1.761"></script>
-    <script src="apps/monitor/character-pet.js?v=1.1.761"></script>
-    <script src="apps/monitor/screen-companion.js?v=1.1.761"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.761"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.761"></script>
-    <script src="apps/monitor/pet-animation.js?v=1.1.761"></script>
-    <script src="apps/monitor/pet-proportions.js?v=1.1.761"></script>
-    <script src="apps/monitor/pet-background.js?v=1.1.761"></script>
-    <script src="apps/monitor/pet-studio.js?v=1.1.761"></script>
-    <script src="apps/monitor/pet-history.js?v=1.1.761"></script>
-    <script src="apps/monitor/workspace.js?v=1.1.761"></script>
+    <script src="systems/usage/ledger.js?v=1.1.763"></script>
+    <script src="core/api/chat-api.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/ui-theme.js?v=1.1.763"></script>
+    <script src="systems/agent-runtime/jev.js?v=1.1.763"></script>
+    <script src="systems/agent-runtime/decider.js?v=1.1.763"></script>
+    <script src="core/character/avatars.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/render.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/message-core.js?v=1.1.763"></script>
+    <script src="apps/music/wechat-music.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/composer.js?v=1.1.763"></script>
+    <script src="apps/wechat/contacts/group-directives.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/media-directives.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/reply-parser.js?v=1.1.763"></script>
+    <script src="apps/wechat/moments/reply-actions.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/message-cards.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/message-render.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.763"></script>
+    <script src="core/events/script-activation.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/send.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/reply.js?v=1.1.763"></script>
+    <script src="core/api/ai-reply.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/streaming.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/toolbar.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/calls.js?v=1.1.763"></script>
+    <script src="core/character/card-parser.js?v=1.1.763"></script>
+    <script src="apps/wechat/character/import.js?v=1.1.763"></script>
+    <script src="apps/wechat/character/delete.js?v=1.1.763"></script>
+    <script src="core/storage/characters.js?v=1.1.763" data-bynd-entry-required></script>
+    <script src="apps/wechat/contacts/news-reader.js?v=1.1.763"></script>
+    <script src="apps/wechat/contacts/tabs.js?v=1.1.763"></script>
+    <script src="apps/wechat/moments/favorites.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/sticker-store.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/me-settings.js?v=1.1.763"></script>
+    <script src="apps/wechat/moments/moments.js?v=1.1.763"></script>
+    <script src="apps/wechat/moments/channels.js?v=1.1.763"></script>
+    <script src="apps/wechat/moments/live.js?v=1.1.763"></script>
+    <script src="apps/wechat/shop/shop.js?v=1.1.763"></script>
+    <script src="core/api/novelai.js?v=1.1.763"></script>
+    <script src="core/api/image-generation.js?v=1.1.763"></script>
+    <script src="apps/wechat/shop/checkout.js?v=1.1.763"></script>
+    <script src="apps/wechat/shop/takeout.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/chat-settings.js?v=1.1.763"></script>
+    <script src="apps/wechat/ui/backgrounds.js?v=1.1.763"></script>
+    <script src="apps/wechat/character/avatars.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/image-send.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.763"></script>
+    <script src="apps/char-phone/catalog.js?v=1.1.763"></script>
+    <script src="apps/char-phone/brand-screens.js?v=1.1.763"></script>
+    <script src="apps/char-phone/viewing.js?v=1.1.763"></script>
+<script src="apps/char-phone/photos.js?v=1.1.763"></script>
+<script src="apps/char-phone/mail.js?v=1.1.763"></script>
+<script src="apps/char-phone/native-apps.js?v=1.1.763"></script>
+    <script src="apps/char-phone/system-apps.js?v=1.1.763"></script>
+    <script src="apps/char-phone/snapshot-data.js?v=1.1.763"></script>
+    <script src="apps/char-phone/sync.js?v=1.1.763"></script>
+    <script src="apps/char-phone/home.js?v=1.1.763"></script>
+    <script src="apps/char-phone/mini-chat.js?v=1.1.763"></script>
+    <script src="apps/char-phone/contacts.js?v=1.1.763"></script>
+    <script src="apps/char-phone/screens.js?v=1.1.763"></script>
+    <script src="apps/char-phone/reactions.js?v=1.1.763"></script>
+    <script src="systems/memory/wechat-memory.js?v=1.1.763"></script>
+    <script src="apps/wechat/chat/stickers.js?v=1.1.763"></script>
+    <script src="systems/living-world/living-world.js?v=1.1.763"></script>
+    <script src="ui/theme/theme.js?v=1.1.763" data-bynd-entry-required></script>
+    <script src="apps/settings/bootstrap.js?v=1.1.763"></script>
+    <script src="apps/settings/api-load.js?v=1.1.763"></script>
+    <script src="apps/settings/api-list.js?v=1.1.763"></script>
+    <script src="apps/settings/api-edit.js?v=1.1.763"></script>
+    <script src="apps/settings/api-test-list.js?v=1.1.763"></script>
+    <script src="apps/settings/api-test-modal.js?v=1.1.763"></script>
+    <script src="apps/settings/api-test.js?v=1.1.763"></script>
+    <script src="apps/settings/image-provider.js?v=1.1.763"></script>
+    <script src="apps/settings/presets.js?v=1.1.763"></script>
+    <script src="core/storage/backup.js?v=1.1.763"></script>
+    <script src="apps/settings/releases.js?v=1.1.763"></script>
+    <script src="apps/settings/version-letter.js?v=1.1.763"></script>
+    <script src="apps/settings/fonts.js?v=1.1.763"></script>
+    <script src="ui/components/device.js?v=1.1.763" data-bynd-entry-required></script>
+    <script src="systems/experience/experience.js?v=1.1.763"></script>
+    <script src="ui/components/undo.js?v=1.1.763"></script>
+    <script src="ui/components/chat-clear.js?v=1.1.763"></script>
+    <script src="ui/components/global-search.js?v=1.1.763"></script>
+    <script src="core/navigation/router.js?v=1.1.763" data-bynd-entry-required></script>
+    <script src="core/api/mcp.js?v=1.1.763"></script>
+    <script src="apps/manual/manual.js?v=1.1.763"></script>
+    <script src="systems/proactive-notifications/notifications.js?v=1.1.763"></script>
+    <script src="apps/music/music.js?v=1.1.763"></script>
+    <script src="apps/money/money.js?v=1.1.763"></script>
+    <script src="apps/dream/dream.js?v=1.1.763"></script>
+    <script src="apps/monitor/monitor.js?v=1.1.763"></script>
+    <script src="apps/outing/outing.js?v=1.1.763"></script>
+    <script src="apps/games/hub-wolfcha.js?v=1.1.763"></script>
+    <script src="apps/games/acting.js?v=1.1.763"></script>
+    <script src="apps/games/sync-cardmatch.js?v=1.1.763"></script>
+    <script src="apps/games/cat-pot.js?v=1.1.763"></script>
+    <script src="apps/games/twenty-forty-eight.js?v=1.1.763"></script>
+    <script src="apps/games/jump.js?v=1.1.763"></script>
+    <script src="apps/games/water-sort.js?v=1.1.763"></script>
+    <script src="apps/games/board-games.js?v=1.1.763"></script>
+    <script src="ui/components/folders.js?v=1.1.763"></script>
+    <script src="apps/coreading/library.js?v=1.1.763"></script>
+    <script src="apps/coreading/sources.js?v=1.1.763"></script>
+    <script src="apps/coreading/shelf.js?v=1.1.763"></script>
+    <script src="apps/coreading/thoughts.js?v=1.1.763"></script>
+    <script src="apps/coreading/toc-stats.js?v=1.1.763"></script>
+    <script src="apps/coreading/reviews.js?v=1.1.763"></script>
+    <script src="apps/coreading/reader.js?v=1.1.763"></script>
+    <script src="apps/coreading/discovery.js?v=1.1.763"></script>
+    <script src="apps/album/album.js?v=1.1.763"></script>
+    <script src="apps/home3d/home3d.js?v=1.1.763"></script>
+    <script src="ui/components/page-swipe.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-layout.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-dock.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-status.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-lovely.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-widgets.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-edit.js?v=1.1.763"></script>
+    <script src="systems/life-state/life-state.js?v=1.1.763"></script>
+    <script src="systems/life-state/native-health.js?v=1.1.763"></script>
+    <script src="apps/role-tools/role-tools.js?v=1.1.763"></script>
+    <script src="apps/moon/moon.js?v=1.1.763"></script>
+    <script src="ui/components/desktop-migrations.js?v=1.1.763"></script>
+    <script src="main.js?v=1.1.763" data-bynd-entry-required></script>
+    <script src="apps/comic/comic.js?v=1.1.763"></script>
+    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.763" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <script src="apps/music/netease.js?v=1.1.763"></script>
+    <script src="core/worldbook/worldbook.js?v=1.1.763"></script>
+    <script src="core/character/regex.js?v=1.1.763"></script>
+    <script src="systems/agent-runtime/agent-tools.js?v=1.1.763"></script>
+    <script src="systems/agent-runtime/web-search.js?v=1.1.763"></script>
+    <script src="apps/wechat/character/character-tools.js?v=1.1.763"></script>
+    <script src="systems/usage/api-ticket.js?v=1.1.763"></script>
+    <script src="systems/usage/bill-app.js?v=1.1.763"></script>
+    <script src="apps/wechat/character/generator.js?v=1.1.763"></script>
+    <script src="apps/settings/openclaw-settings.js?v=1.1.763"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.763"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.763"></script>
+    <script src="core/character/builtin-characters.js?v=1.1.763"></script>
+    <script src="apps/study/study-app.js?v=1.1.763"></script>
+    <script src="apps/monitor/character-pet.js?v=1.1.763"></script>
+    <script src="apps/monitor/screen-companion.js?v=1.1.763"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.763"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.763"></script>
+    <script src="apps/monitor/pet-animation.js?v=1.1.763"></script>
+    <script src="apps/monitor/pet-proportions.js?v=1.1.763"></script>
+    <script src="apps/monitor/pet-background.js?v=1.1.763"></script>
+    <script src="apps/monitor/pet-studio.js?v=1.1.763"></script>
+    <script src="apps/monitor/pet-history.js?v=1.1.763"></script>
+    <script src="apps/monitor/workspace.js?v=1.1.763"></script>
 </body>
 </html>

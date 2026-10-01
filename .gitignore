@@ -17,9 +17,9 @@ BYND使用说明书.md
 /script.js
 /wechat.js
 /style.css
-/systems/living-world/living-world.js
-/apps/comic/comic.js
 /apps/settings/settings.js
 
 # 内置角色原图（本地交接用，发布时只用 assets/characters/builtin 里裁好的文件）
 内置角色的头像/
+
+# GitHub Pages serves the generated comic and forum runtime bundles directly.
