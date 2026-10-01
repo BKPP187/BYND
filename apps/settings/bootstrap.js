@@ -18,6 +18,7 @@ const FONT_PRESETS = [
 function initSettings() {
     renderApiList();
     window.ByndJev?.renderSettings();
+    window.ByndTripo?.renderSettings();
     renderPresetList();
     initFontSettings();
     if (typeof renderProactiveNotifySettings === 'function') renderProactiveNotifySettings();
