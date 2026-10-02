@@ -35,11 +35,11 @@ html.mobile-runtime.bynd-ios-pwa .phone-container {
 html.mobile-runtime.bynd-android-app,
 html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
 html.mobile-runtime.bynd-android-app body { padding: 0; }
-html.mobile-runtime.bynd-android-app .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
+html.mobile-runtime.bynd-android-app .phone-container { --bynd-header-safe-top: max(var(--bynd-native-safe-top, 0px), env(safe-area-inset-top, 0px)); width: 100vw; height: 100dvh; }
 html.mobile-runtime:fullscreen body,
 html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding: 0; }
 html.mobile-runtime:fullscreen .phone-container,
-html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
+html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) .phone-container { --bynd-header-safe-top: max(var(--bynd-native-safe-top, 0px), env(safe-area-inset-top, 0px)); width: 100vw; height: 100dvh; }
 /* iOS PWA keeps top safe area for the native status bar; bottom controls handle home indicator spacing locally. */
 html.lockscreen-disabled .lock-screen { display: none !important; }
 

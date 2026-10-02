@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
+    private ByndSafeAreaLayout safeArea;
     private ValueCallback<Uri[]> fileChooserCallback;
     private byte[] pendingPngBytes;
     private String pendingPngId;
@@ -84,7 +85,13 @@ public class MainActivity extends Activity {
         projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         initializeSystemTts();
         webView = new WebView(this);
-        setContentView(webView);
+        safeArea = new ByndSafeAreaLayout(this, safeTop -> {
+            if (webView != null) webView.evaluateJavascript(
+                    "window.ByndSafeArea&&window.ByndSafeArea.setTop(" + safeTop + ");", null);
+        });
+        safeArea.addView(webView);
+        setContentView(safeArea);
+        safeArea.requestApplyInsets();
         configureWebView(webView);
         webView.addJavascriptInterface(new ByndAndroidBridge(), "ByndAndroid");
         // 后台陪伴 runs JS while BYND is in the background: never pause timers, keep the renderer alive.
@@ -205,6 +212,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView webView, String url) {
                 super.onPageFinished(webView, url);
+                webView.evaluateJavascript("window.ByndSafeArea&&window.ByndSafeArea.setTop("
+                        + safeArea.getSafeTop() + ");", null);
                 openForumPostLink(getIntent() != null ? getIntent().getData() : null);
                 if ("file:///android_asset/www/index.html".equals(url)) UpdateManager.autoCheck(MainActivity.this);
             }
@@ -627,6 +636,9 @@ public class MainActivity extends Activity {
     }
 
     public class ByndAndroidBridge {
+        @JavascriptInterface
+        public int getSafeAreaTop() { return safeArea != null ? safeArea.getSafeTop() : 0; }
+
         @JavascriptInterface
         public boolean updatesEnabled() { return BuildConfig.BYND_ENABLE_UPDATES; }
 

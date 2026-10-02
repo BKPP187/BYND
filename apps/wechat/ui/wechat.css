@@ -1,5 +1,5 @@
 /* --- WeChat App Styles --- */
-.wechat-header { height: 90px; padding-top: 45px; padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
+.wechat-header { flex-shrink: 0; height: calc(52px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); padding-top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)); padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
 .wc-header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; z-index: 1; }
 .wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }
 .wc-header-left i { font-size: 24px; color: #111; }

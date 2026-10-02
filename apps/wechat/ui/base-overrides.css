@@ -286,7 +286,7 @@
 #app-wechat-window.wc-ui-theme-qq .wc-room-content { background: linear-gradient(180deg, #edf3ff, #ffffff); }
 #app-wechat-window.wc-ui-theme-qq .wc-room-footer::before { background: rgba(255,255,255,0.94); border-radius: 24px; box-shadow: 0 12px 26px rgba(47,123,246,0.10); }
 
-#app-wechat-window.wc-ui-theme-wechat .wechat-header { height: 88px; padding-top: 44px; background: #ededed; border-bottom: 1px solid #d6d6d6; }
+#app-wechat-window.wc-ui-theme-wechat .wechat-header { height: calc(48px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); padding-top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)); background: #ededed; border-bottom: 1px solid #d6d6d6; }
 #app-wechat-window.wc-ui-theme-wechat .wc-header-left span { font-weight: 400; }
 #app-wechat-window.wc-ui-theme-wechat .wc-search-box { background: #ededed; padding: 8px 10px; }
 #app-wechat-window.wc-ui-theme-wechat .wc-search-inner { height: 36px; border-radius: 6px; border: none; background: #f7f7f7; }
