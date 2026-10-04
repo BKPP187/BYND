@@ -34,6 +34,12 @@ jobs:
       - name: Test web application
         run: node tests/run.cjs
 
+      - name: Read app version
+        id: app_version
+        run: |
+          version=$(node -p "require('./scripts/bump-version.cjs').currentVersion()")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -52,13 +58,15 @@ jobs:
           gradle-version: '8.10.2'
 
       - name: Build debug APK
-        run: gradle -p android :app:assembleDebug --no-daemon
+        run: |
+          gradle -p android :app:assembleDebug --no-daemon
+          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/BYND-v${{ steps.app_version.outputs.version }}-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BYND-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: BYND-v${{ steps.app_version.outputs.version }}-debug
+          path: android/app/build/outputs/apk/debug/BYND-v${{ steps.app_version.outputs.version }}-debug.apk
 
       - name: Prepare release keystore
         run: |
@@ -75,10 +83,12 @@ jobs:
           BYND_KEYSTORE_PASSWORD: ${{ secrets.BYND_KEYSTORE_PASSWORD }}
 
       - name: Build signed release APK
-        run: gradle -p android :app:assembleRelease --no-daemon
+        run: |
+          gradle -p android :app:assembleRelease --no-daemon
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/BYND-v${{ steps.app_version.outputs.version }}.apk
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: BYND-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: BYND-v${{ steps.app_version.outputs.version }}
+          path: android/app/build/outputs/apk/release/BYND-v${{ steps.app_version.outputs.version }}.apk

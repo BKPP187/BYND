@@ -208,13 +208,15 @@ function renderDesktopLovelyPolaroidSlot(slot, value, label, index) {
 
 function renderDesktopLovelyWidgetInner(layoutId) {
     const data = getDesktopLovelyWidgetData(layoutId);
-    const avatar = data.avatar || '';
+    const isDefault = layoutId === DESKTOP_DEFAULT_LOVELY_ID;
+    const defaultPhoto = document.querySelector('[data-reference-photo-source] .desktop-img-1')?.src || '';
+    const avatar = data.avatar || (isDefault ? defaultPhoto : '');
     const titleInner = getDesktopLovelyToneColor(data.titleInnerTone, data.titleInnerColor, 'blue');
     const titleOuter = getDesktopLovelyToneColor(data.titleOuterTone, data.titleOuterColor, 'clear');
     const bubbleLines = String(data.bubble || DESKTOP_LOVELY_DEFAULT_BUBBLE_TEXT).split(/\n+/);
     return `
         <div class="lcw-shell">
-            ${renderDesktopLovelyImageSlot('hero', data.hero, '横向照片', 'lcw-hero')}
+            ${renderDesktopLovelyImageSlot('hero', data.hero || (isDefault ? defaultPhoto : ''), '横向照片', 'lcw-hero')}
             ${renderDesktopLovelyImageSlot('avatar', avatar, '头像', 'lcw-avatar')}
             <div class="lcw-title-row" data-inner-tone="${desktopEscapeAttr(data.titleInnerTone)}" data-outer-tone="${desktopEscapeAttr(data.titleOuterTone)}" style="--lcw-title-inner:${desktopEscapeAttr(titleInner)}; --lcw-title-outer:${desktopEscapeAttr(titleOuter)};">
                 <div class="lcw-title-card lcw-title-card-left">

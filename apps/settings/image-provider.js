@@ -109,11 +109,13 @@ function fillNovelAiImageModal(settings = getNovelAiImageSettings()) {
     }
     const samplerSelect = document.getElementById('api-nai-sampler');
     if (samplerSelect && !samplerSelect.options.length) {
-        samplerSelect.innerHTML = NOVELAI_SAMPLERS.map(sampler => `<option value="${sampler}">${sampler}</option>`).join('');
+        const labels = { k_euler_ancestral: 'Euler Ancestral（推荐）', k_euler: 'Euler', k_dpmpp_2s_ancestral: 'DPM++ 2S Ancestral', k_dpmpp_2m_sde: 'DPM++ 2M SDE', k_dpmpp_2m: 'DPM++ 2M', k_dpmpp_sde: 'DPM++ SDE' };
+        samplerSelect.innerHTML = NOVELAI_SAMPLERS.map(sampler => `<option value="${sampler}">${labels[sampler]}</option>`).join('');
     }
     const scheduleSelect = document.getElementById('api-nai-schedule');
     if (scheduleSelect && !scheduleSelect.options.length) {
-        scheduleSelect.innerHTML = NOVELAI_NOISE_SCHEDULES.map(schedule => `<option value="${schedule}">${schedule}</option>`).join('');
+        const labels = { karras: 'Karras（推荐）', exponential: 'Exponential', polyexponential: 'Polyexponential', native: 'Native' };
+        scheduleSelect.innerHTML = NOVELAI_NOISE_SCHEDULES.map(schedule => `<option value="${schedule}">${labels[schedule]}</option>`).join('');
     }
     setNovelAiModalValue('api-nai-enabled', settings.enabled);
     setNovelAiModalValue('api-nai-token', settings.token);
@@ -156,7 +158,17 @@ function openNovelAiImageModal() {
     const result = document.getElementById('api-nai-test-result');
     if (result) result.innerHTML = '';
     fillNovelAiImageModal();
+    ['api-nai-advanced', 'api-nai-help'].forEach(id => {
+        const section = document.getElementById(id);
+        if (section) section.open = false;
+    });
+    const body = modal.querySelector('.wc-card-body');
+    if (body) body.scrollTop = 0;
     modal.classList.remove('hidden');
+}
+
+function resetNovelAiImageAdvanced() {
+    fillNovelAiImageModal({ ...readNovelAiImageModal(), ...NOVELAI_IMAGE_RECOMMENDED });
 }
 
 function closeNovelAiImageModal() {

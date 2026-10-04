@@ -162,7 +162,8 @@ test('untrusted persisted values fail closed and sensitive data never enters ord
 
 test('desktop route and prompt integration use life consent and keep tools out of user settings', () => {
     const html = fs.readFileSync('index.html', 'utf8');
-    assert.match(html, /openApp\('settings'\)[\s\S]*?openApp\('role-tools'\)/);
+    assert.match(html, /data-default-tools-slot/);
+    assert.match(fs.readFileSync('ui/components/desktop-migrations.js', 'utf8'), /apps: \['mcp', 'role-tools', 'settings', 'manual', 'bill'\]/);
     assert.equal((html.match(/id="bynd-tools-settings"/g) || []).length, 1);
     assert.doesNotMatch(html, /id="settings-tab-tools"/);
     assert.match(fs.readFileSync('core/navigation/router.js', 'utf8'), /ByndRoleTools\?\.open/);

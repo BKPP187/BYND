@@ -185,13 +185,6 @@ async function jumpCoReadChapter(index) {
 }
 window.jumpCoReadChapter = jumpCoReadChapter;
 
-function getCoReadBookReadChars(book) {
-    const contentLength = String(book && book.content || '').length;
-    if (!contentLength) return 0;
-    const page = Math.max(0, Number(book && book.page || 0));
-    return Math.max(0, Math.min(contentLength, (page + 1) * COREAD_PAGE_SIZE));
-}
-
 function formatCoReadStatNumber(value, unit = '') {
     const num = Math.max(0, Number(value || 0));
     if (unit === '字') {
@@ -206,6 +199,7 @@ function formatCoReadStatNumber(value, unit = '') {
 }
 
 function formatCoReadStatMinutes(minutes) {
+    if (Number(minutes) > 0 && Number(minutes) < 1) return '不足 1 分钟';
     const total = Math.max(0, Math.round(Number(minutes || 0)));
     if (total >= 60) {
         const hours = Math.floor(total / 60);
@@ -244,59 +238,27 @@ function getCoReadPeriodRange(range = coreadStatsRange, offset = coreadStatsOffs
     return { id: safeRange, start: start.getTime(), end: end.getTime(), label: `${start.getFullYear()}年` };
 }
 
-function getCoReadBookActivityTime(book) {
-    return Number(book && (book.updatedAt || book.lastReadAt || book.createdAt) || 0);
-}
-
-function getCoReadStatsBooks(library, rangeInfo) {
-    if (!rangeInfo || rangeInfo.id === 'total') return Array.isArray(library) ? library : [];
-    return (Array.isArray(library) ? library : []).filter(book => {
-        const ts = getCoReadBookActivityTime(book);
-        return ts >= rangeInfo.start && ts < rangeInfo.end;
-    });
-}
-
 function buildCoReadStatsModel(library = getCoReadLibrary()) {
     const range = getCoReadPeriodRange();
-    const scopedBooks = getCoReadStatsBooks(library, range);
-    const sourceBooks = range.id === 'total' ? library : scopedBooks;
-    const readChars = sourceBooks.reduce((sum, book) => sum + getCoReadBookReadChars(book), 0);
-    const estimatedMinutes = Math.ceil(readChars / 423);
-    const readDays = new Set(sourceBooks.map(book => {
-        const ts = getCoReadBookActivityTime(book);
-        return ts ? new Date(ts).toDateString() : '';
-    }).filter(Boolean)).size;
-    const finished = sourceBooks.filter(book => getCoReadBookProgress(book) >= 100 || book.finishedAt).length;
-    const reading = sourceBooks.filter(book => getCoReadBookProgress(book) > 0 && getCoReadBookProgress(book) < 100).length;
+    let rows = [], storeError = '';
+    try { rows = CoReadJournal.entries(range.start, range.end, library); }
+    catch (error) { storeError = `无法读取阅读记录：${error.message || error}`; }
+    const books = CoReadJournal.aggregate(rows);
+    const seconds = rows.reduce((sum, row) => sum + row.seconds, 0);
     const noteCount = getCoReadThoughts(1000).filter(item => {
-        if (range.id === 'total') return true;
         const ts = Number(item.createdAt || 0);
         return ts >= range.start && ts < range.end;
     }).length;
-    const ranking = [...sourceBooks]
-        .map(book => {
-            const chars = getCoReadBookReadChars(book);
-            return {
-                book,
-                chars,
-                minutes: Math.max(1, Math.ceil(chars / 423))
-            };
-        })
-        .filter(item => item.chars > 0)
-        .sort((a, b) => b.minutes - a.minutes || b.chars - a.chars)
-        .slice(0, 5);
-    return {
-        range,
-        totalBooks: sourceBooks.length,
-        finished,
-        reading,
-        noteCount,
-        readChars,
-        estimatedMinutes,
-        readDays,
-        speed: estimatedMinutes ? Math.round(readChars / estimatedMinutes) : 0,
-        ranking
-    };
+    let allFinished = new Set();
+    try { allFinished = new Set(CoReadJournal.entries().filter(row => row.finishedAt).map(row => row.id)); } catch (_) {}
+    return { range, storeError, totalBooks: books.length,
+        finished: books.filter(item => item.finishedAt).length,
+        reading: books.filter(item => !allFinished.has(item.book.id)).length,
+        noteCount, readChars: books.reduce((sum, item) => sum + item.chars, 0),
+        pages: books.reduce((sum, item) => sum + item.pages.size, 0),
+        minutes: seconds / 60, readDays: new Set(rows.map(row => row.date)).size,
+        ranking: books.map(item => ({ ...item, minutes: item.seconds / 60 }))
+            .sort((a,b) => b.seconds - a.seconds).slice(0,5) };
 }
 
 function setCoReadStatsRange(range) {
@@ -330,17 +292,18 @@ function renderCoReadStatsPanel(library = getCoReadLibrary()) {
         { id: 'total', label: '总' }
     ];
     const stats = [
-        { icon: 'ri-alarm-line', value: formatCoReadStatMinutes(model.estimatedMinutes), label: '阅读时间' },
+        { icon: 'ri-alarm-line', value: formatCoReadStatMinutes(model.minutes), label: '阅读时间' },
         { icon: 'ri-calendar-line', value: formatCoReadStatNumber(model.readDays, '天'), label: '阅读天数' },
         { icon: 'ri-book-2-line', value: formatCoReadStatNumber(model.totalBooks, '本'), label: '累计读过' },
         { icon: 'ri-checkbox-circle-line', value: formatCoReadStatNumber(model.finished, '本'), label: '读完书籍' },
         { icon: 'ri-book-open-line', value: formatCoReadStatNumber(model.reading, '本'), label: '在读书籍' },
         { icon: 'ri-quill-pen-line', value: formatCoReadStatNumber(model.noteCount, '条'), label: '记录笔记' },
-        { icon: 'ri-menu-2-line', value: formatCoReadStatNumber(model.readChars, '字'), label: '阅读字数' },
-        { icon: 'ri-speed-up-line', value: model.speed ? `${model.speed} 字/分钟` : '暂无', label: '阅读速度' }
+        { icon: 'ri-menu-2-line', value: formatCoReadStatNumber(model.readChars, '字'), label: '浏览字数' },
+        { icon: 'ri-file-list-line', value: `${model.pages} 页`, label: '浏览页数' }
     ];
     return `
         <section class="coread-stats-board">
+            ${model.storeError ? `<p class="coread-activity-error" role="alert">${musicEscapeHtml(model.storeError)}</p>` : ''}
             <div class="coread-stats-title">
                 <strong>阅读统计</strong>
                 <span>Reading Stats</span>
@@ -372,7 +335,7 @@ function renderCoReadStatsPanel(library = getCoReadLibrary()) {
                         <span class="coread-stats-rank-copy">
                             <strong>${formatCoReadStatMinutes(item.minutes)}</strong>
                             <em>${musicEscapeHtml(item.book.title || '未命名书籍')}</em>
-                            <small>累计阅读：${musicEscapeHtml(formatCoReadStatNumber(item.chars, '字'))}</small>
+                            <small>浏览字数：${musicEscapeHtml(formatCoReadStatNumber(item.chars, '字'))}</small>
                         </span>
                     </button>
                 `).join('') || '<div class="coread-stats-empty">当前周期还没有阅读记录。</div>'}

@@ -49,7 +49,7 @@ function openCharPhoneItem(key,index){window._charPhoneDetail={key,index}; const
 function closeCharPhoneItem(){window._charPhoneDetail=null;const c=(window.myCharacters||[]).find(c=>c.id===window._wechatAiPhoneOpenCharId);if(c)renderWechatAiPhone(c);}
 function renderCharPhoneTemplate(key,snapshot,char){
  const app=CHAR_PHONE_EXTRA_APPS.find(a=>a.key===key);if(!app)return null;
- const data=snapshot.appData?.[key]||{};const items=data.items||[];const e=wcEscapeHtml;
+ const data=snapshot.appData?.[key]||{};const items=key==='album'?getCharPhoneAlbumItems(char,snapshot):data.items||[];const e=wcEscapeHtml;
  const detail=window._charPhoneDetail;
  const image=i=>i.image?`<img src="${wcEscapeAttr(i.image)}" alt="${wcEscapeAttr(i.title)}" loading="lazy" referrerpolicy="no-referrer">`:`<div class="cp-art"><i class="${app.icon}"></i><span>${e(i.body||i.title)}</span></div>`;
  if(key==='mail')return renderCharPhoneMail(snapshot,char);

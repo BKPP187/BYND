@@ -863,6 +863,103 @@ function getWechatCurrentLyricText() {
     }
 }
 
+function bindWechatMusicIslandDrag(island) {
+    if (island.dataset.dragBound === '1') return;
+    island.dataset.dragBound = '1';
+    island.setAttribute('role', 'button');
+    island.tabIndex = 0;
+    island.setAttribute('aria-label', '打开音乐播放器，可拖动调整位置');
+    let drag = null;
+    let position = null;
+    let ignoreClickUntil = 0;
+    const bounds = () => {
+        const host = island.offsetParent || getWechatMusicOverlayRoot();
+        const rect = host.getBoundingClientRect();
+        const scale = rect.width / (host.offsetWidth || rect.width) || 1;
+        const originX = rect.left + host.clientLeft * scale;
+        const originY = rect.top + host.clientTop * scale;
+        // Resolve CSS safe-area expressions (including max()) to a used pixel value.
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:var(--bynd-header-safe-top, 0px)';
+        host.appendChild(probe);
+        const safeTop = probe.offsetHeight;
+        probe.remove();
+        const header = document.querySelector('#app-wechat-window.active #wechat-chat-room.active .wc-room-header');
+        const headerBottom = header ? (header.getBoundingClientRect().bottom - originY) / scale + 8 : 0;
+        const minY = Math.max(safeTop + 64, headerBottom);
+        return {
+            originX, originY, scale, minX: 8, minY,
+            maxX: Math.max(8, host.clientWidth - island.offsetWidth - 8),
+            maxY: Math.max(minY, host.clientHeight - island.offsetHeight - 16)
+        };
+    };
+    const place = (x, y, limits, remember = false) => {
+        const left = Math.max(limits.minX, Math.min(limits.maxX, x));
+        const top = Math.max(limits.minY, Math.min(limits.maxY, y));
+        island.style.left = `${left}px`;
+        island.style.top = `${top}px`;
+        if (remember) position = {
+            x: (left - limits.minX) / (limits.maxX - limits.minX || 1),
+            y: (top - limits.minY) / (limits.maxY - limits.minY || 1)
+        };
+    };
+    const layout = () => {
+        if (drag || !island.isConnected) return;
+        const limits = bounds();
+        place(position ? limits.minX + position.x * (limits.maxX - limits.minX) : (limits.minX + limits.maxX) / 2,
+            position ? limits.minY + position.y * (limits.maxY - limits.minY) : limits.minY, limits);
+    };
+    island._layoutMusicIsland = layout;
+    island.addEventListener('pointerdown', event => {
+        if (!event.isPrimary || event.button !== 0) return;
+        ignoreClickUntil = 0;
+        const rect = island.getBoundingClientRect();
+        drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX - rect.left, y: event.clientY - rect.top, moved: false };
+        island.setPointerCapture(event.pointerId);
+    });
+    island.addEventListener('pointermove', event => {
+        if (!drag || drag.id !== event.pointerId) return;
+        if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
+        drag.moved = true;
+        event.preventDefault();
+        island.classList.add('is-dragging');
+        const limits = bounds();
+        place((event.clientX - limits.originX - drag.x) / limits.scale,
+            (event.clientY - limits.originY - drag.y) / limits.scale, limits, true);
+    });
+    const end = event => {
+        if (!drag || drag.id !== event.pointerId) return;
+        if (drag.moved) ignoreClickUntil = performance.now() + 350;
+        drag = null;
+        island.classList.remove('is-dragging');
+        layout();
+    };
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => island.addEventListener(type, end));
+    island.addEventListener('click', event => {
+        if (performance.now() < ignoreClickUntil) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
+    island.addEventListener('dragstart', event => event.preventDefault());
+    island.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            island.click();
+        }
+    });
+    if (typeof ResizeObserver === 'function') {
+        const observer = new ResizeObserver(layout);
+        observer.observe(island);
+        observer.observe(island.parentElement);
+    }
+    window.addEventListener('resize', layout);
+    island.parentElement.addEventListener('transitionend', event => {
+        if (event.target.matches('.app-window, .wc-chat-room')) layout();
+    });
+    layout();
+}
+
 function ensureWechatMusicIsland() {
     let island = document.getElementById('wc-music-island');
     if (island) {
@@ -878,7 +975,9 @@ function ensureWechatMusicIsland() {
                 <i class="ri-disc-line"></i>
             `;
         }
-        return mountWechatMusicOverlayElement(island);
+        mountWechatMusicOverlayElement(island);
+        bindWechatMusicIslandDrag(island);
+        return island;
     }
     island = document.createElement('div');
     island.id = 'wc-music-island';
@@ -894,6 +993,7 @@ function ensureWechatMusicIsland() {
         <i class="ri-disc-line"></i>
     `;
     mountWechatMusicOverlayElement(island);
+    bindWechatMusicIslandDrag(island);
     return island;
 }
 
@@ -942,6 +1042,7 @@ function updateWechatMusicIsland() {
         }
     };
     island.classList.add('show');
+    island._layoutMusicIsland?.();
 }
 
 function hideWechatMusicIsland() {

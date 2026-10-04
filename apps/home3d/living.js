@@ -1,7 +1,7 @@
 (function (H) {
     'use strict';
-    const LABELS = { Idle: '发一会儿呆', Walk: '在家走走', Sit: '坐着休息', Lie: '窝着放松', Sleep: '睡得正香', 'Use Phone': '在沙发上看手机', 'Use Computer': '在电脑前忙一会儿', Game: '在游戏房玩游戏', Work: '在书桌前工作', Read: '安静地看书', Watch: '窝在沙发看电视', Drink: '喝一口暖暖的饮料', Eat: '吃点小零食', 'Look At': '看看你', Hug: '抱抱你', Wave: '朝你挥挥手', Happy: '开心地晃一晃', Care: '给绿植浇浇水', Cook: '准备一点吃的', Bathe: '泡个暖暖的澡', 'Play Music': '弹一小段琴' };
-    const INTENTS = { Sleep: 'sleep', Lie: 'rest', Sit: 'rest', Read: 'read', Work: 'work', Game: 'play', Care: 'care', Cook: 'cook', Bathe: 'bathe', 'Play Music': 'music', Walk: 'wander' };
+    const LABELS = { Idle: '发一会儿呆', Walk: '在家走走', Sit: '坐着休息', Lie: '窝着放松', Sleep: '睡得正香', 'Use Phone': '在沙发上看手机', 'Use Computer': '在电脑前忙一会儿', Game: '在游戏房玩游戏', Work: '在书桌前工作', Read: '安静地看书', Watch: '窝在沙发看电视', Drink: '喝一口暖暖的饮料', Eat: '吃点热乎的', 'Look At': '看看你', Hug: '抱抱你', Wave: '朝你挥挥手', Happy: '开心地晃一晃', Care: '给绿植浇浇水', Cook: '准备一点吃的', Bathe: '泡个暖暖的澡', 'Play Music': '弹一小段琴' };
+    const INTENTS = { Sleep: 'sleep', Lie: 'rest', Sit: 'rest', Read: 'read', Work: 'work', Game: 'play', Care: 'care', Cook: 'cook', Eat: 'eat', Drink: 'drink', Bathe: 'bathe', 'Play Music': 'music', Walk: 'wander' };
     const accessCache = new WeakMap();
     function facilities(home) {
         return H.catalogs.roomCatalog.rooms.filter(room => H.Rooms.available(room, home)).flatMap(room => H.Rooms.placements(room, home).map(placement => ({ room, placement, item: H.Furniture.get(placement.furnitureId) })).filter(row => row.item));
@@ -61,7 +61,8 @@
         if (hour >= 7 && hour < 23 && !['Lie', 'Work', 'Game'].includes(action)) {
             if (/植物|园艺|花|自然/.test(personality) && beat % 4 === 0) action = 'Care';
             else if (/钢琴|音乐|弹琴/.test(personality) && beat % 4 === 0) action = 'Play Music';
-            else if ([8, 12, 18].includes(hour) && facilities(home).some(row => row.item.type === 'stove') && beat % 3 === 0) action = 'Cook';
+            else if ([8, 12, 18].includes(hour) && beat % 4 === 0 && facilities(home).some(row => row.item.actions.includes('Cook'))) { action = 'Cook'; room = 'kitchen'; target = 'stove'; }
+            else if ([8, 12, 18].includes(hour) && beat % 4 === 1 && facilities(home).some(row => row.item.variant === 'dining')) { action = 'Eat'; room = 'dining_room'; target = 'dining-table'; }
             else if (hour >= 21 && facilities(home).some(row => row.item.type === 'tub') && beat % 3 === 0) action = 'Bathe';
             else if (beat % 5 === 1) { action = 'Walk'; room = home.room || 'living_room'; target = ''; }
             else if (beat % 5 === 2) action = 'Read';

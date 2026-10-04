@@ -74,6 +74,61 @@
 }
 .desktop-scroll-area::-webkit-scrollbar { display: none; }
 
+/* Default two-screen desktop, matching the supplied calendar/profile layout. */
+#home-screen { padding-top: calc(55px + var(--bynd-header-safe-top, 0px)) !important; }
+#home-screen .pages-container, #home-screen .desktop-page { min-height: 0; }
+.desktop-reference-page:not(.layout-canvas) {
+    min-height: 0; gap: 18px; padding: 24px 12px 8px;
+    justify-content: space-between;
+}
+.desktop-reference-first:not(.layout-canvas) > .calendar-widget {
+    width: 100%; height: 160px; min-height: 160px; margin: 0;
+    padding: 10px 26px; background: var(--cal-bg, transparent);
+    color: var(--cal-text, #263241); border-radius: 0;
+}
+.desktop-reference-first:not(.layout-canvas) .cal-dot.active { color: var(--cal-text, #263241); }
+.desktop-reference-app-grid { flex: 0 0 auto; }
+.desktop-reference-page:not(.layout-canvas) > .desktop-reference-app-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 22px 8px; padding: 0;
+}
+.desktop-reference-page:not(.layout-canvas) .desktop-reference-app-grid > .app-item {
+    height: 76px; font-size: 12px; gap: 5px;
+}
+.desktop-reference-page:not(.layout-canvas) .desktop-reference-app-grid .app-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+}
+.desktop-reference-first:not(.layout-canvas) > .desktop-reference-photo {
+    flex: 0 0 auto; width: 100%; height: 150px; aspect-ratio: auto;
+    border-radius: 22px; box-shadow: none;
+}
+.desktop-reference-second:not(.layout-canvas) { gap: 12px; }
+.desktop-reference-second:not(.layout-canvas) > .desktop-widget-lovely {
+    flex: 1 1 294px; height: auto; min-height: 250px; max-height: 294px;
+    --lcw-avatar-left: 4.5%; --lcw-avatar-top: min(34cqw, calc(60% - 55px));
+    --lcw-avatar-size: 33cqw;
+}
+.desktop-reference-second:not(.layout-canvas) .lcw-hero {
+    left: 0; right: 0; top: 0; height: min(52cqw, 60%); border-radius: 8px;
+}
+.desktop-reference-second:not(.layout-canvas) > .desktop-reference-app-grid { row-gap: 12px; }
+.desktop-reference-second:not(.layout-canvas) .app-item[data-app-id="pet"] { grid-column: 1; }
+#home-screen:not(.desktop-editing):has(.desktop-reference-page:not(.layout-canvas)) .dock-bar {
+    width: 224px; height: 84px; border-radius: 38px;
+    gap: 10px; margin-top: 12px; box-shadow: none;
+}
+@media (max-height: 740px) {
+    .desktop-reference-page:not(.layout-canvas) { padding-top: 12px; gap: 12px; }
+    .desktop-reference-first:not(.layout-canvas) > .calendar-widget { height: 138px; min-height: 138px; }
+    .desktop-reference-first:not(.layout-canvas) > .desktop-reference-photo { height: 125px; }
+    .desktop-reference-page:not(.layout-canvas) > .desktop-reference-app-grid { row-gap: 8px; }
+    .desktop-reference-second:not(.layout-canvas) > .desktop-widget-lovely {
+        min-height: 250px; height: 250px;
+        --lcw-avatar-top: 26cqw; --lcw-avatar-size: 28cqw;
+    }
+    .desktop-reference-second:not(.layout-canvas) .lcw-hero { height: 43cqw; }
+}
+
 .calendar-widget { background-color: var(--cal-bg, #000); color: var(--cal-text, #fff); border-radius: 25px; padding: 15px 20px; height: 180px; min-height: 180px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; transition: background-color 0.4s ease, color 0.4s ease; }
 .calendar-widget.calendar-transparent, .cal-preview-mini.calendar-transparent { background: var(--cal-bg, rgba(255,255,255,0.48)) !important; border: 1px solid var(--cal-border, rgba(255,255,255,0.48)); box-shadow: var(--cal-shadow, 0 14px 30px rgba(114,136,160,0.12)); backdrop-filter: blur(var(--cal-blur, 14px)) saturate(1.12); -webkit-backdrop-filter: blur(var(--cal-blur, 14px)) saturate(1.12); }
 .calendar-widget.calendar-transparent { color: var(--cal-text, #263241); }

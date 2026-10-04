@@ -1,7 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const vm = require('node:vm');
-const { sourceSection, memoryStorage, deferred } = require('./helpers/harness.cjs');
+const { root, sourceSection, memoryStorage, deferred } = require('./helpers/harness.cjs');
 
 function harness() {
     const storage = memoryStorage({ bynd_monitor_active_pet_v1:'old', bynd_monitor_pet_enabled_v1:'0' });
@@ -17,7 +19,7 @@ function harness() {
     });
     context.window=context;
     const read=code=>vm.runInContext(code,context);
-    read(sourceSection('script.js','// --- BYND Monitor / 内部监控剧情入口 ---','// --- BYND Outing / 一起出门 ---'));
+    read(fs.readFileSync(path.join(root, 'apps/monitor/monitor.js'), 'utf8'));
     const data='data:image/webp;base64,UklGRg==';
     context.fetchMonitorPetDataUrl=async (url,type)=>{downloads.push([url,type]);return type?data:'data:application/zip;base64,UEs=';};
     context.saveMonitorPetAsset=async (id,value)=>assets.push([id,value]);

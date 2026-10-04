@@ -1714,7 +1714,7 @@ function recordChatApiLedgerEntry({ api, configuredBaseUrl, model, options = {},
 
 async function callChatApi(messages, options = {}) {
     // Recheck queued work at dispatch time, before touching the selected provider.
-    if (typeof options.canSend === 'function' && !options.canSend()) {
+    if (options.signal?.aborted || (typeof options.canSend === 'function' && !options.canSend())) {
         return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };
     }
     if (options.background && !options._backgroundQueueBypass) {
@@ -1814,13 +1814,23 @@ async function callChatApi(messages, options = {}) {
     };
     chatApiRequestActivity.inFlight += 1;
     chatApiRequestActivity.lastAt = Date.now();
+    const timeoutMs = 90000;
+    let timeoutSignal;
+    let requestController;
+    const abortRequest = () => requestController?.abort();
     try {
-        const timeoutMs = 90000;
+        timeoutSignal = AbortSignal.timeout(timeoutMs);
+        if (options.signal) {
+            requestController = new AbortController();
+            options.signal.addEventListener('abort', abortRequest, { once: true });
+            timeoutSignal?.addEventListener('abort', abortRequest, { once: true });
+            if (options.signal.aborted) abortRequest();
+        }
         const resp = await fetch(baseUrl + '/chat/completions', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(params),
-            signal: AbortSignal.timeout(timeoutMs)
+            signal: requestController?.signal || timeoutSignal
         });
 
         if (!resp.ok) {
@@ -1958,9 +1968,15 @@ async function callChatApi(messages, options = {}) {
 
     } catch (e) {
         finishUsage(e?.message || '请求失败');
+        if (options.signal?.aborted) {
+            return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };
+        }
         const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
-        const msg = isTimeout ? '请求超时（90秒），已继续压缩本次微信上下文；如果仍超时，请换更快模型或减少角色卡/世界书。' : (e.message || '网络错误');
-        return { ok: false, error: msg + getChatApiNetworkHint(baseUrl, msg) };
+        const msg = isTimeout ? '请求超时（90秒），未收到完整回复。请重试；如果仍超时，请检查接口或换更快的模型。' : (e.message || '网络错误');
+        return { ok: false, timedOut: isTimeout, errorSource: 'client', error: msg + getChatApiNetworkHint(baseUrl, msg) };
+    } finally {
+        options.signal?.removeEventListener('abort', abortRequest);
+        timeoutSignal?.removeEventListener('abort', abortRequest);
     }
 }
 

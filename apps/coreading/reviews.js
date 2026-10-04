@@ -257,36 +257,3 @@ function renderCoReadDashboard() {
     renderCoReadStatsMount(library);
 }
 
-function renderCoReadCalendarStats() {
-    const stats = document.getElementById('coread-me-stats');
-    const calendar = document.getElementById('coread-reading-calendar');
-    const library = getCoReadLibrary();
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthBooks = library.filter(book => {
-        const ts = Number(book.createdAt || 0);
-        return ts >= monthStart.getTime();
-    });
-    const avg = library.length ? Math.round(library.reduce((sum, book) => sum + getCoReadBookProgress(book), 0) / library.length) : 0;
-    if (stats) {
-        stats.innerHTML = `
-            <div><strong>${monthBooks.length}</strong><span>本月加入</span></div>
-            <div><strong>${avg}%</strong><span>平均进度</span></div>
-            <div><strong>${getCoReadThoughts().length}</strong><span>共读旁注</span></div>
-        `;
-    }
-    if (calendar) {
-        const activeDays = new Set(monthBooks.map(book => new Date(book.createdAt || Date.now()).getDate()));
-        calendar.innerHTML = `
-            <div class="coread-calendar-head"><strong>${now.getFullYear()} / ${now.getMonth() + 1}</strong><span>本月阅读记录</span></div>
-            <div class="coread-calendar-grid">
-                ${Array.from({ length: daysInMonth }, (_, i) => {
-                    const day = i + 1;
-                    return `<span class="${activeDays.has(day) ? 'active' : ''}">${day}</span>`;
-                }).join('')}
-            </div>
-        `;
-    }
-}
-

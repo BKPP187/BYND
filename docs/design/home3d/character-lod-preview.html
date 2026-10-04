@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>BYND 人物近景预览</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:var(--safe-top,env(safe-area-inset-top,0px)) 14px max(18px,env(safe-area-inset-bottom,0px));color:#3f3934;background:#f4f0e9;font:15px system-ui,"Microsoft Yahei",sans-serif}main{max-width:920px;margin:auto}header{display:flex;align-items:center;justify-content:space-between;min-height:60px;gap:10px}h1{font-size:20px;margin:0}header span{font-size:12px;color:#766d63}button{font:inherit;cursor:pointer;color:inherit;border:1px solid #d7cec3;border-radius:12px;background:#fffdf9;padding:10px 13px;min-height:42px}button[aria-pressed=true]{background:#dedccf;border-color:#b7b8a0}.modes{display:flex;gap:8px;margin-bottom:12px}.modes button{flex:1}.stage{position:relative;height:min(66vh,620px);min-height:320px;overflow:hidden;background:#fcfaf6;border-radius:20px;border:1px solid #e1d9ce}canvas{display:block;width:100%;height:100%;touch-action:none}#badge{position:absolute;left:13px;top:12px;border-radius:12px;padding:7px 10px;background:#ffffffdc;font-size:12px;pointer-events:none}#status{margin:12px 2px;min-height:22px;font-size:13px;color:#766d63}#status.error{color:#a2342c}.views{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.views button{padding:10px 4px;font-size:14px}.zoom{display:flex;align-items:center;gap:10px;margin-top:14px}.zoom input{flex:1;min-width:0;accent-color:#747b60}.hint{font-size:12px;color:#81786d;text-align:center;margin:12px 0}details{font-size:13px;line-height:1.7;border-top:1px solid #ddd5ca;padding-top:12px}summary{cursor:pointer}details p{margin:8px 0}#error{color:#a2342c}
+</style></head><body><main>
+<header><h1>人物近景预览</h1><span>BYND · 男生</span></header>
+<div class="modes"><button id="auto" aria-pressed="true">高清贴图候选</button><button id="original" aria-pressed="false">对比旧版</button></div>
+<div class="stage"><canvas id="scene" aria-label="可旋转和放大的立体人物"></canvas><span id="badge">载入人物…</span></div>
+<p id="status" role="status">准备模型</p>
+<div class="views"><button data-view="room">小屋远景</button><button data-view="body">全身</button><button data-view="face">看脸</button><button data-view="hand">看手</button></div>
+<div class="zoom"><button id="minus" aria-label="缩小">−</button><input id="zoom" aria-label="镜头放大倍率" type="range" min="0.25" max="5" step="0.05" value="1"><button id="plus" aria-label="放大">＋</button></div>
+<p class="hint">拖动转身 · 滚轮或双指缩放</p>
+<details><summary>预览说明</summary><p>这是重新生成贴图后的实际 3D 模型，近景保留 8K 色彩贴图，中景和远景按画面大小切换。旧版可在相同视角对比。眼睛清晰度有改善，嘴唇和眼周仍需修整，当前尚未通过最终外观验收，也未绑定动作或接入小屋。8K 贴图占用较多显存，此预览不能替代真机性能测试。</p></details>
+</main>
+<script src="/assets/vendor/home3d/engine.js"></script><script src="/apps/home3d/character-lod.js"></script>
+<script>
+(async function(){
+ 'use strict';
+ const T=ByndHomeEngine, L=ByndHomeCharacterLOD, base='/artifacts/home3d-models/silver-red-v1/', lodDirectory='hd-texture-v1/review-lods-v3/',
+  manifestResponse=await fetch(base+lodDirectory+'lod-manifest.json');if(!manifestResponse.ok)throw new Error('细节配置读取失败（'+manifestResponse.status+'）');
+ const manifest=await manifestResponse.json(), stage=document.querySelector('.stage'), canvas=document.querySelector('#scene'), status=document.querySelector('#status'), badge=document.querySelector('#badge');
+ const renderer=new T.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+ const scene=new T.Scene();scene.background=new T.Color('#fcfaf6');scene.add(new T.HemisphereLight(0xfff7e8,0x8796a5,2.3));
+ for(const [color,intensity,position] of [[0xffffff,2.5,[3,5,4]],[0xdce8ff,1.4,[-4,3,-4]]]){const light=new T.DirectionalLight(color,intensity);light.position.set(...position);scene.add(light)}
+ const floor=new T.Mesh(new T.CircleGeometry(1.5,64),new T.MeshStandardMaterial({color:0xe8e0d5,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.008;scene.add(floor);
+ const actor=new T.Group();scene.add(actor);const camera=new T.OrthographicCamera(-1,1,1.075,-1.075,.01,100), bounds=new T.Box3(new T.Vector3(-.45,0,-.22),new T.Vector3(.45,1.8,.22));
+ let mode='auto', zoom=1, yaw=0, pitch=.025, target=new T.Vector3(0,.9,0), current=null, currentName=null, revision=0, lastAuto=null, wanted=null;
+ const cache=new Map(), pending=new Map(), visits=[];
+ function dispose(model){const textures=new Set();model.traverse(node=>{if(node.isMesh){node.geometry.dispose();for(const material of Array.isArray(node.material)?node.material:[node.material]){for(const value of Object.values(material))if(value?.isTexture)textures.add(value);material.dispose()}}});for(const texture of textures){texture.image?.close?.();texture.dispose()}}
+ async function load(name){
+  if(cache.has(name)){const object=cache.get(name);cache.delete(name);cache.set(name,object);return object}
+  if(pending.has(name))return pending.get(name);
+  const promise=(async()=>{const url=base+(name==='original'?'character.glb':lodDirectory+name+'.glb'), response=await fetch(url);if(!response.ok)throw new Error('模型读取失败（'+response.status+'）');
+   const gltf=await new T.GLTFLoader().parseAsync(await response.arrayBuffer(),'');const pivot=new T.Group(), model=gltf.scene;
+   const box=new T.Box3().setFromObject(model), size=box.getSize(new T.Vector3());model.scale.setScalar(1.8/size.y);box.setFromObject(model);const center=box.getCenter(new T.Vector3());model.position.add(new T.Vector3(-center.x,-box.min.y,-center.z));pivot.add(model);pivot.rotation.y=-Math.PI/2;
+   cache.set(name,pivot);return pivot})();pending.set(name,promise);try{return await promise}finally{pending.delete(name)}
+ }
+ function trim(){for(const [name,model] of cache){if(cache.size<=2)break;if(model!==current&&name!==wanted){cache.delete(name);dispose(model)}}}
+ function cameraUpdate(){const aspect=stage.clientWidth/stage.clientHeight;camera.left=-1.075*aspect;camera.right=1.075*aspect;camera.zoom=zoom;camera.updateProjectionMatrix();camera.position.set(target.x+Math.sin(yaw)*Math.cos(pitch)*6,target.y+Math.sin(pitch)*6,target.z+Math.cos(yaw)*Math.cos(pitch)*6);camera.lookAt(target);camera.updateMatrixWorld(true);renderer.setSize(stage.clientWidth,stage.clientHeight,false);document.querySelector('#zoom').value=zoom}
+ function stats(){return{mode,level:currentName,projectedHeight:L.projectedHeight(bounds,camera,stage.clientHeight,T),zoom,yaw,triangles:currentName==='original'?manifest.sourceTriangles:manifest.levels.find(x=>x.name===currentName)?.triangles,cache:[...cache.keys()],visits:[...visits]}}
+ function render(){renderer.render(scene,camera)}
+ async function update(){cameraUpdate();const ticket=++revision,pixels=L.projectedHeight(bounds,camera,stage.clientHeight,T), desired=mode==='original'?'original':L.select(pixels,lastAuto);wanted=desired;render();
+  if(desired!==currentName){status.textContent='载入'+(desired==='original'?'原始':{near:'近景',middle:'中景',far:'远景'}[desired])+'模型…';status.className='';
+   try{const model=await load(desired);if(ticket!==revision){trim();return}if(current)actor.remove(current);current=model;actor.add(model);currentName=desired;visits.push(desired);trim()}
+   catch(error){if(ticket===revision){status.className='error';status.textContent=error.message+'，当前模型已保留。'}return}
+  }
+  if(ticket!==revision)return;if(mode==='auto')lastAuto=desired;
+  const row=manifest.levels.find(x=>x.name===currentName), label=currentName==='original'?'旧版 · 2K 贴图':{near:'高清候选 · 8K 贴图',middle:'高清候选 · 4K 贴图',far:'高清候选 · 2K 贴图'}[currentName];
+  badge.textContent=label;status.className='';status.textContent=label+' · '+(stats().triangles/10000).toFixed(1)+' 万面 · '+((row?.bytes||42600364)/1000000).toFixed(1)+' MB';render();window.CharacterLODPreview.ready=true;
+ }
+ async function setMode(value){if(!['auto','original'].includes(value))throw new Error('未知模式');mode=value;document.querySelector('#auto').setAttribute('aria-pressed',value==='auto');document.querySelector('#original').setAttribute('aria-pressed',value==='original');await update()}
+ async function setZoom(value){zoom=Math.min(5,Math.max(.25,value));await update()}
+ async function setView(view){yaw=0;pitch=.025;target.set(0,.9,0);if(view==='room')zoom=.25;else if(view==='body')zoom=1;else if(view==='face'){zoom=3.8;target.set(0,1.48,0)}else if(view==='hand'){zoom=4;target.set(.35,.67,0)}else throw new Error('未知视角');await update()}
+ window.CharacterLODPreview={ready:false,stats,setMode,setZoom,setView,rotate:async(value)=>{yaw=value;await update()},capturePixels:()=>{const gl=renderer.getContext(),bytes=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,bytes);return Array.from(bytes)}};
+ document.querySelector('#auto').onclick=()=>setMode('auto');document.querySelector('#original').onclick=()=>setMode('original');document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));document.querySelector('#zoom').oninput=event=>setZoom(Number(event.target.value));document.querySelector('#minus').onclick=()=>setZoom(zoom/1.25);document.querySelector('#plus').onclick=()=>setZoom(zoom*1.25);
+ const pointers=new Map();let distance=null;
+ canvas.onpointerdown=event=>{pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});canvas.setPointerCapture(event.pointerId);distance=null};
+ canvas.onpointermove=event=>{const previous=pointers.get(event.pointerId);if(!previous)return;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size===2){const [a,b]=[...pointers.values()],next=Math.hypot(a.x-b.x,a.y-b.y);if(distance&&next>0)zoom=Math.max(.25,Math.min(5,zoom*next/distance));distance=next}else{yaw-=(event.clientX-previous.x)*.008;pitch=Math.max(-.5,Math.min(.8,pitch+(event.clientY-previous.y)*.006))}update()};
+ canvas.onpointerup=canvas.onpointercancel=event=>{pointers.delete(event.pointerId);distance=null};canvas.addEventListener('wheel',event=>{event.preventDefault();setZoom(zoom*Math.exp(-event.deltaY*.0015))},{passive:false});new ResizeObserver(()=>update()).observe(stage);await setView('face');
+})().catch(error=>{document.querySelector('#status').className='error';document.querySelector('#status').textContent=error.message;window.CharacterLODPreviewFailure=error.message});
+</script></body></html>

@@ -32,6 +32,34 @@ const appearance = el => {
             ByndBuiltinLibrary?.close(); window.saveCharactersToStorage = async () => true;
             document.getElementById('wc-toast')?.classList.remove('show');
         });
+        // Reproduce existing chats saved under BYND/WeChat before switching to pixel grey.
+        await page.evaluate(() => {
+            const char = myCharacters[0];
+            char.chatConfig.bubbleAi = '#ffffff'; char.chatConfig.bubbleUser = '#95ec69';
+            applyChatConfig(char);
+            openChatSettings(); openWechatChatSettingsPage('appearance', { focus: false });
+        });
+        const greyDefaults = ['rgb(228, 228, 229)', 'rgb(203, 203, 211)'];
+        for (const [index, side] of ['ai', 'user'].entries()) {
+            const actual = await page.locator(`.wcs-preview-bubble.${side}`).evaluate(appearance);
+            assert.equal(actual.background, greyDefaults[index], 'legacy white/green settings use pixel grey defaults');
+            assert.equal(actual.radius, '3px', 'pixel default retains its compact squared corners');
+            assert.ok(actual.shadow.includes('inset'), 'pixel default retains its raised frame');
+        }
+        assert.deepEqual(await page.locator('[data-preset-id="default"] .wcs-bubble-option-swatch > i').evaluateAll(els => els.map(el => getComputedStyle(el).backgroundColor)), greyDefaults, 'legacy default swatch is grey');
+        await page.locator('.wcs-bubble-preview').scrollIntoViewIfNeeded();
+        await page.locator('.wcs-bubble-preview').screenshot({ path: path.join(output, 'bubble-default-grey-preview-375.png') });
+        await page.setViewportSize({ width: 320, height: 844 });
+        await page.locator('.wcs-bubble-preview').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: path.join(output, 'bubble-default-grey-settings-320.png'), animations: 'disabled' });
+        await page.setViewportSize({ width: 375, height: 844 });
+        assert.equal(await page.evaluate(() => saveChatSettings()), true);
+        assert.deepEqual(await page.evaluate(() => [myCharacters[0].chatConfig.bubbleAi, myCharacters[0].chatConfig.bubbleUser]), ['', ''], 'saving no longer freezes theme colors into character settings');
+        await page.evaluate(() => { closeChat(); openChat('pixel-bubble-proof'); });
+        for (const [index, side] of ['left', 'right'].entries()) {
+            assert.equal((await page.locator(`#chat-room-content .msg-row.${side} .wc-text-bubble`).evaluate(appearance)).background, greyDefaults[index], 'reopening keeps the grey defaults');
+        }
+        await page.screenshot({ path: path.join(output, 'bubble-default-grey-375.png'), animations: 'disabled' });
         const presets = await page.evaluate(() => BUBBLE_CSS_PRESETS.map(p => p.id));
         for (const id of presets) {
             await page.evaluate(id => { openChatSettings(); openWechatChatSettingsPage('appearance', { focus: false }); chooseBubblePreset(id); }, id);

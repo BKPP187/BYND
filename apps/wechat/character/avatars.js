@@ -8,7 +8,34 @@ function renderWechatCharacterVoiceSettings(char) {
     providerEl.value = binding?.provider || '';
     modelEl.value = binding?.voiceModel || '';
     voiceEl.value = binding?.voiceId || '';
+    voiceEl.dataset.voiceName = binding?.voiceName || '';
+    window.ByndElevenLabsVoices?.character.invalidate();
+    window.ByndMiniMaxVoices?.character.invalidate();
+    window.ByndFishVoices?.character.invalidate();
     updateWechatCharacterVoiceHint();
+}
+
+function syncWechatCharacterVoicePicker({ load = false } = {}) {
+    const elevenLabs = document.getElementById('wcs-char-voice-provider')?.value === 'elevenlabs';
+    const minimax = document.getElementById('wcs-char-voice-provider')?.value === 'minimax';
+    const fish = document.getElementById('wcs-char-voice-provider')?.value === 'fish-audio';
+    const fishPicker = document.getElementById('wcs-fish-picker');
+    if (fishPicker) fishPicker.hidden = !fish;
+    const minimaxPicker = document.getElementById('wcs-minimax-picker');
+    if (minimaxPicker) minimaxPicker.hidden = !minimax;
+    const picker = document.getElementById('wcs-elevenlabs-picker');
+    if (picker) picker.hidden = !elevenLabs;
+    const advanced = document.getElementById('wcs-char-voice-advanced');
+    if (advanced) {
+        advanced.hidden = !document.getElementById('wcs-char-voice-provider')?.value;
+        advanced.open = !elevenLabs && !minimax && !fish;
+    }
+    if (load && elevenLabs) window.ByndElevenLabsVoices?.character.open();
+    else if (!elevenLabs) window.ByndElevenLabsVoices?.character.close();
+    if (load && minimax) window.ByndMiniMaxVoices?.character.open();
+    else if (!minimax) window.ByndMiniMaxVoices?.character.close();
+    if (load && fish) window.ByndFishVoices?.character.open();
+    else if (!fish) window.ByndFishVoices?.character.close();
 }
 
 function getWechatVoiceProviderLabel(provider) {
@@ -26,9 +53,10 @@ function updateWechatCharacterVoiceHint() {
     const fields = document.getElementById('wcs-char-voice-fields');
     const hint = document.getElementById('wcs-char-voice-hint');
     if (fields) fields.classList.toggle('is-disabled', !provider);
+    syncWechatCharacterVoicePicker();
     if (!hint) return;
     hint.textContent = provider
-        ? `将使用设置 → TTS 中的 ${getWechatVoiceProviderLabel(provider)} 密钥和接口。角色卡只保存这里的模型与音色 ID，不保存密钥。`
+        ? ['elevenlabs', 'minimax', 'fish-audio'].includes(provider) ? '搜索、试听并选用声音，点“保存设置”后仅应用于当前角色。' : `将使用设置 → TTS 中的 ${getWechatVoiceProviderLabel(provider)} 密钥和接口。角色卡只保存这里的模型与音色 ID，不保存密钥。`
         : '未绑定付费音色。学习 App 会改用系统语音；聊天页不会用系统语音代替角色。';
 }
 
@@ -36,12 +64,15 @@ function handleWechatCharacterVoiceProviderChange() {
     const provider = document.getElementById('wcs-char-voice-provider')?.value || '';
     const modelEl = document.getElementById('wcs-char-voice-model');
     const voiceEl = document.getElementById('wcs-char-voice-id');
+    if (modelEl) modelEl.value = '';
+    if (voiceEl) { voiceEl.value = ''; voiceEl.dataset.voiceName = ''; }
     if (provider && typeof getVoiceApiByProvider === 'function') {
         const saved = getVoiceApiByProvider(provider);
         if (modelEl && !modelEl.value.trim()) modelEl.value = saved?.voiceModel || saved?.model || '';
-        if (voiceEl && !voiceEl.value.trim()) voiceEl.value = saved?.voiceId || saved?.voice || '';
+        if (voiceEl && provider !== 'elevenlabs') voiceEl.value = saved?.voiceId || saved?.voice || '';
     }
     updateWechatCharacterVoiceHint();
+    syncWechatCharacterVoicePicker({ load: true });
 }
 window.handleWechatCharacterVoiceProviderChange = handleWechatCharacterVoiceProviderChange;
 
@@ -343,6 +374,15 @@ function addCharAvatarToGallery(input) {
     input.value = '';
 }
 
+function getWechatBubbleColorOverrides(config = {}) {
+    const bubbleAi = config.bubbleAi || '';
+    const bubbleUser = config.bubbleUser || '';
+    // Older saves materialized theme defaults as character overrides. Keep defaults theme-owned.
+    const pair = `${bubbleAi.trim().toLowerCase()}|${bubbleUser.trim().toLowerCase()}`;
+    const legacyDefault = pair === '#ffffff|#95ec69' || pair === '#e4e4e5|#cbcbd3';
+    return { bubbleAi: legacyDefault ? '' : bubbleAi, bubbleUser: legacyDefault ? '' : bubbleUser };
+}
+
 async function saveChatSettings() {
     const charId = window.currentChatCharId;
     if (!charId) return;
@@ -354,8 +394,13 @@ async function saveChatSettings() {
     const voiceBinding = normalizeWechatCharacterVoiceBinding({
         provider: document.getElementById('wcs-char-voice-provider')?.value || '',
         voiceModel: document.getElementById('wcs-char-voice-model')?.value || '',
-        voiceId: document.getElementById('wcs-char-voice-id')?.value || ''
+        voiceId: document.getElementById('wcs-char-voice-id')?.value || '',
+        voiceName: document.getElementById('wcs-char-voice-id')?.dataset.voiceName || ''
     });
+    if (voiceBinding?.provider === 'elevenlabs' && !voiceBinding.voiceId) {
+        showWechatToast('请先为这个角色选择音色');
+        return false;
+    }
     const promptWorldBookIds = Array.from(document.querySelectorAll('#wcs-prompt-worldbook-list input[type="checkbox"]:checked'))
         .map(input => String(input.dataset.worldbookId || ''))
         .filter(Boolean);
@@ -363,8 +408,7 @@ async function saveChatSettings() {
         ...prevConfig,
         chatBg: prevConfig.chatBg || '#ededed',
         chatBgImage: window._tempChatBgImage || prevConfig.chatBgImage || '',
-        bubbleAi: prevConfig.bubbleAi || (getWechatUiThemeId() === 'pixel' ? '#e4e4e5' : '#ffffff'),
-        bubbleUser: prevConfig.bubbleUser || (getWechatUiThemeId() === 'pixel' ? '#cbcbd3' : '#95ec69'),
+        ...getWechatBubbleColorOverrides(prevConfig),
         fontSize: parseInt(document.getElementById('wcs-font-size').value) || 15,
         userTitle: document.getElementById('wcs-user-title').value.trim() || '我',
         nickname: document.getElementById('wcs-char-nickname').value.trim() || '',
@@ -708,9 +752,11 @@ function applyChatConfig(char) {
     // 气泡颜色 + 字体大小（通过 CSS 变量注入）
     const room = document.getElementById('wechat-chat-room');
     if (room) {
-        const pixel = getWechatUiThemeId() === 'pixel';
-        room.style.setProperty('--bubble-ai', config.bubbleAi || (pixel ? '#e4e4e5' : '#ffffff'));
-        room.style.setProperty('--bubble-user', config.bubbleUser || (pixel ? '#cbcbd3' : '#95ec69'));
+        const colors = getWechatBubbleColorOverrides(config);
+        [['--bubble-ai', colors.bubbleAi], ['--bubble-user', colors.bubbleUser]].forEach(([property, color]) => {
+            if (color) room.style.setProperty(property, color);
+            else room.style.removeProperty(property);
+        });
         room.style.setProperty('--chat-font-size', (config.fontSize || 15) + 'px');
     }
 

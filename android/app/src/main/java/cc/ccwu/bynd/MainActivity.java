@@ -2,6 +2,7 @@ package cc.ccwu.bynd;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.ClipData;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -17,6 +18,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.Voice;
 import android.util.Base64;
@@ -33,8 +35,11 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Locale;
@@ -50,7 +55,11 @@ public class MainActivity extends Activity {
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
+    private HealthConnectReader healthReader;
+    private ByndSafeAreaLayout safeArea;
     private ValueCallback<Uri[]> fileChooserCallback;
+    private File pendingCameraPhoto;
+    private Uri pendingCameraPhotoUri;
     private byte[] pendingPngBytes;
     private String pendingPngId;
     private String pendingBackupId;
@@ -67,6 +76,8 @@ public class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextToSpeech systemTts;
     private volatile boolean systemTtsReady;
+    private boolean systemStatusBarVisible = true;
+    private boolean systemStatusBarLightIcons;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,7 +95,13 @@ public class MainActivity extends Activity {
         projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         initializeSystemTts();
         webView = new WebView(this);
-        setContentView(webView);
+        safeArea = new ByndSafeAreaLayout(this, safeTop -> {
+            if (webView != null) webView.evaluateJavascript(
+                    "window.ByndSafeArea&&window.ByndSafeArea.setTop(" + safeTop + ");", null);
+        });
+        safeArea.addView(webView);
+        setContentView(safeArea);
+        safeArea.requestApplyInsets();
         configureWebView(webView);
         webView.addJavascriptInterface(new ByndAndroidBridge(), "ByndAndroid");
         // 后台陪伴 runs JS while BYND is in the background: never pause timers, keep the renderer alive.
@@ -96,7 +113,14 @@ public class MainActivity extends Activity {
     private final ScreenCompanionService.Bridge companionBridge = new ScreenCompanionService.Bridge() {
         @Override
         public void onContext(String json) {
-            if (webView != null) webView.evaluateJavascript("window.ByndScreenCompanion&&window.ByndScreenCompanion.onContext(" + json + ");", null);
+            boolean manual = json.contains("\"reason\":\"tap\"");
+            if (webView == null) {
+                if (manual) ScreenCompanionService.showBubble("后台连接已中断，请回 BYND 后再试。", "");
+                return;
+            }
+            webView.evaluateJavascript("(function(){var c=window.ByndScreenCompanion;if(!c)return false;c.onContext(" + json + ");return true;})()", ready -> {
+                if (manual && !"true".equals(ready)) ScreenCompanionService.showBubble("互动尚未就绪，请回 BYND 后再试。", "");
+            });
         }
 
         @Override
@@ -142,7 +166,7 @@ public class MainActivity extends Activity {
 
     private void configureSystemBars() {
         Window window = getWindow();
-        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             WindowManager.LayoutParams attrs = window.getAttributes();
@@ -157,14 +181,19 @@ public class MainActivity extends Activity {
             window.setStatusBarColor(Color.TRANSPARENT);
             window.setNavigationBarColor(Color.WHITE);
         }
-        applyFullscreenSystemBars();
+        applySystemStatusBar();
     }
 
-    private void applyFullscreenSystemBars() {
+    private void applySystemStatusBar() {
         Window window = getWindow();
-        int flags = View.SYSTEM_UI_FLAG_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        // The OS owns VPN, carrier strength, transport and battery indicators.
+        // Keep the WebView edge-to-edge; ByndSafeAreaLayout reserves the inset once.
+        if (systemStatusBarVisible) window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        else window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        int flags = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+        if (!systemStatusBarVisible) flags |= View.SYSTEM_UI_FLAG_FULLSCREEN;
+        if (!systemStatusBarLightIcons) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
@@ -172,7 +201,11 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
-                controller.hide(WindowInsets.Type.statusBars());
+                if (systemStatusBarVisible) controller.show(WindowInsets.Type.statusBars());
+                else controller.hide(WindowInsets.Type.statusBars());
+                controller.setSystemBarsAppearance(systemStatusBarLightIcons ? 0
+                        : WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         }
@@ -181,13 +214,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        applyFullscreenSystemBars();
+        applySystemStatusBar();
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) applyFullscreenSystemBars();
+        if (hasFocus) applySystemStatusBar();
     }
 
     private void configureWebView(WebView view) {
@@ -205,6 +238,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView webView, String url) {
                 super.onPageFinished(webView, url);
+                webView.evaluateJavascript("window.ByndSafeArea&&window.ByndSafeArea.setTop("
+                        + safeArea.getSafeTop() + ");", null);
                 openForumPostLink(getIntent() != null ? getIntent().getData() : null);
                 if ("file:///android_asset/www/index.html".equals(url)) UpdateManager.autoCheck(MainActivity.this);
             }
@@ -221,9 +256,14 @@ public class MainActivity extends Activity {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
                 if (fileChooserCallback != null) {
-                    fileChooserCallback.onReceiveValue(null);
+                    filePathCallback.onReceiveValue(null);
+                    return true;
                 }
                 fileChooserCallback = filePathCallback;
+                if (SystemCameraPolicy.shouldCaptureImage(fileChooserParams.isCaptureEnabled(), fileChooserParams.getAcceptTypes())) {
+                    openNativeCamera();
+                    return true;
+                }
                 Intent intent;
                 try {
                     intent = fileChooserParams.createIntent();
@@ -243,6 +283,34 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+    }
+
+    private void openNativeCamera() {
+        try {
+            File directory = CameraPhotoProvider.directory(this);
+            if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot create camera photo cache");
+            pendingCameraPhoto = File.createTempFile("bynd-camera-", ".jpg", directory);
+            pendingCameraPhotoUri = CameraPhotoProvider.uriForPhoto(this, pendingCameraPhoto);
+            Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            camera.putExtra(MediaStore.EXTRA_OUTPUT, pendingCameraPhotoUri);
+            camera.setClipData(ClipData.newRawUri("BYND camera photo", pendingCameraPhotoUri));
+            camera.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            startActivityForResult(camera, FILE_CHOOSER_REQUEST);
+        } catch (Exception error) {
+            clearPendingCameraPhoto(true);
+            ValueCallback<Uri[]> callback = fileChooserCallback;
+            fileChooserCallback = null;
+            if (callback != null) callback.onReceiveValue(null);
+            Toast.makeText(this, "无法打开系统相机，请检查手机相机是否可用", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void clearPendingCameraPhoto(boolean deletePhoto) {
+        if (pendingCameraPhotoUri != null) revokeUriPermission(pendingCameraPhotoUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        if (deletePhoto && pendingCameraPhoto != null) pendingCameraPhoto.delete();
+        pendingCameraPhoto = null;
+        pendingCameraPhotoUri = null;
     }
 
     private void initializeSystemTts() {
@@ -330,7 +398,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> notifyPngExport(id, true, "图片已保存到所选位置"));
                 }, "BYND-PNG-export").start();
             }
-            applyFullscreenSystemBars();
+            applySystemStatusBar();
             return;
         }
         if (requestCode == BACKUP_EXPORT_REQUEST) {
@@ -352,24 +420,30 @@ public class MainActivity extends Activity {
                     notifyBackupExport(id, false, "无法写入所选位置，请重新选择文件夹后重试");
                 }
             }
-            applyFullscreenSystemBars();
+            applySystemStatusBar();
             return;
         }
         if (requestCode == FILE_CHOOSER_REQUEST) {
             ValueCallback<Uri[]> callback = fileChooserCallback;
             fileChooserCallback = null;
             Uri[] result = null;
-            if (resultCode == RESULT_OK && data != null) {
+            if (pendingCameraPhotoUri != null) {
+                boolean captured = SystemCameraPolicy.hasCapturedPhoto(resultCode == RESULT_OK, pendingCameraPhoto);
+                if (captured) result = new Uri[] { pendingCameraPhotoUri };
+                else if (resultCode == RESULT_OK) Toast.makeText(this, "拍照未保存成功，请重新拍摄", Toast.LENGTH_LONG).show();
+                // Keep a successful JPEG until WebView has read it; cancellation leaves no empty file.
+                clearPendingCameraPhoto(!captured);
+            } else if (resultCode == RESULT_OK && data != null) {
                 result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
             }
             if (callback != null) callback.onReceiveValue(result);
-            applyFullscreenSystemBars();
+            applySystemStatusBar();
             return;
         }
         if (requestCode == COMPANION_CAPTURE_REQUEST) {
             if (resultCode == RESULT_OK && data != null) ScreenCompanionService.startProjection(this, resultCode, data);
             else companionBridge.onState("{\"event\":\"projection-denied\",\"projection\":false}");
-            applyFullscreenSystemBars();
+            applySystemStatusBar();
             return;
         }
         if (requestCode == SCREEN_CAPTURE_REQUEST && resultCode == RESULT_OK && data != null) {
@@ -456,6 +530,12 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (healthReader != null) healthReader.cancel();
+        clearPendingCameraPhoto(true);
+        if (fileChooserCallback != null) {
+            fileChooserCallback.onReceiveValue(null);
+            fileChooserCallback = null;
+        }
         if (ScreenCompanionService.bridge == companionBridge) ScreenCompanionService.bridge = null;
         stopProjection();
         systemTtsReady = false;
@@ -626,7 +706,46 @@ public class MainActivity extends Activity {
         ScreenCompanionService.sync(this);
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (healthReader != null) healthReader.onPermissionsResult(requestCode);
+    }
+
+    private boolean isHealthPage() {
+        return webView != null && "file:///android_asset/www/index.html".equals(webView.getUrl()) && !isFinishing();
+    }
+
     public class ByndAndroidBridge {
+        @JavascriptInterface
+        public boolean healthAvailable() {
+            return Build.VERSION.SDK_INT >= 34 && HealthConnectReader.available(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void requestHealth(String payload) {
+            mainHandler.post(() -> {
+                if (!isHealthPage() || Build.VERSION.SDK_INT < 34) return;
+                if (healthReader == null) healthReader = new HealthConnectReader(MainActivity.this, reply -> {
+                    if (isHealthPage()) webView.evaluateJavascript("window.ByndNativeHealth&&window.ByndNativeHealth.onReply(" + reply.toString() + ");", null);
+                });
+                healthReader.request(payload);
+            });
+        }
+
+        @JavascriptInterface
+        public int getSafeAreaTop() { return safeArea != null ? safeArea.getSafeTop() : 0; }
+
+        @JavascriptInterface
+        public void setSystemStatusBar(boolean visible, boolean lightIcons) {
+            mainHandler.post(() -> {
+                systemStatusBarVisible = visible;
+                systemStatusBarLightIcons = lightIcons;
+                applySystemStatusBar();
+                if (safeArea != null) safeArea.requestApplyInsets();
+            });
+        }
+
         @JavascriptInterface
         public boolean updatesEnabled() { return BuildConfig.BYND_ENABLE_UPDATES; }
 

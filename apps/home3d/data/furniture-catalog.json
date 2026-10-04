@@ -398,12 +398,12 @@
       "id": "computer_01",
       "name": "一起打游戏的电脑",
       "type": "computer",
-      "model": "k-computerScreen.glb",
-      "source": "kenney",
+      "model": null,
+      "source": "bynd",
       "width": 0.75,
       "footprint": [
         0.75,
-        0.2
+        0.28
       ],
       "materials": [
         "milky_plastic",
@@ -423,14 +423,15 @@
         "on": true
       },
       "style": "cream",
-      "category": "装饰"
+      "category": "装饰",
+      "procedural": true
     },
     {
       "id": "keyboard_01",
       "name": "奶白键盘",
       "type": "prop",
-      "model": "k-computerKeyboard.glb",
-      "source": "kenney",
+      "model": null,
+      "source": "bynd",
       "width": 0.65,
       "footprint": [
         0.65,
@@ -447,7 +448,8 @@
       },
       "state": {},
       "style": "cream",
-      "category": "装饰"
+      "category": "装饰",
+      "procedural": true
     },
     {
       "id": "radio_01",
@@ -568,14 +570,14 @@
     },
     {
       "id": "bear_01",
-      "name": "陪伴小熊",
+      "name": "软绒陪伴小熊",
       "type": "keepsake",
-      "model": "k-bear.glb",
-      "source": "kenney",
-      "width": 0.46,
+      "model": null,
+      "source": "bynd",
+      "width": 0.3,
       "footprint": [
-        0.46,
-        0.4
+        0.3,
+        0.26
       ],
       "materials": [
         "cream_fabric",
@@ -591,7 +593,9 @@
       },
       "state": {},
       "style": "cream",
-      "category": "装饰"
+      "category": "装饰",
+      "procedural": true,
+      "height": 0.36
     },
     {
       "id": "frame_01",
@@ -2027,20 +2031,1357 @@
         "user": true,
         "char": true
       }
+    },
+    {
+      "id": "cream_sink",
+      "name": "奶油 · 洗手台",
+      "type": "sink",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.4,
+      "footprint": [
+        1.4,
+        0.7
+      ],
+      "height": 0.88,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_fridge",
+      "name": "奶油 · 双门冰箱",
+      "type": "fridge",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.72,
+      "footprint": [
+        0.72,
+        0.7
+      ],
+      "height": 1.74,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_dining_table",
+      "name": "奶油 · 餐桌",
+      "type": "table",
+      "style": "cream",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.8,
+      "footprint": [
+        1.8,
+        0.9
+      ],
+      "height": 0.78,
+      "variant": "dining",
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Eat",
+        "Drink",
+        "Look At"
+      ],
+      "positions": [
+        [
+          -0.48600000000000004,
+          0.62,
+          0.9
+        ],
+        [
+          0.48600000000000004,
+          0.62,
+          0.9
+        ]
+      ],
+      "intent": [
+        "eat",
+        "drink"
+      ]
+    },
+    {
+      "id": "cream_sideboard",
+      "name": "奶油 · 抽屉边柜",
+      "type": "cabinet",
+      "style": "cream",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.3,
+      "footprint": [
+        1.3,
+        0.5
+      ],
+      "height": 0.95,
+      "variant": "sideboard",
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_fireplace",
+      "name": "奶油 · 壁炉",
+      "type": "fireplace",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.55,
+      "footprint": [
+        1.55,
+        0.48
+      ],
+      "height": 1.28,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_wardrobe",
+      "name": "奶油 · 衣柜",
+      "type": "wardrobe",
+      "style": "cream",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.4,
+      "footprint": [
+        1.4,
+        0.58
+      ],
+      "height": 2.12,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_sink",
+      "name": "欧式 · 洗手台",
+      "type": "sink",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.4,
+      "footprint": [
+        1.4,
+        0.7
+      ],
+      "height": 0.88,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_fridge",
+      "name": "欧式 · 双门冰箱",
+      "type": "fridge",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.72,
+      "footprint": [
+        0.72,
+        0.7
+      ],
+      "height": 1.74,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_dining_table",
+      "name": "欧式 · 餐桌",
+      "type": "table",
+      "style": "european",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.8,
+      "footprint": [
+        1.8,
+        0.9
+      ],
+      "height": 0.78,
+      "variant": "dining",
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Eat",
+        "Drink",
+        "Look At"
+      ],
+      "positions": [
+        [
+          -0.48600000000000004,
+          0.62,
+          0.9
+        ],
+        [
+          0.48600000000000004,
+          0.62,
+          0.9
+        ]
+      ],
+      "intent": [
+        "eat",
+        "drink"
+      ]
+    },
+    {
+      "id": "european_sideboard",
+      "name": "欧式 · 抽屉边柜",
+      "type": "cabinet",
+      "style": "european",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.3,
+      "footprint": [
+        1.3,
+        0.5
+      ],
+      "height": 0.95,
+      "variant": "sideboard",
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_fireplace",
+      "name": "欧式 · 壁炉",
+      "type": "fireplace",
+      "style": "european",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.55,
+      "footprint": [
+        1.55,
+        0.48
+      ],
+      "height": 1.28,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "european_wardrobe",
+      "name": "欧式 · 衣柜",
+      "type": "wardrobe",
+      "style": "european",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.4,
+      "footprint": [
+        1.4,
+        0.58
+      ],
+      "height": 2.12,
+      "materials": [
+        "soft_wood",
+        "cream_fabric",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_bed",
+      "name": "森系藤木 · 双人床",
+      "type": "bed",
+      "style": "botanical",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_sofa",
+      "name": "森系藤木 · 双人沙发",
+      "type": "sofa",
+      "style": "botanical",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_chair",
+      "name": "森系藤木 · 休闲椅",
+      "type": "chair",
+      "style": "botanical",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_table",
+      "name": "森系藤木 · 茶几",
+      "type": "table",
+      "style": "botanical",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_bookcase",
+      "name": "森系藤木 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "botanical",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "botanical_cabinet",
+      "name": "森系藤木 · 矮柜",
+      "type": "cabinet",
+      "style": "botanical",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_lamp",
+      "name": "森系藤木 · 落地灯",
+      "type": "lamp",
+      "style": "botanical",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "botanical_plant",
+      "name": "森系藤木 · 绿植",
+      "type": "plant",
+      "style": "botanical",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_bed",
+      "name": "玫瑰阁楼 · 双人床",
+      "type": "bed",
+      "style": "rose",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_sofa",
+      "name": "玫瑰阁楼 · 双人沙发",
+      "type": "sofa",
+      "style": "rose",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_chair",
+      "name": "玫瑰阁楼 · 休闲椅",
+      "type": "chair",
+      "style": "rose",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_table",
+      "name": "玫瑰阁楼 · 茶几",
+      "type": "table",
+      "style": "rose",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_bookcase",
+      "name": "玫瑰阁楼 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "rose",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "rose_cabinet",
+      "name": "玫瑰阁楼 · 矮柜",
+      "type": "cabinet",
+      "style": "rose",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_lamp",
+      "name": "玫瑰阁楼 · 落地灯",
+      "type": "lamp",
+      "style": "rose",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "rose_plant",
+      "name": "玫瑰阁楼 · 绿植",
+      "type": "plant",
+      "style": "rose",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_bed",
+      "name": "粉白花园 · 双人床",
+      "type": "bed",
+      "style": "pink",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_sofa",
+      "name": "粉白花园 · 双人沙发",
+      "type": "sofa",
+      "style": "pink",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_chair",
+      "name": "粉白花园 · 休闲椅",
+      "type": "chair",
+      "style": "pink",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_table",
+      "name": "粉白花园 · 茶几",
+      "type": "table",
+      "style": "pink",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_bookcase",
+      "name": "粉白花园 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "pink",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "pink_cabinet",
+      "name": "粉白花园 · 矮柜",
+      "type": "cabinet",
+      "style": "pink",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_lamp",
+      "name": "粉白花园 · 落地灯",
+      "type": "lamp",
+      "style": "pink",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "pink_plant",
+      "name": "粉白花园 · 绿植",
+      "type": "plant",
+      "style": "pink",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_bed",
+      "name": "黑白星落 · 双人床",
+      "type": "bed",
+      "style": "monochrome",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_sofa",
+      "name": "黑白星落 · 双人沙发",
+      "type": "sofa",
+      "style": "monochrome",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_chair",
+      "name": "黑白星落 · 休闲椅",
+      "type": "chair",
+      "style": "monochrome",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_table",
+      "name": "黑白星落 · 茶几",
+      "type": "table",
+      "style": "monochrome",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_bookcase",
+      "name": "黑白星落 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "monochrome",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "monochrome_cabinet",
+      "name": "黑白星落 · 矮柜",
+      "type": "cabinet",
+      "style": "monochrome",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_lamp",
+      "name": "黑白星落 · 落地灯",
+      "type": "lamp",
+      "style": "monochrome",
+      "category": "灯",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "monochrome_plant",
+      "name": "黑白星落 · 绿植",
+      "type": "plant",
+      "style": "monochrome",
+      "category": "装饰",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.55,
+      "footprint": [
+        0.55,
+        0.55
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "cream_prep_counter",
+      "name": "奶油厨房 · 备餐台",
+      "type": "cabinet",
+      "width": 1.35,
+      "height": 0.88,
+      "footprint": [
+        1.35,
+        0.76
+      ],
+      "model": null,
+      "source": "bynd",
+      "procedural": true,
+      "style": "cream",
+      "variant": "prep",
+      "category": "收纳",
+      "actions": [
+        "Cook"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.92
+        ]
+      ],
+      "intent": [
+        "cook"
+      ]
+    },
+    {
+      "id": "cream_kitchen_island",
+      "name": "奶油厨房 · 料理中岛",
+      "type": "cabinet",
+      "width": 2.15,
+      "height": 0.88,
+      "footprint": [
+        2.15,
+        0.95
+      ],
+      "model": null,
+      "source": "bynd",
+      "procedural": true,
+      "style": "cream",
+      "variant": "prep",
+      "category": "收纳",
+      "actions": [
+        "Cook"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          1.03
+        ]
+      ],
+      "intent": [
+        "cook"
+      ]
+    },
+    {
+      "id": "gamepad_01",
+      "name": "奶白游戏手柄",
+      "type": "keepsake",
+      "width": 0.3,
+      "height": 0.1,
+      "footprint": [
+        0.3,
+        0.2
+      ],
+      "model": null,
+      "source": "bynd",
+      "procedural": true,
+      "style": "cream",
+      "variant": "gamepad",
+      "category": "装饰",
+      "actions": [
+        "Look At"
+      ],
+      "positions": []
+    },
+    {
+      "id": "game_speaker_01",
+      "name": "桌面小音箱",
+      "type": "speaker",
+      "width": 0.18,
+      "height": 0.26,
+      "footprint": [
+        0.18,
+        0.18
+      ],
+      "model": null,
+      "source": "bynd",
+      "procedural": true,
+      "style": "cream",
+      "variant": "gaming",
+      "category": "装饰",
+      "actions": [
+        "Look At"
+      ],
+      "positions": []
+    },
+    {
+      "id": "kitchen_spice_shelf",
+      "name": "厨房 · 杯碟与调料架",
+      "type": "prop",
+      "style": "cream",
+      "category": "装饰",
+      "source": "bynd",
+      "procedural": true,
+      "model": null,
+      "width": 1.6,
+      "footprint": [
+        1.6,
+        0.25
+      ],
+      "height": 0.6,
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "state": {}
     }
   ],
   "styles": {
     "cream": {
       "name": "奶油童话",
-      "wood": "#d7b687",
-      "fabric": "#f5dbc9",
-      "accent": "#a9c6a5"
+      "wood": "#b89b78",
+      "fabric": "#e8e5d7",
+      "accent": "#a9c7ba"
     },
     "european": {
       "name": "欧式复古",
-      "wood": "#997052",
-      "fabric": "#e8c3cd",
-      "accent": "#dac08c"
+      "wood": "#644735",
+      "fabric": "#e5d7bf",
+      "accent": "#b69a62"
     },
     "japanese": {
       "name": "日式和风",
@@ -2059,6 +3400,32 @@
       "wood": "#895b45",
       "fabric": "#ead3ab",
       "accent": "#b95851"
+    },
+    "botanical": {
+      "name": "森系藤木",
+      "wood": "#796248",
+      "fabric": "#cbd2b2",
+      "accent": "#688456"
+    },
+    "rose": {
+      "name": "玫瑰阁楼",
+      "wood": "#9c8474",
+      "fabric": "#d6b8b4",
+      "accent": "#c09495"
+    },
+    "pink": {
+      "name": "粉白花园",
+      "wood": "#eee5da",
+      "fabric": "#f0c4d0",
+      "accent": "#a9cbbb",
+      "trim": "#fff7ef"
+    },
+    "monochrome": {
+      "name": "黑白星落",
+      "wood": "#33353b",
+      "fabric": "#f1f0ed",
+      "accent": "#737881",
+      "trim": "#f3f3ee"
     }
   },
   "types": {
@@ -2261,6 +3628,38 @@
         "cook",
         "eat"
       ]
+    },
+    "sink": {
+      "category": "生活设施",
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "intent": []
+    },
+    "fridge": {
+      "category": "生活设施",
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "intent": []
+    },
+    "fireplace": {
+      "category": "生活设施",
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "intent": []
+    },
+    "wardrobe": {
+      "category": "收纳",
+      "actions": [
+        "Look At"
+      ],
+      "positions": [],
+      "intent": []
     }
   }
 }

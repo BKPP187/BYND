@@ -32,7 +32,6 @@ const BOARD_GAME_MANUAL_COMMENT_COOLDOWN_MS = 30 * 1000;
 const BOARD_GAME_RATE_LIMIT_PAUSE_MS = 5 * 60 * 1000;
 const GOMOKU_BOARD_SIZE = 15;
 const GOMOKU_DIRECTIONS = [[1, 0], [0, 1], [1, 1], [1, -1]];
-const GAME_ROLES = ['狼人', '预言家', '女巫', '守卫', '村民', '村民', '村民', '村民', '村民', '猎人'];
 const CATPOT_INGREDIENTS = [
     { id: 'egg', name: '笑脸煎蛋', asset: 'assets/cat-breakfast-pot/food/egg.png', color: '#ffd95f' },
     { id: 'youtiao', name: '软乎油条', asset: 'assets/cat-breakfast-pot/food/youtiao.png', color: '#e8a94b' },
@@ -104,9 +103,9 @@ function getWolfchaSetupIds() {
     const chars = getWolfchaCharacters();
     const allIds = chars.map(char => char.id);
     try {
-        const saved = JSON.parse(localStorage.getItem(WOLFCHA_SETUP_KEY) || '[]');
+        const saved = JSON.parse(localStorage.getItem(WOLFCHA_SETUP_KEY) || 'null');
         const valid = Array.isArray(saved) ? saved.filter(id => allIds.includes(id)) : [];
-        if (valid.length) return valid.slice(0, 9);
+        if (Array.isArray(saved)) return valid.slice(0, 9);
     } catch (e) {}
     return allIds.slice(0, Math.min(5, allIds.length));
 }
@@ -232,8 +231,9 @@ function startWolfchaGame(charIds = getWolfchaSetupIds(), shouldRender = true) {
         role: '',
         alive: true
     }))];
-    const roles = shuffleWolfchaList([...GAME_ROLES]).slice(0, players.length);
+    const roles = shuffleWolfchaList(getWolfchaRolePool(players.length));
     const state = {
+        sessionId: 'wolfcha-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2),
         phase: 'day',
         day: 1,
         turnMode: 'day_intro',
@@ -247,7 +247,7 @@ function startWolfchaGame(charIds = getWolfchaSetupIds(), shouldRender = true) {
         currentSpeakerId: players[0]?.id || 'user',
         log: [
             { type: 'narrator', name: '旁白', text: `人到齐了，${players.length} 名玩家入场，身份已随机分配。` },
-            { type: 'narrator', name: '旁白', text: '第一天从警徽竞选发言开始。点击「旁白继续」，我会依次点名发言。' }
+            { type: 'narrator', name: '旁白', text: '第一天开始。点击「旁白继续」，依席位发言；玩法见「规则与玩法」。' }
         ],
         players: players.map((player, index) => ({ ...player, role: roles[index] || '村民', alive: true }))
     };
@@ -264,10 +264,12 @@ function getWolfchaUserPlayer(state = null) {
 }
 
 function isWolfchaRoleVisibleToUser(player, state = null) {
+    return isWolfchaRoleVisibleToPlayer(player, getWolfchaUserPlayer(state));
+}
+
+function isWolfchaRoleVisibleToPlayer(player, viewer) {
     if (!player) return false;
-    if (player.isUser) return true;
-    const userPlayer = getWolfchaUserPlayer(state);
-    return !!(userPlayer && userPlayer.role === '狼人' && player.role === '狼人');
+    return player.id === viewer?.id || !!(viewer && viewer.role === '狼人' && player.role === '狼人');
 }
 
 function getWolfchaPlayerRoleLabel(player, state = null) {
@@ -293,12 +295,12 @@ function getWolfchaRoleIconForPlayer(player, state = null) {
     return 'ri-user-smile-line';
 }
 
-function getWolfchaPublicLogText(entry, state = null) {
+function getWolfchaPublicLogText(entry, state = null, viewer = getWolfchaUserPlayer(state)) {
     const item = normalizeWolfchaLogEntry(entry);
     const players = Array.isArray(state?.players) ? state.players : [];
     const player = item.playerId ? players.find(row => row.id === item.playerId) : null;
     const text = String(item.text || '');
-    if (player && !isWolfchaRoleVisibleToUser(player, state)) {
+    if (item.type === 'narrator' && player && !isWolfchaRoleVisibleToPlayer(player, viewer)) {
         return text.replace(/身份是\s*(狼人|预言家|女巫|守卫|猎人|村民)[。.!！]?/g, '身份已由裁判记录，玩家视角不公开。');
     }
     return text;
@@ -323,27 +325,21 @@ function renderWolfchaOpening(el) {
     const chars = getWolfchaCharacters();
     const selectedCount = getWolfchaSetupIds().length;
     el.innerHTML = `
-        <section class="wolfcha-opening">
+        <section class="wolfcha-opening wolfcha-screen">
             <div class="wolfcha-opening-bg" aria-hidden="true"></div>
-            <div class="wolfcha-opening-orbit" aria-hidden="true"></div>
-            <div class="wolfcha-opening-cards" aria-hidden="true">
-                <span><i class="ri-moon-clear-fill"></i><b>狼人</b></span>
-                <span><i class="ri-eye-2-fill"></i><b>预言家</b></span>
-                <span><i class="ri-shield-star-fill"></i><b>守卫</b></span>
+            <div class="wolfcha-scroll wolfcha-opening-scroll">
+                <div class="wolfcha-opening-copy">
+                    <span>THE MIDNIGHT CHRONICLE</span>
+                    <strong>月下 · 狼人杀</strong>
+                    <p>钟声响起，谁在说谎？</p>
+                </div>
+                <div class="wolfcha-opening-caption" aria-hidden="true"><span>Ⅰ</span><i></i><span>MOONLIT TABLE</span><i></i><span>Ⅻ</span></div>
             </div>
-            <div class="wolfcha-opening-copy">
-                <span>MOONLIT TABLE</span>
-                <strong>梦境牌局即将开启</strong>
-                <p>午夜、身份、谎言和预言会在同一张桌上醒来。先召集角色，再由旁白引导入局。</p>
+            <div class="wolfcha-footer wolfcha-opening-footer">
+                <div class="wolfcha-opening-meta"><span>${chars.length} 位角色可邀请</span><span>${selectedCount} 位已候选</span></div>
+                <button type="button" class="wolfcha-opening-start" onclick="enterWolfchaSetup()"><span>召集入局</span><i class="ri-arrow-right-line"></i></button>
+                ${renderWolfchaRules()}
             </div>
-            <div class="wolfcha-opening-meta">
-                <span><b>${selectedCount || Math.min(chars.length, 9)}</b> 已候选</span>
-                <span><b>${chars.length}</b> 可邀请</span>
-            </div>
-            <button type="button" class="wolfcha-opening-start" onclick="enterWolfchaSetup()">
-                <i class="ri-sparkling-2-fill"></i>
-                <span>召集入局</span>
-            </button>
         </section>
     `;
 }
@@ -361,44 +357,39 @@ function renderWolfchaSetup(el) {
     const selectedIds = getWolfchaSetupIds();
     const profile = typeof getUserProfile === 'function' ? getUserProfile() : {};
     el.innerHTML = `
-        <section class="wolfcha-setup">
-            <div class="wolfcha-setup-hero">
-                <div class="wolfcha-setup-sigil" aria-hidden="true"><i class="ri-moon-clear-fill"></i></div>
-                <span>BYND WEREWOLF</span>
-                <strong>选择陪你入局的角色</strong>
-                <p>你会自动加入牌局。开局后只有你的身份可见；如果你是狼人，会额外看到同阵营狼人。其他身份由裁判持有。</p>
-                <div class="wolfcha-setup-omens" aria-hidden="true">
-                    <i></i><i></i><i></i><i></i>
-                </div>
-            </div>
+        <section class="wolfcha-setup wolfcha-screen">
+          <div class="wolfcha-scroll">
+            <div class="wolfcha-section-heading"><span>THE GUEST LIST</span><h2>邀请入席</h2><p>选好同行者，再揭开身份。</p></div>
             <div class="wolfcha-user-card">
-                <div>${profile.avatar ? `<img src="${musicEscapeAttr(profile.avatar)}" alt="${musicEscapeAttr(profile.name || '你')}">` : '<i class="ri-user-smile-line"></i>'}</div>
-                <span>玩家 1</span>
-                <strong>${musicEscapeHtml(profile.name || '你')}</strong>
+                <div class="wolfcha-setup-avatar">${profile.avatar ? `<img src="${musicEscapeAttr(profile.avatar)}" alt="${musicEscapeAttr(profile.name || '你')}">` : '<i class="ri-user-smile-line"></i>'}</div>
+                <div class="wolfcha-user-copy"><span>01 / 你的席位</span><strong>${musicEscapeHtml(profile.name || '你')}</strong></div>
                 <em>固定加入</em>
             </div>
             <div class="wolfcha-setup-head">
-                <strong>AI 玩家</strong>
-                <span>${selectedIds.length}/${Math.min(chars.length, 9)} 已选择</span>
+                <strong>同行角色</strong>
+                <span>${selectedIds.length} / 9 已邀请</span>
             </div>
             <div class="wolfcha-setup-list">
                 ${chars.length ? chars.map((char, index) => {
                     const selected = selectedIds.includes(char.id);
                     return `
-                        <button type="button" class="wolfcha-setup-char ${selected ? 'selected' : ''}" onclick="toggleWolfchaSetupChar('${musicEscapeAttr(char.id)}')">
+                        <button type="button" class="wolfcha-setup-char ${selected ? 'selected' : ''}" aria-pressed="${selected}" onclick="toggleWolfchaSetupChar('${musicEscapeAttr(char.id)}')">
+                            <span class="wolfcha-card-index">${String(index + 1).padStart(2, '0')} <i class="ri-sparkling-line" aria-hidden="true"></i></span>
                             <div class="wolfcha-setup-avatar">${char.avatar ? `<img src="${musicEscapeAttr(char.avatar)}" alt="${musicEscapeAttr(getMusicCharName(char))}">` : '<i class="ri-user-line"></i>'}</div>
-                            <div>
-                                <span>玩家 ${index + 2}</span>
+                            <div class="wolfcha-guest-copy">
                                 <strong>${musicEscapeHtml(getMusicCharName(char))}</strong>
+                                <span>${selected ? '已入席' : '点击邀请'}</span>
                             </div>
-                            <i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-add-circle-line'}"></i>
+                            <i class="${selected ? 'ri-checkbox-circle-fill' : 'ri-add-circle-line'}" aria-hidden="true"></i>
                         </button>
                     `;
                 }).join('') : '<div class="wolfcha-setup-empty">先在微信里导入角色，再回来选择陪玩的 AI。</div>'}
             </div>
-            <div class="wolfcha-setup-actions">
-                <button type="button" onclick="selectFirstWolfchaChars()"><i class="ri-group-line"></i> 选前九个</button>
-                <button type="button" class="primary" onclick="startWolfchaGameFromSetup()" ${selectedIds.length ? '' : 'disabled'}><i class="ri-play-fill"></i> 开始游戏</button>
+            ${renderWolfchaRules()}
+          </div>
+            <div class="wolfcha-footer wolfcha-setup-actions">
+                <button type="button" onclick="selectFirstWolfchaChars()"><i class="ri-group-line"></i> 邀请前九位</button>
+                <button type="button" class="primary" onclick="startWolfchaGameFromSetup()" ${selectedIds.length ? '' : 'disabled'}>开始牌局 <i class="ri-arrow-right-line"></i></button>
             </div>
         </section>
     `;
@@ -416,14 +407,26 @@ window.openWolfchaSetup = openWolfchaSetup;
 function toggleWolfchaSetupChar(id) {
     const selected = getWolfchaSetupIds();
     const exists = selected.includes(id);
+    if (!exists && selected.length >= 9) {
+        if (typeof showWechatToast === 'function') showWechatToast('最多邀请九位角色');
+        return;
+    }
     const next = exists ? selected.filter(item => item !== id) : [...selected, id].slice(0, 9);
-    saveWolfchaSetupIds(next);
+    try { saveWolfchaSetupIds(next); }
+    catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('邀请名单未保存，请重试');
+        return;
+    }
     renderGameApp();
 }
 window.toggleWolfchaSetupChar = toggleWolfchaSetupChar;
 
 function selectFirstWolfchaChars() {
-    saveWolfchaSetupIds(getWolfchaCharacters().slice(0, 9).map(char => char.id));
+    try { saveWolfchaSetupIds(getWolfchaCharacters().slice(0, 9).map(char => char.id)); }
+    catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('邀请名单未保存，请重试');
+        return;
+    }
     renderGameApp();
 }
 window.selectFirstWolfchaChars = selectFirstWolfchaChars;
@@ -434,8 +437,14 @@ function startWolfchaGameFromSetup() {
         if (typeof showWechatToast === 'function') showWechatToast('至少选择一个 AI 角色');
         return;
     }
-    localStorage.setItem(WOLFCHA_ENTRY_KEY, 'playing');
-    startWolfchaGame(selected, true);
+    try {
+        startWolfchaGame(selected, false);
+        localStorage.setItem(WOLFCHA_ENTRY_KEY, 'playing');
+    } catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('牌局未能保存，请重试');
+        return;
+    }
+    renderGameApp();
 }
 window.startWolfchaGameFromSetup = startWolfchaGameFromSetup;
 
@@ -443,6 +452,7 @@ function renderGameApp() {
     const el = document.getElementById('game-content');
     if (!el) return;
     const activeGame = getActiveGame();
+    if (activeGame !== 'wolfcha') window.WolfchaAudio?.stop();
     const gameWindow = document.getElementById('app-game-window');
     if (gameWindow) {
         Array.from(gameWindow.classList).forEach(cls => { if (cls.startsWith('game-mode-')) gameWindow.classList.remove(cls); });
@@ -506,10 +516,12 @@ function renderGameApp() {
         return;
     }
     if (activeGame === 'wolfcha' && !getGameState() && getWolfchaEntryStep() !== 'setup') {
+        window.WolfchaAudio?.resetNarration();
         renderWolfchaOpening(el);
         return;
     }
     if (activeGame === 'wolfcha' && !getGameState()) {
+        window.WolfchaAudio?.resetNarration();
         renderWolfchaSetup(el);
         return;
     }
@@ -528,27 +540,34 @@ function renderGameApp() {
     const selectedRoleIcon = getWolfchaRoleIconForPlayer(selected, state);
     const dialogMetaText = lastNarrator?.text && lastNarrator.text !== lastLog.text ? lastNarrator.text : '';
     const dialogText = getWolfchaPublicLogText(lastLog, state);
+    const userPlayer = getWolfchaUserPlayer(state);
+    const voteTarget = players.find(player => player.id === state.selectedId);
+    const previousScroll = el.querySelector('.wolfcha-playing .wolfcha-scroll');
+    const previousInput = document.getElementById('wolfcha-user-speech-input');
+    const scrollTop = previousScroll?.scrollTop || 0;
+    const speechDraft = previousInput?.value || '';
     el.innerHTML = `
+      <div class="wolfcha-screen wolfcha-playing ${state.phase === 'night' ? 'night' : ''}">
+       <div class="wolfcha-scroll">
         <section class="wolfcha-stage ${state.phase === 'night' ? 'night' : ''}">
-            <div class="wolfcha-table-aura" aria-hidden="true"></div>
             <div class="wolfcha-topline">
                 <div class="wolfcha-status">
                     <span><small>第</small><b>${String(state.day || 1).padStart(2, '0')}</b><small>天</small></span>
                     <span><small>存活</small><b>${alive}/${players.length}</b></span>
                 </div>
                 <div class="wolfcha-top-actions">
-                    <button type="button" onclick="openGameHub()"><i class="ri-apps-2-line"></i> 大厅</button>
+                    <button type="button" aria-expanded="${!!window.WolfchaAudio?.panelOpen}" aria-controls="wolfcha-sound-panel" onclick="WolfchaAudio.togglePanel()"><i class="ri-volume-up-line"></i> 声音</button>
                     <button type="button" onclick="openWolfchaSetup()"><i class="ri-group-line"></i> 换人</button>
                 </div>
             </div>
-            <div class="wolfcha-action-pill"><i class="ri-eye-line"></i><span>${musicEscapeHtml(state.action || '等待开始')}</span></div>
+            ${window.WolfchaAudio?.renderControls() || ''}
+            <div class="wolfcha-moon-scene">
+                <span class="wolfcha-scene-kicker">${state.phase === 'night' ? 'THE SILENT NIGHT' : 'THE DAY OF RECKONING'}</span>
+                <strong>${state.phase === 'night' ? '天黑，请闭眼' : '月落，真相未明'}</strong>
+                <div class="wolfcha-own-role"><i class="${getWolfchaRoleIconForPlayer(userPlayer, state)}"></i><span>你的身份 · ${musicEscapeHtml(getWolfchaPlayerRoleLabel(userPlayer, state))}</span></div>
+            </div>
+            <div class="wolfcha-action-pill"><i class="${state.phase === 'night' ? 'ri-moon-line' : 'ri-sun-line'}"></i><span>${musicEscapeHtml(state.action || '等待开始')}</span>${state.aiSpeechBusyId ? '<small>思考中…</small>' : ''}</div>
             <div class="wolfcha-center">
-                ${waitingUserSpeech ? `
-                    <div class="wolfcha-user-speech-box">
-                        <textarea id="wolfcha-user-speech-input" maxlength="180" placeholder="轮到你发言，写下你的怀疑、站边或解释..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitWolfchaUserSpeech();}"></textarea>
-                        <button type="button" onclick="submitWolfchaUserSpeech()"><i class="ri-send-plane-fill"></i> 发言</button>
-                    </div>
-                ` : ''}
                 <div class="wolfcha-speaker-card">
                     <div class="wolfcha-role-card">
                         <span>${musicEscapeHtml(selectedRole)}</span>
@@ -557,33 +576,55 @@ function renderGameApp() {
                     </div>
                     <div class="wolfcha-avatar-large">${selected?.avatar ? `<img src="${musicEscapeAttr(selected.avatar)}" alt="${musicEscapeAttr(selected.name)}">` : '<i class="ri-user-smile-line"></i>'}</div>
                     <div>
-                        <span>当前发言席</span>
+                        <span>${selected?.number || '—'} 号 / 当前发言席</span>
                         <strong>${musicEscapeHtml(selected?.name || '旁白')}</strong>
                     </div>
                 </div>
                 <div class="wolfcha-dialog">
-                    <strong>${musicEscapeHtml(lastLog.name || selected?.name || '旁白')}</strong>
+                    <div class="wolfcha-dialog-heading"><i class="ri-double-quotes-l" aria-hidden="true"></i><strong>${musicEscapeHtml(lastLog.name || selected?.name || '旁白')}</strong><span>${lastLog.type === 'speech' ? '发言记录' : '旁白'}</span>${lastLog.type === 'narrator' ? '<button type="button" onclick="WolfchaAudio.playNarrator()" aria-label="朗读这段旁白">朗读</button>' : ''}</div>
                     <p>${musicEscapeHtml(dialogText || '人到齐了，开始吧。')}</p>
                     ${dialogMetaText ? `<span>${musicEscapeHtml(getWolfchaPublicLogText(lastNarrator, state))}</span>` : ''}
                 </div>
-            </div>
-            <div class="wolfcha-actions">
-                <button type="button" onclick="wolfchaNarratorStep()"><i class="ri-scroll-to-bottom-line"></i> 旁白继续</button>
-                <button type="button" onclick="wolfchaNextSpeech()"><i class="ri-chat-voice-line"></i> ${waitingUserSpeech ? '写发言' : '当前发言'}</button>
-                <button type="button" onclick="startWolfchaNight()"><i class="ri-moon-clear-line"></i> 入夜</button>
-                <button type="button" onclick="wolfchaVoteSelected()"><i class="ri-skull-2-line"></i> 放逐</button>
+                ${waitingUserSpeech ? `
+                    <div class="wolfcha-user-speech-box">
+                        <label for="wolfcha-user-speech-input">轮到你发言</label>
+                        <textarea id="wolfcha-user-speech-input" maxlength="180" placeholder="写下你的怀疑、站边或解释…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitWolfchaUserSpeech();}"></textarea>
+                        <button type="button" onclick="submitWolfchaUserSpeech()"><i class="ri-send-plane-line"></i> 发言</button>
+                    </div>
+                ` : ''}
             </div>
         </section>
+        <div class="wolfcha-seats-heading"><strong>圆桌席位</strong><span>点击选择放逐对象</span></div>
         <section class="wolfcha-player-rail">
             ${players.map(player => `
-                <button type="button" class="wolfcha-player ${player.id === state.selectedId ? 'active' : ''} ${player.alive === false ? 'dead' : ''}" onclick="selectWolfchaPlayer('${musicEscapeAttr(player.id)}')">
+                <button type="button" class="wolfcha-player ${player.id === state.selectedId ? 'active' : ''} ${player.alive === false ? 'dead' : ''} ${player.id === state.currentSpeakerId ? 'speaking' : ''}" aria-pressed="${player.id === state.selectedId}" aria-label="${musicEscapeAttr(`${player.number} 号 ${player.name}，${getWolfchaPlayerRoleLabel(player, state)}${player.alive === false ? '，已出局' : ''}`)}" onclick="selectWolfchaPlayer('${musicEscapeAttr(player.id)}')">
                     <span class="wolfcha-role ${getWolfchaPlayerRoleClass(player, state)}">${musicEscapeHtml(getWolfchaPlayerRoleLabel(player, state))}</span>
                     <div>${player.avatar ? `<img src="${musicEscapeAttr(player.avatar)}" alt="${musicEscapeAttr(player.name)}">` : '<i class="ri-user-line"></i>'}</div>
                     <strong><em>${player.number}</em>${musicEscapeHtml(player.name)}</strong>
                 </button>
             `).join('')}
         </section>
+        ${renderWolfchaRules(state)}
+        <details class="wolfcha-help wolfcha-history"><summary>牌局记录 · ${(state.log || []).length}</summary><ol>${(state.log || []).map(normalizeWolfchaLogEntry).map(entry => `<li><strong>${musicEscapeHtml(entry.name || '旁白')}</strong><p>${musicEscapeHtml(getWolfchaPublicLogText(entry, state))}</p></li>`).join('')}</ol></details>
+       </div>
+       <div class="wolfcha-footer">
+            <div class="wolfcha-vote-target">${voteTarget ? `已选 ${voteTarget.number} 号 · ${musicEscapeHtml(voteTarget.name)}${voteTarget.alive === false ? '（已出局）' : ''}` : '选择一位玩家'}</div>
+            <div class="wolfcha-actions">
+                <button type="button" class="primary" onclick="wolfchaNarratorStep()" ${state.aiSpeechBusyId ? 'disabled' : ''}><i class="ri-arrow-right-line"></i> 旁白继续</button>
+                <button type="button" onclick="wolfchaNextSpeech()" ${state.aiSpeechBusyId ? 'disabled' : ''}><i class="ri-chat-voice-line"></i> ${waitingUserSpeech ? '写发言' : '当前发言'}</button>
+                <button type="button" onclick="startWolfchaNight()" ${state.aiSpeechBusyId ? 'disabled' : ''}><i class="ri-moon-clear-line"></i> 入夜</button>
+                <button type="button" class="wolfcha-exile" onclick="wolfchaVoteSelected()" ${state.aiSpeechBusyId || !voteTarget || voteTarget.alive === false ? 'disabled' : ''}><i class="ri-scales-3-line"></i> 放逐</button>
+            </div>
+       </div>
+      </div>
     `;
+    const nextScroll = el.querySelector('.wolfcha-scroll');
+    if (previousScroll && nextScroll) nextScroll.scrollTop = scrollTop;
+    if (waitingUserSpeech && previousInput) document.getElementById('wolfcha-user-speech-input').value = speechDraft;
+    if (waitingUserSpeech && !previousInput) {
+        requestAnimationFrame(() => document.getElementById('wolfcha-user-speech-input')?.scrollIntoView({ block: 'nearest' }));
+    }
+    window.WolfchaAudio?.observe(state);
 }
 window.renderGameApp = renderGameApp;
 
@@ -638,4 +679,3 @@ function renderGameHub(el) {
         </section>
     `;
 }
-

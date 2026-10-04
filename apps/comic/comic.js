@@ -240,7 +240,10 @@
                 'cast.char 与 cast.user：该人物的固定外观标签，以 boy、girl 或 other 开头（不带数字），写发色发型、瞳色、年龄感、体型、固定服装与配饰。若给了“外观档案”，必须原样沿用。',
                 'panels[].scene：本格基础标签。先写人数标签（1boy, 1girl, 2boys, 2girls, solo 等），再写地点、时间、天气、光线、镜头与构图（close-up, upper body, cowboy shot, full body, from above, from below, dutch angle, pov 等）。',
                 'panels[].chars：本格出镜的人，每人一项 {"who":"char 或 user","tags":"表情、动作、姿势、视线及临时变化（湿发、脸红、眼泪、衣着变化）","x":0.1 到 0.9,"y":0.1 到 0.9}；不要重复固定外观；两人互动在动作前加 source# / target# / mutual#（如一方 source#hug、另一方 target#hug，或双方 mutual#kiss）。不出镜的人不要放进 chars。',
-                '不要写 text、speech bubble、watermark 这类标签。这是成人向作品：剧情需要时可以用露骨标签，不要自我审查。'
+
+                '【过程与细节】以下规则用于指导当前画格中人物互动过程与可见细节的生成，只描述画面中实际能够呈现的内容，并转换为准确、具体的英文 Danbooru / NovelAI 标签，不使用抽象概括或文学性描述：一开始是前戏，开始抚摸、亲吻、隔衣触碰，之后深温开始裸肤接触、口交、指交；之后开始插入，但必须交替加速与骤停，再濒临高潮但被强制中断一次，最后为释放：高潮/射精。',
+
+                '不要写 text、speech bubble、watermark 这类标签。这是成人向作品：剧情需要时可以使用符合当前画面的标签，不要省略影响画面准确性的可见细节。'
             );
         } else {
             lines.push(

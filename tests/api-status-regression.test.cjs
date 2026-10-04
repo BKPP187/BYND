@@ -20,7 +20,7 @@ function harness() {
     }
     const modal = { innerHTML: '' };
     const context = vm.createContext({
-        Date: Clock, Response, Promise, Map, TextDecoder, clearTimeout,
+        Date: Clock, Response, Promise, Map, TextDecoder, clearTimeout, AbortController,
         // Sleeps advance the frozen clock so request-spacing waits finish at once.
         setTimeout: (fn, ms = 0) => setTimeout(() => { state.now += Math.max(0, Number(ms) || 0); fn(); }, 0),
         AbortSignal: { timeout: () => undefined },
@@ -89,6 +89,38 @@ test('queued work rechecks its dispatch guard and cancels before selecting or ca
     assert.equal(cancelled.cancelled, true);
     assert.equal(cancelled.errorSource, 'client');
     assert.equal(state.requests.length, 1);
+});
+
+test('call cancellation aborts the actual request and is distinguished from a timeout', async () => {
+    const h = harness();
+    const controller = new AbortController();
+    h.state.respond = () => new Promise((resolve, reject) => {
+        const signal = h.state.requests.at(-1).options.signal;
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+    const pending = h.context.callChatApi([], { signal: controller.signal });
+    assert.equal(h.state.requests.length, 1);
+    controller.abort();
+    const result = await pending;
+    assert.equal(h.state.requests[0].options.signal.aborted, true);
+    assert.equal(result.cancelled, true);
+    assert.equal(result.timedOut, undefined);
+    assert.equal(h.context.chatApiRequestActivity, undefined);
+    assert.equal(vm.runInContext('chatApiRequestActivity.inFlight', h.context), 0);
+    const before = h.state.requests.length;
+    await h.context.callChatApi([], { signal: controller.signal });
+    assert.equal(h.state.requests.length, before, 'already cancelled calls never reach fetch');
+});
+
+test('timeouts carry a retry flag and do not claim compression that did not happen', async () => {
+    const h = harness();
+    h.state.respond = () => { throw new DOMException('Timed out', 'TimeoutError'); };
+    const result = await h.context.callChatApi([]);
+    assert.equal(result.ok, false);
+    assert.equal(result.timedOut, true);
+    assert.match(result.error, /90秒/);
+    assert.doesNotMatch(result.error, /已.*压缩/);
+    assert.equal(h.state.requests.length, 1);
 });
 
 test('status requests carry the current time and the contact gap after a long absence', async () => {

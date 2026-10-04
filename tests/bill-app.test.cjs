@@ -333,14 +333,16 @@ test('dock plan leaves default and already-placed layouts alone', () => {
     assert.deepEqual(plain(context.planDesktopBillDockEntry({ dock: ['music', 'gone'] }, ['music'], false).dock), ['music', 'bill'], 'counts the rendered dock, not stale ids');
 });
 
-test('账单 is registered as a dock app with a themable icon slot and window wiring', () => {
+test('账单 keeps its themable icon slot and window wiring and ships in Tools', () => {
     const script = fs.readFileSync('script.js', 'utf8');
     const html = fs.readFileSync('index.html', 'utf8');
     assert.match(script, /\{ id: 'bill', name: '账单', icon: 'ri-bill-line' \}/);
     assert.match(script, /else if \(appName === 'bill'\) winId = 'app-bill-window';/);
     assert.match(script, /window\.ByndBillApp\?\.open\(\)/);
     assert.match(script, /migrateDesktopBillDockApp\(\);/);
-    assert.match(html, /<div class="dock-item" onclick="openApp\('bill'\)">/);
+    const migrations = fs.readFileSync('ui/components/desktop-migrations.js', 'utf8');
+    assert.match(migrations, /apps: \['mcp', 'role-tools', 'settings', 'manual', 'bill'\]/);
+    assert.match(html, /data-default-tools-slot/);
     assert.match(html, /<div id="app-bill-window" class="app-window hidden/);
     assert.match(html, /closeApp\('bill'\)/);
     assert.match(html, /systems\/usage\/bill-app\.css\?v=/);

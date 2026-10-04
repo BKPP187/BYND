@@ -241,8 +241,8 @@
 }
 
 .mcp-topbar {
-    min-height: calc(66px + clamp(0px, calc(812px - 100vh), 110px));
-    padding: calc(13px + clamp(0px, calc(812px - 100vh), 110px)) 15px 9px;
+    min-height: calc(66px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding: calc(13px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 15px 9px;
     grid-template-columns: 38px minmax(0, 1fr) auto;
     gap: 10px;
     border-bottom-color: rgba(224, 238, 232, .08);

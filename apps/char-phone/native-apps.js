@@ -18,7 +18,7 @@ function charPhoneNativeHeader(title, icon='', end='') {
 function renderCharPhoneNativeApp(key,snapshot,char) {
     const app=CHAR_PHONE_EXTRA_APPS.find(a=>a.key===key);
     if(!app||['x','alipay'].includes(key))return null;
-    const e=wcEscapeHtml, data=snapshot.appData?.[key]||{}, items=data.items||[];
+    const e=wcEscapeHtml, data=snapshot.appData?.[key]||{}, items=key==='album'?getCharPhoneAlbumItems(char,snapshot):data.items||[];
     const view=window._charPhoneNativeViews?.[key]||'home';
     const active=window._charPhoneSections?.[key]||0;
     const rows=key==='mail'?items.filter(i=>(i.section||0)===active):active===0?items:items.filter(i=>i.section===active);

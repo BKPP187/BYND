@@ -85,7 +85,8 @@ function sanitizeWechatChatConfigForStorage(config = {}) {
     const voiceBinding = provider ? {
         provider,
         voiceModel: String(source.voiceModel || source.model || '').trim().slice(0, 160),
-        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240)
+        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240),
+        ...(source.voiceName ? { voiceName: String(source.voiceName).trim().slice(0, 160) } : {})
     } : null;
     if (voiceBinding) safe.voiceBinding = voiceBinding;
     else delete safe.voiceBinding;
@@ -106,6 +107,7 @@ function compactWechatChatConfigForLocal(config = {}) {
         'customWallpaper',
         'backgroundImage',
         'generatedImages',
+        'outingPhotos',
         'agentActivity',
         'agentTodos'
     ].forEach(key => delete compact[key]);
@@ -141,9 +143,11 @@ function serializeWechatCharacterForStorage(char) {
         // Character data carries only a provider/model/voice reference. TTS credentials stay in Settings.
         chatConfig: sanitizeWechatChatConfigForStorage(char.chatConfig),
         history: (char.history || []).map(msg => {
-            if (!msg || !Object.prototype.hasOwnProperty.call(msg, 'imageResolving')) return msg;
+            if (!msg || (!Object.prototype.hasOwnProperty.call(msg, 'imageResolving') && msg.voiceAudioState !== 'pending')) return msg;
             const stored = { ...msg };
             delete stored.imageResolving;
+            // A page reload cannot resume an in-flight TTS request. Offer an explicit retry instead.
+            if (stored.voiceAudioState === 'pending') delete stored.voiceAudioState;
             return stored;
         })
     };
@@ -396,6 +400,14 @@ function saveCharactersToStorage() {
     window._wechatCharactersSavePromise = (window._wechatCharactersSavePromise || Promise.resolve())
         .catch(() => {})
         .then(() => persistWechatCharactersSnapshot(data, updatedAt))
+        .then(result => {
+            if (result !== false) {
+                window._wechatCharactersPersistedSnapshot = { characters: data, updatedAt };
+                try { window.ByndCharacterEvents?.recordInteractions(data); }
+                catch (error) { console.warn('有效互动记录未保存', error); window.ByndEventInbox?.status('互动记录保存失败：' + error.message); }
+            }
+            return result;
+        })
         .catch(error => {
             showWechatCharacterStorageError(error);
             return false;
@@ -457,6 +469,7 @@ function loadCharactersFromStorage() {
     window._wechatCharactersLoadPromise = readWechatCharacterSnapshot().then(snapshot => {
         window._wechatCharactersStorageState = { status: 'ready' };
         window._wechatCharactersLatestSnapshot = JSON.parse(JSON.stringify(snapshot));
+        window._wechatCharactersPersistedSnapshot = window._wechatCharactersLatestSnapshot;
         applyLoadedWechatCharacters(snapshot.characters, `(${snapshot.source})`);
         // First launch without any character: offer the bundled originals so the app works out of the box.
         if (typeof setTimeout === 'function') setTimeout(() => { try { if (!window.ByndBuiltinLibrary?.maybePrompt()) window.ByndBuiltinLibrary?.repair?.(); } catch (_) {} }, 400);
@@ -483,6 +496,7 @@ async function saveWechatImportedCharactersData(characters, updatedAt = Date.now
     await persistWechatCharactersSnapshot(data, updatedAt);
     window._wechatCharactersStorageState = { status: 'ready' };
     window._wechatCharactersLatestSnapshot = { characters: data, updatedAt };
+    window._wechatCharactersPersistedSnapshot = window._wechatCharactersLatestSnapshot;
     window.myCharacters = JSON.parse(JSON.stringify(data));
     return data;
 }

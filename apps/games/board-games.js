@@ -1768,10 +1768,15 @@ function renderChickenGame(el) {
 window.renderChickenGame = renderChickenGame;
 function updateWolfchaState(mutator) {
     const state = getGameState();
-    if (!state) return;
+    if (!state) return false;
     mutator(state);
-    saveGameState(state);
+    try { saveGameState(state); }
+    catch (error) {
+        if (typeof showWechatToast === 'function') showWechatToast('牌局未保存，请重试；当前输入已保留');
+        return false;
+    }
     renderGameApp();
+    return true;
 }
 
 function selectWolfchaPlayer(id) {
@@ -1847,14 +1852,14 @@ function getWolfchaPublicTableText(state, player) {
     ].filter(Boolean).join('\n');
 }
 
-function getWolfchaSpeechHistoryText(state) {
+function getWolfchaSpeechHistoryText(state, player = getWolfchaUserPlayer(state)) {
     const logs = Array.isArray(state?.log) ? state.log.map(normalizeWolfchaLogEntry) : [];
     const lines = logs
         .filter(item => item && item.status !== 'pending' && item.text)
         .slice(-14)
         .map(item => {
             const type = item.type === 'speech' ? '发言' : '流程';
-            return `【${type}】${item.name || '旁白'}：${compactWolfchaPromptText(item.text, 220)}`;
+            return `【${type}】${item.name || '旁白'}：${compactWolfchaPromptText(getWolfchaPublicLogText(item, state, player), 220)}`;
         });
     return lines.length ? lines.join('\n') : '暂无有效发言。';
 }
@@ -1881,7 +1886,10 @@ ${nickname ? `- ${nickname}\n` : ''}${userInfo ? `- ${userInfo}\n` : ''}
 ${getWolfchaPublicTableText(state, player)}
 
 【最近流程和发言】
-${getWolfchaSpeechHistoryText(state)}
+${getWolfchaSpeechHistoryText(state, player)}
+
+【本局玩法】
+${WOLFCHA_RULES.currentMode}
 
 【发言要求】
 - 只输出「${player.name}」的一段玩家发言，不要写旁白、舞台说明、系统说明、JSON、Markdown 或引号。
@@ -1910,13 +1918,6 @@ function cleanWolfchaAiSpeechContent(value, playerName) {
     }
     return text.length > 220 ? `${text.slice(0, 219)}…` : text;
 }
-
-const WOLFCHA_NIGHT_STEPS = [
-    { key: 'werewolf', role: '狼人', text: '狼人请睁眼，确认队友并选择今晚的目标。' },
-    { key: 'seer', role: '预言家', text: '预言家请睁眼，选择一名玩家查验身份。' },
-    { key: 'witch', role: '女巫', text: '女巫请睁眼，选择是否使用解药或毒药。' },
-    { key: 'guard', role: '守卫', text: '守卫请睁眼，选择今晚要守护的对象。' }
-];
 
 function getWolfchaAlivePlayers(state) {
     return (Array.isArray(state?.players) ? state.players : []).filter(player => player.alive !== false);
@@ -2003,6 +2004,13 @@ async function runWolfchaAiSpeech(playerId) {
     if (!state) return;
     const player = (state.players || []).find(item => item.id === playerId && item.alive !== false);
     if (!player || player.isUser) return;
+    if (state.aiSpeechBusyId !== player.id || state.currentSpeakerId !== player.id) return;
+    const isCurrentTurn = () => {
+        const latest = getGameState();
+        return latest && latest.sessionId === state.sessionId && latest.day === state.day
+            && latest.phase === state.phase && latest.currentSpeakerId === player.id
+            && latest.aiSpeechBusyId === player.id;
+    };
     const char = (window.myCharacters || []).find(item => item.id === player.id);
     if (!char || typeof callChatApi !== 'function') {
         updateWolfchaState(next => {
@@ -2022,11 +2030,14 @@ async function runWolfchaAiSpeech(playerId) {
         const messages = typeof buildMessages === 'function'
             ? buildMessages(char, Array.isArray(char.history) ? char.history.slice(-6) : [])
             : [{ role: 'system', content: `你是${player.name}。` }];
+        // Keep the character persona, and give the same game rules to its actual agent request.
+        messages.push({ role: 'system', content: getWolfchaRulesPrompt(latest) });
         messages.push({
             role: 'user',
             content: buildWolfchaAiSpeechPrompt(latest, player, char)
         });
         const result = await callChatApi(messages, { usageFeature: 'game', usageChar: char });
+        if (!isCurrentTurn()) return;
         updateWolfchaState(next => {
             const logs = Array.isArray(next.log) ? next.log.map(normalizeWolfchaLogEntry) : [];
             const pendingIndex = getWolfchaPendingSpeechIndex(logs, player.id);
@@ -2049,6 +2060,7 @@ async function runWolfchaAiSpeech(playerId) {
             next.awaitingUserSpeech = false;
         });
     } catch (e) {
+        if (!isCurrentTurn()) return;
         updateWolfchaState(next => {
             const logs = Array.isArray(next.log) ? next.log.map(normalizeWolfchaLogEntry) : [];
             const pendingIndex = getWolfchaPendingSpeechIndex(logs, player.id);
@@ -2071,7 +2083,7 @@ function wolfchaNarratorStep() {
         return;
     }
     let aiToSpeak = '';
-    updateWolfchaState(next => {
+    const saved = updateWolfchaState(next => {
         if (next.awaitingUserSpeech) {
             pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: '请先完成你的发言，再继续流程。' });
             return;
@@ -2080,12 +2092,12 @@ function wolfchaNarratorStep() {
         if (mode === 'day_intro') {
             next.phase = 'day';
             prepareWolfchaSpeechQueue(next);
-            next.action = next.day === 1 ? '警徽竞选发言' : `第 ${next.day} 天发言`;
+            next.action = `第 ${next.day} 天发言`;
             pushWolfchaLog(next, {
                 type: 'narrator',
                 name: '旁白',
                 text: next.day === 1
-                    ? '警徽竞选开始。旁白将按顺序点名，轮到 AI 会自动发言，轮到你会出现输入框。'
+                    ? '白天发言开始。旁白按席位点名，轮到 AI 会自动发言，轮到你会出现输入框。'
                     : `第 ${next.day} 天开始，所有存活玩家依次发言。`
             });
             const player = moveWolfchaToNextSpeech(next);
@@ -2103,19 +2115,21 @@ function wolfchaNarratorStep() {
             return;
         }
         if (mode === 'night_intro') {
+            const steps = getWolfchaNightSteps(next);
             next.phase = 'night';
             next.nightStep = 0;
             next.turnMode = 'night_action';
             next.action = `第 ${next.day || 1} 夜`;
-            pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: `天黑请闭眼。${WOLFCHA_NIGHT_STEPS[0].text}` });
+            pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: `天黑请闭眼。${steps[0]?.text || '没有需要引导的夜间身份，点击旁白继续进入天亮。'}` });
             return;
         }
         if (mode === 'night_action') {
+            const steps = getWolfchaNightSteps(next);
             const step = Number.isFinite(next.nightStep) ? next.nightStep + 1 : 1;
-            if (step < WOLFCHA_NIGHT_STEPS.length) {
+            if (step < steps.length) {
                 next.nightStep = step;
-                next.action = WOLFCHA_NIGHT_STEPS[step].role + '行动';
-                pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: WOLFCHA_NIGHT_STEPS[step].text });
+                next.action = steps[step].role + '流程引导';
+                pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: steps[step].text });
                 return;
             }
             next.phase = 'day';
@@ -2129,7 +2143,7 @@ function wolfchaNarratorStep() {
         next.turnMode = 'day_intro';
         pushWolfchaLog(next, { type: 'narrator', name: '旁白', text: '流程已整理，点击旁白继续开始下一步。' });
     });
-    if (aiToSpeak) setTimeout(() => runWolfchaAiSpeech(aiToSpeak), 300);
+    if (saved && aiToSpeak) setTimeout(() => runWolfchaAiSpeech(aiToSpeak), 300);
 }
 window.wolfchaNarratorStep = wolfchaNarratorStep;
 
@@ -2143,7 +2157,7 @@ function startWolfchaNight() {
         pushWolfchaLog(state, {
             type: 'narrator',
             name: '旁白',
-            text: '夜幕降临。点击「旁白继续」，我会按狼人、预言家、女巫、守卫的顺序引导。'
+            text: '夜幕降临。点击「旁白继续」，我会按守卫、狼人、女巫、预言家的顺序引导，仅点名仍在场的身份。本局不结算夜间技能。'
         });
     });
 }
@@ -2209,8 +2223,8 @@ function wolfchaVoteSelected() {
             name: '旁白',
             playerId: player.id,
             text: isWolfchaRoleVisibleToUser(player, state)
-                ? `${player.name} 被投票出局，身份是 ${player.role}。`
-                : `${player.name} 被投票出局，身份已由裁判记录，玩家视角不公开。`
+                ? `${player.name} 被选定放逐，身份是 ${player.role}。`
+                : `${player.name} 被选定放逐，身份已由裁判记录，玩家视角不公开。`
         });
         pushWolfchaLog(state, { type: 'narrator', name: '旁白', text: '放逐结束，接下来进入夜晚。点击「旁白继续」开始夜间行动。' });
     });
@@ -2233,4 +2247,3 @@ function resetDesktopToFirstPage() {
     });
     window._desktopCurrentPage = 0;
 }
-

@@ -202,6 +202,7 @@ const DESKTOP_APPS = [
     { id: 'coread', name: 'PageMate', icon: 'ri-book-open-line' },
     { id: 'living-world', name: '论坛', icon: 'ri-discuss-line' },
     { id: 'album', name: '相册', icon: 'ri-image-2-line' },
+    { id: 'events', name: '心意', icon: 'ri-mail-open-line' },
     { id: 'home3d', name: '小屋', icon: 'ri-home-heart-line' },
     { id: 'comic', name: '漫画', icon: 'ri-booklet-line' },
     { id: 'manual', name: '说明书', icon: 'ri-book-2-line' },

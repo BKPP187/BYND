@@ -126,6 +126,29 @@
     box-shadow: var(--pixel-sunken); color: #25252d !important; font-size: 15px !important;
 }
 #app-wechat-window.wc-ui-theme-pixel .wc-room-footer .wc-rich-input { display: none !important; }
+#app-wechat-window.wc-ui-theme-pixel .wc-room-footer .wc-input:placeholder-shown { font-size: 12px !important; line-height: 20px; padding: 10px !important; }
+.wc-sticker-captioned { display: grid; justify-items: center; align-content: start; gap: 5px; min-width: 0; padding: 0; border: 0; background: transparent; color: #494952; cursor: pointer; }
+.wc-sticker-captioned img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.wc-sticker-captioned span { font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.wc-sticker-captioned:focus-visible { outline: 2px solid #292654; outline-offset: 2px; }
+
+/* Payment states keep their labels; their frames follow the grey desktop theme. */
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble) {
+    background: #d6d6d9 !important; color: #25252d !important;
+    border: 1px solid #77777c !important; border-radius: 0 !important;
+    box-shadow: var(--pixel-raised) !important;
+}
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-pay-bubble :is(.msg-pay-title, .msg-pay-amount, .msg-rp-amount) { color: #292654 !important; }
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-pay-bubble .msg-pay-note { color: #55555f !important; }
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-pay-bubble .msg-pay-icon {
+    border-radius: 0 !important; background: #c3c3c5 url('../../../assets/ui/pixel-chat/transfer.svg') center / 24px no-repeat !important;
+    box-shadow: var(--pixel-sunken); color: #292654 !important; image-rendering: pixelated;
+}
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-redpacket-bubble .msg-pay-icon { background-image: url('../../../assets/ui/pixel-chat/redpacket.svg') !important; }
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-pay-bubble .msg-pay-icon i { display: none; }
+#app-wechat-window.wc-ui-theme-pixel .msg-row .msg-pay-bubble .msg-card-footer {
+    border-top: 1px solid #98989e !important; background: #c3c3c5 !important; color: #55555f !important;
+}
 #app-wechat-window.wc-ui-theme-pixel .wc-room-footer .wc-voice-btn {
     display: block !important; grid-column: 3; grid-row: var(--pixel-compose-row); width: 32px; height: 42px; min-width: 0;
     background: url('../../../assets/ui/pixel-chat/microphone.svg') center / 27px no-repeat;

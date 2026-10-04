@@ -3,33 +3,6 @@ function getCoReadTodayKey() {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function getCoReadDailyParticipants() {
-    const today = getCoReadTodayKey();
-    try {
-        const cache = JSON.parse(localStorage.getItem(COREAD_DAILY_PARTICIPANTS_KEY) || '{}');
-        if (cache && cache.date === today && Number.isFinite(Number(cache.value))) {
-            return Number(cache.value);
-        }
-    } catch (_) {
-        // Regenerate below if the cached shape is invalid.
-    }
-    const min = 46000;
-    const max = 268000;
-    let random = Math.random();
-    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
-        const bucket = new Uint32Array(1);
-        window.crypto.getRandomValues(bucket);
-        random = bucket[0] / 0xffffffff;
-    }
-    const value = Math.floor(min + random * (max - min + 1));
-    try {
-        localStorage.setItem(COREAD_DAILY_PARTICIPANTS_KEY, JSON.stringify({ date: today, value }));
-    } catch (_) {
-        // localStorage may be unavailable in private contexts; the random value still renders.
-    }
-    return value;
-}
-
 function getCoReadDailyCache() {
     try {
         const cache = JSON.parse(localStorage.getItem(COREAD_DAILY_KEY) || '{}');
@@ -45,11 +18,11 @@ function saveCoReadDailyCache(cache) {
 
 function buildCoReadFallbackDaily() {
     const today = getCoReadTodayKey();
-    const line = COREAD_DAILY_LINES[Math.abs(today.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % COREAD_DAILY_LINES.length];
+
     return {
         title: '今日惊喜书页',
         author: '在线书城同步中',
-        line,
+        line: '',
         tone: '随机推送 · 每日一书',
         volume: `VOL.${String(new Date().getDate()).padStart(2, '0')}`,
         source: 'daily-fallback',
@@ -62,23 +35,6 @@ function getCoReadDailyRecommendation() {
     const cache = getCoReadDailyCache();
     const today = getCoReadTodayKey();
     return cache.date === today && cache.book ? cache.book : buildCoReadFallbackDaily();
-}
-
-function getCoReadHolidaySense(date = new Date()) {
-    const mmdd = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const map = {
-        '01-01': { title: '元旦', line: '新的一年，也给故事留一个新的开头。', theme: 'NEW YEAR' },
-        '02-14': { title: '情人节', line: '把心动写进书页，和喜欢的人慢慢读。', theme: 'LOVE' },
-        '05-01': { title: '劳动节', line: '忙碌之后，留一页给自己安静下来。', theme: 'REST' },
-        '06-01': { title: '童心', line: '有些故事，会把人带回最柔软的年纪。', theme: 'CHILDHOOD' },
-        '10-01': { title: '国庆', line: '山河辽阔，故事也值得慢慢走过。', theme: 'NATIONAL DAY' },
-        '12-25': { title: '冬日', line: '把暖意藏进一页书里，等夜色慢下来。', theme: 'WINTER' }
-    };
-    const dragonBoat = ['05-30', '05-31', '06-01', '06-02', '06-03'];
-    if (dragonBoat.includes(mmdd)) {
-        return { title: '端午', line: '除了中国传统节日，这些传统文化你也不能忘', theme: 'DRAGON BOAT FESTIVAL' };
-    }
-    return map[mmdd] || null;
 }
 
 async function refreshCoReadDailyRecommendation(force = false) {
@@ -104,7 +60,7 @@ async function refreshCoReadDailyRecommendation(force = false) {
             return {
                 title: stripWechatPromptText(info.title || '', 80),
                 author: Array.isArray(info.authors) ? stripWechatPromptText(info.authors.slice(0, 2).join(' / '), 80) : '',
-                line: stripWechatPromptText(info.subtitle || info.description || COREAD_DAILY_LINES[Math.floor(Math.random() * COREAD_DAILY_LINES.length)], 72),
+                line: stripWechatPromptText(info.subtitle || info.description || '', 72),
                 tone: stripWechatPromptText((Array.isArray(info.categories) ? info.categories.slice(0, 2).join(' · ') : '') || seed, 42),
                 volume: `VOL.${String(new Date().getDate()).padStart(2, '0')}`,
                 source: 'Google Books Daily',
@@ -127,29 +83,28 @@ async function refreshCoReadDailyRecommendation(force = false) {
 
 function renderCoReadDaily() {
     const rec = getCoReadDailyRecommendation();
-    const holiday = getCoReadHolidaySense();
-    const volume = document.getElementById('coread-daily-volume');
-    const title = document.getElementById('coread-daily-title');
-    const line = document.getElementById('coread-daily-line');
+    const quote = CoReadLiterature.get();
+    const holiday = CoReadLiterature.occasion();
+    const text = quote?.text || CoReadLiterature.status || '正在获取今日文句…';
+    const volume = `VOL.${String(new Date().getDate()).padStart(2, '0')}`;
     const card = document.getElementById('coread-daily-card');
-    const participants = getCoReadDailyParticipants();
-    const senseTitle = holiday ? holiday.title : '惊喜';
-    const senseLine = holiday ? holiday.line : (rec.line || '你缺的有趣叫仪式感，赠你生活达人养成秘籍');
-    if (volume) volume.textContent = rec.volume;
-    if (title) title.textContent = holiday ? holiday.title : '今日惊喜书页';
-    if (line) line.textContent = senseLine;
-    if (card) {
-        card.innerHTML = `
-            <button type="button" class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}" onclick="refreshCoReadDailyRecommendation(true)" aria-label="换一张今日惊喜书页">
-                <span>${musicEscapeHtml(rec.volume || 'VOL.17')}</span>
-                <b>SENSE</b>
-                <i aria-hidden="true"></i>
-                <em>${musicEscapeHtml(senseLine)}</em>
-                <strong><span class="coread-sense-title-text">${musicEscapeHtml(senseTitle)}</span></strong>
-                <small>${musicEscapeHtml(holiday ? holiday.theme : `${participants}人 · 参与话题`)}</small>
-            </button>
-        `;
-    }
+    const line = document.getElementById('coread-daily-line');
+    if (line) line.textContent = text;
+    const heading = document.getElementById('coread-daily-title');
+    if (heading) heading.textContent = holiday?.title || '每日一言';
+    const volumeBox = document.getElementById('coread-daily-volume');
+    if (volumeBox) volumeBox.textContent = volume;
+    if (card) card.innerHTML = `
+        <article class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}">
+            <span>${musicEscapeHtml(volume)}</span><b>SENSE</b><i aria-hidden="true"></i>
+            <em>${musicEscapeHtml(text)}</em>
+            <div class="coread-quote-byline">${quote ? `<span>${musicEscapeHtml([quote.author, quote.work ? `《${quote.work}》` : ''].filter(Boolean).join(' · ') || '出处未提供')}</span>
+                <a href="${musicEscapeAttr(CoReadLiterature.source(quote))}" target="_blank" rel="noopener noreferrer">${musicEscapeHtml(quote.provider)}</a>` : ''}
+                <button type="button" onclick="CoReadLiterature.refresh(true)">${musicEscapeHtml(quote ? (CoReadLiterature.status || '换一句') : (CoReadLiterature.status.includes('失败') || CoReadLiterature.status.includes('无法') ? '重新获取' : '获取中…'))}</button>
+            </div>
+            <strong><span class="coread-sense-title-text">${musicEscapeHtml(holiday?.title || '惊喜')}</span></strong>
+            <small>${musicEscapeHtml(holiday ? `${holiday.title} · ${CoReadLiterature.today()}` : `每日一言 · ${CoReadLiterature.today()}`)}</small>
+        </article>`;
 }
 
 function handleCoReadBack() {
@@ -166,6 +121,16 @@ function handleCoReadBack() {
 }
 window.handleCoReadBack = handleCoReadBack;
 
+function coReadTopbarIcon(kind) {
+    const paths = {
+        back: '<path d="m14 6-6 6 6 6"/>',
+        'ri-more-fill': '<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+        'ri-book-open-line': '<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/>',
+        quote: '<path d="M4 4h16v13H9l-5 4V4Zm4 5h3m2 0h3m-8 4h3m2 0h3"/>'
+    };
+    return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[kind] || paths.quote}</svg>`;
+}
+
 function updateCoReadTopbar() {
     const topbar = document.querySelector('.coread-topbar');
     if (!topbar) return;
@@ -173,8 +138,9 @@ function updateCoReadTopbar() {
     const title = topbar.querySelector('strong');
     const rightBtn = topbar.querySelector('button:last-child');
     const backBtn = topbar.querySelector('button:first-child');
-    const backIcon = topbar.querySelector('button:first-child i');
+
     if (backBtn) {
+        backBtn.innerHTML = coReadTopbarIcon('back');
         const returnsToReading = coreadActiveTab === 'reader' && coreadReaderPanelOpen;
         const returnsToShelf = coreadActiveTab === 'reader' || coreadActiveTab === 'detail';
         backBtn.setAttribute('onclick', 'return handleCoReadBack()');
@@ -195,14 +161,13 @@ function updateCoReadTopbar() {
         if (title) title.textContent = '';
         if (rightBtn) {
             rightBtn.classList.remove('coread-topbar-text-btn');
-            rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
+            rightBtn.innerHTML = coReadTopbarIcon('quote');
             rightBtn.setAttribute('onclick', 'openCoReadCommentPanel()');
             rightBtn.setAttribute('aria-label', '打开 char 共读气泡');
             rightBtn.removeAttribute('aria-haspopup');
             rightBtn.removeAttribute('aria-controls');
             rightBtn.removeAttribute('aria-expanded');
         }
-        if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
         return;
     }
     if (!config) {
@@ -210,21 +175,20 @@ function updateCoReadTopbar() {
         if (title) title.textContent = '和 char 共读小说';
         if (rightBtn) {
             rightBtn.classList.remove('coread-topbar-text-btn');
-            rightBtn.innerHTML = '<i class="ri-chat-quote-line"></i>';
+            rightBtn.innerHTML = coReadTopbarIcon('quote');
             rightBtn.setAttribute('onclick', 'openCoReadCommentPanel()');
             rightBtn.setAttribute('aria-label', '打开 char 共读气泡');
             rightBtn.removeAttribute('aria-haspopup');
             rightBtn.removeAttribute('aria-controls');
             rightBtn.removeAttribute('aria-expanded');
         }
-        if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
         return;
     }
     if (eyebrow) eyebrow.textContent = '';
     if (title) title.textContent = config.title;
     if (rightBtn) {
         rightBtn.classList.remove('coread-topbar-text-btn');
-        rightBtn.innerHTML = `<i class="${config.icon || 'ri-more-fill'}"></i>`;
+        rightBtn.innerHTML = coReadTopbarIcon(config.icon || 'ri-more-fill');
         rightBtn.setAttribute('onclick', config.onclick);
         rightBtn.removeAttribute('onpointerdown');
         rightBtn.setAttribute('aria-label', config.aria || config.title);
@@ -238,10 +202,10 @@ function updateCoReadTopbar() {
             rightBtn.removeAttribute('aria-expanded');
         }
     }
-    if (backIcon) backIcon.className = 'ri-arrow-left-s-line';
 }
 
 function renderCoReadApp() {
+    if (coreadActiveTab !== 'reader') CoReadJournal.stop();
     const list = document.getElementById('coread-book-list');
     const chars = document.getElementById('coread-char-list');
     const status = document.getElementById('coread-status');
@@ -323,6 +287,8 @@ function renderCoReadApp() {
 }
 
 function initCoReadApp() {
+    CoReadJournal.init();
+    CoReadLiterature.init();
     bindCoReadFastSettingsControls();
     bindCoReadShelfMenuEvents();
     renderCoReadApp();
@@ -360,6 +326,7 @@ function selectCoReadChar(charId) {
 window.selectCoReadChar = selectCoReadChar;
 
 function setCoReadTab(tab) {
+    CoReadJournal.stop();
     coreadActiveTab = tab || 'discover';
     if (coreadActiveTab !== 'shelf') {
         coreadShelfMenuOpen = false;
@@ -369,6 +336,7 @@ function setCoReadTab(tab) {
     if (content) content.dataset.tab = coreadActiveTab;
     renderCoReadApp();
     maybeLoadCoReadDiscoveryData();
+    if (coreadActiveTab === 'discover') CoReadLiterature.refresh();
 }
 window.setCoReadTab = setCoReadTab;
 

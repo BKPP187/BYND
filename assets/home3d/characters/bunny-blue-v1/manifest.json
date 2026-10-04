@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "bunny-blue-v1",
+  "sourceHash": "de0a9ff095896b577bb3ea0effb0fd76723bfc875620168bd03cc9647667c50a",
+  "source": "User-authorized Tripo generation and 23-joint Mixamo skin binding",
+  "forward": "+X",
+  "height": 1.62,
+  "rig": "Tripo weights retained; measured rest joints converted to game axes; action deformation still requires review",
+  "levels": [
+    {
+      "name": "far",
+      "bytes": 1936504,
+      "sha256": "c1a2f19c0a2668e45ba0715efadc69632397d0219252335f1e280e73d0305f4f",
+      "triangles": 17997,
+      "colorSize": 1024
+    },
+    {
+      "name": "middle",
+      "bytes": 4348404,
+      "sha256": "d54c5ed8eedb2d87ac8066e86b1cddda90f142595dd25604c69ce8e227228faf",
+      "triangles": 44998,
+      "colorSize": 2048
+    },
+    {
+      "name": "near",
+      "bytes": 6700796,
+      "sha256": "fc46ebcd48496162da49aac1681989510763e2704a25f18e61a356fc3abe0454",
+      "triangles": 99981,
+      "colorSize": 2048
+    }
+  ]
+}

@@ -280,7 +280,7 @@ test('character voice bindings persist only provider and voice references, never
         chatConfig: {
             nickname: '保留备注',
             voiceBinding: {
-                provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral',
+                provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral', voiceName: '角色专属音色',
                 apiKey: 'must-not-leak', baseUrl: 'https://secret.example', authorization: 'Bearer secret'
             }
         }
@@ -288,7 +288,7 @@ test('character voice bindings persist only provider and voice references, never
     assert.equal(await h.context.saveCharactersToStorage(), true);
     const stored = h.state.record.characters[0];
     assert.deepEqual(clone(stored.chatConfig.voiceBinding), {
-        provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral'
+        provider: 'openai', voiceModel: 'gpt-4o-mini-tts', voiceId: 'coral', voiceName: '角色专属音色'
     });
     assert.equal(JSON.stringify(stored).includes('must-not-leak'), false);
     assert.equal(stored.chatConfig.nickname, '保留备注');

@@ -39,7 +39,7 @@ function harness({ web = false, settings = { enabled: true } } = {}) {
     vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/screen-companion.js'), 'utf8'), context);
     const companion = window.ByndScreenCompanion;
     const context_ = (patch = {}) => ({ package: 'com.ss.android.ugc.aweme', label: '抖音', imageDataUrl: null, at: state.now, reason: 'switch', secure: false, dwellMs: 0, ...patch });
-    return { char, state, storage, companion, ctx: context_, advance: ms => { state.now += ms; } };
+    return { char, state, storage, companion, window, context, ctx: context_, advance: ms => { state.now += ms; } };
 }
 const userText = call => { const content = call.messages[1].content; return typeof content === 'string' ? content : content[0].text; };
 
@@ -180,4 +180,120 @@ test('Android section renders permission checklist with live states and OEM guid
     assert.match(html, /截图只发送给你自己配置的模型 API，不保存/);
     assert.match(html, /小米/);
     assert.match(html, /忽略电池优化<\/strong><small>[^<]*<\/small><\/span><span class="sc-state">未开启/);
+});
+
+test('manual native tap replies without usage access, an app name or screen capture, even while auto viewing is paused', async () => {
+    const h = harness({ settings: { enabled: true, watchScreen: true, minGapMin: 20 } });
+    h.state.status.usage = false;
+    h.state.status.paused = true;
+    h.companion._state.lastRequestAt = h.state.now - 5000;
+    h.window.ByndJev = { available: () => true };
+    h.window.ByndDecider = { gate: () => { throw new Error('manual taps must not use the proactive veto'); } };
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).spoke, true);
+    assert.equal(h.state.calls.length, 1);
+    assert.match(userText(h.state.calls[0]), /轻点了你/);
+    assert.equal(h.state.calls[0].options.background, false);
+    assert.equal(h.state.calls[0].options.respectRateLimitPause, true);
+    assert.match(h.state.calls[0].messages[0].content, /没有读取其他应用/);
+    assert.match(h.state.bubbles[0][0], /正在回应/);
+    assert.equal(h.state.bubbles.at(-1)[0], '这个视频你已经看第三遍了。');
+    assert.equal((await h.companion.onContext(h.ctx())).reason, 'gap');
+    h.advance(2300);
+    await h.companion.onContext({ reason: 'tap', package: 'com.bankcomm', label: 'PRIVATE_BANK_MARKER', imageDataUrl: frame });
+    assert.equal(h.state.calls.length, 2);
+    assert.equal(typeof h.state.calls[1].messages[1].content, 'string');
+    assert.doesNotMatch(JSON.stringify(h.state.calls[1].messages), /PRIVATE_BANK_MARKER|com\.bankcomm|data:image/);
+});
+
+test('repeated native taps during a request send once and cooldown feedback is visible outside BYND', async () => {
+    const h = harness();
+    let finish;
+    h.state.answer = () => new Promise(resolve => { finish = resolve; });
+    const first = h.companion.onContext({ reason: 'tap' });
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'busy');
+    assert.match(h.state.bubbles.at(-1)[0], /正在回应/);
+    finish({ ok: true, content: '{"speak":true,"text":"嗯？","allow":true}' });
+    assert.equal((await first).spoke, true);
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'cooldown');
+    assert.equal(h.state.calls.length, 1);
+    assert.match(h.state.bubbles.at(-1)[0], /刚刚互动过/);
+});
+
+test('manual API failure and retry-after are shown in native bubbles, without retrying or recording success', async () => {
+    const h = harness();
+    h.state.answer = { ok: false, httpStatus: 429, rateLimited: true, retryAfterMs: 60000, error: 'API 错误 (429): too many requests' };
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'error');
+    assert.match(h.state.bubbles.at(-1)[0], /等待约 60 秒/);
+    assert.equal(h.char.chatConfig.characterPetLog, undefined);
+    h.advance(2500);
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'cooldown');
+    assert.equal(h.state.calls.length, 1);
+    h.advance(60000);
+    h.state.answer = () => { throw new Error('连接超时，请检查网络'); };
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'error');
+    assert.match(h.state.bubbles.at(-1)[0], /连接超时/);
+    assert.equal(h.companion._state.inFlight, false);
+});
+
+test('a native reply arriving after a role switch is cancelled instead of shown or saved to the previous role', async () => {
+    const h = harness();
+    let finish;
+    h.state.answer = () => new Promise(resolve => { finish = resolve; });
+    const pending = h.companion.onContext({ reason: 'tap' });
+    h.context.getMonitorPetBoundChar = () => ({ id: 'other-role' });
+    finish({ ok: true, content: '{"speak":true,"text":"STALE_REPLY","allow":true}' });
+    assert.equal((await pending).reason, 'cancelled');
+    assert.doesNotMatch(JSON.stringify(h.state.bubbles), /STALE_REPLY/);
+    assert.equal(h.char.chatConfig.characterPetLog, undefined);
+    assert.equal(h.companion._state.inFlight, false);
+});
+
+test('missing binding, missing persona and vetoed model output are visible and never logged as a reply', async () => {
+    const h = harness();
+    h.context.getMonitorPetBoundChar = () => null;
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'no-pet');
+    assert.match(h.state.bubbles.at(-1)[0], /绑定互动角色/);
+    assert.equal(h.state.calls.length, 0);
+    h.context.getMonitorPetBoundChar = () => h.char;
+    h.char.description = ''; h.char.worldBook = [];
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'persona');
+    assert.match(h.state.bubbles.at(-1)[0], /补充性格与关系/);
+    h.char.description = '成年研究员，冷静克制。';
+    h.state.answer = { ok: true, content: '{"speak":true,"allow":false,"text":"REJECTED_TEXT","note":"本轮一致性检查未通过"}' };
+    assert.equal((await h.companion.onContext({ reason: 'tap' })).reason, 'silent');
+    assert.match(h.state.bubbles.at(-1)[0], /一致性检查未通过/);
+    assert.doesNotMatch(JSON.stringify(h.state.bubbles), /REJECTED_TEXT/);
+    assert.equal(h.char.chatConfig.characterPetLog, undefined);
+});
+
+test('Samsung restricted-settings help uses app details and treats usage access as optional for taps', () => {
+    const h = harness();
+    h.state.status.oem = 'samsung'; h.state.status.usage = false;
+    const html = h.companion.renderSection();
+    assert.match(html, /由受限设置控制/);
+    assert.match(html, /data-sc-open="restricted"/);
+    assert.match(html, /点击互动无需此权限/);
+    assert.match(html, /三星 One UI/);
+    assert.doesNotMatch(html, /data-sc-open="autostart"/);
+    h.state.status.usage = true;
+    assert.doesNotMatch(h.companion.renderSection(), /data-sc-open="restricted"/);
+    const permissions = fs.readFileSync(path.join(root, 'android/app/src/main/java/cc/ccwu/bynd/CompanionPermissions.java'), 'utf8');
+    assert.match(permissions, /case "restricted":[\s\S]*?ACTION_APPLICATION_DETAILS_SETTINGS/);
+    assert.match(permissions, /contains\("samsung"\)/);
+});
+
+test('native touch wiring separates tap requests, long-press menu and drag; manual dispatch has no usage or capture dependency', () => {
+    const native = fs.readFileSync(path.join(root, 'android/app/src/main/java/cc/ccwu/bynd/ScreenCompanionService.java'), 'utf8');
+    const touch = native.slice(native.indexOf('private class DragTouch'), native.indexOf('private void requestInteraction'));
+    assert.match(touch, /if \(dragging\).*?snapToEdge/);
+    assert.match(touch, /if \(longPressed\) return true/);
+    assert.match(touch, /else requestInteraction\(\)/);
+    assert.match(touch, /Runnable longPress[\s\S]*?menu\.setVisibility/);
+    const manual = native.slice(native.indexOf('private void requestInteraction'), native.indexOf('private Drawable frame'));
+    assert.match(manual, /elapsedRealtime\(\)/);
+    assert.match(manual, /getDoubleTapTimeout\(\)\) return/);
+    assert.match(manual, /context\.put\("reason", "tap"\)/);
+    assert.match(manual, /target\.onContext/);
+    assert.doesNotMatch(manual, /captureFrame|currentPackage|usageStats|excluded\(|\bpaused\b/);
+    assert.match(manual, /后台连接已中断/);
 });

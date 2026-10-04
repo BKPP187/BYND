@@ -90,10 +90,7 @@ function renderBubblePresetDropdown(selectedCss) {
     renderBubblePresetPicker(all, sel.value);
 }
 
-function getBubblePresetSwatchFills(css) {
-    const pixel = getWechatUiThemeId() === 'pixel';
-    const config = getCurrentChatChar()?.chatConfig || {};
-    const defaults = pixel ? [config.bubbleAi || '#e4e4e5', config.bubbleUser || '#cbcbd3'] : ['#f5f7fb', '#e8f3ff'];
+function getBubblePresetSwatchFills(css, defaults = getWechatDefaultBubbleAppearance().map(side => side.background)) {
     if (!css) return defaults;
     // Parse declarations without applying this preset to the page being edited.
     const style = document.createElement('style');
@@ -127,9 +124,10 @@ function renderBubblePresetPicker(all, selectedId) {
             ${p.id === selectedId ? '<i class="ri-check-line"></i>' : ''}
         </button>
     `).join('');
+    const defaults = getWechatDefaultBubbleAppearance().map(side => side.background);
     menu.querySelectorAll('.wcs-bubble-option').forEach(btn => {
         const preset = all.find(p => p.id === btn.dataset.presetId);
-        const fills = getBubblePresetSwatchFills(preset?.css || '');
+        const fills = getBubblePresetSwatchFills(preset?.css || '', defaults);
         btn.querySelectorAll('.wcs-bubble-option-swatch > i').forEach((side, index) => { side.style.background = fills[index]; });
         btn.onclick = () => chooseBubblePreset(btn.dataset.presetId || 'default');
     });

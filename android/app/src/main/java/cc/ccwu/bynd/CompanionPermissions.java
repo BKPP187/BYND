@@ -59,6 +59,7 @@ final class CompanionPermissions {
         if (value.contains("huawei")) return "huawei";
         if (value.contains("oppo") || value.contains("realme") || value.contains("oneplus")) return "oppo";
         if (value.contains("vivo") || value.contains("iqoo")) return "vivo";
+        if (value.contains("samsung")) return "samsung";
         return "other";
     }
 
@@ -93,6 +94,10 @@ final class CompanionPermissions {
         String oem = oem();
         List<Intent> candidates = new ArrayList<>();
         switch (kind == null ? "" : kind) {
+            case "restricted":
+                // Confirmation belongs to system app details; an app cannot grant this to itself.
+                candidates.add(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri));
+                break;
             case "overlay":
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) candidates.add(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, uri));
                 if ("xiaomi".equals(oem)) candidates.add(new Intent("miui.intent.action.APP_PERM_EDITOR").setPackage("com.miui.securitycenter").putExtra("extra_pkgname", pkg));

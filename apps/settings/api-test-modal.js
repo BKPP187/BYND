@@ -185,6 +185,7 @@ function getApiFishAudioVoiceConfigFromModal() {
         apiKey: (document.getElementById('api-fish-voice-key')?.value || '').trim(),
         voiceModel: (document.getElementById('api-fish-voice-model')?.value || '').trim(),
         voiceId: (document.getElementById('api-fish-voice-id')?.value || '').trim(),
+        voiceName: document.getElementById('api-fish-voice-id')?.dataset?.voiceName || '',
         voiceEndpoint: (document.getElementById('api-fish-voice-endpoint')?.value || '').trim(),
         voiceFormat: (document.getElementById('api-fish-voice-format')?.value || '').trim() || 'mp3',
         voiceSpeed: (document.getElementById('api-fish-voice-speed')?.value || '').trim() || '1'
@@ -200,6 +201,7 @@ function getApiElevenLabsVoiceConfigFromModal() {
         apiKey: (document.getElementById('api-elevenlabs-voice-key')?.value || '').trim(),
         voiceModel: (document.getElementById('api-elevenlabs-voice-model')?.value || '').trim(),
         voiceId: (document.getElementById('api-elevenlabs-voice-id')?.value || '').trim(),
+        voiceName: document.getElementById('api-elevenlabs-voice-id')?.dataset.voiceName || '',
         voiceEndpoint: (document.getElementById('api-elevenlabs-voice-endpoint')?.value || '').trim(),
         voiceFormat: (document.getElementById('api-elevenlabs-voice-format')?.value || '').trim() || 'mp3',
         stability: (document.getElementById('api-elevenlabs-voice-stability')?.value || '').trim(),
@@ -269,7 +271,11 @@ function normalizeElevenLabsBaseUrl(baseUrl) {
 
 function buildElevenLabsVoiceEndpoint(api) {
     const explicit = String(api?.voiceEndpoint || '').trim();
-    if (explicit) return explicit;
+    if (explicit) {
+        const voiceId = encodeURIComponent(String(api?.voiceId || api?.voice || '').trim());
+        // A saved endpoint may contain the global voice. Resolve its voice segment per request.
+        return explicit.replace(/(\/text-to-speech\/)(?:\{voice_id\}|%7Bvoice_id%7D|[^/?#]+)(?=\/|\?|#|$)/i, (_, prefix) => `${prefix}${voiceId}`);
+    }
     const base = normalizeElevenLabsBaseUrl(api?.baseUrl);
     const voiceId = encodeURIComponent(String(api?.voiceId || api?.voice || '').trim());
     const root = /\/v1$/i.test(base) ? base : `${base}/v1`;
@@ -328,7 +334,20 @@ function blobToDataUrl(blob) {
     });
 }
 
-async function requestMiniMaxVoiceAudio(text, apiConfig) {
+function getMiniMaxVoiceRequestError(response, json, api, rawText = '') {
+    let code = String(json?.base_resp?.status_code ?? json?.baseResp?.statusCode ?? '');
+    let detail = String(json?.base_resp?.status_msg || json?.baseResp?.statusMsg || json?.message || json?.error?.message || rawText || '请求失败');
+    if (api.apiKey) { code = code.split(api.apiKey).join('[已隐藏]'); detail = detail.split(api.apiKey).join('[已隐藏]'); }
+    let message = detail;
+    if (code === '1008' || /insufficient[ _-]*balance/i.test(detail)) message = '语音账户余额不足，请到此 API Key 对应的 MiniMax 开放平台检查余额与语音可用额度';
+    else if (code === '1004' || code === '2049' || response.status === 401) message = 'API Key 无效或未获授权，请核对 Key 与接口所属地区';
+    else if (code === '2042') message = '当前账户无权使用这个音色，请更换可用音色';
+    else if (code === '20132') message = '音色 ID 无效，请重新选择音色';
+    else if (code === '1002' || response.status === 429) message = '请求过于频繁，请稍后重试';
+    return new Error(`MiniMax：${message.slice(0, 160)}（HTTP ${response.status}${code ? ` · ${code.slice(0, 40)}` : ''}）${message !== detail ? `；${detail.slice(0, 90)}` : ''}`);
+}
+
+async function requestMiniMaxVoiceAudio(text, apiConfig, options = {}) {
     const api = apiConfig || normalizeVoiceApiData(getApiData().voiceApi);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
@@ -361,19 +380,18 @@ async function requestMiniMaxVoiceAudio(text, apiConfig) {
                 channel: 1
             }
         }),
-        signal: AbortSignal.timeout(30000)
+        signal: options.signal || AbortSignal.timeout(30000)
     });
 
     const rawText = await resp.text();
     let json = {};
     try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
     if (!resp.ok) {
-        const detail = json?.base_resp?.status_msg || json?.message || json?.error?.message || rawText || `HTTP ${resp.status}`;
-        throw new Error(String(detail).slice(0, 180));
+        throw getMiniMaxVoiceRequestError(resp, json, api, rawText);
     }
     const code = json?.base_resp?.status_code ?? json?.baseResp?.statusCode ?? 0;
     if (code && Number(code) !== 0) {
-        throw new Error(json?.base_resp?.status_msg || json?.baseResp?.statusMsg || `MiniMax status ${code}`);
+        throw getMiniMaxVoiceRequestError(resp, json, api);
     }
     const audio = json?.data?.audio || json?.data?.audio_content || json?.audio || '';
     const audioUrl = decodeMiniMaxAudioData(audio, format);
@@ -387,7 +405,7 @@ async function requestMiniMaxVoiceAudio(text, apiConfig) {
     };
 }
 
-async function requestOpenAiVoiceAudio(text, apiConfig) {
+async function requestOpenAiVoiceAudio(text, apiConfig, options = {}) {
     const api = normalizeOpenAiVoiceApiData(apiConfig);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
@@ -409,7 +427,7 @@ async function requestOpenAiVoiceAudio(text, apiConfig) {
             'Authorization': `Bearer ${api.apiKey}`
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30000)
+        signal: options.signal || AbortSignal.timeout(30000)
     });
 
     const contentType = resp.headers.get('content-type') || '';
@@ -443,7 +461,7 @@ async function requestOpenAiVoiceAudio(text, apiConfig) {
     };
 }
 
-async function requestFishAudioVoiceAudio(text, apiConfig) {
+async function requestFishAudioVoiceAudio(text, apiConfig, options = {}) {
     const api = normalizeFishAudioVoiceApiData(apiConfig);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
@@ -464,7 +482,7 @@ async function requestFishAudioVoiceAudio(text, apiConfig) {
             response_format: format,
             speed: clampMiniMaxNumber(api.voiceSpeed, 1, 0.5, 2)
         }),
-        signal: AbortSignal.timeout(30000)
+        signal: options.signal || AbortSignal.timeout(30000)
     });
 
     const contentType = resp.headers.get('content-type') || '';
@@ -492,12 +510,36 @@ async function requestFishAudioVoiceAudio(text, apiConfig) {
         || '请求失败';
     const status = json?.status || json?.error?.status || resp.status;
     if (!resp.ok || errorValue || json?.message) {
-        throw new Error(`Fish Audio ${status}: ${String(detail).slice(0, 180)}`);
+        let message = String(detail);
+        if (api.apiKey) message = message.split(api.apiKey).join('[已隐藏]');
+        if (/insufficient[ _-]*(balance|credit)/i.test(message)) message = `账户余额不足，请检查此 API Key 对应的 Fish Audio API 额度；${message}`;
+        throw new Error(`Fish Audio ${status}: ${message.slice(0, 180)}`);
     }
     throw new Error(`Fish Audio ${status}: 接口没有返回音频数据`);
 }
 
-async function requestElevenLabsVoiceAudio(text, apiConfig) {
+function getElevenLabsVoiceRequestError(response, json, api) {
+    const detail = json?.detail;
+    let code = String(detail?.code || detail?.status || json?.error?.code || detail?.type || '');
+    let message = String(detail?.message || (typeof detail === 'string' ? detail : '') || json?.message || json?.error?.message || `HTTP ${response.status}`);
+    if (api.apiKey) {
+        message = message.split(api.apiKey).join('[已隐藏]');
+        code = code.split(api.apiKey).join('[已隐藏]');
+    }
+    const original = message;
+    const diagnosis = `${code} ${message}`;
+    if (/quota_exceeded|insufficient.credits|insufficient.quota|not.enough.credits/i.test(diagnosis)) message = 'ElevenLabs 积分不足或额度已用完，请检查账户额度';
+    else if (/(library|community).*(free|paid)|free.*(library|community)/i.test(diagnosis)) message = 'Free 套餐不能通过 API 生成社区音色，请在角色设置选内置音色，或使用有权限的付费套餐';
+    else if (/paid_plan_required|subscription_required|not.available.for.free|free.users|paid.subscription|paid.plan/i.test(diagnosis)) message = '此音色或模型需要付费套餐，请更换当前套餐可用的音色或模型';
+    else if (/voice_not_found|voice.does.not.exist|voice.*not.found/i.test(diagnosis)) message = '角色选用的音色无法访问，请确认音色仍可用且当前账号有权限';
+    else if (/model_not_found|invalid_model/i.test(diagnosis)) message = '当前语音模型不可用，请在角色设置选择可用模型';
+    else if (response.status === 401) message = 'ElevenLabs API Key 无效或已过期';
+    else if (response.status === 403) message = 'ElevenLabs 拒绝生成，请检查 API Key 的语音生成权限及音色访问权限';
+    else if (response.status === 429) message = 'ElevenLabs 请求过于频繁，请稍后重试';
+    return new Error(`ElevenLabs：${message.slice(0, 180)}（HTTP ${response.status}${code ? ` · ${code.slice(0, 60)}` : ''}）${message !== original ? `；服务返回：${original.slice(0, 160)}` : ''}`);
+}
+
+async function requestElevenLabsVoiceAudio(text, apiConfig, options = {}) {
     const api = normalizeElevenLabsVoiceApiData(apiConfig);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
@@ -521,15 +563,17 @@ async function requestElevenLabsVoiceAudio(text, apiConfig) {
                 use_speaker_boost: api.useSpeakerBoost !== false
             }
         }),
-        signal: AbortSignal.timeout(30000)
+        signal: options.signal || AbortSignal.timeout(30000)
     });
 
     const contentType = resp.headers.get('content-type') || '';
     if (/^(audio\/|application\/octet-stream)/i.test(contentType)) {
         if (!resp.ok) throw new Error(`ElevenLabs HTTP ${resp.status}`);
         const blob = await resp.blob();
+        const audioUrl = await blobToDataUrl(blob);
+        window.ByndElevenLabsOptions?.record(api, resp.headers).catch(() => {});
         return {
-            audioUrl: await blobToDataUrl(blob),
+            audioUrl,
             mimeType: blob.type || contentType.split(';')[0] || getMiniMaxAudioMime(format),
             duration: estimateTextAudioDuration(content),
             raw: null
@@ -540,13 +584,16 @@ async function requestElevenLabsVoiceAudio(text, apiConfig) {
     let json = {};
     try { json = rawText ? JSON.parse(rawText) : {}; } catch (e) {}
     if (!resp.ok) {
-        const detail = json?.detail?.message || json?.message || json?.error?.message || rawText || `HTTP ${resp.status}`;
-        throw new Error(String(detail).slice(0, 180));
+        throw getElevenLabsVoiceRequestError(resp, json, api);
     }
     const audioUrl = json?.audio_url || json?.audioUrl || json?.url || json?.data?.url || json?.data?.audio_url || '';
-    if (audioUrl) return { audioUrl, mimeType: getMiniMaxAudioMime(format), duration: estimateTextAudioDuration(content), raw: json };
+    if (audioUrl) {
+        window.ByndElevenLabsOptions?.record(api, resp.headers).catch(() => {});
+        return { audioUrl, mimeType: getMiniMaxAudioMime(format), duration: estimateTextAudioDuration(content), raw: json };
+    }
     const audio = json?.audio || json?.audio_base64 || json?.audioBase64 || json?.data?.audio || json?.data?.audio_base64 || '';
     if (!audio) throw new Error('ElevenLabs 没有返回音频数据');
+    window.ByndElevenLabsOptions?.record(api, resp.headers).catch(() => {});
     return {
         audioUrl: decodeMiniMaxAudioData(audio, format),
         mimeType: getMiniMaxAudioMime(format),
@@ -555,7 +602,7 @@ async function requestElevenLabsVoiceAudio(text, apiConfig) {
     };
 }
 
-async function requestLocalVoiceAudio(text, apiConfig) {
+async function requestLocalVoiceAudio(text, apiConfig, options = {}) {
     const api = normalizeLocalVoiceApiData(apiConfig);
     const content = String(text || '').trim();
     if (!content) throw new Error('语音文本为空');
@@ -582,7 +629,7 @@ async function requestLocalVoiceAudio(text, apiConfig) {
             voice_setting: { voice_id: api.voiceId || '' },
             audio_setting: { format }
         }),
-        signal: AbortSignal.timeout(30000)
+        signal: options.signal || AbortSignal.timeout(30000)
     });
 
     const contentType = resp.headers.get('content-type') || '';
@@ -666,10 +713,23 @@ function getCharacterVoiceApi(char) {
     const api = { ...savedApi, provider: binding.provider };
     if (binding.voiceModel) api.voiceModel = binding.voiceModel;
     if (binding.voiceId) api.voiceId = binding.voiceId;
+    if (binding.voiceStyle) api.voiceStyle = binding.voiceStyle;
     return api;
 }
 
-async function requestVoiceAudioWithConfig(text, api, char = null) {
+function isCharacterVoiceConfigured(char) {
+    const binding = getCharacterVoiceBinding(char);
+    if (!binding || (binding.provider === 'elevenlabs' && !binding.voiceId)) return false;
+    const api = getCharacterVoiceApi(char);
+    if (!api) return false;
+    if (binding.provider === 'minimax') return isApiVoiceEnabled(api);
+    if (binding.provider === 'openai') return isOpenAiVoiceEnabled(api);
+    if (binding.provider === 'fish-audio') return isFishAudioVoiceEnabled(api);
+    if (binding.provider === 'elevenlabs') return isElevenLabsVoiceEnabled(api);
+    return isLocalVoiceEnabled(api);
+}
+
+async function requestVoiceAudioWithConfig(text, api, char = null, options = {}) {
     if (!api) throw new Error('还没有配置可用的语音 API');
     const provider = api.provider || api.voiceProvider;
     const startedAt = Date.now();
@@ -685,11 +745,11 @@ async function requestVoiceAudioWithConfig(text, api, char = null) {
         } catch (_) {}
     };
     try {
-        const result = await (provider === 'local' ? requestLocalVoiceAudio(text, api)
-            : provider === 'openai' ? requestOpenAiVoiceAudio(text, api)
-                : provider === 'fish-audio' ? requestFishAudioVoiceAudio(text, api)
-                    : provider === 'elevenlabs' ? requestElevenLabsVoiceAudio(text, api)
-                        : requestMiniMaxVoiceAudio(text, api));
+        const result = await (provider === 'local' ? requestLocalVoiceAudio(text, api, options)
+            : provider === 'openai' ? requestOpenAiVoiceAudio(text, api, options)
+                : provider === 'fish-audio' ? requestFishAudioVoiceAudio(text, api, options)
+                    : provider === 'elevenlabs' ? requestElevenLabsVoiceAudio(text, api, options)
+                        : requestMiniMaxVoiceAudio(text, api, options));
         recordUsage(true);
         return result;
     } catch (error) {
@@ -846,9 +906,9 @@ async function testElevenLabsVoiceApiFromModal() {
     resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 ElevenLabs...</span>';
     try {
         const result = await requestElevenLabsVoiceAudio('你好，这是 ElevenLabs 语音测试。', testApi);
-        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ ElevenLabs 可用，已试听测试音频</span>';
         const audio = new Audio(result.audioUrl);
-        audio.play().catch(() => {});
+        await audio.play();
+        resultEl.innerHTML = '<span style="color:#66d9a0;">ElevenLabs 可用，正在播放测试音频</span>';
     } catch (e) {
         resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'ElevenLabs 测试失败')}</span>`;
     }
@@ -887,16 +947,22 @@ function saveApiVoiceSettings() {
             return;
         }
         if (!voiceApi.voiceModel || !voiceApi.voiceId) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写语音模型和音色 ID</span>';
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请从列表选择语音模型和声音</span>';
             return;
         }
     }
     const data = getApiData();
     data.voiceApi = voiceApi;
     data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi, data.fishAudioVoiceApi);
-    saveApiData(data);
+    try {
+        if (saveApiData(data) === false) throw new Error('设置未能保存');
+    } catch (_) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">语音设置保存失败，请重试；当前填写内容已保留。</span>';
+        return false;
+    }
     closeApiVoiceModal();
     renderApiList();
+    return true;
 }
 
 function saveApiOpenAiVoiceSettings() {
@@ -944,9 +1010,15 @@ function saveApiFishAudioVoiceSettings() {
     const data = getApiData();
     data.fishAudioVoiceApi = fishAudioVoiceApi;
     data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, data.elevenLabsVoiceApi, fishAudioVoiceApi);
-    saveApiData(data);
+    try {
+        if (saveApiData(data) === false) throw new Error('storage');
+    } catch (_) {
+        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">保存失败，当前填写已保留，请检查设备存储空间后重试</span>';
+        return false;
+    }
     closeApiFishAudioVoiceModal();
     renderApiList();
+    return true;
 }
 
 function saveApiElevenLabsVoiceSettings() {
@@ -962,14 +1034,17 @@ function saveApiElevenLabsVoiceSettings() {
             return;
         }
         if (!elevenLabsVoiceApi.voiceId) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Voice ID</span>';
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请先选用音色，或在高级设置填写 Voice ID</span>';
             return;
         }
     }
     const data = getApiData();
     data.elevenLabsVoiceApi = elevenLabsVoiceApi;
     data.voiceDefaultProvider = normalizeVoiceDefaultProvider(data.voiceDefaultProvider, data.voiceApi, data.localVoiceApi, data.openAiVoiceApi, elevenLabsVoiceApi, data.fishAudioVoiceApi);
-    saveApiData(data);
+    try { saveApiData(data); } catch (error) {
+        if (resultEl) resultEl.textContent = '保存失败，请检查设备存储空间后重试';
+        return;
+    }
     closeApiElevenLabsVoiceModal();
     renderApiList();
 }
@@ -1022,8 +1097,10 @@ function setDefaultVoiceProvider(provider) {
         return;
     }
     data.voiceDefaultProvider = provider;
-    saveApiData(data);
+    try { if (saveApiData(data) === false) throw new Error('storage'); }
+    catch (_) { alert('默认语音保存失败，请检查设备存储后重试。'); return false; }
     renderApiList();
+    return true;
 }
 
 // 降级：模型选择框变成输入框

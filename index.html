@@ -27,12 +27,26 @@
             var isIOS = /iPhone|iPad|iPod/i.test(ua);
             if (window.ByndAndroid) {
                 document.documentElement.classList.add('bynd-android-app');
+                window.ByndSafeArea = {
+                    setTop: function (top) {
+                        top = Number(top);
+                        if (isFinite(top) && top >= 0) document.documentElement.style.setProperty('--bynd-native-safe-top', top + 'px');
+                    }
+                };
+                try {
+                    if (window.ByndAndroid.getSafeAreaTop) window.ByndSafeArea.setTop(window.ByndAndroid.getSafeAreaTop());
+                } catch (e) {}
             }
             if (mobileUa || (touch && shortSide <= 820 && longSide <= 1368)) {
                 document.documentElement.classList.add('mobile-runtime');
             }
             if (isIOS) document.documentElement.classList.add('bynd-ios');
             if (isIOS && (iosStandalone || pwaStandalone)) document.documentElement.classList.add('bynd-ios-pwa');
+            // Native indicators remain authoritative, including when storage is unavailable.
+            if (isIOS || (window.ByndAndroid && window.ByndAndroid.setSystemStatusBar) ||
+                (/Android/i.test(ua) && !window.ByndAndroid && !window.matchMedia?.('(display-mode: fullscreen)').matches)) {
+                document.documentElement.classList.add('bynd-native-statusbar');
+            }
             try {
                 var savedTheme = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
                 var shouldHideStatusBar = savedTheme.phoneStatusBarEnabled === false || (savedTheme.phoneStatusBarEnabled == null && isIOS && (iosStandalone || pwaStandalone));
@@ -42,6 +56,9 @@
                     styleEl.id = 'bynd-phone-statusbar-hide-style';
                     styleEl.textContent = '.status-bar{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;}';
                     document.head.appendChild(styleEl);
+                }
+                if (window.ByndAndroid && window.ByndAndroid.setSystemStatusBar) {
+                    window.ByndAndroid.setSystemStatusBar(savedTheme.phoneStatusBarEnabled !== false, false);
                 }
             } catch (e) {}
         })();
@@ -140,27 +157,27 @@
             };
         })();
     </script>
-    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.782">
-    <link rel="apple-touch-icon" sizes="180x180" href="bynd-icon-180.png?v=1.1.782">
-    <link rel="icon" href="bynd-icon.png?v=1.1.782" type="image/png">
+    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.844">
+    <link rel="apple-touch-icon" sizes="180x180" href="bynd-icon-180.png?v=1.1.844">
+    <link rel="icon" href="bynd-icon.png?v=1.1.844" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'" data-bynd-entry-required>
-    <link rel="stylesheet" href="apps/study/study.css?v=1.1.782" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.782" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/prompt-lab/lab.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.782" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'" data-bynd-entry-required>
+    <link rel="stylesheet" href="apps/study/study.css?v=1.1.844" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.844" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/prompt-lab/lab.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.844" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
 </head>
 <body>
     <div class="phone-container">
@@ -244,18 +261,25 @@ FOREVER FREE</p></section>
                 </div>
             </article>
         </div>
-        <div class="bynd-loading-status" role="status" aria-live="polite"><span class="bynd-loading-dot" aria-hidden="true"></span><span data-loading-message>正在加载资源…</span><button class="bynd-loading-retry" data-loading-retry hidden type="button" onclick="location.reload()">重新加载</button></div>
+        <div class="bynd-loading-status" role="status" aria-live="polite"><span class="bynd-loading-dot" aria-hidden="true"></span><span data-loading-message>正在抵达…</span><button class="bynd-loading-retry" data-loading-retry hidden type="button" onclick="location.reload()">重新加载</button></div>
     </section>
     <script>window.__byndResourceLoading?.activate();</script>
     <noscript><style>html.bynd-web-loading > body > .phone-container > :not(#bynd-resource-loading) { visibility: visible; }</style>请启用 JavaScript 后重新加载 BYND。</noscript>
         <div class="status-bar">
             <span id="clock-time-small">--:--</span>
             <div class="status-right">
-                <i class="ri-wifi-line"></i>
-                <i class="ri-signal-tower-fill"></i>
+                <i id="network-icon" hidden aria-label="网络状态未知"></i>
+                <span id="network-label" hidden></span>
                 <div class="battery-group">
+                    <span id="battery-icon" class="device-battery-icon" hidden role="img" aria-label="电量未知">
+                        <svg viewBox="0 0 28 16" fill="none" aria-hidden="true" focusable="false">
+                            <rect class="device-battery-outline" x="1" y="3" width="22" height="11" rx="3" />
+                            <rect class="device-battery-terminal" x="24.5" y="6" width="2" height="5" rx="1" />
+                            <rect class="device-battery-fill" data-battery-fill x="3" y="5" width="0" height="7" rx="1.3" />
+                            <path class="device-battery-bolt" d="M14 1 9.5 7h3l-1 5L17 5h-3.5L14 1Z" />
+                        </svg>
+                    </span>
                     <span id="battery-level">--%</span>
-                    <i id="battery-icon" class="ri-battery-line"></i>
                 </div>
             </div>
         </div>
@@ -294,7 +318,7 @@ FOREVER FREE</p></section>
         <div id="home-screen" class="screen-content hidden">
             <div class="pages-container" id="pages-container">
                 <div class="desktop-page" data-page="0">
-                    <div class="desktop-scroll-area">
+                    <div class="desktop-scroll-area desktop-reference-page desktop-reference-first">
                         <div class="calendar-widget">
                             <div class="cal-left">
                                 <div class="cal-day" id="cal-day-name">Thu</div>
@@ -306,107 +330,37 @@ FOREVER FREE</p></section>
                             </div>
                         </div>
 
-                        <div class="bento-box">
-                            <div class="apps-quad">
-                                <div class="app-item" onclick="openApp('wechat')">
-                                    <div class="app-icon icon-black"><i class="ri-wechat-line"></i></div>
-                                    <span>微信</span>
-                                </div>
-                                <div class="app-item" onclick="openApp('regex')">
-                                    <div class="app-icon icon-black"><i class="ri-code-s-slash-line"></i></div>
-                                    <span>正则</span>
-                                </div>
-                                <div class="app-item" onclick="openApp('worldbook')">
-                                    <div class="app-icon icon-black"><i class="ri-book-read-line"></i></div>
-                                    <span>世界书</span>
-                                </div>
-                                <div class="app-item" data-app-id="settings" onclick="openApp('settings')">
-                                    <div class="app-icon icon-black"><i class="ri-settings-4-line"></i></div>
-                                    <span>设置</span>
-                                </div>
-                                <div class="app-item" data-app-id="role-tools" onclick="openApp('role-tools')">
-                                    <div class="app-icon icon-black"><i class="ri-tools-line"></i></div>
-                                    <span>角色台</span>
-                                </div>
-                            </div>
-                            <div class="photo-large">
-                                <img src="https://pic1.imgdb.cn/item/6a1d859db3f09b19e9d1ecb9.jpg" class="desktop-img-1">
-                            </div>
+                        <div class="page2-app-grid desktop-reference-app-grid">
+                            <div class="app-item" data-app-id="wechat" data-layout-id="app-wechat" onclick="openApp('wechat')"><div class="app-icon icon-black"><i class="ri-wechat-line"></i></div><span>微信</span></div>
+                            <div class="app-item" data-app-id="money" data-layout-id="app-money" onclick="openApp('money')"><div class="app-icon icon-black"><i class="ri-money-cny-box-line"></i></div><span>记账</span></div>
+                            <div class="app-item" data-app-id="regex" data-layout-id="app-regex" onclick="openApp('regex')"><div class="app-icon icon-black"><i class="ri-code-s-slash-line"></i></div><span>正则</span></div>
+                            <div class="app-item" data-app-id="theme" data-layout-id="app-theme" onclick="openApp('theme')"><div class="app-icon icon-black"><i class="ri-palette-line"></i></div><span>美化</span></div>
+                            <div class="app-item desktop-tools-placeholder" data-default-tools-slot><div class="app-icon icon-black"><i class="ri-tools-line"></i></div><span>工具</span></div>
+                            <div class="app-item" data-app-id="game" data-layout-id="app-game" onclick="openApp('game')"><div class="app-icon icon-black"><i class="ri-gamepad-line"></i></div><span>Game</span></div>
+                            <div class="app-item" data-app-id="worldbook" data-layout-id="app-worldbook" onclick="openApp('worldbook')"><div class="app-icon icon-black"><i class="ri-book-read-line"></i></div><span>世界书</span></div>
+                            <div class="app-item" data-app-id="study" data-layout-id="app-study" onclick="openApp('study')"><div class="app-icon icon-black"><i class="ri-graduation-cap-line"></i></div><span>学习</span></div>
                         </div>
-
-                        <div class="bento-box">
-                            <div class="photo-large">
-                                <img src="https://pic1.imgdb.cn/item/6a1d859db3f09b19e9d1ecba.jpg" alt="风景" class="desktop-img-2">
-                            </div>
-                            <div class="apps-quad">
-                                <div class="app-item" onclick="openApp('theme')">
-                                    <div class="app-icon icon-black"><i class="ri-palette-line"></i></div>
-                                    <span>美化</span>
-                                </div>
-                                <div class="app-item" onclick="openApp('study')">
-                                    <div class="app-icon icon-black"><i class="ri-graduation-cap-line"></i></div>
-                                    <span>学习</span>
-                                </div>
-                                <div class="app-item" onclick="openApp('money')">
-                                    <div class="app-icon icon-black"><i class="ri-money-cny-box-line"></i></div>
-                                    <span>记账</span>
-                                </div>
-                                <div class="app-item" onclick="openApp('game')">
-                                    <div class="app-icon icon-black"><i class="ri-gamepad-line"></i></div>
-                                    <span>Game</span>
-                                </div>
-                            </div>
+                        <div class="photo-large desktop-reference-photo">
+                            <img src="https://pic1.imgdb.cn/item/6a1d859db3f09b19e9d1ecba.jpg" alt="桌面横向照片" class="desktop-img-2">
+                        </div>
+                        <div class="layout-source-hidden" data-reference-photo-source>
+                            <div class="photo-large"><img src="https://pic1.imgdb.cn/item/6a1d859db3f09b19e9d1ecb9.jpg" alt="桌面照片" class="desktop-img-1"></div>
                         </div>
                     </div>
                 </div>
                 <div class="desktop-page" data-page="1">
-                    <div class="desktop-scroll-area page2-content">
-                        <div class="page2-app-grid">
-                            <div class="app-item" data-app-id="dream" data-layout-id="app-dream" onclick="openApp('dream')">
-                                <div class="app-icon icon-black"><i class="ri-moon-cloudy-line"></i></div>
-                                <span>盗梦空间</span>
-                            </div>
-                            <div class="app-item" data-app-id="moon" onclick="openApp('moon')"><div class="app-icon icon-black"><i class="ri-moon-line"></i></div><span>月伴</span></div>
-                            <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')">
-                                <div class="app-icon icon-black"><i class="ri-eye-line"></i></div>
-                                <span>监控</span>
-                            </div>
-                            <div class="app-item" data-app-id="pet" data-layout-id="app-pet" onclick="openApp('pet')">
-                                <div class="app-icon icon-black"><i class="ri-bear-smile-line"></i></div>
-                                <span>桌宠</span>
-                            </div>
-                            <div class="app-item" data-app-id="outing" data-layout-id="app-outing" onclick="openApp('outing')">
-                                <div class="app-icon icon-black"><i class="ri-map-pin-user-line"></i></div>
-                                <span>一起出门</span>
-                            </div>
-                            <div class="app-item" data-app-id="coread" data-layout-id="app-coread" onclick="openApp('coread')">
-                                <div class="app-icon icon-black"><i class="ri-book-open-line"></i></div>
-                                <span>PageMate</span>
-                            </div>
-                            <div class="app-item" data-app-id="living-world" data-layout-id="app-living-world" onclick="openApp('living-world')">
-                                <div class="app-icon icon-black"><i class="ri-discuss-line"></i></div>
-                                <span>论坛</span>
-                            </div>
-                            <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')">
-                                <div class="app-icon icon-black"><i class="ri-image-2-line"></i></div>
-                                <span>相册</span>
-                            </div>
-                            <div class="app-item" data-app-id="comic" data-layout-id="app-comic" onclick="openApp('comic')">
-                                <div class="app-icon icon-black"><i class="ri-booklet-line"></i></div>
-                                <span>漫画</span>
-                            </div>
-                            <div class="app-item" data-app-id="home3d" data-layout-id="app-home3d" onclick="openApp('home3d')">
-                                <div class="app-icon icon-black"><i class="ri-home-heart-line"></i></div>
-                                <span>小屋</span>
-                            </div>
-                            <div class="app-item" data-app-id="manual" data-layout-id="app-manual" onclick="openApp('manual')">
-                                <div class="app-icon icon-black"><i class="ri-book-2-line"></i></div>
-                                <span>说明书</span>
-                            </div>
-                            <div class="app-item" data-app-id="mcp" data-layout-id="app-mcp" onclick="openApp('mcp')">
-                                <div class="app-icon icon-black mcp-desktop-icon"><i class="ri-plug-2-line"></i></div>
-                                <span>MCP</span>
-                            </div>
+                    <div class="desktop-scroll-area page2-content desktop-reference-page desktop-reference-second">
+                        <div class="page2-app-grid desktop-reference-app-grid">
+                            <div class="app-item" data-app-id="comic" data-layout-id="app-comic" onclick="openApp('comic')"><div class="app-icon icon-black"><i class="ri-booklet-line"></i></div><span>漫画</span></div>
+                            <div class="app-item" data-app-id="coread" data-layout-id="app-coread" onclick="openApp('coread')"><div class="app-icon icon-black"><i class="ri-book-open-line"></i></div><span>PageMate</span></div>
+                            <div class="app-item" data-app-id="monitor" data-layout-id="app-monitor" onclick="openApp('monitor')"><div class="app-icon icon-black"><i class="ri-eye-line"></i></div><span>监控</span></div>
+                            <div class="app-item" data-app-id="album" data-layout-id="app-album" onclick="openApp('album')"><div class="app-icon icon-black"><i class="ri-image-2-line"></i></div><span>相册</span></div>
+                            <div class="app-item" data-app-id="dream" data-layout-id="app-dream" onclick="openApp('dream')"><div class="app-icon icon-black"><i class="ri-moon-cloudy-line"></i></div><span>盗梦空间</span></div>
+                            <div class="app-item" data-app-id="living-world" data-layout-id="app-living-world" onclick="openApp('living-world')"><div class="app-icon icon-black"><i class="ri-discuss-line"></i></div><span>论坛</span></div>
+                            <div class="app-item" data-app-id="outing" data-layout-id="app-outing" onclick="openApp('outing')"><div class="app-icon icon-black"><i class="ri-map-pin-user-line"></i></div><span>一起出门</span></div>
+                            <div class="app-item" data-app-id="pet" data-layout-id="app-pet" onclick="openApp('pet')"><div class="app-icon icon-black"><i class="ri-bear-smile-line"></i></div><span>桌宠</span></div>
+                            <div class="app-item" data-app-id="home3d" data-layout-id="app-home3d" onclick="openApp('home3d')"><div class="app-icon icon-black"><i class="ri-home-heart-line"></i></div><span>小屋</span></div>
+                            <div class="app-item" data-app-id="moon" data-layout-id="app-moon" onclick="openApp('moon')"><div class="app-icon icon-black"><i class="ri-moon-line"></i></div><span>月伴</span></div>
                         </div>
                     </div>
                 </div>
@@ -415,6 +369,7 @@ FOREVER FREE</p></section>
                 <div class="page-dot active"></div>
                 <div class="page-dot"></div>
             </div>
+            <button id="event-desktop-widget" type="button" data-event-id="" hidden></button>
             <div id="folder-overlay" class="folder-overlay hidden" onclick="closeFolderOverlay(event)">
                 <div class="folder-popup">
                     <input class="folder-name-input" id="folder-name-input" placeholder="文件夹" onclick="event.stopPropagation()">
@@ -422,22 +377,9 @@ FOREVER FREE</p></section>
                 </div>
             </div>
             <div class="dock-bar">
-                <div class="dock-item" onclick="openApp('music')">
-                    <div class="dock-icon-box"><i class="ri-music-2-fill"></i></div>
-                    <span class="dock-label">音乐</span>
-                </div>
-                <div class="dock-item" onclick="openApp('camera')">
-                    <div class="dock-icon-box"><i class="ri-camera-lens-line"></i></div>
-                    <span class="dock-label">相机</span>
-                </div>
-                <div class="dock-item" onclick="openApp('preset')">
-                    <div class="dock-icon-box"><i class="ri-equalizer-line"></i></div>
-                    <span class="dock-label">预设</span>
-                </div>
-                <div class="dock-item" onclick="openApp('bill')">
-                    <div class="dock-icon-box"><i class="ri-bill-line"></i></div>
-                    <span class="dock-label">账单</span>
-                </div>
+                <div class="dock-item" onclick="openApp('preset')"><div class="dock-icon-box"><i class="ri-equalizer-line"></i></div><span class="dock-label">预设</span></div>
+                <div class="dock-item" onclick="openApp('camera')"><div class="dock-icon-box"><i class="ri-camera-lens-line"></i></div><span class="dock-label">相机</span></div>
+                <div class="dock-item" onclick="openApp('music')"><div class="dock-icon-box"><i class="ri-music-2-fill"></i></div><span class="dock-label">音乐</span></div>
             </div>
         </div>
 
@@ -798,67 +740,51 @@ FOREVER FREE</p></section>
 
         <div id="app-outing-window" class="app-window hidden outing-window">
             <div class="outing-shell">
-                <div class="outing-topbar">
-                    <button type="button" onclick="closeApp('outing')" aria-label="返回"><i class="ri-arrow-left-s-line"></i></button>
-                    <div>
-                        <span>BEYOND SCREEN</span>
-                        <strong>一起出门</strong>
-                    </div>
-                    <button type="button" onclick="refreshOutingLocation()" aria-label="刷新定位"><i class="ri-crosshair-2-line"></i></button>
-                </div>
-                <div class="outing-content">
-                    <section class="outing-map-card">
+                <header class="outing-topbar">
+                    <button type="button" onclick="closeApp('outing')" aria-label="返回"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+                    <div><span>A LITTLE DAY OUT</span><strong>一起出门</strong></div>
+                    <button type="button" onclick="refreshOutingLocation()" aria-label="确认定位"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button>
+                </header>
+                <main class="outing-content">
+                    <section class="outing-map-card" aria-label="当前位置与附近地点">
                         <div class="outing-map-bg">
-                            <span class="outing-road r1"></span>
-                            <span class="outing-road r2"></span>
-                            <span class="outing-road r3"></span>
-                            <span class="outing-park"></span>
-                            <span class="outing-water"></span>
-                            <span class="outing-pin p1"></span>
-                            <span class="outing-pin p2"></span>
-                            <span class="outing-pin p3"></span>
-                            <article class="outing-polaroid" id="outing-photo-card">
-                                <div><i class="ri-camera-lens-line"></i></div>
-                                <time id="outing-photo-time">还没有照片</time>
-                            </article>
+                            <div id="outing-live-map" aria-label="可拖动和缩放的真实地图"></div>
+                            <div id="outing-map-placeholder" class="outing-map-placeholder">
+                                <span class="outing-map-wash"></span><span class="outing-map-path"></span>
+                                <span class="outing-map-doodle d1">✿</span><span class="outing-map-doodle d2">✧</span>
+                                <button type="button" onclick="refreshOutingLocation()"><i class="ri-navigation-line"></i><strong>我们从这里开始</strong><span>确认定位 · 发现附近</span></button>
+                            </div>
+                            <div class="outing-map-tag"><span class="outing-live-dot"></span><span id="outing-mode-label">A LITTLE DAY OUT</span></div>
                         </div>
-                        <div class="outing-map-copy">
-                            <span id="outing-mode-label">OFFLINE</span>
-                            <strong id="outing-active-name">选择一个角色一起出门</strong>
-                            <p id="outing-location-text">开启后，每移动 500 米会自动叫醒角色。</p>
-                        </div>
+                        <div class="outing-map-caption"><strong id="outing-active-name">选择出门对象</strong><p id="outing-location-text" role="status">确认定位，发现附近的吃喝玩乐</p><p id="outing-map-error" class="outing-inline-error" role="alert"></p></div>
                     </section>
                     <section class="outing-control-card">
-                        <label>
-                            <span>出门对象</span>
-                            <div class="outing-select" id="outing-char-picker">
-                                <select id="outing-char-select" class="outing-native-select" aria-hidden="true" tabindex="-1"></select>
-                                <button type="button" class="outing-select-trigger" id="outing-char-trigger" onclick="toggleOutingCharMenu(event)" aria-haspopup="listbox" aria-expanded="false">
-                                    <span class="outing-select-name" id="outing-char-trigger-name">先导入角色卡</span>
-                                    <i class="ri-arrow-down-s-line"></i>
-                                </button>
-                                <div class="outing-select-menu hidden" id="outing-char-menu" role="listbox"></div>
-                            </div>
-                        </label>
-                        <div class="outing-control-actions">
-                            <button type="button" class="primary" id="outing-toggle-btn" onclick="toggleOutingDateMode()"><i class="ri-map-pin-line"></i><span>开启</span></button>
-                            <button type="button" onclick="captureOutingPhoto()"><i class="ri-camera-line"></i><span>拍照给他看</span></button>
+                        <div class="outing-select" id="outing-char-picker">
+                            <select id="outing-char-select" class="outing-native-select" aria-hidden="true" tabindex="-1"></select>
+                            <button type="button" class="outing-select-trigger" id="outing-char-trigger" onclick="toggleOutingCharMenu(event)" aria-label="选择出门对象" aria-haspopup="listbox" aria-expanded="false"><i class="ri-user-heart-line"></i><span class="outing-select-name" id="outing-char-trigger-name">先导入角色卡</span><i class="ri-arrow-down-s-line"></i></button>
+                            <div class="outing-select-menu hidden" id="outing-char-menu" role="listbox"></div>
                         </div>
+                        <button type="button" class="outing-destination-btn" id="outing-destination-btn" onclick="openOutingEditor('destination')"><i class="ri-map-pin-2-line"></i><span>随心走走 · 可选目的地</span><i class="ri-edit-line"></i></button>
+                        <div class="outing-control-actions"><button type="button" class="primary" id="outing-toggle-btn" onclick="toggleOutingDateMode()"><i class="ri-footprint-line"></i><span>出发</span></button><button type="button" onclick="captureOutingPhoto()"><i class="ri-camera-line"></i><span>拍照记录</span></button></div>
                         <input type="file" id="outing-camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleOutingPhotoInput(this)">
+                        <p id="outing-error" class="outing-inline-error" role="alert" hidden></p>
                     </section>
-                    <section class="outing-stats">
-                        <div><span>当前距离</span><strong id="outing-distance">--</strong></div>
-                        <div><span>叫醒次数</span><strong id="outing-wake-count">0</strong></div>
-                        <div><span>定位精度</span><strong id="outing-accuracy">--</strong></div>
+                    <section class="outing-nearby-card">
+                        <div class="outing-section-head"><h2>附近的小美好 <span>NEARBY</span></h2><small id="outing-nearby-time"></small></div>
+                        <nav class="outing-nearby-tabs" aria-label="附近地点分类"><button data-outing-category="all" aria-pressed="true" onclick="filterOutingNearby('all')">全部</button><button data-outing-category="food" aria-pressed="false" onclick="filterOutingNearby('food')">吃吃喝喝</button><button data-outing-category="play" aria-pressed="false" onclick="filterOutingNearby('play')">走走逛逛</button></nav>
+                        <div id="outing-nearby-list"></div>
+                        <small class="outing-map-source">附近数据 · OpenStreetMap</small>
                     </section>
-                    <section class="outing-log-card">
-                        <div class="outing-log-head">
-                            <span>TRAIL</span>
-                            <button type="button" onclick="clearOutingTrail()">清空</button>
-                        </div>
-                        <div class="outing-log-list" id="outing-log-list"></div>
+                    <section class="outing-journal-card" id="outing-journal">
+                        <div class="outing-section-head"><h2>路上的小记 <span>OUR JOURNAL</span></h2><span class="outing-ink-star">✧</span></div>
+                        <nav class="outing-journal-tabs" aria-label="旅行手账"><button data-outing-view="today" aria-pressed="true" onclick="switchOutingJournal('today')">这次出门</button><button data-outing-view="calendar" aria-pressed="false" onclick="switchOutingJournal('calendar')">回忆月历</button></nav>
+                        <div class="outing-record-tools"><button onclick="openOutingEditor('mood')"><span class="outing-tool-face">˘ᴗ˘</span><span>此刻心情</span></button><button onclick="openOutingEditor('place')"><span>🌷</span><span>走过哪里</span></button><button onclick="openOutingEditor('food')"><span>🍞</span><span>吃了什么</span></button></div>
+                        <div id="outing-journal-body"></div>
                     </section>
-                </div>
+                    <details class="outing-help"><summary>关于定位与记录 <i class="ri-information-line"></i></summary><p>定位确认后会查询附近 1.5 公里的吃喝玩乐；地图数据未收录的地方可以手动记下。出发后会同步位置与附近地点给同行角色，每移动约 500 米再叫醒一次。地图查询失败时可继续写手账。</p><p>照片使用已配置的聊天模型生成留言，角色自己决定是否收藏到小手机相册。记录与留言会同步到聊天记忆；失败时请点记录下方的重试。回忆月历按旅程出发日期归档，出门记录也包含在应用完整备份中。</p></details>
+                </main>
+                <div id="outing-modal" class="outing-modal" hidden></div>
+                <div id="outing-departure" class="outing-departure" hidden></div>
             </div>
         </div>
 
@@ -1349,9 +1275,10 @@ FOREVER FREE</p></section>
                             <div class="manual-section-body">
                                 <h4>一起出门</h4>
                                 <ol>
-                                    <li>打开“一起出门”，先选择“出门对象”，再点“开启”。</li>
-                                    <li>浏览器询问定位时，按自己的使用场景选择。开启后页面会记录距离，约每移动 500 米可叫醒角色互动。</li>
-                                    <li>点“拍照给他看”会打开相机或文件选择；照片能否被理解，还取决于聊天模型是否支持视觉输入。</li>
+                                    <li>打开“一起出门”，选择同行角色，点顶栏定位确认当前位置；附近的吃喝玩乐会同步给角色。目的地可以手动填写，也可以留空。</li>
+                                    <li>点“出发”会播放同行动画。旅程中可以滑动选择心情，记下到过的地方与好吃的；约每移动 500 米会叫醒同行角色。</li>
+                                    <li>点“拍照记录”打开相机或选择照片，角色会在照片下留言，并自主决定是否珍藏到小手机相册。留言需要聊天模型支持图片输入，失败时可重试。</li>
+                                    <li>结束旅程后，心情、地点、美食、照片和留言会整理成信纸，在“回忆月历”按出发日期查看。记录会同步到聊天记忆；保存失败时保留手账并提供重试。</li>
                                 </ol>
                                 <h4>PageMate 共读</h4>
                                 <ol>
@@ -1747,6 +1674,25 @@ FOREVER FREE</p></section>
             </div>
         </div>
 
+        <div id="event-arrival" hidden role="status"><button type="button" onclick="ByndEventInbox.openArrival()"><i class="ri-mail-open-line"></i><span></span></button><button type="button" onclick="this.parentElement.hidden=true" aria-label="稍后查看">×</button></div>
+        <div id="app-events-window" class="app-window hidden">
+            <header class="event-header"><button type="button" onclick="closeApp('events')" aria-label="返回">‹</button><div><small>HEARTMAIL</small><h2>心意收件箱</h2></div><span aria-hidden="true">✉</span></header>
+            <div class="event-content">
+                <nav class="event-filters" aria-label="心意分类"><button type="button" data-event-filter="all" aria-pressed="true" onclick="ByndEventInbox.chooseFilter('all')">全部</button><button type="button" data-event-filter="letters" aria-pressed="false" onclick="ByndEventInbox.chooseFilter('letters')">来信</button><button type="button" data-event-filter="notes" aria-pressed="false" onclick="ByndEventInbox.chooseFilter('notes')">手记</button><button type="button" data-event-filter="keepsakes" aria-pressed="false" onclick="ByndEventInbox.chooseFilter('keepsakes')">珍藏</button></nav>
+                <p id="event-status" role="status" hidden></p>
+                <div id="event-list"></div>
+                <div id="event-pending"></div>
+                <details class="event-options"><summary>来信设置与帮助</summary>
+                    <label>允许角色自主留下心意<input id="event-enabled" type="checkbox" onchange="ByndEventInbox.configure()"></label>
+                    <label>离开多少天后唤醒判断<input id="event-threshold" type="number" min="1" max="90" value="3" onchange="ByndEventInbox.configure()"></label>
+                    <p>只对有过有效互动的角色生效。时间只是判断条件，角色可以选择不行动。重开应用或从后台回来时，按人设、关系、最近互动和记忆判断，每段离开最多判断一次；不会补扣每天的调用。网页完全关闭时不会在本地生成。</p>
+                    <p>使用你已配置的聊天 API；启用 Jev 时优先由 Jev 选择载体。图片提示词会调用生图 API。信件、手记和珍藏收在这里，聊天消息进入聊天，生成图进入 BYND 相册。旧用户从此次更新后开始记录离开时间。</p>
+                    <div class="event-option-actions"><button type="button" onclick="ByndEventInbox.showPreview('doodle')">手绘</button><button type="button" onclick="ByndEventInbox.showPreview('newspaper')">小报</button><button type="button" onclick="ByndEventInbox.showPreview('bottle')">思念瓶</button><button type="button" onclick="ByndEventInbox.showPreview('letter')">拆信</button></div>
+                    <div class="event-option-actions"><button type="button" onclick="ByndEventInbox.exportFile()">导出心意</button><button type="button" onclick="document.getElementById('event-import').click()">导入心意</button><input id="event-import" type="file" accept="application/json,.json" hidden onchange="ByndEventInbox.importFile(this)"></div>
+                </details>
+            </div>
+            <section id="event-viewer" role="dialog" aria-modal="true" aria-label="查看心意" hidden></section>
+        </div>
         <div id="app-role-tools-window" class="app-window hidden">
             <header class="role-tools-header"><button type="button" onclick="closeApp('role-tools')" aria-label="关闭角色台"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 5-7 7 7 7M6 12h14"/></svg></button><div><h3>角色台</h3><small>角色的工具与现实生活权限</small></div><span class="role-header-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span></header>
             <nav class="role-tabs" role="tablist" aria-label="角色台分类">
@@ -1756,6 +1702,7 @@ FOREVER FREE</p></section>
             </nav>
             <div id="role-tools-status" class="role-tools-status" role="status" aria-live="polite"></div>
             <div class="role-tools-content">
+                <button class="role-event-entry" type="button" onclick="openApp('events')"><i class="ri-mail-open-line"></i><span>心意收件箱</span><b data-event-badge hidden></b><i class="ri-arrow-right-s-line"></i></button>
                 <div id="role-life-panel" data-role-panel="life" role="tabpanel" aria-labelledby="role-tab-life"></div>
                 <div id="role-real-tools-panel" data-role-panel="tools" role="tabpanel" aria-labelledby="role-tab-tools" hidden><div id="bynd-tools-settings"></div></div>
                 <div id="role-permissions-panel" data-role-panel="permissions" role="tabpanel" aria-labelledby="role-tab-permissions" hidden></div>
@@ -1763,7 +1710,7 @@ FOREVER FREE</p></section>
         </div>
 
         <div id="app-moon-window" class="app-window hidden">
-            <header class="role-tools-header moon-header"><button type="button" onclick="closeApp('moon')" aria-label="关闭月伴">‹</button><div><h3>月伴</h3></div><svg class="moon-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.1 15.9A8.4 8.4 0 0 1 8.1 3.9 8.4 8.4 0 1 0 20.1 15.9Z"/><path d="m17.7 4.2.45 1.4 1.4.45-1.4.45-.45 1.4-.45-1.4-1.4-.45 1.4-.45.45-1.4Z"/></svg></header>
+            <header class="role-tools-header moon-header"><button type="button" onclick="closeApp('moon')" aria-label="关闭月伴"><svg class="moon-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button><div><h3>月伴</h3></div><svg class="moon-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.1 15.9A8.4 8.4 0 0 1 8.1 3.9 8.4 8.4 0 1 0 20.1 15.9Z"/><path d="m17.7 4.2.45 1.4 1.4.45-1.4.45-.45 1.4-.45-1.4-1.4-.45 1.4-.45.45-1.4Z"/></svg></header>
             <div id="moon-status" class="role-tools-status" role="status" aria-live="polite"></div>
             <div id="moon-content" class="role-tools-content moon-content"></div>
             <nav id="moon-nav" class="moon-nav" aria-label="月伴导航">
@@ -1817,7 +1764,7 @@ FOREVER FREE</p></section>
                         <p class="tripo-privacy">密钥仅保存在当前设备的应用数据中，不包含在 BYND 备份导出里。</p>
                         <div class="tripo-actions"><button id="tripo-test" type="button" onclick="ByndTripo.testSettings()">测试连接</button><button type="button" class="tripo-save" onclick="ByndTripo.saveSettings()">保存设置</button></div>
                         <p id="tripo-status" role="status" aria-live="polite"></p>
-                        <details class="tripo-guide"><summary>申请与使用说明</summary><ol><li>打开上方 Tripo 开发者控制台链接，注册或登录自己的账户。</li><li>创建 API Key，复制到此处。API 地址已填好；使用自己的中转服务时可修改地址。</li><li>测试连接查询余额，再保存设置。测试不会创建模型任务。</li></ol><p>API 额度与网站生成额度请分别以开发者控制台为准。模型生成按 Tripo 的 API 规则计费。</p><p>官方 API 通过 BYND 转发服务连接；转发不保存密钥。填写自定义地址时，密钥会发送到该地址。</p><p>本页先保存连接配置；人物生成、骨骼绑定与入屋动作仍需继续接入。</p><a href="https://developers.tripo3d.ai/en/docs/billing" target="_blank" rel="noopener noreferrer">查看 API 计费说明 ↗</a><button type="button" class="tripo-clear" onclick="ByndTripo.clearSettings()">清除本机密钥</button></details>
+                        <details class="tripo-guide"><summary>申请与使用说明</summary><ol><li>打开上方 Tripo 开发者控制台链接，注册或登录自己的账户。</li><li>打开 <a href="https://platform.tripo3d.ai/billing" target="_blank" rel="noopener noreferrer">Billing 计费页面 ↗</a>，如有「Get your free wallet」入口，手动点击领取试用积分。已显示 Free Wallet 余额时，核对余额与有效期即可。「Add to credit balance」为添加积分入口，是否收费以页面显示为准。</li><li>创建 API Key，复制到此处。API 地址已填好；使用自己的中转服务时可修改地址。</li><li>回到这里测试连接查询余额，再保存设置。测试不会创建模型任务。</li></ol><p>免费试用积分有效期为 14 天，具体到期时间以 Free Wallet 旁的「valid until」为准，额度以当前账户显示为准。</p><p>API Wallet（充值余额）与 Free Wallet（免费试用余额）分别显示。API 余额为 0 时，请同时核对免费钱包和有效期。</p><p>API 额度与网站生成额度请分别以开发者控制台为准。模型生成按 Tripo 的 API 规则计费。</p><p>官方 API 通过 BYND 转发服务连接；转发不保存密钥。填写自定义地址时，密钥会发送到该地址。</p><p>本页先保存连接配置；人物生成、骨骼绑定与入屋动作仍需继续接入。</p><a href="https://developers.tripo3d.ai/en/docs/billing" target="_blank" rel="noopener noreferrer">查看 API 计费说明 ↗</a><button type="button" class="tripo-clear" onclick="ByndTripo.clearSettings()">清除本机密钥</button></details>
                     </section>
                 </div>
                 <div class="set-nav-panel" id="settings-tab-decision" data-settings-panel="decision" role="tabpanel" aria-labelledby="settings-nav-decision" hidden>
@@ -1841,6 +1788,7 @@ FOREVER FREE</p></section>
                     </details>
                     <div class="bynd-jev-scopes" role="group" aria-label="Jev 决策场景">
                         <label><input type="checkbox" data-jev-scope="turn"><span>每轮回复后</span></label>
+                        <label><input type="checkbox" data-jev-scope="autonomousEvent"><span>角色自主事件</span></label>
                         <label><input type="checkbox" data-jev-scope="toolGate"><span>工具人设把关</span></label>
                         <label><input type="checkbox" data-jev-scope="cycleCompanion"><span>月伴人设与时机</span></label>
                         <label><input type="checkbox" data-jev-scope="cycleReview"><span>月伴发送前自查（额外决策）</span></label>
@@ -1853,7 +1801,7 @@ FOREVER FREE</p></section>
                     </div>
                     <label class="bynd-jev-threshold" for="bynd-jev-threshold"><span><strong>执行门槛</strong><small>Jev 的把握低于这个概率时不执行，改用 BYND 原逻辑</small></span><b id="bynd-jev-threshold-value">55%</b></label>
                     <input class="bynd-jev-threshold-range" id="bynd-jev-threshold" type="range" min="34" max="95" step="1" value="55" oninput="ByndJev.previewThreshold(this.value)">
-                    <p class="bynd-jev-privacy">密钥保存在当前设备的应用数据中，不写入安装包，也不包含在 BYND 的 JSON 导出中。决策会把必要的精简状态经 BYND 转发服务发往 TypeSafe（转发不保存密钥）。测试连接会产生一次调用。</p>
+                    <p class="bynd-jev-privacy">保存后的 Jev 密钥、开关、决策场景和执行门槛会随「导出数据」一起迁移到手机网页或 APK。JSON 备份包含明文密钥，请妥善保管。密钥不写入安装包；决策经 BYND 转发服务发往 TypeSafe（转发不保存密钥）。测试连接会产生一次调用。</p>
                     <div class="bynd-jev-actions"><button type="button" id="bynd-jev-test" onclick="ByndJev.testSettings()">测试连接</button><button type="button" onclick="ByndJev.saveSettings()">保存设置</button></div>
                     <p class="bynd-jev-status" id="bynd-jev-status" role="status" aria-live="polite"></p>
                     <div class="bynd-jev-log-title">最近的决策 <small>绿色表示已执行</small></div>
@@ -1971,7 +1919,7 @@ FOREVER FREE</p></section>
                         <div class="set-data-btn" onclick="exportAllData()">
                             <i class="ri-download-2-line"></i>
                             <span>导出数据</span>
-                            <div class="set-data-hint">导出所有角色、设置、聊天记录</div>
+                            <div class="set-data-hint">角色、设置、聊天记录及 Jev 密钥</div>
                         </div>
                         <div class="set-data-btn" onclick="document.getElementById('import-data-file').click()">
                             <i class="ri-upload-2-line"></i>
@@ -2009,7 +1957,7 @@ FOREVER FREE</p></section>
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.782
+                    Beyond Screen v1.1.844
                 </div>
             </div>
         </div>
@@ -2074,12 +2022,14 @@ FOREVER FREE</p></section>
                     </div>
                     <div class="wc-form-group">
                         <label style="color:#8b5cf6;">官方 Base URL</label>
-                        <input type="text" id="api-voice-url" placeholder="https://api.minimax.io" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
+                        <input type="text" id="api-voice-url" placeholder="https://api.minimax.io" oninput="ByndMiniMaxVoices.refresh()" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
                     </div>
                     <div class="wc-form-group">
                         <label style="color:#8b5cf6;">MiniMax API Key</label>
-                        <input type="password" id="api-voice-key" placeholder="填 MiniMax 官方 Key" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
+                        <input type="password" id="api-voice-key" placeholder="填 MiniMax 官方 Key" oninput="ByndMiniMaxVoices.refresh()" style="background:#faf5f0; border-color:rgba(139,92,246,0.18); border-radius:14px;">
                     </div>
+                    <div id="api-minimax-picker" class="minimax-voice-picker" aria-label="MiniMax 模型与音色"></div>
+                    <details class="minimax-advanced"><summary>高级设置 · 手填 ID 与声音参数</summary>
                     <div class="api-voice-grid">
                         <label>
                             <span>模型</span>
@@ -2095,7 +2045,7 @@ FOREVER FREE</p></section>
                         </label>
                         <label>
                             <span>GroupId</span>
-                            <input type="text" id="api-voice-group-id" placeholder="旧接口需要时填写">
+                            <input type="text" id="api-voice-group-id" placeholder="旧接口需要时填写" oninput="ByndMiniMaxVoices.refresh()">
                         </label>
                         <label>
                             <span>语速</span>
@@ -2117,12 +2067,8 @@ FOREVER FREE</p></section>
                             </select>
                         </label>
                     </div>
-                    <div class="api-voice-method">
-                        <strong>接入方法</strong>
-                        <span>默认会请求 MiniMax Base URL + /v1/t2a_v2。</span>
-                        <span>先在 MiniMax 官方创建或克隆音色，拿到 voice_id 后填到音色 ID。浏览器直连如果被 CORS 拦住，就把 Endpoint 换成你自己的 Worker/后端代理。</span>
-                        <span>优势：中文、情绪和克隆音色更适合角色语音，按字符计费更好估成本。劣势：需要官方 Key，浏览器直连可能要代理。</span>
-                    </div>
+                    </details>
+                    <details class="minimax-advanced"><summary>填写帮助与计费</summary><p>填入 MiniMax API Key，选择模型和声音后保存。系统音色可以直接选择，不必先克隆。模型可先保持 speech-2.8-turbo；语速、音量为 1，音调为 0，格式为 mp3。</p><p>国际站 Key 通常对应 https://api.minimax.io；国内站当前文档地址为 https://api.minimax.cn，已有接入地址以账户说明为准。Endpoint 和 GroupId 通常留空，仅自定义代理或旧接口明确要求时填写。生成与“测试语音”会产生语音用量，按账户实际费率计费；加载列表不会生成音频。</p><a href="https://platform.minimax.io/docs/faq/system-voice-id" target="_blank" rel="noopener noreferrer">查看官方系统音色</a></details>
                 </div>
                 <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
                     <button class="btn-confirm" onclick="testVoiceApiFromModal()" style="background:transparent; color:#6d28d9; border:1.5px solid rgba(139,92,246,0.35); flex:1; border-radius:14px;">测试语音</button>
@@ -2207,37 +2153,52 @@ FOREVER FREE</p></section>
                         <input type="checkbox" id="api-nai-enabled">
                     </label>
                     <div class="wc-form-group">
-                        <label>Persistent API Token</label>
+                        <label for="api-nai-token">API Token</label>
                         <input type="password" id="api-nai-token" placeholder="pst-…" autocomplete="off">
+                        <small class="api-nai-hint">填入 NovelAI 的长期令牌，其余参数已预填，可直接保存。</small>
                     </div>
+                    <div class="wc-form-group">
+                        <label for="api-nai-model">模型</label><select id="api-nai-model"></select>
+                    </div>
+                    <label class="api-nai-check"><input type="checkbox" id="api-nai-opus-free"><span>限制在 Opus 免费范围<em>单张不超过 1024×1024 像素、最多 28 步。仅有效 Opus 订阅可免费，其他套餐仍消耗 Anlas。</em></span></label>
+                    <details id="api-nai-advanced" class="api-nai-details">
+                    <summary>高级选项 <span>已预填，无需修改</span></summary>
+                    <div class="api-nai-advanced-body">
+                    <div class="api-nai-reset-row"><span>不确定怎么调？保留推荐值即可。</span><button type="button" onclick="resetNovelAiImageAdvanced()">恢复推荐值</button></div>
                     <div class="api-voice-grid">
-                        <label><span>模型</span><select id="api-nai-model"></select></label>
-                        <label><span>采样器</span><select id="api-nai-sampler"></select></label>
-                        <label><span>步数</span><input type="number" id="api-nai-steps" min="1" max="50" step="1"></label>
-                        <label><span>引导强度</span><input type="number" id="api-nai-scale" min="0" max="10" step="0.1"></label>
-                        <label><span>引导重缩放</span><input type="number" id="api-nai-rescale" min="0" max="1" step="0.02"></label>
-                        <label><span>噪声调度</span><select id="api-nai-schedule"></select></label>
+                        <label><span>采样器</span><select id="api-nai-sampler"></select><small>绘图算法。官方推荐 Euler Ancestral，新手保持即可。</small></label>
+                        <label><span>步数</span><input type="number" id="api-nai-steps" min="1" max="50" step="1" placeholder="28"><small>推荐 28。细化次数，越高越慢，不一定更好；免费范围启用时最多 28。</small></label>
+                        <label><span>引导强度</span><input type="number" id="api-nai-scale" min="0" max="10" step="0.1" placeholder="5"><small>推荐 5，官方建议约 5–6。越高越贴近描述，过高可能失真。</small></label>
+                        <label><span>引导重缩放</span><input type="number" id="api-nai-rescale" min="0" max="1" step="0.02" placeholder="0"><small>推荐 0。颜色过浓时再尝试调高，范围 0–1。</small></label>
+                        <label><span>噪声调度</span><select id="api-nai-schedule"></select><small>控制各步的去噪节奏。BYND 推荐 Karras，无需手填。</small></label>
                         <label><span>负面预设</span>
                             <select id="api-nai-uc">
-                                <option value="heavy">Heavy（官方默认）</option>
-                                <option value="light">Light</option>
-                                <option value="human">Human Focus</option>
+                                <option value="heavy">全面排除瑕疵（Heavy · 推荐）</option>
+                                <option value="light">轻度排除（Light）</option>
+                                <option value="human">人物优先（Human Focus）</option>
                                 <option value="none">不加预设</option>
                             </select>
+                            <small>自动加入不希望出现的内容。默认选 Heavy，减少低清、画面瑕疵等。</small>
                         </label>
                     </div>
-                    <label class="api-nai-check"><input type="checkbox" id="api-nai-quality"><span>自动添加质量标签<em>与官网“Add Quality Tags”一致</em></span></label>
-                    <label class="api-nai-check"><input type="checkbox" id="api-nai-opus-free"><span>Opus 免费档<em>尺寸压到 1024×1024 以内、最多 28 步，不消耗 Anlas</em></span></label>
-                    <label class="api-nai-check"><input type="checkbox" id="api-nai-variety"><span>Variety+<em>构图更多变，连续分镜可能不够稳定</em></span></label>
+                    <label class="api-nai-check"><input type="checkbox" id="api-nai-quality"><span>自动添加质量标签<em>推荐开启，官网也默认开启，自动补充提升画质的描述。</em></span></label>
+                    <label class="api-nai-check"><input type="checkbox" id="api-nai-variety"><span>构图多样化（Variety+）<em>默认关闭。开启后构图更多变，连续分镜可能不够稳定。</em></span></label>
                     <div class="wc-form-group">
-                        <label>额外负面标签（可选）</label>
+                        <label for="api-nai-negative">额外负面标签（可选）</label>
                         <textarea id="api-nai-negative" rows="2" placeholder="例如：extra fingers, bad hands"></textarea>
+                        <small class="api-nai-hint">默认留空。需要时填不想出现的内容，用英文逗号分隔。</small>
                     </div>
+                    </div>
+                    </details>
+                    <details id="api-nai-help" class="api-nai-details"><summary>Token 获取与参数帮助</summary>
                     <div class="api-voice-method api-nai-method">
                         <strong>获取 Token</strong>
                         <span>novelai.net 登录后点左上角齿轮 → Account → Get Persistent API Token，复制 pst- 开头的整串。</span>
                         <span>浏览器直接连接 NovelAI，Token 只保存在本机和你的备份里。漫画、聊天图片是否使用 NovelAI，在 API 工作台的“生图服务”里分别选择。</span>
+                        <span>官方推荐 Euler Ancestral、引导强度约 5–6，质量标签默认开启；28 步适配 Opus 免费上限。重缩放 0、Karras 和 Heavy 是 BYND 起始推荐，并非所有模型统一的官方默认值。</span>
+                        <span><a href="https://docs.novelai.net/en/image/stepsguidance/" target="_blank" rel="noopener noreferrer">步数与引导</a> · <a href="https://docs.novelai.net/en/image/sampling/" target="_blank" rel="noopener noreferrer">采样器</a> · <a href="https://docs.novelai.net/en/image/undesiredcontent/" target="_blank" rel="noopener noreferrer">负面预设</a> · <a href="https://docs.novelai.net/en/image/qualitytags/" target="_blank" rel="noopener noreferrer">质量标签</a></span>
                     </div>
+                    </details>
                 </div>
                 <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
                     <button class="btn-confirm api-nai-test-btn" onclick="testNovelAiImageFromModal()">测试连接</button>
@@ -2264,12 +2225,14 @@ FOREVER FREE</p></section>
                     </div>
                     <div class="wc-form-group">
                         <label style="color:#be123c;">Base URL</label>
-                        <input type="text" id="api-fish-voice-url" placeholder="https://api.fish.audio/compat/v1" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
+                        <input type="text" id="api-fish-voice-url" placeholder="https://api.fish.audio/compat/v1" oninput="ByndFishVoices.refresh()" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
                     </div>
                     <div class="wc-form-group">
                         <label style="color:#be123c;">Fish Audio API Key</label>
-                        <input type="password" id="api-fish-voice-key" placeholder="填 Fish Audio API Key" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
+                        <input type="password" id="api-fish-voice-key" placeholder="填 Fish Audio API Key" oninput="ByndFishVoices.refresh()" style="background:#fff5f7; border-color:rgba(244,63,94,0.18); border-radius:14px;">
                     </div>
+                    <div id="api-fish-picker" class="fish-voice-picker" aria-label="Fish Audio 音色搜索与试听"></div>
+                    <details class="fish-advanced"><summary>高级设置 · 模型、手填 ID 与声音参数</summary>
                     <div class="api-voice-grid">
                         <label>
                             <span>模型</span>
@@ -2296,12 +2259,14 @@ FOREVER FREE</p></section>
                             <input type="number" id="api-fish-voice-speed" min="0.5" max="2" step="0.1" style="border-color:rgba(244,63,94,0.18);">
                         </label>
                     </div>
-                    <div class="api-voice-method" style="border-color:rgba(244,63,94,0.12);">
+                    </details>
+                    <details class="fish-advanced"><summary>接入帮助与计费</summary><div class="api-voice-method" style="border-color:rgba(244,63,94,0.12);">
                         <strong style="color:#be123c;">接入方法</strong>
                         <span>使用 Fish Audio 官方 OpenAI 兼容接口，默认请求 Base URL + /audio/speech；Endpoint 留空即可。</span>
                         <span>API Key 与模型必填。音色 / Reference ID 可以留空，此时由接口使用默认声线；测试和正式语音都会消耗 Fish Audio 账户额度。</span>
+                        <span>已有样音只播放原样本，不代表账户已获语音生成权限。没有样音时，试听会生成一段短句并计费；本次页面可重播缓存。搜索和加载列表不生成语音。不同角色可以分别选择声音。</span>
                         <span><a href="https://fish.audio/zh-CN/" target="_blank" rel="noopener noreferrer" style="color:#be123c;">Fish Audio 官网</a> · <a href="https://fish.audio/app/api-keys/" target="_blank" rel="noopener noreferrer" style="color:#be123c;">创建 API Key</a> · <a href="https://docs.fish.audio/developer-guide/compat/migrate-from-openai" target="_blank" rel="noopener noreferrer" style="color:#be123c;">官方兼容接口文档</a></span>
-                    </div>
+                    </div></details>
                 </div>
                 <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
                     <button class="btn-confirm" onclick="testFishAudioVoiceApiFromModal()" style="background:transparent; color:#be123c; border:1.5px solid rgba(244,63,94,0.38); flex:1; border-radius:14px;">测试语音</button>
@@ -2312,10 +2277,10 @@ FOREVER FREE</p></section>
         </div>
 
         <div id="api-elevenlabs-voice-modal" class="wc-modal-overlay hidden" style="z-index: 3100;">
-            <div class="wc-char-card api-voice-modal-card api-elevenlabs-voice-modal-card" style="background:#fffdf8; border:1.5px solid rgba(245,158,11,0.24); border-radius:24px;">
-                <div class="wc-card-header" style="border-bottom-color:rgba(245,158,11,0.14);">
-                    <span style="color:#b45309; font-weight:800;">ElevenLabs API</span>
-                    <i class="ri-close-line" onclick="closeApiElevenLabsVoiceModal()" style="color:#b45309;"></i>
+            <div class="wc-char-card api-voice-modal-card api-elevenlabs-voice-modal-card" role="dialog" aria-modal="true" aria-labelledby="api-elevenlabs-title">
+                <div class="wc-card-header">
+                    <span id="api-elevenlabs-title">ElevenLabs API</span>
+                    <button type="button" class="elevenlabs-close" onclick="closeApiElevenLabsVoiceModal()" aria-label="关闭">×</button>
                 </div>
                 <div class="wc-card-body" style="gap:12px;">
                     <label class="api-voice-enable-row api-elevenlabs-voice-enable-row">
@@ -2323,17 +2288,26 @@ FOREVER FREE</p></section>
                         <input type="checkbox" id="api-elevenlabs-voice-enabled">
                     </label>
                     <div class="wc-form-group">
-                        <label style="color:#b45309;">名称</label>
-                        <input type="text" id="api-elevenlabs-voice-name" placeholder="ElevenLabs" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
+                        <label for="api-elevenlabs-voice-key">API Key</label>
+                        <input type="password" id="api-elevenlabs-voice-key" placeholder="填 ElevenLabs Key" oninput="ByndElevenLabsVoices.invalidate()">
                     </div>
-                    <div class="wc-form-group">
-                        <label style="color:#b45309;">Base URL</label>
-                        <input type="text" id="api-elevenlabs-voice-url" placeholder="https://api.elevenlabs.io" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
-                    </div>
-                    <div class="wc-form-group">
-                        <label style="color:#b45309;">ElevenLabs API Key</label>
-                        <input type="password" id="api-elevenlabs-voice-key" placeholder="填 ElevenLabs Key" style="background:#fff9ec; border-color:rgba(245,158,11,0.20); border-radius:14px;">
-                    </div>
+                    <section class="elevenlabs-voices" aria-label="选择音色">
+                        <div class="elevenlabs-voices-heading"><strong>选择音色</strong><button type="button" id="api-elevenlabs-voices-load" onclick="ByndElevenLabsVoices.load()">加载音色</button></div>
+                        <div class="elevenlabs-voices-search">
+                            <input type="search" id="api-elevenlabs-voices-search" placeholder="搜索名称、描述" aria-label="搜索音色" oninput="ByndElevenLabsVoices.search()">
+                            <select id="api-elevenlabs-voices-type" aria-label="音色分类" onchange="ByndElevenLabsVoices.load()"><option value="">全部音色</option><option value="default">内置音色</option><option value="personal">我的音色</option><option value="community">已保存的社区音色</option></select>
+                            <select id="api-elevenlabs-voices-gender" aria-label="音色性别" onchange="ByndElevenLabsVoices.load()"><option value="">全部性别</option><option value="male">男声</option><option value="female">女声</option></select>
+                            <select id="api-elevenlabs-voices-language" aria-label="音色语言" onchange="ByndElevenLabsVoices.load()"><option value="">全部语言</option><option value="zh">中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option><option value="pt">葡萄牙语</option><option value="it">意大利语</option><option value="ru">俄语</option><option value="ar">阿拉伯语</option><option value="hi">印地语</option></select>
+                        </div>
+                        <select id="api-elevenlabs-voices-select" aria-label="选择音色" onchange="ByndElevenLabsVoices.choose(this.value)"><option value="">请先加载音色</option></select>
+                        <div id="api-elevenlabs-voices-selected" class="elevenlabs-voices-selected">尚未选择音色</div>
+                        <div id="api-elevenlabs-voices-status" class="elevenlabs-voices-status" role="status" aria-live="polite">填写 API Key 后加载音色</div>
+                        <div id="api-elevenlabs-voices-list" class="elevenlabs-voices-list"></div>
+                        <button type="button" id="api-elevenlabs-voices-more" onclick="ByndElevenLabsVoices.load(true)" hidden>加载更多</button>
+                    </section>
+                    <details class="elevenlabs-advanced"><summary>高级设置 · 模型与手填 ID</summary>
+                    <div class="wc-form-group"><label for="api-elevenlabs-voice-name">名称</label><input type="text" id="api-elevenlabs-voice-name" placeholder="ElevenLabs"></div>
+                    <div class="wc-form-group"><label for="api-elevenlabs-voice-url">Base URL</label><input type="text" id="api-elevenlabs-voice-url" placeholder="https://api.elevenlabs.io" oninput="ByndElevenLabsVoices.invalidate()"></div>
                     <div class="api-voice-grid">
                         <label>
                             <span>模型</span>
@@ -2341,7 +2315,7 @@ FOREVER FREE</p></section>
                         </label>
                         <label>
                             <span>Voice ID</span>
-                            <input type="text" id="api-elevenlabs-voice-id" placeholder="克隆/内置音色 ID">
+                            <input type="text" id="api-elevenlabs-voice-id" placeholder="选用音色后自动填写" oninput="ByndElevenLabsVoices.manual()">
                         </label>
                         <label>
                             <span>Endpoint</span>
@@ -2370,15 +2344,12 @@ FOREVER FREE</p></section>
                             <input type="checkbox" id="api-elevenlabs-voice-boost">
                         </label>
                     </div>
-                    <div class="api-voice-method api-elevenlabs-voice-method">
-                        <strong>接入方法</strong>
-                        <span>默认会请求 Base URL + /v1/text-to-speech/{Voice ID}，Voice ID 从 ElevenLabs 的声音库或克隆声音里复制。</span>
-                        <span>优势：音质和克隆生态成熟，适合高级音色。劣势：免费额度小，商业使用要看套餐，成本通常比 MiniMax 更高；浏览器直连被 CORS 拦时要走代理。</span>
-                    </div>
+                    </details>
+                    <details class="elevenlabs-advanced"><summary>使用帮助</summary><p>加载当前账号可用的音色，点击“试听”播放现成样音，点击“选用”自动填写 Voice ID，最后保存。没有样音的音色可选用后点击“测试语音”，生成测试音频会使用账号额度。</p><p>音色列表需要 API Key 的 Voices 读取权限。使用代理时，Base URL 需要支持 /v2/voices；尚未保存到账号的社区音色可先在 ElevenLabs 添加。</p></details>
                 </div>
-                <div class="wc-card-footer" style="display:flex; gap:10px; padding:15px 20px;">
-                    <button class="btn-confirm" onclick="testElevenLabsVoiceApiFromModal()" style="background:transparent; color:#b45309; border:1.5px solid rgba(245,158,11,0.38); flex:1; border-radius:14px;">测试语音</button>
-                    <button class="btn-confirm" onclick="saveApiElevenLabsVoiceSettings()" style="background:linear-gradient(135deg,#f59e0b,#b45309); flex:1; border-radius:14px;">保存</button>
+                <div class="wc-card-footer elevenlabs-footer">
+                    <button class="btn-confirm" onclick="testElevenLabsVoiceApiFromModal()">测试语音</button>
+                    <button class="btn-confirm elevenlabs-save" onclick="saveApiElevenLabsVoiceSettings()">保存</button>
                 </div>
                 <div id="api-elevenlabs-voice-test-result" style="text-align:center; padding:0 20px 15px; font-size:12px; min-height:20px;"></div>
             </div>
@@ -2519,26 +2490,26 @@ FOREVER FREE</p></section>
                     <button type="button" class="wc-voice-btn" onclick="toggleWechatVoiceInputMode()" aria-label="语音">
                         <svg class="wc-douyin-official-icon wc-douyin-voice-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M17 25.8994C18.1046 25.8994 19 25.004 19 23.8994C19 22.7948 18.1046 21.8994 17 21.8994C15.8954 21.8994 15 22.7948 15 23.8994C15 25.004 15.8954 25.8994 17 25.8994Z" fill="currentColor"/><path d="M21.9497 28.8492C23.2165 27.5825 24 25.8325 24 23.8995C24 21.9665 23.2165 20.2165 21.9497 18.9497" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M26.8994 33.799C29.4329 31.2655 30.9999 27.7655 30.9999 23.8995C30.9999 20.0335 29.4329 16.5335 26.8994 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-24.8" y="-25.5" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-24.8" y="-25.5" width="489.6" height="72.76"/></svg>
                     </button>
                     <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></textarea>
                     <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></div>
                     <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn wc-voice-hold-surface" hidden aria-label="长按说话" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onselectstart="return false" ondragstart="return false" ontouchstart="handleWechatVoiceButtonTouchStart(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)">长按说话</button>
-                    <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-106.6" y="-25" width="489.6" height="72.76"/></svg></button>
-                    <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-188.2" y="-24.5" width="489.6" height="72.76"/></svg></button>
+                    <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-106.6" y="-25" width="489.6" height="72.76"/></svg></button>
+                    <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-188.2" y="-24.5" width="489.6" height="72.76"/></svg></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
                         <svg class="wc-douyin-official-icon wc-douyin-emotion-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M31 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-smile-svg" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-351.2" y="-25" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-351.2" y="-25" width="489.6" height="72.76"/></svg>
                     </button>
                     <div class="wc-add-btn" onclick="toggleChatToolbar()" aria-label="更多">
                         <svg class="wc-douyin-official-icon wc-douyin-add-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 16V32" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 24L32 24" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-plus-svg wc-plus-svg-base" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg class="wc-plus-svg wc-plus-svg-wechat" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><path d="M16 9.7v12.6M9.7 16h12.6" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-432.8" y="-25" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-432.8" y="-25" width="489.6" height="72.76"/></svg>
                     </div>
                     <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()" aria-label="发送"></i>
                     <svg class="wc-ai-btn" onclick="triggerAiReply()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerAiReply();}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="button" aria-label="AI 回复" tabindex="0"><path d="M12 3.5 14.2 9.8 20.5 12 14.2 14.2 12 20.5 9.8 14.2 3.5 12 9.8 9.8 12 3.5Z"/></svg>
-                    <svg class="wc-qq-source-icon wc-qq-ai-overlay" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.782" x="-268.1" y="-25" width="489.6" height="72.76"/></svg>
+                    <svg class="wc-qq-source-icon wc-qq-ai-overlay" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.844" x="-268.1" y="-25" width="489.6" height="72.76"/></svg>
                 </div>
 
                 <div id="wc-hold-voice-overlay" class="wc-hold-voice-overlay hidden" aria-live="polite" aria-label="语音录制中">
@@ -2687,14 +2658,14 @@ FOREVER FREE</p></section>
                                 </button>
                             </div>
                         </div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.782" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.844" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
                     </section>
 <section id="wcs-page-profile" data-chat-settings-page="profile" aria-labelledby="wcs-heading-profile" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-profile" tabindex="-1">资料与人设</h2><p>让彼此的身份、形象和关系定位更清晰。</p></div><div class="wcs-section-title">我的资料</div>
 <div class="wcs-section">
@@ -2933,6 +2904,23 @@ FOREVER FREE</p></section>
                                     <option value="elevenlabs">ElevenLabs</option>
                                     <option value="local">本地 TTS 接口</option>
                                 </select>
+                                <div id="wcs-elevenlabs-picker" class="elevenlabs-voices elevenlabs-character-picker" hidden aria-label="角色 ElevenLabs 音色">
+                                    <div class="elevenlabs-voices-heading"><strong>选择这个角色的音色</strong><button type="button" id="wcs-elevenlabs-voices-load" onclick="ByndElevenLabsVoices.character.load()">加载音色</button></div>
+                                    <div class="elevenlabs-voices-search">
+                                        <input type="search" id="wcs-elevenlabs-voices-search" placeholder="搜索名称、描述" aria-label="搜索角色音色" oninput="ByndElevenLabsVoices.character.search()">
+                                        <select id="wcs-elevenlabs-voices-type" aria-label="角色音色分类" onchange="ByndElevenLabsVoices.character.load()"><option value="">全部音色</option><option value="default">内置音色</option><option value="personal">我的音色</option><option value="community">已保存的社区音色</option></select>
+                                        <select id="wcs-elevenlabs-voices-gender" aria-label="角色音色性别" onchange="ByndElevenLabsVoices.character.load()"><option value="">全部性别</option><option value="male">男声</option><option value="female">女声</option></select>
+                                        <select id="wcs-elevenlabs-voices-language" aria-label="角色音色语言" onchange="ByndElevenLabsVoices.character.load()"><option value="">全部语言</option><option value="zh">中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option><option value="pt">葡萄牙语</option><option value="it">意大利语</option><option value="ru">俄语</option><option value="ar">阿拉伯语</option><option value="hi">印地语</option></select>
+                                    </div>
+                                    <select id="wcs-elevenlabs-voices-select" aria-label="选择角色音色" onchange="ByndElevenLabsVoices.character.choose(this.value)"><option value="">请先加载音色</option></select>
+                                    <div id="wcs-elevenlabs-voices-selected" class="elevenlabs-voices-selected">尚未选择音色</div>
+                                    <div id="wcs-elevenlabs-voices-status" class="elevenlabs-voices-status" role="status" aria-live="polite"></div>
+                                    <div id="wcs-elevenlabs-voices-list" class="elevenlabs-voices-list"></div>
+                                    <button type="button" id="wcs-elevenlabs-voices-more" onclick="ByndElevenLabsVoices.character.load(true)" hidden>加载更多</button>
+                                </div>
+                                <div id="wcs-minimax-picker" class="minimax-voice-picker" hidden aria-label="角色 MiniMax 模型与音色"></div>
+                                <div id="wcs-fish-picker" class="fish-voice-picker" hidden aria-label="角色 Fish Audio 音色搜索与试听"></div>
+                                <details id="wcs-char-voice-advanced"><summary>高级设置 · 模型与手填 ID</summary>
                                 <div class="wcs-character-voice-grid" id="wcs-char-voice-fields">
                                     <div>
                                         <span>模型</span>
@@ -2940,9 +2928,10 @@ FOREVER FREE</p></section>
                                     </div>
                                     <div>
                                         <span>音色 ID</span>
-                                        <input type="text" class="wcs-input" id="wcs-char-voice-id" placeholder="选中角色时使用的音色">
+                                        <input type="text" class="wcs-input" id="wcs-char-voice-id" placeholder="选用音色后自动填写" oninput="ByndElevenLabsVoices.character.manual()">
                                     </div>
                                 </div>
+                                </details>
                                 <div class="wcs-character-voice-hint" id="wcs-char-voice-hint">密钥统一保存在设置 → TTS，角色卡仅记录服务商、模型和音色 ID。</div>
                             </div>
                         </div><div class="wcs-section-title">视频通话</div><div class="wcs-section"><div class="wcs-full-row">
@@ -3254,163 +3243,177 @@ FOREVER FREE</p></section>
         <div class="home-indicator"></div>
     </div>
     
-    <script src="systems/usage/ledger.js?v=1.1.782"></script>
-    <script src="core/api/chat-api.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/ui-theme.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/pixel-theme.js?v=1.1.782"></script>
-    <script src="systems/prompt-lab/engine.js?v=1.1.782"></script>
-    <script src="systems/prompt-lab/cases.js?v=1.1.782"></script>
-    <script src="systems/prompt-lab/store.js?v=1.1.782"></script>
-    <script src="systems/prompt-lab/lab.js?v=1.1.782"></script>
-    <script src="systems/agent-runtime/jev.js?v=1.1.782"></script>
-    <script src="systems/agent-runtime/decider.js?v=1.1.782"></script>
-    <script src="core/character/avatars.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/render.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/message-core.js?v=1.1.782"></script>
-    <script src="apps/music/wechat-music.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/composer.js?v=1.1.782"></script>
-    <script src="apps/wechat/contacts/group-directives.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/media-directives.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/reply-parser.js?v=1.1.782"></script>
-    <script src="apps/wechat/moments/reply-actions.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/message-cards.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/message-render.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.782"></script>
-    <script src="core/events/script-activation.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/send.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/reply.js?v=1.1.782"></script>
-    <script src="core/api/ai-reply.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/streaming.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/toolbar.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/calls.js?v=1.1.782"></script>
-    <script src="core/character/card-parser.js?v=1.1.782"></script>
-    <script src="apps/wechat/character/import.js?v=1.1.782"></script>
-    <script src="apps/wechat/character/delete.js?v=1.1.782"></script>
-    <script src="core/storage/characters.js?v=1.1.782" data-bynd-entry-required></script>
-    <script src="apps/wechat/contacts/news-reader.js?v=1.1.782"></script>
-    <script src="apps/wechat/contacts/tabs.js?v=1.1.782"></script>
-    <script src="apps/wechat/moments/favorites.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/sticker-store.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/me-settings.js?v=1.1.782"></script>
-    <script src="apps/wechat/moments/moments.js?v=1.1.782"></script>
-    <script src="apps/wechat/moments/channels.js?v=1.1.782"></script>
-    <script src="apps/wechat/moments/live.js?v=1.1.782"></script>
-    <script src="apps/wechat/shop/shop.js?v=1.1.782"></script>
-    <script src="core/api/novelai.js?v=1.1.782"></script>
-    <script src="core/api/image-generation.js?v=1.1.782"></script>
-    <script src="apps/wechat/shop/checkout.js?v=1.1.782"></script>
-    <script src="apps/wechat/shop/takeout.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/chat-settings.js?v=1.1.782"></script>
-    <script src="apps/wechat/ui/backgrounds.js?v=1.1.782"></script>
-    <script src="apps/wechat/character/avatars.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/image-send.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.782"></script>
-    <script src="apps/char-phone/catalog.js?v=1.1.782"></script>
-    <script src="apps/char-phone/brand-screens.js?v=1.1.782"></script>
-    <script src="apps/char-phone/viewing.js?v=1.1.782"></script>
-<script src="apps/char-phone/photos.js?v=1.1.782"></script>
-<script src="apps/char-phone/mail.js?v=1.1.782"></script>
-<script src="apps/char-phone/native-apps.js?v=1.1.782"></script>
-    <script src="apps/char-phone/system-apps.js?v=1.1.782"></script>
-    <script src="apps/char-phone/snapshot-data.js?v=1.1.782"></script>
-    <script src="apps/char-phone/sync.js?v=1.1.782"></script>
-    <script src="apps/char-phone/home.js?v=1.1.782"></script>
-    <script src="apps/char-phone/mini-chat.js?v=1.1.782"></script>
-    <script src="apps/char-phone/contacts.js?v=1.1.782"></script>
-    <script src="apps/char-phone/screens.js?v=1.1.782"></script>
-    <script src="apps/char-phone/reactions.js?v=1.1.782"></script>
-    <script src="systems/memory/wechat-memory.js?v=1.1.782"></script>
-    <script src="apps/wechat/chat/stickers.js?v=1.1.782"></script>
-    <script src="systems/living-world/living-world.js?v=1.1.782"></script>
-    <script src="ui/theme/theme.js?v=1.1.782" data-bynd-entry-required></script>
-    <script src="apps/settings/bootstrap.js?v=1.1.782"></script>
-    <script src="apps/settings/api-load.js?v=1.1.782"></script>
-    <script src="apps/settings/api-list.js?v=1.1.782"></script>
-    <script src="apps/settings/api-edit.js?v=1.1.782"></script>
-    <script src="apps/settings/api-test-list.js?v=1.1.782"></script>
-    <script src="apps/settings/api-test-modal.js?v=1.1.782"></script>
-    <script src="apps/settings/api-test.js?v=1.1.782"></script>
-    <script src="apps/settings/image-provider.js?v=1.1.782"></script>
-    <script src="apps/settings/tripo.js?v=1.1.782"></script>
-    <script src="apps/settings/presets.js?v=1.1.782"></script>
-    <script src="core/storage/backup.js?v=1.1.782"></script>
-    <script src="apps/settings/releases.js?v=1.1.782"></script>
-    <script src="apps/settings/version-letter.js?v=1.1.782"></script>
-    <script src="apps/settings/fonts.js?v=1.1.782"></script>
-    <script src="ui/components/device.js?v=1.1.782" data-bynd-entry-required></script>
-    <script src="systems/experience/experience.js?v=1.1.782"></script>
-    <script src="ui/components/undo.js?v=1.1.782"></script>
-    <script src="ui/components/chat-clear.js?v=1.1.782"></script>
-    <script src="ui/components/global-search.js?v=1.1.782"></script>
-    <script src="core/navigation/router.js?v=1.1.782" data-bynd-entry-required></script>
-    <script src="core/api/mcp.js?v=1.1.782"></script>
-    <script src="apps/manual/manual.js?v=1.1.782"></script>
-    <script src="systems/proactive-notifications/notifications.js?v=1.1.782"></script>
-    <script src="apps/music/music.js?v=1.1.782"></script>
-    <script src="apps/money/money.js?v=1.1.782"></script>
-    <script src="apps/dream/dream.js?v=1.1.782"></script>
-    <script src="apps/monitor/monitor.js?v=1.1.782"></script>
-    <script src="apps/outing/outing.js?v=1.1.782"></script>
-    <script src="apps/games/hub-wolfcha.js?v=1.1.782"></script>
-    <script src="apps/games/acting.js?v=1.1.782"></script>
-    <script src="apps/games/sync-cardmatch.js?v=1.1.782"></script>
-    <script src="apps/games/cat-pot.js?v=1.1.782"></script>
-    <script src="apps/games/twenty-forty-eight.js?v=1.1.782"></script>
-    <script src="apps/games/jump.js?v=1.1.782"></script>
-    <script src="apps/games/water-sort.js?v=1.1.782"></script>
-    <script src="apps/games/board-games.js?v=1.1.782"></script>
-    <script src="ui/components/folders.js?v=1.1.782"></script>
-    <script src="apps/coreading/library.js?v=1.1.782"></script>
-    <script src="apps/coreading/sources.js?v=1.1.782"></script>
-    <script src="apps/coreading/shelf.js?v=1.1.782"></script>
-    <script src="apps/coreading/thoughts.js?v=1.1.782"></script>
-    <script src="apps/coreading/toc-stats.js?v=1.1.782"></script>
-    <script src="apps/coreading/reviews.js?v=1.1.782"></script>
-    <script src="apps/coreading/reader.js?v=1.1.782"></script>
-    <script src="apps/coreading/discovery.js?v=1.1.782"></script>
-    <script src="apps/album/album.js?v=1.1.782"></script>
-    <script src="apps/home3d/home3d.js?v=1.1.782"></script>
-    <script src="ui/components/page-swipe.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-layout.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-dock.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-status.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-lovely.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-widgets.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-edit.js?v=1.1.782"></script>
-    <script src="systems/life-state/life-state.js?v=1.1.782"></script>
-    <script src="systems/life-state/native-health.js?v=1.1.782"></script>
-    <script src="apps/role-tools/role-tools.js?v=1.1.782"></script>
-    <script src="apps/moon/moon.js?v=1.1.782"></script>
-    <script src="ui/components/desktop-migrations.js?v=1.1.782"></script>
-    <script src="main.js?v=1.1.782" data-bynd-entry-required></script>
-    <script src="apps/comic/comic.js?v=1.1.782"></script>
-    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.782" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <script src="apps/music/netease.js?v=1.1.782"></script>
-    <script src="core/worldbook/worldbook.js?v=1.1.782"></script>
-    <script src="core/character/regex.js?v=1.1.782"></script>
-    <script src="systems/agent-runtime/agent-tools.js?v=1.1.782"></script>
-    <script src="systems/agent-runtime/web-search.js?v=1.1.782"></script>
-    <script src="apps/wechat/character/character-tools.js?v=1.1.782"></script>
-    <script src="systems/usage/api-ticket.js?v=1.1.782"></script>
-    <script src="systems/usage/bill-app.js?v=1.1.782"></script>
-    <script src="apps/wechat/character/generator.js?v=1.1.782"></script>
-    <script src="apps/settings/openclaw-settings.js?v=1.1.782"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.782"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.782"></script>
-    <script src="core/character/builtin-characters.js?v=1.1.782"></script>
-    <script src="apps/study/study-app.js?v=1.1.782"></script>
-    <script src="apps/monitor/character-pet.js?v=1.1.782"></script>
-    <script src="apps/monitor/screen-companion.js?v=1.1.782"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.782"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.782"></script>
-    <script src="apps/monitor/pet-animation.js?v=1.1.782"></script>
-    <script src="apps/monitor/pet-proportions.js?v=1.1.782"></script>
-    <script src="apps/monitor/pet-background.js?v=1.1.782"></script>
-    <script src="apps/monitor/pet-studio.js?v=1.1.782"></script>
-    <script src="apps/monitor/pet-history.js?v=1.1.782"></script>
-    <script src="apps/monitor/workspace.js?v=1.1.782"></script>
+    <script src="systems/usage/ledger.js?v=1.1.844"></script>
+    <script src="core/api/chat-api.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/ui-theme.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/pixel-theme.js?v=1.1.844"></script>
+    <script src="systems/prompt-lab/engine.js?v=1.1.844"></script>
+    <script src="systems/prompt-lab/cases.js?v=1.1.844"></script>
+    <script src="systems/prompt-lab/store.js?v=1.1.844"></script>
+    <script src="systems/prompt-lab/lab.js?v=1.1.844"></script>
+    <script src="systems/agent-runtime/jev.js?v=1.1.844"></script>
+    <script src="systems/agent-runtime/decider.js?v=1.1.844"></script>
+    <script src="core/character/avatars.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/render.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/message-core.js?v=1.1.844"></script>
+    <script src="apps/music/wechat-music.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/composer.js?v=1.1.844"></script>
+    <script src="apps/wechat/contacts/group-directives.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/media-directives.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/reply-parser.js?v=1.1.844"></script>
+    <script src="apps/wechat/moments/reply-actions.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/message-cards.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/message-render.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.844"></script>
+    <script src="core/events/script-activation.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/send.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/reply.js?v=1.1.844"></script>
+    <script src="core/api/ai-reply.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/streaming.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/toolbar.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/calls.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/call-audio.js?v=1.1.844"></script>
+    <script src="core/character/card-parser.js?v=1.1.844"></script>
+    <script src="apps/wechat/character/import.js?v=1.1.844"></script>
+    <script src="apps/wechat/character/delete.js?v=1.1.844"></script>
+    <script src="core/storage/characters.js?v=1.1.844" data-bynd-entry-required></script>
+    <script src="apps/wechat/contacts/news-reader.js?v=1.1.844"></script>
+    <script src="apps/wechat/contacts/tabs.js?v=1.1.844"></script>
+    <script src="apps/wechat/moments/favorites.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/sticker-store.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/me-settings.js?v=1.1.844"></script>
+    <script src="apps/wechat/moments/moments.js?v=1.1.844"></script>
+    <script src="apps/wechat/moments/channels.js?v=1.1.844"></script>
+    <script src="apps/wechat/moments/live.js?v=1.1.844"></script>
+    <script src="apps/wechat/shop/shop.js?v=1.1.844"></script>
+    <script src="core/api/novelai.js?v=1.1.844"></script>
+    <script src="core/api/image-generation.js?v=1.1.844"></script>
+    <script src="apps/wechat/shop/checkout.js?v=1.1.844"></script>
+    <script src="apps/wechat/shop/takeout.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/chat-settings.js?v=1.1.844"></script>
+    <script src="apps/wechat/ui/backgrounds.js?v=1.1.844"></script>
+    <script src="apps/wechat/character/avatars.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/image-send.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.844"></script>
+    <script src="apps/char-phone/catalog.js?v=1.1.844"></script>
+    <script src="apps/char-phone/brand-screens.js?v=1.1.844"></script>
+    <script src="apps/char-phone/viewing.js?v=1.1.844"></script>
+<script src="apps/char-phone/photos.js?v=1.1.844"></script>
+<script src="apps/char-phone/mail.js?v=1.1.844"></script>
+<script src="apps/char-phone/native-apps.js?v=1.1.844"></script>
+    <script src="apps/char-phone/system-apps.js?v=1.1.844"></script>
+    <script src="apps/char-phone/snapshot-data.js?v=1.1.844"></script>
+    <script src="apps/char-phone/sync.js?v=1.1.844"></script>
+    <script src="apps/char-phone/home.js?v=1.1.844"></script>
+    <script src="apps/char-phone/mini-chat.js?v=1.1.844"></script>
+    <script src="apps/char-phone/contacts.js?v=1.1.844"></script>
+    <script src="apps/char-phone/screens.js?v=1.1.844"></script>
+    <script src="apps/char-phone/reactions.js?v=1.1.844"></script>
+    <script src="systems/memory/wechat-memory.js?v=1.1.844"></script>
+    <script src="apps/wechat/chat/stickers.js?v=1.1.844"></script>
+    <script src="systems/living-world/living-world.js?v=1.1.844"></script>
+    <script src="ui/theme/theme.js?v=1.1.844" data-bynd-entry-required></script>
+    <script src="apps/settings/bootstrap.js?v=1.1.844"></script>
+    <script src="apps/settings/api-load.js?v=1.1.844"></script>
+    <script src="apps/settings/api-list.js?v=1.1.844"></script>
+    <script src="apps/settings/api-edit.js?v=1.1.844"></script>
+    <script src="apps/settings/api-test-list.js?v=1.1.844"></script>
+    <script src="apps/settings/api-test-modal.js?v=1.1.844"></script>
+    <script src="apps/settings/elevenlabs-voices.js?v=1.1.844"></script>
+    <script src="apps/settings/elevenlabs-options.js?v=1.1.844"></script>
+    <script src="apps/settings/minimax-voices.js?v=1.1.844"></script>
+    <script src="apps/settings/fish-voices.js?v=1.1.844"></script>
+    <script src="apps/settings/api-test.js?v=1.1.844"></script>
+    <script src="apps/settings/image-provider.js?v=1.1.844"></script>
+    <script src="apps/settings/tripo.js?v=1.1.844"></script>
+    <script src="apps/settings/presets.js?v=1.1.844"></script>
+    <script src="core/storage/backup.js?v=1.1.844"></script>
+    <script src="apps/settings/releases.js?v=1.1.844"></script>
+    <script src="apps/settings/version-letter.js?v=1.1.844"></script>
+    <script src="apps/settings/fonts.js?v=1.1.844"></script>
+    <script src="ui/components/device.js?v=1.1.844" data-bynd-entry-required></script>
+    <script src="systems/experience/experience.js?v=1.1.844"></script>
+    <script src="ui/components/undo.js?v=1.1.844"></script>
+    <script src="ui/components/chat-clear.js?v=1.1.844"></script>
+    <script src="ui/components/global-search.js?v=1.1.844"></script>
+    <script src="core/navigation/router.js?v=1.1.844" data-bynd-entry-required></script>
+    <script src="core/api/mcp.js?v=1.1.844"></script>
+    <script src="apps/manual/manual.js?v=1.1.844"></script>
+    <script src="systems/proactive-notifications/notifications.js?v=1.1.844"></script>
+    <script src="systems/character-events/events.js?v=1.1.844"></script>
+    <script src="systems/character-events/inbox.js?v=1.1.844"></script>
+    <script src="apps/music/music.js?v=1.1.844"></script>
+    <script src="apps/money/money.js?v=1.1.844"></script>
+    <script src="apps/dream/dream.js?v=1.1.844"></script>
+    <script src="apps/monitor/monitor.js?v=1.1.844"></script>
+    <script src="apps/outing/outing.js?v=1.1.844"></script>
+    <script src="apps/outing/map.js?v=1.1.844"></script>
+    <script src="apps/outing/journal.js?v=1.1.844"></script>
+    <script src="apps/games/wolfcha-rules.js?v=1.1.844"></script>
+    <script src="apps/games/hub-wolfcha.js?v=1.1.844"></script>
+    <script src="apps/games/wolfcha-audio.js?v=1.1.844"></script>
+    <script src="apps/games/acting.js?v=1.1.844"></script>
+    <script src="apps/games/sync-cardmatch.js?v=1.1.844"></script>
+    <script src="apps/games/cat-pot.js?v=1.1.844"></script>
+    <script src="apps/games/twenty-forty-eight.js?v=1.1.844"></script>
+    <script src="apps/games/jump.js?v=1.1.844"></script>
+    <script src="apps/games/water-sort.js?v=1.1.844"></script>
+    <script src="apps/games/board-games.js?v=1.1.844"></script>
+    <script src="ui/components/folders.js?v=1.1.844"></script>
+    <script src="apps/coreading/library.js?v=1.1.844"></script>
+    <script src="apps/coreading/reading-journal.js?v=1.1.844"></script>
+    <script src="apps/coreading/daily-literature.js?v=1.1.844"></script>
+    <script src="apps/coreading/reading-insights.js?v=1.1.844"></script>
+    <script src="apps/coreading/sources.js?v=1.1.844"></script>
+    <script src="apps/coreading/shelf.js?v=1.1.844"></script>
+    <script src="apps/coreading/thoughts.js?v=1.1.844"></script>
+    <script src="apps/coreading/toc-stats.js?v=1.1.844"></script>
+    <script src="apps/coreading/reviews.js?v=1.1.844"></script>
+    <script src="apps/coreading/reader.js?v=1.1.844"></script>
+    <script src="apps/coreading/discovery.js?v=1.1.844"></script>
+    <script src="apps/album/album.js?v=1.1.844"></script>
+    <script src="apps/home3d/home3d.js?v=1.1.844"></script>
+    <script src="ui/components/page-swipe.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-layout.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-dock.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-status.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-lovely.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-widgets.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-edit.js?v=1.1.844"></script>
+    <script src="systems/life-state/life-state.js?v=1.1.844"></script>
+    <script src="systems/life-state/native-health.js?v=1.1.844"></script>
+    <script src="apps/role-tools/role-tools.js?v=1.1.844"></script>
+    <script src="apps/moon/moon.js?v=1.1.844"></script>
+    <script src="ui/components/desktop-migrations.js?v=1.1.844"></script>
+    <script src="main.js?v=1.1.844" data-bynd-entry-required></script>
+    <script src="apps/comic/comic.js?v=1.1.844"></script>
+    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.844" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <script src="apps/music/netease.js?v=1.1.844"></script>
+    <script src="core/worldbook/worldbook.js?v=1.1.844"></script>
+    <script src="core/character/regex.js?v=1.1.844"></script>
+    <script src="systems/agent-runtime/agent-tools.js?v=1.1.844"></script>
+    <script src="systems/agent-runtime/web-search.js?v=1.1.844"></script>
+    <script src="apps/wechat/character/character-tools.js?v=1.1.844"></script>
+    <script src="systems/usage/api-ticket.js?v=1.1.844"></script>
+    <script src="systems/usage/bill-app.js?v=1.1.844"></script>
+    <script src="apps/wechat/character/generator.js?v=1.1.844"></script>
+    <script src="apps/settings/openclaw-settings.js?v=1.1.844"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.844"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.844"></script>
+    <script src="core/character/builtin-characters.js?v=1.1.844"></script>
+    <script src="apps/study/study-app.js?v=1.1.844"></script>
+    <script src="apps/monitor/character-pet.js?v=1.1.844"></script>
+    <script src="apps/monitor/screen-companion.js?v=1.1.844"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.844"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.844"></script>
+    <script src="apps/monitor/pet-animation.js?v=1.1.844"></script>
+    <script src="apps/monitor/pet-proportions.js?v=1.1.844"></script>
+    <script src="apps/monitor/pet-background.js?v=1.1.844"></script>
+    <script src="apps/monitor/pet-studio.js?v=1.1.844"></script>
+    <script src="apps/monitor/pet-history.js?v=1.1.844"></script>
+    <script src="apps/monitor/workspace.js?v=1.1.844"></script>
 </body>
 </html>

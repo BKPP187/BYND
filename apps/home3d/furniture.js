@@ -12,8 +12,9 @@
     // This contract is shared by the geometry and character anchors. Seat heights
     // are the top of the cushion, never an arbitrary character-root subtraction.
     function support(item) {
-        if (item.type === 'bed') { const h = item.seatHeight ?? .65; return { baseHeight: h, seatHeight: h + .35, sleepHeight: h + .24 }; }
-        if (['sofa', 'chair'].includes(item.type)) return { seatHeight: .62, seatDepth: .20, seatFront: item.footprint[1] / 2 + .025 };
+        if (item.type === 'bed') { const h = item.seatHeight ?? .65, cozy = H.FurnitureVisuals?.handles(item); return { mattressSurface: h + (cozy ? .365 : .395), baseHeight: h, seatHeight: h + .35, sleepHeight: h + .24, restSurface: h + (cozy ? .365 : .395), quiltSurface: h + (cozy ? .352 : .375), pillowSurface: h + (cozy ? .36 : .40) }; }
+        if (['sofa', 'chair'].includes(item.type)) return { seatHeight: .62, seatDepth: .20, seatFront: item.footprint[1] / 2 + .025, restSurface:.62, quiltSurface:.62, pillowSurface:.66 };
+        if(item.type==='desk'||item.variant==='dining')return {seatHeight:.62,seatDepth:.20,seatFront:.335};
         return { seatHeight: item.positions?.[0]?.[1] || .45, seatDepth: item.positions?.[0]?.[2] || .08, seatFront: item.footprint[1] / 2 + .02 };
     }
     function readBuffer(url) {
@@ -78,7 +79,7 @@
         H.Shapes.rounded(root, [0.35, 0.09, 0.25], [0, 0.04, 0.04], materials.get('soft_wood')); return root;
     }
     async function load(item, materials) {
-        if (item.procedural || ['bed', 'sofa', 'chair'].includes(item.type) || ['nightstand_01', 'table_lamp_01'].includes(item.id)) return H.FurnitureVisuals.create(item, materials);
+        if (item.procedural || H.FurnitureVisuals.handles(item) || ['bed', 'sofa', 'chair'].includes(item.type) || ['nightstand_01', 'table_lamp_01'].includes(item.id)) return H.FurnitureVisuals.create(item, materials);
         if (!item.model) return item.type === 'frame' ? frame(materials) : star(materials);
         const T = ByndHomeEngine;
         const gltf = await new T.GLTFLoader().parseAsync(await buffer(item.model), '');

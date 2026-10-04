@@ -1,7 +1,6 @@
 // --- Co-reading / 共读小说 ---
 const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
 const COREAD_DAILY_KEY = 'bynd_coread_daily_v1';
-const COREAD_DAILY_PARTICIPANTS_KEY = 'bynd_coread_daily_participants_v1';
 const COREAD_SOURCE_KEY = 'bynd_coread_sources_v1';
 const COREAD_SOURCE_VERSION_KEY = 'bynd_coread_sources_version_v1';
 const COREAD_READER_SETTINGS_KEY = 'bynd_coread_reader_settings_v1';
@@ -10,7 +9,7 @@ const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
 const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
-const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.782';
+const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.844';
 const COREAD_DEFAULT_SOURCE_URLS = [
     'https://lifves.com/api/v2/booksource/list',
     'https://someok.github.io/booksources/data.json'
@@ -66,14 +65,6 @@ const COREAD_DAILY_SEEDS = [
     '中文 小说 文学', '幻想 小说', 'romance fiction', 'mystery fiction',
     'science fiction', 'historical fiction', 'poetry', 'essay literature',
     'young adult fantasy', 'contemporary novel', 'classic literature', 'short stories'
-];
-
-const COREAD_DAILY_LINES = [
-    '今天不急着读完，先把第一句留给喜欢的人。',
-    '随机翻到的书，也可能刚好撞进当前剧情。',
-    '让 char 坐到书页旁边，故事会多出另一种呼吸。',
-    '每日一书，每日一言，像有人把新的门轻轻推开。',
-    '读同一本书时，沉默也会变成聊天记录。'
 ];
 
 const COREAD_SHELF_CATEGORIES = [
@@ -213,6 +204,7 @@ function saveCoReadBookPage(bookId, page) {
             const libraryRaw = JSON.stringify(coreadLibraryCache.slice(0, 80));
             localStorage.setItem(COREAD_LIBRARY_KEY, libraryRaw);
             coreadLibraryCacheRaw = libraryRaw;
+            if (typeof CoReadJournal !== 'undefined') CoReadJournal.sync(cached);
         }
     }
 }

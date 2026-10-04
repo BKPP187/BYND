@@ -7,7 +7,11 @@
     let sequence = 0;
     let busy = false;
     let generation = 0;
-    const available = () => window.location?.protocol === 'bynd-app:' && window.location?.hostname === 'app' && !!window.webkit?.messageHandlers?.byndHealth;
+    const ios = () => window.location?.protocol === 'bynd-app:' && window.location?.hostname === 'app' && !!window.webkit?.messageHandlers?.byndHealth;
+    const android = () => window.location?.protocol === 'file:' && window.location?.pathname === '/android_asset/www/index.html' && typeof window.ByndAndroid?.requestHealth === 'function';
+    const provider = () => ios() ? 'Apple 健康' : android() ? 'Health Connect' : '系统健康';
+    const supportedTypes = () => android() ? ['cycle'] : supported.slice();
+    const available = () => { try { return ios() || (android() && window.ByndAndroid.healthAvailable() === true); } catch (_) { return false; } };
     function read() {
         const raw = localStorage.getItem(storageKey);
         if (!raw) return { connected: false, types: [] };
@@ -16,12 +20,14 @@
         return state;
     }
     function request(action, types = []) {
-        if (!available()) return Promise.reject(new Error('请使用带 HealthKit 的 iPhone 原生版本；浏览器和桌面网页不能读取 Apple 健康'));
+        if (!available()) return Promise.reject(new Error(android() ? 'Health Connect 读取需要 Android 14 及以上并启用系统健康数据共享' : '请使用带 HealthKit 的 iPhone 原生版本或 Android 14 及以上原生版本；浏览器不能直接读取系统健康'));
+        if (!['authorize', 'read'].includes(action) || types.some(type => !supportedTypes().includes(type))) return Promise.reject(new Error('当前平台不支持所选健康数据类型'));
         return new Promise((resolve, reject) => {
             const id = `health-${Date.now()}-${++sequence}`;
             const timer = setTimeout(() => { pending.delete(id); reject(new Error('健康读取超时，请重试')); }, 60000);
             pending.set(id, { resolve, reject, timer });
-            try { window.webkit.messageHandlers.byndHealth.postMessage({ id, action, types }); }
+            try { if (android()) window.ByndAndroid.requestHealth(JSON.stringify({ id, action, types }));
+                else window.webkit.messageHandlers.byndHealth.postMessage({ id, action, types }); }
             catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
         });
     }
@@ -38,21 +44,28 @@
         window.ByndMoon?.replaceNativeDays([]);
     }
     async function connect(types) {
-        const chosen = [...new Set(types)].filter(type => supported.includes(type));
+        if (!Array.isArray(types) || types.some(type => !supportedTypes().includes(type))) throw new Error('当前平台不支持所选健康数据类型');
+        const chosen = [...new Set(types)];
         if (!chosen.length) throw new Error('请先选择至少一类数据');
         if (busy) throw new Error('正在读取，请稍后');
         const token = ++generation;
-        await request('authorize', chosen);
-        if (token !== generation) throw new Error('健康连接已取消');
-        // Completion means the OS permission sheet finished; it does NOT prove read access.
-        clearNative();
-        localStorage.setItem(storageKey, JSON.stringify({ connected: true, types: chosen }));
+        busy = true;
+        try {
+            clearNative();
+            await request('authorize', chosen);
+            if (token !== generation) throw new Error('健康连接已取消');
+            // Completion means the OS permission sheet finished; it does NOT prove read access.
+            localStorage.setItem(storageKey, JSON.stringify({ connected: true, types: chosen }));
+        } catch (error) {
+            if (token === generation) { localStorage.removeItem(storageKey); clearNative(); }
+            throw error;
+        } finally { busy = false; }
         return sync();
     }
     async function sync() {
         if (busy) throw new Error('正在读取，请稍后');
         const state = read();
-        if (!state.connected || !state.types.length) throw new Error('请先连接 Apple 健康');
+        if (!state.connected || !state.types.length) throw new Error(`请先连接 ${provider()}`);
         busy = true;
         const token = generation;
         try {
@@ -83,5 +96,5 @@
             if (read().connected) sync().catch(error => console.warn('健康汇总刷新失败', error.message));
         } catch (error) { console.warn('健康连接读取失败', error.message); }
     });
-    window.ByndNativeHealth = { storageKey, available, read, request, onReply, connect, sync, disconnect };
+    window.ByndNativeHealth = { storageKey, available, provider, supportedTypes, read, request, onReply, connect, sync, disconnect };
 })();

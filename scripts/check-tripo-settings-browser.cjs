@@ -73,6 +73,11 @@ fs.mkdirSync(output, { recursive: true });
             await page.screenshot({ path: path.join(output, `${width}-${safe}-${owner}.png`) });
         }
         await page.locator('.tripo-guide summary').click();
+        assert.equal(await page.locator('.tripo-guide a[href="https://platform.tripo3d.ai/billing"]').count(), 1);
+        assert.match(await page.locator('.tripo-guide').innerText(), /Add to credit balance/);
+        assert.match(await page.locator('.tripo-guide').innerText(), /14 天.*valid until/);
+        await page.locator('.tripo-guide').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: path.join(output, 'trial-guide-375.png') });
         await page.locator('.tripo-clear').click();
         assert.equal(await page.evaluate(() => localStorage.getItem(ByndTripo.storageKey)), null);
         assert.equal(await page.locator('#tripo-key').inputValue(), '');

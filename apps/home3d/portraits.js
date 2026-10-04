@@ -88,6 +88,7 @@
             if (!draft?.transparent || !/^data:image\/png;base64,/.test(draft.url || '')) throw new Error('还没有可用的透明人物立绘。');
             if (draft.referenceKey !== H.Bridge.referenceKey(reference(who))) throw new Error('参考图已更换，请重新生成。原形象已保留。');
             person.portrait = { ...draft }; delete person.portraitDraft;
+            person.modelId = 'portrait';
         });
     }
     function discard(who) { H.State.update(data => { delete target(data, who).portraitDraft; }); }

@@ -1,0 +1,162 @@
+/* Shared chat interactions, including overlays mounted outside the app window. */
+[data-wechat-ui-theme] {
+    --wci-radius: 20px;
+    --wci-control-radius: 12px;
+    --wci-shadow: 0 16px 40px rgba(15,23,42,.14);
+    --wci-control-shadow: none;
+    --wci-blur: blur(18px);
+    --wci-well: color-mix(in srgb, var(--wci-surface) 90%, var(--wci-text) 10%);
+    --wci-tint: color-mix(in srgb, var(--wci-surface) 90%, var(--wci-accent) 10%);
+    --wci-on-accent: #fff;
+}
+[data-wechat-ui-theme="wechat"] { --wci-radius: 6px; --wci-control-radius: 4px; --wci-shadow: 0 8px 24px rgba(0,0,0,.1); --wci-blur: none; }
+[data-wechat-ui-theme="qq"] { --wci-radius: 22px; --wci-control-radius: 14px; }
+[data-wechat-ui-theme="telegram"] { --wci-radius: 16px; --wci-control-radius: 9px; }
+[data-wechat-ui-theme="line"] { --wci-radius: 16px; --wci-control-radius: 8px; --wci-shadow: 0 8px 24px rgba(21,37,27,.1); }
+[data-wechat-ui-theme="rednote"] { --wci-radius: 18px; --wci-control-radius: 10px; }
+[data-wechat-ui-theme="douyin"] { --wci-radius: 12px; --wci-control-radius: 8px; --wci-blur: none; }
+[data-wechat-ui-theme="hallowrok"] { --wci-radius: 14px; --wci-control-radius: 7px; --wci-shadow: 0 8px 24px rgba(0,0,0,.1); --wci-blur: none; }
+[data-wechat-ui-theme="claude"] { --wci-radius: 12px; --wci-control-radius: 7px; --wci-shadow: 0 8px 24px rgba(47,38,29,.08); --wci-blur: none; }
+[data-wechat-ui-theme="couple"] { --wci-radius: 24px; --wci-control-radius: 16px; --wci-on-accent: #32272b; }
+[data-wechat-ui-theme="pixel"] {
+    --wci-radius: 2px; --wci-control-radius: 1px;
+    --wci-shadow: inset 1px 1px #fff, inset -1px -1px #606064, 3px 3px 0 rgba(41,38,84,.22);
+    --wci-control-shadow: inset 1px 1px #fff, inset -1px -1px #606064;
+    --wci-blur: none; --wci-well: #d6d6d9; --wci-tint: #cbcbd3;
+}
+
+/* Together-listening player, queue and lyrics. */
+[data-wechat-ui-theme] .wc-music-listen-player {
+    top: calc(70px + var(--bynd-header-safe-top, 0px));
+    max-height: calc(100% - 92px - var(--bynd-header-safe-top, 0px) - env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+    border-radius: var(--wci-radius); background: var(--wci-surface); color: var(--wci-text);
+    border: 1px solid var(--wci-border); box-shadow: var(--wci-shadow);
+    backdrop-filter: var(--wci-blur); -webkit-backdrop-filter: var(--wci-blur);
+}
+[data-wechat-ui-theme] :is(.wc-music-listen-close, .wc-music-lyrics-handle button) {
+    border-radius: var(--wci-control-radius); background: var(--wci-well); color: var(--wci-text); box-shadow: var(--wci-control-shadow);
+}
+[data-wechat-ui-theme] .wc-music-listen-art { background: var(--wci-tint); color: var(--wci-accent); box-shadow: var(--wci-shadow); max-width: 100%; }
+[data-wechat-ui-theme] .wc-music-listen-people img { border-color: var(--wci-surface); }
+[data-wechat-ui-theme] .wc-music-listen-meta strong { color: var(--wci-text); font-size: clamp(18px, 5.5vw, 24px); line-height: 1.25; }
+[data-wechat-ui-theme] :is(.wc-music-listen-meta span, .wc-music-listen-meta em, .wc-music-queue-head, .wc-music-queue-list em, .wc-music-queue-empty) { color: var(--wci-muted); }
+[data-wechat-ui-theme] .wc-music-listen-progress { border-radius: var(--wci-control-radius); background: var(--wci-well); }
+[data-wechat-ui-theme] .wc-music-listen-progress span { background: var(--wci-accent); }
+[data-wechat-ui-theme] .wc-music-listen-actions { grid-template-columns: minmax(0,1fr) 36px 60px 36px minmax(0,1fr); gap: 6px; }
+[data-wechat-ui-theme] .wc-music-listen-actions button { min-width: 0; border-radius: var(--wci-control-radius); color: var(--wci-accent); }
+[data-wechat-ui-theme] .wc-music-listen-actions .wc-music-listen-play { width: 60px; height: 60px; background: var(--wci-accent); color: var(--wci-on-accent); box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme] .wc-music-queue-panel { border-radius: var(--wci-control-radius); background: var(--wci-well); border-color: var(--wci-border); }
+[data-wechat-ui-theme] .wc-music-queue-head button { border-radius: var(--wci-control-radius); background: var(--wci-accent); color: var(--wci-on-accent); }
+[data-wechat-ui-theme] .wc-music-queue-list button { border-radius: var(--wci-control-radius); background: var(--wci-surface); color: var(--wci-text); }
+[data-wechat-ui-theme] .wc-music-queue-list button.active { background: var(--wci-tint); color: var(--wci-accent); }
+[data-wechat-ui-theme] .wc-music-lyrics-float {
+    top: calc(100px + var(--bynd-header-safe-top, 0px));
+    padding: 6px 10px; border-radius: var(--wci-control-radius); background: var(--wci-surface); color: var(--wci-text);
+    border: 1px solid var(--wci-border); box-shadow: var(--wci-shadow); text-shadow: none;
+    backdrop-filter: var(--wci-blur); -webkit-backdrop-filter: var(--wci-blur);
+}
+[data-wechat-ui-theme] :is(.wc-music-lyric-line, .wc-music-lyrics-empty) { color: var(--wci-muted); font-size: 16px; }
+[data-wechat-ui-theme] .wc-music-lyric-line.active { color: var(--wci-accent); text-shadow: none; }
+[data-wechat-ui-theme] .wc-music-lyric-line.near-active { color: var(--wci-text); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-player { padding: 12px; gap: 10px; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-art { width: min(58vw, 210px); margin-top: 32px; border-radius: 0; border: 1px solid #606064; box-shadow: none; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-close { width: 30px; height: 30px; left: 10px; top: 10px; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions button { background: var(--wci-well); color: var(--wci-text); box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions button:active { box-shadow: inset 1px 1px #606064, inset -1px -1px #fff; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions i::before,
+[data-wechat-ui-theme="pixel"] .wc-music-listen-close i::before { content: ''; display: block; width: 22px; height: 22px; background: currentColor; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-play-fill::before { clip-path: polygon(20% 10%,40% 10%,40% 20%,60% 20%,60% 30%,80% 30%,80% 40%,90% 40%,90% 60%,80% 60%,80% 70%,60% 70%,60% 80%,40% 80%,40% 90%,20% 90%); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-pause-fill::before { background: linear-gradient(90deg, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions :is(.ri-skip-back-fill, .ri-skip-forward-fill)::before { clip-path: polygon(10% 10%,30% 10%,30% 40%,40% 40%,40% 30%,60% 30%,60% 20%,80% 20%,80% 80%,60% 80%,60% 70%,40% 70%,40% 60%,30% 60%,30% 90%,10% 90%); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-skip-forward-fill::before { transform: rotate(180deg); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-file-list-2-line::before { background: url('../../../assets/ui/pixel-chat/manager.svg') center / contain no-repeat; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-play-list-2-line::before { background: url('../../../assets/ui/pixel-chat/manager.svg') center / contain no-repeat; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-chat-1-line::before { background: url('../../../assets/ui/pixel-chat/more.svg') center / contain no-repeat; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions :is(.ri-repeat-line, .ri-repeat-one-line, .ri-shuffle-line)::before { clip-path: polygon(10% 20%,65% 20%,65% 10%,90% 35%,65% 60%,65% 45%,25% 45%,25% 55%,10% 55%,10% 20%,90% 80%,35% 80%,35% 90%,10% 65%,35% 40%,35% 55%,75% 55%,75% 45%,90% 45%,90% 80%); }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-loader-4-line::before { background: transparent; border: 3px dotted currentColor; box-sizing: border-box; }
+[data-wechat-ui-theme="pixel"] .wc-music-listen-close i::before { clip-path: polygon(10% 30%,30% 30%,30% 45%,45% 45%,45% 60%,55% 60%,55% 45%,70% 45%,70% 30%,90% 30%,90% 45%,75% 45%,75% 60%,60% 60%,60% 75%,40% 75%,40% 60%,25% 60%,25% 45%,10% 45%); }
+
+/* Chat composers only: keep unrelated settings/worldbook modals independent. */
+[data-wechat-ui-theme] #wc-composer-modal { padding-top: var(--bynd-header-safe-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[data-wechat-ui-theme] #wc-composer-modal .wc-compose-card {
+    border-radius: var(--wci-radius); background: var(--wci-surface); color: var(--wci-text);
+    border-color: var(--wci-border); box-shadow: var(--wci-shadow);
+    max-height: min(82%, calc(100% - 24px));
+}
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-title, .wc-compose-header > i) { color: var(--wci-text); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-title i, .wc-voice-estimate-icon, .wc-edit-target-pill) { border-radius: var(--wci-control-radius); background: var(--wci-tint); color: var(--wci-accent); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-header, .wc-compose-footer) { border-color: var(--wci-border); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-field, .wc-compose-hint) { color: var(--wci-muted); }
+[data-wechat-ui-theme] #wc-composer-modal :is(input, textarea, select, .wc-music-result-item, .wc-compose-secondary) {
+    border-radius: var(--wci-control-radius); background: var(--wci-well); color: var(--wci-text); border-color: var(--wci-border);
+}
+[data-wechat-ui-theme] #wc-composer-modal :is(input, textarea, select):focus { border-color: var(--wci-accent); box-shadow: 0 0 0 2px var(--wci-tint); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-primary, .wc-music-search-row button) { border-radius: var(--wci-control-radius); background: var(--wci-accent); color: var(--wci-on-accent); box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-music-result-item strong, .wc-voice-estimate strong) { color: var(--wci-text); }
+[data-wechat-ui-theme] #wc-composer-modal :is(.wc-music-result-item span, .wc-voice-estimate span) { color: var(--wci-muted); }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-card { animation: none; }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal { backdrop-filter: none; -webkit-backdrop-filter: none; }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-header { background: #292654; }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-header :is(.wc-compose-title, .wc-compose-title i, .wc-compose-header > i) { background: transparent; color: #fff; }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal :is(input, textarea, select) { box-shadow: inset 1px 1px #77777c, inset -1px -1px #fff; }
+[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-secondary { box-shadow: var(--wci-control-shadow); }
+
+/* Link/music/call/share cards and lightweight action notices. Text bubbles remain theme-owned. */
+[data-wechat-ui-theme] #app-wechat-window #wechat-chat-room .msg-row .msg-bubble:is(.msg-link-card, .msg-music-card, .msg-music-invite-card, .msg-call-bubble, .wc-share-moment-card, .wc-share-product-card) {
+    background: var(--wci-surface) !important; color: var(--wci-text) !important; border: 1px solid var(--wci-border);
+    border-radius: var(--wci-control-radius); box-shadow: none;
+}
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room :is(.msg-link-icon, .msg-music-art, .msg-call-icon) { border-radius: var(--wci-control-radius); background: var(--wci-tint); color: var(--wci-accent); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room :is(.msg-link-info strong, .msg-music-main strong, .msg-call-title) { color: var(--wci-text); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room :is(.msg-link-info span, .msg-link-info p, .msg-music-main span, .msg-music-main em, .msg-call-desc, .msg-music-invite-copy, .msg-music-invite-helper) { color: var(--wci-muted); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room .msg-music-play { color: var(--wci-accent); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room :is(.msg-link-card, .msg-music-card, .msg-music-invite-card, .wc-share-moment-card, .wc-share-product-card) .msg-card-footer { background: var(--wci-well); color: var(--wci-muted); border-top: 1px solid var(--wci-border); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room .msg-music-invite-actions button { border-radius: var(--wci-control-radius); background: var(--wci-well); color: var(--wci-text); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room .msg-music-invite-actions button.accept { background: var(--wci-accent); color: var(--wci-on-accent); }
+[data-wechat-ui-theme] #app-wechat-window .wc-chat-room .msg-poke-notice { border-radius: var(--wci-control-radius); background: var(--wci-well); color: var(--wci-muted); border: 1px solid var(--wci-border); padding: 5px 10px; }
+[data-wechat-ui-theme="pixel"] #app-wechat-window #wechat-chat-room .msg-row .msg-bubble:is(.msg-pay-bubble, .msg-gift-bubble, .msg-intimate-pay-bubble) { border-radius: 2px; box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme="pixel"] #app-wechat-window #wechat-chat-room .msg-row .msg-bubble:is(.msg-link-card, .msg-music-card, .msg-music-invite-card, .msg-call-bubble) { box-shadow: var(--wci-control-shadow); }
+
+/* Voice/video calls retain live imagery, with themed controls and messages above it. */
+[data-wechat-ui-theme] .wc-call-screen { background: var(--wci-surface); }
+[data-wechat-ui-theme] .wc-call-top { padding-top: calc(66px + var(--bynd-header-safe-top, 0px)); }
+[data-wechat-ui-theme] .wc-call-screen.is-video-call .wc-call-top { padding-top: 0; }
+[data-wechat-ui-theme] .wc-call-screen :is(.wc-call-tool i, .wc-call-inputbar, .wc-call-line, .wc-call-timer, .wc-call-camera-preview, .wc-video-local-tile) { border-radius: var(--wci-control-radius); }
+[data-wechat-ui-theme] .wc-call-screen .wc-call-tool i { background: var(--wci-surface); color: var(--wci-text); box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme] .wc-call-screen .wc-call-tool.active i { background: var(--wci-accent); color: var(--wci-on-accent); }
+[data-wechat-ui-theme] .wc-call-screen .wc-call-line.user { background: var(--wci-accent); color: var(--wci-on-accent); }
+[data-wechat-ui-theme] .wc-call-screen .wc-call-inputbar button { border-radius: var(--wci-control-radius); background: var(--wci-accent); color: var(--wci-on-accent); }
+[data-wechat-ui-theme] .wc-call-screen :is(.wc-call-camera-preview, .wc-video-local-tile) { top: calc(58px + var(--bynd-header-safe-top, 0px)); }
+[data-wechat-ui-theme] :is(.wc-call-island, .wc-music-island) { top: calc(12px + var(--bynd-header-safe-top, 0px)); border-radius: var(--wci-radius); }
+[data-wechat-ui-theme] .wc-call-island { background: var(--wci-surface); color: var(--wci-text); border: 1px solid var(--wci-border); box-shadow: var(--wci-shadow); backdrop-filter: var(--wci-blur); }
+[data-wechat-ui-theme] .wc-call-island-text span { color: var(--wci-muted); }
+[data-wechat-ui-theme] .wc-call-island-avatars img { border-color: var(--wci-surface); }
+[data-wechat-ui-theme] .wc-call-island-actions button { border-radius: var(--wci-control-radius); }
+[data-wechat-ui-theme] .wc-music-island { background: var(--wci-surface); color: var(--wci-text); border: 1px solid var(--wci-border); box-shadow: var(--wci-shadow); }
+[data-wechat-ui-theme] .wc-music-island .wc-message-island-text strong,
+[data-wechat-ui-theme] .wc-music-island > i { color: var(--wci-accent); }
+[data-wechat-ui-theme] .wc-music-island .wc-message-island-text span { color: var(--wci-muted); }
+[data-wechat-ui-theme] .wc-music-island > i { background: var(--wci-well); }
+[data-wechat-ui-theme="pixel"] .wc-music-island > i { border-radius: 1px; box-shadow: var(--wci-shadow); background: var(--wci-well) url('../../../assets/ui/pixel-chat/music.svg') center / 22px no-repeat; image-rendering: pixelated; }
+[data-wechat-ui-theme="pixel"] .wc-music-island > i::before { content: none; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen:not(.is-video-call) :is(.wc-call-bg, .wc-call-shade) { display: none; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen:not(.is-video-call) :is(.wc-call-name, .wc-call-status, .wc-call-tool) { color: var(--wci-text); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen :is(.wc-call-line.assistant, .wc-call-inputbar, .wc-call-timer) { background: var(--wci-well); color: var(--wci-text); box-shadow: var(--wci-control-shadow); backdrop-filter: none; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-inputbar input { color: var(--wci-text); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-inputbar input::placeholder { color: var(--wci-muted); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-tool i { border: 1px solid #a6a6ac; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-end { border-radius: 2px; box-shadow: var(--wci-control-shadow); transform: none; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-end i { transform: rotate(135deg); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen.is-video-call .wc-call-actions { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 10px; background: var(--wci-surface); border: 1px solid var(--wci-border); box-shadow: var(--wci-shadow); border-radius: 2px; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen.is-video-call .wc-call-tool { color: var(--wci-text); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen :is(.wc-call-tool i, .wc-call-end i)::before { content: ''; display: block; width: 24px; height: 24px; background: url('../../../assets/ui/pixel-chat/call.svg') center / contain no-repeat; }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-tool :is(.ri-mic-line, .ri-mic-off-line)::before { background-image: url('../../../assets/ui/pixel-chat/microphone.svg'); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-tool :is(.ri-volume-up-line, .ri-volume-up-fill)::before { background-image: url('../../../assets/ui/pixel-chat/voice.svg'); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-tool .ri-sparkling-2-line::before { background-image: url('../../../assets/ui/pixel-chat/stickers/magic-wand.svg'); }
+[data-wechat-ui-theme="pixel"] .wc-call-screen .wc-call-end i::before { background: currentColor; clip-path: polygon(0 10%,35% 10%,35% 30%,25% 30%,25% 50%,50% 75%,70% 75%,70% 65%,90% 65%,90% 100%,60% 100%,40% 90%,20% 70%,0 40%); }
+
+@media (max-width: 360px) {
+    [data-wechat-ui-theme] .wc-music-listen-player { left: 10px; right: 10px; padding-left: 12px; padding-right: 12px; }
+    [data-wechat-ui-theme] .wc-music-listen-actions button { font-size: 11px; gap: 3px; }
+}

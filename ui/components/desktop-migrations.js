@@ -348,6 +348,7 @@ function ensureMonitorDesktopEntry() {
     }
 
     ['dream', 'moon', 'monitor', 'pet', 'outing', 'coread', 'album', 'comic', 'manual', 'mcp'].forEach(appId => {
+        if (getDesktopFolderAppIds().has(appId) || collectDesktopDockLayout().includes(appId)) return;
         if (grid.querySelector(`:scope > .app-item[data-app-id="${appId}"]`)) return;
         const app = DESKTOP_APPS.find(item => item.id === appId);
         if (!app) return;
@@ -357,6 +358,36 @@ function ensureMonitorDesktopEntry() {
         grid.appendChild(item);
     });
     area.querySelector('.desktop-empty-placeholder')?.classList.add('layout-source-hidden');
+}
+
+// Only seed the reference folder for the default desktop. Saved layouts keep
+// their own folder membership and icon positions.
+function ensureDesktopReferenceToolsFolder() {
+    const slot = document.querySelector('[data-default-tools-slot]');
+    if (!slot) return;
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(DESKTOP_LAYOUT_KEY) || '{}') || {}; }
+    catch (_) { return; }
+    if ((Array.isArray(saved.items) && saved.items.length) || (Array.isArray(saved.deletedBuiltins) && saved.deletedBuiltins.length)) { slot.remove(); return; }
+    let folder = window._folders.find(entry => entry.id === 'bynd-default-tools');
+    if (!folder) {
+        const assigned = getDesktopFolderAppIds();
+        const dockApps = new Set(collectDesktopDockLayout());
+        folder = normalizeDesktopFolder({ id: 'bynd-default-tools', name: '工具',
+            apps: ['mcp', 'role-tools', 'settings', 'manual', 'bill'].filter(id => !assigned.has(id) && !dockApps.has(id)).map(id => ({ id })) });
+        if (!folder.apps.length) { slot.remove(); return; }
+        window._folders.push(folder);
+        try { saveFolders(); }
+        catch (error) {
+            window._folders = window._folders.filter(entry => entry !== folder);
+            console.warn('default tools folder save failed:', error);
+            if (typeof showWechatToast === 'function') showWechatToast('工具文件夹保存失败，点击工具重试');
+            // Keep the placeholder usable and retry saving when it is opened.
+            slot.onclick = () => { ensureDesktopReferenceToolsFolder(); };
+            return;
+        }
+    }
+    slot.replaceWith(createDesktopFolderElement(folder));
 }
 
 function startDesktopLayoutFromTheme() {
@@ -399,6 +430,7 @@ function initEditMode() {
         _desktopLongPressTriggered = false;
     }, true);
     setTimeout(() => {
+        ensureDesktopReferenceToolsFolder();
         migrateDesktopDefaultPrincessWidget();
         migrateDesktopDefaultLovelyWidget();
         migrateDesktopStoryAppsToIcons();

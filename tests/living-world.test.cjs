@@ -704,6 +704,78 @@ test('Hacker News articles fetch a real source excerpt and retain failure state 
     assert.equal(failed.saved().newsItems[0].content, undefined);
 });
 
+test('news excerpts discard navigation before truncation and repair previously cached navigation', async () => {
+    const navigation = '[Open accessibility guide](https://example.org/accessibility)\n[Skip to content](https://example.org/story#content)\n';
+    const news = { id:'news_reader', title:'Source story', url:'https://example.org/story', source:'Publisher', provider:'GDELT', content:navigation.repeat(20).slice(0,1800), translatedContent:'旧导航译文', description:'Publisher summary', publishedAt:Date.now() };
+    const h = forumHarness({ newsItems:[news], newsFetchedAt:Date.now() });
+    h.fields['living-world-root'] = { innerHTML:'', querySelector:() => null, querySelectorAll:() => [] };
+    await h.api.init();
+    h.setFetch(async () => ({ ok:true, json:async () => ({ data:{ content:navigation.repeat(25) + '# Source story\n\nA verified story from the publisher.\n\n![A photo](https://example.org/photo.jpg)\n\nRead the [report](https://example.org/report).' } }) }));
+    h.api.openNews(news.id);
+    assert.doesNotMatch(h.fields['living-world-root'].innerHTML, /Open accessibility|Skip to content|旧导航译文/);
+    await new Promise(resolve => setImmediate(resolve));
+    const saved = h.saved().newsItems[0], html = h.fields['living-world-root'].innerHTML;
+    assert.match(saved.content, /A verified story/);
+    assert.doesNotMatch(saved.content, /accessibility|Skip to content/);
+    assert.equal(saved.translatedContent, '');
+    assert.match(html, /<img src="https:\/\/example.org\/photo.jpg"/);
+    assert.match(html, /<a href="https:\/\/example.org\/report"[^>]*>report<\/a>/);
+    assert.doesNotMatch(html, /!\[A photo\]|\[report\]\(/);
+});
+
+test('news Markdown resolves relative media, keeps image URLs out of translation, and escapes unsafe markup', async () => {
+    const news = { id:'news_safe', title:'Source story', url:'https://example.org/story', source:'Publisher', content:'Verified source text.\n\n![A photo](/photo_(2).jpg)\n\n[Reference](/report) and [unsafe](javascript:alert)\n\n![unsafe image](data:image/png;base64,AAAA)\n\n&lt;img src=x onerror=alert(1)&gt;', publishedAt:Date.now() };
+    const h = forumHarness({ newsItems:[news], newsFetchedAt:Date.now() });
+    h.fields['living-world-root'] = { innerHTML:'', querySelector:() => null, querySelectorAll:() => [] };
+    await h.api.init();
+    const translated = [];
+    h.setFetch(async url => { translated.push(new URL(url).searchParams.get('q')); return { ok:true, json:async () => ({ responseStatus:200, responseData:{ translatedText:'来源内容的中文翻译' } }) }; });
+    h.api.openNews(news.id);
+    const html = h.fields['living-world-root'].innerHTML;
+    assert.match(html, /src="https:\/\/example.org\/photo_\(2\).jpg"/);
+    assert.match(html, /href="https:\/\/example.org\/report"/);
+    assert.doesNotMatch(html, /(?:href|src)="(?:javascript:|data:)|<img src=x/);
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+    await h.api.translateNews(news.id);
+    assert.ok(translated.every(value => !/photo_\(2\)|javascript:|data:image/.test(value)));
+    assert.match(h.fields['living-world-root'].innerHTML, /来源内容的中文翻译/);
+    assert.match(h.fields['living-world-root'].innerHTML, /src="https:\/\/example.org\/photo_\(2\).jpg"/);
+});
+
+test('navigation-only responses and failed excerpt saves preserve cached data and report failure', async () => {
+    const nav = '[Skip to content](https://example.org/story#content)';
+    for (const failSave of [false, true]) {
+        const news = { id:'news_failure', title:'Source story', url:'https://example.org/story', source:'Publisher', content:nav, description:'Publisher summary', publishedAt:Date.now() };
+        const h = forumHarness({ newsItems:[news], newsFetchedAt:Date.now() });
+        h.fields['living-world-root'] = { innerHTML:'', querySelector:() => null, querySelectorAll:() => [] };
+        h.fields['lw-toast'] = { hidden:true, textContent:'' };
+        await h.api.init();
+        h.setFetch(async () => ({ ok:true, json:async () => ({ data:{ content:failSave ? 'Verified replacement text.' : nav } }) }));
+        h.fail(failSave);
+        h.api.openNews(news.id);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(h.saved().newsItems[0].content, nav);
+        assert.doesNotMatch(h.fields['living-world-root'].innerHTML, /Skip to content|Verified replacement text/);
+        assert.match(h.fields['living-world-root'].innerHTML, /Publisher summary/);
+        assert.equal(h.fields['lw-toast'].hidden, false);
+        assert.match(h.fields['lw-toast'].textContent, failSave ? /存储|保存/ : /没有提供可提取的正文/);
+    }
+});
+
+test('news excerpt truncation never turns a cut Markdown URL into a visible raw link', async () => {
+    const news = { id:'news_long', title:'Source story', url:'https://example.org/story', source:'Publisher', publishedAt:Date.now() };
+    const h = forumHarness({ newsItems:[news], newsFetchedAt:Date.now() });
+    h.fields['living-world-root'] = { innerHTML:'', querySelector:() => null, querySelectorAll:() => [] };
+    await h.api.init();
+    const content = 'Verified news paragraph. '.repeat(70) + '\n\n[Reference](https://example.org/' + 'a'.repeat(600) + ')';
+    h.setFetch(async () => ({ ok:true, json:async () => ({ data:{ content } }) }));
+    h.api.openNews(news.id);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(h.saved().newsItems[0].content.length <= 1800);
+    assert.doesNotMatch(h.saved().newsItems[0].content, /\[Reference\]|https:/);
+    assert.doesNotMatch(h.fields['living-world-root'].innerHTML, /\[Reference\]\(/);
+});
+
 test('AI public profiles can change social nickname and follower count without inventing follower edges', async () => {
     const h = forumHarness({ npcs:[{ id:'npc_ivy', type:'npc', name:'艾薇', username:'@ivy', summary:'摄影' }], follows:{ user:['npc_ivy'] } });
     h.fields['living-world-root'] = { innerHTML:'', querySelector:() => null, querySelectorAll:() => [] };

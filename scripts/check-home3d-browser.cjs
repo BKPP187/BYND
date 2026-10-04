@@ -35,13 +35,16 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.evaluate(() => ByndHome3D.State.home().moments.at(-1).action), 'Sit');
         await page.screenshot({ path: path.join(output, 'together.png') });
         await page.locator('[data-action="memories"]').click(); await page.locator('[data-action="keep-memory"]').click();
+        // Saving triggers an async room reload before reopening the memory sheet.
+        // Wait for that completion; dismissing the old sheet mid-reload races it.
+        await page.waitForFunction(() => document.querySelector('.home3d-notice').textContent.includes('这段回忆变成了一颗小星星'));
         assert.equal(await page.evaluate(() => ByndHome3D.State.home().keepsakes.length), 1);
         await page.locator('[data-action="dismiss"]').click();
-        await page.route('**/q-Desk.glb', route => route.abort());
+        await page.route('**/k-computerScreen.glb', route => route.abort());
         await page.locator('[data-action="room"][data-room="game_room"]').click();
         await page.waitForSelector('.home3d-scene-error:not([hidden])');
-        assert.ok((await page.locator('.home3d-scene-error').textContent()).includes('工作桌'));
-        await page.unroute('**/q-Desk.glb'); await page.locator('[data-action="retry"]').click();
+        assert.ok((await page.locator('.home3d-scene-error').textContent()).includes('电脑'));
+        await page.unroute('**/k-computerScreen.glb'); await page.locator('[data-action="retry"]').click();
         await page.waitForFunction(() => !document.querySelector('#home3d-scene').classList.contains('is-loading'));
         assert.equal(await page.locator('.home3d-scene-error').isVisible(), false);
         for (const room of ['bedroom', 'game_room']) {
@@ -74,6 +77,7 @@ const server = http.createServer((req, res) => {
             const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16; canvas.getContext('2d').fillRect(0, 0, 16, 16);
             const reference = canvas.toDataURL(); window.myCharacters[0].chatConfig.imageReference = reference;
             ByndHome3D.State.update(next => { next.user.reference = reference; });
+            ByndHome3D.State.withHome((home, data) => { home.modelId = 'portrait'; data.user.modelId = 'portrait'; });
             window.imageCalls = 0; window.avatarCalls = 0;
             window.callChatApi = async () => { window.avatarCalls++; throw new Error('Portraits must use the image API'); };
             window.callWechatImageGenerationApi = async (prompt, options) => { window.imageCalls++; window.lastImageOptions = options; return { ok: true, url: ByndHome3D.initialPortraits.char }; };
@@ -156,13 +160,13 @@ const server = http.createServer((req, res) => {
                 await actual.evaluate(() => {
                     window.homeAppendChild = document.head.appendChild;
                     document.head.appendChild = function (node) {
-                        if (String(node.src).includes('/q-Desk.glb.js')) { queueMicrotask(() => node.dispatchEvent(new Event('error'))); return node; }
+                        if (String(node.src).includes('/k-computerScreen.glb.js')) { queueMicrotask(() => node.dispatchEvent(new Event('error'))); return node; }
                         return window.homeAppendChild.call(this, node);
                     };
                 });
                 await actual.locator('[data-action="room"][data-room="game_room"]').click();
                 await actual.waitForSelector('.home3d-scene-error:not([hidden])');
-                assert.match(await actual.locator('.home3d-scene-error').textContent(), /工作桌/);
+                assert.match(await actual.locator('.home3d-scene-error').textContent(), /电脑/);
                 await actual.evaluate(() => { document.head.appendChild = window.homeAppendChild; delete window.homeAppendChild; });
                 await actual.locator('[data-action="retry"]').click();
                 await actual.waitForFunction(() => !document.querySelector('#home3d-scene').classList.contains('is-loading'));

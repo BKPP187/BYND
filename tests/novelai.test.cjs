@@ -225,3 +225,55 @@ test('the NovelAI settings modal and scripts are wired into the page', () => {
     assert.ok(scripts.indexOf('apps/settings/image-provider.js') > scripts.indexOf('apps/settings/api-test.js'));
     assert.match(read('apps/settings/api-list.js'), /renderImageServiceCard\(data\)/);
 });
+
+test('empty numeric settings use recommended values instead of minimums', () => {
+    const { normalizeNovelAiImageSettings, buildNovelAiImagePayload } = naiContext();
+    for (const value of ['', '  ', null, undefined, 'invalid']) {
+        const settings = normalizeNovelAiImageSettings({ steps: value, scale: value, cfgRescale: value });
+        assert.equal(settings.steps, 28);
+        assert.equal(settings.scale, 5);
+        assert.equal(settings.cfgRescale, 0);
+        const parameters = buildNovelAiImagePayload({ prompt: 'scenery' }, settings).parameters;
+        assert.equal(parameters.steps, 28);
+        assert.equal(parameters.scale, 5);
+    }
+    assert.equal(normalizeNovelAiImageSettings({ scale: 0 }).scale, 0, 'explicit zero remains a valid value');
+});
+
+function modalContext() {
+    const setup = routeContext({ novelAiImageApi: { token: 'saved-token' } });
+    const elements = Object.fromEntries(['enabled', 'token', 'model', 'sampler', 'schedule', 'steps', 'scale', 'rescale', 'uc', 'quality', 'opus-free', 'variety', 'negative'].map(key => [
+        `api-nai-${key}`, { type: ['enabled', 'quality', 'opus-free', 'variety'].includes(key) ? 'checkbox' : 'text', options: [1], value: '', checked: false }
+    ]));
+    elements['api-nai-test-result'] = { innerHTML: '' };
+    setup.context.document = { getElementById: id => elements[id] || null };
+    setup.context.fillNovelAiImageModal(setup.context.normalizeNovelAiImageSettings({ token: 'draft-token', enabled: false, model: 'nai-diffusion-3', opusFree: false, steps: 45, scale: 9, negative: 'draft negative', varietyBoost: true }));
+    return { ...setup, elements };
+}
+
+test('restoring advanced values preserves the unsaved token, model and billing choice', () => {
+    const { context, saved } = modalContext();
+    context.resetNovelAiImageAdvanced();
+    const settings = context.readNovelAiImageModal();
+    assert.equal(settings.token, 'draft-token');
+    assert.equal(settings.enabled, false);
+    assert.equal(settings.model, 'nai-diffusion-3');
+    assert.equal(settings.opusFree, false);
+    assert.equal(settings.steps, 28);
+    assert.equal(settings.scale, 5);
+    assert.equal(settings.negative, '');
+    assert.equal(settings.varietyBoost, false);
+    assert.equal(saved(), null, 'restoring only edits the draft');
+});
+
+test('failed settings persistence keeps the modal open and reports the error', () => {
+    const { context, elements } = modalContext();
+    let closed = false, rendered = false;
+    context.saveApiData = () => { throw new Error('storage full'); };
+    context.closeNovelAiImageModal = () => { closed = true; };
+    context.renderApiList = () => { rendered = true; };
+    context.saveNovelAiImageSettingsFromModal();
+    assert.equal(closed, false);
+    assert.equal(rendered, false);
+    assert.match(elements['api-nai-test-result'].innerHTML, /保存失败：storage full/);
+});

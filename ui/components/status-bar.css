@@ -1,9 +1,30 @@
 /* --- Status Bar --- */
-.status-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
+.status-bar { box-sizing: border-box; height: calc(50px + var(--bynd-header-safe-top, 0px)); display: flex; justify-content: space-between; align-items: center; padding: var(--bynd-header-safe-top, 0px) 25px 0; font-size: 14px; font-weight: 600; z-index: 1000; color: #333; transition: color 0.3s ease; position: absolute; top: 0; width: 100%; }
+html.bynd-native-statusbar .status-bar { display: none !important; }
 html.bynd-statusbar-hidden .status-bar,
 body.bynd-statusbar-hidden .status-bar,
 .status-bar.bynd-statusbar-force-hidden { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 .status-bar.white-text { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .status-bar.white-text i { color: #ffffff; }
 .status-right, .battery-group { display: flex; gap: 5px; align-items: center; }
+.status-right [hidden] { display: none !important; }
+.status-right > i { font-size: 16px; }
+/* Status indicators must work even when the external icon font cannot load. */
+#network-icon { display: inline-block; width: 17px; height: 17px; background: currentColor; -webkit-mask: var(--device-network-shape) center / contain no-repeat; mask: var(--device-network-shape) center / contain no-repeat; }
+#network-icon::before { content: none; }
+#network-icon.ri-wifi-line { --device-network-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0'/%3E%3Ccircle cx='12' cy='20' r='1' fill='white' stroke='none'/%3E%3C/svg%3E"); }
+#network-icon.ri-sim-card-line { --device-network-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M8 3h11v18H5V6zM8 11h8v7H8zM12 11v7M8 14h8'/%3E%3C/svg%3E"); }
+#network-icon.ri-global-line { --device-network-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.8'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cellipse cx='12' cy='12' rx='4' ry='9'/%3E%3Cpath d='M3 12h18'/%3E%3C/svg%3E"); }
+#network-icon.ri-wifi-off-line { --device-network-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m3 3 18 18M3 8a15 15 0 0 1 3-1M10 5a15 15 0 0 1 11 3M6 12a10 10 0 0 1 4-2M15 10a10 10 0 0 1 3 2M9 16a5 5 0 0 1 6 0'/%3E%3Ccircle cx='12' cy='20' r='1' fill='white' stroke='none'/%3E%3C/svg%3E"); }
+#network-label { font-size: 11px; }
+#battery-level { font-variant-numeric: tabular-nums; }
+.device-battery-icon { display: inline-flex; align-items: center; flex: 0 0 28px; width: 28px; height: 16px; }
+.device-battery-icon svg { display: block; width: 28px; height: 16px; overflow: visible; }
+.device-battery-outline { stroke: currentColor; stroke-width: 1.5; }
+.device-battery-terminal, .device-battery-fill { fill: currentColor; }
+.device-battery-icon.is-low .device-battery-fill { fill: #c53333; }
+.device-battery-icon.is-charging .device-battery-fill { fill: #75a684; }
+.device-battery-bolt { display: none; fill: currentColor; stroke: #fff; stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke fill; }
+.device-battery-icon.is-charging .device-battery-bolt { display: block; }
+.status-bar.white-text .device-battery-bolt { stroke: #272727; }
 

@@ -272,11 +272,16 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
 
     if (msg.type === 'voice') {
         const duration = normalizeWechatDuration(msg.duration, 8);
-        const width = Math.min(236, Math.max(110, 96 + duration * 2.2));
+        const needsAudio = !msg.isMe && !msg.audioUrl && !msg.audioDataUrl
+            && typeof isCharacterVoiceConfigured === 'function' && isCharacterVoiceConfigured(charObj);
+        const width = Math.min(236, Math.max(needsAudio ? 210 : 110, 96 + duration * 2.2));
         const transcript = msg.transcript ? `<div class="msg-voice-transcript">${wcEscapeHtml(msg.transcript)}</div>` : '';
         const audioUrl = msg.audioUrl || msg.audioDataUrl || '';
         const audioHtml = audioUrl ? `<audio preload="metadata" src="${wcEscapeAttr(audioUrl)}"></audio>` : '';
         const playIcon = audioUrl ? '<span class="msg-voice-play-state"><i class="ri-play-mini-fill"></i></span>' : '';
+        const pending = needsAudio && msg.voiceAudioState === 'pending';
+        const failure = needsAudio && msg.voiceAudioState === 'failed';
+        const generation = needsAudio ? `<div class="msg-voice-generation" role="status">${pending ? '正在生成角色语音…' : failure ? `语音生成失败<br>${wcEscapeHtml(msg.voiceAudioError || '请检查角色音色与语音服务')}` : '这条消息尚未生成音频'}</div>${!pending && msgIndex >= 0 ? `<button type="button" class="msg-voice-retry" onclick="event.stopPropagation();retryWechatCharacterVoiceAudio(${Number(msgIndex)})">${failure ? '重试生成语音' : '生成角色语音'}</button>` : ''}` : '';
         return `
             <div class="msg-bubble msg-voice-bubble${sideClass}${audioUrl ? ' has-audio' : ''}" style="--voice-width:${width}px;" onclick="event.stopPropagation();toggleWechatVoiceMessage(this)">
                 ${quoteHtml}
@@ -286,6 +291,7 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
                     ${playIcon}
                 </div>
                 ${transcript}
+                ${generation}
                 ${audioHtml}
                 ${metaHtml}
             </div>

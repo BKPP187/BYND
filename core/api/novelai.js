@@ -54,6 +54,14 @@ const NOVELAI_SAMPLERS = ['k_euler_ancestral', 'k_euler', 'k_dpmpp_2s_ancestral'
 const NOVELAI_NOISE_SCHEDULES = ['karras', 'exponential', 'polyexponential', 'native'];
 const NOVELAI_UC_PRESET_KEYS = ['heavy', 'light', 'human', 'none'];
 const NOVELAI_TIER_NAMES = ['Paper（试用）', 'Tablet', 'Scroll', 'Opus'];
+// BYND starting values: official guidance recommends 5–6 and Euler Ancestral.
+// 28 steps fits the documented Opus limit; rescale/schedule are BYND choices,
+// not a claim that every model's official client has these exact defaults.
+const NOVELAI_IMAGE_RECOMMENDED = Object.freeze({
+    sampler: 'k_euler_ancestral', noiseSchedule: 'karras', steps: 28,
+    scale: 5, cfgRescale: 0, qualityTags: true, ucPreset: 'heavy',
+    negative: '', varietyBoost: false
+});
 
 function getNovelAiModelMeta(modelId) {
     return NOVELAI_IMAGE_MODELS.find(model => model.id === modelId) || NOVELAI_IMAGE_MODELS[0];
@@ -62,6 +70,7 @@ function getNovelAiModelMeta(modelId) {
 function normalizeNovelAiImageSettings(raw) {
     raw = raw && typeof raw === 'object' ? raw : {};
     const number = (value, min, max, fallback) => {
+        if (value == null || String(value).trim() === '') return fallback;
         const parsed = Number(value);
         return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
     };
@@ -70,11 +79,11 @@ function normalizeNovelAiImageSettings(raw) {
         name: String(raw.name || 'NovelAI').slice(0, 40),
         token: String(raw.token || '').trim(),
         model: getNovelAiModelMeta(raw.model).id,
-        sampler: NOVELAI_SAMPLERS.includes(raw.sampler) ? raw.sampler : 'k_euler_ancestral',
-        noiseSchedule: NOVELAI_NOISE_SCHEDULES.includes(raw.noiseSchedule) ? raw.noiseSchedule : 'karras',
-        steps: Math.round(number(raw.steps, 1, 50, 28)),
-        scale: Math.round(number(raw.scale, 0, 10, 5) * 10) / 10,
-        cfgRescale: Math.round(number(raw.cfgRescale, 0, 1, 0) * 100) / 100,
+        sampler: NOVELAI_SAMPLERS.includes(raw.sampler) ? raw.sampler : NOVELAI_IMAGE_RECOMMENDED.sampler,
+        noiseSchedule: NOVELAI_NOISE_SCHEDULES.includes(raw.noiseSchedule) ? raw.noiseSchedule : NOVELAI_IMAGE_RECOMMENDED.noiseSchedule,
+        steps: Math.round(number(raw.steps, 1, 50, NOVELAI_IMAGE_RECOMMENDED.steps)),
+        scale: Math.round(number(raw.scale, 0, 10, NOVELAI_IMAGE_RECOMMENDED.scale) * 10) / 10,
+        cfgRescale: Math.round(number(raw.cfgRescale, 0, 1, NOVELAI_IMAGE_RECOMMENDED.cfgRescale) * 100) / 100,
         qualityTags: raw.qualityTags !== false,
         ucPreset: NOVELAI_UC_PRESET_KEYS.includes(raw.ucPreset) ? raw.ucPreset : 'heavy',
         negative: String(raw.negative || '').slice(0, 2000),

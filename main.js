@@ -64,6 +64,7 @@ function startByndAppInitialization() {
     window.__byndCoreReady = byndStylesReady.then(initializeByndApp);
     window.__byndCoreReady.then(() => {
         window.__byndResourceLoading?.ready();
+        window.ByndCharacterEvents?.init();
     }).catch(error => {
         window.__byndResourceLoading?.fail();
         console.error('BYND 初始化失败', error);
