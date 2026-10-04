@@ -1263,7 +1263,9 @@ function renderStickerPicker() {
     gridEl.classList.remove('wc-giphy-panel');
     gridEl.classList.toggle('wc-emoji-grid', !!pack?.emoji);
     if (pack && stickers.length > 0) {
-        gridEl.innerHTML = stickers.map(s =>
+        gridEl.innerHTML = stickers.map(s => pack.id === 'pack_pixel_builtin'
+            ? `<button type="button" class="wc-sticker-captioned" onclick="sendSticker(${quoteWechatJsString(s.url)}, ${quoteWechatJsString(s.name)}, false)"><img src="${wcEscapeHtml(s.url)}" alt="${escapeHtml(s.name)}" loading="lazy" onerror="this.closest('button').remove()"><span>${escapeHtml(s.name)}</span></button>`
+            :
             `<img class="${pack.emoji || s.emoji ? 'wc-emoji-item' : ''}" src="${wcEscapeHtml(s.url)}" alt="${escapeHtml(s.name)}" title="${escapeHtml(s.name)}" onclick="sendSticker(${quoteWechatJsString(s.url)}, ${quoteWechatJsString(s.name)}, ${pack.emoji || s.emoji ? 'true' : 'false'})" loading="lazy" onerror="this.remove()">`
         ).join('');
     } else {

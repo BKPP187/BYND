@@ -183,6 +183,23 @@ function getWechatUiTheme(themeId = getWechatUiThemeId()) {
     return WECHAT_UI_THEMES.find(theme => theme.id === themeId) || WECHAT_UI_THEMES.find(theme => theme.id === WECHAT_UI_THEME_DEFAULT_ID) || WECHAT_UI_THEMES[0];
 }
 
+// Chat overlays live beside the app window; give them the same current theme palette.
+function syncWechatInteractionTheme(theme) {
+    const root = document.getElementById('app-wechat-window');
+    const host = document.querySelector('.phone-container') || document.body;
+    if (!root || !host) return;
+    theme = theme || getWechatUiTheme(root.dataset.uiTheme || getWechatUiThemeId());
+    host.dataset.wechatUiTheme = theme.id;
+    const computed = getComputedStyle(root);
+    const palette = {
+        surface: ['card', '#ffffff'], text: ['text', '#111827'], muted: ['muted', '#667085'],
+        border: ['border', 'rgba(15,23,42,0.12)'], accent: ['accent', theme.accent]
+    };
+    Object.entries(palette).forEach(([name, [source, fallback]]) => {
+        host.style.setProperty(`--wci-${name}`, computed.getPropertyValue(`--wc-theme-${source}`).trim() || fallback);
+    });
+}
+
 function applyWechatUiTheme(themeId = getWechatUiThemeId(), options = {}) {
     const root = document.getElementById('app-wechat-window');
     if (!root) return;
@@ -193,7 +210,9 @@ function applyWechatUiTheme(themeId = getWechatUiThemeId(), options = {}) {
         root.classList.add(`wc-ui-theme-${theme.id}`);
         root.dataset.uiTheme = theme.id;
     }
+    syncWechatInteractionTheme(theme);
     if (typeof syncWechatPixelTheme === 'function') syncWechatPixelTheme(theme);
+    if (typeof syncWechatMemoryUiTheme === 'function') syncWechatMemoryUiTheme(theme.id);
     if (options.update !== false) updateWechatUiThemeStructure(theme);
 }
 
@@ -485,7 +504,7 @@ function syncWechatLineRoomHeader(theme = getWechatUiTheme()) {
 }
 
 function getWechatChatInputPlaceholder(themeId = getWechatUiThemeId()) {
-    if (themeId === 'pixel') return '今天有什么新想法？';
+    if (themeId === 'pixel') return 'BEYOND THE SCREEN';
     if (themeId === 'wechat') return '\u53ef\u6309\u4f4f \u8f6c\u6587\u5b57';
     if (themeId === 'telegram') return '\u8f93\u5165\u6d88\u606f';
     if (themeId === 'claude') return 'Reply to Claude';

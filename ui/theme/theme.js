@@ -13,7 +13,8 @@ const THEME_ICON_TARGETS = [
     {i:'ri-github-fill', n:'MCP'}, {i:'ri-bear-smile-line', n:'桌宠'},
     {i:'ri-discuss-line', n:'论坛'}, {i:'ri-booklet-line', n:'漫画'},
     {i:'ri-bill-line', n:'账单'}, {i:'ri-tools-line', n:'角色台'},
-    {i:'ri-home-heart-line', n:'小屋'}, {i:'ri-moon-line', n:'月伴'}
+    {i:'ri-home-heart-line', n:'小屋'}, {i:'ri-moon-line', n:'月伴'},
+    {i:'ri-mail-open-line', n:'心意'}
 ];
 // 已保存的图标按槽位存储；新增 App 追加到末尾，保留旧版 Dock 的位置。
 const THEME_DESKTOP_ICON_COUNT = 13;
@@ -1633,8 +1634,8 @@ function initTheme() {
         if (data.widget2) {
             renderWidget(2, normalizeThemeWidgetType(data.widget2.type), { img: data.d2, style: data.widget2.style, accent: data.widget2.accent });
         } else {
-            const allDeskImgs = document.querySelectorAll('.photo-large img');
-            if(allDeskImgs.length > 1 && data.d2) allDeskImgs[1].src = data.d2;
+            const secondPhoto = document.querySelector('.desktop-img-2');
+            if (secondPhoto && data.d2) secondPhoto.src = data.d2;
         }
 
         // 初始化日历配色
@@ -1953,15 +1954,15 @@ function toggleWidgetOptions(idx) {
 }
 
 function renderWidget(slot, type, data) {
-    const el = document.querySelector('.photo-large:nth-of-type(' + slot + ')');
     const containers = document.querySelectorAll('.photo-large');
-    const container = containers[slot - 1];
+    const container = document.querySelector('.desktop-img-' + slot)?.closest('.photo-large') || containers[slot - 1];
     if (!container) return;
     data = data || {};
     type = normalizeThemeWidgetType(type);
     const styleName = normalizeThemeWidgetStyle(data.style || document.getElementById('widget-style-' + slot)?.value || 'frost');
     const accent = normalizeThemeAccent(data.accent || document.getElementById('widget-accent-' + slot)?.value || '#0a84ff', slot === 2 ? '#ff9f0a' : '#0a84ff');
-    container.className = `photo-large ios-widget-host ios-widget-${styleName}`;
+    const referencePhoto = container.classList.contains('desktop-reference-photo');
+    container.className = `photo-large ios-widget-host ios-widget-${styleName}${referencePhoto ? ' desktop-reference-photo' : ''}`;
     container.style.setProperty('--widget-accent', accent);
     container.style.setProperty('--widget-accent-soft', hexToThemeRgba(accent, 0.18));
 

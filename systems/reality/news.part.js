@@ -1,13 +1,80 @@
     function safeExternalUrl(value) { try { const url = new URL(String(value || '')); return url.protocol === 'https:' && !url.username && !url.password ? url.href : ''; } catch (_) { return ''; } }
     function stableNewsId(url) { let hash = 2166136261; for (const character of url) { hash ^= character.charCodeAt(0); hash = Math.imul(hash,16777619); } return `news_${(hash >>> 0).toString(36)}`; }
     function plainNewsText(value) { return String(value || '').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#39;|&apos;/gi,"'").replace(/&quot;/gi,'"').replace(/[ \t]+/g,' ').trim(); }
+    // Reader returns Markdown. Clean the whole response before taking an excerpt,
+    // otherwise a publisher's navigation can consume the entire character budget.
+    const NEWS_MARKDOWN_LINK = /(!?)\[([^\]\n]*)\]\(\s*(<?(?:[^\s()<>]|\([^()\n]*\))+>?)\s*(?:"[^"\n]*")?\s*\)/g;
+    const NEWS_NAV_LABEL = /^(?:open accessibility guide|skip (?:to )?(?:sections navigation|content|footer|main content|navigation)|sign in|log in|subscribe|menu|close menu|advertisement)$/i;
+    function newsMediaUrl(value, sourceUrl) {
+        try { return safeExternalUrl(new URL(String(value || '').replace(/^<|>$/g,''), sourceUrl).href); } catch (_) { return ''; }
+    }
+    function cleanNewsArticle(value, title = '') {
+        let text = plainNewsText(String(value || '').replace(/\(<(https?:[^<>\s]+)>\)/g,'($1)')).replace(/\r\n?/g,'\n');
+        const marker = text.indexOf('Markdown Content:');
+        if (marker >= 0) text = text.slice(marker + 'Markdown Content:'.length);
+        const lines = text.split('\n');
+        const titleKey = value => plainNewsText(value).replace(/[^\p{L}\p{N}]/gu,'').toLowerCase();
+        const wanted = titleKey(title);
+        const heading = wanted ? lines.findIndex((line, index) => {
+            const headingText = /^#{1,3}\s+(.+)$/.exec(line)?.[1] || (/^[=-]{3,}\s*$/.test(lines[index + 1] || '') ? line : '');
+            return headingText && titleKey(headingText) === wanted;
+        }) : -1;
+        if (heading >= 0) lines.splice(0, heading + 1);
+        text = lines.join('\n').replace(NEWS_MARKDOWN_LINK, (match, image, label) => !image && NEWS_NAV_LABEL.test(label.trim()) ? '' : match);
+        return text.split('\n').filter(line => {
+            const trimmed = line.trim();
+            if (!trimmed || /^(?:[-*_]{3,}|[=]{3,})$/.test(trimmed)) return false;
+            if (NEWS_NAV_LABEL.test(trimmed)) return false;
+            if (/^\[(?:Open accessibility guide|Skip (?:to )?(?:sections navigation|content|footer|main content|navigation))\]/i.test(trimmed)) return false;
+            // Link-only navigation rows have no article prose. Keep image rows
+            // and standalone editorial references, but drop dense menu rows.
+            const links = [...trimmed.matchAll(NEWS_MARKDOWN_LINK)];
+            return !(links.length > 1 && links.every(link => !link[1]) && !trimmed.replace(NEWS_MARKDOWN_LINK,'').replace(/[\s|•*-]/g,''));
+        }).join('\n\n').trim();
+    }
+    function newsArticleText(value, title = '') {
+        return cleanNewsArticle(value, title).replace(NEWS_MARKDOWN_LINK, (_, image, label) => image ? '' : label).replace(/^#{1,6}\s+/gm,'').trim();
+    }
+    function newsExcerpt(value, title = '') {
+        const cleaned = cleanNewsArticle(value, title);
+        if (!newsArticleText(cleaned)) return '';
+        if (cleaned.length <= 1800) return cleaned;
+        // Do not cut through a Markdown URL and expose half a link as text.
+        let end = 1800;
+        for (const match of cleaned.matchAll(NEWS_MARKDOWN_LINK)) if (match.index < end && match.index + match[0].length > end) end = match.index;
+        return cleaned.slice(0,end).trim();
+    }
+    function newsArticleNeedsRefresh(item) {
+        return !newsArticleText(item.content, item.title) || /\[(?:Open accessibility guide|Skip (?:to )?(?:sections navigation|content|footer|main content|navigation))\]/i.test(item.content);
+    }
+    function renderNewsArticle(value, item) {
+        const content = cleanNewsArticle(value, item.title);
+        const images = new Set([item.imageUrl]);
+        let html = '', paragraph = '', offset = 0;
+        const flush = () => { if (paragraph.trim()) html += `<p>${paragraph}</p>`; paragraph = ''; };
+        const append = text => {
+            const blocks = text.split(/\n\s*\n/);
+            blocks.forEach((block, index) => { if (index) flush(); paragraph += escapeHtml(block.replace(/^#{1,6}\s+/gm,'')); });
+        };
+        for (const match of content.matchAll(NEWS_MARKDOWN_LINK)) {
+            append(content.slice(offset,match.index));
+            const url = newsMediaUrl(match[3],item.url), label = plainNewsText(match[2]);
+            if (match[1]) {
+                flush();
+                if (url && !images.has(url)) { images.add(url); html += `<figure class="lw-news-inline-media"><img src="${escapeAttr(url)}" alt="${escapeAttr(label)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').hidden=true">${label ? `<figcaption>${escapeHtml(label)}</figcaption>` : ''}</figure>`; }
+            } else paragraph += url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label || '相关链接')}</a>` : escapeHtml(label);
+            offset = match.index + match[0].length;
+        }
+        append(content.slice(offset)); flush();
+        return html;
+    }
     function normalizeNewsItem(item) {
         const url = safeExternalUrl(item.url || item.link); const title = String(item.title || '').trim().slice(0,220);
         if (!url || !title) return null;
         const source = String(item.host || item.domain || item.source || new URL(url).hostname).trim().slice(0,80);
         const dateText = String(item.seendate || item.published_at || item.publishedAt || '').trim();
         const parsed = /^\d{14}$/.test(dateText) ? Date.parse(`${dateText.slice(0,4)}-${dateText.slice(4,6)}-${dateText.slice(6,8)}T${dateText.slice(8,10)}:${dateText.slice(10,12)}:${dateText.slice(12,14)}Z`) : Date.parse(dateText);
-        return { id: stableNewsId(url), title, url, source, description: plainNewsText(item.description || item.summary).slice(0,700), content: plainNewsText(item.text || item.content).slice(0,900), imageUrl: safeExternalUrl(item.image || item.socialimage || item.og || ''), publishedAt: Number.isFinite(parsed) ? parsed : now(), fetchedAt: now(), provider: String(item.provider || 'GDELT').slice(0,40) };
+        return { id: stableNewsId(url), title, url, source, description: plainNewsText(item.description || item.summary).slice(0,700), content: newsExcerpt(item.text || item.content, title), imageUrl: safeExternalUrl(item.image || item.socialimage || item.og || ''), publishedAt: Number.isFinite(parsed) ? parsed : now(), fetchedAt: now(), provider: String(item.provider || 'GDELT').slice(0,40) };
     }
     async function fetchNewsJson(url) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(),15000); try { const response = await fetch(url,{ signal: controller.signal, headers: { Accept:'application/json' } }); if (!response.ok) throw new Error(`资讯源暂不可用（HTTP ${response.status}）。`); return await response.json(); } finally { clearTimeout(timer); } }
     async function fetchRealNews(force = false) {
@@ -27,13 +94,13 @@
     }
     async function translateEnglish(text) { const source = String(text || '').trim(); if (!source) return ''; if (!/[A-Za-z]{3}/.test(source)) throw new Error('当前内容不是英文，无需翻译。'); const chunks = []; let chunk = '', bytes = 0; for (const character of source) { const point = character.codePointAt(0); const size = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4; if (bytes + size > 450) { chunks.push(chunk); chunk = ''; bytes = 0; } chunk += character; bytes += size; } if (chunk) chunks.push(chunk); if (chunks.length > 12) throw new Error('内容过长，请查看原文。'); const result = []; for (const part of chunks) { const payload = await fetchNewsJson(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(part)}&langpair=en%7Czh-CN`); const translated = String(payload.responseData?.translatedText || '').trim(); if (Number(payload.responseStatus) !== 200 || !translated || translated === part) throw new Error('翻译服务暂不可用。'); result.push(translated); } return result.join(''); }
     async function translateCurrentPost() { const post = loadState().posts.find(item => item.id === activePostId); if (!post) return; postActionSheetOpen = false; if (showPostTranslation) { showPostTranslation = false; render(); return; } if (post.translatedTitle) { showPostTranslation = true; render(); return; } render(); try { showToast('正在翻译帖子…'); const title = await translateEnglish(post.title), body = post.body ? await translateEnglish(post.body.slice(0,2100)) + (post.body.length > 2100 ? '\n（其余内容请查看原文）' : '') : ''; mutate(next => { const target = next.posts.find(item => item.id === post.id); if (target) { target.translatedTitle = title; target.translatedBody = body; } }); showPostTranslation = true; render(); } catch (error) { showToast(error.message || '翻译失败。'); } }
-    async function translateNews(id) { const item = loadState().newsItems.find(row => row.id === id); if (!item || translatingNewsId) return; if (translatedNewsVisible.has(id)) { translatedNewsVisible.delete(id); render(); return; } if (item.translatedTitle && (!item.content || item.translatedContent)) { translatedNewsVisible.add(id); render(); return; } translatingNewsId = id; render(); let failure = ''; try { const title = item.translatedTitle || await translateEnglish(item.title); const description = item.description && !item.translatedDescription ? await translateEnglish(item.description) : item.translatedDescription || ''; const content = item.content && !item.translatedContent ? await translateEnglish(item.content) : item.translatedContent || ''; mutate(next => { const target = next.newsItems.find(row => row.id === id); if (target) Object.assign(target,{ translatedTitle:title, translatedDescription:description, translatedContent:content }); }); translatedNewsVisible.add(id); } catch (error) { failure = error.message || '翻译失败，已保留英文原文。'; } finally { translatingNewsId = ''; render(); if (failure) showToast(failure); } }
+    async function translateNews(id) { const item = loadState().newsItems.find(row => row.id === id); if (!item || translatingNewsId) return; if (translatedNewsVisible.has(id)) { translatedNewsVisible.delete(id); render(); return; } if (item.translatedTitle && (!item.content || item.translatedContent)) { translatedNewsVisible.add(id); render(); return; } translatingNewsId = id; render(); let failure = ''; try { const title = item.translatedTitle || await translateEnglish(item.title); const description = item.description && !item.translatedDescription ? await translateEnglish(item.description) : item.translatedDescription || ''; const article = newsArticleNeedsRefresh(item) ? '' : newsArticleText(item.content, item.title); const content = article && !item.translatedContent ? await translateEnglish(article) : article ? item.translatedContent || '' : ''; mutate(next => { const target = next.newsItems.find(row => row.id === id); if (target) Object.assign(target,{ translatedTitle:title, translatedDescription:description, translatedContent:content }); }); translatedNewsVisible.add(id); } catch (error) { failure = error.message || '翻译失败，已保留英文原文。'; } finally { translatingNewsId = ''; render(); if (failure) showToast(failure); } }
     function newsTranslationButton(item) { return `<button type="button" onclick="LivingWorld.translateNews('${escapeAttr(item.id)}')" ${translatingNewsId === item.id ? 'disabled' : ''}><i class="ri-translate-2"></i> ${translatingNewsId === item.id ? '翻译中…' : translatedNewsVisible.has(item.id) ? '显示原文' : '译成中文'}</button>`; }
     function renderNewsCard(item) { const comments = loadState().newsComments.filter(row => row.newsId === item.id).length, translated = translatedNewsVisible.has(item.id); return `<article class="lw-news-card"><div class="lw-news-source"><i class="ri-global-line"></i><b>${escapeHtml(item.source)}</b><span>${timeAgo(item.publishedAt)} · ${escapeHtml(item.provider)}</span></div><button type="button" class="lw-news-open" onclick="LivingWorld.openNews('${escapeAttr(item.id)}')"><h2>${escapeHtml(translated && item.translatedTitle || item.title)}</h2>${item.description ? `<p>${escapeHtml(translated && item.translatedDescription || item.description)}</p>` : ''}${item.imageUrl ? `<img src="${escapeAttr(item.imageUrl)}" alt="" loading="lazy" onerror="this.hidden=true">` : ''}</button><div class="lw-news-actions"><button type="button" onclick="LivingWorld.openNews('${escapeAttr(item.id)}')"><i class="ri-chat-3-line"></i> ${comments} 条讨论</button>${newsTranslationButton(item)}<button type="button" onclick="LivingWorld.shareNews('${escapeAttr(item.id)}')"><i class="ri-share-forward-line"></i> 转发</button></div></article>`; }
     function renderMedia() { const world = loadState(); return `<section class="lw-media-page"><div class="lw-media-intro"><h1>现实热点</h1><button type="button" onclick="LivingWorld.fetchRealNews(true)" ${newsBusy ? 'disabled' : ''}><i class="ri-refresh-line"></i> ${newsBusy ? '获取中…' : '刷新资讯'}</button></div>${world.newsFetchedAt ? `<small class="lw-news-updated">上次获取：${new Date(world.newsFetchedAt).toLocaleString('zh-CN')}</small>` : ''}<div class="lw-news-feed">${world.newsItems.map(renderNewsCard).join('') || `<div class="lw-empty"><i class="ri-newspaper-line"></i><h2>${newsBusy ? '正在获取真实资讯' : '还没有资讯'}</h2><p>${newsBusy ? '请稍候。' : '点击刷新资讯；若来源不可用，会明确显示失败。'}</p></div>`}</div></section>`; }
-    function renderNewsDetail() { const item = loadState().newsItems.find(row => row.id === activeNewsId); if (!item) return '<div class="lw-empty">这条资讯已不在本地缓存中。</div>'; const comments = loadState().newsComments.filter(row => row.newsId === item.id).sort((a,b) => a.createdAt - b.createdAt), translated = translatedNewsVisible.has(item.id); const content = translated && item.translatedContent || item.content || (translated && item.translatedDescription || item.description); return `<section class="lw-news-detail"><div class="lw-news-source"><i class="ri-global-line"></i><b>${escapeHtml(item.source)}</b><span>${timeAgo(item.publishedAt)}</span></div><h1>${escapeHtml(translated && item.translatedTitle || item.title)}</h1>${item.imageUrl ? `<img class="lw-news-hero" src="${escapeAttr(item.imageUrl)}" alt="" onerror="this.hidden=true">` : ''}<div class="lw-news-article"><strong>${item.content ? '新闻摘录' : '来源摘要'}</strong>${content ? `<p>${escapeHtml(content)}</p>` : `<p class="lw-news-unavailable">${articleLoadingId === item.id ? '正在获取正文…' : '暂时无法获取新闻正文，请查看来源原文。'}</p>`}${!item.content && articleLoadingId === item.id && content ? '<p class="lw-news-unavailable">正在获取正文…</p>' : ''}<small>内容来自 ${escapeHtml(item.source)}，版权归原发布方所有。</small></div><div class="lw-news-actions">${newsTranslationButton(item)}<a href="${escapeAttr(item.url)}" target="_blank" rel="noopener noreferrer">查看原文 <i class="ri-external-link-line"></i></a><button type="button" onclick="LivingWorld.shareNews('${escapeAttr(item.id)}')"><i class="ri-share-forward-line"></i> 转发</button></div><h2>BYND 讨论 · ${comments.length}</h2><div class="lw-news-comments">${comments.map(row => `<article class="lw-news-comment">${avatarMarkup(account(row.authorId))}<div><b>${escapeHtml(account(row.authorId).name)} <small>${timeAgo(row.createdAt)}</small></b><p>${escapeHtml(row.body)}</p></div></article>`).join('') || '<p class="lw-news-empty">还没有人讨论这条新闻。</p>'}</div><form class="lw-news-composer" onsubmit="return LivingWorld.commentNews(event)"><input id="lw-news-comment" required maxlength="1200" value="${escapeAttr(newsDraft)}" placeholder="在 BYND 留言" aria-label="新闻留言" oninput="LivingWorld.updateNewsDraft(this.value)"><button type="submit" ${newsDraft.trim() ? '' : 'disabled'} aria-label="发送留言"><i class="ri-send-plane-2-fill"></i></button></form></section>`; }
+    function renderNewsDetail() { const item = loadState().newsItems.find(row => row.id === activeNewsId); if (!item) return '<div class="lw-empty">这条资讯已不在本地缓存中。</div>'; const comments = loadState().newsComments.filter(row => row.newsId === item.id).sort((a,b) => a.createdAt - b.createdAt), translated = translatedNewsVisible.has(item.id); const hasArticle = !newsArticleNeedsRefresh(item); let content = hasArticle ? (translated && item.translatedContent || item.content) : (translated && item.translatedDescription || item.description); if (hasArticle && translated && item.translatedContent) content += '\n\n' + [...String(item.content).matchAll(NEWS_MARKDOWN_LINK)].filter(match => match[1]).map(match => match[0]).join('\n\n'); return `<section class="lw-news-detail"><div class="lw-news-source"><i class="ri-global-line"></i><b>${escapeHtml(item.source)}</b><span>${timeAgo(item.publishedAt)}</span></div><h1>${escapeHtml(translated && item.translatedTitle || item.title)}</h1>${item.imageUrl ? `<img class="lw-news-hero" src="${escapeAttr(item.imageUrl)}" alt="" onerror="this.hidden=true">` : ''}<div class="lw-news-article"><strong>${hasArticle ? '新闻摘录' : '来源摘要'}</strong>${content ? renderNewsArticle(content, item) : `<p class="lw-news-unavailable">${articleLoadingId === item.id ? '正在获取正文…' : '暂时无法获取新闻正文，请查看来源原文。'}</p>`}${!hasArticle && articleLoadingId === item.id && content ? '<p class="lw-news-unavailable">正在获取正文…</p>' : ''}<small>内容来自 ${escapeHtml(item.source)}，版权归原发布方所有。</small></div><div class="lw-news-actions">${newsTranslationButton(item)}<a href="${escapeAttr(item.url)}" target="_blank" rel="noopener noreferrer">查看原文 <i class="ri-external-link-line"></i></a><button type="button" onclick="LivingWorld.shareNews('${escapeAttr(item.id)}')"><i class="ri-share-forward-line"></i> 转发</button></div><h2>BYND 讨论 · ${comments.length}</h2><div class="lw-news-comments">${comments.map(row => `<article class="lw-news-comment">${avatarMarkup(account(row.authorId))}<div><b>${escapeHtml(account(row.authorId).name)} <small>${timeAgo(row.createdAt)}</small></b><p>${escapeHtml(row.body)}</p></div></article>`).join('') || '<p class="lw-news-empty">还没有人讨论这条新闻。</p>'}</div><form class="lw-news-composer" onsubmit="return LivingWorld.commentNews(event)"><input id="lw-news-comment" required maxlength="1200" value="${escapeAttr(newsDraft)}" placeholder="在 BYND 留言" aria-label="新闻留言" oninput="LivingWorld.updateNewsDraft(this.value)"><button type="submit" ${newsDraft.trim() ? '' : 'disabled'} aria-label="发送留言"><i class="ri-send-plane-2-fill"></i></button></form></section>`; }
     function updateNewsDraft(value) { newsDraft = String(value || '').slice(0,1200); const button = document.querySelector('.lw-news-composer button[type=submit]'); if (button) button.disabled = !newsDraft.trim(); }
-    async function fetchReaderArticle(sourceUrl) {
+    async function fetchReaderArticle(sourceUrl, title) {
         const url = safeExternalUrl(sourceUrl);
         if (!url || /^(?:localhost|127(?:\.\d+){3}|10(?:\.\d+){3}|192\.168(?:\.\d+){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d+){2}|\[?::1\]?)$/i.test(new URL(url).hostname)) throw new Error('新闻来源链接无效。');
         const controller = new AbortController();
@@ -42,24 +109,24 @@
             const response = await fetch(`https://r.jina.ai/${url}`, { signal:controller.signal, headers:{ Accept:'application/json' } });
             if (!response.ok) throw new Error(`正文提取服务暂不可用（HTTP ${response.status}）。`);
             const payload = await response.json();
-            const content = plainNewsText(payload.data?.content || payload.content || '').slice(0,1800);
+            const content = newsExcerpt(payload.data?.content || payload.content || '', title);
             if (!content) throw new Error('来源没有提供可提取的正文。');
             return content;
         } finally { clearTimeout(timer); }
     }
     async function fetchArticleContent(id) {
         const item = loadState().newsItems.find(row => row.id === id);
-        if (!item || item.content || articleLoadingId) return;
+        if (!item || !newsArticleNeedsRefresh(item) || articleLoadingId) return;
         articleLoadingId = id;
         if (activeNewsId === id) render();
         let failure = '';
         try {
             let content = '';
             if (item.provider === 'FreeNews') {
-                try { const payload = await fetchNewsJson(`https://freenewsapi.ai/v1/article?url=${encodeURIComponent(item.url)}`); content = plainNewsText(payload.text || payload.article?.text).slice(0,1800); } catch (_) { /* Try the source itself below. */ }
+                try { const payload = await fetchNewsJson(`https://freenewsapi.ai/v1/article?url=${encodeURIComponent(item.url)}`); content = newsExcerpt(payload.text || payload.article?.text, item.title); } catch (_) { /* Try the source itself below. */ }
             }
-            if (!content) content = await fetchReaderArticle(item.url);
-            mutate(next => { const target = next.newsItems.find(row => row.id === id); if (target) target.content = content; });
+            if (!content) content = await fetchReaderArticle(item.url, item.title);
+            mutate(next => { const target = next.newsItems.find(row => row.id === id); if (target) { target.content = content; target.translatedContent = ''; } });
         } catch (error) { failure = error.message || '新闻正文暂不可用。'; }
         finally { articleLoadingId = ''; if (activeNewsId === id) render(); if (failure) showToast(failure); }
     }

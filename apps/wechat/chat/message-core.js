@@ -1449,15 +1449,31 @@ function buildWechatUserTextMessage(text) {
     });
 }
 
-function triggerWechatScreenFeedback(kind = 'shake') {
+function triggerWechatScreenFeedback(kind = 'shake', msg = null) {
     const root = document.getElementById('wechat-chat-room') || document.querySelector('.phone-screen') || document.body;
+    if (kind === 'poke') {
+        // Wait for a received message to finish refreshing the chat before animating its recipient.
+        requestAnimationFrame(() => {
+            const rows = root.querySelectorAll(msg?.isMe === false ? '.msg-row.right' : '.msg-row.left');
+            const row = rows[rows.length - 1];
+            const target = [row?.querySelector('.msg-avatar'), root.querySelector('.msg-poke-row:last-child .msg-poke-notice'), root.querySelector('.wc-room-header-avatar')]
+                .find(node => node && node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden');
+            if (!target) return;
+            clearTimeout(target._wechatPokeTimer);
+            target.classList.remove('wc-avatar-poke');
+            void target.offsetWidth;
+            target.classList.add('wc-avatar-poke');
+            target._wechatPokeTimer = setTimeout(() => target.classList.remove('wc-avatar-poke'), 360);
+        });
+        return;
+    }
     if (root) {
         root.classList.remove('wc-screen-shake');
         void root.offsetWidth;
         root.classList.add('wc-screen-shake');
         setTimeout(() => root.classList.remove('wc-screen-shake'), 460);
     }
-    if (navigator.vibrate) navigator.vibrate(kind === 'poke' ? [22, 24, 22] : [42, 28, 42, 28, 42]);
+    if (navigator.vibrate) navigator.vibrate([42, 28, 42, 28, 42]);
 }
 
 function openWechatLinkCard(url) {

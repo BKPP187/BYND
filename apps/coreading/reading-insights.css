@@ -1,0 +1,96 @@
+/* Daily literature keeps the existing SENSE composition and adds a real source. */
+/* The phone exposes zero here when its parent already reserves the safe area. */
+html.mobile-runtime .coread-topbar,
+html.mobile-runtime .coread-topbar.coread-ios-topbar {
+    height:calc(86px + var(--bynd-header-safe-top,0px)) !important;
+    min-height:calc(86px + var(--bynd-header-safe-top,0px)) !important;
+    padding-top:calc(32px + var(--bynd-header-safe-top,0px)) !important;
+    padding-bottom:10px !important;
+    flex-shrink:0;
+}
+html.mobile-runtime .coread-topbar > div,
+html.mobile-runtime .coread-topbar.coread-ios-topbar > div {
+    top:calc(50% + 11px + var(--bynd-header-safe-top,0px)/2) !important;
+}
+html.mobile-runtime .coread-shell.coread-reader-mode .coread-topbar,
+html.mobile-runtime .coread-shell.coread-reader-mode .coread-topbar.coread-reader-topbar {
+    height:calc(58px + var(--bynd-header-safe-top,0px)) !important;
+    min-height:calc(58px + var(--bynd-header-safe-top,0px)) !important;
+    padding-top:calc(10px + var(--bynd-header-safe-top,0px)) !important;
+    padding-bottom:6px !important;
+}
+.coread-content[data-tab="discover"] .coread-sense-card { grid-template-rows:auto auto 28px auto auto minmax(230px,1fr) auto; cursor:default; }
+.coread-content[data-tab="discover"] .coread-sense-card em { max-width:min(86%,380px); margin-bottom:12px; overflow-wrap:anywhere; }
+.coread-topbar button > svg { display:block; width:18px; height:18px; }
+.coread-quote-byline { display:grid; justify-items:center; gap:7px; padding:0 18px 24px; color:#929294; font-size:12px; line-height:1.6; text-align:center; }
+.coread-quote-byline > span { font-size:11px; font-weight:400; letter-spacing:0; }
+.coread-quote-byline a { color:#73757a; text-underline-offset:3px; }
+.coread-quote-byline button { color:#79767a; background:transparent; border:0; padding:4px 10px; font-size:12px; }
+
+#coread-reading-calendar { border:0 !important; padding:0; background:none !important; box-shadow:none !important; }
+.coread-activity-card { padding:18px; margin-bottom:16px; border:2px solid #171717; border-radius:26px; background:#fff; color:#171717; min-width:0; }
+.coread-activity-card > header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.coread-activity-card h3 { margin:0; font-size:16px; line-height:1.5; }
+.coread-activity-card header small { color:#8b8589; font-size:11px; }
+.coread-activity-card .coread-activity-head { margin-bottom:8px; }
+.coread-activity-head button { display:grid; place-items:center; width:36px; height:36px; border:1px solid #d7d7d7; border-radius:50%; background:#f6f6f6; color:#171717; font-size:24px; }
+.coread-streak { margin:0 0 18px; color:#92888e; font-size:12px; }
+.coread-streak b { color:#171717; font-size:23px; margin:0 3px; }
+.coread-activity-weekdays,.coread-book-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; }
+.coread-activity-weekdays { text-align:center; font-size:11px; color:#a49ba0; margin-bottom:9px; }
+.coread-book-calendar > button { position:relative; min-width:0; min-height:67px; padding:6px 2px 4px; display:flex; flex-direction:column; align-items:center; gap:4px; border:1px solid transparent; border-radius:11px; background:#f8f6f5; color:#a39d9d; font-size:11px; }
+.coread-book-calendar > button.has-reading { background:#e4e4e4; color:#171717; }
+.coread-book-calendar > button.selected { border-color:#171717; box-shadow:0 0 0 1px #171717; }
+.coread-book-calendar > button small { position:absolute; bottom:2px; right:2px; color:#fff; font-size:9px; background:#555; border-radius:4px; padding:0 2px; }
+.coread-activity-cover { width:35px; height:49px; position:relative; flex:none; border-radius:3px; background:#e7e4e1; overflow:hidden; display:grid; place-items:center; border:1px solid #fff9; }
+.coread-activity-cover > span { font:10px/1.3 Georgia,serif; text-align:center; color:#6f656b; padding:2px; }
+.coread-activity-cover img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+.coread-book-calendar .coread-activity-cover { width:23px; height:32px; }
+.coread-activity-day { margin-top:19px; padding-top:15px; border-top:1px solid #eee8eb; }
+.coread-activity-day h3 { display:flex; justify-content:space-between; margin-bottom:9px; font-size:13px; }
+.coread-activity-day h3 span { font-size:11px; color:#a598a0; }
+.coread-activity-book { display:flex; align-items:center; gap:7px; padding:10px 0; border-top:1px solid #f1ecee; }
+.coread-activity-book > button { display:flex; align-items:center; gap:10px; text-align:left; min-width:0; flex:1; background:transparent; border:0; padding:0; color:inherit; }
+.coread-activity-book > button > span:last-child { display:grid; gap:6px; min-width:0; }
+.coread-activity-book strong { font-size:13px; overflow-wrap:anywhere; }
+.coread-activity-book small { color:#998e95; font-size:10px; overflow-wrap:anywhere; }
+.coread-activity-book button:disabled { opacity:.7; }
+.coread-activity-book label { display:grid; gap:4px; font-size:10px; color:#9b8e96; flex:none; }
+.coread-activity-book select { width:65px; border:1px solid #e8e0e4; border-radius:8px; background:#fff; color:#64555f; font-size:11px; padding:5px 2px; }
+.coread-activity-empty { margin:12px 0; color:#9a9095; font-size:12px; }
+.coread-activity-note { display:block; margin-top:12px; color:#aaa0a5; font-size:10px; line-height:1.6; }
+.coread-activity-error { color:#ad465e; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.coread-finished-chart { display:grid; gap:7px; }
+.coread-finished-chart > button { display:flex; align-items:center; gap:8px; border:0; padding:0; background:none; color:#aaa0a6; min-width:0; font-size:10px; }
+.coread-finished-chart > button > span { flex:none; width:25px; text-align:left; }
+.coread-finished-chart > button > div { position:relative; flex:1; height:38px; border-radius:8px; overflow:hidden; background:#faf7f8; }
+.coread-finished-chart i { display:block; background:#d3d3d3; height:100%; min-width:0; }
+.coread-finished-chart b { width:17px; color:#8c7280; font-size:11px; }
+.coread-finished-covers { display:flex; align-items:center; gap:2px; position:absolute; inset:3px 4px; }
+.coread-finished-covers .coread-activity-cover { width:23px; height:32px; }
+.coread-genre-chart { display:flex; align-items:center; gap:20px; }
+.coread-genre-chart > div { width:116px; height:116px; border-radius:50%; display:grid; place-items:center; flex:none; }
+.coread-genre-chart > div > span { width:82px; height:82px; background:#fff; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:24px; font-weight:700; }
+.coread-genre-chart > div small { font-size:10px; color:#a0989b; margin-top:5px; }
+.coread-genre-chart ul { list-style:none; padding:0; margin:0; flex:1; min-width:0; font-size:11px; }
+.coread-genre-chart li { display:flex; align-items:center; gap:6px; padding:4px 0; }
+.coread-genre-chart li > i { width:7px; height:7px; border-radius:2px; flex:none; }
+.coread-genre-chart li > span { flex:1; overflow-wrap:anywhere; }
+.coread-rating-chart { display:flex; align-items:end; gap:12px; }
+.coread-rating-chart > div { display:grid; gap:7px; flex:1; min-width:0; text-align:center; font-size:11px; color:#ab9ba3; }
+.coread-rating-chart > div > span { height:98px; display:flex; align-items:end; background:#fcf7f9; border-radius:8px; overflow:hidden; }
+.coread-rating-chart i { display:block; width:100%; background:#555; border-radius:8px 8px 0 0; }
+.coread-author-chart { display:grid; gap:13px; list-style:none; padding:0; margin:0; font-size:11px; color:#817780; }
+.coread-author-chart li { display:flex; align-items:center; gap:9px; }
+.coread-author-chart li > span { width:72px; flex:none; overflow-wrap:anywhere; }
+.coread-author-chart li > div { height:7px; flex:1; border-radius:5px; background:#f7f2f5; overflow:hidden; }
+.coread-author-chart i { display:block; height:100%; background:#555; border-radius:5px; }
+.coread-author-chart b { font-size:10px; font-weight:500; }
+@media(max-width:360px) {
+    .coread-activity-card { padding:14px; border-radius:20px; }
+    .coread-book-calendar { gap:3px; }
+    .coread-book-calendar > button { border-radius:8px; }
+    .coread-genre-chart { gap:12px; }
+    .coread-genre-chart > div { width:92px; height:92px; }
+    .coread-genre-chart > div > span { width:66px; height:66px; }
+}

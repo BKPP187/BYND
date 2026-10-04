@@ -120,7 +120,7 @@ function ensureDesktopLovelyWidget() {
         });
         compactDesktopSlotOrder(pageArea);
     } else {
-        item.style.marginTop = `${DESKTOP_DEFAULT_LOVELY_TOP}px`;
+        item.style.marginTop = pageArea.classList.contains('desktop-reference-page') ? '0' : `${DESKTOP_DEFAULT_LOVELY_TOP}px`;
         pageArea.insertBefore(item, pageArea.firstChild);
     }
     pageArea.scrollTop = 0;

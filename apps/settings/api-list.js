@@ -347,6 +347,8 @@ function fillApiVoiceModal(api = getApiData().voiceApi) {
     setApiVoiceModalValue('api-voice-key', voice.apiKey);
     setApiVoiceModalValue('api-voice-model', voice.voiceModel);
     setApiVoiceModalValue('api-voice-id', voice.voiceId);
+    const voiceIdField = document.getElementById('api-voice-id');
+    if (voiceIdField) voiceIdField.dataset.voiceName = '';
     setApiVoiceModalValue('api-voice-endpoint', voice.voiceEndpoint);
     setApiVoiceModalValue('api-voice-group-id', voice.voiceGroupId);
     setApiVoiceModalValue('api-voice-speed', voice.voiceSpeed);
@@ -362,9 +364,11 @@ function openApiVoiceModal() {
     if (resultEl) resultEl.innerHTML = '';
     fillApiVoiceModal();
     modal.classList.remove('hidden');
+    window.ByndMiniMaxVoices?.open();
 }
 
 function closeApiVoiceModal() {
+    window.ByndMiniMaxVoices?.close();
     document.getElementById('api-voice-modal')?.classList.add('hidden');
 }
 
@@ -402,6 +406,8 @@ function fillApiFishAudioVoiceModal(api = getApiData().fishAudioVoiceApi) {
     setApiVoiceModalValue('api-fish-voice-key', voice.apiKey);
     setApiVoiceModalValue('api-fish-voice-model', voice.voiceModel);
     setApiVoiceModalValue('api-fish-voice-id', voice.voiceId);
+    const voiceInput = document.getElementById('api-fish-voice-id');
+    if (voiceInput) voiceInput.dataset.voiceName = voice.voiceName || '';
     setApiVoiceModalValue('api-fish-voice-endpoint', voice.voiceEndpoint);
     setApiVoiceModalValue('api-fish-voice-format', voice.voiceFormat);
     setApiVoiceModalValue('api-fish-voice-speed', voice.voiceSpeed);
@@ -414,9 +420,11 @@ function openApiFishAudioVoiceModal() {
     if (resultEl) resultEl.innerHTML = '';
     fillApiFishAudioVoiceModal();
     modal.classList.remove('hidden');
+    window.ByndFishVoices?.open();
 }
 
 function closeApiFishAudioVoiceModal() {
+    window.ByndFishVoices?.close();
     document.getElementById('api-fish-voice-modal')?.classList.add('hidden');
 }
 
@@ -428,6 +436,8 @@ function fillApiElevenLabsVoiceModal(api = getApiData().elevenLabsVoiceApi) {
     setApiVoiceModalValue('api-elevenlabs-voice-key', voice.apiKey);
     setApiVoiceModalValue('api-elevenlabs-voice-model', voice.voiceModel);
     setApiVoiceModalValue('api-elevenlabs-voice-id', voice.voiceId);
+    const voiceInput = document.getElementById('api-elevenlabs-voice-id');
+    if (voiceInput) voiceInput.dataset.voiceName = voice.voiceName || '';
     setApiVoiceModalValue('api-elevenlabs-voice-endpoint', voice.voiceEndpoint);
     setApiVoiceModalValue('api-elevenlabs-voice-format', voice.voiceFormat);
     setApiVoiceModalValue('api-elevenlabs-voice-stability', voice.stability);
@@ -443,9 +453,11 @@ function openApiElevenLabsVoiceModal() {
     if (resultEl) resultEl.innerHTML = '';
     fillApiElevenLabsVoiceModal();
     modal.classList.remove('hidden');
+    window.ByndElevenLabsVoices?.open();
 }
 
 function closeApiElevenLabsVoiceModal() {
+    window.ByndElevenLabsVoices?.close();
     document.getElementById('api-elevenlabs-voice-modal')?.classList.add('hidden');
 }
 

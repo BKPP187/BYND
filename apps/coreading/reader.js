@@ -487,6 +487,7 @@ function renderCoReadReader() {
             body.scrollTop = 0;
         }
     }
+    CoReadJournal.sync(book);
     renderCoReadReaderOverview();
 }
 

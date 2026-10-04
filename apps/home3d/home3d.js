@@ -32,7 +32,8 @@
             await script('apps/home3d/data/catalogs.js');
             await script('assets/home3d/characters/initial-portraits.js');
             await script('assets/home3d/characters/initial-sleep-portraits.js');
-            for (const name of ['materials', 'furniture-visuals', 'furniture', 'rooms', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'living', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
+            await script('assets/home3d/characters/initial-model-previews.js');
+            for (const name of ['render-quality', 'room-camera', 'render-assets', 'materials', 'interiors', 'bedding', 'cooking', 'furniture-visuals', 'furniture', 'furniture-previews', 'rooms', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'living', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
         })().catch(error => { pending = null; throw error; });
         return pending;
     }

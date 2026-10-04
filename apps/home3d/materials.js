@@ -46,6 +46,21 @@
             const key = 'glow:' + color + ':' + intensity; if (cache.has(key)) return cache.get(key);
             const material = new T.MeshStandardMaterial({ color, roughness: .8, emissive: color, emissiveIntensity: intensity }); cache.set(key, material); return material;
         }
+        function surface(finish, width, height, kind = 'wall') {
+            const key = 'surface:' + JSON.stringify(finish) + ':' + width + ':' + height + ':' + kind;
+            if (cache.has(key)) return cache.get(key);
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1024;
+            H.Interiors.paint(canvas, finish);
+            const map = new T.CanvasTexture(canvas); map.colorSpace = T.SRGBColorSpace;
+            map.wrapS = map.wrapT = T.RepeatWrapping;
+            if (kind !== 'rug' && kind !== 'art') {
+                const tile = kind === 'floor' ? ['parquet', 'herringbone'].includes(finish.pattern) ? 4.8 : 2.4 : 1.6;
+                map.repeat.set(width / tile, height / tile);
+            }
+            textures.set(key, map);
+            const material = new T.MeshStandardMaterial({ map, roughness: kind === 'floor' && finish.pattern === 'marble' ? .45 : .9 });
+            cache.set(key, material); return material;
+        }
         function role(original, item, index) {
             const name = String(original?.name || '').toLowerCase();
             if (['television', 'computer'].includes(item.type) && /metaldark|metalmedium|screen/.test(name)) return 'screen';
@@ -68,18 +83,35 @@
             return item.materials[index % item.materials.length];
         }
         function apply(root, item) {
-            const originals = new Set();
+            const originals = new Set(), retainedTextures = new Set(), mapped = new Map();
             root.traverse(node => {
                 if (!node.isMesh) return;
                 const list = Array.isArray(node.material) ? node.material : [node.material];
-                const replacements = list.map((original, i) => { originals.add(original); return get(role(original, item, i)); });
+                const replacements = list.map((original, i) => {
+                    originals.add(original);
+                    // A textured PBR asset must retain its base color, normal and
+                    // roughness maps. Solid-color legacy packs still use our palette.
+                    if (original?.isMeshStandardMaterial && Object.values(original).some(value => value?.isTexture)) {
+                        if (!mapped.has(original)) mapped.set(original, original.clone());
+                        const replacement = mapped.get(original);
+                        node.userData.ownedMaterials = [...(node.userData.ownedMaterials || []), replacement];
+                        const maps = Object.values(replacement).filter(value => value?.isTexture);
+                        node.userData.ownedTextures = [...(node.userData.ownedTextures || []), ...maps]; maps.forEach(map => retainedTextures.add(map));
+                        return replacement;
+                    }
+                    return get(role(original, item, i));
+                });
                 node.material = Array.isArray(node.material) ? replacements : replacements[0];
                 node.castShadow = true; node.receiveShadow = true;
             });
-            originals.forEach(material => { for (const value of Object.values(material || {})) if (value?.isTexture) value.dispose(); material?.dispose(); });
+            originals.forEach(material => { for (const value of Object.values(material || {})) if (value?.isTexture && !retainedTextures.has(value)) value.dispose(); material?.dispose(); });
+        }
+        function clearSurfaces() {
+            for (const [key, material] of cache) if (key.startsWith('surface:')) { material.dispose(); cache.delete(key); }
+            for (const [key, map] of textures) if (key.startsWith('surface:')) { map.dispose(); textures.delete(key); }
         }
         function dispose() { dead = true; cache.forEach(material => material.dispose()); textures.forEach(map => map.dispose()); cache.clear(); textures.clear(); }
-        return { get, woven, glow, apply, theme, night: themeId === 'night', dispose, disposed: () => dead };
+        return { get, woven, glow, surface, clearSurfaces, apply, theme, night: themeId === 'night', dispose, disposed: () => dead };
     }
     H.Materials = { create };
     H.Shapes = {
@@ -89,10 +121,15 @@
         },
         sphere(parent, size, position, material) {
             const T = ByndHomeEngine, mesh = new T.Mesh(new T.SphereGeometry(1, 20, 14), material);
-            mesh.scale.set(...size); mesh.position.set(...position); mesh.castShadow = true; parent.add(mesh); return mesh;
+            mesh.scale.set(...size); mesh.position.set(...position); mesh.castShadow = true;
+            mesh.userData.renderLods = [mesh.geometry, new T.SphereGeometry(1, 8, 6)]; mesh.userData.renderRadius = 1;
+            parent.add(mesh); return mesh;
         },
         disposeGeometry(root) {
-            const disposed = new Set(); root?.traverse(node => { if (node.geometry && !disposed.has(node.geometry)) { disposed.add(node.geometry); node.geometry.dispose(); } if (node.userData.ownedTexture) node.userData.ownedTexture.dispose(); if (node.userData.ownedMaterial) node.userData.ownedMaterial.dispose(); });
+            const disposed = new Set(); root?.traverse(node => {
+                const resources = [node.geometry, ...(node.userData.renderLods || []), node.userData.ownedTexture, node.userData.ownedMaterial, node.userData.ownedSkeleton, ...(node.userData.ownedTextures || []), ...(node.userData.ownedMaterials || [])];
+                for (const resource of resources) if (resource && !disposed.has(resource)) { disposed.add(resource); resource.dispose(); }
+            });
             root?.removeFromParent();
         }
     };

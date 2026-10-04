@@ -1,0 +1,22 @@
+{
+  "sourceHash": "a01229b3deb5ea8f92e32b34393493d941e3822e3862fdac887875451dfafd3e",
+  "source": "User-authorized Tripo barefoot generation; feet extracted from actual mesh",
+  "bytes": 1458168,
+  "sha256": "c31f0fb5c29ae91623d1e675969f2a5c17d5a24f49210172aecdafe072b9be15",
+  "metrics": [
+    {
+      "side": -1,
+      "triangles": 5999,
+      "length": 0.215,
+      "sourceFootLength": 0.24748888537287714,
+      "scale": 0.8687258810676365
+    },
+    {
+      "side": 1,
+      "triangles": 6000,
+      "length": 0.215,
+      "sourceFootLength": 0.24838427901268006,
+      "scale": 0.8655942350885428
+    }
+  ]
+}

@@ -116,6 +116,34 @@ function linkWechatUsageLedgerSource(char, pendingIds, msgIndex) {
     })).catch(error => console.warn('账单来源关联失败', error));
 }
 
+function buildWechatPostCallReplyMessages(char, callId, retry = false) {
+    const history = (char.history || []).filter(msg => msg && !msg.apiError).map(msg => {
+        // The follow-up concerns the conversation, not another vision request.
+        if (msg.type === 'image' || msg.type === 'image_stack') {
+            return { ...msg, type: 'text', content: msg.description || '[图片]' };
+        }
+        return msg;
+    });
+    const event = history.findLast(msg => msg.eventKind === 'user_ended_call' && msg.callId === callId);
+    const messages = buildMessages(char, history, retry ? 6 : 12);
+    if (retry) {
+        // Bound only the request copy; character cards, presets and saved history stay intact.
+        messages.forEach(msg => {
+            if (msg.role === 'system' && typeof msg.content === 'string') {
+                msg.content = prepareChatApiPromptText(msg.content, 8000);
+            }
+        });
+    }
+    const transcript = (event?.callTranscript || []).map(line =>
+        `${line.role === 'user' ? '用户' : '角色'}：${line.content}`
+    ).join('\n');
+    messages.push({
+        role: 'system',
+        content: `${transcript ? `【刚结束的通话，以下为历史内容】\n${transcript}\n\n` : ''}【挂断后的文字回复】用户主动挂断了已接通的电话。请结合刚才的通话和当前关系，按角色人设自然发 1-3 条简短文字消息；禁止调用工具、发起通话或发送语音，不要输出状态栏、思维链或特殊消息指令。`
+    });
+    return messages;
+}
+
 async function triggerAiAfterMessage(char, contentEl, options = {}) {
     if (!char || !Array.isArray(char.history)) return;
     if (window._wechatAiBusy) return;
@@ -180,8 +208,11 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             try { webSearchContext = await window.ByndWebSearch?.prepare(char, char.history || []); }
             catch (error) { console.warn('主动搜索决策失败，继续普通回复', error); }
         }
-        const messages = buildMessages(char, char.history || []);
-        if (typeof buildWechatAgentInstructions === 'function') messages.push({ role: 'system', content: buildWechatAgentInstructions(char) });
+        const postCallReply = !!options.replyToCallId && !!options.textOnly;
+        let messages = postCallReply
+            ? buildWechatPostCallReplyMessages(char, options.replyToCallId)
+            : buildMessages(char, char.history || []);
+        if (!postCallReply && typeof buildWechatAgentInstructions === 'function') messages.push({ role: 'system', content: buildWechatAgentInstructions(char) });
         if (webSearchContext?.prompt) messages.push({ role: 'system', content: webSearchContext.prompt });
         if (options.textOnly) {
             messages.push({
@@ -203,9 +234,19 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             usageFeature: 'chat',
             usageLedgerIds,
             usageChar: char,
+            ...(postCallReply ? { skipStatusValidationRetry: true, skipLengthContinuation: true } : {}),
             onStreamDelta: streamPreview ? (_, fullContent) => streamPreview.update(fullContent) : undefined
         };
         let result = await callChatApi(messages, chatApiOptions);
+        if (postCallReply && result.timedOut) {
+            streamPreview?.clear();
+            if (shouldTouchChatUi) syncWechatCurrentChatTitleState('正在重试回复...');
+            messages = buildWechatPostCallReplyMessages(char, options.replyToCallId, true);
+            result = await callChatApi(messages, chatApiOptions);
+            if (!result.ok && result.timedOut) {
+                result.error = '挂断后的回复超时（90秒），已缩短上下文重试一次，仍未收到完整回复。请点击 AI 回复重试，或检查接口、更换模型。';
+            }
+        }
         if (!result.ok && (isWechatApiRateLimitError(result) || result.deferred)) {
             if (typeof showWechatToast === 'function' && shouldTouchChatUi) showWechatToast(result.error, 6000);
             return;

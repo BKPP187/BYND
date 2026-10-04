@@ -194,6 +194,7 @@ function restoreDefaultDesktopLayout() {
     if (typeof clearDesktopPageSlotRects === 'function') clearDesktopPageSlotRects();
     setTimeout(() => {
         if (typeof syncDesktopPagesAndDots === 'function') syncDesktopPagesAndDots(0);
+        if (typeof ensureDesktopReferenceToolsFolder === 'function') ensureDesktopReferenceToolsFolder();
         if (typeof initFolderDrag === 'function') initFolderDrag();
         if (typeof ensureMonitorDesktopEntry === 'function') ensureMonitorDesktopEntry();
         if (typeof ensureDesktopLovelyWidget === 'function') ensureDesktopLovelyWidget();

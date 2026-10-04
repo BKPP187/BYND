@@ -5,7 +5,7 @@ const test = require('node:test');
 const { root } = require('./helpers/harness.cjs');
 const { scriptParts, wechatParts, styleParts, forumParts, comicParts, settingsParts } = require('../scripts/source-layout.cjs');
 
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
 
 test('runtime scripts follow the feature order and every local entry exists', () => {
     const html = read('index.html');

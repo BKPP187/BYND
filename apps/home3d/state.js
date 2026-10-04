@@ -9,9 +9,18 @@
         let data;
         try { data = JSON.parse(raw); } catch (_) { throw new Error('小屋存档无法读取。原存档已保留，请先从设置导出备份。'); }
         if (data?.version !== 1 || !data.homes || typeof data.homes !== 'object' || Array.isArray(data.homes)) throw new Error('小屋存档版本不兼容，请先备份。');
+        if (data.user?.modelId !== undefined && !['portrait', 'bunny-blue-v1'].includes(data.user.modelId)) throw new Error('我的小屋模型无效，原存档已保留。');
         for (const current of Object.values(data.homes)) {
             if (!current || typeof current !== 'object') throw new Error('小屋存档内容无效，请先备份。');
+            if (current.modelId !== undefined && !['portrait', 'silver-red-v1'].includes(current.modelId)) throw new Error('小屋人物模型无效，原存档已保留。');
             if (current.openRooms && (!Array.isArray(current.openRooms) || current.openRooms.some(id => !H.Rooms.get(id)?.expandable))) throw new Error('小屋扩建存档无效，原存档已保留。');
+            if (current.interiors) {
+                const options = H.catalogs.materialPresets.interiors;
+                if (typeof current.interiors !== 'object' || Array.isArray(current.interiors)) throw new Error('墙面地板存档无效，原存档已保留。');
+                for (const [roomId, config] of Object.entries(current.interiors)) {
+                    if (!H.Rooms.get(roomId) || !config || typeof config !== 'object' || Array.isArray(config) || !Object.hasOwn(options.presets, config.preset) || (config.wall && !Object.hasOwn(options.walls, config.wall)) || (config.floor && !Object.hasOwn(options.floors, config.floor)) || (config.furniture && (typeof config.furniture !== 'object' || Array.isArray(config.furniture) || Object.entries(config.furniture).some(([id, style]) => !/^[\w-]{1,100}$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id) || !Object.hasOwn(H.catalogs.furnitureCatalog.styles, style))))) throw new Error('墙面地板存档无效，原存档已保留。');
+                }
+            }
             if (current.layouts) {
                 if (typeof current.layouts !== 'object' || Array.isArray(current.layouts)) throw new Error('装修存档无效，原存档已保留。');
                 for (const [roomId, layout] of Object.entries(current.layouts)) {

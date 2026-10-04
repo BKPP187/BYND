@@ -1,4 +1,6 @@
 /* --- WeChat App Styles --- */
+.wc-call-voice-status { margin-top: 8px; font-size: 13px; line-height: 1.5; opacity: .85; overflow-wrap: anywhere; }
+.wc-call-voice-action { display: block; min-height: 44px; margin-top: 8px; padding: 8px 12px; border: 1px solid currentColor; border-radius: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .wechat-header { flex-shrink: 0; height: calc(52px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); padding-top: var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)); padding-left: 15px; padding-right: 15px; background: #ededed; display: flex; align-items: center; justify-content: space-between; font-size: 16px; color: #111; font-weight: 600; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(0,0,0,0.1); }
 .wc-header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; z-index: 1; }
 .wc-header-left { display: flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; z-index: 2; }

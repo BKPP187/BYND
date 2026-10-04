@@ -1,12 +1,14 @@
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.785';
+const APP_VERSION = 'v1.1.844';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
 const DREAM_IMAGE_BACKUP_DB_STORE = 'images';
 const ALL_DATA_KEYS = [
     'bynd_prompt_lab_v1',
+    'bynd_jev_config_v1',
+    'bynd_character_events_v1',
     'my_characters_data',
     'my_characters_data_meta',
     'my_api_data',
@@ -33,6 +35,8 @@ const ALL_DATA_KEYS = [
     'bynd_coread_reader_settings_v1',
     'bynd_coread_reader_wallpaper_v1',
     'bynd_coread_progress_v1',
+    'bynd_coread_reading_journal_v1',
+    'bynd_coread_literature_v1',
     'bynd_coread_daily_v1',
     'bynd_coread_daily_participants_v1',
     'bynd_coread_sources_v1',
@@ -72,6 +76,7 @@ const ALL_DATA_KEYS = [
     'bynd_game_wolfcha_state_v1',
     'bynd_game_wolfcha_setup_v1',
     'bynd_game_wolfcha_entry_v1',
+    'bynd_wolfcha_audio_v1',
     'bynd_game_hub_filter_v1',
     'bynd_game_sync_char_v1',
     'bynd_game_sync_state_v2',
@@ -110,17 +115,16 @@ function isByndStorageKey(key) {
 }
 
 function getBackupLocalStorageKeys() {
-    const jevStorageKey = window.ByndJev?.storageKey || 'bynd_jev_config_v1';
-    // Character tool keys (AMap / TMDB) are device secrets like the Jev key.
+    // Jev configuration travels with the backup for cross-device testing.
+    // Character tool keys (AMap / TMDB) remain device-local secrets.
     const toolSecretStorageKey = window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1';
     const tripoSecretStorageKey = window.ByndTripo?.storageKey || 'bynd_tripo_private_v1';
     const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1']);
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (isByndStorageKey(key) && key !== jevStorageKey && key !== toolSecretStorageKey && key !== tripoSecretStorageKey && !lifePrivateStorageKeys.has(key)) keys.add(key);
+        if (isByndStorageKey(key) && key !== toolSecretStorageKey && key !== tripoSecretStorageKey && !lifePrivateStorageKeys.has(key)) keys.add(key);
     }
-    keys.delete(jevStorageKey);
     keys.delete(toolSecretStorageKey);
     keys.delete(tripoSecretStorageKey);
     lifePrivateStorageKeys.forEach(key => keys.delete(key));
@@ -444,7 +448,7 @@ async function importAllData(input) {
         const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
         Object.keys(data).forEach(key => {
             if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== (window.ByndJev?.storageKey || 'bynd_jev_config_v1') && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1')) {
+            if (isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1')) {
                 localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
             }
         });

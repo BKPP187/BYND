@@ -58,6 +58,35 @@ test('night, fatigue, personality and Living World produce compatible furniture 
         assert.doesNotThrow(() => H.Living.validateDecision(decision));
     }
 });
+
+test('kitchen and dining actions use reachable facilities and retain explicit local provenance', () => {
+    const { H } = harness(), home = H.State.home(), context = { personality: '', history: [], events: [] }, actions = new Set();
+    for (let minute = 0; minute < 60; minute += 2) {
+        const activity = H.Living.plan(home, context, new Date(2026, 9, 4, 12, minute).getTime());
+        if (!['Cook', 'Eat'].includes(activity.action)) continue;
+        actions.add(activity.action); assert.equal(activity.source, 'local');
+        assert.equal(activity.room, activity.action === 'Cook' ? 'kitchen' : 'dining_room');
+        assert.ok(H.Living.usable(home, activity));
+    }
+    assert.deepEqual([...actions].sort(), ['Cook', 'Eat']);
+});
+
+test('computer interactions use their supporting desk and tables require a real facing chair', () => {
+    const { H } = harness(), rowsFor = id => H.Rooms.placements(H.Rooms.get(id), H.State.home()).map(placement => ({ placement, item: H.Furniture.get(placement.furnitureId) }));
+    const game = rowsFor('game_room'), computer = game.find(r => r.item.type === 'computer'), desk = H.Rooms.useRow(game, computer, 'Game');
+    assert.equal(desk.item.type, 'desk');
+    const gamer = H.Rooms.anchorInRoom(game, desk, 'Game', 'char'); assert.ok(gamer?.seated && gamer.seatId);
+    assert.equal(H.Rooms.anchorInRoom(game.filter(r => r.item.type !== 'chair'), desk, 'Game', 'char'), null);
+    assert.equal(H.Rooms.useRow(game.filter(r => r.item.type !== 'desk'), computer, 'Game'), undefined);
+    const dining = rowsFor('dining_room'), table = dining.find(r => r.item.variant === 'dining');
+    const a = H.Rooms.anchorInRoom(dining, table, 'Eat', 'char'), b = H.Rooms.anchorInRoom(dining, table, 'Eat', 'user');
+    assert.ok(a?.seated && b?.seated); assert.notEqual(a.seatId, b.seatId);
+    assert.equal(a.y, .62); assert.equal(b.y, .62);
+    assert.equal(H.Rooms.anchorInRoom(dining.filter(r => r.item.type !== 'chair'), table, 'Eat', 'char'), null);
+    const saved = { ...H.State.home(), layouts: { game_room: { items: { tv: { id: 'tv', furnitureId: 'tv_01', position: [-2, .75, 0], rotation: Math.PI / 2 } }, removed: [] } } };
+    assert.ok(H.Rooms.placements(H.Rooms.get('game_room'), saved).some(r => r.id === 'tv'), 'saved custom furniture remains');
+    assert.ok(!game.some(r => r.item.type === 'television'), 'fresh game room uses the desktop');
+});
 test('AI cannot choose unknown models, locked rooms, impossible interactions or occupied slots', () => {
     const { H } = harness();
     for (const raw of [
@@ -190,12 +219,34 @@ test('navigation avoids furniture and rejects enclosed destinations', () => {
     for (const p of route) assert.ok(Math.abs(p.x) >= .93 || Math.abs(p.z) >= .93);
     assert.equal(H.Animation.path({ x: -2, z: -2 }, { x: 0, z: 0 }, [{ x: 0, z: 0, width: 4, depth: 4 }]).length, 0);
 });
+
+test('walking clearance covers both avatar widths and every swept segment at furniture corners', () => {
+    const { H } = harness(), obstacles = [{ x: 0, z: 0, width: 1.5, depth: 1.5 }], size = [6.6, 5.6];
+    for (const radius of [.38, .52]) {
+        const start = { x: -2, z: -.07 }, end = { x: 2, z: .09 };
+        const route = [start, ...H.Animation.path(start, end, obstacles, size, radius)];
+        assert.ok(route.length > 2);
+        for (let i = 1; i < route.length; i++) {
+            const a = route[i - 1], b = route[i];
+            for (let step = 0; step <= 20; step++) {
+                const p = { x: a.x + (b.x - a.x) * step / 20, z: a.z + (b.z - a.z) * step / 20 };
+                assert.ok(Math.abs(p.x) >= .75 + radius || Math.abs(p.z) >= .75 + radius, 'avatar hull must not overlap furniture');
+            }
+        }
+        assert.equal(H.Animation.path(start, { x: .8, z: 0 }, obstacles, size, radius).length, 0);
+        assert.equal(H.Animation.segmentClear({ x: -1.5, z: .8 }, { x: .8, z: -1.5 }, obstacles, size, radius), false);
+    }
+    // A corridor that fits the male hull can be too narrow for the skirt/hair hull.
+    const narrow = [{ x: -1.9, z: 0, width: 3, depth: 5.6 }, { x: 1.9, z: 0, width: 3, depth: 5.6 }];
+    assert.equal(H.Animation.clear({ x: 0, z: 0 }, narrow, size, .38), true);
+    assert.equal(H.Animation.clear({ x: 0, z: 0 }, narrow, size, .52), false);
+});
 test('all room geometry is local, licensed, self-contained GLB with canonical catalog mirrors', () => {
     const { H } = harness();
     const canonical = Object.fromEntries(['furniture-catalog', 'room-catalog', 'material-presets'].map(name => [name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), JSON.parse(fs.readFileSync(path.join(root, 'apps/home3d/data', name + '.json'), 'utf8'))]));
     assert.deepEqual(JSON.parse(JSON.stringify(H.catalogs)), canonical);
-    assert.equal(H.catalogs.roomCatalog.rooms.filter(room => room.open).length, 3);
-    assert.equal(H.catalogs.roomCatalog.rooms.length, 9);
+    assert.equal(H.catalogs.roomCatalog.rooms.filter(room => room.open).length, 5);
+    assert.equal(H.catalogs.roomCatalog.rooms.length, 10);
     for (const item of H.catalogs.furnitureCatalog.items) {
         const license = H.catalogs.furnitureCatalog.sources[item.source];
         assert.ok(license?.commercialUse && license?.modificationAllowed);
@@ -219,7 +270,7 @@ const placement = (id, furnitureId, x = 0, z = -1, rotation = 0) => ({ id, furni
 test('five complete furniture series share functional definitions but have independent visuals', () => {
     const { H } = harness();
     for (const type of ['bed', 'sofa', 'desk', 'chair', 'table', 'lamp', 'cabinet', 'plant', 'piano', 'stove', 'tub']) {
-        const variants = Object.keys(H.catalogs.furnitureCatalog.styles).map(style => H.Furniture.get(style + '_' + type));
+        const variants = ['cream', 'european', 'japanese', 'modern', 'chinese'].map(style => H.Furniture.get(style + '_' + type));
         assert.equal(variants.length, 5);
         for (const item of variants) {
             assert.ok(item.procedural);
@@ -324,3 +375,12 @@ test('a delayed AI plan cannot restore furniture removed while its request was p
     reply({ ok: true, content: '{"action":"Read","room":"living_room","target":"sofa","reason":"看书"}' });
     await assert.rejects(pending, /家具/); assert.equal(JSON.stringify(H.State.home()), before);
 });
+
+ test('wide avatars can reach the sofa through a clear corridor narrower than the old grid',()=>{
+    const {H}=harness(),size=[6.6,5.6],radius=.52;
+    const obstacles=[{x:0,z:-1.55,width:2.7,depth:1.16},{x:0,z:.52,width:1.35,depth:.65}];
+    const start={x:1.8,z:1.8},end={x:0,z:-.38},route=H.Animation.path(start,end,obstacles,size,radius);
+    assert.ok(route.length>0);let previous=start;
+    for(const point of route){assert.ok(H.Animation.segmentClear(previous,point,obstacles,size,radius));previous=point;}
+    assert.equal(H.Animation.path({x:0,z:.52},end,obstacles,size,radius).length,0,'blocked starting positions have no exemption');
+ });

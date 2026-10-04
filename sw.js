@@ -11,6 +11,12 @@ self.addEventListener('activate', event => {
   event.waitUntil(self.clients.claim());
 });
 
+// No chat/API data is cached. A failed navigation gets an explicit retry screen.
+self.addEventListener('fetch', event => {
+  if (event.request.mode !== 'navigate' || new URL(event.request.url).origin !== self.location.origin) return;
+  event.respondWith(fetch(event.request).catch(() => new Response(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BYND · 离线</title><style>body{margin:0;min-height:100vh;display:grid;place-content:center;background:#f6f6f8;color:#292654;font:16px system-ui;padding:24px;box-sizing:border-box}button{padding:12px;border:0;border-radius:12px;background:#292654;color:white}</style><h1>暂时没有网络</h1><p>连接网络后重新打开 BYND。</p><button onclick="location.reload()">重新加载</button></html>`, { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } })));
+});
+
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
     try {

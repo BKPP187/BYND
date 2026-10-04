@@ -3,6 +3,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { clone, storageHarness, addBackupModule } = require('./helpers/harness.cjs');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -69,10 +70,73 @@ test('missing Jev proxy reports deployment status without blaming the key', asyn
     await assert.rejects(api.testConnection('test-key'), /转发服务尚未上线.*不是密钥格式问题/);
 });
 
-test('the settings backup excludes the locally saved Jev secret', () => {
-    const settings = read('apps/settings/settings.js');
-    assert.match(settings, /keys\.delete\(jevStorageKey\)/);
-    assert.match(settings, /key !== \(window\.ByndJev\?\.storageKey \|\| 'bynd_jev_config_v1'\)/);
+function backupHarness(entries = {}) {
+    const h = addBackupModule(storageHarness({ local: [], entries }));
+    h.reloads = 0;
+    h.context.confirm = () => true;
+    h.context.location = { reload() { h.reloads++; } };
+    return h;
+}
+
+const importBackup = (h, data) => h.context.importAllData({ value: 'file', files: [{ text: async () => JSON.stringify(data) }] });
+
+test('Jev key and all decision settings survive JSON export and import on a fresh device', async () => {
+    const source = backupHarness();
+    vm.runInContext(read('systems/agent-runtime/jev.js'), source.context);
+    const config = clone(source.context.window.ByndJev.write({ enabled: true, apiKey: 'apikey_migration_test', minProbability: 0.78,
+        scopes: { moment: false, forumReply: false, cycleReview: true } }));
+    const backup = await source.context.buildByndBackupData();
+    assert.deepEqual(clone(backup.bynd_jev_config_v1), config);
+    for (const moduleLoaded of [false, true]) {
+        const target = backupHarness();
+        if (moduleLoaded) vm.runInContext(read('systems/agent-runtime/jev.js'), target.context);
+        await importBackup(target, backup);
+        assert.equal(target.reloads, 1);
+        if (!moduleLoaded) vm.runInContext(read('systems/agent-runtime/jev.js'), target.context);
+        const api = target.context.window.ByndJev;
+        assert.deepEqual(clone(api.read()), config);
+        assert.equal(api.available('turn'), true);
+        assert.equal(api.available('moment'), false);
+        assert.equal(api.available('cycleReview'), true);
+    }
+});
+
+test('an old backup without Jev settings keeps the destination device configuration', async () => {
+    const saved = JSON.stringify({ enabled: true, apiKey: 'apikey_existing', minProbability: 0.65, scopes: { moment: false } });
+    const target = backupHarness({ bynd_jev_config_v1: saved });
+    await importBackup(target, { _version: 'v1.1.801', my_characters_data: [] });
+    assert.equal(target.localStorage.getItem('bynd_jev_config_v1'), saved);
+    assert.equal(target.reloads, 1);
+});
+
+test('a Jev storage read failure prevents export and a success message', async () => {
+    const h = backupHarness({ bynd_jev_config_v1: '{"apiKey":"apikey_test"}' });
+    const getItem = h.localStorage.getItem.bind(h.localStorage);
+    h.localStorage.getItem = key => {
+        if (key === 'bynd_jev_config_v1') throw new Error('Jev storage unavailable');
+        return getItem(key);
+    };
+    let downloads = 0;
+    h.context.document.createElement = () => ({ click() { downloads++; } });
+    assert.equal(await h.context.exportAllData(), false);
+    assert.equal(downloads, 0);
+    assert.match(h.notices.at(-1), /导出失败.*Jev storage unavailable/);
+    assert.equal(h.notices.some(message => message.includes('成功')), false);
+});
+
+test('a Jev storage write failure prevents import success and reload and retains the old key', async () => {
+    const saved = '{"apiKey":"apikey_existing"}';
+    const h = backupHarness({ bynd_jev_config_v1: saved });
+    const setItem = h.localStorage.setItem.bind(h.localStorage);
+    h.localStorage.setItem = (key, value) => {
+        if (key === 'bynd_jev_config_v1') throw new Error('storage quota exceeded');
+        setItem(key, value);
+    };
+    await importBackup(h, { _version: 'test', bynd_jev_config_v1: { enabled: true, apiKey: 'apikey_new' } });
+    assert.equal(h.reloads, 0);
+    assert.equal(h.localStorage.getItem('bynd_jev_config_v1'), saved);
+    assert.match(h.notices.at(-1), /导入失败.*storage quota exceeded/);
+    assert.equal(h.notices.some(message => message.includes('成功')), false);
 });
 
 test('all BYND decision entry points keep their agent fallback', () => {

@@ -191,62 +191,108 @@
             0,
             0,
             -0.9
-          ]
+          ],
+          "rotation": 0
         },
         {
           "id": "nightstand",
           "furnitureId": "nightstand_01",
           "position": [
-            -1.9,
+            -1.85,
             0,
-            -1.35
-          ]
+            -1.55
+          ],
+          "rotation": 0
         },
         {
           "id": "bed-lamp",
           "furnitureId": "table_lamp_01",
           "position": [
-            -1.9,
-            0.68,
-            -1.35
-          ]
-        },
-        {
-          "id": "plant",
-          "furnitureId": "plant_01",
-          "position": [
-            2.5,
-            0,
-            -1.8
-          ]
-        },
-        {
-          "id": "armchair",
-          "furnitureId": "armchair_01",
-          "position": [
-            2,
-            0,
-            1.25
+            -1.85,
+            0.66,
+            -1.55
           ],
-          "rotation": -0.6
-        },
-        {
-          "id": "frame",
-          "furnitureId": "frame_01",
-          "position": [
-            -0.5,
-            1.95,
-            -2.65
-          ]
+          "rotation": 0
         },
         {
           "id": "bear",
           "furnitureId": "bear_01",
           "position": [
-            -2.98,
-            0.92,
-            -0.5
-          ]
+            2.77,
+            0.95,
+            1.05
+          ],
+          "rotation": -1.5707963267948966
+        },
+        {
+          "id": "nightstand-right",
+          "furnitureId": "nightstand_01",
+          "position": [
+            1.85,
+            0,
+            -1.55
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "bed-lamp-right",
+          "furnitureId": "table_lamp_01",
+          "position": [
+            1.85,
+            0.66,
+            -1.55
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "wardrobe",
+          "furnitureId": "cream_wardrobe",
+          "position": [
+            -2.7,
+            0,
+            0.25
+          ],
+          "rotation": 1.5707963267948966
+        },
+        {
+          "id": "dresser",
+          "furnitureId": "cream_sideboard",
+          "position": [
+            2.77,
+            0,
+            0.65
+          ],
+          "rotation": -1.5707963267948966
+        },
+        {
+          "id": "armchair",
+          "furnitureId": "armchair_01",
+          "position": [
+            -1.65,
+            0,
+            1.65
+          ],
+          "rotation": 0.7
+        },
+        {
+          "id": "reading-lamp",
+          "furnitureId": "lamp_01",
+          "position": [
+            -2.6,
+            0,
+            1.7
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "frame",
+          "furnitureId": "frame_01",
+          "position": [
+            0,
+            1.95,
+            -2.65
+          ],
+          "rotation": 0
         }
       ]
     },
@@ -345,31 +391,12 @@
           "rotation": 3.14159
         },
         {
-          "id": "tv",
-          "furnitureId": "tv_01",
-          "position": [
-            -2.65,
-            0.65,
-            0.35
-          ],
-          "rotation": 1.5708
-        },
-        {
           "id": "plant",
           "furnitureId": "plant_01",
           "position": [
             2.5,
             0,
             -1.8
-          ]
-        },
-        {
-          "id": "radio",
-          "furnitureId": "radio_01",
-          "position": [
-            0.75,
-            0.82,
-            -1.6
           ]
         },
         {
@@ -382,13 +409,34 @@
           ]
         },
         {
-          "id": "bear",
-          "furnitureId": "bear_01",
+          "id": "speaker-left",
+          "furnitureId": "game_speaker_01",
           "position": [
-            -0.6,
-            0.47,
-            1.6
-          ]
+            -0.84,
+            0.82,
+            -1.77
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "speaker-right",
+          "furnitureId": "game_speaker_01",
+          "position": [
+            0.84,
+            0.82,
+            -1.77
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "gamepad",
+          "furnitureId": "gamepad_01",
+          "position": [
+            0.73,
+            0.82,
+            -1.3
+          ],
+          "rotation": 0
         }
       ]
     },
@@ -396,7 +444,7 @@
       "id": "kitchen",
       "name": "厨房",
       "icon": "ri-restaurant-line",
-      "open": false,
+      "open": true,
       "expandable": true,
       "size": [
         6.6,
@@ -405,32 +453,168 @@
       "slots": {},
       "furniture": [
         {
-          "id": "stove",
-          "furnitureId": "cream_stove",
+          "id": "fridge",
+          "furnitureId": "cream_fridge",
           "position": [
-            -1,
+            -2.55,
             0,
-            -1.8
+            -2
           ],
           "rotation": 0
         },
         {
-          "id": "table",
-          "furnitureId": "cream_table",
+          "id": "stove",
+          "furnitureId": "cream_stove",
           "position": [
-            0.6,
+            -1.14,
             0,
-            0.5
+            -2
           ],
           "rotation": 0
         },
         {
           "id": "cabinet",
-          "furnitureId": "cream_cabinet",
+          "furnitureId": "cream_sink",
           "position": [
-            1.8,
+            0.4,
             0,
-            -1.7
+            -2
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "prep",
+          "furnitureId": "cream_prep_counter",
+          "position": [
+            2.03,
+            0,
+            -2
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "island",
+          "furnitureId": "cream_kitchen_island",
+          "position": [
+            0.2,
+            0,
+            0.35
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "spice-shelf",
+          "furnitureId": "kitchen_spice_shelf",
+          "position": [
+            0.25,
+            1.35,
+            -2.5
+          ],
+          "rotation": 0
+        }
+      ],
+      "subtitle": "让热腾腾的日常发生"
+    },
+    {
+      "id": "dining_room",
+      "name": "餐厅",
+      "subtitle": "一起把饭好好吃完",
+      "icon": "ri-restaurant-line",
+      "open": true,
+      "expandable": true,
+      "size": [
+        6.6,
+        5.6
+      ],
+      "slots": {},
+      "furniture": [
+        {
+          "id": "dining-table",
+          "furnitureId": "cream_dining_table",
+          "position": [
+            0,
+            0,
+            -0.15
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "chair-front-left",
+          "furnitureId": "cream_chair",
+          "position": [
+            -0.48600000000000004,
+            0,
+            0.9500000000000001
+          ],
+          "rotation": 3.141592653589793
+        },
+        {
+          "id": "chair-front-right",
+          "furnitureId": "cream_chair",
+          "position": [
+            0.48600000000000004,
+            0,
+            0.9500000000000001
+          ],
+          "rotation": 3.141592653589793
+        },
+        {
+          "id": "chair-back-left",
+          "furnitureId": "cream_chair",
+          "position": [
+            -0.48600000000000004,
+            0,
+            -1.25
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "chair-back-right",
+          "furnitureId": "cream_chair",
+          "position": [
+            0.48600000000000004,
+            0,
+            -1.25
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "sideboard",
+          "furnitureId": "cream_sideboard",
+          "position": [
+            -2.77,
+            0,
+            0
+          ],
+          "rotation": 1.5707963267948966
+        },
+        {
+          "id": "plant",
+          "furnitureId": "plant_01",
+          "position": [
+            2.5,
+            0,
+            -1.9
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "frame",
+          "furnitureId": "frame_01",
+          "position": [
+            0,
+            1.95,
+            -2.65
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "lamp",
+          "furnitureId": "lamp_01",
+          "position": [
+            2.25,
+            0,
+            1.7
           ],
           "rotation": 0
         }

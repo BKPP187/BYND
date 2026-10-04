@@ -94,12 +94,13 @@
     function gate(ctx, now = Date.now()) {
         const settings = readSettings();
         const test = ctx?.reason === 'test';
+        const manual = ctx?.reason === 'tap';
         if (!settings.enabled && !test) return { ok: false, reason: 'disabled' };
-        if (isExcluded(ctx?.package, settings)) return { ok: false, reason: 'excluded' };
+        if (!manual && isExcluded(ctx?.package, settings)) return { ok: false, reason: 'excluded' };
         const char = boundChar();
         if (!char || !window.ByndCharacterPet || !window.ByndPetRequests || typeof callChatApi !== 'function') return { ok: false, reason: 'no-pet' };
         if (state.inFlight) return { ok: false, reason: 'busy' };
-        if (!test && now - state.lastRequestAt < settings.minGapMin * 60000) return { ok: false, reason: 'gap' };
+        if (!test && !manual && now - state.lastRequestAt < settings.minGapMin * 60000) return { ok: false, reason: 'gap' };
         return { ok: true, char, settings };
     }
     function screenImage(ctx, settings) {
@@ -111,6 +112,12 @@
     }
     function buildMessages(char, ctx, look) {
         const C = window.ByndCharacterPet;
+        if (ctx.reason === 'tap') {
+            return [
+                { role: 'system', content: '你是用户手机屏幕边的桌宠，也是角色本人。用户刚刚轻点了你，请按角色性格与已确认关系自然回应一句，不超过 30 字，不带旁白动作。这次没有读取其他应用名称或屏幕画面，不能猜测用户正在做什么。保持角色卡与世界书约束，避免无依据亲昵。只输出 JSON {"speak":true,"text":"一句回应","state":"可用 id 或 idle","confidence":0.0到1.0,"allow":true或false,"note":"简短公开结论"}；不符合角色约束时 allow:false，text 留空。' },
+                { role: 'user', content: [clean(C.persona(char), 7000), '【最近互动】\n' + clean(C.recent(char), 1500), '【此刻】用户轻点了你，想和你互动一下。', state.lastText ? '【上一句】' + state.lastText + '（不要重复）' : '', C.active?.(char) ? '【可用外在表现】\n' + C.stateMenu(char) : 'state 固定填 idle。'].filter(Boolean).join('\n\n') }
+            ];
+        }
         const label = clean(ctx.label, 60) || clean(ctx.package, 120);
         const minutes = Math.max(1, Math.round((Number(ctx.dwellMs) || 0) / 60000));
         const moment = ctx.reason === 'test' ? '（用户点了「测试一下」）' : ctx.reason === 'periodic' ? `已经用了约 ${minutes} 分钟。` : '刚刚切换过去。';
@@ -143,44 +150,59 @@
         return { speak: true, text, state: reaction.state, note: publicNote };
     }
     async function onContext(ctx) {
+        const manual = ctx?.reason === 'tap';
+        // Manual taps never forward app metadata or a captured screen, even if supplied by a caller.
+        if (manual) ctx = { reason: 'tap' };
+        const feedback = text => {
+            note(text);
+            if (manual) bridge()?.showCompanionBubble(Array.from(state.note).slice(0, 60).join(''), '');
+        };
         const check = gate(ctx);
-        if (!check.ok) return { spoke: false, reason: check.reason };
+        if (!check.ok) {
+            if (manual) feedback({ disabled: '后台陪伴已关闭，请回 BYND 开启。', 'no-pet': '请回 BYND 开启桌宠并绑定互动角色。', busy: '桌宠正在回应，请稍等。' }[check.reason] || '这次互动暂不可用。');
+            return { spoke: false, reason: check.reason };
+        }
         const { char, settings } = check;
         const C = window.ByndCharacterPet, requests = window.ByndPetRequests;
-        if (!C.hasPersona(char)) { note('请先在「角色列表」补充性格与关系，TA 才能按人设陪看。'); return { spoke: false, reason: 'persona' }; }
+        if (!C.hasPersona(char)) { feedback('请先在「角色列表」补充性格与关系，TA 才能按人设回应。'); return { spoke: false, reason: 'persona' }; }
         state.inFlight = true;
         let lease = null;
         try {
             // Jev (when configured) decides whether to speak at all; otherwise the model decides inside its one reply.
-            if (ctx.reason !== 'test' && window.ByndJev?.available?.('toolGate') && window.ByndDecider?.gate) {
+            if (!manual && ctx.reason !== 'test' && window.ByndJev?.available?.('toolGate') && window.ByndDecider?.gate) {
                 const verdict = await window.ByndDecider.gate(char, `用户正在用「${clean(ctx.label, 40)}」，主动在屏幕边说一句话`).catch(() => null);
                 if (verdict && verdict.allow === false) { note('Jev 判断此刻不适合开口，TA 安静地陪着。'); return { spoke: false, reason: 'jev' }; }
             }
-            const access = requests.acquire(ctx.reason === 'test' ? 'test' : 'observe', char.id);
-            if (!access.lease) { note(access.message); return { spoke: false, reason: 'cooldown' }; }
+            const access = requests.acquire(manual ? 'tap' : ctx.reason === 'test' ? 'test' : 'observe', char.id);
+            if (!access.lease) { feedback(access.message); return { spoke: false, reason: 'cooldown' }; }
             lease = access.lease;
+            if (manual) feedback('正在回应…');
             state.lastRequestAt = Date.now();
             const look = screenImage(ctx, settings);
+            const canSend = () => (readSettings().enabled || ctx.reason === 'test') && boundChar() === char;
             const result = await requests.call(lease, buildMessages(char, ctx, look), {
-                usageChar: char, max_tokens: 300, temperature: 0.7, stage: '后台陪伴',
-                canSend: () => (readSettings().enabled || ctx.reason === 'test') && boundChar() === char
+                usageChar: char, max_tokens: 300, temperature: 0.7, stage: manual ? '桌宠互动' : '后台陪伴',
+                // User taps should not wait behind queued automatic observations, but still honour provider pauses.
+                background: !manual, respectRateLimitPause: true,
+                canSend
             });
+            if (!canSend()) { feedback('本次互动已取消。'); return { spoke: false, reason: 'cancelled' }; }
             if (!result?.ok) {
                 // A model without vision rejects the image: later contexts go by app name only, never a second request now.
                 if (look.image && visionError(result)) saveSettings({ noVision: { ...readSettings().noVision, [visionKey()]: true } });
-                note(result?.cancelled ? '本次陪看已取消。' : requests.message(result, '后台陪伴'));
+                feedback(result?.cancelled ? '本次互动已取消。' : requests.message(result, manual ? '桌宠互动' : '后台陪伴'));
                 return { spoke: false, reason: result?.cancelled ? 'cancelled' : 'error' };
             }
             const decision = interpret(char, C.parse(result.content));
             note(decision.note || '');
-            if (!decision.speak) return { spoke: false, reason: 'silent', note: decision.note };
+            if (!decision.speak) { if (manual) feedback(decision.note); return { spoke: false, reason: 'silent', note: decision.note }; }
             state.lastText = decision.text;
-            try { bridge()?.showCompanionBubble(decision.text, decision.state === 'idle' ? '' : decision.state); } catch (_) {}
+            bridge()?.showCompanionBubble(decision.text, decision.state === 'idle' ? '' : decision.state);
             C.record?.(char, { text: decision.text, state: decision.state });
             if (ctx.reason === 'test') toast(charName(char) + '：' + decision.text);
             return { spoke: true, text: decision.text, state: decision.state };
         } catch (error) {
-            note(clean(error?.message, 200) || '后台陪伴未完成。');
+            try { feedback(clean(error?.message, 200) || '后台陪伴未完成。'); } catch (_) { note('桌宠回复显示失败，请回 BYND 重试。'); }
             return { spoke: false, reason: 'error' };
         } finally {
             if (lease) requests.release(lease);
@@ -259,7 +281,8 @@
         huawei: '华为：设置 → 应用启动管理 → BYND 改为手动管理并全部允许；游戏助手 → 免打扰里允许悬浮窗。',
         honor: '荣耀：设置 → 应用启动管理 → BYND 改为手动管理并全部允许；游戏助手 → 免打扰里允许悬浮窗。',
         oppo: 'OPPO/一加/realme：允许「自启动」和「悬浮窗」；电池 → BYND 允许后台运行；游戏助手 → 游戏免打扰里允许悬浮窗。',
-        vivo: 'vivo/iQOO：i 管家 → 应用管理 → 权限管理里允许「自启动」「悬浮窗」「后台弹出界面」；电池 → 后台高耗电允许 BYND；游戏魔盒 → 免打扰 → 悬浮窗白名单加入 BYND。'
+        vivo: 'vivo/iQOO：i 管家 → 应用管理 → 权限管理里允许「自启动」「悬浮窗」「后台弹出界面」；电池 → 后台高耗电允许 BYND；游戏魔盒 → 免打扰 → 悬浮窗白名单加入 BYND。',
+        samsung: '三星 One UI：若桌宠在后台消失，可在设置 → 电池 → 后台使用限制 → 从不自动休眠的应用中加入 BYND。菜单名称可能随系统版本不同。'
     };
     function checkRow(kind, title, text, on) {
         const badge = on === true ? '<span class="sc-state is-on">已开启</span>' : on === false ? '<span class="sc-state">未开启</span>' : '<span class="sc-state is-manual">手动确认</span>';
@@ -276,19 +299,24 @@
         return `<section class="sc-section" aria-labelledby="sc-title">${head}
             <div class="mh-settings-block sc-block">
                 <div class="sc-row"><span><strong>后台陪伴</strong><small>${escape(running)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="后台陪伴" aria-checked="${settings.enabled}" data-sc-action="toggle-enabled"><span></span></button></div>
+                <p class="sc-guide">轻点桌宠回复，双击只请求一次；长按打开菜单，拖动可移动。暂停陪看后仍可点击互动。</p>
                 <div class="sc-row"><span><strong>看屏幕</strong><small>${escape(screenText)}</small></span><button type="button" class="mh-switch" role="switch" aria-label="看屏幕" aria-checked="${settings.watchScreen}" data-sc-action="toggle-screen"><span></span></button></div>
                 <label class="sc-row"><span><strong>看一眼的频率</strong><small>切换应用时也会看一眼，画面没变就不打扰</small></span><select id="sc-interval" data-sc-field="intervalMin">${option(INTERVALS, settings.intervalMin)}</select></label>
-                <label class="sc-row"><span><strong>最短说话间隔</strong><small>两次开口之间至少隔这么久</small></span><select id="sc-gap" data-sc-field="minGapMin">${option(GAPS, settings.minGapMin)}</select></label>
+                <label class="sc-row"><span><strong>最短说话间隔</strong><small>自动陪看的间隔，点击互动不受此限制</small></span><select id="sc-gap" data-sc-field="minGapMin">${option(GAPS, settings.minGapMin)}</select></label>
             </div>
             <div class="mh-privacy-note"><i class="ri-shield-check-line" aria-hidden="true"></i><p>截图只发送给你自己配置的模型 API，不保存。银行、支付、密码类应用和 BYND 自身不会被读取；受保护的黑屏页面只按应用名称说话。${visionUnsupported(settings) ? '当前模型不支持看图，已自动改为只看应用名称。' : ''}</p></div>
             <div class="mh-settings-block sc-checklist">
                 ${checkRow('overlay', '显示在其他应用上层', '桌宠浮在其他应用上层所必需', info.overlay === true)}
-                ${checkRow('usage', '使用情况访问', '知道你正在用哪个应用（必需）', info.usage === true)}
+                ${checkRow('usage', '使用情况访问', '自动识别应用时需要，点击互动无需此权限', info.usage === true)}
                 ${checkRow('notifications', '通知权限', '常驻通知里可暂停或关闭陪伴', info.notifications === true)}
                 ${checkRow('battery', '忽略电池优化', '避免系统在后台停止陪伴', info.battery === true)}
-                ${oem !== 'other' ? checkRow('autostart', '自启动', '部分系统需要才能保持后台运行', null) + checkRow('popup', '后台弹出界面 / 悬浮窗', '系统自带的悬浮窗开关', null) + checkRow('power', '省电策略', '选择「无限制」或允许后台运行', null) + checkRow('game', '游戏助手免打扰', '把 BYND 加入悬浮窗白名单，玩游戏时也在', null) : ''}
-                <p class="sc-guide">${escape(oemGuides[oem] || '部分系统还需要在最近任务里锁定 BYND（下拉或长按卡片 → 锁定），避免被清理。')}${oemGuides[oem] ? ' 另外在最近任务里锁定 BYND（下拉或长按卡片 → 锁定）。' : ''}</p>
+                ${!['other', 'samsung'].includes(oem) ? checkRow('autostart', '自启动', '部分系统需要才能保持后台运行', null) + checkRow('popup', '后台弹出界面 / 悬浮窗', '系统自带的悬浮窗开关', null) + checkRow('power', '省电策略', '选择「无限制」或允许后台运行', null) + checkRow('game', '游戏助手免打扰', '把 BYND 加入悬浮窗白名单，玩游戏时也在', null) : ''}
+                <p class="sc-guide">${escape(oemGuides[oem] || '部分系统还需要在最近任务里锁定 BYND（下拉或长按卡片 → 锁定），避免被清理。')}${oemGuides[oem] && oem !== 'samsung' ? ' 另外在最近任务里锁定 BYND（下拉或长按卡片 → 锁定）。' : ''}</p>
             </div>
+            ${!info.usage ? `<details class="sc-exclusions sc-restricted"><summary>系统提示「由受限设置控制」？</summary>
+                <p>打开 BYND 应用详情 → 右上角 ⋮ → 允许受限设置，完成系统确认后，再返回「使用情况访问」开启 BYND。仅在你信任应用来源时开启。</p>
+                <button type="button" class="mh-secondary" data-sc-open="restricted">打开 BYND 应用详情</button>
+                <p>如果没有这个选项，当前系统仍限制此权限。可以先使用点击互动；自动识别应用的陪看暂不可用。应用无法自行解除系统限制。</p></details>` : ''}
             <details class="sc-exclusions"><summary>不读取的应用（默认 ${DEFAULT_EXCLUDED.length} 个 + 自定义 ${settings.exclusions.length} 个）</summary>
                 <p>默认跳过银行、支付、钱包、密码管理与系统设置。每行填一个包名前缀即可追加，例如 com.tencent.mm（微信）。</p>
                 <textarea id="sc-exclusions" data-sc-field="exclusions" rows="3" spellcheck="false" placeholder="com.tencent.mm">${escape(settings.exclusions.join('\n'))}</textarea></details>
@@ -323,10 +351,10 @@
             case 'toggle-enabled': {
                 if (!android) { toast('后台陪伴仅在安卓 App 中可用'); return; }
                 const enabled = !settings.enabled;
-                saveSettings({ enabled });
+                if (!saveSettings({ enabled })) { note('设置保存失败，请检查存储空间后重试。'); return; }
                 const info = nativeStatus();
                 if (enabled && !info.overlay) note('请允许「显示在其他应用上层」，返回 BYND 后自动生效。');
-                else if (enabled && !info.usage) note('再允许「使用情况访问」，TA 才知道你在看什么。');
+                else if (enabled && !info.usage) note('已开启，点击桌宠可互动。「使用情况访问」仅自动识别应用时需要。');
                 else note(enabled ? '已开启。离开 BYND 后，TA 会在屏幕边陪你。' : '后台陪伴已关闭。');
                 if (!enabled && settings.watchScreen) android.stopCompanionScreenWatch?.();
                 syncNative();
@@ -339,7 +367,7 @@
                 const watchScreen = !settings.watchScreen;
                 const noVision = { ...settings.noVision };
                 if (watchScreen) delete noVision[visionKey()];
-                saveSettings({ watchScreen, noVision });
+                if (!saveSettings({ watchScreen, noVision })) { note('设置保存失败，请检查存储空间后重试。'); return; }
                 syncNative();
                 if (watchScreen) { android.startCompanionScreenWatch?.(); note('请在系统弹窗中选择「整个屏幕」。截图只发送给你配置的模型，不保存。'); }
                 else { android.stopCompanionScreenWatch?.(); note('已关闭看屏幕，只读取应用名称。'); }

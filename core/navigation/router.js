@@ -1,6 +1,8 @@
 // --- 🌟 路由控制 (这里修复了！) ---
 
 function openApp(appName) {
+    if (appName !== 'events' && document.getElementById('app-events-window')?.classList.contains('active')) window.ByndEventInbox?.close();
+    if (appName !== 'game') window.WolfchaAudio?.stop();
     if (document.getElementById('app-home3d-window')?.classList.contains('active')) window.ByndHome3D?.close();
     window._activeAppOriginPageByApp = window._activeAppOriginPageByApp || {};
     window._activeAppOriginPageByApp[appName] = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
@@ -9,7 +11,15 @@ function openApp(appName) {
         w.classList.add('hidden');
     });
     // 1. 美化 App
-    if (appName === 'theme') {
+    if (appName === 'events') {
+        const win = document.getElementById('app-events-window');
+        if (win) {
+            win.classList.remove('hidden');
+            setTimeout(() => win.classList.add('active'), 10);
+            window.ByndEventInbox?.open();
+        }
+    }
+    else if (appName === 'theme') {
         const win = document.getElementById('app-theme-window');
         if (win) { 
             win.classList.remove('hidden'); 
@@ -444,6 +454,8 @@ function readByndCameraFile(file) {
 }
 
 function closeApp(appName) {
+    if (appName === 'game') window.WolfchaAudio?.stop();
+    if (appName === 'coread') window.CoReadJournal?.stop();
     window.ByndExperience?.closed(appName);
     let winId = '';
     if (appName === 'theme') winId = 'app-theme-window';
@@ -452,6 +464,7 @@ function closeApp(appName) {
     else if (appName === 'regex') winId = 'app-regex-window';
     else if (appName === 'settings') winId = 'app-settings-window';
     else if (appName === 'role-tools') winId = 'app-role-tools-window';
+    else if (appName === 'events') winId = 'app-events-window';
     else if (appName === 'moon') winId = 'app-moon-window';
     else if (appName === 'preset') winId = 'app-preset-window';
     else if (appName === 'music') winId = 'app-music-window';
@@ -474,6 +487,7 @@ function closeApp(appName) {
     if (win) {
         restoreDesktopPageAfterApp(appName);
         win.classList.remove('active');
+        if (appName === 'events') window.ByndEventInbox?.close();
         if (appName === 'monitor') window.ByndMonitor?.close();
         if (appName === 'pet') window.ByndPetWorkspace?.close();
         if (appName === 'manual') resetManualSearchState();

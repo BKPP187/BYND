@@ -14,4 +14,8 @@
 
 用户完成 Cloudflare OAuth 授权后，已部署固定余额路由。部署前下载服务器现有 Worker，并确认本次打包结果与其差异只有新增 Tripo 路由；原推送、MCP 与其他转发保留。部署版本 ID：`46fa0171-a739-47a9-b4ce-902cb6b10f16`。线上 OPTIONS 实测 204、允许 GET 和 Authorization、允许文件页面的 null Origin。使用用户临时授权密钥，在真实浏览器中完成余额请求，得到成功状态与 API 余额 0；临时密钥没有保存到项目文件或浏览器应用数据。真实检查结果见 `artifacts/tripo-settings/live-connection.json`。
 
-设置与余额查询已可连接；人物生成、绑定和运行时模型加载仍未实现，参考 PNG 不会被当作真正 3D 人物接入。API 余额 0 表示当前账户没有生成额度，连接成功不等于已有可用生成额度。未构建 APK，未执行 git push。
+设置与余额查询已可连接；人物生成、绑定和运行时模型加载仍未实现，参考 PNG 不会被当作真正 3D 人物接入。余额接口返回 0 时，还需在 Billing 核对免费钱包与有效期，不能直接判定没有试用积分。此阶段未构建 APK，未执行 git push。
+
+2026-10-02：申请说明增加 [Billing 页面](https://platform.tripo3d.ai/billing) 和用户提供的手动入口「Add to credit balance」。按页面提示获取积分，具体是免费试用还是充值以实际页面为准。免费试用有效期为 14 天，到期时间以 Free Wallet 旁的 `valid until` 为准；不把所有账户的额度写成固定 300 或 600。用户截图显示 API Wallet 为 0、Free Wallet 为 600，这两个钱包应分别核对，v3 余额查询不能替代账户试用状态的确认。未实际创建模型任务来验证该账户的试用扣费。
+
+同日继续核对官方 [Blender 教程](https://www.tripo3d.ai/blog/tripo-blender-plugin-tutorial)：免费试用的领取按钮是「Get your free wallet」，明确写明 600 积分、14 天。说明已区分这一领取入口与「Add to credit balance」添加积分入口；免费钱包已显示余额时，先核对到期时间，不宣称必须充值或转入另一个钱包才能试用。首个模型的开发工具与恢复检查已准备，实际提交仍需当前可用密钥。

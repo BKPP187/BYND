@@ -70,6 +70,7 @@ function appendWechatMessage(msg) {
 }
 
 function getWechatModalRoot() {
+    if (typeof syncWechatInteractionTheme === 'function') syncWechatInteractionTheme();
     return document.querySelector('.phone-container') || document.body;
 }
 

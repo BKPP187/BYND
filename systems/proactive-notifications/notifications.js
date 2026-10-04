@@ -77,6 +77,9 @@ function markByndDisplayMode() {
     // iOS PWA 不是真全屏：系统状态栏仍在，误标 fullscreen 会清掉安全区让位。
     // manifest "display: fullscreen" 会让 iOS 的 matchMedia 报 fullscreen=true，必须排除 iOS（2026-07-09 真机七图事故）。
     document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen && !isIOS);
+    const osStatusBar = isIOS || (isByndAndroidAppRuntime() && typeof window.ByndAndroid.setSystemStatusBar === 'function') ||
+        (isByndMobileRuntime() && !isByndAndroidAppRuntime() && !fullscreen && !document.fullscreenElement);
+    document.documentElement.classList.toggle('bynd-native-statusbar', !!osStatusBar);
 }
 
 function tryByndFullscreen() {
@@ -93,31 +96,26 @@ function initByndFullscreenRuntime() {
         document.documentElement.classList.add('bynd-android-app');
         return;
     }
+    // Installation support must not depend on opting into push notifications.
+    ensureByndServiceWorker()?.catch(() => {});
     window.matchMedia?.('(display-mode: fullscreen)').addEventListener?.('change', markByndDisplayMode);
     window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
     document.addEventListener('fullscreenchange', markByndDisplayMode);
     document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
-    ['pointerup', 'touchend', 'click'].forEach(type => {
-        document.addEventListener(type, tryByndFullscreen, { once: true, passive: true });
-    });
+    // Keep OS indicators visible; a normal tap must not hide the real status bar.
 }
 
 function cleanupByndServiceWorkerIfIdle() {
     const settings = getProactiveNotifySettings();
     if (settings.enabled || !('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.getRegistrations?.().then(registrations => {
-        registrations.forEach(reg => {
-            const scriptURL = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
-            if (scriptURL.includes('/sw.js')) reg.unregister().catch(() => {});
-        });
-    }).catch(() => {});
+    // Keep the app shell registered so Samsung Internet can install the PWA.
     if ('caches' in window) caches.delete('bynd-notify-cache-v1').catch(() => {});
 }
 
 function ensureByndServiceWorker() {
-    if (!('serviceWorker' in navigator)) return;
+    if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.785').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.844').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

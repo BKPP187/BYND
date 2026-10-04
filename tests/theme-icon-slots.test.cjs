@@ -82,10 +82,10 @@ test('all desktop and dock apps have matching customization slots, including MCP
 
 test('historical icon arrays keep original app and dock images after adding new slots', () => {
     const { context: c } = setup();
-    for (const length of [11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24]) {
+    for (const length of [11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]) {
         const icons = Array.from({ length }, (_, index) => 'old-' + index);
         const actual = plain(c.normalizeThemeIconList(icons));
-        assert.equal(actual.length, 25);
+        assert.equal(actual.length, 26);
         const desktopCount = ({ 11: 8, 12: 8, 13: 10, 14: 11 })[length] || length;
         assert.deepEqual(actual.slice(0, desktopCount), icons.slice(0, desktopCount));
         const dockIndices = ({ 11: [8, 9, 10], 12: [8, 10, 11], 13: [10, 11, 12], 14: [11, 12, 13] })[length] || [13, 14, 15];
@@ -97,7 +97,8 @@ test('historical icon arrays keep original app and dock images after adding new 
         if (length < 22) assert.equal(actual[21], '');
         if (length < 23) assert.equal(actual[22], '');
         if (length < 24) assert.equal(actual[23], '');
-        assert.equal(actual[24], '');
+        if (length < 25) assert.equal(actual[24], '');
+        assert.equal(actual[25], '');
     }
 });
 

@@ -93,12 +93,13 @@ test('a failed CORS preflight is diagnosed through a keyless probe when the rela
     assert.equal(h.status.textContent.includes(draft.apiKey), false);
 });
 
-test('an authenticated zero balance is a successful connection with no generation quota', async () => {
+test('an authenticated zero balance directs users to check their trial wallet without denying trial credits', async () => {
     const h = harness(async () => ({ ok: true, json: async () => ({ code: 0, data: { balance: 0 } }) }));
     h.fields['tripo-key'].value = draft.apiKey;
     await h.api.testSettings();
     assert.equal(h.status.dataset.error, 'false');
-    assert.match(h.status.textContent, /连接成功.*API 余额 0/);
+    assert.match(h.status.textContent, /连接成功.*余额 0.*Billing.*免费试用/);
+    assert.doesNotMatch(h.status.textContent, /暂无生成额度/);
 });
 
 test('a late balance response cannot overwrite edited or cleared settings status', async () => {

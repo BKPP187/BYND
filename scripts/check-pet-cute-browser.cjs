@@ -114,6 +114,20 @@ const mascot = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'asset
         assert.equal(await page.locator('.mh-room-dialogue p').textContent(), '这是测试回应。');
         await page.locator('#pet-companion-settings > summary').click();
         assert.equal(await page.locator('#pet-companion-settings').evaluate(el => el.open), true);
+        await page.locator('#mh-pet-history').click();
+        await page.waitForFunction(() => document.querySelectorAll('#pet-history .pet-history-card').length === 1);
+        const headerCenters = await page.locator('#pet-history .bynd-agent-header > button').evaluateAll(buttons => buttons.map(button => {
+            const box = button.getBoundingClientRect(), icon = button.querySelector('svg').getBoundingClientRect();
+            return [Math.round(box.width), Math.round(box.height), icon.left + icon.width / 2 - box.left - box.width / 2, icon.top + icon.height / 2 - box.top - box.height / 2];
+        }));
+        assert.equal(headerCenters.length, 2);
+        headerCenters.forEach(([width, height, dx, dy]) => {
+            assert.deepEqual([width, height], [40, 40]);
+            assert.ok(Math.abs(dx) < .5 && Math.abs(dy) < .5, 'history header icons must also be centered when opened from the pet home');
+        });
+        await page.locator('#pet-history .bynd-agent-header').screenshot({ animations: 'disabled', path: path.join(output, 'history-header-actual.png') });
+        await page.getByRole('button', { name: '返回我的桌宠', exact: true }).click();
+        assert.equal(await page.locator('#pet-history').count(), 0);
         await page.locator('[aria-label="显示当前桌宠"]').click();
         assert.equal(await page.locator('#pet-companion-settings').evaluate(el => el.open), true, 'settings must stay open after a saved change');
         assert.equal(await page.locator('[aria-label="显示当前桌宠"]').getAttribute('aria-checked'), 'false');

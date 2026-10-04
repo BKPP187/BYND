@@ -107,5 +107,230 @@
         "rose": "#e7bdc0"
       }
     }
+  },
+  "interiors": {
+    "defaults": {
+      "living_room": "garden",
+      "bedroom": "garden",
+      "game_room": "garden",
+      "kitchen": "garden",
+      "dining_room": "garden",
+      "bathroom": "garden",
+      "balcony": "garden",
+      "wardrobe": "garden",
+      "studio": "garden",
+      "collection": "garden"
+    },
+    "walls": {
+      "sage_flower": {
+        "name": "鼠尾草碎花壁纸",
+        "pattern": "floral",
+        "base": "#e9eddf",
+        "ink": "#91a38b",
+        "secondary": "#d3bb9e"
+      },
+      "ivory_damask": {
+        "name": "象牙白卷纹壁纸",
+        "pattern": "damask",
+        "base": "#eeeadf",
+        "ink": "#c9bda7",
+        "secondary": "#aa9372"
+      },
+      "linen_stripe": {
+        "name": "亚麻细条纹壁纸",
+        "pattern": "stripe",
+        "base": "#e3e3d2",
+        "ink": "#b7be9f",
+        "secondary": "#718265"
+      },
+      "rose_brick": {
+        "name": "旧玫瑰砖墙",
+        "pattern": "brick",
+        "base": "#e6d5cd",
+        "ink": "#c9aaa0",
+        "secondary": "#f6eee4"
+      },
+      "limewash": {
+        "name": "暖灰石灰墙",
+        "pattern": "plaster",
+        "base": "#e4e1d7",
+        "ink": "#d5d0c2",
+        "secondary": "#f2f0e7"
+      },
+      "wood_panels": {
+        "name": "胡桃木护墙",
+        "pattern": "wood",
+        "base": "#9d8264",
+        "ink": "#766047",
+        "secondary": "#bba080"
+      },
+      "pastel_flower": {
+        "name": "粉绿花条纹",
+        "pattern": "pastel_flower",
+        "base": "#fff4ed",
+        "ink": "#d7eee2",
+        "secondary": "#efcbd8"
+      },
+      "white_brick": {
+        "name": "白色细砖",
+        "pattern": "brick",
+        "base": "#eae9e4",
+        "ink": "#deded9",
+        "secondary": "#f9f8f3"
+      }
+    },
+    "floors": {
+      "pale_parquet": {
+        "name": "浅橡木拼花",
+        "pattern": "parquet",
+        "base": "#c8b899",
+        "ink": "#b6a488",
+        "secondary": "#d5c5aa"
+      },
+      "walnut_parquet": {
+        "name": "胡桃木拼花",
+        "pattern": "parquet",
+        "base": "#a28768",
+        "ink": "#907659",
+        "secondary": "#b39a79"
+      },
+      "oak_herringbone": {
+        "name": "烟熏橡木人字拼",
+        "pattern": "herringbone",
+        "base": "#b7a78f",
+        "ink": "#a3937d",
+        "secondary": "#c6b79e"
+      },
+      "ivory_marble": {
+        "name": "象牙白大理石",
+        "pattern": "marble",
+        "base": "#e7e2d6",
+        "ink": "#c5bcaa",
+        "secondary": "#f3f0e5"
+      },
+      "checker_tile": {
+        "name": "奶油棋盘砖",
+        "pattern": "checker",
+        "base": "#e6dfcf",
+        "ink": "#bcb5a3",
+        "secondary": "#f3ecdf"
+      },
+      "tatami": {
+        "name": "自然榻榻米",
+        "pattern": "tatami",
+        "base": "#c9c5a4",
+        "ink": "#909277",
+        "secondary": "#ded9b7"
+      },
+      "pink_tile": {
+        "name": "玫瑰方砖",
+        "pattern": "checker",
+        "base": "#ebcdd0",
+        "ink": "#e4c5ca",
+        "secondary": "#f8e5df"
+      },
+      "black_white": {
+        "name": "黑白棋盘砖",
+        "pattern": "checker",
+        "base": "#f1efea",
+        "ink": "#61646c",
+        "secondary": "#fffdf8"
+      }
+    },
+    "presets": {
+      "garden": {
+        "name": "奶油花园",
+        "description": "碎花壁纸 · 浅木拼花",
+        "wall": "sage_flower",
+        "floor": "pale_parquet",
+        "rug": "botanical",
+        "trim": "#f1ede0",
+        "wood": "#aa9070",
+        "fabric": "#e8e5d7",
+        "accent": "#a9bba3",
+        "background": "#e8eddf",
+        "furnitureStyle": "cream"
+      },
+      "palace": {
+        "name": "法式晨光",
+        "description": "卷纹壁纸 · 大理石",
+        "wall": "ivory_damask",
+        "floor": "ivory_marble",
+        "rug": "ornate",
+        "trim": "#f2eee2",
+        "wood": "#644735",
+        "fabric": "#e5d7bf",
+        "accent": "#ab956c",
+        "background": "#e9e3d9",
+        "furnitureStyle": "european"
+      },
+      "botanical": {
+        "name": "森系书房",
+        "description": "亚麻条纹 · 胡桃木",
+        "wall": "linen_stripe",
+        "floor": "walnut_parquet",
+        "rug": "woven",
+        "trim": "#e4dfcb",
+        "wood": "#826b50",
+        "fabric": "#cbd2b2",
+        "accent": "#688456",
+        "background": "#e8e4d7",
+        "furnitureStyle": "botanical",
+        "vines": true
+      },
+      "rose": {
+        "name": "玫瑰阁楼",
+        "description": "玫瑰砖墙 · 奶油棋盘砖",
+        "wall": "rose_brick",
+        "floor": "checker_tile",
+        "rug": "diamond",
+        "trim": "#f3efe6",
+        "wood": "#a8957f",
+        "fabric": "#d6b8b4",
+        "accent": "#b9a1a1",
+        "background": "#eae1df",
+        "furnitureStyle": "rose"
+      },
+      "natural": {
+        "name": "自然公寓",
+        "description": "石灰墙 · 人字拼地板",
+        "wall": "limewash",
+        "floor": "oak_herringbone",
+        "rug": "woven",
+        "trim": "#ece9df",
+        "wood": "#958168",
+        "fabric": "#e2e0d4",
+        "accent": "#5f7462",
+        "background": "#e9e7df",
+        "furnitureStyle": "modern"
+      },
+      "pink": {
+        "name": "粉白花园",
+        "description": "粉绿花条纹 · 玫瑰方砖",
+        "wall": "pastel_flower",
+        "floor": "pink_tile",
+        "rug": "rose_garden",
+        "trim": "#fff7ef",
+        "wood": "#e9ddcc",
+        "fabric": "#f0c4d0",
+        "accent": "#9cc8b4",
+        "background": "#e8efdf",
+        "furnitureStyle": "pink"
+      },
+      "monochrome": {
+        "name": "黑白星落",
+        "description": "白砖黑框 · 黑白拼砖",
+        "wall": "white_brick",
+        "floor": "black_white",
+        "rug": "graphic",
+        "trim": "#f2f1ed",
+        "wood": "#33353b",
+        "fabric": "#f1f0ed",
+        "accent": "#747983",
+        "background": "#dce1e4",
+        "furnitureStyle": "monochrome"
+      }
+    },
+    "defaultPreset": "garden"
   }
 }

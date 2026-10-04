@@ -89,6 +89,7 @@
         return { who, root, body, head, arms: groups(), legs: groups(), eyes: [], phone: new T.Group(), book: new T.Group(), cup: new T.Group(), sprite, surface, sleepTexture, spriteMaterial: material, portraitWidth: sprite.scale.x, visual: 'portrait', action: 'Idle', path: [], destination: null, anchor: null, startedAt: 0 };
     }
     function pose(actor, action, anchor) {
+        if (actor.visual === 'model3d') { H.CharacterModels.pose(actor, action, anchor); return; }
         actor.action = action; actor.anchor = anchor || null; actor.startedAt = performance.now();
         actor.body.rotation.set(0, 0, 0); actor.body.position.set(0, 0, 0); actor.head.rotation.set(0, 0, 0);
         actor.body.scale.set(1, 1, 1);
@@ -162,6 +163,7 @@
         seatedSurface(actor, yaw);
     }
     function geometry(actor) {
+        if (actor.visual === 'model3d') return H.CharacterModels.geometry(actor);
         if (!actor.surface?.visible) return { kind: 'standing' };
         const T = ByndHomeEngine; actor.root.updateWorldMatrix(true, true);
         const point = (mesh, y, z = 0) => { const p = mesh.localToWorld(new T.Vector3(0, y, z)); return { x: p.x, y: p.y, z: p.z }; };

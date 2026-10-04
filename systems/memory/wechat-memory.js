@@ -896,9 +896,24 @@ function maybeCaptureWechatMemoryCommand(char, text) {
     return true;
 }
 
+function syncWechatMemoryUiTheme(themeId) {
+    const modal = document.getElementById('wc-memory-manager');
+    if (!modal) return;
+    const root = document.getElementById('app-wechat-window');
+    modal.dataset.uiTheme = themeId || root?.dataset.uiTheme || (typeof getWechatUiThemeId === 'function' ? getWechatUiThemeId() : 'bynd');
+    // Modals live beside the WeChat window, so copy its resolved theme tokens.
+    const style = root ? getComputedStyle(root) : null;
+    ['bg', 'card', 'search', 'text', 'muted', 'border', 'accent'].forEach(name => {
+        const key = `--wc-theme-${name}`;
+        const value = style?.getPropertyValue(key).trim();
+        if (value) modal.style.setProperty(key, value);
+        else modal.style.removeProperty(key);
+    });
+}
+
 function ensureWechatMemoryManager() {
     let modal = document.getElementById('wc-memory-manager');
-    if (modal) return modal;
+    if (modal) { syncWechatMemoryUiTheme(); return modal; }
     modal = document.createElement('div');
     modal.id = 'wc-memory-manager';
     modal.className = 'wc-modal-overlay hidden wc-compose-overlay wc-sticker-submodal';
@@ -906,31 +921,36 @@ function ensureWechatMemoryManager() {
     modal.innerHTML = `
         <div class="wc-compose-card wc-memory-card">
             <div class="wc-compose-header">
-                <div class="wc-compose-title"><i class="ri-star-smile-line"></i><span>记忆星河</span></div>
-                <i class="ri-close-line" onclick="closeWechatMemoryManager()"></i>
+                <div class="wc-compose-title"><span class="wc-memory-header-mark" aria-hidden="true">✧</span><span>拾忆</span></div>
+                <button type="button" class="wc-memory-close" onclick="closeWechatMemoryManager()" aria-label="关闭拾忆">×</button>
             </div>
-            <div class="wc-compose-body wc-memory-body">
-                <div class="wc-compose-segment wc-memory-tabs">
-                    <button id="wc-memory-tab-galaxy" onclick="switchWechatMemoryTier('galaxy')">星河</button>
-                    <button id="wc-memory-tab-segment" onclick="switchWechatMemoryTier('segment')">分段</button>
-                    <button id="wc-memory-tab-long" onclick="switchWechatMemoryTier('long')">长期</button>
-                    <button id="wc-memory-tab-compressed" onclick="switchWechatMemoryTier('compressed')">压缩</button>
-                </div>
+            <div class="wc-compose-body wc-memory-body" tabindex="0" role="region" aria-label="记忆内容区域">
                 <div id="wc-memory-stats" class="wc-memory-stats"></div>
                 <div class="wc-memory-editor">
-                    <input id="wc-memory-title" type="text" maxlength="32" placeholder="标题">
-                    <textarea id="wc-memory-content" maxlength="900" placeholder="写入当前聊天对象需要记住的事实、偏好或关系状态"></textarea>
+                    <input id="wc-memory-title" aria-label="记忆标题" type="text" maxlength="32" placeholder="标题">
+                    <textarea id="wc-memory-content" aria-label="记忆内容" maxlength="900" placeholder="写下需要记住的事实、偏好或约定"></textarea>
+                    <p id="wc-memory-editor-error" role="alert" hidden></p>
                 </div>
                 <div id="wc-memory-list" class="wc-memory-list"></div>
             </div>
             <div class="wc-compose-footer">
+                <nav class="wc-compose-segment wc-memory-tabs" aria-label="记忆分类">
+                    <button type="button" id="wc-memory-tab-galaxy" onclick="switchWechatMemoryTier('galaxy')"><i class="ri-book-open-line" aria-hidden="true"></i><span>总览</span></button>
+                    <button type="button" id="wc-memory-tab-segment" onclick="switchWechatMemoryTier('segment')"><i class="ri-stack-line" aria-hidden="true"></i><span>分段</span></button>
+                    <button type="button" id="wc-memory-tab-long" onclick="switchWechatMemoryTier('long')"><i class="ri-bookmark-line" aria-hidden="true"></i><span>长期</span></button>
+                    <button type="button" id="wc-memory-tab-compressed" onclick="switchWechatMemoryTier('compressed')"><i class="ri-archive-line" aria-hidden="true"></i><span>压缩</span></button>
+                </nav>
+                <div class="wc-memory-footer-actions">
                 <button class="wc-compose-secondary" id="wc-memory-clear-btn" onclick="clearWechatMemoryEditor()">清空</button>
                 <button class="wc-compose-secondary" id="wc-memory-extract-btn" onclick="runWechatMemoryExtractionNow(event)">整理最近</button>
+                <button type="button" id="wc-memory-add-btn" onclick="switchWechatMemoryTier('segment')" aria-label="新增记忆">＋</button>
                 <button class="wc-compose-primary" id="wc-memory-save-btn" onclick="saveWechatMemoryFromEditor()">保存记忆</button>
+                </div>
             </div>
         </div>
     `;
     getWechatModalRoot().appendChild(modal);
+    syncWechatMemoryUiTheme();
     return modal;
 }
 
@@ -971,6 +991,8 @@ function clearWechatMemoryEditor(render = true) {
     if (title) title.value = '';
     if (content) content.value = '';
     if (saveBtn) saveBtn.textContent = '保存记忆';
+    const error = document.getElementById('wc-memory-editor-error');
+    if (error) { error.textContent = ''; error.hidden = true; }
     if (render) renderWechatMemoryManager();
 }
 
@@ -985,13 +1007,13 @@ function getWechatMemoryGalaxyItems(bucket) {
 
 function getWechatMemoryGalaxyFamilyKey(item) {
     const raw = String((item && (item.topic || item.category || item.title)) || '').trim();
-    return raw || '未分类星座';
+    return raw || '未分类记忆';
 }
 
 function buildWechatMemoryGalaxyFamilies(bucket) {
     const map = new Map();
     const remember = (name, sample, updatedAt) => {
-        const key = String(name || '').trim() || '未分类星座';
+        const key = String(name || '').trim() || '未分类记忆';
         const entry = map.get(key) || { name: key, count: 0, samples: [], updatedAt: 0 };
         entry.count += 1;
         if (sample && entry.samples.length < 3) entry.samples.push(sample);
@@ -1000,7 +1022,7 @@ function buildWechatMemoryGalaxyFamilies(bucket) {
     };
     getWechatMemoryGalaxyItems(bucket)
         .filter(item => item.enabled !== false)
-        .forEach(item => remember(getWechatMemoryGalaxyFamilyKey(item), item.title || item.content, item.updatedAt || item.createdAt));
+        .forEach(item => remember(getWechatMemoryGalaxyFamilyKey(item), item.content || item.title, item.updatedAt || item.createdAt));
     const facts = ((bucket && bucket.graph && bucket.graph.facts) || []).filter(item => item && item.enabled !== false);
     facts.forEach(fact => remember(fact.topic || fact.predicate, getWechatMemoryGraphFactText(fact), fact.updatedAt || fact.createdAt));
     return Array.from(map.values())
@@ -1014,21 +1036,15 @@ function renderWechatMemoryGalaxy(char, bucket) {
     const facts = (graph.facts || []).filter(item => item && item.enabled !== false);
     const relations = (graph.relations || []).filter(item => item && item.enabled !== false);
     const families = buildWechatMemoryGalaxyFamilies(bucket);
-    if (!memoryItems.length && !facts.length && !relations.length) {
-        return `<div class="wc-memory-empty">暂无星光记忆</div>`;
-    }
-    const displayItems = memoryItems.slice(-18);
+    const displayItems = memoryItems.length ? memoryItems.slice(-8) : facts.slice(-8).map(fact => ({ ...fact, title: fact.topic || fact.predicate, content: getWechatMemoryGraphFactText(fact), graphOnly: true }));
     const centerX = 50;
     const centerY = 48;
     const nodes = displayItems.map((item, index) => {
-        const count = Math.max(1, displayItems.length);
-        const angle = -Math.PI / 2 + (Math.PI * 2 * index / count);
-        const radiusX = 30 + (index % 3) * 4;
-        const radiusY = 23 + (index % 2) * 7;
+        const positions = displayItems.length <= 2 ? [[23,22],[77,78]]
+            : [[22,16],[78,16],[17,38],[83,38],[17,64],[83,64],[23,86],[77,86]];
         return {
             item,
-            x: Math.max(8, Math.min(92, centerX + Math.cos(angle) * radiusX)),
-            y: Math.max(10, Math.min(88, centerY + Math.sin(angle) * radiusY))
+            x: positions[index][0], y: positions[index][1]
         };
     });
     const familyGroups = new Map();
@@ -1051,20 +1067,21 @@ function renderWechatMemoryGalaxy(char, bucket) {
         const item = node.item;
         const title = wcEscapeHtml(item.title || item.topic || item.content.slice(0, 18));
         const tier = item.tier === 'compressed' ? 'compressed' : (item.tier === 'long' ? 'long' : 'segment');
-        return `<button class="wc-memory-star is-${tier}" style="left:${node.x.toFixed(2)}%;top:${node.y.toFixed(2)}%;" onclick="editWechatMemoryEntry('${item.id}')" title="${title}"><span></span></button>`;
+        return `<button type="button" class="wc-memory-star is-${tier}" style="left:${node.x.toFixed(2)}%;top:${node.y.toFixed(2)}%;" data-memory-id="${wcEscapeHtml(item.id)}" onclick="${item.graphOnly ? 'focusWechatMemoryFact(this.dataset.memoryId)' : 'editWechatMemoryEntry(this.dataset.memoryId)'}" title="${title}"><span aria-hidden="true">✧</span><strong>${title}</strong><small>${wcEscapeHtml(item.content.slice(0, 24))}</small></button>`;
     }).join('');
     const familyHtml = families.length ? families.map(item => `
         <div class="wc-memory-constellation">
-            <div class="wc-memory-constellation-head">
+            <img class="wc-memory-family-avatar" src="${avatar}" alt="">
+            <div class="wc-memory-constellation-copy"><div class="wc-memory-constellation-head">
                 <strong>${wcEscapeHtml(item.name)}</strong>
-                <span>${item.count} 点</span>
+                <span>${item.count} 条</span>
             </div>
-            <p>${wcEscapeHtml(item.samples.join(' / '))}</p>
+            <p>${wcEscapeHtml(item.samples.join(' / '))}</p></div>
         </div>
-    `).join('') : `<div class="wc-memory-empty">暂无星座</div>`;
-    const factHtml = facts.slice(-6).reverse().map(fact => `
-        <div class="wc-memory-fact">
-            <span>${wcEscapeHtml(fact.topic || fact.predicate || '星点')}</span>
+    `).join('') : `<div class="wc-memory-empty">暂无记忆主题</div>`;
+    const factHtml = facts.slice(-8).reverse().map(fact => `
+        <div class="wc-memory-fact" data-fact-id="${wcEscapeHtml(fact.id)}" tabindex="-1">
+            <span>${wcEscapeHtml(fact.topic || fact.predicate || '事实')}</span>
             <p>${wcEscapeHtml(getWechatMemoryGraphFactText(fact))}${fact.emotion ? ` <em>${wcEscapeHtml(fact.emotion)}</em>` : ''}</p>
         </div>
     `).join('');
@@ -1078,29 +1095,36 @@ function renderWechatMemoryGalaxy(char, bucket) {
     return `
         <div class="wc-memory-galaxy">
             <div class="wc-memory-sky">
-                <svg class="wc-memory-galaxy-lines" viewBox="0 0 100 100" preserveAspectRatio="none">${centerLines}${familyLines}</svg>
+                <svg class="wc-memory-galaxy-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><ellipse class="wc-memory-orbit" cx="50" cy="50" rx="39" ry="40"/><ellipse class="wc-memory-orbit wc-memory-orbit-inner" cx="50" cy="50" rx="26" ry="28"/>${centerLines}${familyLines}${Array.from({length: 48}, (_, i) => { const a = i * Math.PI / 24; return `<line class="wc-memory-tick" x1="${50+Math.cos(a)*36}" y1="${50+Math.sin(a)*37}" x2="${50+Math.cos(a)*(i%4===0?33:34.5)}" y2="${50+Math.sin(a)*(i%4===0?34:35.5)}"/>`; }).join('')}</svg>
                 <div class="wc-memory-galaxy-center">
                     <img src="${avatar}" alt="">
                     <span>${charName}</span>
+                    <small>${memoryItems.length || facts.length} ${memoryItems.length || !facts.length ? '条记忆' : '条事实'}</small>
                 </div>
                 ${nodeHtml}
+                ${displayItems.length ? '' : '<p class="wc-memory-sky-empty">记下你们的第一条回忆</p>'}
             </div>
             <div class="wc-memory-galaxy-sections">
                 <section>
-                    <h4>星座</h4>
+                    <h4>记忆主题</h4>
                     ${familyHtml}
                 </section>
                 <section>
-                    <h4>星点</h4>
+                    <h4>事实</h4>
                     ${factHtml || `<div class="wc-memory-empty">暂无原子事实</div>`}
                 </section>
                 <section>
-                    <h4>星线</h4>
+                    <h4>关联</h4>
                     ${relationHtml || `<div class="wc-memory-empty">暂无联想关系</div>`}
                 </section>
             </div>
         </div>
     `;
+}
+
+function focusWechatMemoryFact(id) {
+    const fact = Array.from(document.querySelectorAll('#wc-memory-manager .wc-memory-fact')).find(element => element.dataset.factId === id);
+    if (fact) { fact.scrollIntoView({ block: 'center', behavior: 'smooth' }); fact.focus({ preventScroll: true }); }
 }
 
 function renderWechatMemoryManager() {
@@ -1114,6 +1138,8 @@ function renderWechatMemoryManager() {
     document.querySelector('#wc-memory-manager .wc-memory-editor')?.classList.toggle('hidden', tier === 'galaxy');
     document.getElementById('wc-memory-clear-btn')?.classList.toggle('hidden', tier === 'galaxy');
     document.getElementById('wc-memory-save-btn')?.classList.toggle('hidden', tier === 'galaxy');
+    document.getElementById('wc-memory-add-btn')?.classList.toggle('hidden', tier !== 'galaxy');
+    ['galaxy', 'segment', 'long', 'compressed'].forEach(tab => document.getElementById(`wc-memory-tab-${tab}`)?.setAttribute('aria-pressed', String(tab === tier)));
 
     const store = getWechatMemoryStore();
     const bucket = getWechatMemoryBucket(store, char.id);
@@ -1125,9 +1151,9 @@ function renderWechatMemoryManager() {
         if (tier === 'galaxy') {
             const graph = bucket.graph || { facts: [], relations: [] };
             statsEl.innerHTML = `
-                <span>星笺 ${getWechatMemoryGalaxyItems(bucket).filter(item => item.enabled !== false).length}</span>
-                <span>星点 ${(graph.facts || []).filter(item => item && item.enabled !== false).length}</span>
-                <span>星线 ${(graph.relations || []).filter(item => item && item.enabled !== false).length}</span>
+                <span><strong>${buildWechatMemoryGalaxyFamilies(bucket).length}</strong><small>主题</small></span>
+                <span><strong>${(graph.facts || []).filter(item => item && item.enabled !== false).length}</strong><small>事实</small></span>
+                <span><strong>${(graph.relations || []).filter(item => item && item.enabled !== false).length}</strong><small>关联</small></span>
             `;
         } else {
             statsEl.innerHTML = `
@@ -1205,9 +1231,16 @@ function saveWechatMemoryFromEditor() {
         promoteWechatMemoryBucket(bucket, char);
     }
 
-    saveWechatMemoryStore(store);
+    try {
+        saveWechatMemoryStore(store);
+    } catch (error) {
+        const message = document.getElementById('wc-memory-editor-error');
+        if (message) { message.textContent = '保存失败，请重试。你写下的内容已保留。'; message.hidden = false; }
+        return false;
+    }
     clearWechatMemoryEditor(false);
     renderWechatMemoryManager();
+    return true;
 }
 
 function editWechatMemoryEntry(id) {
@@ -1548,7 +1581,7 @@ function submitWechatComposer() {
         renderChatList();
     } else {
         appendWechatMessage(msg);
-        if (type === 'poke') triggerWechatScreenFeedback('poke');
+        if (type === 'poke') triggerWechatScreenFeedback('poke', msg);
         if (type === 'screen_shake') triggerWechatScreenFeedback('shake');
     }
     closeWechatComposer();

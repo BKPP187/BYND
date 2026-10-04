@@ -136,6 +136,7 @@ function normalizeFishAudioVoiceApiData(api) {
         apiKey: api.apiKey || '',
         voiceModel: api.voiceModel || api.model || 'fish-audio/s2.1-pro-free',
         voiceId: api.voiceId || api.voice || api.referenceId || '',
+        voiceName: typeof api.voiceName === 'string' ? api.voiceName : '',
         voiceEndpoint: api.voiceEndpoint || api.endpoint || '',
         voiceFormat: ['mp3', 'wav', 'opus'].includes(format) ? format : 'mp3',
         voiceSpeed: api.voiceSpeed || api.speed || '1',
@@ -171,6 +172,7 @@ function normalizeElevenLabsVoiceApiData(api) {
         apiKey: api.apiKey || '',
         voiceModel: api.voiceModel || api.model || 'eleven_multilingual_v2',
         voiceId: api.voiceId || api.voice || '',
+        voiceName: typeof api.voiceName === 'string' ? api.voiceName : '',
         voiceEndpoint: api.voiceEndpoint || '',
         voiceFormat: api.voiceFormat || api.format || 'mp3',
         stability: api.stability || '0.5',
@@ -195,7 +197,7 @@ function isElevenLabsVoiceEnabled(api) {
 function getElevenLabsVoiceSummary(api) {
     if (!api) return '';
     const model = String(api.voiceModel || api.model || '').trim() || 'ElevenLabs';
-    const voice = String(api.voiceId || api.voice || '').trim();
+    const voice = String(api.voiceName || api.voiceId || api.voice || '').trim();
     return voice ? `${model} · ${voice}` : `${model} · 未填音色`;
 }
 

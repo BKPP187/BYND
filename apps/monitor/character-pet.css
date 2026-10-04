@@ -165,9 +165,12 @@
     border-bottom: 2px solid var(--mh-ink); background: var(--mh-surface); gap: 11px;
 }
 #bynd-pet-studio .bynd-agent-header > button, .pet-history .bynd-agent-header > button {
+    display: grid; place-items: center; box-sizing: border-box;
     width: 40px; height: 40px; border: 2px solid var(--mh-ink); border-radius: 48% 44% 48% 43%;
-    background: var(--mh-surface); color: var(--mh-ink); padding: 7px;
+    background: var(--mh-surface); color: var(--mh-ink); padding: 6px; line-height: 1;
 }
+.pet-history-header-icon { display: block; width: 24px; height: 24px; pointer-events: none; }
+#bynd-pet-studio .bynd-agent-header .pet-studio-icon { width: 24px; height: 24px; }
 #bynd-pet-studio .bynd-agent-header .pet-history-entry { background: var(--pet-blue); border-radius: 13px 15px 12px 14px; }
 #bynd-pet-studio .bynd-agent-header strong, .pet-history .bynd-agent-header strong { font-size: 18px; }
 #bynd-pet-studio .bynd-agent-header small, .pet-history .bynd-agent-header small { color: var(--mh-muted); font-size: 11px; }

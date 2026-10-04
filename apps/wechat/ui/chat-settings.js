@@ -154,16 +154,39 @@ ${scope} .msg-bubble.sticker {
 }`;
 }
 
-function previewBubbleCss(cssText) {
-    const preview = document.querySelector('.wcs-bubble-preview');
-    if (preview && getWechatUiThemeId() === 'pixel') {
-        const config = getCurrentChatChar()?.chatConfig || {};
-        preview.style.setProperty('--wcs-preview-ai-bg', config.bubbleAi || '#e4e4e5');
-        preview.style.setProperty('--wcs-preview-user-bg', config.bubbleUser || '#cbcbd3');
-    } else if (preview) {
-        preview.style.removeProperty('--wcs-preview-ai-bg');
-        preview.style.removeProperty('--wcs-preview-user-bg');
+function getWechatDefaultBubbleAppearance() {
+    const content = document.getElementById('chat-room-content');
+    if (!content) return [];
+    const sample = document.createElement('div');
+    sample.setAttribute('aria-hidden', 'true');
+    sample.style.cssText = 'position: absolute; visibility: hidden; pointer-events: none; width: 300px; height: 0; overflow: hidden;';
+    sample.innerHTML = ['left', 'right'].map(side => `<div class="msg-row ${side}"><div class="msg-bubble wc-text-bubble ${side === 'right' ? 'green' : ''}">气泡<span class="msg-meta">02:20 ✓✓</span></div></div>`).join('');
+    const customSheet = document.getElementById('chat-custom-css')?.sheet;
+    const wasDisabled = customSheet?.disabled;
+    try {
+        // Read the theme's real chat rules without leaking the saved custom preset into “默认”.
+        if (customSheet) customSheet.disabled = true;
+        content.appendChild(sample);
+        applyWechatBubbleMetaContrast(sample);
+        return Array.from(sample.querySelectorAll('.msg-bubble'), bubble => {
+            const computed = getComputedStyle(bubble);
+            const style = document.createElement('span').style;
+            ['background', 'color', 'border', 'border-radius', 'box-shadow', 'backdrop-filter', '-webkit-backdrop-filter', 'font-weight'].forEach(property => {
+                style.setProperty(property, computed.getPropertyValue(property));
+            });
+            return {
+                css: style.cssText,
+                background: computed.background,
+                metaColor: getComputedStyle(bubble.querySelector('.msg-meta')).color
+            };
+        });
+    } finally {
+        sample.remove();
+        if (customSheet) customSheet.disabled = wasDisabled;
     }
+}
+
+function previewBubbleCss(cssText) {
     // 移除旧的预览样式
     let previewStyle = document.getElementById('wcs-css-preview-style');
     if (!previewStyle) {
@@ -180,15 +203,11 @@ function previewBubbleCss(cssText) {
     const scope = '#app-wechat-window #wc-chat-settings-panel';
     previewCss = previewCss.replace(/(^|})(\s*)([^@{}][^{}]*)\{/g, (match, close, space, selectors) =>
         `${close}${space}${selectors.split(/,(?![^()]*\))/).map(selector => `${scope} ${selector.trim()}`).join(', ')} {`);
-    const pixelDefaults = getWechatUiThemeId() === 'pixel' ? `
-${scope} .wcs-preview-bubble {
-    background: var(--wcs-preview-ai-bg, #e4e4e5); color: #24242a;
-    border: 0; border-radius: 3px;
-    box-shadow: inset 1px 1px #fafafa, inset -1px -1px #9b9ba1;
-}
-${scope} .wcs-preview-bubble:where(.user) { background: var(--wcs-preview-user-bg, #cbcbd3); }
-` : '';
-    previewStyle.textContent = pixelDefaults + previewCss;
+    const themeDefaults = getWechatDefaultBubbleAppearance().map((side, index) => {
+        const bubble = `${scope} .wcs-preview-bubble${index ? ':where(.user)' : ''}`;
+        return `${bubble} { ${side.css} }\n${bubble} :where(.wcs-preview-meta) { color: ${side.metaColor}; }`;
+    }).join('\n');
+    previewStyle.textContent = themeDefaults + '\n' + previewCss;
 }
 
 function setWechatTimeModeControls(mode) {
@@ -444,6 +463,8 @@ function openWechatChatSettingsPage(name = 'home', { focus = true, reset = false
     if (reset) wechatChatSettingsScroll.clear();
     else if (body) wechatChatSettingsScroll.set(previous, body.scrollTop);
     const selected = target.dataset.chatSettingsPage;
+    if (typeof syncWechatCharacterVoicePicker === 'function' && selected === 'voice' && previous !== 'voice') syncWechatCharacterVoicePicker({ load: true });
+    else if (selected !== 'voice') { globalThis.ByndElevenLabsVoices?.character.close(); globalThis.ByndMiniMaxVoices?.character.close(); globalThis.ByndFishVoices?.character.close(); }
     pages.forEach(page => { page.hidden = page !== target; });
     panel.dataset.settingsPage = selected;
     const heading = target.querySelector('h2');
@@ -614,6 +635,9 @@ function openChatSettings() {
 }
 
 function closeChatSettings(event) {
+    window.ByndElevenLabsVoices?.character.close();
+    window.ByndMiniMaxVoices?.character.close();
+    window.ByndFishVoices?.character.close();
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
     window._wechatAvatarManageState = null;

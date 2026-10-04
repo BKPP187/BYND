@@ -90,7 +90,8 @@ function getDesktopThemeIconUrl(appId, source) {
         bill: 21,
         'role-tools': 22,
         home3d: 23,
-        moon: 24
+        moon: 24,
+        events: 25
     }[appId];
     let icons = Array.isArray(data.icons) ? data.icons : [];
     if (typeof normalizeThemeIconList === 'function') icons = normalizeThemeIconList(icons);

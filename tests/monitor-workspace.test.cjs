@@ -20,7 +20,7 @@ function harness() {
         musicEscapeAttr: text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
     });
     context.window = context;
-    vm.runInContext(sourceSection('script.js', '// --- BYND Monitor / 内部监控剧情入口 ---', '// --- BYND Outing / 一起出门 ---'), context);
+    vm.runInContext(fs.readFileSync(path.join(root, 'apps/monitor/monitor.js'), 'utf8'), context);
     return { context, storage, notices, writes, chars, timers, read: code => vm.runInContext(code, context) };
 }
 

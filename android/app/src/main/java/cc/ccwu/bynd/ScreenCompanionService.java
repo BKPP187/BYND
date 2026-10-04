@@ -37,6 +37,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -115,6 +116,7 @@ public class ScreenCompanionService extends Service {
     private boolean paused;
     private boolean hiddenByUser;
     private boolean dragging;
+    private long lastManualTapAt = -1;
     private boolean rightSide = true;
     private final Map<String, Drawable> frames = new HashMap<>();
 
@@ -501,7 +503,7 @@ public class ScreenCompanionService extends Service {
         bubble.setVisibility(View.GONE);
         pet = new ImageView(this);
         pet.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        pet.setContentDescription("桌宠");
+        pet.setContentDescription("桌宠，轻点互动，长按菜单，拖动移动");
         tab = new ImageView(this);
         tab.setScaleType(ImageView.ScaleType.CENTER_CROP);
         tab.setBackground(rounded(Color.argb(150, 61, 99, 205), 12));
@@ -512,6 +514,7 @@ public class ScreenCompanionService extends Service {
         menu.setOrientation(LinearLayout.VERTICAL);
         menu.setBackground(rounded(Color.WHITE, 14));
         menu.setVisibility(View.GONE);
+        menu.addView(menuItem("互动一下", view -> requestInteraction()));
         menu.addView(menuItem("回到 BYND", view -> openApp()));
         pauseItem = menuItem(paused ? "继续陪看" : "暂停陪看", view -> {
             paused = !paused;
@@ -522,6 +525,7 @@ public class ScreenCompanionService extends Service {
             notifyState("paused");
         });
         menu.addView(pauseItem);
+        menu.addView(menuItem("收起到边缘", view -> setCollapsed(true)));
         menu.addView(menuItem("隐藏", view -> {
             hiddenByUser = true;
             refreshOverlay();
@@ -609,8 +613,9 @@ public class ScreenCompanionService extends Service {
         private final int slop = ViewConfiguration.get(ScreenCompanionService.this).getScaledTouchSlop();
         private final Runnable longPress = () -> {
             longPressed = true;
-            // Long press folds the pet into a slim edge tab so it never covers a game.
-            if (!collapsed) setCollapsed(true);
+            if (collapsed) setCollapsed(false);
+            bubble.setVisibility(View.GONE);
+            menu.setVisibility(menu.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
         };
 
         @Override
@@ -638,10 +643,7 @@ public class ScreenCompanionService extends Service {
                     if (dragging) { dragging = false; snapToEdge(true); return true; }
                     if (longPressed) return true;
                     if (collapsed) setCollapsed(false);
-                    else {
-                        bubble.setVisibility(View.GONE);
-                        menu.setVisibility(menu.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-                    }
+                    else requestInteraction();
                     view.performClick();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
@@ -651,6 +653,28 @@ public class ScreenCompanionService extends Service {
                 default:
                     return false;
             }
+        }
+    }
+
+    private void requestInteraction() {
+        // Double taps are one interaction, so they never create two billable API requests.
+        long now = SystemClock.elapsedRealtime();
+        if (lastManualTapAt >= 0 && now - lastManualTapAt <= ViewConfiguration.getDoubleTapTimeout()) return;
+        lastManualTapAt = now;
+        Bridge target = bridge;
+        if (target == null) {
+            displayBubble("后台连接已中断，请回 BYND 后再试。", "");
+            return;
+        }
+        displayBubble("正在回应…", "");
+        JSONObject context = new JSONObject();
+        try {
+            // Tapping does not require usage access or capture the app underneath the pet.
+            context.put("reason", "tap");
+            context.put("at", System.currentTimeMillis());
+            target.onContext(context.toString());
+        } catch (Exception error) {
+            displayBubble("互动未发送，请回 BYND 后再试。", "");
         }
     }
 

@@ -101,11 +101,48 @@ fs.mkdirSync(output, { recursive: true });
         await studio.locator('.pet-history-entry').click();
         await page.waitForFunction(() => document.querySelectorAll('.pet-history-card').length === 1);
         await page.waitForFunction(() => [...document.querySelectorAll('[data-history-thumb]')].every(img => img.complete && img.naturalWidth));
+        for (const scenario of [
+            { width: 375, height: 844, safe: 47, parent: false },
+            { width: 375, height: 844, safe: 59, parent: false },
+            { width: 320, height: 568, safe: 47, parent: false },
+            { width: 320, height: 568, safe: 59, parent: false },
+            { width: 320, height: 568, safe: 47, parent: true },
+            { width: 320, height: 568, safe: 59, parent: true }
+        ]) {
+            await page.setViewportSize({ width: scenario.width, height: scenario.height });
+            await page.evaluate(({ safe, parent }) => {
+                document.body.style.paddingTop = parent ? `${safe}px` : '0';
+                document.querySelector('.phone-container').style.height = parent ? `calc(100dvh - ${safe}px)` : '100dvh';
+                document.querySelector('#bynd-pet-studio').style.setProperty('--bynd-header-safe-top', `${parent ? 0 : safe}px`);
+            }, scenario);
+            const centers = await page.locator('#pet-history .bynd-agent-header > button').evaluateAll(buttons => buttons.map(button => {
+                const box = button.getBoundingClientRect(), icon = button.querySelector('svg').getBoundingClientRect();
+                return { top: box.top, width: box.width, height: box.height, iconWidth: icon.width, iconHeight: icon.height,
+                    dx: icon.left + icon.width / 2 - box.left - box.width / 2,
+                    dy: icon.top + icon.height / 2 - box.top - box.height / 2 };
+            }));
+            assert.equal(centers.length, 2);
+            for (const center of centers) {
+                assert.ok(Math.abs(center.dx) < .5 && Math.abs(center.dy) < .5, 'history header icons must be centered inside their buttons');
+                assert.deepEqual([center.width, center.height, center.iconWidth, center.iconHeight], [40, 40, 24, 24]);
+                assert.ok(center.top >= scenario.safe && center.top < scenario.safe + 18, 'history header must reserve the top safe area exactly once');
+            }
+            await studio.screenshot({ animations: 'disabled', path: path.join(output, `history-${scenario.width}-${scenario.safe}-${scenario.parent ? 'parent' : 'header'}.png`) });
+        }
+        await page.setViewportSize({ width: 375, height: 844 });
+        await page.evaluate(() => {
+            document.body.style.paddingTop = '0';
+            document.querySelector('.phone-container').style.height = '100dvh';
+            document.querySelector('#bynd-pet-studio').style.setProperty('--bynd-header-safe-top', '47px');
+        });
         await studio.screenshot({ animations: 'disabled', path: path.join(output, 'history.png') });
         await page.locator('.pet-history-view').first().click();
         await page.waitForFunction(() => document.querySelector('.pet-history-detail img')?.complete);
         await studio.screenshot({ animations: 'disabled', path: path.join(output, 'history-detail.png') });
-        await page.evaluate(() => ByndPetHistory.close());
+        await page.getByRole('button', { name: '返回图片历史', exact: true }).click();
+        assert.equal(await page.locator('.pet-history-card').count(), 1);
+        await page.getByRole('button', { name: '关闭图片历史', exact: true }).click();
+        assert.equal(await page.locator('#pet-history').count(), 0);
         // Exercise the UI error path with a failed persistent write.
         await page.evaluate(() => { window.__studioUpdate = ByndCharacterPet.update; ByndCharacterPet.update = async () => { throw new Error('测试：存储不可用'); }; });
         await studio.locator('[data-pet-field="appearance"]').fill('尚未保存的外观');

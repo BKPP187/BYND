@@ -1,263 +1,177 @@
-/* Wolfcha mystic setup 20260523 */
-.game-window.game-mode-wolfcha .wolfcha-setup {
-    position: relative;
-    padding: 16px 14px 18px;
-    background:
-        radial-gradient(circle at 82% 8%, rgba(146,67,132,0.38), transparent 32%),
-        radial-gradient(circle at 14% 26%, rgba(73,151,184,0.22), transparent 38%),
-        linear-gradient(180deg, #101723 0%, #070a11 100%) !important;
-    color: #f7fbff;
-    isolation: isolate;
+/* Moonlit chronicle: ivory cards, antique clockwork and quiet dark surfaces. */
+html.mobile-runtime body:has(.game-mode-wolfcha.active) { background: #101213 !important; }
+.game-window.game-mode-wolfcha {
+    --wolf-ink: #101213; --wolf-paper: #eee7d6; --wolf-gold: #c4ae80; --wolf-muted: #ada99e; --wolf-rule: #c4ae8038;
+    --wolf-art: url("../../assets/games/wolfcha/moonlit-clock-v1.webp"); color: var(--wolf-paper);
 }
-
-.game-window.game-mode-wolfcha .wolfcha-setup::before,
-.game-window.game-mode-wolfcha .wolfcha-setup::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    z-index: -1;
+.game-window.game-mode-wolfcha .game-shell, .game-window.game-mode-wolfcha .game-content { background: var(--wolf-ink) !important; }
+.game-window.game-mode-wolfcha .game-header {
+    box-sizing: border-box; height: calc(68px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    min-height: calc(68px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding: calc(12px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 20px 12px;
+    flex-shrink: 0; background: #101213 !important; border-bottom: 1px solid var(--wolf-rule) !important; box-shadow: none;
 }
+.game-window.game-mode-wolfcha .game-header > div:not(.game-header-spacer) { transform: none; }
+.game-window.game-mode-wolfcha .game-header span { display: none; }
+.game-window.game-mode-wolfcha .game-header strong { margin: 0; color: var(--wolf-paper) !important; font-family: "Songti SC", "Noto Serif SC", "STSong", serif; font-size: 19px; line-height: 1.4; font-weight: 600; letter-spacing: 2px; text-shadow: none; }
+.game-window.game-mode-wolfcha .game-header > button { width: 44px; height: 44px; margin-left: -10px; }
+.game-window.game-mode-wolfcha .game-header button i { color: var(--wolf-paper) !important; font-size: 25px; text-shadow: none; }
+/* Keep essential navigation visible while the remote icon font is loading. */
+.game-window.game-mode-wolfcha .game-header button i::before { content: '‹'; font-family: Georgia, serif; font-style: normal; }
+.wolfcha-screen, .wolfcha-screen *, .wolfcha-screen *::before, .wolfcha-screen *::after { box-sizing: border-box; }
+.wolfcha-screen { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.wolfcha-screen button, .wolfcha-screen textarea { font: inherit; }
+.wolfcha-screen button { cursor: pointer; }
+.wolfcha-screen button:disabled { opacity: .4; cursor: not-allowed; }
+.wolfcha-screen button:focus-visible, .wolfcha-screen summary:focus-visible, .wolfcha-screen textarea:focus-visible { outline: 2px solid var(--wolf-gold); outline-offset: 3px; }
+.game-mode-wolfcha .wolfcha-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0; color: var(--wolf-paper); background: var(--wolf-ink) !important; }
+.wolfcha-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px 20px 24px; scrollbar-width: none; -ms-overflow-style: none; }
+.wolfcha-scroll::-webkit-scrollbar, .wolfcha-screen textarea::-webkit-scrollbar, .wolfcha-screen details::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.wolfcha-screen textarea, .wolfcha-screen details { scrollbar-width: none; }
+.game-mode-wolfcha .wolfcha-footer { position: relative; flex-shrink: 0; margin: 0; padding: 14px 20px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--wolf-rule); background: #121516 !important; }
+.game-mode-wolfcha .wolfcha-footer button, .game-mode-wolfcha .wolfcha-user-speech-box button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; height: auto; padding: 12px 10px; color: var(--wolf-paper) !important; background: #ffffff06 !important; border: 1px solid var(--wolf-rule) !important; border-radius: 5px; box-shadow: none !important; font-size: 14px; font-weight: 500; }
+.game-mode-wolfcha .wolfcha-footer button.primary, .game-mode-wolfcha .wolfcha-footer .wolfcha-opening-start, .game-mode-wolfcha .wolfcha-user-speech-box button { background: var(--wolf-paper) !important; color: #24231f !important; border-color: var(--wolf-paper) !important; }
+.game-mode-wolfcha .wolfcha-help { color: var(--wolf-muted); font-size: 12px; margin-top: 20px; }
+.wolfcha-help summary { cursor: pointer; padding: 10px 0; min-height: 40px; }
+.wolfcha-help p { margin: 0 0 12px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.wolfcha-help[open] summary { color: var(--wolf-paper); }
+.wolfcha-rules a { color: var(--wolf-gold); text-underline-offset: 3px; }
+.wolfcha-rules p strong { font-size: 13px; color: var(--wolf-paper); font-weight: 500; }
 
-.game-window.game-mode-wolfcha .wolfcha-setup::before {
-    left: 50%;
-    top: 164px;
-    width: 340px;
-    height: 340px;
-    border-radius: 50%;
-    transform: translateX(-50%);
-    background:
-        radial-gradient(circle, rgba(124,223,255,0.10), transparent 36%),
-        conic-gradient(from -32deg, transparent, rgba(120,220,255,0.18), transparent 24%, rgba(255,176,226,0.16), transparent 56%, rgba(120,220,255,0.14), transparent);
-    filter: blur(0.3px);
-    opacity: 0.86;
+/* Entry: the clock illustration is the composition, with a single clear action. */
+.game-window.game-mode-wolfcha .wolfcha-opening { position: relative; isolation: isolate; }
+.game-mode-wolfcha .wolfcha-opening::before, .game-mode-wolfcha .wolfcha-opening::after { content: none; }
+.game-mode-wolfcha .wolfcha-opening-bg { inset: 0; background: linear-gradient(180deg, #10121322, transparent 32%, #10121344 70%, #101213 95%), var(--wolf-art) center 42% / cover no-repeat; transform: none; z-index: -1; }
+.wolfcha-opening-scroll { display: flex; flex-direction: column; justify-content: space-between; padding-top: 22px; min-height: 180px; }
+.game-mode-wolfcha .wolfcha-opening-copy { position: static; padding-top: 0; text-align: center; }
+.game-mode-wolfcha .wolfcha-opening-copy > span { color: var(--wolf-gold); font-size: 10px; font-weight: 400; letter-spacing: 3px; }
+.game-mode-wolfcha .wolfcha-opening-copy strong { display: block; max-width: none; margin-top: 9px; font-family: "Songti SC", "STSong", serif; font-size: 30px; line-height: 1.5; letter-spacing: 5px; font-weight: 400; color: var(--wolf-paper); text-shadow: 0 2px 12px #000; }
+.game-mode-wolfcha .wolfcha-opening-copy p { max-width: none; margin: 4px 0 0; font-size: 12px; line-height: 1.8; font-weight: 400; letter-spacing: 3px; color: #d5cfbf; }
+.wolfcha-opening-caption { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--wolf-gold); font-family: Georgia, serif; font-size: 10px; letter-spacing: 2px; margin-top: 150px; }
+.wolfcha-opening-caption i { width: 24px; height: 1px; background: var(--wolf-rule); }
+.game-mode-wolfcha .wolfcha-opening-footer { background: #101213f2 !important; }
+.game-mode-wolfcha .wolfcha-opening-meta { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
+.game-mode-wolfcha .wolfcha-opening-meta span { display: block; padding: 0; height: auto; min-height: 0; background: none; border: 0; border-radius: 0; color: var(--wolf-muted); font-size: 12px; font-weight: 400; box-shadow: none; backdrop-filter: none; }
+.game-mode-wolfcha .wolfcha-opening-start { width: 100%; margin: 0; height: 50px; justify-content: space-between; padding: 12px 18px; }
+.game-mode-wolfcha .wolfcha-opening-start i { font-size: 20px; }
+.game-mode-wolfcha .wolfcha-opening-start i::before { content: '→'; font-family: system-ui, sans-serif; font-style: normal; }
+.game-mode-wolfcha .wolfcha-opening-footer .wolfcha-help { margin-top: 4px; }
+.game-mode-wolfcha .wolfcha-opening-footer .wolfcha-help[open] { max-height: 160px; overflow-y: auto; }
+
+/* Guest cards: readable names, two columns and a persistent start button. */
+.game-window.game-mode-wolfcha .wolfcha-setup { background: linear-gradient(#101213dc, #101213f9), var(--wolf-art) center top / cover !important; }
+.wolfcha-section-heading > span { font-size: 10px; letter-spacing: 3px; color: var(--wolf-gold); }
+.wolfcha-section-heading h2 { margin: 8px 0 6px; font-family: "Songti SC", "STSong", serif; font-size: 27px; letter-spacing: 4px; font-weight: 400; }
+.wolfcha-section-heading p { margin: 0; color: var(--wolf-muted); font-size: 13px; }
+.game-mode-wolfcha .wolfcha-user-card { min-height: 76px; margin-top: 24px; padding: 12px; grid-template-columns: 44px minmax(0,1fr) auto; border: 1px solid var(--wolf-rule); border-radius: 5px; background: #ffffff04; box-shadow: none; color: var(--wolf-paper); }
+.game-mode-wolfcha .wolfcha-user-card .wolfcha-setup-avatar { width: 44px; height: 44px; border-radius: 50%; background: #292b28; color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-user-card .wolfcha-user-copy { display: block; width: auto; height: auto; overflow: hidden; border-radius: 0; background: transparent; font-size: inherit; }
+.game-mode-wolfcha .wolfcha-user-card span { color: var(--wolf-muted); font-size: 11px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-user-card strong { color: var(--wolf-paper); font-size: 15px; font-weight: 500; }
+.game-mode-wolfcha .wolfcha-user-card em { color: var(--wolf-gold); background: transparent; padding: 4px 0; font-size: 11px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-setup-head { margin: 24px 0 12px; }
+.game-mode-wolfcha .wolfcha-setup-head strong { color: var(--wolf-paper); font-size: 15px; font-weight: 500; letter-spacing: 1px; }
+.game-mode-wolfcha .wolfcha-setup-head span { color: var(--wolf-muted); font-size: 12px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-setup-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.game-window.game-mode-wolfcha .wolfcha-setup-char { position: relative; display: flex; flex-direction: column; gap: 0; min-width: 0; min-height: 186px; padding: 12px 12px 16px; border: 1px solid #c4ae8040; border-radius: 4px; background: linear-gradient(150deg, #35372e66, #161a1bcc); color: var(--wolf-paper); box-shadow: none; text-align: center; }
+.game-mode-wolfcha .wolfcha-setup-char::before { content: ''; position: absolute; inset: 5px; border: 1px solid #c4ae8014; pointer-events: none; }
+.game-mode-wolfcha .wolfcha-card-index { display: flex; justify-content: space-between; align-self: stretch; color: var(--wolf-gold); font-family: Georgia,serif; font-size: 11px; letter-spacing: 2px; }
+.game-mode-wolfcha .wolfcha-setup-char .wolfcha-setup-avatar { width: 64px; height: 64px; margin: 12px 0; border-radius: 50%; border: 1px solid #c4ae8070; padding: 3px; background: #242823; color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-setup-avatar img { border-radius: inherit; }
+.wolfcha-guest-copy { min-width: 0; width: 100%; }
+.game-mode-wolfcha .wolfcha-setup-char strong { margin: 0; color: var(--wolf-paper); font-family: "Songti SC", "STSong", serif; font-size: 17px; font-weight: 500; letter-spacing: 1px; }
+.game-mode-wolfcha .wolfcha-guest-copy span { display: block; margin-top: 7px; color: var(--wolf-muted); font-size: 11px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-setup-char > i { position: absolute; right: 13px; bottom: 13px; font-size: 16px; color: #aaa699; }
+.game-window.game-mode-wolfcha .wolfcha-setup-char.selected { background: linear-gradient(150deg, #c4ae8022, #161a1bcc); border-color: var(--wolf-gold); box-shadow: inset 0 0 22px #c4ae800a; }
+.game-mode-wolfcha .wolfcha-setup-char.selected > i { color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-setup-char.selected .wolfcha-guest-copy span { color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-setup-empty { grid-column: 1 / -1; background: #ffffff04; border: 1px dashed var(--wolf-rule); border-radius: 5px; color: var(--wolf-muted); line-height: 1.8; }
+.game-mode-wolfcha .wolfcha-setup-actions { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: 10px; }
+
+/* Table: artwork sits above the readable transcript; actions stay on screen. */
+.game-mode-wolfcha .wolfcha-playing .wolfcha-scroll { padding: 16px 16px 24px; }
+.game-mode-wolfcha .wolfcha-stage { flex: none; overflow: visible; min-height: auto; padding: 0 !important; background: transparent !important; isolation: auto; }
+.game-mode-wolfcha .wolfcha-stage::before, .game-mode-wolfcha .wolfcha-stage::after { content: none; }
+.game-mode-wolfcha .wolfcha-topline { display: flex; justify-content: space-between; gap: 8px; }
+.game-mode-wolfcha .wolfcha-status { gap: 10px; color: var(--wolf-muted) !important; }
+.game-mode-wolfcha .wolfcha-status span { height: auto; border: 0; background: none; padding: 0; gap: 5px; }
+.game-mode-wolfcha .wolfcha-status small { font-size: 11px; font-weight: 400; color: var(--wolf-muted); }
+.game-mode-wolfcha .wolfcha-status b { font-family: Georgia,serif; font-size: 20px; font-weight: 400; color: var(--wolf-paper) !important; }
+.game-mode-wolfcha .wolfcha-top-actions { flex-shrink: 0; gap: 6px; }
+.game-mode-wolfcha .wolfcha-topline button { min-height: 44px; height: 44px; min-width: 64px; padding: 0 8px; gap: 6px; white-space: nowrap; border-radius: 4px; border: 1px solid var(--wolf-rule) !important; background: transparent !important; color: var(--wolf-muted) !important; font-size: 12px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-topline button i { font-size: 16px; }
+.game-mode-wolfcha .wolfcha-topline button[aria-expanded="true"] { color: var(--wolf-gold) !important; border-color: var(--wolf-gold) !important; }
+.wolfcha-sound-panel { padding: 14px; margin-top: 12px; border: 1px solid var(--wolf-rule); border-radius: 4px; background: #1c2020; }
+.wolfcha-sound-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; min-height: 44px; }
+.wolfcha-sound-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--wolf-gold); }
+.wolfcha-sound-row select { min-width: 0; max-width: 65%; padding: 8px; color: var(--wolf-paper); background: #131718; border: 1px solid var(--wolf-rule); border-radius: 3px; font: inherit; font-size: 12px; }
+.wolfcha-sound-row input[type="range"] { width: 55%; accent-color: var(--wolf-gold); }
+.wolfcha-sound-panel p { color: var(--wolf-muted); font-size: 11px; line-height: 1.8; margin: 8px 0; overflow-wrap: anywhere; }
+.wolfcha-sound-buttons { display: flex; gap: 8px; margin-top: 10px; }
+.wolfcha-sound-buttons button, .wolfcha-dialog-heading button { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 12px; font-size: 12px; color: var(--wolf-gold); border: 1px solid var(--wolf-rule); border-radius: 3px; background: transparent; }
+.game-mode-wolfcha .wolfcha-dialog-heading button { flex-shrink: 0; height: 32px; min-height: 32px; margin: 0; padding: 0 9px; font-family: inherit; font-size: 12px; line-height: 20px; font-weight: 400; }
+.wolfcha-sound-row select:focus-visible, .wolfcha-sound-row input:focus-visible { outline: 2px solid var(--wolf-gold); outline-offset: 2px; }
+.wolfcha-moon-scene { position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; margin: 12px 0; min-height: 156px; padding: 18px 16px; overflow: hidden; border: 1px solid var(--wolf-rule); border-radius: 5px; background: linear-gradient(90deg,#101213df 0%,#10121330 75%),var(--wolf-art) center 43% / cover; }
+.wolfcha-scene-kicker { font-size: 9px; letter-spacing: 2px; color: var(--wolf-gold); }
+.wolfcha-moon-scene > strong { font-family: "Songti SC","STSong",serif; font-size: 23px; letter-spacing: 3px; font-weight: 400; text-shadow: 0 2px 12px #000; }
+.wolfcha-own-role { display: flex; align-items: center; gap: 7px; color: var(--wolf-paper); font-size: 12px; margin-top: 6px; }
+.game-mode-wolfcha .night .wolfcha-moon-scene { background-image: linear-gradient(90deg,#0a0e13ef,#0a0e1344),var(--wolf-art); }
+.game-mode-wolfcha .wolfcha-action-pill { margin: 0 0 12px; padding: 9px 0; min-height: 38px; background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--wolf-rule) !important; border-radius: 0; color: var(--wolf-gold) !important; font-size: 12px; box-shadow: none; }
+.wolfcha-action-pill small { margin-left: auto; color: var(--wolf-muted); font-size: 11px; }
+.game-mode-wolfcha .wolfcha-center { display: flex; flex-direction: column; flex: none; padding: 0; gap: 14px; }
+.game-mode-wolfcha .wolfcha-speaker-card { display: grid; grid-template-columns: 46px minmax(0,1fr); min-height: 72px; padding: 12px 0 12px 65px; gap: 10px; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.game-mode-wolfcha .wolfcha-role-card { left: 0; width: 50px; height: 66px; border-radius: 3px; background: #eee7d6; color: #3b3529; border: 1px solid #c4ae80; box-shadow: 2px 3px 0 #c4ae8030; transform: translateY(-50%) rotate(-5deg); gap: 4px; }
+.game-mode-wolfcha .wolfcha-role-card span { color: #534b3c !important; font-size: 9px !important; font-weight: 500; }
+.game-mode-wolfcha .wolfcha-role-card i { color: #514832; font-size: 22px; text-shadow: none; }
+.game-mode-wolfcha .wolfcha-role-card b { color: #6e6557; font-size: 8px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-avatar-large { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--wolf-rule); box-shadow: none; background: #272b28; color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-speaker-card > div:last-child { min-width: 0; }
+.game-mode-wolfcha .wolfcha-speaker-card > div:last-child span { color: var(--wolf-muted) !important; font-size: 11px; font-weight: 400; letter-spacing: 1px; }
+.game-mode-wolfcha .wolfcha-speaker-card strong { color: var(--wolf-paper) !important; font-size: 17px; font-family: "Songti SC","STSong",serif; font-weight: 500; }
+.game-mode-wolfcha .wolfcha-dialog { min-height: 0; padding: 17px 16px; border-radius: 4px; border: 1px solid var(--wolf-rule) !important; background: #1c2020 !important; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.wolfcha-dialog-heading { display: flex; align-items: center; gap: 8px; }
+.wolfcha-dialog-heading i { color: var(--wolf-gold); font-size: 20px; }
+.game-mode-wolfcha .wolfcha-dialog strong { min-width: 0; overflow-wrap: anywhere; color: var(--wolf-paper) !important; font-size: 14px; font-weight: 500; }
+.game-mode-wolfcha .wolfcha-dialog p { margin: 12px 0 0; color: #dedbd1 !important; font-size: 14px; line-height: 1.85; overflow-wrap: anywhere; }
+.game-mode-wolfcha .wolfcha-dialog span { color: var(--wolf-muted) !important; font-size: 11px; white-space: normal; overflow: visible; }
+.game-mode-wolfcha .wolfcha-dialog-heading > span { display: flex; align-items: center; height: 32px; flex-shrink: 0; margin: 0 0 0 auto; padding: 0; font-size: 12px; line-height: 20px; }
+.game-mode-wolfcha .wolfcha-dialog-heading > strong { line-height: 20px; }
+.game-mode-wolfcha .wolfcha-dialog > span { display: block; border-top: 1px solid var(--wolf-rule); padding-top: 10px; margin-top: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.game-mode-wolfcha .wolfcha-user-speech-box { display: grid; grid-template-columns: minmax(0,1fr) 62px; gap: 9px; padding: 12px; border-radius: 4px; border: 1px solid var(--wolf-rule); background: #ffffff04; box-shadow: none; }
+.wolfcha-user-speech-box label { grid-column: 1 / -1; font-size: 12px; color: var(--wolf-gold); }
+.game-mode-wolfcha .wolfcha-user-speech-box textarea { width: 100%; min-height: 80px; max-height: 160px; padding: 10px; font-size: 14px; line-height: 1.6; font-weight: 400; border-radius: 3px; border: 1px solid var(--wolf-rule); background: #131718; color: var(--wolf-paper); resize: vertical; }
+.game-mode-wolfcha .wolfcha-user-speech-box textarea::placeholder { color: #98988f; }
+.game-mode-wolfcha .wolfcha-user-speech-box button { align-self: end; font-size: 12px; padding: 10px 5px; gap: 4px; }
+.wolfcha-seats-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 24px 0 12px; }
+.wolfcha-seats-heading strong { font-size: 14px; letter-spacing: 1px; font-weight: 500; }
+.wolfcha-seats-heading span { font-size: 11px; color: var(--wolf-muted); }
+.game-mode-wolfcha .wolfcha-player-rail { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); flex: none; padding: 0; gap: 6px; overflow: visible; border: 0; background: transparent !important; }
+.game-mode-wolfcha .wolfcha-player { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; min-height: 106px; padding: 9px 4px; border: 1px solid #c4ae8028 !important; border-radius: 4px; background: #ffffff04 !important; color: var(--wolf-paper) !important; box-shadow: none; }
+.game-mode-wolfcha .wolfcha-player.active { border-color: var(--wolf-gold) !important; background: #c4ae8017 !important; box-shadow: none !important; }
+.game-mode-wolfcha .wolfcha-player.speaking div { outline: 1px solid var(--wolf-gold); outline-offset: 2px; }
+.game-mode-wolfcha .wolfcha-player.dead { opacity: .5; filter: grayscale(1); }
+.game-mode-wolfcha .wolfcha-player div { width: 36px; height: 36px; margin: 0; border-radius: 50%; background: #30332d; color: var(--wolf-gold); box-shadow: none; }
+.game-mode-wolfcha .wolfcha-player strong { display: block; width: 100%; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wolf-paper) !important; font-size: 11px; font-weight: 400; }
+.game-mode-wolfcha .wolfcha-player strong em { display: block; width: auto; height: auto; margin: 0 0 3px; border-radius: 0; background: transparent; color: var(--wolf-gold); font: 11px Georgia,serif; }
+.game-mode-wolfcha .wolfcha-role { position: static; order: 3; height: auto; padding: 0; max-width: 100%; border-radius: 0; background: transparent !important; color: #aaa89c !important; font-size: 9px; font-weight: 400; white-space: nowrap; }
+.game-mode-wolfcha .wolfcha-role.wolf { color: #d3a198 !important; background: transparent !important; }
+.wolfcha-history ol { list-style: none; padding: 0; margin: 0; }
+.wolfcha-history li { border-top: 1px solid var(--wolf-rule); padding: 12px 0; }
+.wolfcha-history li strong { font-size: 12px; color: var(--wolf-gold); font-weight: 500; }
+.wolfcha-history li p { margin: 8px 0 0; }
+.wolfcha-vote-target { color: var(--wolf-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 10px; }
+.game-mode-wolfcha .wolfcha-actions { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.game-mode-wolfcha .wolfcha-actions button { font-size: 13px; min-height: 44px; }
+.game-mode-wolfcha .wolfcha-actions button.wolfcha-exile { color: #d4a499 !important; background: #a46b5810 !important; border-color: #a46b5855 !important; }
+@media (max-width: 350px) {
+    .wolfcha-scroll { padding-left: 16px; padding-right: 16px; }
+    .game-mode-wolfcha .wolfcha-footer { padding-left: 16px; padding-right: 16px; }
+    .game-mode-wolfcha .wolfcha-setup-char { min-height: 178px; padding-left: 9px; padding-right: 9px; }
+    .game-mode-wolfcha .wolfcha-player-rail { grid-template-columns: repeat(4,minmax(0,1fr)); }
+    .game-mode-wolfcha .wolfcha-opening-copy strong { font-size: 27px; }
 }
-
-.game-window.game-mode-wolfcha .wolfcha-setup::after {
-    inset: 0;
-    background:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-    background-size: 30px 30px;
-    mask-image: radial-gradient(circle at 50% 22%, #000 0 30%, transparent 66%);
-    opacity: 0.34;
+@media (max-height: 680px) {
+    .wolfcha-opening-scroll { padding-top: 12px; }
+    .wolfcha-opening-caption { margin-top: 80px; }
+    .wolfcha-moon-scene { min-height: 130px; }
 }
-
-.game-window.game-mode-wolfcha .wolfcha-opening-back,
-.game-window.game-mode-wolfcha .wolfcha-setup-back {
-    display: none !important;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero {
-    min-height: 174px;
-    padding: 22px 20px;
-    border-radius: 30px;
-    background:
-        radial-gradient(circle at 83% 20%, rgba(255,255,255,0.22), transparent 19%),
-        radial-gradient(circle at 72% 35%, rgba(142,229,255,0.20), transparent 32%),
-        linear-gradient(135deg, rgba(22,34,51,0.94), rgba(47,23,48,0.92) 56%, rgba(92,47,84,0.86)) !important;
-    overflow: hidden;
-    border: 1px solid rgba(214,239,255,0.14);
-    box-shadow: 0 24px 54px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.08);
-    backdrop-filter: blur(22px) saturate(1.12);
-    -webkit-backdrop-filter: blur(22px) saturate(1.12);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero::before {
-    content: '';
-    position: absolute;
-    right: -68px;
-    top: -54px;
-    width: 190px;
-    height: 190px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,0.30), rgba(185,114,180,0.18) 42%, transparent 68%);
-    filter: blur(1px);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero::after {
-    content: '';
-    position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 14px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(203,238,255,0.42), transparent);
-    opacity: 0.78;
-}
-
-.wolfcha-setup-sigil {
-    position: absolute;
-    right: 18px;
-    top: 18px;
-    width: 52px;
-    height: 52px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.095);
-    border: 1px solid rgba(223,245,255,0.16);
-    color: #dff8ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 23px;
-    box-shadow: 0 0 26px rgba(113,218,255,0.13), inset 0 0 20px rgba(255,255,255,0.035);
-}
-
-.wolfcha-setup-omens {
-    position: absolute;
-    left: 22px;
-    right: 22px;
-    bottom: 28px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    opacity: 0.48;
-}
-
-.wolfcha-setup-omens i {
-    height: 2px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, rgba(211,239,255,0.72), transparent);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero span,
-.game-window.game-mode-wolfcha .wolfcha-user-card span,
-.game-window.game-mode-wolfcha .wolfcha-setup-char span {
-    color: rgba(211,226,244,0.62) !important;
-    font-weight: 900;
-    letter-spacing: 0.04em;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero > span {
-    position: relative;
-    z-index: 1;
-    color: rgba(193,226,255,0.72) !important;
-    font-weight: 950;
-    letter-spacing: 0.16em;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero strong {
-    position: relative;
-    z-index: 1;
-    max-width: 242px;
-    margin-top: 12px;
-    color: #fff !important;
-    font-size: 30px;
-    line-height: 1.04;
-    font-weight: 960;
-    text-shadow: 0 12px 32px rgba(107,211,255,0.22);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-hero p {
-    position: relative;
-    z-index: 1;
-    max-width: 282px;
-    margin-top: 12px;
-    color: rgba(232,243,255,0.74) !important;
-    font-size: 13px;
-    line-height: 1.62;
-    font-weight: 720;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-user-card,
-.game-window.game-mode-wolfcha .wolfcha-setup-char {
-    min-height: 82px;
-    margin-top: 11px;
-    border: 1px solid rgba(211,238,255,0.13) !important;
-    border-radius: 24px;
-    background:
-        linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.055)),
-        rgba(12,18,30,0.62) !important;
-    color: #f7fbff !important;
-    box-shadow: 0 18px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.045);
-    backdrop-filter: blur(18px) saturate(1.12);
-    -webkit-backdrop-filter: blur(18px) saturate(1.12);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-user-card div,
-.game-window.game-mode-wolfcha .wolfcha-setup-avatar {
-    border-radius: 19px;
-    background: rgba(238,247,255,0.11) !important;
-    border: 1px solid rgba(222,244,255,0.13);
-    color: rgba(238,247,255,0.66);
-    box-shadow: 0 11px 22px rgba(0,0,0,0.22);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-user-card strong,
-.game-window.game-mode-wolfcha .wolfcha-setup-char strong {
-    color: #f8fbff !important;
-    font-weight: 930;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-user-card em {
-    padding: 6px 10px;
-    background: rgba(255,255,255,0.08) !important;
-    color: rgba(232,243,255,0.66) !important;
-    font-weight: 900;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-head {
-    margin: 18px 2px 9px;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-head strong {
-    color: #f8fbff !important;
-    font-weight: 940;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-head span {
-    color: rgba(211,226,244,0.58) !important;
-    font-weight: 880;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-char {
-    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-char:active {
-    transform: scale(0.985);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-char.selected {
-    border-color: rgba(132,226,255,0.46) !important;
-    background:
-        linear-gradient(135deg, rgba(135,224,255,0.18), rgba(255,169,226,0.08)),
-        rgba(11,18,32,0.74) !important;
-    box-shadow: 0 0 0 1px rgba(119,222,255,0.08), 0 18px 38px rgba(35,151,206,0.16), inset 0 0 26px rgba(117,222,255,0.07);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-char > i {
-    color: rgba(211,226,244,0.46) !important;
-    font-size: 23px;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-char.selected > i {
-    color: #8fefff !important;
-    text-shadow: 0 0 18px rgba(116,232,255,0.58);
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-empty {
-    border-radius: 24px;
-    background: rgba(255,255,255,0.07) !important;
-    border: 1px dashed rgba(221,244,255,0.18) !important;
-    color: rgba(232,243,255,0.62) !important;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-actions {
-    background: linear-gradient(180deg, rgba(7,10,17,0), rgba(7,10,17,0.92) 36%, #070a11) !important;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-actions button {
-    border-radius: 18px;
-    background: rgba(255,255,255,0.10) !important;
-    color: rgba(247,251,255,0.86) !important;
-    font-weight: 900;
-    box-shadow: 0 14px 28px rgba(0,0,0,0.18);
-    border: 1px solid rgba(211,238,255,0.12) !important;
-}
-
-.game-window.game-mode-wolfcha .wolfcha-setup-actions button.primary {
-    background: linear-gradient(135deg, #e6f9ff, #9fefff 48%, #e8d8ff) !important;
-    color: #08101a !important;
-    box-shadow: 0 18px 36px rgba(105,222,255,0.24);
-}
-

@@ -14,6 +14,8 @@
         'ri-sofa-line': '<path d="M6 12V7c0-2 12-2 12 0v5M4 10c-3 0-3 6 0 6h16c3 0 3-6 0-6M4 16v4h16v-4M6 20v2m12-2v2M4 10c2 0 2 4 2 4h12s0-4 2-4"/>',
         'ri-hotel-bed-line': '<path d="M3 18V7m18 11V7M3 15h18v5M3 10h18M5 10V6h6v4m2 0V6h6v4"/>',
         'ri-gamepad-line': '<path d="M7 7h10c4 0 6 12 3 13l-5-4H9l-5 4C1 19 3 7 7 7zM7 10v5m-2.5-2.5h5M16 11h.1M18 14h.1"/>',
+        'ri-fridge-line': '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 10h14M8 5v2m0 6v4"/>',
+        'ri-restaurant-line': '<path d="M5 3v6c0 3 6 3 6 0V3M8 3v19M19 3c-5 2-5 9 0 9m0-9v19"/>',
         'ri-sparkling-line': '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5zM20 2v4m-2-2h4"/>',
         'ri-book-open-line': '<path d="M12 6C8 3 3 4 3 4v15s5-1 9 2c4-3 9-2 9-2V4s-5-1-9 2v15"/>',
         'ri-focus-3-line': '<path d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5"/><circle cx="12" cy="12" r="3"/>',

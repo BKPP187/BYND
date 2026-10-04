@@ -546,7 +546,8 @@ function normalizeWechatCharacterVoiceBinding(binding) {
     return {
         provider,
         voiceModel: String(source.voiceModel || source.model || '').trim().slice(0, 160),
-        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240)
+        voiceId: String(source.voiceId || source.voice || source.referenceId || '').trim().slice(0, 240),
+        ...(source.voiceName ? { voiceName: String(source.voiceName).trim().slice(0, 160) } : {})
     };
 }
 
@@ -554,20 +555,26 @@ function queueWechatCharacterVoiceAudio(char, msg) {
     if (!char || !msg || msg.isMe || msg.type !== 'voice' || msg.audioUrl) return;
     const binding = normalizeWechatCharacterVoiceBinding(char.chatConfig?.voiceBinding);
     if (!binding || typeof requestCharacterVoiceAudio !== 'function') return;
+    if (typeof isCharacterVoiceConfigured !== 'function' || !isCharacterVoiceConfigured(char)) return;
     const speechText = String(msg.transcript || msg.content || '').trim();
     if (!speechText) return;
     window._wechatCharacterVoicePending = window._wechatCharacterVoicePending || new WeakSet();
     if (window._wechatCharacterVoicePending.has(msg)) return;
     window._wechatCharacterVoicePending.add(msg);
+    msg.voiceAudioState = 'pending';
+    delete msg.voiceAudioError;
 
     // Chat character audio may only use the character's paid/custom binding. Never fall back to system TTS here.
     let synthesizedState = null;
-    Promise.resolve(requestCharacterVoiceAudio(speechText, char)).then(result => {
-        if (!result?.audioUrl || !Array.isArray(char.history) || !char.history.includes(msg)) return;
+    return Promise.resolve().then(() => requestCharacterVoiceAudio(speechText, char)).then(result => {
+        if (!Array.isArray(char.history) || !char.history.includes(msg)) return;
+        if (!result?.audioUrl) throw new Error('语音服务没有返回音频');
         const previousDuration = msg.duration;
         synthesizedState = { previousDuration };
         msg.audioUrl = result.audioUrl;
         msg.audioMimeType = result.mimeType || '';
+        delete msg.voiceAudioState;
+        delete msg.voiceAudioError;
         msg.duration = Math.max(1, Math.min(5999, Number(result.duration) || Number(msg.duration) || 1));
         return Promise.resolve(saveCharactersToStorage()).then(saved => {
             if (saved === false) {
@@ -579,16 +586,42 @@ function queueWechatCharacterVoiceAudio(char, msg) {
             if (window.currentChatCharId === char.id) refreshChatView(char);
             renderChatList();
         });
-    }).catch(error => {
+    }).catch(async error => {
+        if (!Array.isArray(char.history) || !char.history.includes(msg)) return;
         if (synthesizedState) {
             delete msg.audioUrl;
             delete msg.audioMimeType;
             msg.duration = synthesizedState.previousDuration;
         }
-        console.warn('角色付费音色生成失败，保留文字语音气泡：', error);
+        let reason = String(error?.message || '语音请求失败');
+        const key = typeof getCharacterVoiceApi === 'function' ? getCharacterVoiceApi(char)?.apiKey : '';
+        if (key) reason = reason.split(key).join('[已隐藏]');
+        if (/Failed to fetch|NetworkError/i.test(reason)) reason = '无法连接语音服务，请检查网络和接口地址';
+        msg.voiceAudioState = 'failed';
+        msg.voiceAudioError = reason.slice(0, 220);
+        console.warn('角色语音生成失败：', msg.voiceAudioError);
+        if (!synthesizedState) {
+            try {
+                if (await saveCharactersToStorage() === false) msg.voiceAudioError += '；失败状态未能保存';
+            } catch (_) { msg.voiceAudioError += '；失败状态未能保存'; }
+        }
+        if (window.currentChatCharId === char.id) {
+            refreshChatView(char);
+            if (typeof showWechatToast === 'function') showWechatToast(`语音生成失败：${msg.voiceAudioError}`);
+        }
+        renderChatList();
     }).finally(() => {
         window._wechatCharacterVoicePending?.delete(msg);
     });
+}
+
+function retryWechatCharacterVoiceAudio(msgIndex) {
+    const char = getCurrentChatChar();
+    const msg = char?.history?.[msgIndex];
+    if (!msg || msg.isMe || msg.type !== 'voice' || msg.audioUrl) return;
+    const task = queueWechatCharacterVoiceAudio(char, msg);
+    if (task && window.currentChatCharId === char.id) refreshChatView(char);
+    return task;
 }
 
 function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
@@ -666,9 +699,9 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         if (aiMsg.type === 'voice' && !aiMsg.isMe) {
             queueWechatCharacterVoiceAudio(char, aiMsg);
         }
-        if (aiMsg.type === 'poke') {
-            triggerWechatScreenFeedback('poke');
-        } else if (aiMsg.type === 'screen_shake') {
+        if (shouldRefreshActiveChat && aiMsg.type === 'poke') {
+            triggerWechatScreenFeedback('poke', aiMsg);
+        } else if (shouldRefreshActiveChat && aiMsg.type === 'screen_shake') {
             triggerWechatScreenFeedback('shake');
         }
         if (shouldRefreshActiveChat) refreshChatView(char);

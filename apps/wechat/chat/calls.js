@@ -933,7 +933,13 @@ function setWechatCallMode(mode) {
 
 function setWechatCallTyping(show) {
     const typing = document.getElementById('wc-call-typing');
-    if (typing) typing.classList.toggle('hidden', !show);
+    if (!typing) return;
+    const call = window._wechatActiveCall;
+    const audio = window.ByndWechatCallAudio;
+    const speaking = audio?.isSpeaking(call) || false;
+    typing.dataset.replyPending = show ? 'true' : 'false';
+    typing.textContent = speaking || audio?.isEnabled(call) ? '对方正在说话…' : '对方正在输入中......';
+    typing.classList.toggle('hidden', !show && !speaking);
 }
 
 function refreshWechatCallControls() {
@@ -996,6 +1002,7 @@ function addWechatCallLine(role, text) {
     item.innerHTML = wcEscapeHtml(content).replace(/\n/g, '<br>');
     log.appendChild(item);
     scrollWechatCallLogToBottom(item);
+    if (role === 'assistant' && call.acceptedAt && !call.ended) return window.ByndWechatCallAudio?.enqueue(call, content, item);
 }
 
 function scrollWechatCallLogToBottom(item = null) {
@@ -1107,6 +1114,7 @@ async function startWechatCall(type) {
     };
 
     setupWechatCallScreen(window._wechatActiveCall, char);
+    window.ByndWechatCallAudio?.unlock(window._wechatActiveCall);
     setWechatCallStatus(`正在邀请对方加入${label}...`);
     screen.classList.remove('hidden');
 
@@ -1114,6 +1122,7 @@ async function startWechatCall(type) {
 }
 
 function setupWechatCallScreen(call, char) {
+    window.ByndWechatCallAudio?.prepare(call);
     ensureWechatCallScreen();
     const config = char.chatConfig || {};
     const bg = call.type === 'videoCall' ? (config.videoCallBg || config.imageReference || char.avatar || DEFAULT_AVATAR) : (char.avatar || DEFAULT_AVATAR);
@@ -1121,7 +1130,9 @@ function setupWechatCallScreen(call, char) {
     mountWechatCallAvatarStack(document.getElementById('wc-call-avatar-stack'), char, call, 'wc-call-top-avatars');
     document.getElementById('wc-call-name').textContent = getWechatCharDisplayName(char);
     document.getElementById('wc-call-log').innerHTML = '';
-    document.getElementById('wc-call-input').value = '';
+    const callInput = document.getElementById('wc-call-input');
+    callInput.value = '';
+    callInput.disabled = false;
     const screen = ensureWechatCallScreen();
     screen.classList.toggle('is-video-call', call.type === 'videoCall');
     const camera = document.getElementById('wc-call-camera-preview');
@@ -1157,7 +1168,8 @@ async function requestWechatCallDecision(call) {
             content: `当前用户正在给你发起${label}。你必须以角色身份决定是否接听。只回复一种格式：[接听]一句接通后的开场白，或 [拒绝:一句拒绝理由]。不要解释格式。`
         });
         messages.push({ role: 'user', content: `我正在给你打${label}，你接吗？` });
-        const result = await callChatApi(messages, { usageFeature: 'chat', usageChar: char });
+        call.requestController = new AbortController();
+        const result = await callChatApi(messages, { usageFeature: 'chat', usageChar: char, signal: call.requestController.signal });
         if (window._wechatActiveCall?.id !== call.id || call.ended) return;
 
         if (!result.ok) {
@@ -1282,6 +1294,7 @@ function acceptWechatIncomingCall() {
     const call = window._wechatIncomingCall
         || (window._wechatActiveCall?.direction === 'incoming' && !window._wechatActiveCall.acceptedAt ? window._wechatActiveCall : null);
     if (!call || call.ended) return;
+    window.ByndWechatCallAudio?.unlock(call);
     const char = window.myCharacters.find(c => c.id === call.charId);
     if (char) {
         if (typeof openApp === 'function') openApp('wechat');
@@ -1361,14 +1374,18 @@ async function sendWechatCallMessage() {
                 messages.push({ role: line.role, content: line.content });
             }
         });
-        const result = await callChatApi(messages, { usageFeature: 'chat', usageChar: char });
+        call.requestController = new AbortController();
+        const result = await callChatApi(messages, { usageFeature: 'chat', usageChar: char, signal: call.requestController.signal });
         if (window._wechatActiveCall?.id !== call.id || call.ended) return;
         if (result.ok) {
             const reply = parseWechatCallEndReply(result.content, call);
+            setWechatCallTyping(false);
             reply.message.split(/\|{2,}/).map(s => s.trim()).filter(s => s && !/^[|‖｜\s]+$/.test(s)).forEach(part => {
                 addWechatCallLine('assistant', part);
             });
             if (reply.ended && window._wechatActiveCall?.id === call.id && !call.ended) {
+                await window.ByndWechatCallAudio?.drain(call);
+                if (window._wechatActiveCall?.id !== call.id || call.ended) return;
                 setWechatCallStatus('对方已挂断');
                 endWechatCall('对方已挂断', reply.message);
                 return;
@@ -1422,6 +1439,9 @@ function appendWechatUserEndedCallEvent(char, call, reason = '') {
         hiddenFromChat: true,
         internalEvent: true,
         eventKind: 'user_ended_call',
+        callId: call.id,
+        callTranscript: (call.lines || []).filter(line => line.role === 'user' || line.role === 'assistant')
+            .slice(-6).map(line => ({ role: line.role, content: String(line.content || '').slice(0, 360) })),
         callType: call.type,
         callTimestamp: call.startedAt || '',
         content: `用户刚刚主动挂断了和你的${label}${duration ? `，通话持续约${formatWechatDuration(duration)}` : ''}${reason ? `。挂断前最后的通话内容：${reason}` : ''}。请按你的人设和当前关系，用普通文字消息自然回应这件事；你知道是用户挂断，不要误以为是你拒绝或你主动挂断，也不要发送语音消息。`,
@@ -1436,6 +1456,8 @@ function endWechatCall(status = '已结束', reason = '') {
     const char = window.myCharacters.find(c => c.id === call.charId);
     const userEndedConnectedCall = status === '已结束' && call.acceptedAt;
     call.ended = true;
+    window.ByndWechatCallAudio?.stop(call);
+    call.requestController?.abort();
     clearInterval(call.timerId);
     const recordReason = userEndedConnectedCall && !reason ? '用户挂断了电话' : reason;
     addWechatCallRecord(call, call.acceptedAt ? status : '已取消', recordReason);
@@ -1443,7 +1465,8 @@ function endWechatCall(status = '已结束', reason = '') {
         appendWechatUserEndedCallEvent(char, call, reason);
         queueWechatAutoReplyToChar(char.id, 0, {
             background: window.currentChatCharId !== char.id,
-            textOnly: true
+            textOnly: true,
+            replyToCallId: call.id
         });
     }
     closeWechatCallScreen(call.id);
@@ -1454,6 +1477,8 @@ function closeWechatCallScreen(callId) {
     if (call && callId && call.id !== callId) return;
     if (call) {
         call.ended = true;
+        window.ByndWechatCallAudio?.stop(call);
+        call.requestController?.abort();
         clearInterval(call.timerId);
     }
     const screen = document.getElementById('wc-call-screen');

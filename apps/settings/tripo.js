@@ -113,7 +113,7 @@
         status('正在查询 Tripo API 余额…');
         try {
             const result = await testConnection(draft());
-            if (current === revision) status(result.balance === 0 ? '连接成功 · API 余额 0（暂无生成额度）。' : '连接成功 · 可用 ' + result.balance.toLocaleString('zh-CN') + ' 积分。');
+            if (current === revision) status(result.balance === 0 ? '连接成功 · API 返回余额 0；请在 Billing 核对免费试用积分及有效期。' : '连接成功 · 可用 ' + result.balance.toLocaleString('zh-CN') + ' 积分。');
         } catch (error) { if (current === revision) status(error.message, true); }
         finally { pending = false; el('test').disabled = false; }
     }

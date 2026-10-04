@@ -10,7 +10,7 @@ const { scriptParts, wechatParts, styleParts, forumParts, comicParts, settingsPa
 const root = path.resolve(__dirname, '..');
 
 function build(file, parts) {
-    const contents = parts.map(part => fs.readFileSync(path.join(root, part), 'utf8')).join('');
+    const contents = parts.map(part => fs.readFileSync(path.join(root, part), 'utf8').replace(/\r\n/g, '\n')).join('');
     fs.writeFileSync(path.join(root, file), contents);
 }
 

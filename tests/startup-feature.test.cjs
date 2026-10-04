@@ -36,6 +36,8 @@ function createPage(savedTheme = '{}', { storageError = false, displayMode = 'br
         querySelectorAll: selector => selector === 'link[data-bynd-core-style]' ? stylesheets : []
     };
     const window = {
+        addEventListener: document.addEventListener,
+        dispatchEvent: event => (listeners.get(event.type) || []).forEach(handler => handler(event)),
         navigator: { standalone: iosStandalone },
         ByndAndroid: androidApp ? {} : undefined,
         location: { search: '?bynd-intro=first' },

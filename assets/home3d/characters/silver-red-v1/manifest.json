@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "silver-red-v1",
+  "sourceHash": "a0165db1717342059d2bfc758e6c91241888544cf817e70cc94979fa49089d88",
+  "source": "User-authorized Tripo generation and HD texturing",
+  "forward": "+X",
+  "height": 1.55,
+  "rig": "Model-specific runtime starter skeleton; deformation requires visual review",
+  "levels": [
+    {
+      "name": "far",
+      "bytes": 1711404,
+      "sha256": "1c6880edd31f7fd3323982b58cd54ddf1ebada827b559d207ba56678514492f4",
+      "triangles": 25000,
+      "colorSize": 1024
+    },
+    {
+      "name": "middle",
+      "bytes": 4142088,
+      "sha256": "434706fe19d41378f8f20adc4f62f0f23c8732bf3225e26dab975db6a3efa386",
+      "triangles": 70000,
+      "colorSize": 2048
+    },
+    {
+      "name": "near",
+      "bytes": 9519772,
+      "sha256": "d7ba5b1f15e12afa266cd52e789cedf2e2b709561200fe0d871eecd89bb8bd0f",
+      "triangles": 180000,
+      "colorSize": 4096
+    }
+  ]
+}
