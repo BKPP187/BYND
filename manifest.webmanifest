@@ -2,7 +2,7 @@
   "name": "Beyond Screen",
   "short_name": "BYND",
   "description": "BYND phone-style AI companion app.",
-  "start_url": "/?v=1.1.844",
+  "start_url": "/?v=1.1.874",
   "scope": "/",
   "display": "standalone",
   "display_override": [

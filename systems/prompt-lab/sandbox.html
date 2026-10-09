@@ -4,7 +4,7 @@ Object.defineProperty(window, 'localStorage', { value: { getItem: () => null, se
 const RealDate = Date;
 window.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : [1790764800000])); } static now() { return 1790764800000; } };
 </script>
-<script src="engine.js?v=1.1.844"></script>
-<script src="../../core/api/chat-api.js?v=1.1.844"></script>
-<script src="../agent-runtime/decider.js?v=1.1.844"></script>
-<script src="replay.js?v=1.1.844"></script>
+<script src="engine.js?v=1.1.874"></script>
+<script src="../../core/api/chat-api.js?v=1.1.874"></script>
+<script src="../agent-runtime/decider.js?v=1.1.874"></script>
+<script src="replay.js?v=1.1.874"></script>
