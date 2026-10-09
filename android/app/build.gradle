@@ -40,8 +40,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 272
-        versionName '1.1.882'
+        versionCode 273
+        versionName '1.1.883'
         buildConfigField 'boolean', 'BYND_REQUIRE_LICENSE', requireLicense
         buildConfigField 'boolean', 'BYND_ENABLE_UPDATES', enableUpdates
         buildConfigField 'String', 'BYND_PUBLIC_KEYS', javaString(publicKeys)
