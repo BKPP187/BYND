@@ -130,12 +130,19 @@ async function handleNeteaseApiDirect(path, url, request) {
     target.searchParams.set('type', '1');
     target.searchParams.set('limit', String(clampInteger(params.get('limit'), 1, 50, 30)));
     target.searchParams.set('offset', String(clampInteger(params.get('offset'), 0, 100000, 0)));
-    const json = await fetchNeteasePlainJson(target, cookie);
-    if (Number(json?.code) !== 200) return json;
-    if (!Array.isArray(json?.result?.songs) && Number(json?.result?.songCount) !== 0) {
-      return { code: 502, message: 'invalid music search response' };
-    }
-    return json;
+    let json;
+    try { json = await fetchNeteasePlainJson(target, cookie); } catch (_) {}
+    if (isValidNeteaseSearchResult(json)) return json;
+    // Some edge regions receive an HTML response from the plain web search.
+    // Reuse the encrypted transport already used by song details and playlists.
+    ({ json } = await neteaseWeapiRequest('/cloudsearch/pc', {
+      s: keywords,
+      type: 1,
+      limit: Number(target.searchParams.get('limit')),
+      offset: Number(target.searchParams.get('offset')),
+      total: true
+    }, cookie));
+    return isValidNeteaseSearchResult(json) ? json : { code: 502, message: 'music search service unavailable' };
   }
 
   if (path === '/login/qr/key') {
@@ -267,6 +274,10 @@ async function fetchNeteaseSongDetails(ids, cookie) {
     if (Array.isArray(json?.songs)) songs.push(...json.songs);
   }
   return { code: 200, songs };
+}
+
+function isValidNeteaseSearchResult(json) {
+  return Number(json?.code) === 200 && (Array.isArray(json?.result?.songs) || Number(json?.result?.songCount) === 0);
 }
 
 async function neteasePlainApiRequest(path, data, cookie) {

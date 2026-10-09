@@ -37,6 +37,26 @@ test('NetEase worker searches song metadata with bounded parameters and keeps un
     } finally { global.fetch = original; }
 });
 
+test('NetEase worker falls back to its encrypted transport when edge web search returns HTML', async () => {
+    const { default: worker } = await workerModule;
+    const original = global.fetch;
+    const calls = [];
+    global.fetch = async (target, options) => {
+        calls.push({ target: new URL(target), options });
+        return calls.length === 1 ? new Response('<html>unavailable</html>') : Response.json({ code: 200, result: { songs: [ppSong], songCount: 1 } });
+    };
+    try {
+        const response = await worker.fetch(new Request('https://bynd.ccwu.cc/netease/api/search?keywords=pp&limit=30'), {});
+        assert.equal((await response.json()).result.songs[0].id, ppSong.id);
+        assert.equal(calls.length, 2);
+        assert.equal(calls[1].target.origin, 'https://music.163.com');
+        assert.equal(calls[1].target.pathname, '/weapi/cloudsearch/pc');
+        assert.equal(calls[1].options.method, 'POST');
+        const body = new URLSearchParams(calls[1].options.body);
+        assert.ok(body.get('params') && body.get('encSecKey'));
+    } finally { global.fetch = original; }
+});
+
 function setup() {
     const nodes = {
         'wc-compose-music-query': { value: '如何' },

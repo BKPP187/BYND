@@ -6,4 +6,6 @@
 
 本次服务端修改在 `workers/bynd-netease-audio-worker.js`：添加 `/search` 和 `/cloudsearch` 白名单与歌曲搜索处理。上线必须单独部署 `workers/wrangler-netease-audio.toml` 对应的 `bynd-netease-audio` Worker；只更新网页无法消除旧 Worker 返回的 `403 netease api path not allowed`。不需要更换音频票据密钥或新增路由。
 
+普通网页搜索在部分 Cloudflare 节点会返回 HTML，代理会自动改用现有 WEAPI 加密请求访问 `/cloudsearch/pc`。两种响应都要验证歌曲列表或明确的零结果数量，不能把 HTTP 200 的 HTML 当成成功。
+
 验证：`node --test tests/music-search.test.cjs`；`node scripts/check-music-search-browser.cjs` 会用本地 Worker 调用真实曲库搜索《如何》、`PP Krit` 和 `pp`，并在浏览器中验证手机窄屏、音源失败及发送限制。测试使用独立浏览器会话，不读取用户的网易云登录状态。
