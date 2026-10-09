@@ -75,21 +75,49 @@ test('native status bar responds to visibility and wallpaper, and stays readable
     const before = calls.length; p.mutate(); assert.equal(calls.length, before);
 });
 
-test('installed PWA requests fullscreen while preserving fallback and iOS safe areas without forcing a page tap', () => {
+test('installed Android PWA keeps its own indicators in actual fullscreen and preserves iOS safe areas', () => {
     const manifest = JSON.parse(fs.readFileSync('manifest.webmanifest', 'utf8'));
     assert.equal(manifest.display, 'fullscreen');
     assert.deepEqual(manifest.display_override, ['fullscreen', 'standalone']);
     const source = fs.readFileSync('systems/proactive-notifications/notifications.js', 'utf8');
-    for (const [mode, isIOS] of [['fullscreen', false], ['standalone', false], ['browser', false], ['fullscreen', true]]) {
+    for (const [mode, isIOS, actualFullscreen] of [['fullscreen', false, false], ['standalone', false, false], ['standalone', false, true], ['browser', false, false], ['fullscreen', true, false]]) {
         const events = [];
         const classes = new Set(['mobile-runtime', ...(isIOS ? ['bynd-ios'] : [])]);
         const p = vm.createContext({ window: { matchMedia: query => ({ matches: query === `(display-mode: ${mode})`, addEventListener() {} }), navigator: {} },
-            document: { documentElement: { classList: { contains: name => classes.has(name), toggle: (name, on) => on ? classes.add(name) : classes.delete(name) } },
+            document: { fullscreenElement: actualFullscreen ? {} : null, documentElement: { classList: { contains: name => classes.has(name), toggle: (name, on) => on ? classes.add(name) : classes.delete(name) } },
                 addEventListener: name => events.push(name) }, ensureByndServiceWorker() {} });
         vm.runInContext(source.slice(source.indexOf('function isByndMobileRuntime()'), source.indexOf('function cleanupByndServiceWorkerIfIdle()')), p);
         vm.runInContext('initByndFullscreenRuntime()', p);
-        assert.equal(classes.has('bynd-native-statusbar'), isIOS || mode !== 'fullscreen');
-        assert.equal(classes.has('bynd-display-fullscreen'), !isIOS && mode === 'fullscreen');
+        assert.equal(classes.has('bynd-native-statusbar'), isIOS || (mode !== 'fullscreen' && !actualFullscreen));
+        assert.equal(classes.has('bynd-display-fullscreen'), !isIOS && (mode === 'fullscreen' || actualFullscreen));
+        assert.equal(events.includes('pointerup'), !isIOS && mode !== 'browser');
         assert.ok(!events.includes('click') && !events.includes('touchend'));
+    }
+});
+
+test('installed fullscreen recovery shows web indicators on success and preserves fallback on rejection', async () => {
+    const source = fs.readFileSync('systems/proactive-notifications/notifications.js', 'utf8');
+    for (const failure of [null, 'reject', 'throw', 'unsupported']) {
+        const classes = new Set(['mobile-runtime']);
+        const events = new Map();
+        let requestedOptions;
+        const document = {
+            documentElement: { classList: { contains: name => classes.has(name), toggle: (name, on) => on ? classes.add(name) : classes.delete(name) } },
+            addEventListener: (name, handler) => events.set(name, handler)
+        };
+        if (failure !== 'unsupported') document.documentElement.requestFullscreen = options => {
+            requestedOptions = options;
+            if (failure === 'throw') throw new Error('fullscreen unavailable');
+            if (failure === 'reject') return Promise.reject(new Error('fullscreen denied'));
+            document.fullscreenElement = document.documentElement;
+            return Promise.resolve();
+        };
+        const context = vm.createContext({ window: { matchMedia: query => ({ matches: query === '(display-mode: standalone)', addEventListener() {} }), navigator: {} }, document, ensureByndServiceWorker() {} });
+        vm.runInContext(source.slice(source.indexOf('function isByndMobileRuntime()'), source.indexOf('function cleanupByndServiceWorkerIfIdle()')), context);
+        vm.runInContext('initByndFullscreenRuntime()', context);
+        assert.equal(await events.get('pointerup')(), !failure);
+        if (failure !== 'unsupported') assert.equal(requestedOptions.navigationUI, 'hide');
+        assert.equal(classes.has('bynd-native-statusbar'), !!failure);
+        assert.equal(classes.has('bynd-display-fullscreen'), !failure);
     }
 });

@@ -70,7 +70,7 @@ function isByndAndroidAppRuntime() {
 
 function markByndDisplayMode() {
     const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
-    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches;
+    const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches || !!document.fullscreenElement || !!document.webkitFullscreenElement;
     const iosStandalone = window.navigator?.standalone === true;
     const isIOS = document.documentElement.classList.contains('bynd-ios');
     document.documentElement.classList.toggle('bynd-display-standalone', !!standalone || iosStandalone);
@@ -83,11 +83,22 @@ function markByndDisplayMode() {
 }
 
 function tryByndFullscreen() {
-    if (isByndAndroidAppRuntime()) return;
-    if (!isByndMobileRuntime() || document.fullscreenElement) return;
+    if (isByndAndroidAppRuntime() || document.documentElement.classList.contains('bynd-ios')) return Promise.resolve(false);
+    if (!isByndMobileRuntime()) return Promise.resolve(false);
+    if (document.fullscreenElement || document.webkitFullscreenElement) return Promise.resolve(true);
     const target = document.documentElement;
     const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
-    if (request) Promise.resolve(request.call(target)).then(markByndDisplayMode).catch(markByndDisplayMode);
+    if (!request) return Promise.resolve(false);
+    try {
+        const result = target.requestFullscreen ? request.call(target, { navigationUI: 'hide' }) : request.call(target);
+        return Promise.resolve(result).then(() => {
+            markByndDisplayMode();
+            return !!(document.fullscreenElement || document.webkitFullscreenElement);
+        }).catch(() => { markByndDisplayMode(); return false; });
+    } catch (_) {
+        markByndDisplayMode();
+        return Promise.resolve(false);
+    }
 }
 
 function initByndFullscreenRuntime() {
@@ -102,7 +113,12 @@ function initByndFullscreenRuntime() {
     window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
     document.addEventListener('fullscreenchange', markByndDisplayMode);
     document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
-    // Let the installation manifest choose fullscreen; normal page taps must not force it.
+    // Older WebAPKs can keep an inset window despite the manifest. Only an installed
+    // Android page may use its first interaction to request the browser's full viewport.
+    const installed = window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: fullscreen)').matches;
+    if (isByndMobileRuntime() && !document.documentElement.classList.contains('bynd-ios') && installed) {
+        document.addEventListener('pointerup', tryByndFullscreen, { once: true, passive: true });
+    }
 }
 
 function cleanupByndServiceWorkerIfIdle() {
@@ -115,7 +131,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.883').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.884').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

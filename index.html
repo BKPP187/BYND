@@ -72,7 +72,7 @@
         html.bynd-web-loading body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; background: #ddd; }
         html.bynd-web-loading > body > .phone-container { box-sizing: border-box; width: 375px; height: 812px; position: relative; overflow: hidden; border: 8px solid #111; border-radius: 40px; box-shadow: 0 30px 60px #0005; }
         html.bynd-web-loading > body > .phone-container > :not(#bynd-resource-loading) { visibility: hidden; }
-        html.bynd-web-loading.mobile-runtime body { display: block; padding-top: env(safe-area-inset-top, 0px); }
+        html.bynd-web-loading.mobile-runtime body { display: block; padding-top: env(safe-area-inset-top, 0px); background: var(--bynd-mobile-bg, #f8f8f8); }
         html.bynd-web-loading.mobile-runtime > body > .phone-container { --bynd-header-safe-top: 0px; width: 100vw; height: calc(100dvh - env(safe-area-inset-top, 0px)); border: 0; border-radius: 0; box-shadow: none; }
         html.bynd-web-loading.mobile-runtime.bynd-ios-pwa > body > .phone-container { height: calc(100lvh - env(safe-area-inset-top, 0px)); }
         html.bynd-web-loading.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding-top: 0; }
@@ -159,27 +159,27 @@
             };
         })();
     </script>
-    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="manifest" href="manifest.webmanifest?v=1.1.883">
-    <link rel="apple-touch-icon" sizes="180x180" href="bynd-icon-180.png?v=1.1.883">
-    <link rel="icon" href="bynd-icon.png?v=1.1.883" type="image/png">
+    <link rel="stylesheet" href="ui/components/experience.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="manifest" href="manifest.webmanifest?v=1.1.884">
+    <link rel="apple-touch-icon" sizes="180x180" href="bynd-icon-180.png?v=1.1.884">
+    <link rel="icon" href="bynd-icon.png?v=1.1.884" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'" data-bynd-entry-required>
-    <link rel="stylesheet" href="apps/study/study.css?v=1.1.883" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.883" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="systems/prompt-lab/lab.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
-    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.883" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="ui/theme/style.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'" data-bynd-entry-required>
+    <link rel="stylesheet" href="apps/study/study.css?v=1.1.884" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/couple-theme.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/ui/agent.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/api-ticket.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/usage/bill-app.css?v=1.1.884" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/character-pet.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/monitor/workspace.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/forum/ui/forum.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/agent-runtime/jev.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="systems/prompt-lab/lab.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/wechat/character/character-tools.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/role-tools/role-tools.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/moon/moon.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="core/api/mcp-refresh.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
+    <link rel="stylesheet" href="apps/settings/version-letter.css?v=1.1.884" data-bynd-core-style media="print" onload="this.media='all'" onerror="this.media='all'">
 </head>
 <body>
     <div class="phone-container">
@@ -1959,7 +1959,7 @@ FOREVER FREE</p></section>
 
                 <!-- 版本号 -->
                 <div class="set-version">
-                    Beyond Screen v1.1.883
+                    Beyond Screen v1.1.884
                 </div>
             </div>
         </div>
@@ -2491,26 +2491,26 @@ FOREVER FREE</p></section>
                     <button type="button" class="wc-voice-btn" onclick="toggleWechatVoiceInputMode()" aria-label="语音">
                         <svg class="wc-douyin-official-icon wc-douyin-voice-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M17 25.8994C18.1046 25.8994 19 25.004 19 23.8994C19 22.7948 18.1046 21.8994 17 21.8994C15.8954 21.8994 15 22.7948 15 23.8994C15 25.004 15.8954 25.8994 17 25.8994Z" fill="currentColor"/><path d="M21.9497 28.8492C23.2165 27.5825 24 25.8325 24 23.8995C24 21.9665 23.2165 20.2165 21.9497 18.9497" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M26.8994 33.799C29.4329 31.2655 30.9999 27.7655 30.9999 23.8995C30.9999 20.0335 29.4329 16.5335 26.8994 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <i id="wc-voice-toggle-icon" class="ri-mic-line"></i>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-24.8" y="-25.5" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-24.8" y="-25.5" width="489.6" height="72.76"/></svg>
                     </button>
                     <textarea class="wc-input" id="wc-msg-input" rows="1" placeholder="发消息..." enterkeyhint="send" oninput="syncWechatDraftState()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></textarea>
                     <div class="wc-rich-input" id="wc-rich-msg-input" contenteditable="true" role="textbox" aria-label="发消息" aria-multiline="true" data-placeholder="发消息..." enterkeyhint="send" oninput="handleWechatRichInputInput()" onbeforeinput="handleWechatMessageInputBeforeInput(event)" onpaste="handleWechatRichInputPaste(event)" oncompositionstart="handleWechatMessageInputCompositionStart()" oncompositionend="handleWechatMessageInputCompositionEnd(event)" onkeydown="handleWechatMessageInputKeydown(event)" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)"></div>
                     <button type="button" id="wc-voice-press-btn" class="wc-voice-press-btn wc-voice-hold-surface" hidden aria-label="长按说话" oncontextmenu="handleWechatVoiceInputContextMenu(event)" onselectstart="return false" ondragstart="return false" ontouchstart="handleWechatVoiceButtonTouchStart(event)" onpointerdown="handleWechatVoiceInputPointerDown(event)" onpointermove="handleWechatVoiceInputPointerMove(event)" onpointerup="handleWechatVoiceInputPointerUp(event)" onpointercancel="handleWechatVoiceInputPointerCancel(event)" onpointerleave="handleWechatVoiceInputPointerLeave(event)">长按说话</button>
-                    <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-106.6" y="-25" width="489.6" height="72.76"/></svg></button>
-                    <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-188.2" y="-24.5" width="489.6" height="72.76"/></svg></button>
+                    <button type="button" class="wc-qq-image-btn" onclick="triggerImagePick()" aria-label="图片"><i class="ri-image-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-106.6" y="-25" width="489.6" height="72.76"/></svg></button>
+                    <button type="button" class="wc-qq-camera-btn" onclick="triggerCamera()" aria-label="相机"><i class="ri-camera-line"></i><svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-188.2" y="-24.5" width="489.6" height="72.76"/></svg></button>
                     <button type="button" class="wc-sticker-btn" onclick="openStickerPicker()" aria-label="表情">
                         <svg class="wc-douyin-official-icon wc-douyin-emotion-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M31 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18V19" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-smile-svg" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><circle cx="11.35" cy="13.1" r="1.55" fill="currentColor"/><circle cx="20.65" cy="13.1" r="1.55" fill="currentColor"/><path d="M10.2 19.1c1.42 3.05 3.45 4.55 5.8 4.55s4.38-1.5 5.8-4.55" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-351.2" y="-25" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-351.2" y="-25" width="489.6" height="72.76"/></svg>
                     </button>
                     <div class="wc-add-btn" onclick="toggleChatToolbar()" aria-label="更多">
                         <svg class="wc-douyin-official-icon wc-douyin-add-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M24 16V32" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 24L32 24" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <svg class="wc-plus-svg wc-plus-svg-base" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg class="wc-plus-svg wc-plus-svg-wechat" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="13.2" stroke="currentColor" stroke-width="2.25"/><path d="M16 9.7v12.6M9.7 16h12.6" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-432.8" y="-25" width="489.6" height="72.76"/></svg>
+                        <svg class="wc-qq-source-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-432.8" y="-25" width="489.6" height="72.76"/></svg>
                     </div>
                     <i class="ri-send-plane-2-fill wc-send-btn" onclick="sendWechatMessage()" aria-label="发送"></i>
                     <svg class="wc-ai-btn" onclick="triggerAiReply()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerAiReply();}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="button" aria-label="AI 回复" tabindex="0"><path d="M12 3.5 14.2 9.8 20.5 12 14.2 14.2 12 20.5 9.8 14.2 3.5 12 9.8 9.8 12 3.5Z"/></svg>
-                    <svg class="wc-qq-source-icon wc-qq-ai-overlay" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.883" x="-268.1" y="-25" width="489.6" height="72.76"/></svg>
+                    <svg class="wc-qq-source-icon wc-qq-ai-overlay" viewBox="0 0 32 32" fill="none" aria-hidden="true"><image href="assets/ui/qq-toolbar/qq-toolbar-icons.png?v=1.1.884" x="-268.1" y="-25" width="489.6" height="72.76"/></svg>
                 </div>
 
                 <div id="wc-hold-voice-overlay" class="wc-hold-voice-overlay hidden" aria-live="polite" aria-label="语音录制中">
@@ -2659,14 +2659,14 @@ FOREVER FREE</p></section>
                                 </button>
                             </div>
                         </div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
-<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
-                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.883" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="profile" aria-controls="wcs-page-profile" onclick="openWechatChatSettingsPage('profile')"><img class="wcs-category-icon" src="assets/ui/chat-settings/profile.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>资料与人设</strong><small>我的人设、角色资料与头像集</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="appearance" aria-controls="wcs-page-appearance" onclick="openWechatChatSettingsPage('appearance')"><img class="wcs-category-icon" src="assets/ui/chat-settings/appearance.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>聊天外观</strong><small>背景、字体与气泡样式</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="interaction" aria-controls="wcs-page-interaction" onclick="openWechatChatSettingsPage('interaction')"><img class="wcs-category-icon" src="assets/ui/chat-settings/interaction.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>互动与剧情</strong><small>称呼、聊天场景、时间与监控剧情</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="memory" aria-controls="wcs-page-memory" onclick="openWechatChatSettingsPage('memory')"><img class="wcs-category-icon" src="assets/ui/chat-settings/memory.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>世界书与记忆</strong><small>背景知识、记忆容量与整理频率</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="voice" aria-controls="wcs-page-voice" onclick="openWechatChatSettingsPage('voice')"><img class="wcs-category-icon" src="assets/ui/chat-settings/voice.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>语音与通话</strong><small>专属音色、视频背景与相机</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="abilities" aria-controls="wcs-page-abilities" onclick="openWechatChatSettingsPage('abilities')"><img class="wcs-category-icon" src="assets/ui/chat-settings/abilities.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>角色能力</strong><small>回复方式、工具权限、桌宠与漫画</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button>
+<button type="button" class="wcs-category-row" data-chat-settings-entry="moments" aria-controls="wcs-page-moments" onclick="openWechatChatSettingsPage('moments')"><img class="wcs-category-icon" src="assets/ui/chat-settings/moments.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>AI 朋友圈</strong><small>个性签名、封面与朋友圈动态</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
+                        <div class="wcs-category-group"><button type="button" class="wcs-category-row" data-chat-settings-entry="management" aria-controls="wcs-page-management" onclick="openWechatChatSettingsPage('management')"><img class="wcs-category-icon" src="assets/ui/chat-settings/management.svg?v=1.1.884" alt="" aria-hidden="true" decoding="async"><span><strong>聊天管理</strong><small>清空聊天记录与联系人管理</small></span><i class="ri-arrow-right-s-line" aria-hidden="true"></i></button></div>
                     </section>
 <section id="wcs-page-profile" data-chat-settings-page="profile" aria-labelledby="wcs-heading-profile" hidden><div class="wcs-page-intro"><h2 id="wcs-heading-profile" tabindex="-1">资料与人设</h2><p>让彼此的身份、形象和关系定位更清晰。</p></div><div class="wcs-section-title">我的资料</div>
 <div class="wcs-section">
@@ -3244,177 +3244,177 @@ FOREVER FREE</p></section>
         <div class="home-indicator"></div>
     </div>
     
-    <script src="systems/usage/ledger.js?v=1.1.883"></script>
-    <script src="core/api/chat-api.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/ui-theme.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/pixel-theme.js?v=1.1.883"></script>
-    <script src="systems/prompt-lab/engine.js?v=1.1.883"></script>
-    <script src="systems/prompt-lab/cases.js?v=1.1.883"></script>
-    <script src="systems/prompt-lab/store.js?v=1.1.883"></script>
-    <script src="systems/prompt-lab/lab.js?v=1.1.883"></script>
-    <script src="systems/agent-runtime/jev.js?v=1.1.883"></script>
-    <script src="systems/agent-runtime/decider.js?v=1.1.883"></script>
-    <script src="core/character/avatars.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/render.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/message-core.js?v=1.1.883"></script>
-    <script src="apps/music/wechat-music.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/composer.js?v=1.1.883"></script>
-    <script src="apps/wechat/contacts/group-directives.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/media-directives.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/reply-parser.js?v=1.1.883"></script>
-    <script src="apps/wechat/moments/reply-actions.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/message-cards.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/message-render.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.883"></script>
-    <script src="core/events/script-activation.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/send.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/reply.js?v=1.1.883"></script>
-    <script src="core/api/ai-reply.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/streaming.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/toolbar.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/calls.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/call-audio.js?v=1.1.883"></script>
-    <script src="core/character/card-parser.js?v=1.1.883"></script>
-    <script src="apps/wechat/character/import.js?v=1.1.883"></script>
-    <script src="apps/wechat/character/delete.js?v=1.1.883"></script>
-    <script src="core/storage/characters.js?v=1.1.883" data-bynd-entry-required></script>
-    <script src="apps/wechat/contacts/news-reader.js?v=1.1.883"></script>
-    <script src="apps/wechat/contacts/tabs.js?v=1.1.883"></script>
-    <script src="apps/wechat/moments/favorites.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/sticker-store.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/me-settings.js?v=1.1.883"></script>
-    <script src="apps/wechat/moments/moments.js?v=1.1.883"></script>
-    <script src="apps/wechat/moments/channels.js?v=1.1.883"></script>
-    <script src="apps/wechat/moments/live.js?v=1.1.883"></script>
-    <script src="apps/wechat/shop/shop.js?v=1.1.883"></script>
-    <script src="core/api/novelai.js?v=1.1.883"></script>
-    <script src="core/api/image-generation.js?v=1.1.883"></script>
-    <script src="apps/wechat/shop/checkout.js?v=1.1.883"></script>
-    <script src="apps/wechat/shop/takeout.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/chat-settings.js?v=1.1.883"></script>
-    <script src="apps/wechat/ui/backgrounds.js?v=1.1.883"></script>
-    <script src="apps/wechat/character/avatars.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/image-send.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.883"></script>
-    <script src="apps/char-phone/catalog.js?v=1.1.883"></script>
-    <script src="apps/char-phone/brand-screens.js?v=1.1.883"></script>
-    <script src="apps/char-phone/viewing.js?v=1.1.883"></script>
-<script src="apps/char-phone/photos.js?v=1.1.883"></script>
-<script src="apps/char-phone/mail.js?v=1.1.883"></script>
-<script src="apps/char-phone/native-apps.js?v=1.1.883"></script>
-    <script src="apps/char-phone/system-apps.js?v=1.1.883"></script>
-    <script src="apps/char-phone/snapshot-data.js?v=1.1.883"></script>
-    <script src="apps/char-phone/sync.js?v=1.1.883"></script>
-    <script src="apps/char-phone/home.js?v=1.1.883"></script>
-    <script src="apps/char-phone/mini-chat.js?v=1.1.883"></script>
-    <script src="apps/char-phone/contacts.js?v=1.1.883"></script>
-    <script src="apps/char-phone/screens.js?v=1.1.883"></script>
-    <script src="apps/char-phone/reactions.js?v=1.1.883"></script>
-    <script src="systems/memory/wechat-memory.js?v=1.1.883"></script>
-    <script src="apps/wechat/chat/stickers.js?v=1.1.883"></script>
-    <script src="systems/living-world/living-world.js?v=1.1.883"></script>
-    <script src="ui/theme/theme.js?v=1.1.883" data-bynd-entry-required></script>
-    <script src="apps/settings/bootstrap.js?v=1.1.883"></script>
-    <script src="apps/settings/api-load.js?v=1.1.883"></script>
-    <script src="apps/settings/api-list.js?v=1.1.883"></script>
-    <script src="apps/settings/api-edit.js?v=1.1.883"></script>
-    <script src="apps/settings/api-test-list.js?v=1.1.883"></script>
-    <script src="apps/settings/api-test-modal.js?v=1.1.883"></script>
-    <script src="apps/settings/elevenlabs-voices.js?v=1.1.883"></script>
-    <script src="apps/settings/elevenlabs-options.js?v=1.1.883"></script>
-    <script src="apps/settings/minimax-voices.js?v=1.1.883"></script>
-    <script src="apps/settings/fish-voices.js?v=1.1.883"></script>
-    <script src="apps/settings/api-test.js?v=1.1.883"></script>
-    <script src="apps/settings/image-provider.js?v=1.1.883"></script>
-    <script src="apps/settings/tripo.js?v=1.1.883"></script>
-    <script src="apps/settings/presets.js?v=1.1.883"></script>
-    <script src="core/storage/backup.js?v=1.1.883"></script>
-    <script src="apps/settings/releases.js?v=1.1.883"></script>
-    <script src="apps/settings/version-letter.js?v=1.1.883"></script>
-    <script src="apps/settings/fonts.js?v=1.1.883"></script>
-    <script src="ui/components/device.js?v=1.1.883" data-bynd-entry-required></script>
-    <script src="systems/experience/experience.js?v=1.1.883"></script>
-    <script src="ui/components/undo.js?v=1.1.883"></script>
-    <script src="ui/components/chat-clear.js?v=1.1.883"></script>
-    <script src="ui/components/global-search.js?v=1.1.883"></script>
-    <script src="core/navigation/router.js?v=1.1.883" data-bynd-entry-required></script>
-    <script src="core/api/mcp.js?v=1.1.883"></script>
-    <script src="apps/manual/manual.js?v=1.1.883"></script>
-    <script src="systems/proactive-notifications/notifications.js?v=1.1.883"></script>
-    <script src="systems/character-events/events.js?v=1.1.883"></script>
-    <script src="systems/character-events/inbox.js?v=1.1.883"></script>
-    <script src="apps/music/music.js?v=1.1.883"></script>
-    <script src="apps/money/money.js?v=1.1.883"></script>
-    <script src="apps/dream/dream.js?v=1.1.883"></script>
-    <script src="apps/monitor/monitor.js?v=1.1.883"></script>
-    <script src="apps/outing/outing.js?v=1.1.883"></script>
-    <script src="apps/outing/map.js?v=1.1.883"></script>
-    <script src="apps/outing/journal.js?v=1.1.883"></script>
-    <script src="apps/games/wolfcha-rules.js?v=1.1.883"></script>
-    <script src="apps/games/hub-wolfcha.js?v=1.1.883"></script>
-    <script src="apps/games/wolfcha-audio.js?v=1.1.883"></script>
-    <script src="apps/games/acting.js?v=1.1.883"></script>
-    <script src="apps/games/sync-cardmatch.js?v=1.1.883"></script>
-    <script src="apps/games/cat-pot.js?v=1.1.883"></script>
-    <script src="apps/games/twenty-forty-eight.js?v=1.1.883"></script>
-    <script src="apps/games/jump.js?v=1.1.883"></script>
-    <script src="apps/games/water-sort.js?v=1.1.883"></script>
-    <script src="apps/games/board-games.js?v=1.1.883"></script>
-    <script src="ui/components/folders.js?v=1.1.883"></script>
-    <script src="apps/coreading/library.js?v=1.1.883"></script>
-    <script src="apps/coreading/reading-journal.js?v=1.1.883"></script>
-    <script src="apps/coreading/daily-literature.js?v=1.1.883"></script>
-    <script src="apps/coreading/reading-insights.js?v=1.1.883"></script>
-    <script src="apps/coreading/sources.js?v=1.1.883"></script>
-    <script src="apps/coreading/shelf.js?v=1.1.883"></script>
-    <script src="apps/coreading/thoughts.js?v=1.1.883"></script>
-    <script src="apps/coreading/toc-stats.js?v=1.1.883"></script>
-    <script src="apps/coreading/reviews.js?v=1.1.883"></script>
-    <script src="apps/coreading/reader.js?v=1.1.883"></script>
-    <script src="apps/coreading/discovery.js?v=1.1.883"></script>
-    <script src="apps/album/album.js?v=1.1.883"></script>
-    <script src="apps/home3d/home3d.js?v=1.1.883"></script>
-    <script src="ui/components/page-swipe.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-layout.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-dock.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-status.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-lovely.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-widgets.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-edit.js?v=1.1.883"></script>
-    <script src="systems/life-state/life-state.js?v=1.1.883"></script>
-    <script src="systems/life-state/native-health.js?v=1.1.883"></script>
-    <script src="apps/role-tools/role-tools.js?v=1.1.883"></script>
-    <script src="apps/moon/moon.js?v=1.1.883"></script>
-    <script src="ui/components/desktop-migrations.js?v=1.1.883"></script>
-    <script src="main.js?v=1.1.883" data-bynd-entry-required></script>
-    <script src="apps/comic/comic.js?v=1.1.883"></script>
-    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.883" media="print" onload="this.media='all'" onerror="this.media='all'">
-    <script src="apps/music/netease.js?v=1.1.883"></script>
-    <script src="core/worldbook/worldbook.js?v=1.1.883"></script>
-    <script src="core/character/regex.js?v=1.1.883"></script>
-    <script src="systems/agent-runtime/agent-tools.js?v=1.1.883"></script>
-    <script src="systems/agent-runtime/web-search.js?v=1.1.883"></script>
-    <script src="apps/wechat/character/character-tools.js?v=1.1.883"></script>
-    <script src="systems/usage/api-ticket.js?v=1.1.883"></script>
-    <script src="systems/usage/bill-app.js?v=1.1.883"></script>
-    <script src="apps/wechat/character/generator.js?v=1.1.883"></script>
-    <script src="apps/settings/openclaw-settings.js?v=1.1.883"></script>
-    <script src="assets/characters/builtin/artwork.js?v=1.1.883"></script>
-    <script src="assets/characters/builtin/library.js?v=1.1.883"></script>
-    <script src="core/character/builtin-characters.js?v=1.1.883"></script>
-    <script src="apps/study/study-app.js?v=1.1.883"></script>
-    <script src="apps/monitor/character-pet.js?v=1.1.883"></script>
-    <script src="apps/monitor/screen-companion.js?v=1.1.883"></script>
-    <script src="assets/vendor/gifenc.js?v=1.1.883"></script>
-    <script src="assets/vendor/omggif.js?v=1.1.883"></script>
-    <script src="apps/monitor/pet-animation.js?v=1.1.883"></script>
-    <script src="apps/monitor/pet-proportions.js?v=1.1.883"></script>
-    <script src="apps/monitor/pet-background.js?v=1.1.883"></script>
-    <script src="apps/monitor/pet-studio.js?v=1.1.883"></script>
-    <script src="apps/monitor/pet-history.js?v=1.1.883"></script>
-    <script src="apps/monitor/workspace.js?v=1.1.883"></script>
+    <script src="systems/usage/ledger.js?v=1.1.884"></script>
+    <script src="core/api/chat-api.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/stickers-boltp-share.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/stickers-local-share.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/ui-theme.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/pixel-theme.js?v=1.1.884"></script>
+    <script src="systems/prompt-lab/engine.js?v=1.1.884"></script>
+    <script src="systems/prompt-lab/cases.js?v=1.1.884"></script>
+    <script src="systems/prompt-lab/store.js?v=1.1.884"></script>
+    <script src="systems/prompt-lab/lab.js?v=1.1.884"></script>
+    <script src="systems/agent-runtime/jev.js?v=1.1.884"></script>
+    <script src="systems/agent-runtime/decider.js?v=1.1.884"></script>
+    <script src="core/character/avatars.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/bubble-presets.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/render.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/message-core.js?v=1.1.884"></script>
+    <script src="apps/music/wechat-music.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/composer.js?v=1.1.884"></script>
+    <script src="apps/wechat/contacts/group-directives.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/media-directives.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/reply-parser.js?v=1.1.884"></script>
+    <script src="apps/wechat/moments/reply-actions.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/message-cards.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/message-render.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/bubble-menu.js?v=1.1.884"></script>
+    <script src="core/events/script-activation.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/send.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/reply.js?v=1.1.884"></script>
+    <script src="core/api/ai-reply.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/streaming.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/toolbar.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/calls.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/call-audio.js?v=1.1.884"></script>
+    <script src="core/character/card-parser.js?v=1.1.884"></script>
+    <script src="apps/wechat/character/import.js?v=1.1.884"></script>
+    <script src="apps/wechat/character/delete.js?v=1.1.884"></script>
+    <script src="core/storage/characters.js?v=1.1.884" data-bynd-entry-required></script>
+    <script src="apps/wechat/contacts/news-reader.js?v=1.1.884"></script>
+    <script src="apps/wechat/contacts/tabs.js?v=1.1.884"></script>
+    <script src="apps/wechat/moments/favorites.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/sticker-store.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/me-settings.js?v=1.1.884"></script>
+    <script src="apps/wechat/moments/moments.js?v=1.1.884"></script>
+    <script src="apps/wechat/moments/channels.js?v=1.1.884"></script>
+    <script src="apps/wechat/moments/live.js?v=1.1.884"></script>
+    <script src="apps/wechat/shop/shop.js?v=1.1.884"></script>
+    <script src="core/api/novelai.js?v=1.1.884"></script>
+    <script src="core/api/image-generation.js?v=1.1.884"></script>
+    <script src="apps/wechat/shop/checkout.js?v=1.1.884"></script>
+    <script src="apps/wechat/shop/takeout.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/chat-settings.js?v=1.1.884"></script>
+    <script src="apps/wechat/ui/backgrounds.js?v=1.1.884"></script>
+    <script src="apps/wechat/character/avatars.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/image-send.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/simulated-messages.js?v=1.1.884"></script>
+    <script src="apps/char-phone/catalog.js?v=1.1.884"></script>
+    <script src="apps/char-phone/brand-screens.js?v=1.1.884"></script>
+    <script src="apps/char-phone/viewing.js?v=1.1.884"></script>
+<script src="apps/char-phone/photos.js?v=1.1.884"></script>
+<script src="apps/char-phone/mail.js?v=1.1.884"></script>
+<script src="apps/char-phone/native-apps.js?v=1.1.884"></script>
+    <script src="apps/char-phone/system-apps.js?v=1.1.884"></script>
+    <script src="apps/char-phone/snapshot-data.js?v=1.1.884"></script>
+    <script src="apps/char-phone/sync.js?v=1.1.884"></script>
+    <script src="apps/char-phone/home.js?v=1.1.884"></script>
+    <script src="apps/char-phone/mini-chat.js?v=1.1.884"></script>
+    <script src="apps/char-phone/contacts.js?v=1.1.884"></script>
+    <script src="apps/char-phone/screens.js?v=1.1.884"></script>
+    <script src="apps/char-phone/reactions.js?v=1.1.884"></script>
+    <script src="systems/memory/wechat-memory.js?v=1.1.884"></script>
+    <script src="apps/wechat/chat/stickers.js?v=1.1.884"></script>
+    <script src="systems/living-world/living-world.js?v=1.1.884"></script>
+    <script src="ui/theme/theme.js?v=1.1.884" data-bynd-entry-required></script>
+    <script src="apps/settings/bootstrap.js?v=1.1.884"></script>
+    <script src="apps/settings/api-load.js?v=1.1.884"></script>
+    <script src="apps/settings/api-list.js?v=1.1.884"></script>
+    <script src="apps/settings/api-edit.js?v=1.1.884"></script>
+    <script src="apps/settings/api-test-list.js?v=1.1.884"></script>
+    <script src="apps/settings/api-test-modal.js?v=1.1.884"></script>
+    <script src="apps/settings/elevenlabs-voices.js?v=1.1.884"></script>
+    <script src="apps/settings/elevenlabs-options.js?v=1.1.884"></script>
+    <script src="apps/settings/minimax-voices.js?v=1.1.884"></script>
+    <script src="apps/settings/fish-voices.js?v=1.1.884"></script>
+    <script src="apps/settings/api-test.js?v=1.1.884"></script>
+    <script src="apps/settings/image-provider.js?v=1.1.884"></script>
+    <script src="apps/settings/tripo.js?v=1.1.884"></script>
+    <script src="apps/settings/presets.js?v=1.1.884"></script>
+    <script src="core/storage/backup.js?v=1.1.884"></script>
+    <script src="apps/settings/releases.js?v=1.1.884"></script>
+    <script src="apps/settings/version-letter.js?v=1.1.884"></script>
+    <script src="apps/settings/fonts.js?v=1.1.884"></script>
+    <script src="ui/components/device.js?v=1.1.884" data-bynd-entry-required></script>
+    <script src="systems/experience/experience.js?v=1.1.884"></script>
+    <script src="ui/components/undo.js?v=1.1.884"></script>
+    <script src="ui/components/chat-clear.js?v=1.1.884"></script>
+    <script src="ui/components/global-search.js?v=1.1.884"></script>
+    <script src="core/navigation/router.js?v=1.1.884" data-bynd-entry-required></script>
+    <script src="core/api/mcp.js?v=1.1.884"></script>
+    <script src="apps/manual/manual.js?v=1.1.884"></script>
+    <script src="systems/proactive-notifications/notifications.js?v=1.1.884"></script>
+    <script src="systems/character-events/events.js?v=1.1.884"></script>
+    <script src="systems/character-events/inbox.js?v=1.1.884"></script>
+    <script src="apps/music/music.js?v=1.1.884"></script>
+    <script src="apps/money/money.js?v=1.1.884"></script>
+    <script src="apps/dream/dream.js?v=1.1.884"></script>
+    <script src="apps/monitor/monitor.js?v=1.1.884"></script>
+    <script src="apps/outing/outing.js?v=1.1.884"></script>
+    <script src="apps/outing/map.js?v=1.1.884"></script>
+    <script src="apps/outing/journal.js?v=1.1.884"></script>
+    <script src="apps/games/wolfcha-rules.js?v=1.1.884"></script>
+    <script src="apps/games/hub-wolfcha.js?v=1.1.884"></script>
+    <script src="apps/games/wolfcha-audio.js?v=1.1.884"></script>
+    <script src="apps/games/acting.js?v=1.1.884"></script>
+    <script src="apps/games/sync-cardmatch.js?v=1.1.884"></script>
+    <script src="apps/games/cat-pot.js?v=1.1.884"></script>
+    <script src="apps/games/twenty-forty-eight.js?v=1.1.884"></script>
+    <script src="apps/games/jump.js?v=1.1.884"></script>
+    <script src="apps/games/water-sort.js?v=1.1.884"></script>
+    <script src="apps/games/board-games.js?v=1.1.884"></script>
+    <script src="ui/components/folders.js?v=1.1.884"></script>
+    <script src="apps/coreading/library.js?v=1.1.884"></script>
+    <script src="apps/coreading/reading-journal.js?v=1.1.884"></script>
+    <script src="apps/coreading/daily-literature.js?v=1.1.884"></script>
+    <script src="apps/coreading/reading-insights.js?v=1.1.884"></script>
+    <script src="apps/coreading/sources.js?v=1.1.884"></script>
+    <script src="apps/coreading/shelf.js?v=1.1.884"></script>
+    <script src="apps/coreading/thoughts.js?v=1.1.884"></script>
+    <script src="apps/coreading/toc-stats.js?v=1.1.884"></script>
+    <script src="apps/coreading/reviews.js?v=1.1.884"></script>
+    <script src="apps/coreading/reader.js?v=1.1.884"></script>
+    <script src="apps/coreading/discovery.js?v=1.1.884"></script>
+    <script src="apps/album/album.js?v=1.1.884"></script>
+    <script src="apps/home3d/home3d.js?v=1.1.884"></script>
+    <script src="ui/components/page-swipe.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-layout.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-dock.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-status.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-lovely.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-widgets.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-edit.js?v=1.1.884"></script>
+    <script src="systems/life-state/life-state.js?v=1.1.884"></script>
+    <script src="systems/life-state/native-health.js?v=1.1.884"></script>
+    <script src="apps/role-tools/role-tools.js?v=1.1.884"></script>
+    <script src="apps/moon/moon.js?v=1.1.884"></script>
+    <script src="ui/components/desktop-migrations.js?v=1.1.884"></script>
+    <script src="main.js?v=1.1.884" data-bynd-entry-required></script>
+    <script src="apps/comic/comic.js?v=1.1.884"></script>
+    <link rel="stylesheet" href="apps/comic/ui/comic.css?v=1.1.884" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <script src="apps/music/netease.js?v=1.1.884"></script>
+    <script src="core/worldbook/worldbook.js?v=1.1.884"></script>
+    <script src="core/character/regex.js?v=1.1.884"></script>
+    <script src="systems/agent-runtime/agent-tools.js?v=1.1.884"></script>
+    <script src="systems/agent-runtime/web-search.js?v=1.1.884"></script>
+    <script src="apps/wechat/character/character-tools.js?v=1.1.884"></script>
+    <script src="systems/usage/api-ticket.js?v=1.1.884"></script>
+    <script src="systems/usage/bill-app.js?v=1.1.884"></script>
+    <script src="apps/wechat/character/generator.js?v=1.1.884"></script>
+    <script src="apps/settings/openclaw-settings.js?v=1.1.884"></script>
+    <script src="assets/characters/builtin/artwork.js?v=1.1.884"></script>
+    <script src="assets/characters/builtin/library.js?v=1.1.884"></script>
+    <script src="core/character/builtin-characters.js?v=1.1.884"></script>
+    <script src="apps/study/study-app.js?v=1.1.884"></script>
+    <script src="apps/monitor/character-pet.js?v=1.1.884"></script>
+    <script src="apps/monitor/screen-companion.js?v=1.1.884"></script>
+    <script src="assets/vendor/gifenc.js?v=1.1.884"></script>
+    <script src="assets/vendor/omggif.js?v=1.1.884"></script>
+    <script src="apps/monitor/pet-animation.js?v=1.1.884"></script>
+    <script src="apps/monitor/pet-proportions.js?v=1.1.884"></script>
+    <script src="apps/monitor/pet-background.js?v=1.1.884"></script>
+    <script src="apps/monitor/pet-studio.js?v=1.1.884"></script>
+    <script src="apps/monitor/pet-history.js?v=1.1.884"></script>
+    <script src="apps/monitor/workspace.js?v=1.1.884"></script>
 </body>
 </html>
