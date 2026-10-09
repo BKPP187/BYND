@@ -75,16 +75,21 @@ test('native status bar responds to visibility and wallpaper, and stays readable
     const before = calls.length; p.mutate(); assert.equal(calls.length, before);
 });
 
-test('installed PWA preserves OS indicators and does not hide them on the first tap', () => {
+test('installed PWA requests fullscreen while preserving fallback and iOS safe areas without forcing a page tap', () => {
     const manifest = JSON.parse(fs.readFileSync('manifest.webmanifest', 'utf8'));
-    assert.equal(manifest.display, 'standalone'); assert.ok(!manifest.display_override.includes('fullscreen'));
-    const events = [];
-    const classes = new Set(['mobile-runtime']);
-    const p = vm.createContext({ window: { matchMedia: () => ({ matches: false, addEventListener() {} }), navigator: {} },
-        document: { documentElement: { classList: { contains: name => classes.has(name), toggle: (name, on) => on ? classes.add(name) : classes.delete(name) } },
-            addEventListener: name => events.push(name) }, ensureByndServiceWorker() {} });
+    assert.equal(manifest.display, 'fullscreen');
+    assert.deepEqual(manifest.display_override, ['fullscreen', 'standalone']);
     const source = fs.readFileSync('systems/proactive-notifications/notifications.js', 'utf8');
-    vm.runInContext(source.slice(source.indexOf('function isByndMobileRuntime()'), source.indexOf('function cleanupByndServiceWorkerIfIdle()')), p);
-    vm.runInContext('initByndFullscreenRuntime()', p);
-    assert.ok(classes.has('bynd-native-statusbar')); assert.ok(!events.includes('click') && !events.includes('touchend'));
+    for (const [mode, isIOS] of [['fullscreen', false], ['standalone', false], ['browser', false], ['fullscreen', true]]) {
+        const events = [];
+        const classes = new Set(['mobile-runtime', ...(isIOS ? ['bynd-ios'] : [])]);
+        const p = vm.createContext({ window: { matchMedia: query => ({ matches: query === `(display-mode: ${mode})`, addEventListener() {} }), navigator: {} },
+            document: { documentElement: { classList: { contains: name => classes.has(name), toggle: (name, on) => on ? classes.add(name) : classes.delete(name) } },
+                addEventListener: name => events.push(name) }, ensureByndServiceWorker() {} });
+        vm.runInContext(source.slice(source.indexOf('function isByndMobileRuntime()'), source.indexOf('function cleanupByndServiceWorkerIfIdle()')), p);
+        vm.runInContext('initByndFullscreenRuntime()', p);
+        assert.equal(classes.has('bynd-native-statusbar'), isIOS || mode !== 'fullscreen');
+        assert.equal(classes.has('bynd-display-fullscreen'), !isIOS && mode === 'fullscreen');
+        assert.ok(!events.includes('click') && !events.includes('touchend'));
+    }
 });

@@ -102,7 +102,7 @@ function initByndFullscreenRuntime() {
     window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
     document.addEventListener('fullscreenchange', markByndDisplayMode);
     document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
-    // Keep OS indicators visible; a normal tap must not hide the real status bar.
+    // Let the installation manifest choose fullscreen; normal page taps must not force it.
 }
 
 function cleanupByndServiceWorkerIfIdle() {
@@ -115,7 +115,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.877').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.882').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

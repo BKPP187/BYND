@@ -101,6 +101,7 @@ async function main() {
             assert.equal(installed.window.__byndStartup, undefined);
             assert.equal(installed.timers.length, 0);
             if (runtime.androidApp) assert.equal(installed.classList.contains('bynd-android-app'), true);
+            assert.equal(installed.classList.contains('bynd-display-fullscreen'), runtime.userAgent === 'Android' && runtime.displayMode === 'fullscreen', 'fullscreen layout must be established before optional resources load');
             if (runtime.userAgent === 'iPhone') {
                 assert.equal(installed.classList.contains('bynd-ios-pwa'), true, 'safe-area detection must survive unavailable storage');
                 if (!storageError) assert.equal(installed.classList.contains('bynd-statusbar-hidden'), true);
