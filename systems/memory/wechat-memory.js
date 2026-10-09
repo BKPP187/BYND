@@ -1413,6 +1413,8 @@ function composeField(type, msg, options = {}) {
     }
     if (type === 'music_card') {
         const existing = normalizeWechatMusicDraftTrack(msg?.music || msg || null);
+        window._wechatMusicComposeSearchToken = null;
+        window._wechatMusicComposeSearchNotice = '';
         window._wechatMusicComposeSelected = existing && existing.audioUrl ? existing : null;
         window._wechatMusicComposeResults = existing && existing.audioUrl ? [existing] : [];
         const query = existing ? [existing.title, existing.artist].filter(Boolean).join(' ') : '';
@@ -1473,6 +1475,8 @@ function openWechatComposer(type, editIndex, options = {}) {
 function closeWechatComposer() {
     const modal = document.getElementById('wc-composer-modal');
     if (modal) modal.classList.add('hidden');
+    window._wechatMusicComposeSearchToken = null;
+    window._wechatMusicComposeSelected = null;
 }
 
 function buildWechatSpecialMessageFromComposer(type, existingMsg) {

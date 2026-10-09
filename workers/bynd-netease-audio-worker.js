@@ -111,6 +111,8 @@ function isAllowedNeteaseApiPath(path) {
     || path === '/user/playlist'
     || path === '/likelist'
     || path === '/song/detail'
+    || path === '/search'
+    || path === '/cloudsearch'
     || path === '/playlist/track/all'
     || path === '/lyric'
     || /^\/song\/url(?:\/v1)?$/.test(path);
@@ -119,6 +121,22 @@ function isAllowedNeteaseApiPath(path) {
 async function handleNeteaseApiDirect(path, url, request) {
   const params = url.searchParams;
   const cookie = normalizeCookie(params.get('cookie') || request.headers.get('Cookie') || '');
+
+  if (path === '/search' || path === '/cloudsearch') {
+    const keywords = String(params.get('keywords') || '').trim();
+    if (!keywords || keywords.length > 160) return { code: 400, message: 'invalid search keywords' };
+    const target = new URL(`${NETEASE_WEB_ORIGIN}/api/search/get/web`);
+    target.searchParams.set('s', keywords);
+    target.searchParams.set('type', '1');
+    target.searchParams.set('limit', String(clampInteger(params.get('limit'), 1, 50, 30)));
+    target.searchParams.set('offset', String(clampInteger(params.get('offset'), 0, 100000, 0)));
+    const json = await fetchNeteasePlainJson(target, cookie);
+    if (Number(json?.code) !== 200) return json;
+    if (!Array.isArray(json?.result?.songs) && Number(json?.result?.songCount) !== 0) {
+      return { code: 502, message: 'invalid music search response' };
+    }
+    return json;
+  }
 
   if (path === '/login/qr/key') {
     const { json, cookie: qrCookie } = await neteasePlainApiRequest('/api/login/qrcode/unikey', { type: 3 }, cookie);

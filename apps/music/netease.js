@@ -265,6 +265,15 @@ function convertNeteaseTrack(song) {
     });
 }
 
+async function searchNeteaseMusic(query) {
+    const json = await neteaseApiFetch('/search', { keywords: query, type: 1, limit: 30 }, 6500);
+    if (Number(json?.code) !== 200 || (!Array.isArray(json?.result?.songs) && Number(json?.result?.songCount) !== 0)) {
+        throw new Error('网易云搜索服务暂时不可用');
+    }
+    return (json.result.songs || []).map(convertNeteaseTrack).filter(Boolean);
+}
+window.searchNeteaseMusic = searchNeteaseMusic;
+
 async function fetchNeteaseUserPlaylists() {
     const auth = getNeteaseAuth();
     const uid = auth?.profile?.userId;
@@ -359,7 +368,7 @@ async function prepareNeteaseAudioUrl(songId, sourceUrl) {
     return proxyUrl || cleanUrl;
 }
 
-async function resolveNeteaseAudioUrl(songId) {
+async function resolveNeteaseAudioUrl(songId, options = {}) {
     // 1) 自家 API：song/url/v1（带 cookie，会员歌也能拿）
     try {
         const res = await neteaseApiFetch('/song/url/v1', { id: songId, level: 'exhigh' });
@@ -371,6 +380,7 @@ async function resolveNeteaseAudioUrl(songId) {
         const url = res?.data?.[0]?.url || '';
         if (url) return prepareNeteaseAudioUrl(songId, url);
     } catch (e) {}
+    if (options.allowUnverifiedFallback === false) return '';
     // 2) Meting 公共源兜底
     try {
         const settings = getMusicSourceSettings();

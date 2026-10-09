@@ -1762,6 +1762,7 @@ function normalizeWechatMusicDraftTrack(track) {
         sourceName: track.sourceName || track.collectionName || '',
         sourceMeta: track.sourceMeta || '',
         sourceKey: track.sourceKey || '',
+        remoteId: track.remoteId || '',
         lyricsText: track.lyricsText || '',
         lyricsUrl: track.lyricsUrl || '',
         raw: track
@@ -1808,11 +1809,11 @@ function renderWechatMusicComposeResults() {
     const results = Array.isArray(window._wechatMusicComposeResults) ? window._wechatMusicComposeResults : [];
     const selected = window._wechatMusicComposeSelected || null;
     const isQueueMode = document.getElementById('wc-composer-modal')?.dataset.musicMode === 'queue';
-    if (status) status.textContent = selected?.resolving
+    if (status) status.textContent = selected?.error || (selected?.resolving
         ? '正在解析可播放地址...'
-        : (selected?.audioUrl ? '已选择：' + selected.title : (results.length ? '请选择一首可播放音乐' : `搜索后选择一首歌再${isQueueMode ? '添加' : '发送'}`));
+        : (selected?.audioUrl ? '已选择：' + selected.title : (window._wechatMusicComposeSearchNotice || (results.length ? '请选择一首音乐，确认音源后发送' : `搜索后选择一首歌再${isQueueMode ? '添加' : '发送'}`))));
     list.innerHTML = results.length ? results.map((track, index) => {
-        const active = selected && selected.audioUrl === track.audioUrl && selected.title === track.title;
+        const active = !!selected?.audioUrl && selected.audioUrl === track.audioUrl && selected.title === track.title;
         return `
             <button type="button" class="wc-music-result-item ${active ? 'active' : ''}" onclick="selectWechatMusicComposeTrack(${index})">
                 <div class="wc-music-result-cover">${track.artwork ? `<img src="${wcEscapeHtml(track.artwork)}" onerror="this.remove()">` : '<i class="ri-music-2-line"></i>'}</div>
@@ -1829,19 +1830,31 @@ function renderWechatMusicComposeResults() {
 async function selectWechatMusicComposeTrack(index) {
     const results = Array.isArray(window._wechatMusicComposeResults) ? window._wechatMusicComposeResults : [];
     const track = results[index];
-    if (!track || !track.audioUrl) {
+    if (!track || (!track.audioUrl && !(track.sourceKey === 'netease' && track.remoteId))) {
         if (typeof showWechatToast === 'function') showWechatToast('这首没有可播放音频，换一个结果');
         return;
     }
-    window._wechatMusicComposeSelected = { ...track, resolving: true };
+    const selected = { ...track, audioUrl: '', resolving: true };
+    window._wechatMusicComposeSelected = selected;
     renderWechatMusicComposeResults();
-    const sourceAudioUrl = track.sourceAudioUrl || track.audioUrl;
+    let sourceAudioUrl = track.sourceAudioUrl || track.audioUrl;
     let playableUrl = track.playableUrl || '';
     try {
+        if (track.sourceKey === 'netease' && track.remoteId && typeof resolveNeteaseAudioUrl === 'function') {
+            sourceAudioUrl = await resolveNeteaseAudioUrl(track.remoteId, { allowUnverifiedFallback: false });
+            if (!sourceAudioUrl) throw new Error('这首歌暂时没有可播放音频，可能需要网易云登录或受版权限制');
+        }
         playableUrl = await resolveWechatPlayableMusicUrl(sourceAudioUrl);
     } catch (e) {
+        if (track.sourceKey === 'netease') {
+            if (window._wechatMusicComposeSelected !== selected) return;
+            window._wechatMusicComposeSelected = { ...selected, resolving: false, error: e.message || '音源解析失败，请稍后重试' };
+            renderWechatMusicComposeResults();
+            return;
+        }
         playableUrl = track.audioUrl;
     }
+    if (window._wechatMusicComposeSelected !== selected) return;
     const primaryAudioUrl = isWechatMusicProxyUrl(sourceAudioUrl) ? sourceAudioUrl : (playableUrl || track.audioUrl);
     const nextTrack = { ...track, sourceAudioUrl, playableUrl: playableUrl || track.audioUrl, audioUrl: primaryAudioUrl, resolving: false };
     window._wechatMusicComposeResults[index] = nextTrack;
@@ -1859,18 +1872,26 @@ async function searchWechatMusicForComposer() {
         return;
     }
     if (status) status.textContent = '正在搜索音乐...';
+    const searchToken = {};
+    window._wechatMusicComposeSearchToken = searchToken;
+    window._wechatMusicComposeSearchNotice = '正在搜索音乐...';
     window._wechatMusicComposeSelected = null;
+    window._wechatMusicComposeResults = [];
+    renderWechatMusicComposeResults();
     try {
         const mode = typeof window.getMusicSourceMode === 'function' ? window.getMusicSourceMode() : 'smart';
         const searcher = typeof window.searchAcrossMusicSources === 'function' ? window.searchAcrossMusicSources : null;
         let tracks = searcher ? await searcher(query, mode || 'smart') : [];
-        tracks = (Array.isArray(tracks) ? tracks : []).map(normalizeWechatMusicDraftTrack).filter(item => item && item.audioUrl);
-        window._wechatMusicComposeResults = tracks.slice(0, 18);
+        if (window._wechatMusicComposeSearchToken !== searchToken) return;
+        const notice = tracks.searchNotice || '';
+        tracks = (Array.isArray(tracks) ? tracks : []).map(normalizeWechatMusicDraftTrack).filter(item => item && (item.audioUrl || (item.sourceKey === 'netease' && item.remoteId)));
+        window._wechatMusicComposeResults = tracks.slice(0, 40);
         const isQueueMode = document.getElementById('wc-composer-modal')?.dataset.musicMode === 'queue';
-        if (status) status.textContent = tracks.length ? `搜索完成，选择一首后${isQueueMode ? '添加' : '发送'}` : '没有搜到可播放音频，换关键词试试';
+        window._wechatMusicComposeSearchNotice = tracks.length ? [notice, `搜索完成，选择歌曲确认音源后${isQueueMode ? '添加' : '发送'}`].filter(Boolean).join('；') : '没有搜到这首歌，试试完整歌名或歌手名';
     } catch (e) {
+        if (window._wechatMusicComposeSearchToken !== searchToken) return;
         window._wechatMusicComposeResults = [];
-        if (status) status.textContent = '搜索失败，换关键词或音乐源再试';
+        window._wechatMusicComposeSearchNotice = '音乐源连接失败，请检查网络或稍后再试';
     }
     renderWechatMusicComposeResults();
 }
