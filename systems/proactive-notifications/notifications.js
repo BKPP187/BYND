@@ -124,11 +124,12 @@ function initByndFullscreenRuntime() {
     document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
     // Capture before controls consume the gesture. A rejected first request must not
     // permanently strand the installed phone inside an inset viewport.
-    if (isByndInstalledAndroidWebRuntime() && !document._byndFullscreenGestureBound) {
+    if (isByndInstalledAndroidWebRuntime() && !/(?:\?|&)display-check=1(?:&|$)/.test(window.location?.search || '') && !document._byndFullscreenGestureBound) {
         document._byndFullscreenGestureBound = true;
         let attempts = 0;
         let pending = false;
         const enter = () => {
+            if (window.ByndDisplayCheck?.active()) return Promise.resolve(false);
             if (pending || attempts >= 3) return Promise.resolve(false);
             attempts += 1;
             pending = true;
@@ -155,7 +156,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.886').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.888').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
