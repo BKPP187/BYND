@@ -46,7 +46,7 @@
     function makeReport(before, after, fullscreenRequest) {
         const version = typeof APP_VERSION === 'string' && /^v\d+\.\d+\.\d+$/.test(APP_VERSION) ? APP_VERSION : 'unknown';
         const oldVersion = /(?:\?|&)v=(\d+\.\d+\.\d+)(?:&|$)/.exec(window.location?.search || '')?.[1] || null;
-        return { format: 'BYND_DISPLAY_CHECK', appVersion: version, launchVersion: oldVersion, fullscreenRequest, before, after };
+        return { format: 'BYND_DISPLAY_CHECK', appVersion: version, launchVersion: oldVersion, fullscreenRequest, windowRecovery: window.ByndFullscreenRecovery?.result() || null, before, after };
     }
     function status(text, failed = false) {
         const node = panel?.querySelector('[data-display-status]');
