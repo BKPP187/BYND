@@ -15,7 +15,7 @@ function makeClassList() {
     };
 }
 
-function createPage(savedTheme = '{}', { storageError = false, displayMode = 'browser', iosStandalone = false, androidApp = false, userAgent = 'Mozilla/5.0', stylesheets = [], legacy = false } = {}) {
+function createPage(savedTheme = '{}', { storageError = false, displayMode = 'browser', iosStandalone = false, androidApp = false, userAgent = 'Mozilla/5.0', stylesheets = [], legacy = false, locationSearch = '?bynd-intro=first' } = {}) {
     const timers = [];
     const storageWrites = [];
     const listeners = new Map();
@@ -40,7 +40,7 @@ function createPage(savedTheme = '{}', { storageError = false, displayMode = 'br
         dispatchEvent: event => (listeners.get(event.type) || []).forEach(handler => handler(event)),
         navigator: { standalone: iosStandalone },
         ByndAndroid: androidApp ? {} : undefined,
-        location: { search: '?bynd-intro=first' },
+        location: { search: locationSearch },
         matchMedia: query => ({ matches: query === `(display-mode: ${displayMode})` }),
         setTimeout: (...args) => timers.push(args)
     };
@@ -101,6 +101,10 @@ async function main() {
             assert.equal(installed.window.__byndStartup, undefined);
             assert.equal(installed.timers.length, 0);
             if (runtime.androidApp) assert.equal(installed.classList.contains('bynd-android-app'), true);
+            if (runtime.userAgent === 'Android' && !runtime.androidApp) {
+                assert.equal(installed.classList.contains('bynd-android-pwa'), true);
+                assert.equal(installed.classList.contains('bynd-native-statusbar'), false);
+            }
             assert.equal(installed.classList.contains('bynd-display-fullscreen'), runtime.userAgent === 'Android' && runtime.displayMode === 'fullscreen', 'fullscreen layout must be established before optional resources load');
             if (runtime.userAgent === 'iPhone') {
                 assert.equal(installed.classList.contains('bynd-ios-pwa'), true, 'safe-area detection must survive unavailable storage');
@@ -110,6 +114,9 @@ async function main() {
     }
 
     const mobileBrowser = createPage('{}', { userAgent: 'iPhone' });
+    const androidDesktop = createPage('{}', { userAgent: 'Android SamsungBrowser', locationSearch: '?v=1.2.3&bynd-app=desktop' });
+    assert.equal(androidDesktop.classList.contains('bynd-android-pwa'), true);
+    assert.equal(androidDesktop.classList.contains('bynd-native-statusbar'), false);
     assert.equal(mobileBrowser.classList.contains('mobile-runtime'), true);
     assert.equal(mobileBrowser.classList.contains('bynd-ios'), true);
     assert.equal(mobileBrowser.classList.contains('bynd-ios-pwa'), false);

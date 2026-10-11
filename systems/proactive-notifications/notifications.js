@@ -68,17 +68,26 @@ function isByndAndroidAppRuntime() {
     return !!window.ByndAndroid;
 }
 
+function isByndInstalledAndroidWebRuntime() {
+    const root = document.documentElement;
+    const android = root.classList.contains('bynd-android-pwa') || /Android/i.test(window.navigator?.userAgent || '');
+    const installed = root.classList.contains('bynd-android-pwa') || window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: fullscreen)').matches || /(?:\?|&)bynd-app=desktop(?:&|$)/.test(window.location?.search || '');
+    return android && installed && isByndMobileRuntime() && !isByndAndroidAppRuntime() && !root.classList.contains('bynd-ios');
+}
+
 function markByndDisplayMode() {
     const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
     const fullscreen = window.matchMedia?.('(display-mode: fullscreen)').matches || !!document.fullscreenElement || !!document.webkitFullscreenElement;
     const iosStandalone = window.navigator?.standalone === true;
     const isIOS = document.documentElement.classList.contains('bynd-ios');
+    const androidPwa = isByndInstalledAndroidWebRuntime();
+    document.documentElement.classList.toggle('bynd-android-pwa', androidPwa);
     document.documentElement.classList.toggle('bynd-display-standalone', !!standalone || iosStandalone);
     // iOS PWA 不是真全屏：系统状态栏仍在，误标 fullscreen 会清掉安全区让位。
     // manifest "display: fullscreen" 会让 iOS 的 matchMedia 报 fullscreen=true，必须排除 iOS（2026-07-09 真机七图事故）。
     document.documentElement.classList.toggle('bynd-display-fullscreen', !!fullscreen && !isIOS);
     const osStatusBar = isIOS || (isByndAndroidAppRuntime() && typeof window.ByndAndroid.setSystemStatusBar === 'function') ||
-        (isByndMobileRuntime() && !isByndAndroidAppRuntime() && !fullscreen && !document.fullscreenElement);
+        (isByndMobileRuntime() && !isByndAndroidAppRuntime() && !fullscreen && !androidPwa);
     document.documentElement.classList.toggle('bynd-native-statusbar', !!osStatusBar);
 }
 
@@ -86,7 +95,7 @@ function tryByndFullscreen() {
     if (isByndAndroidAppRuntime() || document.documentElement.classList.contains('bynd-ios')) return Promise.resolve(false);
     if (!isByndMobileRuntime()) return Promise.resolve(false);
     if (document.fullscreenElement || document.webkitFullscreenElement) return Promise.resolve(true);
-    const target = document.documentElement;
+    const target = document.querySelector?.('.phone-container') || document.documentElement;
     const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
     if (!request) return Promise.resolve(false);
     try {
@@ -113,11 +122,26 @@ function initByndFullscreenRuntime() {
     window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change', markByndDisplayMode);
     document.addEventListener('fullscreenchange', markByndDisplayMode);
     document.addEventListener('webkitfullscreenchange', markByndDisplayMode);
-    // Older WebAPKs can keep an inset window despite the manifest. Only an installed
-    // Android page may use its first interaction to request the browser's full viewport.
-    const installed = window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: fullscreen)').matches;
-    if (isByndMobileRuntime() && !document.documentElement.classList.contains('bynd-ios') && installed) {
-        document.addEventListener('pointerup', tryByndFullscreen, { once: true, passive: true });
+    // Capture before controls consume the gesture. A rejected first request must not
+    // permanently strand the installed phone inside an inset viewport.
+    if (isByndInstalledAndroidWebRuntime() && !document._byndFullscreenGestureBound) {
+        document._byndFullscreenGestureBound = true;
+        let attempts = 0;
+        let pending = false;
+        const enter = () => {
+            if (pending || attempts >= 3) return Promise.resolve(false);
+            attempts += 1;
+            pending = true;
+            return tryByndFullscreen().then(ok => {
+                if (ok) {
+                    document.removeEventListener('pointerup', enter, true);
+                    document.removeEventListener('touchend', enter, true);
+                }
+                return ok;
+            }).finally(() => { pending = false; });
+        };
+        document.addEventListener('pointerup', enter, { capture: true, passive: true });
+        document.addEventListener('touchend', enter, { capture: true, passive: true });
     }
 }
 
@@ -131,7 +155,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.884').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.886').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

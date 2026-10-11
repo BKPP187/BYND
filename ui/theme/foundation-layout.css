@@ -36,6 +36,10 @@ html.mobile-runtime.bynd-android-app,
 html.mobile-runtime.bynd-android-app body { background: var(--bg-color); }
 html.mobile-runtime.bynd-android-app body { padding: 0; }
 html.mobile-runtime.bynd-android-app .phone-container { --bynd-header-safe-top: max(var(--bynd-native-safe-top, 0px), env(safe-area-inset-top, 0px)); width: 100vw; height: 100dvh; }
+/* Android desktop installs paint to the viewport edge; only controls reserve the cutout. */
+html.mobile-runtime.bynd-android-pwa body { padding: 0; }
+html.mobile-runtime.bynd-android-pwa .phone-container { --bynd-header-safe-top: env(safe-area-inset-top, 0px); width: 100vw; height: 100dvh; }
+.phone-container:fullscreen { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 html.mobile-runtime:fullscreen body,
 html.mobile-runtime.bynd-display-fullscreen:not(.bynd-ios) body { padding: 0; }
 html.mobile-runtime:fullscreen .phone-container,
