@@ -36,7 +36,7 @@ test('loading view exits synchronously on real readiness and removes error handl
     const proof = page();
     assert.equal(proof.classes.has('bynd-web-loading'), true);
     proof.window.__byndResourceLoading.initializing();
-    assert.match(proof.message.textContent, /正在准备/);
+    assert.equal(proof.message.textContent, '正在抵达…');
     proof.window.__byndResourceLoading.ready();
     assert.equal(proof.layer.removed, true);
     assert.equal(proof.classes.has('bynd-web-loading'), false);

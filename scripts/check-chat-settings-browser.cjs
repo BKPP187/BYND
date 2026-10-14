@@ -46,6 +46,7 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(await activePage().getAttribute('data-chat-settings-page'), 'home');
         await entry('appearance').click();
         await page.locator('#wcs-font-size').fill('18');
+        await page.locator('.wcs-bubble-css-details > summary').click();
         await page.locator('#wcs-custom-css').fill('.msg-bubble { border-radius: 20px; }');
         await page.locator('#wcs-back-btn').click();
         await entry('memory').click();

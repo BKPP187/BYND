@@ -1,6 +1,6 @@
 (function (H) {
     'use strict';
-    let root, activity, timer = 0, apiTimer = 0, noticeTimer = 0, loadToken = 0, busy = false, referenceDraft = '', userProfileDraft = null;
+    let root, activity, timer = 0, apiTimer = 0, noticeTimer = 0, loadToken = 0, busy = false, referenceDraft = '', userProfileDraft = null, interiorScope = 'all', interiorBusy = false;
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     const icon = name => H.Icons.paint(name);
     const button = (action, text, symbol, extra = '') => '<button type="button" data-action="' + action + '" ' + extra + '>' + (symbol ? icon(symbol) : '') + text + '</button>';
@@ -24,16 +24,24 @@
         const hint = root?.querySelector('[data-api-cooldown]');
         if (hint) { hint.hidden = seconds <= 0; hint.textContent = '接口限流，约 ' + seconds + ' 秒后可以手动重试。当前形象已保留，也可以继续手动调整。'; }
     }
-    const header = () => '<header class="home3d-header">' + button('back', '', 'ri-arrow-left-s-line', 'aria-label="返回桌面"') + '<div><span>BYND · OUR LITTLE HOME</span><strong>小屋</strong></div>' + button('entrance', '', 'ri-home-heart-line', 'aria-label="小屋入口"') + '</header>';
+    const header = () => '<header class="home3d-header">' + button('back', '', 'ri-arrow-left-s-line', 'aria-label="返回桌面"') + '<div><span>BYND · OUR LITTLE HOME</span><strong>小屋</strong><small class="home3d-clock" aria-label="当前时间"></small></div>' + button('entrance', '', 'ri-home-heart-line', 'aria-label="小屋入口"') + '</header>';
     function notice(message, error = false) {
         const box = root?.querySelector('.home3d-notice');
+        const sheet = root?.querySelector('.home3d-modal:not([hidden]) .home3d-sheet-body');
+        if(sheet){
+            if(box)box.hidden=true;
+            let line=sheet.querySelector('.home3d-sheet-notice');
+            if(!line){line=document.createElement('p');line.className='home3d-fineprint home3d-sheet-notice';line.setAttribute('role','status');sheet.prepend(line);}
+            line.textContent=message;line.style.color=error?'#9a483d':'';
+            clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>line.remove(),error?7000:4500);return;
+        }
         if (!box) return;
         clearTimeout(noticeTimer); box.textContent = message; box.classList.toggle('is-error', error); box.hidden = false;
         noticeTimer = setTimeout(() => { box.hidden = true; }, error ? 10000 : 5500);
     }
     function shell() {
         root.classList.add('is-room');
-        root.innerHTML = header() + '<main class="home3d-world"><div class="home3d-scene" id="home3d-scene"></div><div class="home3d-welcome"><span class="home3d-eyebrow">OUR LITTLE HOME</span><div id="home3d-room-label"></div></div><div class="home3d-view-tools">' + button('reset-view', '', 'ri-focus-3-line', 'aria-label="恢复视角"') + button('zoom-in', '', 'ri-add-line', 'aria-label="放大"') + button('zoom-out', '', 'ri-subtract-line', 'aria-label="缩小"') + '</div><div class="home3d-scene-error" hidden></div><div class="home3d-presence" id="home3d-presence"></div><div class="home3d-scene-hint">拖动看看家 · 点家具互动 · 点空地走动</div></main><footer class="home3d-footer"><nav class="home3d-room-tabs" aria-label="小屋房间"></nav><div class="home3d-quick-actions">' + button('build', '装修', 'ri-pencil-ruler-line') + button('together', '陪伴', 'ri-heart-3-line') + button('memories', '留点回忆', 'ri-sparkling-line') + button('journal', '日常', 'ri-book-open-line') + button('settings', '设置', 'ri-settings-4-line') + '</div></footer><section class="home3d-build-tray" aria-label="装修家具栏"></section><div class="home3d-modal" hidden></div><div class="home3d-notice" role="status" aria-live="polite" hidden></div>';
+        root.innerHTML = header() + '<main class="home3d-world"><div class="home3d-scene" id="home3d-scene"></div><div class="home3d-welcome"><span class="home3d-eyebrow">OUR LITTLE HOME</span><div id="home3d-room-label"></div></div><div class="home3d-view-tools">' + button('reset-view', '', 'ri-focus-3-line', 'aria-label="恢复视角"') + button('zoom-in', '', 'ri-add-line', 'aria-label="放大"') + button('zoom-out', '', 'ri-subtract-line', 'aria-label="缩小"') + button('view-menu', '', 'ri-eye-line', 'aria-label="视角与墙体"') + '</div><div class="home3d-scene-error" hidden></div><div class="home3d-presence" id="home3d-presence"></div><div class="home3d-scene-hint">拖动看看家 · 点家具互动 · 点空地走动</div></main><footer class="home3d-footer"><nav class="home3d-room-tabs" aria-label="小屋房间"></nav><div class="home3d-quick-actions">' + button('build', '装修', 'ri-pencil-ruler-line') + button('together', '陪伴', 'ri-heart-3-line') + button('memories', '留点回忆', 'ri-sparkling-line') + button('journal', '日常', 'ri-book-open-line') + button('settings', '设置', 'ri-settings-4-line') + '</div></footer><section class="home3d-build-tray" aria-label="装修家具栏"></section><div class="home3d-modal" hidden></div><div class="home3d-notice" role="status" aria-live="polite" hidden></div>';
     }
     function setup() {
         root.classList.remove('is-room');
@@ -72,7 +80,8 @@
     function refreshLife() {
         if (H.BuildUI?.active() || !H.runtime) return;
         try {
-            const data = H.Living.advance(H.Bridge.context()), next = H.State.home(data).activity;
+            const live = !!H.runtime.stats().actors.find(actor => actor.who === 'char' && actor.visible) || !!H.Interactions?.paired();
+            const data = H.Living.advance(H.Bridge.context(), Date.now(), live), next = H.State.home(data).activity;
             if (JSON.stringify(next) !== JSON.stringify(activity)) { activity = next; H.runtime.setCharActivity(activity); }
             updateStatus();
         } catch (error) { notice(error.message, true); }
@@ -81,23 +90,66 @@
         clearInterval(timer); clearInterval(apiTimer); apiTimer = setInterval(refreshApiControls, 1000);
         timer = setInterval(() => { if (!document.hidden && root?.closest('.app-window')?.classList.contains('active')) refreshLife(); }, 10000);
     }
-    function close() { H.BuildUI?.close(); clearInterval(timer); clearInterval(apiTimer); clearTimeout(noticeTimer); timer = 0; apiTimer = 0; noticeTimer = 0; loadToken++; H.runtime?.dispose(); H.runtime = null; }
-    async function loadRoom(id) {
+    function close() { try { H.Interactions?.cancel(); } catch (error) { notice(error.message, true); } H.BuildUI?.close(); clearInterval(timer); clearInterval(apiTimer); clearTimeout(noticeTimer); timer = 0; apiTimer = 0; noticeTimer = 0; loadToken++; H.runtime?.dispose(); H.runtime = null; }
+    function roomNavigation(id, home = H.State.home()) {
+        const room = H.Rooms.get(id), level = !window.__byndSingleRoom ? (H.Villa?.floorOf(id) ?? -1) : -1;
+        root.querySelector('#home3d-room-label').innerHTML = button('room-menu', (level >= 0 ? (level + 1) + 'F · ' : '') + esc(room.name), room.icon, 'class="home3d-room-chip" aria-label="选择房间，当前' + esc(room.name) + '"');
+        const available = H.catalogs.roomCatalog.rooms.filter(r => H.Rooms.available(r, home) && (level < 0 || H.Villa.floorOf(r.id) === level));
+        root.querySelector('.home3d-room-tabs').innerHTML = available.map(r => button('room', esc(r.name), r.icon, 'data-room="' + r.id + '" class="' + (id === r.id ? 'is-current' : '') + '" aria-pressed="' + (id === r.id) + '"')).join('');
+        root.querySelector('.home3d-view-tools [data-action="villa-floor"]')?.remove();
+        refreshFloorView();
+    }
+    function refreshLighting(state) {
+        const clock=root?.querySelector('.home3d-clock');if(!clock)return;
+        clock.innerHTML=icon(state.night?'ri-moon-line':'ri-sun-line')+'<span>'+esc(state.clock)+'</span>';clock.setAttribute('aria-label','当地时间 '+state.clock+'，'+state.phase);
+    }
+    function refreshFloorView() {
+        const stats=H.runtime?.stats(),v=stats?.villa,tools=root?.querySelector('.home3d-view-tools');if(!tools)return;
+        for(const [direction,symbol]of [[1,'ri-arrow-up-line'],[-1,'ri-arrow-down-line']]){
+            let b=tools.querySelector('[data-floor-direction="'+direction+'"]');
+            if(!v){b?.remove();continue;}
+            if(!b){tools.insertAdjacentHTML('beforeend',button('view-floor','',symbol,'class="home3d-floor-control" data-floor-direction="'+direction+'"'));b=tools.lastElementChild;}
+            b.innerHTML=icon(symbol)+'<small>'+(direction>0?'查看上层':'查看下层')+'</small>';
+            b.setAttribute('aria-label',direction>0?'上帝视角查看上一层，不移动人物':'上帝视角查看下一层，不移动人物');
+            b.disabled=v.inspecting||(direction>0?v.viewedLevel>=v.levels-1:v.viewedLevel<=0);
+        }
+        root.classList.toggle('is-surveying',!!v?.browsing);
+        let badge=root.querySelector('.home3d-survey-badge');
+        if(!badge&&v){root.querySelector('.home3d-world').insertAdjacentHTML('beforeend',button('return-person','','ri-user-smile-line','class="home3d-survey-badge"'));badge=root.querySelector('.home3d-survey-badge');}
+        if(badge){badge.hidden=!v?.browsing;badge.innerHTML=(stats.camera.mode==='dollhouse'?'全屋剖面':'俯瞰 '+(v.viewedLevel+1)+'F')+' · 返回人物';}
+    }
+    function areaArrived(id) {
+        H.State.withHome(home => { home.room = id; }); roomNavigation(id); updateStatus();
+    }
+    function showViewControls() {
+        const stats=H.runtime?.stats();if(!stats)return;
+        const views=[['isometric','俯视'],['first','第一人称'],['third','第三人称'],...(stats.villa?[['exterior','整栋含屋顶'],['dollhouse','全屋剖面']]:[])];
+        const choices=views.map(([id,label])=>button('viewpoint',label,'','data-view="'+id+'" aria-pressed="'+(stats.camera.mode===id)+'"')).join('');
+        const walls=stats.villa&&!['exterior','dollhouse'].includes(stats.camera.mode)?'<p class="home3d-view-label">墙体</p><div class="home3d-view-choices">'+[['cutaway','墙体剖切'],['full','显示墙体'],['hidden','隐藏墙体']].map(([id,label])=>button('wall-mode',label,'','data-wall="'+id+'" aria-pressed="'+(stats.villa.walls===id)+'"')).join('')+'</div>':'';
+        const travel=stats.villa?button('villa-floor',stats.villa.level?'人物走下一楼':'人物走上二楼','ri-stairs-line','data-room="'+(stats.villa.level?'stair_hall':'landing')+'" class="home3d-wide"'):'';
+        modal('视角与楼层','看我们的家','<div class="home3d-view-choices">'+choices+'</div>'+walls+travel+'<small class="home3d-fineprint">场景箭头只查看楼层。人物上下楼请点上面的走楼梯按钮；整栋视角拖动旋转。</small>');
+    }
+    async function loadRoom(id, controls = {}) {
         if (!root?.closest('.app-window')?.classList.contains('active')) return;
+        if (!controls.rebuild && H.runtime?.stats().villa && id !== H.State.home().room && H.Villa.includes(id)) {
+            if (H.BuildUI?.active()) H.BuildUI.close();
+            if (!H.runtime.navigate(id)) notice('暂时走不过去，先给门口或楼梯留出通道。', true);
+            return;
+        }
         const token = ++loadToken, session = H.session, data = H.State.load(), home = H.State.home(data), room = H.Rooms.get(id);
         if (!H.Rooms.available(room, home)) throw new Error('这个房间还在准备中。');
-        H.State.withHome(current => { current.room = id; });
         activity = H.Living.plan(home, H.Bridge.context());
-        H.State.withHome(current => { current.activity = activity; });
+        H.State.withHome(current => { current.room = id; current.activity = activity; });
         root.querySelector('.home3d-scene-error').hidden = true;
-        root.querySelector('#home3d-room-label').innerHTML = button('room-menu', esc(room.name), room.icon, 'class="home3d-room-chip" aria-label="选择房间，当前' + esc(room.name) + '"');
-        root.querySelector('.home3d-room-tabs').innerHTML = H.catalogs.roomCatalog.rooms.filter(room => H.Rooms.available(room, home)).map(room => button('room', esc(room.name), room.icon, 'data-room="' + room.id + '" class="' + (id === room.id ? 'is-current' : '') + '" aria-pressed="' + (id === room.id) + '"')).join('');
+        roomNavigation(id, home);
         updateStatus(); root.querySelector('#home3d-scene').classList.add('is-loading');
         try {
-            if (!H.runtime) H.runtime = H.Scene.create(root.querySelector('#home3d-scene'), { theme: home.theme === 'auto' ? (new Date().getHours() < 7 || new Date().getHours() >= 19 ? 'night' : 'cream') : home.theme, onDraft: draft => H.BuildUI?.changed(draft), onSelect: selectFurniture, onActor: actor => actor === 'char' ? showChar() : showSettings(), onNotice: notice, onQuality: refreshQuality });
-            await H.runtime.load(id, home, data.user.avatar, activity);
-            if (token !== loadToken || session !== H.session) return;
-        } catch (error) { if (token === loadToken && session === H.session) showSceneError(error.message || '3D 画面暂时没有准备好。'); }
+            if (!H.runtime) H.runtime = H.Scene.create(root.querySelector('#home3d-scene'), { villa: !window.__byndSingleRoom, theme: home.theme === 'auto' ? (new Date().getHours() < 7 || new Date().getHours() >= 19 ? 'night' : 'cream') : home.theme, onArea: areaArrived, onFloor: async (landing, requested) => { await loadRoom(landing, { rebuild: true, stairEntry: true }); if (!H.Interactions?.hasPending() && H.runtime?.stats().room === landing && requested !== landing) H.runtime.navigate(requested); }, onDraft: draft => H.BuildUI?.changed(draft), onSelect: selectFurniture, onActor: actor => actor === 'char' ? showChar() : showUserActions(), onNotice: notice, onQuality: refreshQuality, onView: refreshFloorView, onLighting: refreshLighting });
+            await H.runtime.load(id, home, data.user.avatar, activity, controls.stairEntry);
+            if (token !== loadToken || session !== H.session) return false;
+            H.Interactions?.resume();
+            return true;
+        } catch (error) { if (token === loadToken && session === H.session) showSceneError(error.message || '3D 画面暂时没有准备好。'); if (controls.stairEntry || controls.throwOnError) throw error; }
         finally { if (token === loadToken && session === H.session) root.querySelector('#home3d-scene')?.classList.remove('is-loading'); }
     }
     function showSceneError(message) {
@@ -108,9 +160,10 @@
         const home = H.State.home(), char = H.Bridge.char(), box = root?.querySelector('#home3d-presence'); if (!home || !box) return;
         const current = home.activity || activity, here = current?.room === home.room;
         const avatar = char?.avatar;
-        box.innerHTML = '<button type="button" class="home3d-presence-avatar" data-action="char" aria-label="看看同住角色">' + (avatar && /^(data:image\/|https?:\/\/|assets\/)/.test(avatar) ? '<img src="' + esc(avatar) + '" alt="">' : icon('ri-emotion-happy-line')) + '<em></em></button><button type="button" class="home3d-presence-status" data-action="char"><strong>' + esc(H.Bridge.name(char)) + '</strong><span>' + (here ? esc(H.Living.labels[current?.action] || '在这里') : '在' + esc(H.Rooms.get(current?.room)?.name || '家里')) + '</span></button>' + (here ? '' : button('find-char', '去找Ta', 'ri-arrow-right-s-line'));
+        box.innerHTML = '<button type="button" class="home3d-presence-avatar" data-action="char" aria-label="看看同住角色">' + (avatar && /^(data:image\/|https?:\/\/|assets\/)/.test(avatar) ? '<img src="' + esc(avatar) + '" alt="">' : icon('ri-emotion-happy-line')) + '<em></em></button><button type="button" class="home3d-presence-status" data-action="char"><strong>' + esc(H.Bridge.name(char)) + '</strong><span>' + esc(H.Actions?.status(home) || (here ? '准备活动' : '在' + (H.Rooms.get(current?.room)?.name || '家里'))) + '</span></button>' + (here ? '' : button('find-char', '去找Ta', 'ri-arrow-right-s-line'));
     }
     function modal(title, subtitle, content) {
+        clearTimeout(noticeTimer);const toast=root?.querySelector('.home3d-notice');if(toast)toast.hidden=true;
         if (subtitle === '小屋设置') content = qualityControls() + content;
         if (subtitle === 'TA 的此刻') { const home = H.State.home(); content = '<p class="home3d-fineprint">共同生活第 ' + Math.max(1, Math.floor((Date.now() - home.createdAt) / 86400000) + 1) + ' 天 · ' + home.keepsakes.length + ' 件小小纪念</p>' + content; }
         const box = root.querySelector('.home3d-modal'); box.hidden = false;
@@ -122,16 +175,39 @@
     function selectFurniture(id) {
         if (H.BuildUI?.active()) { H.BuildUI.edit(id).catch(error => notice(error.message, true)); return; }
         if (id.startsWith('memory-')) { showMemories(); return; }
-        const row = H.runtime?.furniture().find(f => f.placement.id === id); if (!row) return;
-        const trace = H.State.home().objectState?.[H.State.home().room + ':' + id];
+        const row = H.runtime?.getFurniture?.(id) || H.runtime?.furniture().find(f => f.placement.id === id); if (!row) return;
+        const trace = H.State.home().objectState?.[(row.area || H.State.home().room) + ':' + (row.local?.id || id)];
         const traceText = trace ? '上次使用：' + new Date(trace.lastUsedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) + ' · ' + (H.Living.labels[trace.action] || trace.action) + (trace.source === 'simulation' ? '（离开期间的生活推演）' : '') : '';
-        const labels = { Sit: '坐一会儿', Lie: '窝着放松', Sleep: '躺下来睡觉', Hug: '一起抱抱', 'Use Phone': '坐着看手机', 'Use Computer': '用电脑', Game: '去玩小游戏', Work: '坐下来工作', Watch: '看电视', Read: '翻一会儿书', Drink: '喝点热饮', Eat: '吃点零食', 'Look At': '看看它', 'Play Music': '打开音乐', Photo: '打开我们的相册', Care: '照顾绿植', Cook: '准备吃的', Bathe: '泡个暖暖的澡' };
-        modal(row.item.name, '一起生活的小细节', '<div class="home3d-furniture-symbol">' + icon(row.item.type === 'bed' ? 'ri-hotel-bed-line' : row.item.type === 'sofa' ? 'ri-sofa-line' : 'ri-heart-3-line') + '</div><p class="home3d-fineprint">' + esc(traceText || row.placement.reason || '点一个动作，给今天留一点轻轻的陪伴。') + '</p><div class="home3d-action-grid">' + row.item.actions.map(action => button('furniture-action', labels[action] || action, '', 'data-id="' + esc(id) + '" data-behavior="' + esc(action) + '"')).join('') + '</div>' + (row.item.type === 'frame' ? button('choose-photo', '把一张照片放进相框', 'ri-image-add-line', 'class="home3d-wide"') : '') + (row.item.actions.includes('Use Phone') ? button('phone', '看看角色手机', 'ri-smartphone-line', 'class="home3d-wide"') : ''));
+        const labels = { ...H.Interactions.labels };
+        const meal = H.Foods?.supports(row.item) && (!H.runtime.stats().villa || H.Villa.floorOf(row.area) === H.runtime.stats().villa.level) ? '<label class="home3d-field">今天吃什么<select id="home3d-meal">' + Object.entries(H.Foods.menus).map(([key, value]) => '<option value="' + key + '" ' + (H.Foods.selected(H.State.home()) === key ? 'selected' : '') + '>' + esc(value.name) + '</option>').join('') + '</select></label>' : '';
+        if (row.item.variant === 'dining') labels.Eat = '坐下来吃饭';
+        const shared = Object.entries(H.Rooms.sharedActions(row.item));
+        const pairMenu = shared.length ? '<h3>和Ta一起</h3><div class="home3d-action-grid">' + shared.map(([action,label]) => button('furniture-together',label,'','data-id="' + esc(id) + '" data-behavior="' + esc(action) + '"')).join('') + '</div>' : '';
+        modal(row.item.name, '家具互动', (traceText ? '<p class="home3d-fineprint">'+esc(traceText)+'</p>' : '') + '<div class="home3d-action-grid">' + row.item.actions.map(action => button('furniture-action', labels[action] || action, '', 'data-id="' + esc(id) + '" data-behavior="' + esc(action) + '"')).join('') + '</div>' + pairMenu + button('stop-action','结束当前动作 / 起身','ri-walk-line','class="home3d-wide"') + meal + (row.item.type === 'frame' ? button('choose-photo', '把一张照片放进相框', 'ri-image-add-line', 'class="home3d-wide"') : '') + (row.item.actions.includes('Use Phone') ? button('phone', '看看角色手机', 'ri-smartphone-line', 'class="home3d-wide"') : ''));
+    }
+    function showUserActions() {
+        modal('你的此刻', '人物互动', '<div class="home3d-action-grid">' + button('stop-action', '结束动作 / 起身', 'ri-walk-line') + button('settings', '人物与小屋设置', 'ri-settings-3-line') + '</div>');
     }
     function showChar() {
         const home = H.State.home(), current = home?.activity || activity;
         if (!home) return;
-        modal(H.Bridge.name(H.Bridge.char()), 'TA 的此刻', '<div class="home3d-char-state"><span>正在' + esc(H.Rooms.get(current?.room)?.name || '家里') + '</span><h3>' + esc(H.Living.labels[current?.action] || '休息') + '</h3><p>' + esc(current?.reason) + '</p><small>' + (current?.source === 'ai' ? '角色选择的生活计划' : '按当前时间和最近生活安排') + '</small></div><div class="home3d-action-grid">' + button('find-char', '去陪陪Ta', 'ri-heart-3-line') + button('phone', '看看角色手机', 'ri-smartphone-line') + button('chat', '说说话', 'ri-chat-1-line') + apiButton('decide', '让Ta安排一会儿', '正在想…') + '</div><p class="home3d-fineprint">“让Ta安排”会使用已设置的聊天 API，结合性格和生活事件选择动作与家具。</p>');
+        modal(H.Bridge.name(H.Bridge.char()), 'TA 的此刻', '<div class="home3d-char-state"><span>' + esc(H.Rooms.get(current?.room)?.name || '家里') + '</span><h3>' + esc(H.Actions?.status(home) || '准备活动') + '</h3><p>' + esc(home.executions?.char?.phase === 'blocked' ? home.executions.char.reason : current?.reason) + '</p><small>' + (current?.source === 'ai' ? '角色选择的生活计划' : '按当前时间和最近生活安排') + '</small></div><div class="home3d-action-grid">' + button('find-char', '去陪陪Ta', 'ri-heart-3-line') + button('phone', '看看角色手机', 'ri-smartphone-line') + button('chat', '说说话', 'ri-chat-1-line') + apiButton('decide', '让Ta安排一会儿', '正在想…') + button('life-preferences', '生活偏好', 'ri-heart-3-line') + button('life-records', '生活动态', 'ri-time-line') + '</div><p class="home3d-fineprint">“让Ta安排”会使用已设置的聊天 API，结合性格和生活事件选择动作与家具。</p>');
+    }
+    function showLifePreferences() {
+        const home = H.State.home(), data = H.State.load(), preferences = H.LifeContext.preferences(home), suggestions = H.LifeContext.suggestions(H.Bridge.context());
+        const fields = Object.entries(H.LifeContext.hobbies).map(([key, item]) => '<label class="home3d-field">' + esc(item.name) + '<select data-life-preference="' + key + '">' + [['auto', '顺其自然'], ['like', '喜欢，多安排一些'], ['avoid', '少安排']].map(([value, label]) => '<option value="' + value + '"' + (preferences[key] === value ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></label>').join('');
+        const suggested = Object.keys(suggestions).filter(key => suggestions[key] === 'like').map(key => H.LifeContext.hobbies[key].name);
+        modal('生活偏好', H.Bridge.name(H.Bridge.char()), fields + button('life-preferences-save', '保存偏好', '', 'class="home3d-wide" data-char="' + esc(data.activeCharId) + '"') + '<p class="home3d-fineprint">从下一次安排开始参考，不打断正在做的事。吃饭、休息等需要仍会优先照顾。</p><details class="home3d-life-details"><summary>角色资料中的线索</summary><p>' + (suggested.length ? '可能喜欢：' + esc(suggested.join('、')) + '。可以在上方确认，保存后才会作为偏好。' : '暂时没有明确的喜好线索，可以在上方选择。') + '</p></details>');
+    }
+    function showLifeRecords() {
+        const home = H.State.home(), phases = { queued: '准备', walking: '前往', acting: '已开始', finished: '已结束', blocked: '未能到达', cancelled: '已取消' };
+        const time = at => new Date(at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        // Show the latest receipt of each intent, keeping the transition history in storage.
+        const receipts = [...new Map((home.actionReceipts || []).map(row => [row.id, row])).values()].slice(-20).reverse();
+        const events = (home.lifeInbox?.entries || []).slice(-12).reverse();
+        const list = receipts.map(row => '<article><small>' + esc(time(row.at)) + ' · ' + (row.actor === 'user' ? '你' : 'Ta') + '</small><p>' + esc((H.Interactions.labels[row.action] || H.Living.labels[row.action] || row.action) + ' · ' + (row.mode === 'simulation' ? '另一层模拟 · ' + phases[row.phase] : phases[row.phase])) + '</p>' + (row.reason ? '<small>' + esc(row.reason) + '</small>' : '') + '</article>').join('') || '<p class="home3d-fineprint">还没有活动记录。</p>';
+        const inbox = events.map(row => '<article><small>' + esc(H.LifeContext.sources[row.source] + ' · ' + time(row.at)) + '</small><p>' + esc(row.text) + '</p><small>' + esc(row.receipt) + '</small></article>').join('') || '<p class="home3d-fineprint">最近还没有带回小屋的动态。</p>';
+        modal('生活动态', H.Bridge.name(H.Bridge.char()), '<div class="home3d-life-records">' + list + '</div><details class="home3d-life-details"><summary>带回小屋的动态 · ' + events.length + '</summary><p class="home3d-fineprint">只参考这位角色已知的聊天、手机与生活事件，不会自动发消息或发帖。</p><div class="home3d-life-records">' + inbox + '</div></details>');
     }
     function showMemories() {
         const home = H.State.home(); if (!home) return;
@@ -140,11 +216,11 @@
     }
     function showJournal() {
         const home = H.State.home(); if (!home) return;
-        modal('我们的日子', '不必升级，只管一起生活', '<div class="home3d-journal-stats"><div><strong>' + home.visits.length + '</strong><span>回家的日子</span></div><div><strong>' + home.moments.length + '</strong><span>一起做的小事</span></div><div><strong>' + home.keepsakes.length + '</strong><span>留在家的纪念</span></div></div><div class="home3d-timeline">' + (home.moments.slice(-60).reverse().map(item => '<article><small>' + esc(new Date(item.at).toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })) + '</small><p>' + esc(item.text) + '</p>' + (item.source === 'simulation' ? '<small>离开期间的本地生活推演</small>' : item.source === 'autonomous' ? '<small>Ta的自主生活</small>' : '') + '</article>').join('') || '<div class="home3d-empty">第一天的灯已经点亮。<br>点点家具，一起开始生活吧。</div>') + '</div>');
+        modal('生活手记', '在家发生的小事', '<div class="home3d-journal-stats"><div><strong>' + home.visits.length + '</strong><span>回家的日子</span></div><div><strong>' + home.moments.length + '</strong><span>生活片段</span></div><div><strong>' + home.keepsakes.length + '</strong><span>留在家的纪念</span></div></div><div class="home3d-timeline">' + (home.moments.slice(-60).reverse().map(item => '<article><small>' + esc(new Date(item.at).toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })) + '</small><p>' + esc(item.text) + '</p>' + (item.source === 'simulation' ? '<small>离家时的日常 · 模拟记录</small>' : item.source === 'autonomous' ? '<small>Ta 的日常</small>' : '') + '</article>').join('') || '<div class="home3d-empty">第一天的灯已经点亮。<br>点点家具，一起开始生活吧。</div>') + '</div>');
     }
     function showExpansion() {
         const home = H.State.home();
-        modal('给家添一间房', '留出更多生活的空间', '<div class="home3d-expansion">' + H.catalogs.roomCatalog.rooms.filter(room => room.expandable).map(room => button('expand-room', icon(room.icon) + '<strong>' + esc(room.name) + '</strong><span>' + (H.Rooms.available(room, home) ? '已扩建 · 去看看' : '扩建这间房') + '</span>', '', 'data-room="' + room.id + '"')).join('') + '</div>');
+        modal('给家添一间房', '留出更多生活的空间', '<div class="home3d-expansion">' + H.catalogs.roomCatalog.rooms.filter(room => room.expandable && !(!window.__byndSingleRoom && H.Villa?.includes(room.id))).map(room => button('expand-room', icon(room.icon) + '<strong>' + esc(room.name) + '</strong><span>' + (H.Rooms.available(room, home) ? '已扩建 · 去看看' : '扩建这间房') + '</span>', '', 'data-room="' + room.id + '"')).join('') + '</div>');
     }
     function portraitCard(person, who) {
         const model = H.CharacterModels.selected(person, who), id = who === 'user' ? 'bunny-blue-v1' : 'silver-red-v1';
@@ -161,17 +237,31 @@
         const hint = root?.querySelector('[data-render-quality]'), profile = value || H.runtime?.stats().quality;
         if (hint && profile) hint.textContent = H.RenderQuality.labels[profile.mode] + ' · 当前按' + H.RenderQuality.labels[profile.tier] + '画质运行';
     }
-    function showInteriors() {
+    function showInteriors(scope = 'all') {
+        interiorScope = scope === 'room' ? 'room' : 'all';
         const home = H.State.home(), room = H.Rooms.get(home.room), config = H.Interiors.resolve(room, home), options = H.Interiors.data();
         const select = (id, values, selected) => '<select id="' + id + '">' + Object.entries(values).map(([key, value]) => '<option value="' + key + '" ' + (key === selected ? 'selected' : '') + '>' + esc(value.name) + '</option>').join('') + '</select>';
-        const cards = Object.entries(options.presets).map(([id, preset]) => button('interior-preset', '<span class="home3d-interior-swatch" style="--wall:' + options.walls[preset.wall].base + ';--floor:' + options.floors[preset.floor].base + ';--wood:' + preset.wood + ';--accent:' + preset.accent + '"><i></i><b></b></span><strong>' + esc(preset.name) + '</strong><small>' + esc(preset.description) + '</small>', '', 'data-interior="' + id + '" aria-pressed="' + (config.id === id) + '"')).join('');
-        modal(room.name, '墙面、地板与风格', '<div class="home3d-interior-options">' + cards + '</div><p class="home3d-fineprint">套装搭配当前房间的家具、墙面、地板、窗帘与地毯；也可以单独换墙面和地板。</p><div class="home3d-interior-fields"><label class="home3d-field">墙面与壁纸' + select('home3d-interior-wall', options.walls, config.wall) + '</label><label class="home3d-field">地板' + select('home3d-interior-floor', options.floors, config.floor) + '</label></div>' + button('interior-finishes', '保存墙面和地板', 'ri-check-line', 'class="home3d-wide"'));
+        const selected = interiorScope === 'all' ? H.Interiors.uniform(home) : config.id;
+        const cards = Object.entries(options.presets).map(([id, preset]) => button('interior-preset', '<span class="home3d-interior-swatch" style="--wall:' + options.walls[preset.wall].base + ';--floor:' + options.floors[preset.floor].base + ';--wood:' + preset.wood + ';--accent:' + preset.accent + '"><i></i><b></b></span><strong>' + esc(preset.name) + '</strong><small>' + esc(preset.description) + '</small>', '', 'data-interior="' + id + '" aria-pressed="' + (selected === id) + '"')).join('');
+        const scopes = '<div class="home3d-theme-options" role="group" aria-label="装修范围">' + button('interior-scope', '全屋统一', '', 'data-scope="all" aria-pressed="' + (interiorScope === 'all') + '" class="' + (interiorScope === 'all' ? 'is-current' : '') + '"') + button('interior-scope', '仅当前房间', '', 'data-scope="room" aria-pressed="' + (interiorScope === 'room') + '" class="' + (interiorScope === 'room' ? 'is-current' : '') + '"') + '</div>';
+        modal(interiorScope === 'all' ? '全屋统一装修' : room.name, '墙面、地板与风格', scopes + '<div class="home3d-interior-options">' + cards + '</div><p class="home3d-fineprint">' + (interiorScope === 'all' ? '一次更换所有房间的墙面、地板与家具配色，保留摆放位置。' : '只调整这间房，其余房间保留原来的装修。') + '</p><details><summary>单独调整墙面与地板</summary><div class="home3d-interior-fields"><label class="home3d-field">墙面与壁纸' + select('home3d-interior-wall', options.walls, config.wall) + '</label><label class="home3d-field">地板' + select('home3d-interior-floor', options.floors, config.floor) + '</label></div>' + button('interior-finishes', interiorScope === 'all' ? '全屋应用墙面和地板' : '保存这间房的墙面和地板', 'ri-check-line', 'class="home3d-wide"') + '</details>');
+    }
+    async function applyInterior(changes, matchFurniture) {
+        if(interiorBusy)return;
+        if(H.runtime?.stats().villa?.transitioning)throw Error('先走完楼梯，再更换装修。');
+        interiorBusy=true;const scope=interiorScope;
+        const controls=[...root.querySelectorAll('.home3d-sheet button,.home3d-sheet select')];controls.forEach(b=>{b.disabled=true;});
+        try {
+            if(scope==='all')H.Interiors.applyAll(changes,matchFurniture);else H.Interiors.apply(H.State.home().room,changes,matchFurniture);
+            if(!await loadRoom(H.State.home().room,{rebuild:true,throwOnError:true}))throw Error('装修已保存，但房间已切换，请在当前房间重新查看。');
+            showInteriors(scope);notice(scope==='all'?'全屋装修已统一，所有房间都会使用这套风格。':'这间房的装修已保存。');
+        } finally { interiorBusy=false;controls.forEach(b=>{b.disabled=false;}); }
     }
     function showSettings() {
         const data = H.State.load(), home = H.State.home(data); if (!home) { setup(); return; }
         const chars = H.Bridge.characters(), char = H.Bridge.char();
         referenceDraft = data.user.reference || '';
-        modal('', '小屋设置', '<p class="home3d-fineprint">小屋支持立体模型和透明 Q 版立绘，可在下方切换。生图生成的是立绘，先预览，确认后才替换。</p><h3 class="home3d-list-title">我的形象</h3><button type="button" class="home3d-reference" data-action="pick-user">' + (referenceDraft ? '<img src="' + esc(referenceDraft) + '" alt="我的参考图">' : icon('ri-user-smile-line')) + '<span>' + esc(data.user.name || '我') + '<small>更换自己的参考图</small></span><b>＋</b></button>' + portraitCard(data.user, 'user') + '<h3 class="home3d-list-title">' + esc(H.Bridge.name(char)) + '的形象</h3><p class="home3d-fineprint">参考图沿用聊天设置，生成时保留人物的发型、衣服与配饰。</p>' + portraitCard(home, 'char') + '<p class="home3d-fineprint" data-image-cooldown hidden></p>'  + '<h3 class="home3d-list-title">家的气氛</h3><div class="home3d-theme-options">' + Object.entries({ auto: { name: '跟随昼夜' }, ...H.catalogs.materialPresets.themes }).map(([id, theme]) => button('theme', esc(theme.name), '', 'data-theme="' + id + '" class="' + (home.theme === id ? 'is-current' : '') + '"')).join('') + '</div><label class="home3d-check"><input type="checkbox" id="home3d-consent" ' + (home.consentHug ? 'checked' : '') + '>允许小屋中的拥抱互动</label><label class="home3d-field">我们现在的关系<select id="home3d-relationship">' + ['朋友', '亲近', '恋人', '家人'].map(value => '<option ' + (home.relationship === value ? 'selected' : '') + '>' + value + '</option>').join('') + '</select></label><h3 class="home3d-list-title">切换同住角色</h3><label class="home3d-field"><select id="home3d-rebind">' + chars.map(char => '<option value="' + esc(char.id) + '" ' + (String(char.id) === data.activeCharId ? 'selected' : '') + '>' + esc(H.Bridge.name(char)) + '</option>').join('') + '</select></label><p class="home3d-fineprint">每位角色都有各自的小屋存档，照片和回忆会保留。小屋存档随 BYND 的整机备份一起保存。</p>' + button('rebind', '和这个人回家', 'ri-home-heart-line', 'class="home3d-wide"') + '<h3 class="home3d-list-title">以后，还有更多日常</h3><div class="home3d-future-rooms">' + H.catalogs.roomCatalog.rooms.filter(room => !room.open).map(room => '<span>' + icon(room.icon) + esc(room.name) + '</span>').join('') + '</div>' + button('expand', '给家添一间房', 'ri-add-line', 'class="home3d-wide"') + button('licenses', '家具与 3D 资源来源', 'ri-information-line', 'class="home3d-wide"'));
+        modal('', '小屋设置', '<p class="home3d-fineprint">小屋支持立体模型和透明 Q 版立绘，可在下方切换。生图生成的是立绘，先预览，确认后才替换。</p><h3 class="home3d-list-title">我的形象</h3><button type="button" class="home3d-reference" data-action="pick-user">' + (referenceDraft ? '<img src="' + esc(referenceDraft) + '" alt="我的参考图">' : icon('ri-user-smile-line')) + '<span>' + esc(data.user.name || '我') + '<small>更换自己的参考图</small></span><b>＋</b></button>' + portraitCard(data.user, 'user') + '<h3 class="home3d-list-title">' + esc(H.Bridge.name(char)) + '的形象</h3><p class="home3d-fineprint">参考图沿用聊天设置，生成时保留人物的发型、衣服与配饰。</p>' + portraitCard(home, 'char') + '<p class="home3d-fineprint" data-image-cooldown hidden></p>'  + '<h3 class="home3d-list-title">家的气氛</h3><div class="home3d-theme-options">' + Object.entries({ auto: { name: '跟随昼夜' }, ...H.catalogs.materialPresets.themes }).map(([id, theme]) => button('theme', esc(theme.name), '', 'data-theme="' + id + '" class="' + (home.theme === id ? 'is-current' : '') + '"')).join('') + '</div><label class="home3d-check"><input type="checkbox" id="home3d-consent" ' + (home.consentHug ? 'checked' : '') + '>允许小屋中的拥抱、互喂互动</label><label class="home3d-field">我们现在的关系<select id="home3d-relationship">' + ['朋友', '亲近', '恋人', '家人'].map(value => '<option ' + (home.relationship === value ? 'selected' : '') + '>' + value + '</option>').join('') + '</select></label><h3 class="home3d-list-title">切换同住角色</h3><label class="home3d-field"><select id="home3d-rebind">' + chars.map(char => '<option value="' + esc(char.id) + '" ' + (String(char.id) === data.activeCharId ? 'selected' : '') + '>' + esc(H.Bridge.name(char)) + '</option>').join('') + '</select></label><p class="home3d-fineprint">每位角色都有各自的小屋存档，照片和回忆会保留。小屋存档随 BYND 的整机备份一起保存。</p>' + button('rebind', '和这个人回家', 'ri-home-heart-line', 'class="home3d-wide"') + '<h3 class="home3d-list-title">以后，还有更多日常</h3><div class="home3d-future-rooms">' + H.catalogs.roomCatalog.rooms.filter(room => !H.Rooms.available(room, home)).map(room => '<span>' + icon(room.icon) + esc(room.name) + '</span>').join('') + '</div>' + button('expand', '给家添一间房', 'ri-add-line', 'class="home3d-wide"') + button('licenses', '家具与 3D 资源来源', 'ri-information-line', 'class="home3d-wide"'));
     }
     function showPhotos() {
         const photos = H.Bridge.photos();
@@ -228,16 +318,23 @@
                 case 'enter': await enter(); break;
                 case 'home-enter': await arrive(); break;
                 case 'entrance': if (H.State.home()) showEntrance(); break;
-                case 'build': dismiss(); H.BuildUI.open(root); break;
+                case 'build': if (H.runtime?.stats().villa?.transitioning) { notice('先走完楼梯，再开始装修。'); break; } dismiss(); H.BuildUI.open(root); break;
                 case 'expand': showExpansion(); break;
                 case 'expand-room': H.Build.expand(target.dataset.room); H.BuildUI?.close(); dismiss(); await loadRoom(target.dataset.room); notice('新房间已经准备好了。'); break;
-                case 'room': dismiss(); await loadRoom(target.dataset.room); break;
-                case 'room-menu': modal('切换房间', '我们的家', '<div class="home3d-action-grid">' + H.catalogs.roomCatalog.rooms.filter(room => H.Rooms.available(room, H.State.home())).map(room => button('room', esc(room.name), room.icon, 'data-room="' + room.id + '"')).join('') + '</div>' + button('expand', '给家添一间房', 'ri-add-line', 'class="home3d-wide"')); break;
+                case 'room': case 'villa-floor': dismiss(); await loadRoom(target.dataset.room); break;
+                case 'room-menu': modal('去哪里走走', '我们的家', '<div class="home3d-action-grid">' + H.catalogs.roomCatalog.rooms.filter(room => H.Rooms.available(room, H.State.home())).map(room => button('room', esc(room.name), room.icon, 'data-room="' + room.id + '"')).join('') + '</div>' + button('expand', '给家添一间房', 'ri-add-line', 'class="home3d-wide"')); break;
                 case 'retry': H.runtime?.dispose(); H.runtime = null; await loadRoom(H.State.home().room); break;
                 case 'settings': showSettings(); break;
+                case 'life-preferences': showLifePreferences(); break;
+                case 'life-records': showLifeRecords(); break;
+                case 'life-preferences-save': {
+                    const values = Object.fromEntries([...root.querySelectorAll('[data-life-preference]')].map(select => [select.dataset.lifePreference, select.value]));
+                    H.LifeContext.save(values, target.dataset.char); dismiss(); notice('偏好已保存，下一次生活安排会参考。'); break;
+                }
                 case 'interiors': showInteriors(); break;
-                case 'interior-preset': H.Interiors.apply(H.State.home().room, { preset: target.dataset.interior }, true); await loadRoom(H.State.home().room); showInteriors(); notice('这间房的整套风格已保存。'); break;
-                case 'interior-finishes': H.Interiors.apply(H.State.home().room, { wall: root.querySelector('#home3d-interior-wall').value, floor: root.querySelector('#home3d-interior-floor').value }); await loadRoom(H.State.home().room); showInteriors(); notice('墙面和地板已保存。'); break;
+                case 'interior-scope': if(!interiorBusy)showInteriors(target.dataset.scope); break;
+                case 'interior-preset': await applyInterior({preset:target.dataset.interior},true); break;
+                case 'interior-finishes': await applyInterior({wall:root.querySelector('#home3d-interior-wall').value,floor:root.querySelector('#home3d-interior-floor').value},false); break;
                 case 'dismiss': dismiss(); break;
                 case 'pick-user': pickUser(); break;
                 case 'generate-user': await generate('user'); break;
@@ -249,12 +346,19 @@
                 case 'phone': dismiss(); H.Bridge.open('phone'); break;
                 case 'chat': dismiss(); H.Bridge.open('chat'); break;
                 case 'reset-view': H.runtime?.resetCamera(); break;
+                case 'view-menu': showViewControls(); break;
+                case 'viewpoint': await H.runtime?.setViewpoint(target.dataset.view); dismiss(); break;
+                case 'view-floor': await H.runtime?.browseFloor(Number(target.dataset.floorDirection)); refreshFloorView(); break;
+                case 'return-person': await H.runtime?.setViewpoint('isometric');refreshFloorView();break;
+                case 'wall-mode': H.runtime?.setWalls(target.dataset.wall); dismiss(); break;
                 case 'zoom-in': H.runtime?.zoom(0.15); break;
                 case 'zoom-out': H.runtime?.zoom(-0.15); break;
                 case 'memories': showMemories(); break;
                 case 'journal': showJournal(); break;
                 case 'choose-photo': showPhotos(); break;
-                case 'furniture-action': dismiss(); H.Interactions.perform(target.dataset.id, target.dataset.behavior); break;
+                case 'furniture-together': dismiss(); await H.Interactions.perform(target.dataset.id, target.dataset.behavior, true); break;
+                case 'furniture-action': dismiss(); await H.Interactions.perform(target.dataset.id, target.dataset.behavior); break;
+                case 'stop-action': dismiss(); if(!H.runtime.stopAction())notice('现在还不能起身，请等楼梯走完或留出家具旁的空地。',true); break;
                 case 'together': {
                     const home = H.State.home(), current = home.activity || activity;
                     if (current.room !== home.room) { await loadRoom(current.room); }
@@ -280,7 +384,7 @@
                     try { const decision = await H.Living.decide(); if (session !== H.session) return; activity = H.State.home().activity; dismiss(); await loadRoom(decision.room); notice(decision.reason); } finally { busy = false; refreshApiControls(); }
                     break;
                 }
-                case 'licenses': modal('家里的小小来处', '感谢这些创作者', Object.values(H.catalogs.furnitureCatalog.sources).map(source => '<article class="home3d-license"><strong>' + esc(source.author) + '</strong><p>' + esc(source.license) + ' · 可商用 · 可修改 · ' + (source.attributionRequired ? '需要署名' : '无需署名') + '</p>' + (/^https:/.test(source.source) ? '<a href="' + esc(source.source) + '" target="_blank" rel="noopener">官方资产页面 ↗</a>' : '') + '</article>').join('') + '<p class="home3d-fineprint">Three.js r180 · MIT License。家具几何来自已审核的本地资产，材质、房间与可活动小人由 BYND 统一构建。</p>'); break;
+                case 'licenses': modal('家里的小小来处', '感谢这些创作者', Object.values(H.catalogs.furnitureCatalog.sources).map(source => '<article class="home3d-license"><strong>' + esc(source.author) + '</strong><p>' + esc(source.license) + ' · 可商用 · 可修改 · ' + (source.attributionRequired ? '需要署名' : '无需署名') + '</p>' + (/^https:/.test(source.source) ? '<a href="' + esc(source.source) + '" target="_blank" rel="noopener">官方资产页面 ↗</a>' : '') + '</article>').join('') + '<article class="home3d-license"><strong>Kenney · Food Kit 2.0</strong><p>CC0 · 可商用 · 可修改</p><a href="https://kenney.nl/assets/food-kit" target="_blank" rel="noopener">官方食物资产页面 ↗</a></article><p class="home3d-fineprint">Three.js r180 · MIT License。家具几何来自已审核的本地资产，材质、房间与可活动小人由 BYND 统一构建。</p>'); break;
             }
         } catch (error) { notice(error.message || '这次操作没有完成，请重试。', true); }
     }
@@ -288,6 +392,14 @@
         const target = event.target;
         try {
             if (H.BuildUI?.change(target)) return;
+            if (target.id === 'home3d-meal') {
+                const previous = H.Foods.selected(H.State.home()); target.disabled = true;
+                try { await H.runtime.chooseMeal(target.value); notice('今天就吃' + H.Foods.menus[target.value].name + '。'); }
+                catch (error) { target.value = previous; throw error; }
+                finally { target.disabled = false; }
+                return;
+            }
+
             if (target.id === 'home3d-render-quality') { try { H.runtime?.setQuality(target.value); refreshQuality(); } catch (error) { target.value = H.RenderQuality.preference(); throw error; } return; }
             if (['home3d-character-model', 'home3d-user-model'].includes(target.id)) {
                 const who = target.id === 'home3d-user-model' ? 'user' : 'char', person = who === 'user' ? H.State.load().user : H.State.home();
@@ -303,5 +415,5 @@
             else if (target.id === 'home3d-relationship') { H.State.withHome(current => { current.relationship = target.value; current.activity = null; }); await loadRoom(H.State.home().room); }
         } catch (error) { notice(error.message, true); }
     }
-    H.UI = { open, close, notice, updateStatus, showSceneError, showMemories, compact, loadRoom, arrive, refreshLife, showExpansion, showInteriors };
+    H.UI = { showSettings, open, close, notice, updateStatus, showSceneError, showMemories, compact, loadRoom, arrive, refreshLife, showExpansion, showInteriors };
 })(window.ByndHome3D);

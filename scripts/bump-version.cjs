@@ -34,7 +34,7 @@ const RULES = [
         .replace(/Beyond Screen v\d+\.\d+\.\d+/g, `Beyond Screen v${v}`)],
     ['ui/theme/style.css', (text, v) => text.replace(/(@import url\(["']?[^"')?]+\.css)\?v=[^"')]+/g, `$1?v=${v}`)],
     ['ui/theme/foundation.css', (text, v) => text.replace(/(@import url\(["']?[^"')?]+\.css)\?v=[^"')]+/g, `$1?v=${v}`)],
-    ['manifest.webmanifest', (text, v) => text.replace(/("start_url": "\/\?v=)[^"]+"/, `$1${v}"`)],
+    ['manifest.webmanifest', (text, v) => text.replace(/("start_url": "\/\?v=)\d+\.\d+\.\d+/, `$1${v}`)],
     ['core/storage/backup.js', (text, v) => text.replace(/const APP_VERSION = 'v\d+\.\d+\.\d+';/, `const APP_VERSION = 'v${v}';`)],
     ['systems/proactive-notifications/notifications.js', (text, v) => text
         .replace(/register\('sw\.js\?v=[^']+'\)/, `register('sw.js?v=${v}')`)],

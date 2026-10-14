@@ -13,13 +13,16 @@ class D1TestDatabase {
     constructor() {
         this.sqlite = new DatabaseSync(':memory:');
         this.sqlite.exec('PRAGMA foreign_keys = ON');
-        this.sqlite.exec(fs.readFileSync(path.join(root, 'workers/license/migrations/0001_license.sql'), 'utf8'));
+        for (const name of fs.readdirSync(path.join(root, 'workers/license/migrations')).filter(x => x.endsWith('.sql')).sort()) {
+            this.sqlite.exec(fs.readFileSync(path.join(root, 'workers/license/migrations', name), 'utf8'));
+        }
         this.failWrites = false;
     }
     prepare(sql) {
         const db = this;
         return { args: [], bind(...args) { this.args = args; return this; },
             async first() { return db.sqlite.prepare(sql).get(...this.args) || null; },
+            async all() { return { results: db.sqlite.prepare(sql).all(...this.args) }; },
             async run() { return this.execute(); },
             execute() {
                 if (db.failWrites) throw new Error('simulated disk failure');
@@ -170,7 +173,7 @@ test('unbind permits a new device, disable blocks later activations, neither pro
     verifyToken(activated.body.token);
 });
 function release(overrides = {}) {
-    return { versionCode: 999, versionName: '1.2.3', size: 1024, sha256: 'a'.repeat(64), apkUrl: 'https://bynd.ccwu.cc/downloads/bynd-999.apk', changelog: { new: ['一封新来信'], improved: [], fixed: [] }, ...overrides };
+    return { versionCode: 999, versionName: '1.2.3', size: 1024, sha256: 'a'.repeat(64), apkUrl: 'https://bynd.ccwu.cc/releases/bynd-999.apk', changelog: { new: ['一封新来信'], improved: [], fixed: [] }, ...overrides };
 }
 test('updates are signed, monotonic, bounded and only accept trusted HTTPS downloads', async () => {
     const env = environment();

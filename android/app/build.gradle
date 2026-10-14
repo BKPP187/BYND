@@ -20,6 +20,15 @@ def parsedPublicKeys = new groovy.json.JsonSlurper().parseText(publicKeys)
 if (!(parsedPublicKeys instanceof Map) || !parsedPublicKeys.every { key, value -> key ==~ /[A-Za-z0-9_-]{1,64}/ && value instanceof String && value ==~ /[A-Za-z0-9_-]+/ }) {
     throw new GradleException('BYND public keys must map key ids to base64url SPKI values')
 }
+try {
+    parsedPublicKeys.each { key, value ->
+        def decoded = java.util.Base64.urlDecoder.decode(value)
+        def publicKey = java.security.KeyFactory.getInstance('RSA').generatePublic(new java.security.spec.X509EncodedKeySpec(decoded))
+        if (publicKey.modulus.bitLength() < 2048) throw new IllegalArgumentException('RSA public key is too short')
+    }
+} catch (Exception error) {
+    throw new GradleException('BYND keys must contain public RSA SPKI keys only; never pass a private JWK', error)
+}
 if ((requireLicense == 'true' || enableUpdates == 'true') && parsedPublicKeys.isEmpty()) {
     throw new GradleException('Pin public keys before enabling BYND licensing or updates')
 }
@@ -40,8 +49,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 269
-        versionName '1.1.844'
+        versionCode 324
+        versionName '1.1.899'
         buildConfigField 'boolean', 'BYND_REQUIRE_LICENSE', requireLicense
         buildConfigField 'boolean', 'BYND_ENABLE_UPDATES', enableUpdates
         buildConfigField 'String', 'BYND_PUBLIC_KEYS', javaString(publicKeys)
@@ -88,8 +97,15 @@ tasks.register('assembleWebSources', Exec) {
     commandLine 'node', 'scripts/assemble-sources.cjs'
 }
 
+// An Exec task without outputs also runs when Sync itself is up-to-date. Changes
+// to excluded originals must still fail if their retained mirror becomes stale.
+tasks.register('verifyAndroidAssetMirrors', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/check-android-asset-dedup.cjs'
+}
+
 tasks.register('syncWebAssets', Sync) {
-    dependsOn assembleWebSources
+    dependsOn assembleWebSources, verifyAndroidAssetMirrors
     from(rootProject.projectDir.parentFile) {
         include '*.html'
         include '*.js'
@@ -99,7 +115,24 @@ tasks.register('syncWebAssets', Sync) {
         include '*.webmanifest'
         include 'assets/**'
         exclude 'shop.html'
+        exclude 'license-admin.html'
+        exclude 'license-receipt.html'
+        exclude 'account.html'
         exclude 'assets/website/**'
+        // file:// home models use classic-script mirrors; APK background removal
+        // uses XHR and keeps the original bytes. Never ship both representations.
+        exclude 'assets/home3d/**/*.glb'
+        // These six portraits are already embedded in the initial portrait scripts.
+        exclude 'assets/home3d/characters/default-user-v1.png'
+        exclude 'assets/home3d/characters/default-char-v1.png'
+        exclude 'assets/home3d/characters/default-user-sleep-v1.png'
+        exclude 'assets/home3d/characters/default-char-sleep-v1.png'
+        exclude 'assets/home3d/characters/model-user-preview-v1.png'
+        exclude 'assets/home3d/characters/model-char-preview-v1.png'
+        exclude 'assets/vendor/pet-background/*.wasm.js'
+        exclude 'assets/vendor/pet-background/*.onnx.js'
+        exclude 'assets/vendor/pet-background/*.mjs.js'
+        exclude 'apps/monitor/pet-background-worker.js.js'
         include 'apps/**'
         include 'core/**'
         include 'systems/**'
@@ -116,6 +149,12 @@ tasks.register('syncWebAssets', Sync) {
         exclude '.wrangler/**'
     }
     into "$buildDir/generated/assets/www"
+    doLast {
+        exec {
+            workingDir rootProject.projectDir.parentFile
+            commandLine 'node', 'scripts/check-android-asset-dedup.cjs', "$buildDir/generated/assets/www"
+        }
+    }
 }
 
 preBuild.dependsOn syncWebAssets

@@ -1,7 +1,7 @@
 (function (H) {
     'use strict';
     const detailedTypes = ['bed', 'sofa', 'chair', 'desk', 'table', 'cabinet', 'bookcase', 'lamp', 'plant', 'stove', 'sink', 'fridge', 'fireplace', 'wardrobe', 'television', 'computer'];
-    function handles(item) { return item.type === 'stove' || ['bear_01', 'gamepad_01', 'game_speaker_01', 'keyboard_01', 'kitchen_spice_shelf'].includes(item.id) || (['cream', 'european', 'modern', 'botanical', 'rose', 'pink', 'monochrome'].includes(item.style) || item.interiorPalette) && detailedTypes.includes(item.type); }
+    function handles(item) { return ['stove', 'television'].includes(item.type) || ['bear_01', 'gamepad_01', 'game_speaker_01', 'keyboard_01', 'kitchen_spice_shelf'].includes(item.id) || (['cream', 'european', 'modern', 'botanical', 'rose', 'pink', 'monochrome'].includes(item.style) || item.interiorPalette) && detailedTypes.includes(item.type); }
     // Original geometry inspired by the supplied miniature interiors. Dimensions
     // and seat/support heights remain catalog-owned, including existing saves.
     function cozy(item, materials) {
@@ -160,18 +160,16 @@
                 if (botanical) for (let i = 0; i < 9; i++) box([.025, .009, d - .03], [-w * .43 + i * w * .107, h + .005, 0], ivory, .002);
                 else if (!modern) box([w * .3, .009, d * .80], [0, h + .006, 0], accent, .004);
                 cup(-w * .25, h + .005, d * .12); cup(w * .25, h + .005, -d * .12);
-                flower(0, h + .015, -d * .12, .75);
+                if (!dining) flower(0, h + .015, -d * .12, .75);
                 if (dining) {
-                    for (const x of [-w * .27, w * .27]) for (const z of [-d * .29, d * .29]) {
+                    for (const x of [-w * .21, w * .21]) for (const z of [-d * .29, d * .29]) {
                         box([.37, .007, .31], [x, h + .006, z], accent, .018);
                         cylinder(.125, .115, .018, [x, h + .019, z], ivory);
-                        cylinder(.09, .09, .008, [x, h + .032, z], fabric);
-                        ellipsoid([.052, .026, .042], [x, h + .058, z], wood);
+                        cylinder(.09, .09, .008, [x, h + .032, z], ivory);
+                        ellipsoid([.052, .026, .042], [x, h + .058, z], wood).userData.mealPlaceholder = true;
                         box([.05, .009, .17], [x + .165, h + .015, z], fabric, .006);
                         box([.012, .012, .14], [x - .165, h + .018, z], brass, .003);
                     }
-                    cylinder(.13, .09, .06, [0, h + .04, d * .2], ivory);
-                    for (const x of [-.05, .05]) ellipsoid([.045, .045, .045], [x, h + .09, d * .2], sage);
                 }
             } else {
                 const pw = Math.min(.43, w * .3), x = w / 2 - pw / 2 - .09;
@@ -285,6 +283,7 @@
             box([sw + .06, sh + .025, .025], [modern ? 0 : -w * .08, .12 + sh / 2, modern ? .063 : d * .375], black, .025);
             // Local +Z is the viewing face, matching sofa/table orientation.
             box([sw, sh - .03, .009], [modern ? 0 : -w * .08, .12 + sh / 2, modern ? .081 : d * .40], materials.get('milky_plastic', '#202731'), .028);
+            H.Television?.screen(root, sw - .012, sh - .042, [modern ? 0 : -w * .08, .12 + sh / 2, (modern ? .081 : d * .40) + .006]);
             if (!modern) for (const y of [.24, .39]) { const dial = cylinder(.031, .031, .025, [w * .37, y, d * .39], brass); dial.rotation.x = Math.PI / 2; }
             for (const x of [-w * .3, w * .3]) box([.07, .095, .22], [x, .055, 0], black);
             root.userData.screenNormal = [0, 0, 1];
@@ -389,10 +388,11 @@
         for (const node of parts) {
             const geometry = node.geometry.clone().applyMatrix4(node.matrixWorld), flat = geometry.index ? geometry.toNonIndexed() : geometry;
             if (flat !== geometry) geometry.dispose();
-            if (!batches.has(node.material)) batches.set(node.material, []);
-            batches.get(node.material).push(flat); node.geometry.dispose(); root.remove(node);
+            const key = node.material.uuid + (node.userData.mealPlaceholder ? ':meal' : '');
+            if (!batches.has(key)) batches.set(key, { mat: node.material, placeholder: !!node.userData.mealPlaceholder, list: [] });
+            batches.get(key).list.push(flat); node.geometry.dispose(); root.remove(node);
         }
-        for (const [mat, list] of batches) {
+        for (const { mat, placeholder, list } of batches.values()) {
             const geometry = new T.BufferGeometry();
             for (const attribute of ['position', 'normal', 'uv']) {
                 const size = attribute === 'uv' ? 2 : 3, length = list.reduce((sum, g) => sum + g.getAttribute(attribute).array.length, 0), array = new Float32Array(length);
@@ -400,14 +400,57 @@
                 geometry.setAttribute(attribute, new T.BufferAttribute(array, size));
             }
             list.forEach(g => g.dispose()); geometry.computeBoundingBox(); geometry.computeBoundingSphere();
-            const node = new T.Mesh(geometry, mat); node.castShadow = node.receiveShadow = true; root.add(node);
+            const node = new T.Mesh(geometry, mat); node.userData.mealPlaceholder = placeholder; node.castShadow = node.receiveShadow = true; root.add(node);
         }
         root.userData.furnitureDesign = 'cozy-reference-v1'; root.userData.style = item.style; root.userData.interiorDesign = palette.id || item.style;
         if (item.type === 'bed' && H.Bedding) root.add(H.Bedding.create(item, materials));
         if (item.type === 'stove' && H.Cooking) root.add(H.Cooking.steam(item));
+        const effects=H.Hygiene?.fixture(item,materials);if(effects)root.add(effects);
         return root;
     }
+    function bathroom(item, materials) {
+        const T=ByndHomeEngine,root=new T.Group(),[w,d]=item.footprint,p=item.interiorPalette||{},white=materials.get('milky_plastic',p.trim||'#f1ede0'),wood=materials.get('soft_wood',p.wood||'#aa9070'),metal=materials.get('warm_metal','#a59577');
+        const box=(s,p,m=white,r=.025)=>H.Shapes.rounded(root,s,p,m,r), ball=(s,p,m=white)=>H.Shapes.sphere(root,s,p,m);
+        root.name='bathroom-'+item.type;
+        if(item.type==='shower'){
+            box([w,.10,d],[0,.06,0]);box([w-.12,.025,d-.12],[0,.12,0],materials.get('matte_ceramic','#d5d8ca'));
+            const glass=new T.MeshStandardMaterial({color:'#d1e6df',transparent:true,opacity:.20,roughness:.18,depthWrite:false,side:T.DoubleSide});root.userData.ownedMaterial=glass;
+            // Sliding entry stays open on the front; the footprint still reserves
+            // the enclosure so walking never crosses its glass partitions.
+            for(const x of [-w/2,w/2]){box([.035,2.12,d],[x,1.20,0],glass);for(const z of [-d/2,d/2])box([.045,2.16,.045],[x,1.20,z],metal);}
+            box([w,2.12,.035],[0,1.20,-d/2],glass);
+            for(const x of [-w/2,w/2])box([.045,.045,d],[x,2.28,0],metal);
+            for(const z of [-d/2,d/2])box([w,.045,.045],[0,2.28,z],metal);
+            box([w*.38,2.12,.035],[-w*.31,1.20,d/2],glass);
+            box([.05,1.65,.045],[0,1.13,-d/2+.08],metal);box([.045,.045,.36],[0,1.95,-d/2+.23],metal);
+            const head=new T.Mesh(new T.CylinderGeometry(.17,.17,.035,20),metal);head.position.set(0,1.93,-d/2+.40);root.add(head);
+            for(const x of [-.11,.11])ball([.04,.04,.035],[x,.94,-d/2+.11],metal);
+            box([.12,.30,.025],[-w/2+.08,1.0,0],metal);
+            box([.22,.045,.18],[w/2-.15,1.15,-d/2+.14],wood);box([.07,.18,.07],[w/2-.15,1.25,-d/2+.14],materials.get('sage','#a9bba3'));
+        }else if(item.type==='toilet'){
+            box([.34,.37,.42],[0,.23,.03],white,.08);ball([.30,.19,.40],[0,.44,.04]);
+            const seat=new T.Mesh(new T.TorusGeometry(.22,.044,8,24),white);seat.rotation.x=Math.PI/2;seat.scale.y=1.35;seat.position.set(0,.59,.09);root.add(seat);
+            ball([.20,.012,.29],[0,.58,.09],materials.get('matte_ceramic','#b1b8ad'));
+            box([.50,.56,.23],[0,.65,-.30],white,.06);box([.52,.045,.25],[0,.955,-.30]);box([.07,.015,.07],[.12,.984,-.30],metal);
+        }else if(item.type==='vanity'){
+            box([w,.72,d],[0,.41,0],wood);box([w+.07,.07,d+.06],[0,.805,0]);
+            for(const x of [-w*.25,w*.25]){box([w*.45,.60,.04],[x,.43,d/2+.015],white);box([.10,.018,.025],[x,.70,d/2+.045],metal);}
+            box([w*.66,.06,d*.64],[0,.845,.025],materials.get('matte_ceramic','#b8c4bb'),.08);
+            for(const x of [-w*.35,w*.35])box([.075,.09,d*.76],[x,.875,.025]);
+            for(const z of [-d*.34,d*.40])box([w*.77,.09,.065],[0,.875,z]);
+            box([.035,.24,.035],[0,1.0,-d*.32],metal);box([.035,.035,.20],[0,1.12,-d*.20],metal);
+            box([.08,.15,.08],[w*.43,.93,0],materials.get('sage','#a9bba3'));box([.08,.012,.06],[w*.43,1.02,0],metal);
+            box([.30,.04,.23],[-w*.30,.88,.04],materials.get('cream_fabric','#e8e5d7'));
+        }else if(item.type==='mirror'){
+            box([w,.94,.065],[0,.47,0],wood,.08);
+            box([w-.10,.84,.025],[0,.47,.05],materials.get('warm_metal','#c3d1cb'),.06);
+            box([w+.16,.045,.16],[0,-.02,.07],white);
+        }
+        const effects=H.Hygiene?.fixture(item,materials);if(effects)root.add(effects);
+        root.traverse(n=>{if(n.isMesh){n.castShadow=!n.material.transparent;n.receiveShadow=true;}});return root;
+    }
     function create(item, materials) {
+        if(['shower','toilet','vanity','mirror'].includes(item.type))return bathroom(item,materials);
         if (handles(item)) return cozy(item, materials);
         const T = ByndHomeEngine, root = new T.Group(), S = H.Shapes;
         const style = H.catalogs.furnitureCatalog.styles[item.style], [w, d] = item.footprint;
@@ -495,6 +538,7 @@
         }
         root.traverse(node => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
         if (item.type === 'bed' && H.Bedding) root.add(H.Bedding.create(item, materials));
+        const effects=H.Hygiene?.fixture(item,materials);if(effects){root.add(effects);if(effects.userData.fixture)root.add(effects.userData.fixture);}
         return root;
     }
     H.FurnitureVisuals = { create, handles };

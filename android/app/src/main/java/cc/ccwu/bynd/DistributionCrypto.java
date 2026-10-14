@@ -25,11 +25,7 @@ final class DistributionCrypto {
         JSONObject keys = new JSONObject(BuildConfig.BYND_PUBLIC_KEYS);
         String spki = keys.optString(header.optString("kid"), "");
         if (spki.isEmpty()) throw new Exception("签名密钥未知，请联系支持。");
-        PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(decode(spki)));
-        Signature signature = Signature.getInstance("SHA256withRSA");
-        signature.initVerify(key);
-        signature.update((parts[0] + "." + parts[1]).getBytes(StandardCharsets.US_ASCII));
-        if (!signature.verify(decode(parts[2]))) throw new Exception("凭证签名无效。");
+        if (!DistributionSignature.verify(parts[0] + "." + parts[1], decode(parts[2]), decode(spki))) throw new Exception("凭证签名无效。");
         JSONObject claims = new JSONObject(new String(decode(parts[1]), StandardCharsets.UTF_8));
         if (!PRODUCT.equals(claims.optString("aud"))) throw new Exception("凭证不属于 BYND。");
         return claims;

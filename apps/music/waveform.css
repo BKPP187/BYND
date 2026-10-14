@@ -1,0 +1,26 @@
+/* Loaded after the historical player styles: both players share real progress. */
+#app-music-window .music-header { height: calc(58px + var(--bynd-header-safe-top, 0px)) !important; padding-top: calc(8px + var(--bynd-header-safe-top, 0px)) !important; }
+#app-music-window .music-wave, #app-music-window .mn-wave-progress {
+    position: relative; display: flex; width: 100% !important; min-width: 0;
+    height: 64px !important; gap: 1.25px !important; align-items: center !important;
+    justify-content: space-between !important; padding: 0 !important;
+    border: 0; background: transparent; cursor: pointer; touch-action: pan-y;
+}
+#app-music-window .music-wave span, #app-music-window .mn-wave-bar {
+    flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; max-width: none !important;
+    height: var(--bar-h, 2px) !important; min-height: 2px !important;
+    border-radius: .5px !important; background: #cdd1d8 !important; opacity: 1 !important;
+    animation: none !important; transform: none; transition: background .1s !important;
+}
+#app-music-window .music-wave span.active, #app-music-window .mn-wave-bar.active { background: #171c26 !important; }
+#app-music-window .music-wave.is-playing span.near, #app-music-window .mn-wave-progress.is-playing .mn-wave-bar.near {
+    animation: bynd-wave-playhead .6s ease-in-out infinite alternate !important;
+    animation-delay: calc(var(--wave-i, var(--bar-i, 0)) * -.025s) !important;
+}
+#app-music-window .music-wave::after, #app-music-window .mn-wave-progress::after {
+    content: ''; position: absolute; left: var(--music-wave-progress, 0%); top: 3px; bottom: 3px;
+    width: 1px; background: #171c2670; pointer-events: none;
+}
+#app-music-window .music-wave:focus-visible, #app-music-window .mn-wave-progress:focus-visible { outline: 2px solid #a3a8b2; outline-offset: 5px; border-radius: 5px; }
+@keyframes bynd-wave-playhead { from { transform: scaleY(.9); } to { transform: scaleY(1.1); } }
+@media (prefers-reduced-motion: reduce) { #app-music-window .music-wave span, #app-music-window .mn-wave-bar { animation: none !important; } }

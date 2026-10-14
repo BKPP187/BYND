@@ -36,11 +36,11 @@ function buildWechatAutoImageMessageFromText(text, char) {
         ? '角色主动发来一张此刻照片/自拍，回应当前聊天里的“在干嘛/给我看看/看图”等语境。'
         : `画面描述：${source}`;
     const prompt = [
-        `微信聊天中角色刚发来的真实照片。`,
+        `微信聊天中角色刚发来的生活照片画面，采用乙女游戏半写实 3D CG 质感。`,
         sceneHint,
         recentText ? `最近角色上一句：${recentText}` : '',
         char && char.description ? `角色设定：${String(char.description).slice(0, 900)}` : '',
-        '手机照片质感，自然光线，真实自拍或随手拍构图，不要文字水印，不要聊天气泡。'
+        '手机自拍或随手拍视角，细腻发丝与衣料、柔和光影、低饱和色调和浅景深，人物外貌保持角色设定，光线符合当前环境；不要文字水印，不要聊天气泡。'
     ].filter(Boolean).join('\n');
     return buildWechatGeneratedImageMessage(prompt, shortPhotoIntent ? '看图' : '照片', char);
 }

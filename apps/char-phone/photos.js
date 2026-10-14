@@ -1,21 +1,22 @@
 function getCharPhoneAlbumItems(char, snapshot = char?.chatConfig?.aiPhoneSnapshot) {
     const saved = Array.isArray(char?.chatConfig?.outingPhotos) ? char.chatConfig.outingPhotos : [];
     const generated = snapshot?.appData?.album?.items || [];
-    return [...saved, ...generated.filter(item => !saved.some(photo => photo.outingEntryId && photo.outingEntryId === item.outingEntryId))];
+    const received = (Array.isArray(char?.chatConfig?.aiPhoneSavedChatPhotos) ? char.chatConfig.aiPhoneSavedChatPhotos : []).filter(photo=>photo?.id && photo.image).map(photo => ({...photo,chatPhotoId:photo.id,meta:'从聊天中珍藏'}));
+    return [...received, ...saved, ...generated.filter(item => !saved.some(photo => photo.outingEntryId && photo.outingEntryId === item.outingEntryId))];
 }
-function charPhonePhotoKey(item) { return JSON.stringify([item.title||'',item.body||'',item.meta||'']); }
+function charPhonePhotoKey(item) { return item.chatPhotoId ? JSON.stringify(['chat-photo',item.chatPhotoId]) : JSON.stringify([item.title||'',item.body||'',item.meta||'']); }
 function charPhonePhotoState(char,item) {
     const key=charPhonePhotoKey(item);
     return {key,url:char?.chatConfig?.aiPhonePhotos?.[key]?.url||item.image||'',pending:window._charPhonePhotoJobs?.has(char.id+'|'+key),error:window._charPhonePhotoErrors?.get(char.id+'|'+key)||''};
 }
 function renderCharPhonePhotoDetail(item,index,char) {
     const state=charPhonePhotoState(char,item),e=wcEscapeHtml;
-    return `<section class="cp-native cp-album cp-item-detail"><button class="cp-back" onclick="closeCharPhoneItem()">‹ 照片</button><div class="cp-scroll"><h2>${e(item.title)}</h2>${state.url?`<img src="${wcEscapeAttr(state.url)}" alt="${wcEscapeAttr(item.title)}">`:'<div class="cp-photo-preview"><i class="ri-image-line"></i></div>'}<p class="cp-letter">${e(item.body||item.title)}</p>${item.outingEntryId ? '<p class="cp-photo-route">一起出门时珍藏的真实照片</p>' : `<button class="cp-photo-generate" onclick="generateCharPhonePhoto(${index})" ${state.pending?'disabled aria-busy="true"':''}><i class="ri-image-add-line"></i> ${state.pending?'正在生成…':state.url?'重新生成照片':'生成这张照片'}</button><p class="cp-photo-route">使用设置中的聊天图片生图服务</p>`}${state.error?`<p class="cp-photo-error" role="alert">${e(state.error)}</p>`:''}</div></section>`;
+    return `<section class="cp-native cp-album cp-item-detail"><button class="cp-back" onclick="closeCharPhoneItem()">‹ 照片</button><div class="cp-scroll"><h2>${e(item.title)}</h2>${state.url?`<img src="${wcEscapeAttr(state.url)}" alt="${wcEscapeAttr(item.title)}">`:'<div class="cp-photo-preview"><i class="ri-image-line"></i></div>'}<p class="cp-letter">${e(item.body||item.title)}</p>${(item.outingEntryId || item.chatPhotoId) ? '<p class="cp-photo-route">珍藏的真实照片</p>' : `<button class="cp-photo-generate" onclick="generateCharPhonePhoto(${index})" ${state.pending?'disabled aria-busy="true"':''}><i class="ri-image-add-line"></i> ${state.pending?'正在生成…':state.url?'重新生成照片':'生成这张照片'}</button><p class="cp-photo-route">使用设置中的聊天图片生图服务</p>`}${state.error?`<p class="cp-photo-error" role="alert">${e(state.error)}</p>`:''}</div></section>`;
 }
 async function generateCharPhonePhoto(index) {
     const char=(window.myCharacters||[]).find(c=>c.id===window._wechatAiPhoneOpenCharId);
     const item=getCharPhoneAlbumItems(char)[index];
-    if(!char || !item || item.outingEntryId)return false;
+    if(!char || !item || item.outingEntryId || item.chatPhotoId)return false;
     const key=charPhonePhotoKey(item),jobKey=char.id+'|'+key;
     const jobs=window._charPhonePhotoJobs ||= new Map(),errors=window._charPhonePhotoErrors ||= new Map();
     if(jobs.has(jobKey))return jobs.get(jobKey);

@@ -1383,8 +1383,8 @@ function buildSystemPrompt(char) {
     prompt += `- 旁白只能用 [旁白:内容] 独立一段，用来拆出一个普通描述气泡；角色自己说的话不要放进旁白里，必须拆成单独普通消息段或 [微信语音:内容]\n`;
     prompt += `- 所有 [微信xxx:...] / [旁白:...] 指令必须在同一条消息段里完整闭合右方括号 ]，不能把 [ 和 ] 拆到不同段落，也不能把正则/状态栏塞进旁白指令里\n`;
     prompt += `- 如果用户发送图片，系统会把图片以可视觉识别的消息交给模型；你需要观察图片内容，结合人设、上下文、备注/称呼、记忆和朋友圈自然回复，不要把图片只当成“[图片]”占位符。\n`;
-    prompt += `- 【发图硬规则】如果用户要求你发照片、自拍、现拍、给他看现在的样子，或者你自己想让用户“看图/看照片/给你看看/发张图”，必须把照片作为单独消息段输出：[微信图片:画面提示词|可选说明]。画面提示词必须按你自己的角色卡写清楚“你本人”的外观、发型发色、眼睛、服饰、表情、姿势、光线、环境，并明确“参考图用于保持同一张脸、画风和辨识度”；如果参考图是二次元/插画/头像，默认保持二次元画风，不要写成真人照片，除非用户明确要求真人化。\n`;
-    prompt += `- 发图时禁止只输出普通文字来假装已经发图。错误示例：看图。/ 照片发你了。/ 给你看一下。/ 你看图片。正确示例：[微信图片:秦彻刚睡醒靠在昏暗房间里举手机自拍，黑发微乱，眼神懒散，穿深色居家上衣，手机近景自拍构图，自然屏幕光，参考图用于保持同一张脸和画风|刚醒，给你看一眼]。如果想先说话再发图，必须用 ||| 分段，例如：等我一下。|||[微信图片:...|照片]\n`;
+    prompt += `- 【发图硬规则】如果用户要求你发照片、自拍、现拍、给他看现在的样子，或者你自己想让用户“看图/看照片/给你看看/发张图”，必须把照片作为单独消息段输出：[微信图片:画面提示词|可选说明]。画面提示词必须按你自己的角色卡写清楚“你本人”的外观、发型发色、眼睛、服饰、表情、姿势、光线、环境，并明确“参考图用于保持同一张脸和辨识度”。默认使用乙女游戏角色 CG、半写实 3D 美型渲染：细腻发丝、柔润皮肤、真实衣料、克制的冷灰低饱和色调、柔和电影光影与浅景深，光线符合当前环境。二次元头像只用于保持角色身份，允许转换为这种 CG 质感；不要擅自改成银发蓝眼或复制固定场景，用户明确指定其他画风时遵从用户要求。\n`;
+    prompt += `- 发图时禁止只输出普通文字来假装已经发图。错误示例：看图。/ 照片发你了。/ 给你看一下。/ 你看图片。正确示例：[微信图片:角色本人刚睡醒靠在昏暗房间里举手机自拍，外貌与发色瞳色严格按自己的角色卡，头发微乱，眼神懒散，穿深色居家上衣，手机近景自拍构图，自然屏幕光，乙女游戏半写实 3D CG 质感，参考图用于保持同一张脸和辨识度|刚醒，给你看一眼]。如果想先说话再发图，必须用 ||| 分段，例如：等我一下。|||[微信图片:...|照片]\n`;
     prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本；开启监控会先弹窗征求用户允许：\n`;
     prompt += `  [微信转账:金额|备注] 例如 [微信转账:88.00|给你买奶茶]\n`;
     prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|待领取]\n`;
@@ -1727,10 +1727,12 @@ async function callChatApi(messages, options = {}) {
     const api = options.apiOverride || (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
 
     if (!api) {
+        window.ByndDiagnostics?.record({ module: 'chat', stage: 'configuration', code: 'missing_api' });
         return { ok: false, error: '还没有设置 API 哦～\n去桌面「设置」里添加一个吧' };
     }
 
     if (!api.model) {
+        window.ByndDiagnostics?.record({ module: 'chat', stage: 'configuration', provider: window.ByndDiagnostics.providerOf(api.baseUrl), code: 'missing_model' });
         return { ok: false, error: '还没选模型哦～\n去设置里测试 API 然后选一个模型' };
     }
 
@@ -1817,6 +1819,8 @@ async function callChatApi(messages, options = {}) {
     const timeoutMs = 90000;
     let timeoutSignal;
     let requestController;
+    let diagnosticStage = 'request';
+    let diagnosticHttpStatus = null;
     const abortRequest = () => requestController?.abort();
     try {
         timeoutSignal = AbortSignal.timeout(timeoutMs);
@@ -1832,6 +1836,8 @@ async function callChatApi(messages, options = {}) {
             body: JSON.stringify(params),
             signal: requestController?.signal || timeoutSignal
         });
+        diagnosticHttpStatus = resp.status;
+        diagnosticStage = 'response';
 
         if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
@@ -1876,12 +1882,14 @@ async function callChatApi(messages, options = {}) {
         let rawContent = '';
         let finishReason = '';
         if (streamResponse) {
+            diagnosticStage = 'stream';
             const streamed = await readChatApiEventStream(resp, options.onStreamDelta);
             rawContent = streamed.content;
             finishReason = streamed.finishReason;
             responseUsage = streamed.usage;
         } else {
             const rawText = await resp.text();
+            diagnosticStage = 'parse';
             // Some relays honour stream:true but label the SSE body as JSON/plain text.
             const json = parseChatApiResponseText(rawText);
             rawContent = getChatApiRawResponseContent(json);
@@ -1909,6 +1917,7 @@ async function callChatApi(messages, options = {}) {
         }
 
         if (!content) {
+            window.ByndDiagnostics?.record({ module: 'chat', stage: 'response', provider: window.ByndDiagnostics.providerOf(configuredBaseUrl), httpStatus: diagnosticHttpStatus, code: 'empty_response' });
             const blocked = /safety|content[_ -]?filter|block|blocked|prohibited|policy/i.test(finishReason);
             const lengthLimited = isChatApiLengthFinishReason(finishReason);
             return {
@@ -1967,6 +1976,7 @@ async function callChatApi(messages, options = {}) {
         };
 
     } catch (e) {
+        window.ByndDiagnostics?.record({ module: 'chat', stage: diagnosticStage, provider: window.ByndDiagnostics.providerOf(configuredBaseUrl), httpStatus: diagnosticHttpStatus, errorType: e?.name, code: e?.name === 'AbortError' && !options.signal?.aborted ? 'timeout' : window.ByndDiagnostics.codeOf(e) });
         finishUsage(e?.message || '请求失败');
         if (options.signal?.aborted) {
             return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };

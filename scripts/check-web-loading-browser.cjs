@@ -38,6 +38,9 @@ const server = http.createServer((request, response) => {
         await page.goto(origin, { waitUntil: 'commit' });
         const loader = page.locator('#bynd-resource-loading');
         await loader.waitFor({ state: 'visible' });
+        assert.equal(await loader.count(), 1);
+        assert.equal(await page.locator('[data-loading-message]').count(), 1);
+        assert.equal(await loader.locator('[data-loading-message]').innerText(), '正在抵达…');
         assert.equal(await page.locator('.bynd-loading-book h1').innerText(), 'Beyond\nThe Code');
         assert.equal(await page.locator('.bynd-lyric-note').count(), 9);
         assert.equal(await page.locator('.bynd-loading-retry').isVisible(), false, JSON.stringify(errors));
@@ -73,6 +76,9 @@ const server = http.createServer((request, response) => {
         releaseStyle();
         await page.waitForFunction(() => window.resolveProofCharacters);
         assert.equal(await loader.isVisible(), true, 'character hydration is a real pending dependency');
+        assert.equal(await loader.locator('[data-loading-message]').innerText(), '正在抵达…');
+        await page.setViewportSize({ width: 375, height: 844 });
+        await page.screenshot({ path: path.join(output, 'initializing-375.png') });
         await page.evaluate(() => {
             // Observe readiness in the same microtask turn: there must be no timeout or exit animation.
             window.__byndCoreReady.then(() => { window.proofClosedAtReady = !document.getElementById('bynd-resource-loading'); });

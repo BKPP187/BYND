@@ -9,7 +9,9 @@ function buildWechatAiPhoneContactReplyReactionPrompt(char, events) {
     const recent = typeof buildWechatRecentHistoryForPrompt === 'function'
         ? buildWechatRecentHistoryForPrompt(char, 18)
         : (Array.isArray(char && char.history) ? char.history.slice(-18).map(msg => `${msg.isMe ? '用户' : getWechatCharDisplayName(char)}: ${msg.content || msg.description || ''}`).join('\n') : '');
-    const eventText = events.map((event, index) => event.type==='view' ? `查看事件 ${index+1}：用户已结束查看小手机\n${describeCharPhoneViewingEvent(event)}` : [
+    const viewing = window._charPhoneViewing;
+    const isStillViewing = event => event.phase==='live' && viewing?.charId===char.id && viewing?.sessionId===event.sessionId;
+    const eventText = events.map((event, index) => event.type==='view' ? `查看事件 ${index+1}：${isStillViewing(event)?'用户正在查看你的小手机，请现在给用户发来简短消息':'用户已结束查看小手机'}\n${describeCharPhoneViewingEvent(event)}` : [
         `事件 ${index + 1}`,
         `联系人：${event.contactName || '联系人'}`,
         event.contactPreview ? `原聊天预览：${event.contactPreview}` : '',
@@ -77,6 +79,7 @@ async function triggerWechatAiPhoneContactReplyReaction(char, events) {
         store.pending = store.pending.filter(event => !belongsToReply(event));
         if (await saveCharactersToStorage() === false) throw new Error('回复未能保存，已保留代发记录。');
         saved = true;
+        if (typeof showCharPhoneMessageIsland === 'function') showCharPhoneMessageIsland(char,messages,events);
         renderChatList();
         if (window.currentChatCharId === char.id && typeof refreshChatView === 'function') refreshChatView(char);
         return true;
@@ -129,6 +132,8 @@ function closeWechatAiPhone() {
     window._wechatAiPhoneDiaryFollowUpTimers?.delete(charId);
     const modal = document.getElementById('wc-ai-phone-overlay');
     if (modal) modal.remove();
+    if (typeof clearCharPhoneDesktopRuntime === 'function') clearCharPhoneDesktopRuntime();
+    document.getElementById('cp-appearance-editor')?.remove();
     closeWechatAiPhoneErrorPrompt();
     closeWechatAiPhoneHomeEditor();
     closeWechatAiPhoneIconEditor();

@@ -1,3 +1,6 @@
+import { handleDistribution } from './distribution.mjs';
+import { website } from './assets.mjs';
+import { handleAccounts } from './accounts.mjs';
 const PRODUCT = 'cc.ccwu.bynd';
 const encoder = new TextEncoder();
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -106,6 +109,8 @@ async function challenge(request, env, now) {
 async function activate(request, env, now) {
     await activationAllowed(request, env);
     const body = await readBody(request), hash = await keyHash(env, body.licenseKey);
+    const versionCode = body.versionCode ?? null;
+    requireValue(versionCode === null || (Number.isSafeInteger(versionCode) && versionCode > 0 && versionCode <= 2147483647), 400, 'invalid_version', '设备版本号无效。');
     const { key, device } = await deviceKey(body.publicKey);
     const nonce = await env.DB.prepare('SELECT * FROM challenges WHERE id = ?').bind(String(body.challengeId || '')).first();
     requireValue(nonce && !nonce.consumed_by && nonce.expires_at > now && nonce.key_hash === hash && nonce.device === device, 409, 'challenge_expired', '激活请求已过期，请重试。');
@@ -122,9 +127,9 @@ async function activate(request, env, now) {
     });
     const result = await env.DB.batch([
         env.DB.prepare('UPDATE challenges SET consumed_by = ? WHERE id = ? AND consumed_by IS NULL AND expires_at > ?').bind(attempt, nonce.id, now),
-        env.DB.prepare(`UPDATE licenses SET bound_device = ?, activated_at = COALESCE(activated_at, ?)
+        env.DB.prepare(`UPDATE licenses SET bound_device = ?, activated_at = COALESCE(activated_at, ?), last_version_code = COALESCE(?,last_version_code)
             WHERE id = ? AND status = 'active' AND revision = ? AND (bound_device IS NULL OR bound_device = ?)
-            AND EXISTS (SELECT 1 FROM challenges WHERE id = ? AND consumed_by = ?)`).bind(device, now, license.id, license.revision, device, nonce.id, attempt),
+            AND EXISTS (SELECT 1 FROM challenges WHERE id = ? AND consumed_by = ?)`).bind(device, now, versionCode, license.id, license.revision, device, nonce.id, attempt),
         env.DB.prepare(`INSERT INTO audit_logs (id,license_id,action,device,created_at)
             SELECT ?,id,'activate',?,? FROM licenses WHERE id = ? AND status = 'active' AND revision = ? AND bound_device = ?
             AND EXISTS (SELECT 1 FROM challenges WHERE id = ? AND consumed_by = ?)`).bind(attempt, device, now, license.id, license.revision, device, nonce.id, attempt)
@@ -137,33 +142,41 @@ async function createLicense(request, env, now) {
     requireValue(uuidPattern.test(body.requestId || ''), 400, 'invalid_request_id', '创建请求需要 UUID v4。');
     const id = body.requestId.toLowerCase();
     const order = body.orderRef == null ? null : String(body.orderRef).trim();
+    const email = body.email || null;
+    requireValue(email === null || (typeof email === 'string' && email.length <= 254 && /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email)), 400, 'invalid_email', '邮箱格式无效。');
     requireValue(order === null || (order.length > 0 && order.length <= 128), 400, 'invalid_order', '购买记录格式无效。');
     const code = await issuedKey(env, id), hash = await keyHash(env, code);
     const existing = await env.DB.prepare('SELECT * FROM licenses WHERE id = ?').bind(id).first();
-    requireValue(!existing || (existing.order_ref === order && existing.key_hash === hash), 409, 'request_conflict', '请求编号已用于其他记录或签发密钥已变更。');
+    requireValue(!existing || (existing.order_ref === order && existing.key_hash === hash && existing.issuance_email === email), 409, 'request_conflict', '请求编号已用于其他记录或签发密钥已变更。');
     const orderOwner = order && await env.DB.prepare('SELECT id FROM licenses WHERE order_ref = ?').bind(order).first();
     requireValue(!orderOwner || orderOwner.id === id, 409, 'order_conflict', '该购买记录已签发激活码。');
     await env.DB.batch([
-        env.DB.prepare('INSERT INTO licenses (id,key_hash,key_hint,created_at,order_ref) VALUES (?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id, hash, code.slice(0, 9) + '…', now, order),
+        env.DB.prepare('INSERT INTO licenses (id,key_hash,key_hint,created_at,order_ref,customer_email,issuance_email) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id, hash, code.slice(0, 9) + '…', now, order, email, email),
         env.DB.prepare("INSERT INTO audit_logs (id,license_id,action,created_at) VALUES (?,?,'create',?) ON CONFLICT(id) DO NOTHING").bind(id, id, now)
     ]);
     const stored = await env.DB.prepare('SELECT * FROM licenses WHERE id = ?').bind(id).first();
-    requireValue(stored && stored.order_ref === order && stored.key_hash === hash, 409, 'request_conflict', '请求编号已用于其他记录。');
+    requireValue(stored && stored.order_ref === order && stored.key_hash === hash && stored.issuance_email === email, 409, 'request_conflict', '请求编号已用于其他记录。');
     return json({ id, licenseKey: code }, existing ? 200 : 201);
 }
 async function manageLicense(request, env, now, id, action) {
     requireValue(uuidPattern.test(id), 400, 'invalid_id', 'License 编号无效。');
     id = id.toLowerCase();
-    const logId = crypto.randomUUID();
-    const sql = action === 'disable'
-        ? "UPDATE licenses SET status = 'disabled', revision = revision + 1 WHERE id = ?"
-        : "UPDATE licenses SET bound_device = NULL, revision = revision + 1 WHERE id = ?";
+    const body = await readBody(request);
+    requireValue(body.requestId === undefined || uuidPattern.test(body.requestId), 400, 'invalid_request_id', '管理请求编号无效。');
+    requireValue(body.expectedRevision === undefined || (Number.isSafeInteger(body.expectedRevision) && body.expectedRevision >= 0), 400, 'invalid_revision', '修订号无效。');
+    const logId = body.requestId?.toLowerCase() || crypto.randomUUID();
+    const prior = await env.DB.prepare('SELECT license_id,action,expected_revision FROM audit_logs WHERE id = ?').bind(logId).first();
+    requireValue(!prior || (prior.license_id === id && prior.action === action && prior.expected_revision === (body.expectedRevision ?? null)), 409, 'request_conflict', '请求编号已用于其他操作或不同修订号。');
+    if (prior) return json({ ok: true, offlineCredentialRevoked: false, requestId: logId });
+    const assignment = action === 'disable' ? "status = 'disabled'" : action === 'enable' ? "status = 'active'" : 'bound_device = NULL';
+    const revision = body.expectedRevision ?? null;
     const results = await env.DB.batch([
-        env.DB.prepare(sql).bind(id),
-        env.DB.prepare('INSERT INTO audit_logs (id,license_id,action,created_at) SELECT ?,id,?,? FROM licenses WHERE id = ?').bind(logId, action, now, id)
+        env.DB.prepare(`UPDATE licenses SET ${assignment},revision = revision + 1 WHERE id = ? AND (? IS NULL OR revision = ?) AND NOT EXISTS (SELECT 1 FROM audit_logs WHERE id = ?)`).bind(id, revision, revision, logId),
+        env.DB.prepare(`INSERT INTO audit_logs (id,license_id,action,created_at,expected_revision) SELECT ?,id,?,?,? FROM licenses WHERE id = ? AND changes() = 1 AND (? IS NULL OR revision = ? + 1) ON CONFLICT(id) DO NOTHING`).bind(logId, action, now, revision, id, revision, revision)
     ]);
-    requireValue(results[0].meta.changes === 1, 404, 'not_found', 'License 不存在。');
-    return json({ ok: true, offlineCredentialRevoked: false });
+    const saved = await env.DB.prepare('SELECT license_id,action FROM audit_logs WHERE id = ?').bind(logId).first();
+    requireValue(saved && saved.license_id === id && saved.action === action, revision === null ? 404 : 409, 'state_conflict', 'License 不存在或绑定状态已变化，请刷新后操作。');
+    return json({ ok: true, offlineCredentialRevoked: false, requestId: logId });
 }
 export function validateRelease(body, env) {
     requireValue(Number.isSafeInteger(body.versionCode) && body.versionCode > 0 && body.versionCode <= 2147483647 && /^\d+\.\d+\.\d+$/.test(body.versionName || ''), 400, 'invalid_version', '版本号无效。');
@@ -182,7 +195,13 @@ export function validateRelease(body, env) {
     return release;
 }
 async function publishRelease(request, env, now) {
-    const release = validateRelease(await readBody(request), env);
+    const body = await readBody(request), release = validateRelease(body, env);
+    if (new URL(release.apkUrl).pathname.startsWith('/downloads/')) {
+        const artifact = await env.DB.prepare("SELECT * FROM apk_artifacts WHERE sha256 = ? AND state = 'ready'").bind(release.sha256).first();
+        requireValue(artifact && artifact.version_code === release.versionCode && artifact.version_name === release.versionName && artifact.size === release.size && new URL(release.apkUrl).pathname === '/downloads/' + artifact.filename, 409, 'artifact_not_ready', '请先上传并校验对应安装包，再发布更新。');
+        const object = env.APK_BUCKET && await env.APK_BUCKET.head(artifact.object_key);
+        requireValue(object && object.size === artifact.size && object.customMetadata?.sha256 === artifact.sha256, 503, 'artifact_unavailable', '安装包存储未通过校验，不能发布。');
+    }
     const token = await signToken(env, 'BYND-UPDATE', { ...release, iat: now });
     const result = await env.DB.prepare(`INSERT INTO releases (channel,version_code,token,published_at) VALUES ('android-stable',?,?,?)
         ON CONFLICT(channel) DO UPDATE SET version_code = excluded.version_code, token = excluded.token, published_at = excluded.published_at
@@ -194,11 +213,21 @@ export default {
     async fetch(request, env) {
         try {
             const url = new URL(request.url), path = url.pathname, now = Math.floor(Date.now() / 1000);
+            const page = await website(request, env);
+            if (page) return page;
             const admin = path.startsWith('/admin/v1/');
             // Native requests require no CORS. Never allow a random web origin to use the admin API.
             if (admin) await authenticate(request, env);
             if (path === '/license/v1/health' && request.method === 'GET') return json({ ok: true, activationEnabled: env.LICENSE_ACTIVATION_ENABLED === 'true' });
             requireValue(env.DB, 503, 'database_unavailable', '服务尚未配置。');
+            if (path === '/admin/v1/account-mail' && request.method === 'GET') {
+                requireValue(env.ACCOUNT_DEV_MAIL && url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname), 404, 'not_found', '本机测试信箱不存在。');
+                return json({ messages: await env.ACCOUNT_DEV_MAIL.read() });
+            }
+            const accounts = await handleAccounts(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url });
+            if (accounts) return accounts;
+            const distribution = await handleDistribution(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url });
+            if (distribution) return distribution;
             if (path === '/updates/v1/android/stable' && request.method === 'GET') {
                 const release = await env.DB.prepare("SELECT token FROM releases WHERE channel = 'android-stable'").first();
                 return release ? json({ token: release.token }) : json(null, 204);
@@ -206,7 +235,7 @@ export default {
             const inspect = /^\/admin\/v1\/licenses\/([^/]+)$/.exec(path);
             if (inspect && request.method === 'GET') {
                 requireValue(uuidPattern.test(inspect[1]), 400, 'invalid_id', 'License 编号无效。');
-                const license = await env.DB.prepare('SELECT id,key_hint,status,created_at,activated_at,bound_device,revision,order_ref FROM licenses WHERE id = ?').bind(inspect[1].toLowerCase()).first();
+                const license = await env.DB.prepare('SELECT id,key_hint,status,created_at,activated_at,bound_device,revision,order_ref,customer_email,last_version_code FROM licenses WHERE id = ?').bind(inspect[1].toLowerCase()).first();
                 requireValue(license, 404, 'not_found', 'License 不存在。');
                 return json({ license });
             }
@@ -215,7 +244,7 @@ export default {
                 if (path === '/license/v1/activate') return await activate(request, env, now);
                 if (path === '/admin/v1/licenses') return await createLicense(request, env, now);
                 if (path === '/admin/v1/releases/android/stable') return await publishRelease(request, env, now);
-                const match = /^\/admin\/v1\/licenses\/([^/]+)\/(disable|unbind)$/.exec(path);
+                const match = /^\/admin\/v1\/licenses\/([^/]+)\/(disable|unbind|enable)$/.exec(path);
                 if (match) return await manageLicense(request, env, now, match[1], match[2]);
             }
             throw new HttpError(404, 'not_found', '接口不存在。');

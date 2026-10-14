@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 function harness() {
     const context = vm.createContext({ console, AbortController, window: { ByndHome3D: {} } });
     vm.runInContext(fs.readFileSync(path.join(root, 'assets/vendor/home3d/engine.js'), 'utf8'), context);
-    for (const name of ['data/catalogs', 'cooking', 'furniture-visuals', 'furniture']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
+    for (const name of ['data/catalogs', 'cooking', 'television', 'furniture-visuals', 'furniture']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
     const H = context.window.ByndHome3D, T = context.ByndHomeEngine, cache = new Map();
     const materials = {
         get(id, color) { const key = id + color; if (!cache.has(key)) cache.set(key, new T.MeshStandardMaterial({ color: color || '#ffffff' })); return cache.get(key); },
@@ -24,7 +24,7 @@ test('reference furniture has finite pickable geometry within mobile size and dr
             const position = mesh.geometry.getAttribute('position'), normal = mesh.geometry.getAttribute('normal'), uv = mesh.geometry.getAttribute('uv');
             assert.equal(position.count, normal.count); assert.equal(position.count, uv.count);
             assert.ok([...position.array, ...normal.array, ...uv.array].every(Number.isFinite), item.id);
-            assert.ok(mesh.userData.effect === 'steam' || mesh.castShadow && mesh.receiveShadow); triangles += position.count / 3 * (mesh.isInstancedMesh ? mesh.count : 1);
+            assert.ok(['steam', 'screen'].includes(mesh.userData.effect) || mesh.castShadow && mesh.receiveShadow); triangles += position.count / 3 * (mesh.isInstancedMesh ? mesh.count : 1);
         }
         assert.ok(triangles < 10000, item.id + ' polygon budget');
         const bounds = new T.Box3().setFromObject(model);
@@ -34,6 +34,31 @@ test('reference furniture has finite pickable geometry within mobile size and dr
         assert.ok(new T.Raycaster(new T.Vector3(0, 4, 0), new T.Vector3(0, -1, 0)).intersectObject(model, true).length > 0, item.id + ' pickable');
     }
 });
+test('steam is bounded and only runs at an occupied active stove', () => {
+    const { H, T, materials } = harness(), item = H.Furniture.get('cream_stove'), model = H.FurnitureVisuals.create(item, materials);
+    const row = { item, model, placement: { id: 'stove' } }, mist = model.getObjectByName('cooking-steam');
+    const actor = { root: new T.Group(), action: 'Cook', anchor: { placementId: 'stove' }, path: [] };
+    H.Cooking.update([row], [actor], 1000, { particles: 12 }, false); assert.equal(mist.visible, true); assert.equal(mist.count, 3);
+    H.Cooking.update([row], [actor], 1000, { particles: 1 }, false); assert.equal(mist.count, 1);
+    for (const inactive of ['walking', 'away', 'idle', 'hidden', 'reduced', 'smooth']) {
+        actor.path = inactive === 'walking' ? [{}] : []; actor.anchor.placementId = inactive === 'away' ? 'prep' : 'stove';
+        actor.action = inactive === 'idle' ? 'Idle' : 'Cook'; actor.root.visible = inactive !== 'hidden';
+        H.Cooking.update([row], [actor], 1000, { particles: inactive === 'smooth' ? 0 : 6 }, inactive === 'reduced');
+        assert.equal(mist.visible, false, inactive + ' hides steam');
+    }
+});
+
+test('active pan has an open bowl, food and a handle in front of the separate lidded pot', () => {
+    const { H, T, materials } = harness(), item = H.Furniture.get('cream_stove'), model = H.FurnitureVisuals.create(item, materials);
+    model.updateMatrixWorld(true);
+    const station = H.Cooking.station(item), [x, , z] = station.tip;
+    const height = (px, pz) => new T.Raycaster(new T.Vector3(px, 2, pz), new T.Vector3(0, -1, 0)).intersectObject(model, true)[0].point.y;
+    assert.ok(height(x + .155, z) - height(x, z) > .045, 'rim surrounds a recessed open pan');
+    assert.ok(height(x + .08, z) > height(x, z) + .015, 'food is above the pan floor');
+    assert.ok(Math.abs(height(x, station.hold[2]) - station.hold[1]) < .012, 'support hand contacts handle');
+    assert.ok(height(x, -item.footprint[1] * .23) > 1.09, 'back pot retains its lid');
+});
+
 test('new upholstered seats retain the actual character support height across widths and styles', () => {
     const { H, T, materials } = harness();
     for (const data of H.catalogs.furnitureCatalog.items.filter(item => H.FurnitureVisuals.handles(item) && ['chair', 'sofa'].includes(item.type))) {

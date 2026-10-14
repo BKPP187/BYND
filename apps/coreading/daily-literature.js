@@ -68,7 +68,7 @@ const CoReadLiterature = (() => {
                 catch (exception) { status = `文句已获取，缓存未保存：${exception.message || exception}`; }
                 return next;
             } catch (exception) {
-                if (today() === date) status = get(date) ? '更新失败，保留今日已获取的文句，点击重试' : '今日文句暂时无法获取，点击重试';
+                if (today() === date) status = get(date) ? '更新失败，保留原文句，下次打开时重试' : '今日文句暂时无法获取，下次打开时重试';
                 return null;
             } finally {
                 if (pending?.date === date) pending = null;
@@ -86,7 +86,7 @@ const CoReadLiterature = (() => {
         }, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime() + 50);
     }
     function init() {
-        schedule(); refresh();
+        schedule(); refresh(true);
         if (!init.bound) {
             init.bound = true;
             window.addEventListener('online', () => { if (!get()) refresh(true); });

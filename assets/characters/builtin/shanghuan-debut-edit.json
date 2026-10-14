@@ -1,0 +1,208 @@
+{
+  "fps": 24,
+  "duration": 27.208333333333336,
+  "sourceClipsUnchanged": true,
+  "subtitles": [],
+  "excludedSourceRanges": [
+    {
+      "file": "mmexport1791374622370.mp4",
+      "startFrame": 36,
+      "endFrameExclusive": 62,
+      "reason": "Remove the returning ink-bottle/desk transition after the pen insert"
+    },
+    {
+      "file": "mmexport1791293533927.mp4",
+      "startFrame": 50,
+      "endFrameExclusive": 78,
+      "reason": "Remove the side-face flash and repeated wide plate shot before the hands accept the dish"
+    },
+    {
+      "file": "mmexport1791293487185.mp4",
+      "startFrame": 85,
+      "endFrameExclusive": 86,
+      "reason": "Remove the single back-view frame at the end of the plate offer"
+    },
+    {
+      "file": "mmexport1791293423489.mp4",
+      "startFrame": 34,
+      "endFrameExclusive": 36,
+      "reason": "Remove the two lab portrait frames before the pen shot"
+    },
+    {
+      "file": "mmexport1791293533927.mp4",
+      "startFrame": 90,
+      "endFrameExclusive": 98,
+      "reason": "Do not show the later meal acceptance before the Where are you going line"
+    },
+    {
+      "file": "mmexport1791293533927.mp4",
+      "startFrame": 168,
+      "endFrameExclusive": 218,
+      "reason": "Replace the inconsistent old frontal ending with the regenerated continuous kitchen clip"
+    }
+  ],
+  "sections": [
+    {
+      "phase": "op",
+      "start": 0,
+      "end": 12.458333333333334
+    },
+    {
+      "phase": "pv",
+      "start": 12.083333333333334,
+      "end": 27.208333333333336
+    }
+  ],
+  "transitions": [
+    {
+      "type": "pen-match-cut",
+      "start": 1.5
+    },
+    {
+      "type": "pendant-dissolve",
+      "start": 12.083333333333334,
+      "duration": 0.375
+    }
+  ],
+  "audio": {
+    "music": {
+      "provider": "ElevenLabs Creative Studio",
+      "model": "eleven_music_v2",
+      "generationId": "p2nHwAK79IL6uPa0TPtC",
+      "sourceDuration": 44,
+      "prompt": "26-second instrumental modern romantic noir and alternative R&B lounge, 80 BPM, cool and confident with felt piano, soft Rhodes, rounded sub-bass, restrained brushed percussion and a small descending motif, polished intimate cinematic mix. Maintain one unbroken groove that becomes warmer and more spacious after 11 seconds, then very sparse from 16 seconds with room for dialogue. End with a soft natural cadence in the final 2 seconds; strictly no voices, lyrics, humming, tempo changes, EDM drops, abrupt cuts or horror effects.",
+      "flow": "https://elevenlabs.io/app/flows/Z3sVNEazvwnntCz3i3Ca",
+      "file": "shanghuan-debut-music.mp3",
+      "continuous": true,
+      "loops": 0,
+      "dialogueDucking": true
+    },
+    "originalOpMusicRemoved": true,
+    "kitchenPrelap": 0.5,
+    "kitchenSoundStartsAt": 11.583333333333334,
+    "originalDialogueRetained": true,
+    "joinFormat": "PCM",
+    "samplesPerFrame": 2000
+  },
+  "replacement": {
+    "kitchenClip": "mmexport1791552185053.mp4",
+    "fullSourceFrames": 241,
+    "continuous": true,
+    "dialogue": [
+      {
+        "text": "别碰我这边",
+        "sourceStart": 0.78,
+        "sourceEnd": 2.1
+      },
+      {
+        "text": "去哪儿",
+        "sourceStart": 4.04,
+        "sourceEnd": 5.12
+      },
+      {
+        "text": "就在这儿吃",
+        "sourceStart": 8.86,
+        "sourceEnd": 9.7
+      }
+    ]
+  },
+  "shots": [
+    {
+      "file": "mmexport1791374622370.mp4",
+      "start": 0,
+      "frames": 36,
+      "phase": "op",
+      "cue": "desk-pen",
+      "sound": true,
+      "note": "Clean desk/pen establishing shot, ending before the transition",
+      "timelineStart": 0,
+      "timelineEnd": 1.5
+    },
+    {
+      "file": "mmexport1791293423489.mp4",
+      "start": 1.5,
+      "frames": 29,
+      "phase": "op",
+      "cue": "pen",
+      "sound": true,
+      "note": "Complete pen action and camera push-in; omit the two preceding lab portrait frames",
+      "timelineStart": 1.5,
+      "timelineEnd": 2.708333333333333
+    },
+    {
+      "file": "mmexport1791374622370.mp4",
+      "start": 2.5833333333333335,
+      "frames": 94,
+      "phase": "op",
+      "sound": true,
+      "note": "Cut directly to the clean lab portrait, without the ink-bottle flash",
+      "timelineStart": 2.7083333333333335,
+      "timelineEnd": 6.625
+    },
+    {
+      "file": "mmexport1791293423489.mp4",
+      "start": 2.7083333333333335,
+      "frames": 55,
+      "phase": "op",
+      "cue": "glasses",
+      "sound": true,
+      "note": "Start directly on glasses removal, without returning to the earlier suit portrait",
+      "timelineStart": 6.625,
+      "timelineEnd": 8.916666666666666
+    },
+    {
+      "file": "mmexport1791374622370.mp4",
+      "start": 6.5,
+      "frames": 85,
+      "phase": "op",
+      "cue": "pendant-out",
+      "sound": true,
+      "note": "Finish OP on the character and silver chain",
+      "timelineStart": 8.916666666666666,
+      "timelineEnd": 12.458333333333332
+    },
+    {
+      "file": "mmexport1791293423489.mp4",
+      "start": 5.5,
+      "frames": 39,
+      "phase": "pv",
+      "cue": "pendant-in",
+      "sound": false,
+      "note": "Silver chain/white shirt lead into kitchen back view",
+      "timelineStart": 12.083333333333334,
+      "timelineEnd": 13.708333333333334
+    },
+    {
+      "file": "mmexport1791293368427.mp4",
+      "start": 0,
+      "frames": 44,
+      "phase": "pv",
+      "sound": true,
+      "note": "Arrival: cutting sounds and cooking detail",
+      "timelineStart": 13.708333333333334,
+      "timelineEnd": 15.541666666666668
+    },
+    {
+      "file": "mmexport1791293368427.mp4",
+      "start": 3.3333333333333335,
+      "frames": 39,
+      "phase": "pv",
+      "sound": true,
+      "note": "Cooking at natural speed",
+      "timelineStart": 15.541666666666668,
+      "timelineEnd": 17.166666666666668
+    },
+    {
+      "file": "mmexport1791552185053.mp4",
+      "start": 0,
+      "frames": 241,
+      "phase": "pv",
+      "cue": "ending",
+      "sound": true,
+      "note": "Preserve the regenerated cooking, meal handoff, question, washing, drying and leaning sequence continuously, including its final stay-and-eat line",
+      "timelineStart": 17.166666666666668,
+      "timelineEnd": 27.208333333333336
+    }
+  ],
+  "notes": "Clean OP pen/glasses boundaries are preserved. The user-provided regenerated kitchen clip replaces the old later kitchen cuts and remains continuous from its first frame through washing, drying, leaning and the final stay-and-eat line. The old relocated invitation and inconsistent frontal ending are removed. One continuous instrumental cue bridges OP and kitchen with dialogue ducking. No subtitles, title overlay, slow motion or added freeze."
+}

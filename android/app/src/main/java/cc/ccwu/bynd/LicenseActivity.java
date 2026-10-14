@@ -26,7 +26,8 @@ public final class LicenseActivity extends Activity {
         TextView subtitle = new TextView(this); subtitle.setText("让 TA 触碰屏幕之外的世界。\n\n激活后，本机可离线使用。"); subtitle.setTextSize(16); subtitle.setPadding(0, pad, 0, pad); layout.addView(subtitle);
         EditText input = new EditText(this); input.setHint("BYND-… 永久激活码"); input.setSingleLine(true);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS); layout.addView(input);
+        if (android.os.Build.VERSION.SDK_INT >= 26) input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        layout.addView(input);
         Button button = new Button(this); button.setText("激活 BYND"); layout.addView(button);
         TextView status = new TextView(this); status.setTextSize(15); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); layout.addView(status);
         TextView help = new TextView(this); help.setText("换机或重新安装后，可能需要重新激活。\n激活遇到问题时，你的数据会保留。"); help.setTextSize(14); help.setPadding(0, pad, 0, 0); layout.addView(help);

@@ -396,7 +396,6 @@ function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
     const rawPrompt = String(prompt || caption || '角色自拍').trim();
     const characterImageSource = buildWechatCharacterImageSourceText(char);
     const appearanceHints = getWechatImageAppearanceHints(characterImageSource, 1800);
-    const wantsLiveAction = /(?:真人|现实|三次元|写实真人|真实人像|真人照片|现实照片|现实自拍|live\s*action|photorealistic human)/i.test(rawPrompt);
     return [
         `任务：生成一张${displayName}在微信聊天里发给用户的图片/照片。`,
         `这张图必须画的是角色本人，不是泛泛的路人、网图、真人帅哥、他人照片或聊天截图。`,
@@ -405,10 +404,10 @@ function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
         config.signature ? `角色公开签名/气质：${config.signature}` : '',
         appearanceHints ? `角色卡外观重点：\n${appearanceHints}` : '',
         characterImageSource ? `角色卡/人设原文：\n${characterImageSource}` : '',
-        `参考图规则：如果提供了参考图，参考图优先级高于所有文字描述。必须保持参考图里的同一张脸、发型发色、刘海/眼睛特征、肤色、年龄感、气质、服饰倾向、配色和整体辨识度，只允许改变姿势、表情、光线、构图和场景。`,
-        wantsLiveAction
-            ? `用户明确要求真人/现实风格时，才可以把参考图转成写实真人，但仍必须保留参考图的脸部结构、发型、五官气质和辨识度。`
-            : `如果参考图是动漫、插画、头像、半身人设图或二次元风格，必须保持二次元/插画画风，不要真人化，不要生成三次元真人照片。`,
+        `参考图规则：参考图优先用于锁定角色身份。必须保持同一张脸的结构与辨识特征、发型发色、刘海/眼睛特征、肤色、年龄感和气质；服装、姿势、表情、光线、构图和场景按当前聊天要求变化。画风按以下要求转换，不必照搬头像的平面线稿或上色方式。`,
+        `默认画风：乙女游戏角色 CG，半写实 3D 美型渲染（otome game character CG, semi-realistic 3D render）。人物五官精致但保留角色原有的性别、年龄和骨相，细腻柔和的皮肤与自然次表面散射，清晰且有层次的细发丝，真实细致的衣料纹理。采用克制的冷灰低饱和调色、柔和电影光影和浅景深，背景自然虚化；环境允许时加入细碎的斑驳自然光。整体是高品质游戏 CG 的立体与柔润质感，避免平涂动漫、粗黑描边、蜡像塑料感、过度磨皮和普通真人摄影。`,
+        `画风优先级：当前用户明确指定的其他画风优先于默认 CG。只有明确要求真人化、真人摄影等风格时才转为真人照片，并保留角色的脸部结构、发型、五官气质和辨识度；“不要真人化”或场景中的“现实”不代表要求真人摄影。`,
+        `风格不等于外貌或固定场景：不擅自添加银发、蓝眼、耳饰、花束、灰色毛衣或森林背景，不更改角色本人的设定；无人风景或物品画面不为了画风额外加入人物。`,
         `画面要求：像角色在微信里发来的新图片，主体清楚，构图自然，符合当前聊天语境。`,
         `禁止：文字水印、聊天气泡、界面截图、扭曲手指、换脸、换发型、换角色、生成与参考图无关的真人。`
     ].filter(Boolean).join('\n');
@@ -427,6 +426,7 @@ async function resolveWechatAiGeneratedImage(char, msg) {
         const result = await callWechatImageGenerationApi(prompt, {
             usageChar: char,
             referenceImage: reference,
+            referenceStyle: 'identity',
             size: msg.imageSize || '1024x1024',
             requireReference: !!reference
         });

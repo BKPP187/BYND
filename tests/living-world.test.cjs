@@ -443,6 +443,24 @@ test('known forum events keep a readable trace after deleting their original pos
     assert.match(h.api.getRelevantEventsForChar(h.window.myCharacters[0], 5), /这件事发生过/);
 });
 
+test('home event records keep stable IDs and only expose the selected character known forum events', () => {
+    const at = Date.now();
+    const h = forumHarness({
+        posts: [{ id: 'public_post', authorId: 'user', communityId: 'lounge', title: '读书计划', body: '', createdAt: at }],
+        events: [
+            { id: 'known_event', type: 'forum_post', actorId: 'user', targetId: 'public_post', metadata: { title: '读书计划' }, visibility: 'public', createdAt: at },
+            { id: 'unknown_event', type: 'forum_reply', actorId: 'char:other', targetId: 'public_post', metadata: { excerpt: '未见过的回复' }, visibility: 'public', createdAt: at },
+            { id: 'private_event', type: 'private_chat', actorId: 'char:other', targetId: 'user', metadata: { excerpt: '别人的私聊' }, visibility: 'private', createdAt: at }
+        ],
+        knowledge: { 'char:friend': [{ eventId: 'known_event', sourceId: 'user', kind: 'read', knownAt: at }] }
+    });
+    const rows = h.window.getLivingWorldEventRecordsForChar(h.window.myCharacters[0]);
+    assert.equal(rows.length, 1); assert.equal(rows[0].id, 'known_event'); assert.equal(rows[0].at, at); assert.match(rows[0].text, /读书计划/);
+    assert.equal(h.window.getLivingWorldEventRecordsForChar({ id: 'other' }).length, 0);
+    assert.equal(h.window.getLivingWorldEventRecordsForChar(null).length, 0);
+    assert.equal(typeof h.api.getRelevantEventsForChar(h.window.myCharacters[0]), 'string');
+});
+
 test('blocking a member survives account refresh and hides their feed', async () => {
     const h = forumHarness({ posts: [{ id: 'post_friend', authorId: 'char:friend', communityId: 'lounge', title: '不再可见', body: '内容', createdAt: Date.now() }] });
     await h.api.init();

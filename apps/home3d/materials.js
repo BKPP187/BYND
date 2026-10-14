@@ -91,7 +91,7 @@
                     originals.add(original);
                     // A textured PBR asset must retain its base color, normal and
                     // roughness maps. Solid-color legacy packs still use our palette.
-                    if (original?.isMeshStandardMaterial && Object.values(original).some(value => value?.isTexture)) {
+                    if (original?.isMeshStandardMaterial && (item.keepMaterials || Object.values(original).some(value => value?.isTexture))) {
                         if (!mapped.has(original)) mapped.set(original, original.clone());
                         const replacement = mapped.get(original);
                         node.userData.ownedMaterials = [...(node.userData.ownedMaterials || []), replacement];

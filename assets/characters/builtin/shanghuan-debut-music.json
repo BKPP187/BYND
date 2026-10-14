@@ -1,0 +1,8 @@
+{
+  "provider": "ElevenLabs Creative Studio",
+  "model": "eleven_music_v2",
+  "generationId": "p2nHwAK79IL6uPa0TPtC",
+  "sourceDuration": 44,
+  "prompt": "26-second instrumental modern romantic noir and alternative R&B lounge, 80 BPM, cool and confident with felt piano, soft Rhodes, rounded sub-bass, restrained brushed percussion and a small descending motif, polished intimate cinematic mix. Maintain one unbroken groove that becomes warmer and more spacious after 11 seconds, then very sparse from 16 seconds with room for dialogue. End with a soft natural cadence in the final 2 seconds; strictly no voices, lyrics, humming, tempo changes, EDM drops, abrupt cuts or horror effects.",
+  "flow": "https://elevenlabs.io/app/flows/Z3sVNEazvwnntCz3i3Ca"
+}

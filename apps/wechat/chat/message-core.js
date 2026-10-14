@@ -973,10 +973,14 @@ function toggleWechatVoiceMessage(bubbleEl) {
     });
 }
 
-function getWechatCallDescription(msg) {
+function getWechatCallDescription(msg, char = null) {
     const status = msg.status || '已结束';
     const duration = parseInt(msg.duration, 10);
-    const rawReason = msg.reason || msg.note || '';
+    const savedReason = msg.reason || msg.note || '';
+    // Display legacy automatic hangup notes using this role's user remark.
+    // Preserve authored notes and the nickname captured by newer records.
+    const rawReason = char && savedReason === '用户挂断了电话'
+        ? `${getWechatCallUserDisplayName(char)}挂断了电话` : savedReason;
     const direction = msg.callDirection || msg.direction || (msg.isMe ? 'outgoing' : 'incoming');
     let displayStatus = status;
     if (status === '已拒绝') {

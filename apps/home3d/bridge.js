@@ -46,10 +46,14 @@
     function context(item = char()) {
         const events = typeof getLivingWorldRelevantEventsForChar === 'function' ? getLivingWorldRelevantEventsForChar(item) : [];
         return {
+            charId: item?.id ? String(item.id) : '',
             personality: String(item?.personality || item?.description || item?.persona || item?.charInfo || item?.desc || '').slice(0, 2400),
-            history: (item?.history || []).filter(msg => typeof msg.content === 'string').slice(-12).map(msg => ({ isMe: !!msg.isMe, text: msg.content.slice(0, 300), at: Number(msg.timestamp) || 0 })),
+            worldBook: typeof buildWechatWorldBookPrompt === 'function' ? String(buildWechatWorldBookPrompt(item, 12) || '').slice(0, 3000) : '',
+            relationship: item?.id ? H.State.load().homes[String(item.id)]?.relationship || '' : '',
+            history: (item?.history || []).filter(msg => typeof msg.content === 'string').slice(-12).map(msg => ({ id: msg.id ? String(msg.id) : '', isMe: !!msg.isMe, text: msg.content.slice(0, 300), at: Number(msg.timestamp) || 0 })),
             phone: item?.chatConfig?.aiPhoneSnapshot || {},
             events: Array.isArray(events) ? events.slice(-6) : events ? [String(events).slice(0, 3000)] : [],
+            eventRecords: typeof window.getLivingWorldEventRecordsForChar === 'function' ? window.getLivingWorldEventRecordsForChar(item, 6) : [],
             life: window.ByndLifeState?.prompt(item) || '',
             status: typeof window.getWechatAiStatusSnapshot === 'function' ? JSON.stringify(window.getWechatAiStatusSnapshot(item)?.fields || {}).slice(0, 600) : '',
             memories: memories(item)
@@ -69,9 +73,8 @@
         const item = char();
         if (destination === 'phone') {
             if (!item || typeof openWechatAiPhone !== 'function') throw new Error('角色手机暂时不可用。');
-            // The existing phone belongs to the WeChat modal root.
-            window.openApp('wechat');
-            if (typeof openChat === 'function') openChat(item.id);
+            // Phone overlays use the shared phone-container, not the chat window.
+            // Keep the live scene/camera intact so every close path reveals home.
             openWechatAiPhone(item.id);
         } else if (destination === 'chat') {
             if (!item || typeof openChat !== 'function') throw new Error('聊天暂时不可用。');

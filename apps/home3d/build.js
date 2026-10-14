@@ -15,6 +15,15 @@
         if (draft.position[1] < 0 || draft.position[1] > 2.5) throw new Error('家具高度超出了房间。');
         const e = extent(draft);
         if (Math.abs(e.x) + e.width / 2 > room.size[0] / 2 - 0.12 || Math.abs(e.z) + e.depth / 2 > room.size[1] / 2 - 0.12) throw new Error('家具要完整放在房间里。');
+        if (!window.__byndSingleRoom && H.Villa?.includes(room.id) && draft.position[1] < .2 && !['frame', 'prop', 'keepsake'].includes(item.type)) {
+            const plan = H.Villa.plan(room.id), node = plan.nodes.find(n => n.id === room.id);
+            const blocked = plan.doors.filter(d => d.a === room.id || d.b === room.id).some(d => {
+                const width = d.axis === 'x' ? 1.4 : d.width, depth = d.axis === 'z' ? 1.4 : d.width;
+                return Math.abs(e.x + node.x - d.x) < (e.width + width) / 2 && Math.abs(e.z + node.z - d.z) < (e.depth + depth) / 2;
+            });
+            const stairs = ['stair_hall','landing'].includes(room.id) && Math.abs(e.x + node.x + 5.15) < (e.width + 3) / 2 && Math.abs(e.z + node.z + 4.9) < (e.depth + 4.4) / 2;
+            if (blocked || stairs) throw new Error('请给门口和楼梯留出通道，这次装修没有保存。');
+        }
         const original = H.Rooms.placements(room, home).find(p => p.id === draft.id), children = original ? supported(room, home, original).map(p => p.id) : [];
         const all = H.Rooms.placements(room, home).filter(p => p.id !== draft.id && !children.includes(p.id));
         if (all.some(p => {

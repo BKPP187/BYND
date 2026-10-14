@@ -19,6 +19,7 @@ function initSettings() {
     renderApiList();
     window.ByndJev?.renderSettings();
     window.ByndTripo?.renderSettings();
+    window.ByndVivix?.renderSettings();
     renderPresetList();
     initFontSettings();
     if (typeof renderProactiveNotifySettings === 'function') renderProactiveNotifySettings();

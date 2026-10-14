@@ -2,6 +2,8 @@
 (function (H) {
     'use strict';
     const paths = {
+        'ri-eye-line': '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+        'ri-stairs-line': '<path d="M3 20h5v-5h5v-5h5V5h3M3 3h18M3 3v17"/>',
         'ri-arrow-left-s-line': '<path d="m14 5-7 7 7 7"/>',
         'ri-arrow-right-line': '<path d="M4 12h15m-6-6 6 6-6 6"/>',
         'ri-arrow-right-s-line': '<path d="m9 5 7 7-7 7"/>',
@@ -29,7 +31,11 @@
         'ri-plant-line': '<path d="M8 22h8l2-8H6zM12 14V8C5 10 3 7 3 3c6-1 10 2 9 7 1-7 5-8 9-7 0 6-3 8-9 6"/>',
         'ri-drop-line': '<path d="M12 2s-8 10-8 14a8 8 0 0 0 16 0c0-4-8-14-8-14z"/>',
         'ri-shirt-line': '<path d="m7 3-5 3 3 5 2-1v11h10V10l2 1 3-5-5-3c-1 4-9 4-10 0z"/>',
-        'ri-gift-line': '<path d="M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9C2 9 3 1 8 3l4 6c10 0 9-8 4-6z"/>'
+        'ri-gift-line': '<path d="M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9C2 9 3 1 8 3l4 6c10 0 9-8 4-6z"/>',
+        'ri-arrow-up-line': '<path d="M12 21V3m-7 7 7-7 7 7"/>',
+        'ri-arrow-down-line': '<path d="M12 3v18m-7-7 7 7 7-7"/>',
+        'ri-sun-line': '<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/>',
+        'ri-moon-line': '<path d="M19 16A9 9 0 0 1 8 4a9 9 0 1 0 11 12Z"/>'
     };
     H.Icons = { paint: name => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || '<rect x="4" y="4" width="16" height="16" rx="5"/><path d="M8 12h8"/>') + '</svg>' };
 })(window.ByndHome3D);

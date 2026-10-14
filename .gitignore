@@ -12,6 +12,8 @@ ios/build/
 ios/**/xcuserdata/
 dist/
 /.bynd-license-secrets/
+/.bynd-license-dev/
+/.bynd-distribution-web/
 /workers/wrangler-license.toml
 BYND使用说明书.md
 

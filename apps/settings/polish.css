@@ -355,12 +355,15 @@
 }
 #app-theme-window .lockscreen-mode-card input { width: 18px; height: 18px; accent-color: #111318; }
 #app-theme-window .lockscreen-mode-card span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#app-theme-window .lock-visibility-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-#app-theme-window .theme-check-card { height: 42px; border-radius: 15px; background: rgba(255,249,252,0.82); border-color: rgba(193,126,154,0.09); color: #6b6475; display: flex; align-items: center; justify-content: center; gap: 5px; position: relative; }
-#app-theme-window .theme-check-card i { font-size: 15px; color: #c46f91; }
+#app-theme-window .lock-visibility-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 88px), 1fr)); gap: 7px; }
+#app-theme-window .theme-check-card { height: 42px; border-radius: 15px; background: rgba(255,249,252,0.82); border-color: rgba(193,126,154,0.09); color: #6b6475; display: flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 0 8px; position: relative; }
+#app-theme-window .theme-check-card :is(i, svg) { flex: 0 0 16px; width: 16px; height: 16px; font-size: 15px; color: inherit; }
+#app-theme-window .theme-check-card span { display: block; }
+#app-theme-window .theme-check-card span::before { content: none; }
 #app-theme-window .theme-check-card input { position: absolute; opacity: 0; pointer-events: none; }
-#app-theme-window .theme-check-card input:checked ~ span::after { content: '\2713'; margin-left: 4px; color: #111318; font-weight: 950; }
+#app-theme-window .theme-check-card input:checked ~ span::after { content: '\2713'; position: absolute; top: 2px; right: 4px; margin: 0; color: #111318; font-size: 9px; line-height: 1; font-weight: 950; }
 #app-theme-window .theme-check-card input:not(:checked) ~ i,
+#app-theme-window .theme-check-card input:not(:checked) ~ svg,
 #app-theme-window .theme-check-card input:not(:checked) ~ span { opacity: 0.42; }
 #app-theme-window .desktop-layout-entry { border-radius: 20px; background: linear-gradient(135deg, #fff, #fff0f6 46%, #edf6ff); border-color: rgba(235,150,178,0.18); box-shadow: 0 12px 26px rgba(160,112,137,0.10); }
 #app-theme-window .desktop-layout-entry button,

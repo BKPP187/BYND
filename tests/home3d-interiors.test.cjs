@@ -28,6 +28,25 @@ test('all default rooms share one coordinated interior and saved user choices re
     assert.equal(H.Interiors.resolve(H.Rooms.get('game_room'), H.State.home()).id, 'pink');
     assert.equal(H.Interiors.resolve(H.Rooms.get('bedroom'), H.State.home()).id, initial.id);
 });
+
+test('whole-home interior changes are one atomic save and include future rooms without changing layouts or other homes',()=>{
+    const {H,localStorage}=setup();H.State.bind('b');const other=JSON.stringify(H.State.home());H.State.bind('a');
+    H.State.withHome(home=>{home.layouts.living_room={items:{sofa:{id:'sofa',furnitureId:'chinese_sofa',position:[0,0,-1.5],rotation:.3}},removed:['radio']};home.interiors={bedroom:{preset:'pink'}};});
+    const before=H.State.home(),layouts=JSON.stringify(before.layouts),open=JSON.stringify(before.openRooms),theme=before.theme,save=localStorage.setItem.bind(localStorage);let writes=0;localStorage.setItem=(...args)=>{writes++;save(...args);};
+    H.Interiors.applyAll({preset:'natural'},true);assert.equal(writes,1);assert.equal(H.Interiors.uniform(),'natural');
+    const home=H.State.home();assert.equal(JSON.stringify(home.layouts),layouts);assert.equal(JSON.stringify(home.openRooms),open);assert.equal(home.theme,theme);
+    for(const room of H.catalogs.roomCatalog.rooms){const config=H.Interiors.resolve(room,home);assert.equal(config.id,'natural');assert.ok(H.Rooms.placements(room,home).every(p=>config.furniture[p.id]==='modern'));}
+    assert.equal(JSON.stringify(H.State.load().homes.b),other);
+    H.Interiors.apply('bedroom',{preset:'pink'},true);assert.equal(H.Interiors.uniform(),null);assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'),H.State.home()).id,'natural');
+});
+
+test('whole-home finish-only updates retain furniture styles and failed saves never leave partially changed rooms',()=>{
+    const {H,localStorage}=setup();H.Interiors.applyAll({preset:'palace'},true);const styles=JSON.stringify(Object.fromEntries(Object.entries(H.State.home().interiors).map(([id,c])=>[id,c.furniture])));
+    H.Interiors.applyAll({wall:'linen_stripe',floor:'pale_parquet'},false);
+    assert.equal(JSON.stringify(Object.fromEntries(Object.entries(H.State.home().interiors).map(([id,c])=>[id,c.furniture]))),styles);
+    const before=localStorage.getItem(H.State.key);assert.throws(()=>H.Interiors.applyAll({preset:'missing'},true),/方案无效/);assert.equal(localStorage.getItem(H.State.key),before);
+    localStorage.setItem=()=>{throw Error('quota');};assert.throws(()=>H.Interiors.applyAll({preset:'natural'},true),/没有保存成功/);assert.equal(localStorage.getItem(H.State.key),before);
+});
 test('wall/floor customization preserves furniture and reselecting the same kit restores its finishes', () => {
     const { H } = setup(), room = H.Rooms.get('living_room'), sofa = room.furniture.find(p => p.id === 'sofa');
     const first = H.Interiors.furniture(H.Furniture.get(sofa.furnitureId), sofa, room, H.State.home());

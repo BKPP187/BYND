@@ -438,6 +438,7 @@ function renderMusicApp() {
 
 function renderMusicNowPlaying() {
     const track = musicTracks[musicCurrentIndex] || getMusicPlaceholderTrack();
+    window.ByndMusicWaveform?.setTrack(track);
     const cover = document.getElementById('music-now-cover');
     const title = document.getElementById('music-now-title');
     const artist = document.getElementById('music-now-artist');
@@ -815,6 +816,7 @@ function setupMusicAudio() {
     musicAudio.preload = 'metadata';
     musicAudio.addEventListener('play', () => {
         musicIsPlaying = true;
+        window.ByndMusicWaveform?.follow(musicAudio);
         startMusicProgressTimer();
         renderMusicNowPlaying();
         renderMusicMainTab();
@@ -822,6 +824,7 @@ function setupMusicAudio() {
     });
     musicAudio.addEventListener('pause', () => {
         musicIsPlaying = false;
+        window.ByndMusicWaveform?.stop();
         renderMusicNowPlaying();
         renderMusicMainTab();
         if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
@@ -829,6 +832,9 @@ function setupMusicAudio() {
     musicAudio.addEventListener('loadedmetadata', updateMusicProgress);
     musicAudio.addEventListener('ended', handleMusicEnded);
     musicAudio.addEventListener('timeupdate', updateMusicProgress);
+    musicAudio.addEventListener('seeked', updateMusicProgress);
+    musicAudio.addEventListener('durationchange', updateMusicProgress);
+    musicAudio.addEventListener('ended', () => window.ByndMusicWaveform?.stop());
 }
 
 function toggleMusicPlayback(forcePlay) {
@@ -951,7 +957,7 @@ function updateMusicProgress() {
     if (bar) bar.style.width = `${percent}%`;
     if (wave) {
         const bars = wave.querySelectorAll('span');
-        const activeCount = Math.max(1, Math.round((percent / 100) * bars.length));
+        const activeCount = Math.floor((percent / 100) * bars.length);
         wave.classList.toggle('is-playing', !!musicIsPlaying);
         wave.style.setProperty('--music-wave-progress', `${percent}%`);
         bars.forEach((item, index) => {
@@ -963,6 +969,7 @@ function updateMusicProgress() {
     if (duration) duration.textContent = total > 0 ? formatMusicTime(total) : '--:--';
     updateActiveMusicLyric(current);
     if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
+    window.ByndMusicWaveform?.sync(current, total, musicIsPlaying);
 }
 
 function startMusicProgressTimer() {
@@ -984,7 +991,7 @@ function formatMusicTime(value) {
 }
 
 function seekMusic(event) {
-    if (!musicAudio || !musicAudio.duration) return;
+    if (!musicAudio || !Number.isFinite(musicAudio.duration) || musicAudio.duration <= 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     musicAudio.currentTime = musicAudio.duration * percent;
@@ -1015,7 +1022,7 @@ async function searchMusic(term) {
         musicIsPlaying = false;
         closeMusicDetail();
         renderMusicApp();
-        showMusicStatus(buildMusicSourceSummary(tracks));
+        showMusicStatus([buildMusicSourceSummary(tracks), tracks.searchNotice].filter(Boolean).join('；'));
     } catch (e) {
         musicTracks = [];
         musicCurrentIndex = 0;
@@ -1023,7 +1030,7 @@ async function searchMusic(term) {
         musicIsPlaying = false;
         closeMusicDetail();
         renderMusicApp();
-        showMusicStatus('在线音乐源暂时不可用，换个关键词或稍后再试。');
+        showMusicStatus(e.message === 'empty result' ? '没有搜到这首歌，试试完整歌名或歌手名。' : '在线音乐源连接失败，请检查网络或稍后再试。');
     }
 }
 window.searchMusic = searchMusic;
@@ -1037,6 +1044,10 @@ async function searchAcrossMusicSources(query, mode) {
     const tasks = [];
     const platforms = mode === 'smart' ? MUSIC_PLATFORM_ORDER : [mode];
 
+    if (platforms.includes('netease') && typeof window.searchNeteaseMusic === 'function') {
+        tasks.push(window.searchNeteaseMusic(query));
+    }
+
     platforms.filter(platform => platform !== 'archive').forEach(platform => {
         tasks.push(searchMetingMusic(query, platform, settings));
         if (settings.goApiBase) tasks.push(searchGoMusicApi(query, platform, settings));
@@ -1048,13 +1059,17 @@ async function searchAcrossMusicSources(query, mode) {
 
     const settled = await Promise.allSettled(tasks);
     const tracks = settled.flatMap(item => item.status === 'fulfilled' ? item.value : []);
-    return dedupeMusicTracks(tracks).slice(0, 28);
+    const results = dedupeMusicTracks(tracks).slice(0, 40);
+    const failed = settled.some(item => item.status === 'rejected' || item.value?.searchNotice);
+    if (!results.length && failed) throw new Error('音乐源连接失败，请检查网络或稍后再试');
+    results.searchNotice = failed ? '部分音乐源连接失败' : '';
+    return results;
 }
 
 function dedupeMusicTracks(tracks) {
     const seen = new Set();
     return tracks.filter(track => {
-        if (!track?.audioUrl) return false;
+        if (!track?.audioUrl && !(track?.sourceKey === 'netease' && track.remoteId)) return false;
         const key = `${track.sourceName}|${track.remoteId || track.audioUrl || track.trackViewUrl || track.trackName}|${track.trackName}|${track.artistName}`.toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
@@ -1089,7 +1104,10 @@ async function fetchJsonWithTimeout(url, options = {}, timeout = 6500) {
 async function searchMetingMusic(query, platform, settings) {
     const bases = settings.metingBases?.length ? settings.metingBases : MUSIC_SOURCE_DEFAULTS.metingBases;
     const settled = await Promise.allSettled(bases.map(base => searchMetingBase(base, platform, query)));
-    return dedupeMusicTracks(settled.flatMap(item => item.status === 'fulfilled' ? item.value : []));
+    if (settled.every(item => item.status === 'rejected')) throw new Error('公共音乐源连接失败');
+    const results = dedupeMusicTracks(settled.flatMap(item => item.status === 'fulfilled' ? item.value : []));
+    results.searchNotice = settled.some(item => item.status === 'rejected') ? '部分音乐源连接失败' : '';
+    return results;
 }
 
 async function searchMetingBase(base, platform, query) {
@@ -1290,7 +1308,8 @@ function getMusicPlatformUrl(platform, id) {
 }
 
 async function searchInternetArchiveMusic(query) {
-    const q = `${query} AND mediatype:audio`;
+    const literal = String(query || '').trim().replace(/[\\"]/g, ' ');
+    const q = `(title:"${literal}" OR creator:"${literal}") AND mediatype:audio`;
     const params = new URLSearchParams();
     params.set('q', q);
     params.append('fl[]', 'identifier');
@@ -1301,21 +1320,26 @@ async function searchInternetArchiveMusic(query) {
     params.set('rows', '14');
     params.set('page', '1');
     params.set('output', 'json');
-    const res = await fetch(`https://archive.org/advancedsearch.php?${params.toString()}`);
-    if (!res.ok) throw new Error(`Archive search ${res.status}`);
-    const json = await res.json();
+    const json = await fetchJsonWithTimeout(`https://archive.org/advancedsearch.php?${params.toString()}`);
     const docs = json?.response?.docs || [];
     const hydrated = await Promise.all(docs.slice(0, 10).map(hydrateArchiveTrack));
-    return hydrated.filter(Boolean).slice(0, 12);
+    return hydrated.filter(track => track && matchesArchiveMusicQuery(track, query)).slice(0, 12);
+}
+
+function matchesArchiveMusicQuery(track, query) {
+    const text = `${track.trackName || ''} ${track.artistName || ''}`.toLowerCase();
+    const words = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return words.length > 0 && words.every(word => {
+        if (/^[a-z0-9]{1,2}$/.test(word)) return text.split(/[^a-z0-9]+/).includes(word);
+        return text.includes(word);
+    });
 }
 
 async function hydrateArchiveTrack(doc) {
     const identifier = doc?.identifier;
     if (!identifier) return null;
     try {
-        const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(identifier)}`);
-        if (!res.ok) return null;
-        const json = await res.json();
+        const json = await fetchJsonWithTimeout(`https://archive.org/metadata/${encodeURIComponent(identifier)}`);
         const file = pickArchiveAudioFile(json.files || []);
         if (!file) return null;
         const meta = json.metadata || {};

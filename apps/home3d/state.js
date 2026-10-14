@@ -14,6 +14,12 @@
             if (!current || typeof current !== 'object') throw new Error('小屋存档内容无效，请先备份。');
             if (current.modelId !== undefined && !['portrait', 'silver-red-v1'].includes(current.modelId)) throw new Error('小屋人物模型无效，原存档已保留。');
             if (current.openRooms && (!Array.isArray(current.openRooms) || current.openRooms.some(id => !H.Rooms.get(id)?.expandable))) throw new Error('小屋扩建存档无效，原存档已保留。');
+            const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
+            const receipt = value => object(value) && typeof value.id === 'string' && ['user', 'char'].includes(value.actor) && ['queued', 'walking', 'acting', 'finished', 'blocked', 'cancelled'].includes(value.phase) && Number.isFinite(value.at);
+            if (current.executions != null && (!object(current.executions) || Object.values(current.executions).some(row => !receipt(row)))) throw new Error('小屋活动回执无效，原存档已保留。');
+            if (current.actionReceipts != null && (!Array.isArray(current.actionReceipts) || current.actionReceipts.length > 80 || current.actionReceipts.some(row => !receipt(row)))) throw new Error('小屋活动记录无效，原存档已保留。');
+            if (current.preferences != null && (!object(current.preferences) || Object.values(current.preferences).some(value => !['auto', 'like', 'avoid'].includes(value)))) throw new Error('小屋生活偏好无效，原存档已保留。');
+            if (current.lifeInbox != null && (!object(current.lifeInbox) || !Array.isArray(current.lifeInbox.entries) || current.lifeInbox.entries.length > 60 || current.lifeInbox.entries.some(row => !object(row) || typeof row.id !== 'string' || typeof row.text !== 'string' || !Number.isFinite(row.at) || !Number.isFinite(row.consumedAt)) || !Array.isArray(current.lifeInbox.seen) || current.lifeInbox.seen.length > 240 || current.lifeInbox.seen.some(id => typeof id !== 'string'))) throw new Error('小屋生活动态无效，原存档已保留。');
             if (current.interiors) {
                 const options = H.catalogs.materialPresets.interiors;
                 if (typeof current.interiors !== 'object' || Array.isArray(current.interiors)) throw new Error('墙面地板存档无效，原存档已保留。');

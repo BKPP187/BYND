@@ -1,0 +1,58 @@
+{
+  "source": "Kenney Nature Kit",
+  "sourceUrl": "https://kenney.nl/assets/nature-kit",
+  "downloadUrl": "https://kenney.nl/media/pages/assets/nature-kit/37ac38a37b-1677698939/kenney_nature-kit.zip",
+  "license": "CC0-1.0",
+  "licenseFile": "assets/home3d/licenses/Kenney-Nature-CC0.txt",
+  "processing": "Baked transforms, merged primitives, retained palette/UVs and authored topology; matte PBR; repeated placements use GPU instancing.",
+  "assets": [
+    {
+      "id": "tree_oak",
+      "file": "garden-tree_oak.glb",
+      "originalSha256": "d7fd8773674928c50c11b66d12c636d49bdcc15a8b1c7fbb98e6f63a3439a3f3",
+      "sha256": "7fe97f90621a2388364eb991acaed503c944e6cc6c7d0d07c08042cd6866bd75",
+      "bytes": 13504,
+      "triangles": 196
+    },
+    {
+      "id": "tree_small",
+      "file": "garden-tree_small.glb",
+      "originalSha256": "d26c0eeed65cc681667f50042ef23ec72ce47ae3b39837bfeec170b05ba6ab6a",
+      "sha256": "30bf3fab1a78ae645a1e5fefd7a8cda2245a3b6ce3a4d1554d82e915d5babe4b",
+      "bytes": 6148,
+      "triangles": 62
+    },
+    {
+      "id": "plant_bushDetailed",
+      "file": "garden-plant_bushDetailed.glb",
+      "originalSha256": "2e0487020d68ccf664435db9d829c78ae00e6d2785ee3ec10b9f89cc70a10406",
+      "sha256": "fc410ba4adb74db406148e03b782ae6d9fac9cd796ea73f29fd654aea5111454",
+      "bytes": 9236,
+      "triangles": 104
+    },
+    {
+      "id": "grass_leafsLarge",
+      "file": "garden-grass_leafsLarge.glb",
+      "originalSha256": "a68b9b3d9639afaeb4ace840d5a8e3f21ffc4e8afc1eab15566500fbb2bee3e3",
+      "sha256": "9635807ee21875ab3f481fb9a820a7bc1dec4ecb2f5f1f71a0a1224b45dc11ac",
+      "bytes": 12824,
+      "triangles": 144
+    },
+    {
+      "id": "flower_purpleA",
+      "file": "garden-flower_purpleA.glb",
+      "originalSha256": "f6fc34c96a03420a74fe36d4c2d0ec88f15204fcad99cd1416c3c4ecb22e48c4",
+      "sha256": "276e039d3faa1b396ec0ddd1bc8696dd932b7b8f7d63d1c302532ebc6f857712",
+      "bytes": 6684,
+      "triangles": 76
+    },
+    {
+      "id": "flower_yellowA",
+      "file": "garden-flower_yellowA.glb",
+      "originalSha256": "8a3b08cd2ca411c21f9c581d5bda651d78b13c50cba45ad8fa0389398ead6d1d",
+      "sha256": "3cd4a79482565a48ecee9efb6f19c8d400dc89d8993bbee3f11cbfc348cbc335",
+      "bytes": 6696,
+      "triangles": 76
+    }
+  ]
+}

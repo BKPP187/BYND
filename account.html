@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#faf9f4"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+  <title>你的账号 · BYND</title>
+  <link rel="stylesheet" href="assets/website/shop.css"><link rel="stylesheet" href="assets/website/distribution.css"><link rel="stylesheet" href="assets/website/account.css">
+  <script src="assets/website/distribution-api.js" defer></script><script src="assets/website/account.js" defer></script>
+</head>
+<body class="distribution-page account-page">
+  <header class="site-header"><a class="wordmark" href="shop.html">BYND<span class="wordmark-star">✳</span></a><a href="shop.html#get">购买与下载 ↗</a></header>
+  <main class="account-main">
+    <section id="account-entry" aria-labelledby="account-title">
+      <div class="account-heading"><div><p class="account-eyebrow">A LITTLE PLACE FOR YOU</p><h1 id="account-title">给喜欢，留个家。</h1></div><img src="assets/website/bynd-companion.png" alt="探出小手机的手绘小狗" width="1280" height="1280"></div>
+      <div id="account-tabs" class="account-tabs" role="group" aria-label="账号入口"><button id="tab-register" type="button" aria-pressed="true">注册账号</button><button id="tab-login" type="button" aria-pressed="false">已有账号，登录</button></div>
+      <form id="account-form" method="post" action="account.html">
+        <div id="name-field"><label for="account-name">怎么称呼你？</label><input id="account-name" name="name" autocomplete="nickname" maxlength="40" placeholder="你喜欢的名字" required></div>
+        <div id="email-field"><label for="account-email">邮箱</label><input id="account-email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="用来验证身份、找回账号" required></div>
+        <div id="password-field"><div class="account-label-row"><label for="account-password">密码</label><button id="password-visibility" class="text-button" type="button" aria-label="显示密码" aria-pressed="false">显示</button></div><input id="account-password" name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" aria-describedby="password-help" placeholder="15 个字符以上，一句好记的话也可以" required><p id="password-help" class="muted">15–128 个字符，不限制符号，可以使用中文。</p></div>
+        <div id="confirm-field"><label for="account-confirm">再确认一次密码</label><input id="account-confirm" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" placeholder="再输入一次刚才的密码" required></div>
+        <div id="activation-field"><label for="account-activation">激活码 <span class="muted">（可选）</span></label><input id="account-activation" name="licenseKey" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="80" placeholder="BYND-…" aria-describedby="activation-help"><p id="activation-help" class="muted">已有激活码可一起填写，验证邮箱后自动保存。</p></div>
+        <p id="account-hint" class="muted">验证邮箱后，就能把自己的激活码保存在这里。</p>
+        <button id="account-submit" class="green-button account-submit" type="submit">注册，给喜欢留个位置 ♡</button>
+      </form>
+      <div class="account-secondary"><button id="account-forgot" type="button" class="text-button" hidden>忘记密码？</button><button id="account-back" type="button" class="text-button" hidden>返回登录</button></div>
+    </section>
+    <section id="account-home" hidden aria-labelledby="home-title">
+      <div class="account-heading"><div><p class="account-eyebrow">WELCOME BACK</p><h1 id="home-title">你的 BYND。</h1><p id="account-identity" class="muted"></p></div><button id="account-logout" type="button" class="plain-button">退出登录</button></div>
+      <section class="my-licenses"><h2>我的授权 <span aria-hidden="true">✳</span></h2><div id="my-license-list"></div><button id="license-refresh" class="text-button" type="button">刷新授权</button></section>
+      <details id="claim-section"><summary>保存已有激活码</summary><form id="claim-form" method="post" action="account.html"><label for="claim-code">你的永久激活码</label><textarea id="claim-code" rows="2" spellcheck="false" maxlength="80" required placeholder="BYND-…"></textarea><button id="claim-submit" type="submit" class="green-button">保存到我的账号</button><p class="muted">只用于保管你已经持有的授权，不会购买或绑定设备。<br>每份授权只能保存到一个账号。</p></form></details>
+      <div class="account-download"><div><h2>Android APK</h2><p id="account-download-info" class="muted">正在读取版本…</p></div><a id="account-download" class="plain-button" hidden>下载 APK ↓</a></div>
+      <details><summary>账号和激活码怎么使用？</summary><p class="muted">注册不会自动获得付费授权。拿到激活码后，可以保存到账号，方便以后找回。在 Android 首次激活时仍需要输入激活码；激活后的本机离线验证不依赖账号登录。换手机或清除数据后，请联系支持解绑设备。</p></details>
+    </section>
+    <p id="account-status" class="form-status" role="status" aria-live="polite"></p><button id="account-retry" class="plain-button" type="button" hidden>重新连接</button>
+    <p id="account-local-note" class="account-footnote" hidden>本机预览 · 验证邮件保存在本机测试信箱，不会发送到真实邮箱。</p>
+    <p class="account-footnote">把喜欢带在身边，也把这份陪伴好好保存。<br><a href="shop.html">BYND 仍在慢慢长大，尚未开售 ↗</a></p>
+  </main>
+</body></html>

@@ -3,7 +3,7 @@
     // Shared local coordinates keep cookware, hands and editable stations aligned.
     function station(item) {
         const [w, d] = item.footprint, y = item.type === 'stove' ? .88 : item.height || .88;
-        if (item.type === 'stove') return { mode: 'stir', tip: [-w * .16, y + .10, d * .13], vector: [.19, .15, .23], hold: [-w * .16, y + .115, d * .13 + .25] };
+        if (item.type === 'stove') return { mode: 'stir', tip: [-w * .16, y + .10, d * .13], vector: [.29, .13, .31], hold: [-w * .16, y + .115, d * .13 + .25] };
         if (item.variant === 'prep') return { mode: 'chop', tip: [-w * .15, y + .055, d * .30], vector: [.03, .19, .14], hold: [-w * .15 - .11, y + .09, d * .30 + .13] };
         return null;
     }
@@ -16,7 +16,7 @@
     }
     function reach(actor, side, target) {
         const T = ByndHomeEngine, upper = actor.arms[side];
-        for (let pass = 0; pass < 12; pass++) for (const joint of [upper.children[0], upper]) {
+        for (let pass = 0; pass < 24; pass++) for (const joint of [upper.children[0], upper]) {
             const origin = joint.getWorldPosition(new T.Vector3()), end = hand(actor, side).sub(origin), goal = target.clone().sub(origin);
             if (end.lengthSq() < 1e-8 || goal.lengthSq() < 1e-8) continue;
             const inverse = joint.parent.getWorldQuaternion(new T.Quaternion()).invert();
@@ -26,17 +26,71 @@
         }
         return hand(actor, side).distanceTo(target);
     }
+    function gripPose(actor, active) {
+        const T = ByndHomeEngine;
+        for (const mesh of actor.meshes) {
+            const geometry = mesh.geometry;
+            if (!geometry.morphAttributes.position[2] && active) {
+                const positions = geometry.attributes.position, normals = geometry.attributes.normal;
+                const skin = geometry.attributes.skinIndex, weight = geometry.attributes.skinWeight;
+                const delta = new Float32Array(positions.count * 3), normalDelta = new Float32Array(delta.length);
+                for (let side = 0; side < 2; side++) {
+                    const samples = actor.grips[side].filter(s => s.mesh === mesh); if (!samples.length) continue;
+                    const center = new T.Vector3(), point = new T.Vector3(); let bottom = Infinity;
+                    for (const sample of samples) center.add(point.fromBufferAttribute(positions, sample.index));
+                    center.divideScalar(samples.length);
+                    const female = actor.rigSource === 'tripo-mixamo', forearm = actor.arms[side].children[0];
+                    const joint = female ? forearm.children[0] : forearm, jointIndex = actor.skeleton.bones.indexOf(joint);
+                    const indices = [];
+                    for (const index of new Set(geometry.index.array)) {
+                        let influence = 0; for (let k = 0; k < 4; k++) if (skin.array[index * 4 + k] === jointIndex) influence += weight.array[index * 4 + k];
+                        const y = positions.getY(index), x = positions.getX(index);
+                        if (influence > .65 && (female || (Math.sign(x) === Math.sign(center.x) && y < actor.modelHeight * .5))) { indices.push(index); bottom = Math.min(bottom, y); }
+                    }
+                    if (!indices.length) continue;
+                    center.y = bottom + .085;
+                    const axis = joint.position.clone().normalize(), curl = new T.Vector3(0, 0, 1).addScaledVector(axis, -axis.z).normalize();
+                    const rotationAxis = new T.Vector3().crossVectors(axis, curl).normalize(), normal = new T.Vector3();
+                    for (const index of indices) {
+                        point.fromBufferAttribute(positions, index);
+                        const distance = point.clone().sub(center).dot(axis); if (distance <= 0) continue;
+                        const angle = Math.min(2.4, distance / .028), tail = Math.max(0, distance - .028 * 2.4);
+                        const forward = Math.sin(angle) * .028 + Math.cos(angle) * tail, inward = (1 - Math.cos(angle)) * .028 + Math.sin(angle) * tail;
+                        const change = axis.clone().multiplyScalar(forward - distance).addScaledVector(curl, inward);
+                        delta.set(change.toArray(), index * 3);
+                        normal.fromBufferAttribute(normals, index);
+                        normalDelta.set(normal.clone().applyAxisAngle(rotationAxis, angle).sub(normal).toArray(), index * 3);
+                    }
+                }
+                // Morph topology stays identical. Build once per loaded LOD,
+                // preserve sleep morphs and restore authored open hands on leaving.
+                const previous = mesh.morphTargetInfluences.slice(); geometry.dispose();
+                geometry.morphAttributes.position[2] = new T.Float32BufferAttribute(delta, 3);
+                geometry.morphAttributes.normal[2] = new T.Float32BufferAttribute(normalDelta, 3);
+                mesh.updateMorphTargets(); previous.forEach((value, i) => { mesh.morphTargetInfluences[i] = value; });
+            }
+            if (geometry.morphAttributes.position[2]) mesh.morphTargetInfluences[2] = active ? 1 : 0;
+        }
+    }
     function tool(actor, mode, length) {
-        const T = ByndHomeEngine, root = new T.Group(), wood = new T.MeshStandardMaterial({ color: '#b58e64', roughness: .82 }), metal = new T.MeshStandardMaterial({ color: '#b7b7ab', roughness: .38, metalness: .55 });
+        const T = ByndHomeEngine, root = new T.Group(), wood = new T.MeshStandardMaterial({ color: '#79553b', roughness: .82 }), metal = new T.MeshStandardMaterial({ color: '#9ea7a3', roughness: .38, metalness: .55 });
         root.name = 'held-cooking-tool'; root.userData.length = length; root.userData.mode = mode;
-        function part(geometry, y, material) { const mesh = new T.Mesh(geometry, material); mesh.position.y = y; mesh.castShadow = true; mesh.userData.ownedMaterial = material; mesh.raycast = () => {}; root.add(mesh); }
-        part(new T.CylinderGeometry(.012, .014, length - .05, 12), (length - .05) / 2 - .028, wood);
-        part(new T.RoundedBoxGeometry(mode === 'stir' ? .075 : .055, .09, .009, 1, .004), length - .045, mode === 'stir' ? wood : metal);
+        function part(geometry, y, material, name) { const mesh = new T.Mesh(geometry, material); mesh.name = name || ''; mesh.position.y = y; mesh.castShadow = true; mesh.userData.ownedMaterial = material; mesh.raycast = () => {}; root.add(mesh); return mesh; }
+        part(new T.CylinderGeometry(.016, .019, .10, 12), 0, wood, 'tool-grip');
+        part(new T.CylinderGeometry(.007, .007, length - .11, 10), (length - .11) / 2 + .025, metal, 'tool-shaft');
+        if (mode === 'stir') {
+            // An actual broad, slotted spatula silhouette remains readable above
+            // the pan; a tiny edge-on wooden rectangle looked like bare fingers.
+            part(new T.RoundedBoxGeometry(.09, .040, .012, 1, .004), length - .080, metal, 'spatula-neck');
+            for (let i = 0; i < 4; i++) part(new T.RoundedBoxGeometry(.013, .061, .012, 1, .003), length - .030, metal, 'spatula-tine').position.x = (i - 1.5) * .025;
+            part(new T.RoundedBoxGeometry(.09, .012, .012, 1, .004), length - .006, metal, 'spatula-edge');
+        } else part(new T.RoundedBoxGeometry(.055, .09, .009, 1, .004), length - .045, metal, 'knife-blade');
         root.visible = false; actor.body.add(root); return root;
     }
     function prepare(actor) {
         actor.cookCycle = null;
         if (actor.cookTool) actor.cookTool.visible = false;
+        gripPose(actor, (actor.action === 'Cook' && !!actor.anchor?.cooking) || ['Eat', 'Drink'].includes(actor.action));
         if (actor.action !== 'Cook' || !actor.anchor?.cooking || actor.visual !== 'model3d') return;
         const T = ByndHomeEngine, data = actor.anchor.cooking, vector = new T.Vector3(...data.vector), length = vector.length();
         if (!actor.cookTool || actor.cookTool.userData.mode !== data.mode || Math.abs(actor.cookTool.userData.length - length) > .001) {
@@ -46,7 +100,10 @@
         actor.cookTool.visible = true;
         // A slight forward stance brings the counter within reach without scaling
         // the avatar or extending bone lengths. CCD runs only at pose/LOD changes.
-        actor.body.position.z = .10; actor.head.rotation.x = .16; actor.root.updateMatrixWorld(true);
+        // A wide dress needs more counter clearance than a fitted outfit.
+        // Move the entire body back without squashing clothing or extending bones.
+        actor.body.position.z = actor.modelId === 'bunny-blue-v1' ? -.20 : .05;
+        actor.head.rotation.x = .16; actor.root.updateMatrixWorld(true);
         const center = new T.Vector3(...data.tip), hold = new T.Vector3(...data.hold), grip = center.clone().add(vector);
         const side = actor.arms.map((arm, i) => ({ i, distance: arm.getWorldPosition(new T.Vector3()).distanceTo(grip) })).sort((a, b) => a.distance - b.distance)[0].i;
         const joints = actor.arms.flatMap(arm => [arm, arm.children[0]]), base = joints.map(joint => joint.quaternion.clone()), frames = [];
@@ -69,8 +126,10 @@
         actor.root.updateMatrixWorld(true); actor.skeleton.update();
         const T = ByndHomeEngine, grip = hand(actor, cycle.side), tip = cycle.frames[index].tip.clone().lerp(cycle.frames[next].tip, blend);
         actor.cookTool.visible = true; actor.cookTool.position.copy(actor.body.worldToLocal(grip.clone()));
-        const direction = tip.clone().sub(grip).normalize().applyQuaternion(actor.body.getWorldQuaternion(new T.Quaternion()).invert());
-        actor.cookTool.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), direction);
+        const inverse = actor.body.getWorldQuaternion(new T.Quaternion()).invert(), direction = tip.clone().sub(grip).normalize();
+        const normal = new T.Vector3(0, 1, 0).addScaledVector(direction, -direction.y).normalize();
+        const sideways = new T.Vector3().crossVectors(direction, normal).normalize();
+        actor.cookTool.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(sideways.applyQuaternion(inverse), direction.applyQuaternion(inverse), normal.applyQuaternion(inverse)));
         cycle.tip = tip; cycle.tipError = grip.distanceTo(tip) - actor.cookTool.userData.length;
     }
     function steam(item) {
@@ -92,5 +151,5 @@
             mist.instanceMatrix.needsUpdate = true;
         }
     }
-    H.Cooking = { station, hand, prepare, animate, steam, update };
+    H.Cooking = { station, hand, prepare, animate, steam, update, hands: { sample: hand, reach, gripPose } };
 })(window.ByndHome3D);

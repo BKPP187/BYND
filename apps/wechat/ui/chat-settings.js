@@ -517,6 +517,38 @@ async function submitWechatChatSettings(button) {
     }
 }
 
+function refreshWechatVideoProviderSettings() {
+    const select = document.getElementById('wcs-video-provider');
+    const note = document.getElementById('wcs-video-provider-status');
+    if (!select || !note) return;
+    const char = getCurrentChatChar();
+    const preview = { ...char, chatConfig: { ...char?.chatConfig, videoCallProvider: select.value } };
+    const vivix = !!window.ByndVivix?.selected(preview);
+    const reference = !!String(char?.chatConfig?.imageReference || '').trim();
+    let configured = false;
+    try { configured = !!window.ByndVivix?.read().apiKey; } catch (_) {}
+    note.textContent = vivix
+        ? (!configured ? 'Vivix 尚未配置，请先保存 API Key。' : !reference ? '使用 Vivix 前，请在角色卡上传参考图。' : '当前使用 Vivix：你拨出或角色来电，均由 Vivix 播放音视频。')
+        : '当前使用普通视频：生成角色画面，并使用原有语音设置播放台词。';
+    note.dataset.error = String(vivix && (!configured || !reference));
+    document.getElementById('wcs-video-call-grid')?.classList.toggle('hidden', vivix);
+    document.getElementById('wcs-vivix-sound-field')?.classList.toggle('hidden', !vivix);
+    let source = 'vivix';
+    try { source = window.ByndVivix?.soundSource({ chatConfig: { vivixSoundSource: document.getElementById('wcs-vivix-sound')?.value } }) || 'vivix'; } catch (_) {}
+    document.getElementById('wcs-vivix-voice-field')?.classList.toggle('hidden', source !== 'vivix');
+    const soundNote = document.getElementById('wcs-video-vivix-note');
+    if (soundNote) {
+        soundNote.classList.toggle('hidden', !vivix);
+        soundNote.textContent = source === 'tts' ? '使用角色原有 TTS 驱动画面与口型，只播放一路声音。TTS 与视频分别计费，下次通话生效。'
+            : source === 'silent' ? '只呈现画面、动作和文字对白，不生成台词音频。下次通话生效。'
+                : '画面按剧情变化，声音使用 Vivix 音色。填写专用音色 ID 可以为这位角色单独指定声音，下次通话生效。';
+        let ttsReady = true;
+        if (source === 'tts') { try { ttsReady = !!window.ByndWechatCallAudio?.apiForChar(char); } catch (_) { ttsReady = false; } }
+        if (!ttsReady) soundNote.textContent = '请先配置角色或默认 TTS，再使用角色原有声音。生成失败会提示错误，不会切换成 Vivix 音色。';
+        soundNote.dataset.error = String(!ttsReady);
+    }
+}
+
 function openChatSettings() {
     const charId = window.currentChatCharId;
     if (!charId) return;
@@ -597,6 +629,13 @@ function openChatSettings() {
     if (videoBgHint) videoBgHint.textContent = config.videoCallBg ? '已设置视频通话背景' : '上传视频通话背景';
     const realCamera = document.getElementById('wcs-video-real-camera');
     if (realCamera) realCamera.checked = !!config.videoCallUseCamera;
+    const videoProvider = document.getElementById('wcs-video-provider');
+    if (videoProvider) videoProvider.value = ['vivix', 'ordinary'].includes(config.videoCallProvider) ? config.videoCallProvider : 'inherit';
+    const vivixSound = document.getElementById('wcs-vivix-sound');
+    if (vivixSound) vivixSound.value = ['vivix', 'tts', 'silent'].includes(config.vivixSoundSource) ? config.vivixSoundSource : 'inherit';
+    const vivixVoice = document.getElementById('wcs-vivix-voice');
+    if (vivixVoice) vivixVoice.value = config.vivixVoiceId || '';
+    refreshWechatVideoProviderSettings();
     const monitorEnabled = document.getElementById('wcs-monitor-enabled');
     if (monitorEnabled) monitorEnabled.checked = !!config.monitorEnabled;
     setWechatMonitorModeOption(getWechatMonitorMode(char));

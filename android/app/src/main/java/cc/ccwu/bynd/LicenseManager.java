@@ -55,7 +55,7 @@ final class LicenseManager {
         if (!BuildConfig.BYND_REQUIRE_LICENSE) throw new Exception("当前开发版本无需激活。");
         KeyStore store = keys(true);
         String publicKey = DistributionCrypto.encode(store.getCertificate(ALIAS).getPublicKey().getEncoded());
-        JSONObject request = new JSONObject().put("licenseKey", code).put("publicKey", publicKey);
+        JSONObject request = new JSONObject().put("licenseKey", code).put("publicKey", publicKey).put("versionCode", BuildConfig.VERSION_CODE);
         JSONObject challenge = DistributionHttp.request("/license/v1/challenge", request);
         if (challenge == null) throw new Exception("未能获取激活请求。");
         Signature proof = Signature.getInstance("SHA256withRSA"); proof.initSign((PrivateKey) store.getKey(ALIAS, null));

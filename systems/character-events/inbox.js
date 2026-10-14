@@ -105,7 +105,7 @@
             const root = el('event-list'); if (!root) return;
             const s = api().read();
             const rows = [...s.events].reverse().filter(e => filter === 'all' || (filter === 'letters' ? e.type === 'letter' : filter === 'notes' ? ['note', 'diary', 'widget'].includes(e.type) : ['doodle', 'newspaper', 'bottle', 'album'].includes(e.type)));
-            root.innerHTML = rows.length ? rows.map(e => `<button class="event-row ${e.unread ? 'is-unread' : ''}" data-event-id="${esc(e.id)}"><span class="event-row-icon">${glyph(e.type)}</span><span class="event-row-copy"><span class="event-row-meta">${esc(e.charName)} · ${esc(api().slots[e.type])}<time>${esc(date(e.createdAt))}</time></span><strong>${esc(e.title)}</strong><span class="event-row-excerpt">${esc(e.delivery === 'failed' ? '未送达 · ' + e.deliveryError : e.delivery === 'pending' ? '等待送达' : e.body)}</span></span><span class="event-unread-dot" ${e.unread ? '' : 'hidden'}></span></button>`).join('') : '<div class="event-empty">' + glyph('letter') + '<h2>把空白留给下一次来信</h2><p>角色留下的消息、信和小心意，会收在这里。</p><button type="button" onclick="ByndEventInbox.showPreview(\'letter\')">看看信封的样子</button></div>';
+            root.innerHTML = rows.length ? rows.map(e => `<button class="event-row ${e.unread ? 'is-unread' : ''}" data-event-id="${esc(e.id)}"><span class="event-row-icon">${glyph(e.type)}</span><span class="event-row-copy"><span class="event-row-meta">${esc(e.charName)} · ${esc(api().slots[e.type])}<time>${esc(date(e.createdAt))}</time></span><strong>${esc(e.title)}</strong><span class="event-row-excerpt">${esc(e.delivery === 'failed' ? '未送达 · ' + e.deliveryError : e.delivery === 'pending' ? '等待送达' : e.body)}</span></span><span class="event-unread-dot" ${e.unread ? '' : 'hidden'}></span></button>`).join('') : '<div class="event-empty">' + glyph('letter') + '<h2>把空白留给下一次来信</h2><p>角色留下的消息、信和小心意，会收在这里。</p><button type="button" onclick="ByndEventInbox.request(\'letter\')">请角色写一封信</button></div>';
             el('event-enabled').checked = s.enabled;
             el('event-threshold').value = String(s.thresholdDays);
             const failures = Object.entries(s.characters).filter(([, r]) => r.pending);
@@ -176,15 +176,37 @@
         const node = el('event-viewer').querySelector('.event-bottle-words');
         const copy = node.cloneNode(true); node.replaceWith(copy); layoutBottle();
     }
-    const examples = {
-        letter: { title: '终于寄出去的信', body: '展信好。\n\n窗边那盆植物又长出了新叶。原本想等你来的时候再说，想了想，还是先写给你。\n\n等你有空，我们再慢慢聊。' },
-        newspaper: { title: '寻人启事：一位熟悉的读者', body: '本报今日留出一栏，寻找那位总在傍晚出现的读者。\n\n桌上的书还停在上次那一页。若你路过，随时可以继续读下去。' },
-        bottle: { title: '把想念，攒成一小瓶', body: '这些零零碎碎的小事，想等你有空时说给你听。', words: ['想你', '今天的晚霞', '那首没听完的歌', '窗外下雨了', '想和你说晚安', '等你有空', '一片新叶', '路过那家书店', '偷偷想了你一下', '梦里见', '好好吃饭', '下次一起'] },
-        doodle: { title: '在纸边画了朵花', body: '写到一半，忍不住在这里画了一笔。', strokes: [ { color: '#3446aa', points: [[146,257],[162,184],[151,130],[117,128],[90,108],[96,76],[118,62],[133,80],[141,46],[168,39],[183,70],[207,61],[226,85],[215,118],[183,138],[151,130]] }, { color: '#3446aa', points: [[156,211],[119,196],[101,169],[128,172],[158,196],[198,159],[206,176],[178,207],[156,211]] }, { color: '#d5ad39', points: [[121,101],[122,84],[129,115],[137,94],[146,122],[151,70],[158,122],[166,65],[172,119],[179,79],[186,112],[194,91]] } ] }
-    };
-    function showPreview(type) {
-        if (!examples[type]) return;
-        show({ id: 'preview', type, charName: '示例角色', createdAt: Date.now(), imageUrl: '', strokes: [], ...examples[type] }, true);
+    let requestBusy = false, requestToken = 0;
+    function request(type) {
+        if (requestBusy) { status('角色正在准备心意，请稍候。'); return; }
+        if (!['letter', 'doodle', 'newspaper', 'bottle'].includes(type)) return;
+        const characters = (window.myCharacters || []).filter(c => c?.id && !c.isGroupChat && !c.isGroupNpc && !c.groupNpc);
+        if (!characters.length) { status('先在微信添加一个角色，再请对方留下心意。'); return; }
+        stopStory(); previousFocus = document.activeElement; preview = true; selected = '';
+        const dialog = el('event-viewer');
+        dialog.dataset.type = 'request'; dialog.hidden = false;
+        dialog.innerHTML = `<header class="event-viewer-header"><button type="button" onclick="ByndEventInbox.closeViewer()" aria-label="取消生成">×</button><span>请角色留下${esc(api().slots[type])}</span><span></span></header>
+            <div class="event-viewer-scroll"><form class="event-request-form" onsubmit="event.preventDefault();ByndEventInbox.generateRequested('${type}',this)">
+                <label for="event-request-character">选择角色</label><select id="event-request-character">${characters.map(c => `<option value="${esc(c.id)}">${esc(c.remark || c.name || '角色')}</option>`).join('')}</select>
+                <p>内容会根据角色的人设、世界书和你们的互动生成，并保存在收件箱。</p><button type="submit">生成${esc(api().slots[type])}</button><p id="event-viewer-error" role="alert"></p></form></div>`;
+        el('app-events-window').querySelectorAll(':scope > :not(#event-viewer)').forEach(n => { n.inert = true; });
+        dialog.querySelector('select').focus(); requestToken++;
+    }
+    async function generateRequested(type, form) {
+        if (requestBusy) return;
+        const token = requestToken, button = form.querySelector('button[type="submit"]'), select = form.querySelector('select');
+        requestBusy = true; button.disabled = true; select.disabled = true; button.textContent = '正在生成…';
+        el('event-viewer-error').textContent = '';
+        try {
+            const item = await api().generateForCharacter(select.value, type);
+            if (!form.isConnected || token !== requestToken) return;
+            if (item) show(item);
+            else el('event-viewer-error').textContent = '角色这次选择暂时不留下心意。';
+        } catch (error) {
+            if (form.isConnected && token === requestToken) el('event-viewer-error').textContent = '生成失败：' + error.message;
+        } finally {
+            requestBusy = false; button.disabled = false; select.disabled = false; button.textContent = '生成' + api().slots[type]; render();
+        }
     }
     function configure() {
         try { api().configure({ enabled: el('event-enabled').checked, thresholdDays: el('event-threshold').value }); status('已保存'); }
@@ -260,5 +282,5 @@
     window.addEventListener('bynd:character-events', render);
     window.addEventListener('storage', e => { if (e.key === api().storageKey) render(); });
     window.addEventListener('resize', () => layoutBottle(false));
-    window.ByndEventInbox = { open, close, render, status, chooseFilter, showId, closeViewer, unseal, finishLetterIntro, replayLetter, replayBottle, showPreview, configure, retryPending, retryDelivery, exportFile, importFile, announce, openArrival };
+    window.ByndEventInbox = { open, close, render, status, chooseFilter, showId, closeViewer, unseal, finishLetterIntro, replayLetter, replayBottle, request, generateRequested, showPreview: request, configure, retryPending, retryDelivery, exportFile, importFile, announce, openArrival };
 })();

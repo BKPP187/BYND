@@ -1,6 +1,17 @@
 // 内置角色库：把随包发布的原创角色一键加入联系人；添加后与导入的角色卡完全一致。
 (() => {
     const PROMPTED_KEY = 'bynd_builtin_library_prompted_v1';
+    const DEBUT_KEY = 'bynd_character_debut_shanghuan_v1';
+    function wantsDebut(id) {
+        if (id !== 'shanghuan' || isAdded(id)) return false;
+        try { return !localStorage.getItem(DEBUT_KEY); } catch (_) { return false; }
+    }
+    async function enterAfterDebut(char) {
+        if (typeof openChat !== 'function') return;
+        close();
+        const result = window.ByndCharacterDebut ? await window.ByndCharacterDebut.play(char) : null;
+        if (!result?.cancelled) openChat(char.id);
+    }
     const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const library = () => (window.ByndBuiltinCharacters && Array.isArray(window.ByndBuiltinCharacters.characters)) ? window.ByndBuiltinCharacters.characters : [];
     const roster = () => Array.isArray(window.myCharacters) ? window.myCharacters : [];
@@ -152,6 +163,7 @@
         return {
             id: 'char_' + Date.now() + '_' + Math.random().toString(16).slice(2, 8),
             builtinId: item.id,
+            ...(item.id === 'shanghuan' ? { builtinDebutSeen: true } : {}),
             name: item.name,
             description: item.description || '',
             avatar: main,
@@ -212,6 +224,10 @@
             throw new Error('角色没有保存成功，请检查存储空间后重试。');
         }
         if (typeof renderChatList === 'function') renderChatList();
+        if (item.id === 'shanghuan') {
+            try { localStorage.setItem(DEBUT_KEY, '1'); }
+            catch (error) { console.warn('首次亮相记录未能写入；角色内的记录已随角色保存', error); }
+        }
         return char;
     }
     // Fill artwork that an earlier add could not read (file:// fetch, offline); never touch what the user changed.
@@ -371,11 +387,13 @@
     async function pick(id) {
         if (busy) return;
         busy = true;
+        const debut = wantsDebut(id);
         render('正在添加…');
         try {
             const char = await add(id);
             render(`已添加「${char.name}」。`);
-            if (typeof showWechatToast === 'function') showWechatToast(`已添加 ${char.name}`);
+            if (!(debut && window.ByndCharacterDebut && typeof openChat === 'function') && typeof showWechatToast === 'function') showWechatToast(`已添加 ${char.name}`);
+            if (debut) await enterAfterDebut(char);
         } catch (error) {
             render(error.message || '添加失败，请重试。');
         } finally {
@@ -399,15 +417,22 @@
         busy = true;
         const pending = list().filter(item => !item.added);
         const added = [];
+        let debutChar = null;
         let failure = '';
         for (const item of pending) {
             render(`正在添加 ${item.name}…`);
-            try { added.push((await add(item.id)).name); }
+            try {
+                const debut = wantsDebut(item.id);
+                const char = await add(item.id);
+                added.push(char.name);
+                if (debut) debutChar = char;
+            }
             catch (error) { failure = error.message || '添加失败'; break; }
         }
-        busy = false;
         render(failure ? `${added.length ? '已添加 ' + added.join('、') + '；' : ''}${failure}` : (added.length ? `已添加 ${added.join('、')}。` : '没有需要添加的角色。'));
-        if (added.length && typeof showWechatToast === 'function') showWechatToast(`已添加 ${added.join('、')}`);
+        if (!(debutChar && !failure && window.ByndCharacterDebut && typeof openChat === 'function') && added.length && typeof showWechatToast === 'function') showWechatToast(`已添加 ${added.join('、')}`);
+        try { if (debutChar && !failure) await enterAfterDebut(debutChar); }
+        finally { busy = false; }
     }
     // First launch with an empty roster: offer the library once so the app is usable out of the box.
     function maybePrompt() {

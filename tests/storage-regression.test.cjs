@@ -272,6 +272,18 @@ test('built-in identity and the world-book cover survive a save and reload', asy
     assert.equal(compact.coverImage, undefined, 'large artwork stays out of the compact index');
 });
 
+test('the first-add debut marker survives full storage and the compact character index', async () => {
+    const h = storageHarness({ local: [] });
+    await h.context.loadCharactersFromStorage();
+    h.context.window.myCharacters = [{ id: 'debut', name: '商桓', builtinId: 'shanghuan', builtinDebutSeen: true, history: [] }];
+    assert.equal(await h.context.saveCharactersToStorage(), true);
+    const saved = h.state.record.characters[0];
+    assert.equal(saved.builtinDebutSeen, true);
+    assert.equal(h.context.compactWechatCharacterForLocal(saved, Date.now()).builtinDebutSeen, true);
+    await h.context.loadCharactersFromStorage();
+    assert.equal(h.context.window.myCharacters[0].builtinDebutSeen, true);
+});
+
 test('character voice bindings persist only provider and voice references, never credentials', async () => {
     const h = storageHarness({ local: [] });
     await h.context.loadCharactersFromStorage();

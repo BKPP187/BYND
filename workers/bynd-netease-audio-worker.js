@@ -111,6 +111,8 @@ function isAllowedNeteaseApiPath(path) {
     || path === '/user/playlist'
     || path === '/likelist'
     || path === '/song/detail'
+    || path === '/search'
+    || path === '/cloudsearch'
     || path === '/playlist/track/all'
     || path === '/lyric'
     || /^\/song\/url(?:\/v1)?$/.test(path);
@@ -119,6 +121,29 @@ function isAllowedNeteaseApiPath(path) {
 async function handleNeteaseApiDirect(path, url, request) {
   const params = url.searchParams;
   const cookie = normalizeCookie(params.get('cookie') || request.headers.get('Cookie') || '');
+
+  if (path === '/search' || path === '/cloudsearch') {
+    const keywords = String(params.get('keywords') || '').trim();
+    if (!keywords || keywords.length > 160) return { code: 400, message: 'invalid search keywords' };
+    const target = new URL(`${NETEASE_WEB_ORIGIN}/api/search/get/web`);
+    target.searchParams.set('s', keywords);
+    target.searchParams.set('type', '1');
+    target.searchParams.set('limit', String(clampInteger(params.get('limit'), 1, 50, 30)));
+    target.searchParams.set('offset', String(clampInteger(params.get('offset'), 0, 100000, 0)));
+    let json;
+    try { json = await fetchNeteasePlainJson(target, cookie); } catch (_) {}
+    if (isValidNeteaseSearchResult(json)) return json;
+    // Some edge regions receive an HTML response from the plain web search.
+    // Reuse the encrypted transport already used by song details and playlists.
+    ({ json } = await neteaseWeapiRequest('/cloudsearch/pc', {
+      s: keywords,
+      type: 1,
+      limit: Number(target.searchParams.get('limit')),
+      offset: Number(target.searchParams.get('offset')),
+      total: true
+    }, cookie));
+    return isValidNeteaseSearchResult(json) ? json : { code: 502, message: 'music search service unavailable' };
+  }
 
   if (path === '/login/qr/key') {
     const { json, cookie: qrCookie } = await neteasePlainApiRequest('/api/login/qrcode/unikey', { type: 3 }, cookie);
@@ -249,6 +274,10 @@ async function fetchNeteaseSongDetails(ids, cookie) {
     if (Array.isArray(json?.songs)) songs.push(...json.songs);
   }
   return { code: 200, songs };
+}
+
+function isValidNeteaseSearchResult(json) {
+  return Number(json?.code) === 200 && (Array.isArray(json?.result?.songs) || Number(json?.result?.songCount) === 0);
 }
 
 async function neteasePlainApiRequest(path, data, cookie) {

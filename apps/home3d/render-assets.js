@@ -51,11 +51,13 @@
             return { ...report };
         }
         function lod(camera, height, profile) {
-            const scale = new T.Vector3();
+            const scale = new T.Vector3(),position=new T.Vector3(),direction=camera.getWorldDirection(new T.Vector3());
             for (const mesh of lodMeshes) {
                 const levels = mesh.userData.renderLods, radius = mesh.userData.renderRadius || .1;
                 mesh.getWorldScale(scale);
-                const pixels = radius * Math.max(Math.abs(scale.x), Math.abs(scale.y), Math.abs(scale.z)) * height / (camera.top - camera.bottom) / profile.lodBias;
+                const depth=camera.isPerspectiveCamera?Math.max(camera.near,mesh.getWorldPosition(position).sub(camera.position).dot(direction)):0;
+                const span=camera.isPerspectiveCamera?2*depth*Math.tan(camera.fov*Math.PI/360)/camera.zoom:camera.top-camera.bottom;
+                const pixels = radius * Math.max(Math.abs(scale.x), Math.abs(scale.y), Math.abs(scale.z)) * height / span / profile.lodBias;
                 const old = mesh.userData.renderLodLevel || 0, level = old === 0 ? (pixels < 8 ? 1 : 0) : (pixels > 12 ? 0 : 1);
                 mesh.userData.renderLodLevel = level; mesh.geometry = levels[level];
             }

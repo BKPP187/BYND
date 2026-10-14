@@ -21,7 +21,7 @@ fs.mkdirSync(output,{recursive:true});
         await page.route('https://v1.jinrishici.com/**',async route=> {
             quoteRequests++;
             if(offline) return route.abort();
-            await route.fulfill({contentType:'application/json',body:JSON.stringify({content:'浊酒不销忧国泪，救时应仗出群才。',author:'秋瑾',origin:'黄海舟中日人索句并见日俄战争地图'})});
+            await route.fulfill({contentType:'application/json',body:JSON.stringify({content:quoteRequests === 1 ? '浊酒不销忧国泪，救时应仗出群才。' : `这是第${quoteRequests}次打开获取的在线文句。`,author:'秋瑾',origin:'黄海舟中日人索句并见日俄战争地图'})});
         });
         await page.goto(pathToFileURL(path.join(root,'index.html')).href,{waitUntil:'domcontentloaded'});
         await page.waitForFunction(()=>window.__byndCoreReady && typeof openChat==='function');
@@ -32,10 +32,35 @@ fs.mkdirSync(output,{recursive:true});
         assert.equal(await page.locator('.coread-sense-title-text').innerText(),'国庆');
         assert.match(await page.locator('.coread-quote-byline').innerText(),/秋瑾/);
         assert.equal(quoteRequests,1);
+        assert.equal(await page.locator('.coread-quote-byline button').count(),0);
         await page.screenshot({path:path.join(output,'daily-375.png')});
-        offline=true; await page.evaluate(()=>CoReadLiterature.refresh(true));
-        assert.match(await page.locator('.coread-quote-byline button').innerText(),/更新失败/);
-        assert.match(await page.locator('.coread-sense-card em').innerText(),/忧国/); offline=false;
+        await page.evaluate(()=>closeApp('coread'));
+        await page.waitForFunction(()=>document.getElementById('app-coread-window').classList.contains('hidden'));
+        await page.evaluate(()=>openApp('coread'));
+        await page.waitForFunction(()=>CoReadLiterature.get()?.text.includes('第2次'));
+        await page.evaluate(()=> {setCoReadTab('shelf');setCoReadTab('discover');});
+        await page.waitForFunction(()=>CoReadLiterature.get()?.text.includes('第3次'));
+        assert.equal(quoteRequests,3);
+        await page.addStyleTag({content:'.app-window {transition:none!important;animation:none!important;}'});
+        for(const width of [320,375]) {
+            await page.setViewportSize({width,height:844});
+            for(const safe of [47,59]) for(const parentReserved of [false,true]) {
+                await page.evaluate(({safe,parentReserved})=> {
+                    document.body.style.paddingTop=parentReserved?`${safe}px`:'0px';
+                    const phone=document.querySelector('.phone-container');phone.style.height=`${844-(parentReserved?safe:0)}px`;
+                    phone.style.setProperty('--bynd-header-safe-top',parentReserved?'0px':`${safe}px`);
+                },{safe,parentReserved});
+                const layout=await page.locator('#app-coread-window').evaluate(host=>({top:host.querySelector('.coread-topbar button').getBoundingClientRect().top,overflow:host.scrollWidth-host.clientWidth}));
+                assert.ok(layout.top>=safe && layout.overflow<=1,JSON.stringify({width,safe,parentReserved,layout}));
+                await page.screenshot({path:path.join(output,`daily-${width}-${safe}-${parentReserved?'parent':'header'}.png`)});
+            }
+        }
+        offline=true; await page.evaluate(()=>closeApp('coread'));
+        await page.waitForFunction(()=>document.getElementById('app-coread-window').classList.contains('hidden'));
+        await page.evaluate(()=>openApp('coread'));
+        await page.waitForFunction(()=>CoReadLiterature.status.includes('更新失败'));
+        assert.match(await page.locator('.coread-quote-status').innerText(),/更新失败.*下次打开/);
+        assert.match(await page.locator('.coread-sense-card em').innerText(),/第3次/); offline=false;
         const quota = await page.evaluate(async()=> {
             const original=Storage.prototype.setItem, before=localStorage.getItem(CoReadLiterature.key);
             Storage.prototype.setItem=function(key,value){if(key===CoReadLiterature.key)throw new Error('quota');return original.call(this,key,value);};

@@ -15,7 +15,7 @@
 .outing-map-card { flex:none; border:1px solid #e7e7e0; background:#fff; border-radius:23px; overflow:hidden; }
 .outing-map-bg { position:relative; height:clamp(245px, 34vh, 325px); background:#e6edef; isolation:isolate; }
 #outing-live-map { position:absolute; inset:0; z-index:0; background:#e8edef; }
-#outing-live-map .leaflet-tile-pane { filter:saturate(.35) contrast(.82) brightness(1.1); }
+#outing-live-map .leaflet-tile-pane { filter:none; }
 #outing-live-map .leaflet-control-attribution { font-size:9px; }
 #outing-live-map .leaflet-popup-content { font-size:13px; color:#454452; }
 #outing-live-map .leaflet-popup-content button { background:#edeef6; border:0; padding:8px 12px; border-radius:8px; }
@@ -24,6 +24,8 @@
 .outing-map-marker span { display:grid; place-items:center; width:30px; height:30px; border:1.5px solid #575560; border-radius:50%; background:#faf2d9; font-family:Georgia,serif; font-size:15px; box-shadow:0 2px 0 #fff8; }
 .outing-map-marker .is-food, .outing-number.is-food { background:#f2d4dc; }
 .outing-map-marker .is-play, .outing-number.is-play { background:#f6eed8; }
+.outing-map-marker .is-cluster { box-shadow:0 0 0 3px #fff9; font-weight:700; }
+.outing-map-popup-list { max-height:220px; overflow-y:auto; }
 .outing-map-placeholder { position:absolute; inset:0; overflow:hidden; background:repeating-linear-gradient(22deg,transparent 0 63px,#d2d9d640 65px 70px,transparent 72px 127px),repeating-linear-gradient(105deg,transparent 0 48px,#d2d9d640 50px 54px,transparent 57px 120px),#e8eddf; }
 .outing-map-wash { position:absolute; width:65%; height:140%; right:-20%; top:-10%; border-radius:50% 0 0 50%; background:#d8e8ee; transform:rotate(12deg); }
 .outing-map-path { position:absolute; inset:24% -30% 38% -25%; border:4px dashed #fff9; border-radius:50%; transform:rotate(-18deg); }
@@ -34,6 +36,12 @@
 .outing-map-placeholder button span { color:#95929a; font-size:11px; }
 .outing-map-doodle { position:absolute; font-size:38px; color:#b9b98f; transform:rotate(14deg); }
 .outing-map-doodle.d1 { left:24px; top:43px; }.outing-map-doodle.d2 { right:24px; bottom:25px; color:#a7a5c7; }
+.outing-map-unavailable { position:absolute; inset:0; z-index:700; background:#edf0ef; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 24px 28px; text-align:center; color:#797987; }
+.outing-map-unavailable>span { font-size:30px; color:#a9adb8; margin-bottom:10px; }
+.outing-map-unavailable strong { font-size:14px; font-weight:500; }
+.outing-map-unavailable p { font-size:11px; line-height:1.8; margin:8px 0 15px; color:#9896a0; }
+.outing-map-unavailable button { border:1px solid #d9dce7; border-radius:12px; background:#fff; padding:10px 16px; font-size:12px; }
+.outing-nearby-cached { display:block; color:#aaa3af; font-size:10px; padding-top:10px; }
 .outing-map-tag { position:absolute; left:13px; top:13px; z-index:500; display:flex; align-items:center; gap:6px; background:#fffdf6ef; padding:8px 10px; border-radius:30px; font-size:9px; letter-spacing:.1em; color:#686773; pointer-events:none; box-shadow:0 2px 5px #45445208; }
 .outing-live-dot { width:6px; height:6px; border-radius:50%; background:#9cab97; }
 .outing-map-caption { padding:13px 15px; }

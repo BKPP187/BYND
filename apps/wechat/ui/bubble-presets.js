@@ -25,8 +25,38 @@ const KAWAII_BUBBLE_DESIGNS = [
     { id: 'kawaii-midnight', name: '午夜蝙蝠糖', paper: 'linear-gradient(180deg, #59535f, #49434f)', reply: 'linear-gradient(180deg, #5e4b60, #493e4d)', ink: '#fffafc', edge: '#eed9e9', inner: '#e1b9d6', shadow: '#4c4552', mainArt: 'bat-heart', charmArt: 'bat-kitten', stitched: true }
 ];
 
+// Vector corner art stays crisp while the CSS frame grows with the message.
+const REFERENCE_BUBBLE_DESIGNS = [
+    { id: 'ins-pink', name: '韩系 · 奶油粉', paper: '#fff6f9', reply: '#ffedf4', ink: '#73525f', edge: '#ead0dc', accent: '#f2dce6', mainArt: 'ins-cake', charmArt: 'ins-cup' },
+    { id: 'ins-gray', name: '韩系 · 雾灰', paper: '#fafafa', reply: '#f2f1f3', ink: '#56525b', edge: '#d8d6dd', accent: '#e7e5eb', mainArt: 'ins-clef', charmArt: 'ins-snail' },
+    { id: 'ins-blue', name: '韩系 · 冰蓝', paper: '#f5faff', reply: '#eaf4ff', ink: '#465c75', edge: '#cddff1', accent: '#dceaf8', mainArt: 'ins-player', charmArt: 'ins-cat' },
+    { id: 'ins-green', name: '韩系 · 青绿', paper: '#f8fcef', reply: '#eff7e1', ink: '#536446', edge: '#d4e4bf', accent: '#e4edcf', mainArt: 'ins-clover', charmArt: 'ins-mushroom' },
+    { id: 'ins-purple', name: '韩系 · 淡紫', paper: '#faf8ff', reply: '#f0ecfb', ink: '#645887', edge: '#dcd4ef', accent: '#e8e0f6', mainArt: 'ins-heart', charmArt: 'ins-guitar' },
+    { id: 'ribbon-pink-cat', name: '粉色可爱猫', paper: '#fff9fb', reply: '#fff0f5', ink: '#885c6e', edge: '#c99aaa', accent: '#f2dae4', mainArt: 'pink-cat', charmArt: 'strawberry', round: true },
+    { id: 'ribbon-cat', name: '蝴蝶结猫猫', paper: '#fffafb', reply: '#fff0f6', ink: '#69545e', edge: '#c9b5bf', accent: '#f2d8e3', mainArt: 'soft-bow', charmArt: 'ribbon-cat' },
+    { id: 'ribbon-bunny', name: '猫爪兔兔', paper: '#fffafb', reply: '#fff1f7', ink: '#795566', edge: '#ebc6d7', accent: '#f7e1ec', mainArt: 'bunny', charmArt: 'pink-paw', round: true },
+    { id: 'ribbon-bow', name: '粉粉蝴蝶结', paper: '#fffafb', reply: '#ffedf4', ink: '#735563', edge: '#aa929d', accent: '#f5d5e2', mainArt: 'soft-bow', charmArt: 'pink-hearts', round: true }
+];
+
+function createReferenceBubblePreset(design) {
+    const { id, name, paper, reply, ink, edge, accent, mainArt, charmArt, round } = design;
+    const bubble = '.msg-bubble.wc-text-bubble';
+    const mine = '.msg-bubble.green.wc-text-bubble';
+    const frame = fill => `background: linear-gradient(180deg, #fffefe, ${fill}); color: ${ink}; border: 1.5px solid ${edge}; border-radius: ${round ? '24px' : '14px'}; box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px ${accent}, 0 2px 5px rgba(81,61,76,0.04);`;
+    return { id, name, css: [
+        `${bubble} { position: relative; max-width: min(100%, 252px); min-width: 64px; margin-top: 14px; margin-bottom: 5px; padding: 10px 17px 9px; overflow: visible; ${frame(paper)} }`,
+        `${mine} { ${frame(reply)} }`,
+        `${bubble}::before { content: ''; position: absolute; top: -13px; left: -9px; right: auto; width: 36px; height: 32px; background: url("assets/ui/chat-bubbles/${mainArt}.svg") center / contain no-repeat; border: 0; transform: none; pointer-events: none; }`,
+        `${mine}::before { left: auto; right: -9px; }`,
+        `${bubble}::after { content: ''; position: absolute; top: auto; bottom: -9px; right: -8px; left: auto; width: 27px; height: 26px; background: url("assets/ui/chat-bubbles/${charmArt}.svg") center / contain no-repeat; border: 0; transform: none; pointer-events: none; }`,
+        `${mine}::after { right: auto; left: -8px; }`,
+        `${bubble} .msg-meta { color: ${ink}; opacity: 0.65; }`
+    ].join('\n') };
+}
+
 const BUBBLE_CSS_PRESETS = [
     { id: 'default', name: '默认', css: '' },
+    ...REFERENCE_BUBBLE_DESIGNS.map(createReferenceBubblePreset),
     ...KAWAII_BUBBLE_DESIGNS.map(design => createKawaiiBubblePreset(design)),
     { id: 'blue-pink', name: '蓝粉长条', css: '.msg-bubble { background: #CDECFF; color: #333; border-radius: 18px 18px 18px 6px; }\n.msg-bubble.green { background: #FFD2DD; color: #333; border-radius: 18px 18px 6px 18px; }' },
     { id: 'telegram', name: 'TG 清透', css: '.msg-bubble { background: #E8F2FF; color: #17212b; border-radius: 18px 18px 18px 7px; box-shadow: 0 1px 2px rgba(23,33,43,0.08); }\n.msg-bubble.green { background: #DDF7C8; color: #17212b; border-radius: 18px 18px 7px 18px; box-shadow: 0 1px 2px rgba(23,33,43,0.08); }\n.msg-meta { color: rgba(23,33,43,0.46); }' },
@@ -55,8 +85,15 @@ function getActiveKawaiiBubblePreset(config) {
     return matched ? BUBBLE_CSS_PRESETS.find(preset => preset.id === matched.id) : null;
 }
 
+function getActiveBubblePreset(config) {
+    const kawaii = getActiveKawaiiBubblePreset(config);
+    if (kawaii) return kawaii;
+    const css = normalizeBubblePresetCss(config?.customCss);
+    return css ? BUBBLE_CSS_PRESETS.find(preset => normalizeBubblePresetCss(preset.css) === css) || null : null;
+}
+
 function getEffectiveBubbleCss(config) {
-    return getActiveKawaiiBubblePreset(config)?.css || config?.customCss || '';
+    return getActiveBubblePreset(config)?.css || config?.customCss || '';
 }
 
 const BUBBLE_PRESETS_KEY = 'my_bubble_presets';
@@ -90,24 +127,40 @@ function renderBubblePresetDropdown(selectedCss) {
     renderBubblePresetPicker(all, sel.value);
 }
 
-function getBubblePresetSwatchFills(css, defaults = getWechatDefaultBubbleAppearance().map(side => side.background)) {
-    if (!css) return defaults;
+function getBubblePresetSwatchAppearance(css, defaults = getWechatDefaultBubbleAppearance()) {
+    const sides = defaults.map(side => {
+        const style = document.createElement('span').style;
+        style.cssText = side.css;
+        return { style, mainArt: 'none', charmArt: 'none' };
+    });
+    if (!css) return sides;
     // Parse declarations without applying this preset to the page being edited.
     const style = document.createElement('style');
     style.media = 'not all';
     style.textContent = css;
     document.head.append(style);
-    const sides = [document.createElement('span').style, document.createElement('span').style];
     try {
         for (const rule of style.sheet?.cssRules || []) {
             if (!rule.selectorText || !rule.style) continue;
             for (const selector of rule.selectorText.split(',')) {
-                if (!/\.msg-bubble(?:\.[\w-]+)*$/.test(selector.trim())) continue;
+                const match = selector.trim().match(/^\.msg-bubble(?:\.[\w-]+)*(::before|::after)?$/);
+                if (!match) continue;
                 const targets = selector.includes('.green') ? [sides[1]] : sides;
-                targets.forEach(side => { side.cssText += rule.style.cssText; });
+                targets.forEach(side => {
+                    if (match[1]) {
+                        const image = rule.style.backgroundImage;
+                        const url = image?.match(/^url\(["']?(.*?)["']?\)$/)?.[1];
+                        // Custom properties consumed in an external stylesheet need absolute asset URLs.
+                        if (image) {
+                            const key = match[1] === '::before' ? 'mainArt' : 'charmArt';
+                            try { side[key] = url ? `url(${JSON.stringify(new URL(url, document.baseURI).href)})` : image; }
+                            catch (_) { side[key] = 'none'; }
+                        }
+                    } else side.style.cssText += rule.style.cssText;
+                });
             }
         }
-        return sides.map((side, index) => side.background || side.backgroundColor || defaults[index]);
+        return sides;
     } finally { style.remove(); }
 }
 
@@ -119,16 +172,22 @@ function renderBubblePresetPicker(all, selectedId) {
     label.textContent = selected ? selected.name : '默认';
     menu.innerHTML = all.map(p => `
         <button type="button" class="wcs-bubble-option ${p.id === selectedId ? 'active' : ''}" data-preset-id="${wcEscapeHtml(p.id)}">
-            <span class="wcs-bubble-option-swatch" aria-hidden="true"><i></i><i></i></span>
+            <span class="wcs-bubble-option-swatch" aria-hidden="true"><i>···</i><i>···</i></span>
             <span class="wcs-bubble-option-name">${wcEscapeHtml(p.name)}</span>
             ${p.id === selectedId ? '<i class="ri-check-line"></i>' : ''}
         </button>
     `).join('');
-    const defaults = getWechatDefaultBubbleAppearance().map(side => side.background);
+    const defaults = getWechatDefaultBubbleAppearance();
     menu.querySelectorAll('.wcs-bubble-option').forEach(btn => {
         const preset = all.find(p => p.id === btn.dataset.presetId);
-        const fills = getBubblePresetSwatchFills(preset?.css || '', defaults);
-        btn.querySelectorAll('.wcs-bubble-option-swatch > i').forEach((side, index) => { side.style.background = fills[index]; });
+        const appearance = getBubblePresetSwatchAppearance(preset?.css || '', defaults);
+        btn.querySelectorAll('.wcs-bubble-option-swatch > i').forEach((sample, index) => {
+            const side = appearance[index];
+            ['background', 'color', 'border-color', 'border-style'].forEach(property => sample.style.setProperty(property, side.style.getPropertyValue(property)));
+            sample.style.borderWidth = side.style.borderWidth === '0px' ? '0' : '1px';
+            sample.style.setProperty('--swatch-main-art', side.mainArt);
+            sample.style.setProperty('--swatch-charm-art', side.charmArt);
+        });
         btn.onclick = () => chooseBubblePreset(btn.dataset.presetId || 'default');
     });
 }
@@ -144,7 +203,12 @@ function positionBubblePresetMenu() {
     const above = Math.max(0, trigger.top - bounds.top - 10);
     const upward = below < Math.min(270, menu.scrollHeight) && above > below;
     wrap.classList.toggle('opens-up', upward);
-    menu.style.maxHeight = `${Math.min(270, upward ? above : below)}px`;
+    const available = Math.min(270, upward ? above : below);
+    const style = getComputedStyle(menu);
+    const inset = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((total, property) => total + parseFloat(style[property]), 0);
+    const rowHeight = menu.querySelector('.wcs-bubble-option')?.offsetHeight || 56;
+    const rows = Math.floor((available - inset) / rowHeight);
+    menu.style.maxHeight = `${rows > 0 ? inset + rows * rowHeight : available}px`;
 }
 
 function toggleBubblePresetPicker(event) {

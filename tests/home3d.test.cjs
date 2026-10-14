@@ -15,6 +15,20 @@ function harness(extra = {}) {
     H.State.bind('a', { avatar: H.Characters.defaultProfile('user') });
     return { H, localStorage, context, window };
 }
+test('watching television chooses a real free seat facing the screen and reserves sofa cushions separately', () => {
+    const { H } = harness(), rows = H.Rooms.get('living_room').furniture.map(placement => ({ placement, area: 'living_room', item: H.Furniture.get(placement.furnitureId) }));
+    const tv = rows.find(r => r.item.type === 'television'), sofa = rows.find(r => r.item.type === 'sofa');
+    const occupied = H.Rooms.anchor(sofa.placement, 'Read', 'char');
+    const user = H.Rooms.anchorInRoom(rows, tv, 'Watch', 'user', [occupied]);
+    assert.equal(user.seatId, sofa.placement.id); assert.equal(user.furnitureType, 'sofa'); assert.equal(user.placementId, tv.placement.id);
+    assert.equal(user.seated, true); assert.equal(user.watchingTV, true); assert.equal(H.Rooms.seatConflict(user, occupied), false);
+    const char = H.Rooms.anchorInRoom(rows, tv, 'Watch', 'char', [user]); assert.ok(char); assert.equal(H.Rooms.seatConflict(char, user), false);
+    const sofaOnly = rows.filter(r => r.item.type !== 'chair');
+    assert.equal(H.Rooms.anchorInRoom(sofaOnly, tv, 'Watch', 'user', [user, char]), null);
+    assert.equal(H.Rooms.anchorInRoom(sofaOnly, tv, 'Watch', 'user', [H.Rooms.anchor(sofa.placement, 'Lie', 'char')]), null);
+    assert.equal(H.Rooms.anchorInRoom(rows.filter(r => !['sofa', 'chair'].includes(r.item.type)), tv, 'Watch', 'user'), null);
+    assert.equal(H.Rooms.anchorInRoom(sofaOnly.map(r => r === sofa ? { ...r, placement: { ...r.placement, rotation: Math.PI } } : r), tv, 'Watch', 'user'), null);
+});
 test('home save failures are atomic and leave the durable home unchanged', () => {
     const { H, localStorage } = harness();
     const before = localStorage.getItem(H.State.key);
@@ -81,7 +95,7 @@ test('computer interactions use their supporting desk and tables require a real 
     const dining = rowsFor('dining_room'), table = dining.find(r => r.item.variant === 'dining');
     const a = H.Rooms.anchorInRoom(dining, table, 'Eat', 'char'), b = H.Rooms.anchorInRoom(dining, table, 'Eat', 'user');
     assert.ok(a?.seated && b?.seated); assert.notEqual(a.seatId, b.seatId);
-    assert.equal(a.y, .62); assert.equal(b.y, .62);
+    assert.equal(a.y, .5); assert.equal(b.y, .5);
     assert.equal(H.Rooms.anchorInRoom(dining.filter(r => r.item.type !== 'chair'), table, 'Eat', 'char'), null);
     const saved = { ...H.State.home(), layouts: { game_room: { items: { tv: { id: 'tv', furnitureId: 'tv_01', position: [-2, .75, 0], rotation: Math.PI / 2 } }, removed: [] } } };
     assert.ok(H.Rooms.placements(H.Rooms.get('game_room'), saved).some(r => r.id === 'tv'), 'saved custom furniture remains');
@@ -230,7 +244,7 @@ test('walking clearance covers both avatar widths and every swept segment at fur
             const a = route[i - 1], b = route[i];
             for (let step = 0; step <= 20; step++) {
                 const p = { x: a.x + (b.x - a.x) * step / 20, z: a.z + (b.z - a.z) * step / 20 };
-                assert.ok(Math.abs(p.x) >= .75 + radius || Math.abs(p.z) >= .75 + radius, 'avatar hull must not overlap furniture');
+                assert.ok(Math.hypot(Math.max(0,Math.abs(p.x)-.75),Math.max(0,Math.abs(p.z)-.75)) >= radius-1e-8, 'circular avatar hull must not overlap furniture');
             }
         }
         assert.equal(H.Animation.path(start, { x: .8, z: 0 }, obstacles, size, radius).length, 0);
@@ -246,7 +260,7 @@ test('all room geometry is local, licensed, self-contained GLB with canonical ca
     const canonical = Object.fromEntries(['furniture-catalog', 'room-catalog', 'material-presets'].map(name => [name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), JSON.parse(fs.readFileSync(path.join(root, 'apps/home3d/data', name + '.json'), 'utf8'))]));
     assert.deepEqual(JSON.parse(JSON.stringify(H.catalogs)), canonical);
     assert.equal(H.catalogs.roomCatalog.rooms.filter(room => room.open).length, 5);
-    assert.equal(H.catalogs.roomCatalog.rooms.length, 10);
+    assert.equal(H.catalogs.roomCatalog.rooms.length, 17);
     for (const item of H.catalogs.furnitureCatalog.items) {
         const license = H.catalogs.furnitureCatalog.sources[item.source];
         assert.ok(license?.commercialUse && license?.modificationAllowed);
@@ -346,6 +360,54 @@ test('offline catch-up is bounded, idempotent, atomic and distinguished from sha
     const before = localStorage.getItem(H.State.key); localStorage.setItem = () => { throw Error('quota'); };
     assert.throws(() => H.Living.advance({ history: [], events: [] }, now + 900000), /没有保存成功/);
     assert.equal(localStorage.getItem(H.State.key), before);
+});
+
+test('opening the character phone from home keeps the live app and camera instead of navigating to chat', () => {
+    const {H, context, window} = harness(); const calls = [];
+    window.openApp = id => calls.push(['app', id]);
+    context.openChat = id => calls.push(['chat', id]);
+    context.openWechatAiPhone = id => calls.push(['phone', id]);
+    H.Bridge.open('phone'); assert.deepEqual(calls, [['phone', 'a']]);
+    delete context.openWechatAiPhone;
+    assert.throws(() => H.Bridge.open('phone'), /暂时不可用/);
+    assert.deepEqual(calls, [['phone', 'a']]);
+});
+
+test('home decision context uses the selected character world book and keeps other characters private', () => {
+    const {H, context} = harness();
+    context.buildWechatWorldBookPrompt = char => 'rules-for-' + char.id;
+    const ctx = H.Bridge.context();
+    assert.equal(ctx.worldBook, 'rules-for-a'); assert.equal(ctx.relationship, '亲近');
+    H.State.bind('b'); assert.equal(H.Bridge.context().worldBook, 'rules-for-b');
+});
+
+test('life needs migrate old saves and choose available need-restoring furniture', () => {
+    const {H} = harness(), ctx = {history:[],events:[],personality:''}, now = new Date(2026,9,11,14).getTime();
+    const home = H.State.home(); home.needs = {energy:75,comfort:75,satiety:10};
+    const normalized=H.Living.normalizeNeeds(home.needs); assert.equal(normalized.hygiene,80);assert.equal(normalized.fun,75);
+    const meal=H.Living.plan(home,ctx,now); assert.equal(meal.action,'Eat');assert.ok(H.Living.usable(home,meal));
+    home.needs={energy:90,comfort:90,satiety:90,hygiene:10,fun:80};
+    home.openRooms=['bathroom'];
+    const bath=H.Living.plan(home,ctx,now);assert.equal(bath.action,'Bathe');assert.ok(H.Living.usable(home,bath));
+    assert.ok(H.Living.evolveNeeds(home.needs,'Bathe',10).hygiene>home.needs.hygiene);
+});
+
+test('offline need integration matches repeated ticks across activity transitions and clock rollback is inert', () => {
+    const a=harness(), b=harness(), start=new Date(2026,9,11,6,50).getTime(), ctx={history:[],events:[],personality:'喜欢阅读'};
+    for(const {H} of [a,b])H.State.withHome(home=>{home.lastLifeAt=start;home.activity=null;});
+    a.H.Living.advance(ctx,start+30*60000);
+    for(let i=1;i<=180;i++)b.H.Living.advance(ctx,start+i*10000);
+    for(const [key,value]of Object.entries(a.H.State.home().needs))assert.ok(Math.abs(value-b.H.State.home().needs[key])<1e-7,key);
+    const before=a.localStorage.getItem(a.H.State.key);a.H.Living.advance(ctx,start-60000);
+    assert.equal(a.localStorage.getItem(a.H.State.key),before);
+    assert.ok(a.H.State.home().needs.energy>80,'sleep minutes restore energy before the daytime action');
+});
+
+test('a late AI plan cannot overwrite a newer life action for the same character',async()=>{
+    let finish;const {H,localStorage}=harness({callChatApi:()=>new Promise(r=>{finish=r;})});
+    const pending=H.Living.decide();H.State.withHome(home=>{home.activity={action:'Sleep',room:'bedroom',target:'bed',until:Date.now()+10000};});
+    const before=localStorage.getItem(H.State.key);finish({ok:true,content:JSON.stringify({action:'Read',room:'living_room',target:'sofa'})});
+    await assert.rejects(pending,/生活安排已经变化/);assert.equal(localStorage.getItem(H.State.key),before);
 });
 
 test('invalid imported layouts never overwrite storage and private home context stays scoped', () => {

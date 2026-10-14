@@ -44,6 +44,10 @@ token 只在部署时通过环境变量传给 wrangler，**不要写进仓库、
 
 ## 部署步骤
 
+Vivix 视频电话增加 `/mcp/relay/vivix/*`，复用已有 `/mcp/*` 路由与 `BYND_PUSH` KV，无需添加新的平台密钥或绑定。只转发音色查询、创建会话及关闭指定会话；不代理任意地址。`POST /images` 用用户的 Vivix Key 查询音色验证权限后，临时保存 PNG/JPEG/WebP；图片随机 URL 的有效期为 20 分钟，Key 不存入 KV。当前客户端默认使用该转发地址，上线本次 Worker 后才可用官方地址进行通话。上线前运行 `node --test tests/vivix.test.cjs`。
+
+实时控制和 RTC 音视频直接使用 Vivix 返回的临时连接凭据，不经过 Worker。前端的 TRTC 5.9.0 SDK 在 `assets/vendor/trtc`，仅选择 Vivix 后按需加载。
+
 在项目的 `workers` 目录里（Git Bash）：
 
 ```bash
@@ -90,3 +94,4 @@ wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新
 - 2026-09-25：所有固定转发加上 `/mcp/relay/*` 入口，前端改走 `bynd.ccwu.cc`，不再出现 workers.dev 地址。
 - 2026-09-25：增加网页搜索、MCP 示例服务和表情包同域代理。
 - 2026-10-01：上线 Tripo 个人 API 余额查询路由；线上预检 204，真实浏览器余额请求通过，Worker 版本 `46fa0171-a739-47a9-b4ce-902cb6b10f16`。
+- 2026-10-07：上线 Vivix `/mcp/relay/vivix` 的音色、会话、关闭及临时参考图路由；音色和会话预检 204，真实浏览器收到缺少 Key 的 401 与官方无效 Key 的 403（code=10003），未创建付费会话。部署前核对线上代码与本地 HEAD 一致，现有 Tripo 预检仍为 204。Worker 版本 `0e313878-de48-4190-b2b8-45a6a0f33613`。

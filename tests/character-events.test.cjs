@@ -13,6 +13,8 @@ function harness() {
     class Clock extends Date { static now() { return clockNow; } }
     const ctx = { window, document, setInterval: fn => intervals.push(fn), Date: Clock, URL, CustomEvent: class {}, console: { warn() {} }, localStorage: { getItem: k => data.get(k) ?? null, setItem: (k, v) => { if (storageFail) throw new Error('quota'); data.set(k, v); } },
         callChatApi: async (messages, options) => { requests.push({ messages, options }); return typeof decision === 'function' ? decision() : { ok: true, content: JSON.stringify(decision) }; },
+        buildWechatWorldBookPrompt: c => '世界书：' + (c.worldSetting || '小镇书店'),
+        buildWechatMemoryPrompt: () => '记忆：一起读过的书',
         saveCharactersToStorage: async () => saveOK,
         callWechatImageGenerationApi: async () => generateImage ? generateImage() : imageOK ? { ok: true, url: 'https://example.test/generated.png' } : { ok: false, error: 'image service failed' } };
     vm.runInNewContext(source, ctx);
@@ -24,6 +26,43 @@ function harness() {
 }
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
+
+test('requested heartmail uses the selected persona, world book and memories for every carrier', async () => {
+    for (const type of ['letter', 'doodle', 'newspaper', 'bottle']) {
+        const h = harness(); h.c.worldSetting = '星际航船';
+        h.window.ByndJev = { available: () => true, choose: () => { throw new Error('manual request must use the requested carrier'); } };
+        h.act(type, type === 'bottle' ? {words:['航船上想说的话']} : type === 'doodle' ? {strokes:[{color:'#333333',points:[[1,1],[10,10]]}]} : {});
+        const e = await h.api.generateForCharacter('c1',type);
+        const context = JSON.parse(h.requests[0].messages[1].content);
+        assert.equal(context.character.persona,h.c.description); assert.match(context.world,/星际航船/); assert.match(context.memory,/一起读/);
+        assert.equal(context.environment.reason,'user_requested'); assert.equal(context.selectedCarrier,type);
+        assert.equal(h.requests[0].options.usageChar,h.c); assert.equal(h.requests[0].options.background,false);
+        assert.equal(e.type,type); assert.equal(e.delivery,'delivered'); assert.equal(h.api.read().events.length,1);
+    }
+});
+test('requested heartmail rejects network, wrong-carrier and storage failures without fabricated content', async () => {
+    for (const mode of ['network','carrier','storage']) {
+        const h = harness();
+        if (mode==='network') h.decision(() => ({ok:false,error:'HTTP 503'}));
+        else if (mode==='storage') { h.act(); h.failStorage(); }
+        else h.act('newspaper');
+        await assert.rejects(h.api.generateForCharacter('c1','letter'));
+        assert.equal(h.api.read().events.length,0);
+        assert.equal(h.requests.length, mode==='storage' ? 0 : 1);
+    }
+});
+test('requested heartmail cannot attach a late response to a deleted character', async () => {
+    const h = harness(); h.decision(() => {h.window.myCharacters=[];return {ok:true,content:JSON.stringify({version:1,action:'act',events:[h.event()]})};});
+    await assert.rejects(h.api.generateForCharacter('c1','letter'));
+    assert.equal(h.api.read().events.length,0);
+});
+test('a requested drawing with image delivery failure keeps its real result for retry without another model request', async () => {
+    const h=harness(); h.act('doodle',{imagePrompt:'星际船窗外的星星'}); h.failImage();
+    await assert.rejects(h.api.generateForCharacter('c1','doodle'),/image service/);
+    const e=h.api.read().events[0]; assert.equal(e.delivery,'failed'); assert.equal(h.requests.length,1);
+    h.image(() => ({ok:true,url:'https://example.test/recovered.png'}));
+    await h.api.retryDelivery(e.id); assert.equal(h.api.eventById(e.id).delivery,'delivered'); assert.equal(h.requests.length,1);
+});
 
 test('initialization never promotes a queued or failed character snapshot to an effective interaction', async () => {
     const h = harness(); h.window._wechatCharactersLatestSnapshot = { characters: [h.c] };

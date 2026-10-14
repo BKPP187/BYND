@@ -9,7 +9,7 @@
         try {
             const home = JSON.parse(localStorage.getItem('bynd_home3d_v1') || '{}').homes?.[String(char.id)];
             if (!home) return '';
-            return '【小屋生活】这是这个角色私密小屋的本地存档，不是公开消息，不得让其他角色自动知道。离开期间的记录属于本地生活推演，不要声称做了现实中的事。' + JSON.stringify({ relationship: home.relationship, lastActivity: home.activity, updatedAt: home.lastLifeAt, recent: (home.moments || []).slice(-5) }).slice(0, 2400);
+            return '【小屋生活】这是这个角色私密小屋的本地存档，不是公开消息，不得让其他角色自动知道。lastActivity只是计划；execution是上次执行回执，blocked/cancelled不能说成完成。离开期间与未显示楼层的记录属于本地生活推演，不要声称做了现实中的事。' + JSON.stringify({ relationship: home.relationship, lastActivity: home.activity, execution: home.executions?.char || null, preferences: home.preferences, updatedAt: home.lastLifeAt, needs: home.needs, recent: (home.moments || []).slice(-5) }).slice(0, 2400);
         } catch (_) { return ''; }
     };
     let pending = null;
@@ -30,10 +30,11 @@
         pending = (async () => {
             await script('assets/vendor/home3d/engine.js');
             await script('apps/home3d/data/catalogs.js');
+            await script('assets/home3d/doors/geometry.js');
             await script('assets/home3d/characters/initial-portraits.js');
             await script('assets/home3d/characters/initial-sleep-portraits.js');
             await script('assets/home3d/characters/initial-model-previews.js');
-            for (const name of ['render-quality', 'room-camera', 'render-assets', 'materials', 'interiors', 'bedding', 'cooking', 'furniture-visuals', 'furniture', 'furniture-previews', 'rooms', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'living', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
+            for (const name of ['render-quality', 'room-camera', 'render-assets', 'materials', 'daylight', 'interiors', 'bedding', 'hygiene', 'cooking', 'dining', 'foods', 'television', 'furniture-visuals', 'furniture', 'garden', 'furniture-previews', 'rooms', 'villa', 'architecture', 'floor-view', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'life-context', 'living', 'actions', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
         })().catch(error => { pending = null; throw error; });
         return pending;
     }

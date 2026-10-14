@@ -1,0 +1,37 @@
+.vivix-settings { background: #fff; color: #222; border: 1px solid #dedede; border-radius: 16px; padding: 18px; }
+.vivix-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.vivix-heading h3 { margin: 0; font-size: 17px; line-height: 1.5; }
+.vivix-settings a { color: #444; font-size: 13px; text-underline-offset: 3px; }
+.vivix-settings label { display: block; margin: 14px 0 7px; font-size: 14px; }
+.vivix-settings :is(input:not([type=checkbox]), select) { display: block; box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid #ddd; border-radius: 9px; background: #fafafa; color: #222; font-size: 16px; }
+.vivix-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vivix-grid > div { min-width: 0; }
+.vivix-settings .vivix-check { display: flex; gap: 9px; align-items: center; line-height: 1.5; }
+.vivix-check input { width: 20px; height: 20px; flex-shrink: 0; accent-color: #333; }
+.vivix-note, #vivix-status, .vivix-guide { font-size: 13px; line-height: 1.65; color: #666; overflow-wrap: anywhere; }
+#vivix-status[data-error=true] { color: #a92f2f; }
+.vivix-actions { display: flex; gap: 10px; margin-top: 18px; }
+.vivix-settings button { min-height: 42px; padding: 9px 14px; border: 1px solid #ccc; border-radius: 9px; background: #fff; color: #333; font-size: 14px; cursor: pointer; }
+.vivix-actions button { flex: 1; }
+.vivix-actions button:last-child { background: #333; border-color: #333; color: #fff; }
+.vivix-guide { border-top: 1px solid #eee; padding-top: 12px; }
+.vivix-guide summary { cursor: pointer; color: #444; }
+.vivix-guide button { display: block; margin-top: 12px; }
+.wc-call-vivix-video { position: absolute; inset: 0; background: #171717; overflow: hidden; }
+.wc-call-vivix-video video { width: 100%; height: 100%; object-fit: contain; }
+.wc-call-vivix-sound { position: absolute; bottom: 280px; left: 50%; transform: translateX(-50%); z-index: 2; padding: 10px 16px; border: 1px solid #ddd; border-radius: 20px; background: #fff; color: #222; pointer-events: auto; }
+.wc-call-screen.is-vivix-call .wc-call-ai-portrait > span { font-size: 13px; white-space: normal; }
+.wc-call-screen.is-vivix-call .wc-call-log { position: absolute; left: 0; right: 0; bottom: 260px; max-height: min(28dvh, 220px); margin: 0; padding: 0 18px 8px; overflow-y: auto; pointer-events: auto; }
+.is-vivix-call .wc-call-line.action { font-size: 13px; color: #ddd; font-style: italic; }
+.is-vivix-call [data-wc-call-control=beauty] { display: none; }
+.is-vivix-call .wc-call-tool:disabled { opacity: .45; cursor: default; }
+@media (max-width: 350px) { .vivix-settings { padding: 14px; } }
+.wcs-full-row .wcs-video-provider { display: block; width: 100%; box-sizing: border-box; min-height: 46px; height: auto; margin-top: 8px; border: 1px solid #dedede; border-radius: 12px; background-color: #f7f7f7; color: #222; font-size: 15px; padding: 12px 36px 12px 12px; }
+.wcs-full-row .wcs-video-provider:focus-visible { outline: 2px solid #555; outline-offset: 2px; }
+.wcs-full-row .wcs-video-provider-status { display: block; margin: 10px 0 0; font-size: 13px; line-height: 1.65; color: #666; overflow-wrap: anywhere; }
+.wcs-full-row .wcs-video-provider-status[data-error=true] { color: #a92f2f; }
+.wcs-full-row .wcs-video-configure { display: inline-flex; align-items: center; gap: 6px; width: auto; margin-top: 10px; padding: 9px 12px; border: 1px solid #ddd; border-radius: 10px; background: #fff; color: #333; min-height: 40px; font-size: 13px; }
+.wcs-full-row .wcs-video-camera-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0 0 10px; color: #333; font-size: 14px; font-weight: 500; }
+.wcs-video-camera-toggle input { width: 20px; height: 20px; margin: 0; flex: 0 0 20px; accent-color: #333; }
+#wcs-vivix-voice-field { margin-top: 14px; }
+#wcs-vivix-voice-field .wcs-input { display: block; width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid #dedede; border-radius: 12px; background: #f7f7f7; text-align: left; color: #222; font-size: 15px; }
