@@ -1,5 +1,5 @@
 function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
-    if (activeTab === 'library') return renderCharPhoneLibrary(snapshot,char);
+    if (activeTab === 'library') return '';
     const native = renderCharPhoneTemplate(activeTab, snapshot, char);
     if (native !== null) return native;
     const system = renderCharPhoneSystemApp(activeTab, snapshot, char, isLoading);
@@ -194,6 +194,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
                 <span><strong>${wcEscapeHtml(charName)}</strong><em>桌面与显示</em></span>
             </div>
             <div class="wc-ai-phone-ios-list wc-ai-phone-settings-list">
+                <button type="button" class="wc-ai-phone-ios-row" onclick="openCharPhoneAppearance()"><i class="ri-layout-masonry-line"></i><span><strong>让他布置桌面</strong><em>锁屏、主题、壁纸和图标</em></span><b class="ri-arrow-right-s-line"></b></button>
                 <button type="button" class="wc-ai-phone-ios-row" aria-label="应用图标" onclick="openWechatAiPhoneIconEditor(${charIdArgument})">
                     <i class="ri-apps-2-line"></i>
                     <span><strong>应用图标</strong><em>选择图片，定制桌面和底栏图标</em></span>
@@ -224,7 +225,7 @@ function renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading) {
 
 function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     const apps = getWechatAiPhoneApps(char, snapshot);
-    const dockApps = apps.filter(app => ['chat', 'browser', 'wallet', 'diary'].includes(app.key));
+    const dockApps = ['chat','browser','album','music','wallet','diary','settings'].map(key=>apps.find(app=>app.key===key)).filter(Boolean).slice(0,4);
     const gridApps = apps.filter(app => !['chat', 'browser', 'wallet', 'diary'].includes(app.key));
     const pages = [gridApps.slice(0, 8)];
     for (let offset = 8; offset < gridApps.length; offset += 20) pages.push(gridApps.slice(offset, offset + 20));
@@ -240,24 +241,24 @@ function renderWechatAiPhoneHome(snapshot, char, isLoading) {
     return `
         <div class="wc-ai-phone-home">
             <div class="wc-ai-phone-home-top">
-                <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
+                <button type="button" class="wc-ai-phone-close" onclick="closeWechatAiPhone()" aria-label="关闭小手机">${renderCharPhoneGlyph('close')}</button>
                 ${syncPill}
                 <div class="wc-ai-phone-home-actions">
+                    <button type="button" class="wc-ai-phone-close" onclick="openCharPhoneAppearance()" aria-label="布置桌面">${renderCharPhoneGlyph('layout')}</button>
                     <button type="button" class="wc-ai-phone-generate ${isLoading ? 'is-loading' : ''}" onclick="event.stopPropagation(); regenerateWechatAiPhoneSnapshot(${retryId})" aria-label="手动同步小手机" title="手动同步" ${isLoading ? 'disabled aria-busy="true"' : ''}>
-                        <i class="${isLoading ? 'ri-loader-4-line' : 'ri-refresh-line'}"></i>
+                        ${renderCharPhoneGlyph('refresh')}
                     </button>
                 </div>
             </div>
             <div class="cp-home-pages" data-page="${pageIndex}" onscroll="updateCharPhoneHomePage(this)">
                 ${pages.map((items,index)=>`<section class="cp-home-page ${index === 0 ? 'has-widgets' : ''}" aria-label="桌面第 ${index+1} 页">
-                    ${index === 0 ? renderWechatAiPhonePhotoWidget(char) : ''}
-                    <div class="wc-ai-phone-grid">${items.map(app=>renderWechatAiPhoneAppButton(app,char)).join('')}</div>
+                    ${index === 0 && typeof renderCharPhoneDesktopWidgets==='function' ? renderCharPhoneDesktopWidgets(snapshot,char,items) : `${index===0 ? renderWechatAiPhonePhotoWidget(char) : ''}<div class="wc-ai-phone-grid">${items.map(app=>renderWechatAiPhoneAppButton(app,char)).join('')}</div>`}
                 </section>`).join('')}
             </div>
             <div class="cp-home-dots" aria-label="桌面页码">${pages.map((_,index)=>`<button aria-label="第 ${index+1} 页" aria-current="${index===pageIndex}" onclick="goCharPhoneHomePage(${index})" class="${index===pageIndex?'active':''}"></button>`).join('')}</div>
-            <div class="wc-ai-phone-dock">
+            ${dockApps.length ? `<div class="wc-ai-phone-dock" style="--cp-dock-count:${dockApps.length}">
                 ${dockApps.map(app => renderWechatAiPhoneAppButton(app, char)).join('')}
-            </div>
+            </div>` : ''}
         </div>
     `;
 }
@@ -288,28 +289,33 @@ function renderWechatAiPhone(char) {
     if (!modal || !char) return;
     const snapshot = getWechatAiPhoneRenderSnapshot(char);
     const isLoading = !!(window._wechatAiPhoneGenerating && window._wechatAiPhoneGenerating.has(char.id));
-    const activeTab = window._wechatAiPhoneTab || 'home';
+    const activeTab = window._wechatAiPhoneTab === 'library' ? 'home' : window._wechatAiPhoneTab || 'home';
+    window._wechatAiPhoneTab = activeTab;
     const clock = getWechatAiPhoneClockParts();
     const meta = getWechatAiPhoneAppMeta(activeTab === 'wechatChat' ? 'chat' : activeTab, char, snapshot);
-    const isHome = activeTab === 'home';
-    const wallpaper = isHome ? getWechatAiPhoneHomeSettings(char).wallpaper : '';
+    const isLock = activeTab === 'lock';
+    const isHome = activeTab === 'home' || isLock;
+    const settings = getWechatAiPhoneDesktopSettings(char);
+    const wallpaper = isHome ? (isLock ? settings.lockWallpaper : settings.wallpaper) : '';
+    const design = typeof getCharPhoneDesktopDesign==='function' ? getCharPhoneDesktopDesign(char) : {theme:'light',layout:'collage'};
     const backTarget = activeTab === 'wechatChat' ? 'chat' : 'home';
     const backLabel = activeTab === 'wechatChat' ? '微信' : '桌面';
     modal.innerHTML = `
-        <div class="wc-ai-phone wc-ai-phone-ios ${isHome ? 'is-home' : 'is-app'}${wallpaper ? ' has-custom-wallpaper' : ''}">
+        <div class="wc-ai-phone wc-ai-phone-ios cp-fullscreen theme-${design.theme} layout-${design.layout} ${isHome ? 'is-home' : 'is-app'}${wallpaper ? ' has-custom-wallpaper' : ''}">
             <div class="wc-ai-phone-status">
-                <span>${wcEscapeHtml(clock.time)}</span>
-                <b></b>
-                <span><i class="ri-signal-wifi-fill"></i><i class="ri-battery-2-charge-fill"></i></span>
+                <span data-phone-clock>${wcEscapeHtml(clock.time)}</span>
+                <b aria-hidden="true"></b>
+                <span>${renderCharPhoneGlyph('wifi')}${renderCharPhoneGlyph('battery')}</span>
             </div>
+            ${typeof renderCharPhoneMessageIsland==='function' ? renderCharPhoneMessageIsland(char) : ''}
             <div class="wc-ai-phone-wallpaper">
                 ${wallpaper ? `<img class="wc-ai-phone-wallpaper-image" src="${wcEscapeAttr(wallpaper)}" alt="" aria-hidden="true" onload="updateWechatAiPhoneWallpaperTone(this)">` : ''}
-                ${isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
+                ${isLock ? renderCharPhoneLockScreen(char) : isHome ? renderWechatAiPhoneHome(snapshot, char, isLoading) : `
                     <div class="wc-ai-phone-app-page tone-${meta.tone} ${activeTab!=='wechatChat'?'cp-brand-shell':''}">
                         <div class="wc-ai-phone-app-nav">
-                            <button type="button" onclick="switchWechatAiPhoneTab('${backTarget}')"><i class="ri-arrow-left-s-line"></i><span>${wcEscapeHtml(backLabel)}</span></button>
-                            <strong><i class="${meta.icon}"></i>${wcEscapeHtml(activeTab === 'wechatChat' ? '微信' : activeTab === 'library' ? 'App 资料库' : meta.label)}</strong>
-                            <button type="button" onclick="closeWechatAiPhone()"><i class="ri-close-line"></i></button>
+                            <button type="button" onclick="switchWechatAiPhoneTab('${backTarget}')"><span>${wcEscapeHtml(backLabel)}</span></button>
+                            <strong>${renderCharPhoneGlyph(meta.key)}${wcEscapeHtml(activeTab === 'wechatChat' ? '微信' : activeTab === 'library' ? 'App 资料库' : meta.label)}</strong>
+                            <button type="button" onclick="closeWechatAiPhone()" aria-label="关闭小手机">${renderCharPhoneGlyph('close')}</button>
                         </div>
                         <div class="wc-ai-phone-app-body ${activeTab!=='wechatChat' ? 'cp-app-host' : ''}">
                             ${renderWechatAiPhoneAppScreen(activeTab, snapshot, char, isLoading)}
@@ -334,7 +340,7 @@ function renderWechatAiPhone(char) {
 
 function switchWechatAiPhoneTab(tabName) {
     if(window._wechatAiPhoneTab==='clock')resetCharPhoneClock();
-    const validTabs = [...CHAR_PHONE_EXTRA_APPS.map(a=>a.key), 'library', 'home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
+    const validTabs = [...CHAR_PHONE_EXTRA_APPS.map(a=>a.key), 'lock', 'home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
     window._charPhoneDetail = null;
     window._wechatAiPhoneTab = validTabs.includes(tabName) ? tabName : 'home';
     if (window._wechatAiPhoneTab !== 'diary') window._wechatAiPhoneDiaryOpen = -1;

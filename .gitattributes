@@ -1,3 +1,4 @@
 # These scripts have exact-byte offline mirrors; Windows checkout must keep LF.
 /apps/monitor/pet-background-worker.js text eol=lf
 /assets/vendor/pet-background/ort.wasm.bundle.min.mjs text eol=lf
+/assets/home3d/doors/geometry.js text eol=lf

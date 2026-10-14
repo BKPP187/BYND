@@ -36,6 +36,7 @@ function setup() {
         getPhoneStatusBarEnabledFromInput: () => false,
         normalizeLockDecoIcon: value => value,
         getSavedLockClockColorMode: () => 'auto',
+        getSavedThemeData: () => JSON.parse(store.get('my_theme_data') || '{}'),
         normalizeThemeAccent: (value, fallback) => value || fallback,
         normalizeThemeWidgetStyle: value => value,
         normalizeLsShortcutAction: value => value,

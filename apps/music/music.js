@@ -438,6 +438,7 @@ function renderMusicApp() {
 
 function renderMusicNowPlaying() {
     const track = musicTracks[musicCurrentIndex] || getMusicPlaceholderTrack();
+    window.ByndMusicWaveform?.setTrack(track);
     const cover = document.getElementById('music-now-cover');
     const title = document.getElementById('music-now-title');
     const artist = document.getElementById('music-now-artist');
@@ -815,6 +816,7 @@ function setupMusicAudio() {
     musicAudio.preload = 'metadata';
     musicAudio.addEventListener('play', () => {
         musicIsPlaying = true;
+        window.ByndMusicWaveform?.follow(musicAudio);
         startMusicProgressTimer();
         renderMusicNowPlaying();
         renderMusicMainTab();
@@ -822,6 +824,7 @@ function setupMusicAudio() {
     });
     musicAudio.addEventListener('pause', () => {
         musicIsPlaying = false;
+        window.ByndMusicWaveform?.stop();
         renderMusicNowPlaying();
         renderMusicMainTab();
         if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
@@ -829,6 +832,9 @@ function setupMusicAudio() {
     musicAudio.addEventListener('loadedmetadata', updateMusicProgress);
     musicAudio.addEventListener('ended', handleMusicEnded);
     musicAudio.addEventListener('timeupdate', updateMusicProgress);
+    musicAudio.addEventListener('seeked', updateMusicProgress);
+    musicAudio.addEventListener('durationchange', updateMusicProgress);
+    musicAudio.addEventListener('ended', () => window.ByndMusicWaveform?.stop());
 }
 
 function toggleMusicPlayback(forcePlay) {
@@ -951,7 +957,7 @@ function updateMusicProgress() {
     if (bar) bar.style.width = `${percent}%`;
     if (wave) {
         const bars = wave.querySelectorAll('span');
-        const activeCount = Math.max(1, Math.round((percent / 100) * bars.length));
+        const activeCount = Math.floor((percent / 100) * bars.length);
         wave.classList.toggle('is-playing', !!musicIsPlaying);
         wave.style.setProperty('--music-wave-progress', `${percent}%`);
         bars.forEach((item, index) => {
@@ -963,6 +969,7 @@ function updateMusicProgress() {
     if (duration) duration.textContent = total > 0 ? formatMusicTime(total) : '--:--';
     updateActiveMusicLyric(current);
     if (typeof window.renderNeteasePlayerProgress === 'function') window.renderNeteasePlayerProgress();
+    window.ByndMusicWaveform?.sync(current, total, musicIsPlaying);
 }
 
 function startMusicProgressTimer() {
@@ -984,7 +991,7 @@ function formatMusicTime(value) {
 }
 
 function seekMusic(event) {
-    if (!musicAudio || !musicAudio.duration) return;
+    if (!musicAudio || !Number.isFinite(musicAudio.duration) || musicAudio.duration <= 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     musicAudio.currentTime = musicAudio.duration * percent;

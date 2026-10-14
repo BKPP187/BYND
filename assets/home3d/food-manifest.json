@@ -1,0 +1,171 @@
+{
+  "source": "Kenney Food Kit 2.0",
+  "sourceUrl": "https://kenney.nl/assets/food-kit",
+  "downloadUrl": "https://kenney.nl/media/pages/assets/food-kit/83086fa91c-1719418518/kenney_food-kit.zip",
+  "license": "CC0-1.0",
+  "licenseFile": "assets/home3d/licenses/Kenney-Food-CC0.txt",
+  "commercialUse": true,
+  "modificationAllowed": true,
+  "assets": [
+    {
+      "id": "croissant",
+      "file": "food-croissant.glb",
+      "originalFile": "croissant.glb",
+      "originalSha256": "f2f8ee64d7850b262a6af2492cd042fa8eb6506cde49d439360ad1a3df48fe9e",
+      "sha256": "03064ea3308771307bf28941b6a40390b688ca09273f4def51c639414657987e",
+      "bytes": 24488,
+      "triangles": 162,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "pancakes",
+      "file": "food-pancakes.glb",
+      "originalFile": "pancakes.glb",
+      "originalSha256": "75550fb0eae1169ce4f59b054b0bbaa3de3be67765cd457a7e3e99488e93546e",
+      "sha256": "4ce7358cdf3e129e6276a855663c98896befd43584de2d5c8ed6bc0ca2981a60",
+      "bytes": 45432,
+      "triangles": 512,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "egg-cooked",
+      "file": "food-egg-cooked.glb",
+      "originalFile": "egg-cooked.glb",
+      "originalSha256": "f33c84a8126b947b06f6433bb55e508aaa6e1c9ec2ee3c401251d5acf7456bf7",
+      "sha256": "77af775c9ed8543ea1465e0820268bdda33858793035f3a62bddecb8fcf8f4f1",
+      "bytes": 17400,
+      "triangles": 92,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "salad",
+      "file": "food-salad.glb",
+      "originalFile": "salad.glb",
+      "originalSha256": "efed57fb8b4263057e27137daf92171879f71a12036d18de58b357ccbac25aa6",
+      "sha256": "893a79dae493df89f2fae2d135643a6b7de064f88b8eb1b83eff4cf9d413cc50",
+      "bytes": 27068,
+      "triangles": 170,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "sushi-salmon",
+      "file": "food-sushi-salmon.glb",
+      "originalFile": "sushi-salmon.glb",
+      "originalSha256": "c68c1364b8a1caba3c57c40ed68b767464c637e10c5e1e4c9428a69ab7819013",
+      "sha256": "9065f6e840af9ec8fe63dac2aa905c294c0775ed8012be185d77fb8111d4d240",
+      "bytes": 19548,
+      "triangles": 96,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "maki-vegetable",
+      "file": "food-maki-vegetable.glb",
+      "originalFile": "maki-vegetable.glb",
+      "originalSha256": "1594d0e3d2502dadf4a1e4a318aadb89f697ebd988f97bf7101451e97e5fec2c",
+      "sha256": "a44ee2d57c6e117ac99f2a342a3e977d97b7158fa5cd4ab716d6ce5f8dffe582",
+      "bytes": 16140,
+      "triangles": 56,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "rice-ball",
+      "file": "food-rice-ball.glb",
+      "originalFile": "rice-ball.glb",
+      "originalSha256": "1c68253d36c0705da38a63226521be1f949bd9ce4b7ff8f8529878cd0aae6e08",
+      "sha256": "b3cf7ed6987741fe1dcee709bd32c9cae4d8585f9b97c5223b990c9e7c124f95",
+      "bytes": 16508,
+      "triangles": 104,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "dim-sum",
+      "file": "food-dim-sum.glb",
+      "originalFile": "dim-sum.glb",
+      "originalSha256": "ca9df635aea7e553de8b61ed40a8fa314c0e9769caa210d740ad75a21a4c5c80",
+      "sha256": "121785f2ec91b74a29f5ed0577ea2f5408a87476694de6bc9b6891c01e7d6ea0",
+      "bytes": 17564,
+      "triangles": 56,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "meat-cooked",
+      "file": "food-meat-cooked.glb",
+      "originalFile": "meat-cooked.glb",
+      "originalSha256": "704fc34f56f3ce18c12383e3be8938c4b7da1843365b1e12b68b3529e06bf8ed",
+      "sha256": "5675c1a824aaa79ff5a93802f059ea25e9406108f64ee2e71569f29c11cb49cb",
+      "bytes": 20816,
+      "triangles": 116,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "broccoli",
+      "file": "food-broccoli.glb",
+      "originalFile": "broccoli.glb",
+      "originalSha256": "ea4f789cf8ca924eba1f031d88e7984ff4705acdfb23977a1211cea9c77f2a41",
+      "sha256": "010f0d430a710250c14fd82923e79212ee43c9dea473e89701e8ae222e83a12e",
+      "bytes": 30212,
+      "triangles": 220,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "carrot",
+      "file": "food-carrot.glb",
+      "originalFile": "carrot.glb",
+      "originalSha256": "621949f7fb7947a810a3f6adca7d6166c8f7ef5a1016737cd0d245d12d60ab4e",
+      "sha256": "9d47ac238192004324037362d6f4a49b86e45dc614353527c70ac4652fc548e0",
+      "bytes": 24256,
+      "triangles": 148,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "cake",
+      "file": "food-cake.glb",
+      "originalFile": "cake.glb",
+      "originalSha256": "9594766d701142c4f5ab1d36cc40957667cd966281757e887de4d40557e63e09",
+      "sha256": "ce8ab8d28290e37305322314e92af736ea8f3a51f97df7552fa007a31927327f",
+      "bytes": 76912,
+      "triangles": 750,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "strawberry",
+      "file": "food-strawberry.glb",
+      "originalFile": "strawberry.glb",
+      "originalSha256": "685828642a92681b474c29abbd9cabe98c7bcade62cc50da57ec6658a5b7e8f7",
+      "sha256": "d932b17b601ba029a4c7cded8601292df8763f36e12a4d58c8004b82a553829a",
+      "bytes": 26668,
+      "triangles": 156,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "bowl-soup",
+      "file": "food-bowl-soup.glb",
+      "originalFile": "bowl-soup.glb",
+      "originalSha256": "0ff11d6a54ed9b0592ff24e02ca1dd4d12f47762dd7f571e985b48f3d1467e58",
+      "sha256": "c625eb76cdbf3a000a6839dc20011849a109222a780f00651a0c18e69bf20aa6",
+      "bytes": 22052,
+      "triangles": 132,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "sandwich",
+      "file": "food-sandwich.glb",
+      "originalFile": "sandwich.glb",
+      "originalSha256": "eba221f9fc24bdaad73467e58ce9c09ec4134baeec01f178e7bb3e87ce3b941e",
+      "sha256": "72a4447fcc9e0ea53737094651bb2193ad20626d50612d41d980f82d2f51748e",
+      "bytes": 23984,
+      "triangles": 176,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    },
+    {
+      "id": "waffle",
+      "file": "food-waffle.glb",
+      "originalFile": "waffle.glb",
+      "originalSha256": "0d59883f629013b3e4c89dc4818755b4aaa968beaa8c8ec2a2e2bcbf9f52585b",
+      "sha256": "6a19bba9e797b587ac2a73e63b031bc78137f619f830edaf2ff342e839f9beea",
+      "bytes": 58388,
+      "triangles": 588,
+      "processing": "Embedded original palette texture; baked transforms and merged material batches; preserved geometry and UVs; matte PBR material"
+    }
+  ]
+}

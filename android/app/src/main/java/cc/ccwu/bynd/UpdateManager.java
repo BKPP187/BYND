@@ -76,9 +76,10 @@ final class UpdateManager {
             } finally { checking.set(false); }
         }, "bynd-update-check").start();
     }
-    interface Progress { void show(String value); }
+    interface Progress extends UpdateDownloadVerifier.Progress { }
     static void downloadAndInstall(Context context, JSONObject release, Progress progress) throws Exception {
         if (!BuildConfig.BYND_ENABLE_UPDATES) throw new Exception("更新服务尚未开放。");
+        if (UpdateInstallState.isPending(context)) throw new Exception("系统安装正在等待确认，请先完成或取消上次安装。");
         if (!LicenseManager.canEnter(context)) throw new Exception("请先激活 BYND。");
         validate(release);
         if (release.getLong("versionCode") <= BuildConfig.VERSION_CODE) throw new Exception("这是旧版本，已取消安装。");
@@ -89,28 +90,16 @@ final class UpdateManager {
             if (!directory.exists() && !directory.mkdirs()) throw new Exception("无法创建下载目录。");
             long size = release.getLong("size");
             if (directory.getUsableSpace() < size * 2 + 16 * 1024 * 1024) throw new Exception("存储空间不足，请释放空间后重试。");
-            file = new File(directory, "update.apk.part");
+            file = new File(directory, "update.apk");
             connection = (HttpURLConnection) trustedUrl(release.getString("apkUrl")).openConnection();
             connection.setInstanceFollowRedirects(false); connection.setConnectTimeout(15000); connection.setReadTimeout(15000);
             connection.setRequestProperty("Accept-Encoding", "identity");
             if (connection.getResponseCode() != 200) throw new Exception("APK 下载失败，请稍后重试。");
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            long received = 0; int lastPercent = -1;
-            try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(file)) {
-                byte[] buffer = new byte[65536]; int count;
-                while ((count = input.read(buffer)) != -1) {
-                    received += count; if (received > size) throw new Exception("APK 大小与清单不符，已取消安装。");
-                    output.write(buffer, 0, count); digest.update(buffer, 0, count);
-                    int percent = (int) (received * 100 / size);
-                    if (percent != lastPercent) { lastPercent = percent; progress.show("正在下载 " + percent + "%"); }
-                }
-                output.getFD().sync();
-            }
-            StringBuilder hash = new StringBuilder(); for (byte b : digest.digest()) hash.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
-            if (received != size || !release.getString("sha256").equals(hash.toString())) throw new Exception("APK 校验失败，已取消安装，请重新下载。");
+            try (InputStream input = connection.getInputStream()) { UpdateDownloadVerifier.save(input, file, size, release.getString("sha256"), progress); }
             progress.show("正在核对版本与签名…");
             verifyArchive(context, file, release);
-            install(context, file, progress);
+            if (progress.cancelled()) throw new Exception("下载已取消，原版本与数据保留。");
+            install(context, file, release.getLong("versionCode"), progress);
         } finally {
             if (connection != null) connection.disconnect();
             if (file != null && file.exists() && !file.delete()) file.deleteOnExit();
@@ -133,7 +122,7 @@ final class UpdateManager {
         if (values != null) for (Signature value : values) result.add(DistributionCrypto.fingerprint(value.toByteArray()));
         return result;
     }
-    private static void install(Context context, File file, Progress progress) throws Exception {
+    private static void install(Context context, File file, long versionCode, Progress progress) throws Exception {
         PackageInstaller installer = context.getPackageManager().getPackageInstaller();
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
         params.setAppPackageName(context.getPackageName()); params.setSize(file.length());
@@ -141,15 +130,21 @@ final class UpdateManager {
         int id = installer.createSession(params); boolean committed = false;
         try (PackageInstaller.Session session = installer.openSession(id)) {
             try (InputStream input = new java.io.FileInputStream(file); OutputStream output = session.openWrite("base.apk", 0, file.length())) {
-                byte[] buffer = new byte[65536]; int count; while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                byte[] buffer = new byte[65536]; int count;
+                while ((count = input.read(buffer)) != -1) {
+                    if (progress.cancelled()) throw new Exception("下载已取消，原版本与数据保留。");
+                    output.write(buffer, 0, count);
+                }
                 session.fsync(output);
             }
             Intent callback = new Intent(context, UpdateInstallReceiver.class);
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
             PendingIntent result = PendingIntent.getBroadcast(context, id, callback, flags);
+            if (progress.cancelled()) throw new Exception("下载已取消，原版本与数据保留。");
+            UpdateInstallState.pending(context, id, versionCode);
             session.commit(result.getIntentSender()); committed = true;
             progress.show("已交给系统安装，请在系统界面确认。取消安装后可重新下载。");
-        } finally { if (!committed) installer.abandonSession(id); }
+        } finally { if (!committed) { installer.abandonSession(id); UpdateInstallState.result(context, "未能开始系统安装，请重试。", true); } }
     }
 }

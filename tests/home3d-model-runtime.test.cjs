@@ -5,7 +5,7 @@ const femaleDirectory = path.join(root, 'assets/home3d/characters/bunny-blue-v1'
 function harness() {
     const context = vm.createContext({ window: { ByndHome3D: {} }, console, performance, AbortController });
     vm.runInContext(fs.readFileSync(path.join(root, 'assets/vendor/home3d/engine.js'), 'utf8'), context);
-    for (const file of ['data/catalogs', 'materials', 'cooking', 'furniture-visuals', 'furniture', 'rooms', 'characters', 'animation', 'expressions', 'character-models', 'sleep-pair']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', file + '.js'), 'utf8'), context);
+    for (const file of ['data/catalogs', 'materials', 'hygiene', 'cooking', 'dining', 'furniture-visuals', 'furniture', 'rooms', 'characters', 'animation', 'expressions', 'character-models', 'sleep-pair']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', file + '.js'), 'utf8'), context);
     return { H: context.window.ByndHome3D, T: context.ByndHomeEngine };
 }
 function model(T, modelDirectory = directory) {
@@ -30,12 +30,63 @@ function model(T, modelDirectory = directory) {
     nodes.find(n => n.isSkinnedMesh).bind(skeleton, new T.Matrix4()); return { scene };
 }
 
+test('bathwear preserves both rigs bind matrices and restores the authored outfit on exit', () => {
+    for(const id of ['silver-red-v1','bunny-blue-v1']){
+        const {H,T}=harness(),actor={root:new T.Group(),who:'user',modelId:id,visual:'model3d',eyes:[],path:[],startedAt:0};
+        Object.assign(actor,H.CharacterModels.rig(model(T,path.join(root,'assets/home3d/characters',id)),actor));actor.root.add(actor.modelRoot);
+        const inverses=actor.skeleton.boneInverses.map(m=>m.elements.slice());
+        for(const [furnitureId,action]of [['cream_tub','Bathe'],['cream_tub','Shower'],['cream_shower','Shower']]){
+            const anchor=H.Rooms.anchor({id:'bath',furnitureId,position:[1,3.2,2],floorY:3.2,rotation:Math.PI/2},action,'user');
+            H.CharacterModels.pose(actor,action,anchor);
+            assert.deepEqual(actor.skeleton.boneInverses.map(m=>m.elements.slice()),inverses,'adding the robe cannot rebind an already posed skeleton');
+            assert.equal(actor.body.getObjectByName('bath-robe').visible,true);assert.ok(actor.expressions.every(e=>e.bath.value===1));assert.ok(actor.boots.every(b=>!b.visible));assert.equal(actor.bootPile.visible,false);
+            H.CharacterModels.pose(actor,'Idle');assert.equal(actor.body.getObjectByName('bath-robe').visible,false);assert.ok(actor.expressions.every(e=>e.bath.value===0));assert.ok(actor.boots.every(b=>b.visible));
+        }
+        H.Shapes.disposeGeometry(actor.root);
+    }
+});
+
+test('bathroom anchors and bounded water keep hands at rotated basins and stop flow on exit', () => {
+    for(const id of ['silver-red-v1','bunny-blue-v1'])for(const rotation of [0,Math.PI/2,Math.PI]){
+        const {H,T}=harness(),actor={root:new T.Group(),who:'user',modelId:id,visual:'model3d',eyes:[],path:[],startedAt:0};
+        Object.assign(actor,H.CharacterModels.rig(model(T,path.join(root,'assets/home3d/characters',id)),actor));actor.root.add(actor.modelRoot);
+        const placement={id:'wash',furnitureId:'cream_vanity',position:[1,3.2,2],floorY:3.2,rotation},anchor=H.Rooms.anchor(placement,'Wash Hands','user');
+        H.CharacterModels.pose(actor,'Wash Hands',anchor);assert.equal(anchor.seated,false);assert.equal(anchor.lying,false);assert.ok(actor.hygieneCycle.reachError<.15,id+' reach '+actor.hygieneCycle.reachError);
+        const item=H.Furniture.get('cream_vanity'),materials={get:()=>new T.MeshStandardMaterial()},effects=H.Hygiene.fixture(item,materials),group=new T.Group();group.add(effects);
+        const bound=new T.Box3().setFromObject(effects);assert.ok(bound.max.x-bound.min.x<item.footprint[0],'inactive droplets do not enlarge the furniture obstacle');
+        const row={placement,item,model:group};H.Hygiene.update([row],[actor],1000,{tier:'smooth'},false);assert.equal(effects.visible,true);assert.equal(effects.getObjectByName('hygiene-water').count,8);
+        H.CharacterModels.pose(actor,'Idle');H.Hygiene.update([row],[actor],2000,{tier:'smooth'},false);assert.equal(effects.visible,false);H.Shapes.disposeGeometry(actor.root);H.Shapes.disposeGeometry(group);
+    }
+});
+
+test('reading gaze follows the book for both rigs on rotated seats and watching aims at the screen', () => {
+    for (const id of ['silver-red-v1', 'bunny-blue-v1']) for (const rotation of [0, Math.PI / 2, Math.PI]) {
+        const { H, T } = harness(), actor = { root: new T.Group(), who: 'char', modelId: id, visual: 'model3d', eyes: [], path: [], startedAt: 0 };
+        Object.assign(actor, H.CharacterModels.rig(model(T, path.join(root, 'assets/home3d/characters', id)), actor)); actor.root.add(actor.modelRoot);
+        const anchor = H.Rooms.anchor({ id: 'sofa', furnitureId: 'sofa_cream_01', position: [1, 0, 2], rotation }, 'Read', 'char');
+        H.CharacterModels.pose(actor, 'Read', anchor);
+        const pelvis = actor.hips.getWorldPosition(new T.Vector3());
+        for (const time of [0, 500, 1600]) {
+            H.Animation.tick(actor, time, .016, false);
+            assert.equal(actor.gaze.kind, 'book'); assert.ok(actor.gaze.alignment > .97, id + ' gaze alignment ' + JSON.stringify({ gaze: actor.gaze, rotation: actor.head.rotation.toArray(), eyeLocal: actor.gazeEye.toArray(), book: actor.book.position.toArray() }));
+            assert.ok(actor.head.rotation.x > .35, 'head lowers toward pages');
+            assert.ok(actor.hips.getWorldPosition(new T.Vector3()).distanceTo(pelvis) < 1e-6);
+        }
+        const target = new T.Vector3(-1.4, .8, 2).applyAxisAngle(new T.Vector3(0, 1, 0), rotation).add(new T.Vector3(1, 0, 2));
+        H.CharacterModels.pose(actor, 'Watch', { ...anchor, watchingTV: true, gazeTarget: target.toArray() });
+        H.Animation.tick(actor, 2000, .016, false); assert.equal(actor.gaze.kind, 'television'); assert.ok(actor.gaze.alignment > .97);
+        H.CharacterModels.pose(actor, 'Idle'); assert.equal(actor.gaze, null); assert.equal(actor.head.rotation.x, 0); assert.equal(actor.head.rotation.y, 0);
+        H.Shapes.disposeGeometry(actor.root);
+    }
+});
 test('cooking grips contact rotated pans and boards without stretching either character', () => {
     for (const id of ['silver-red-v1', 'bunny-blue-v1']) for (const furnitureId of ['cream_stove', 'cream_prep_counter', 'cream_kitchen_island']) for (const rotation of [0, Math.PI / 2, Math.PI]) {
         const { H, T } = harness(), actor = { root: new T.Group(), who: 'char', modelId: id, action: 'Cook', visual: 'model3d', eyes: [], path: [], startedAt: 0 };
         Object.assign(actor, H.CharacterModels.rig(model(T, path.join(root, 'assets/home3d/characters', id)), actor)); actor.root.add(actor.modelRoot);
         const anchor = H.Rooms.anchor({ id: 'cook', furnitureId, position: [1, 0, 2], rotation }, 'Cook', 'char');
         H.CharacterModels.pose(actor, 'Cook', anchor);
+        const cycle = actor.cookCycle, bonePositions = actor.skeleton.bones.map(b => b.position.clone());
+        assert.ok(actor.meshes.every(mesh => mesh.morphTargetInfluences[2] === 1), 'hands close for utensil grip');
         assert.ok(actor.cookCycle.maxError < .012, id + ' tool hand reaches station');
         assert.ok(actor.cookCycle.maxHoldError < .012, id + ' support hand reaches handle or board');
         assert.equal(actor.cookTool.userData.mode, furnitureId === 'cream_stove' ? 'stir' : 'chop');
@@ -43,10 +94,132 @@ test('cooking grips contact rotated pans and boards without stretching either ch
             H.Animation.tick(actor, time, .016, false);
             assert.ok(Math.abs(actor.cookCycle.tipError) < .012, 'tool tip contacts food');
             assert.equal(actor.body.scale.y, 1);
+            assert.equal(actor.cookCycle, cycle, 'animation interpolates cached poses');
+            if (furnitureId === 'cream_stove') {
+                const grip = H.Cooking.hand(actor, cycle.side), difference = grip.clone().sub(cycle.tip);
+                assert.ok(Math.hypot(difference.x, difference.z) > .36, 'bare hand stays outside pan');
+                const face = new T.Vector3(0, 0, 1).transformDirection(actor.cookTool.matrixWorld);
+                assert.ok(face.y > .8, 'broad spatula face points above the food');
+                assert.ok(actor.cookTool.getObjectByName('spatula-edge'), 'readable spatula silhouette');
+            }
+            actor.skeleton.bones.forEach((bone, i) => assert.ok(bone.position.distanceTo(bonePositions[i]) < 1e-8, 'bone lengths stay unchanged'));
+            const point = new T.Vector3(), local = new T.Group(), item = H.Furniture.get(furnitureId);
+            local.position.set(1, 0, 2); local.rotation.y = rotation; local.updateMatrixWorld(true);
+            for (const mesh of actor.meshes) for (const vertex of new Set(mesh.geometry.index.array)) {
+                mesh.getVertexPosition(vertex, point); point.applyMatrix4(mesh.matrixWorld); local.worldToLocal(point);
+                if (point.y > .18 && point.y < .85 && Math.abs(point.x) < item.footprint[0] / 2) assert.ok(point.z > item.footprint[1] / 2, id + ' outfit clears cabinet at ' + point.toArray());
+            }
         }
         H.Animation.tick(actor, 2000, .016, true); assert.equal(actor.cookTool.visible, true);
+        actor.path = [{ x: 3, z: 4 }]; H.Cooking.animate(actor, 2000, false); assert.equal(actor.cookTool.visible, false); actor.path = [];
         H.CharacterModels.pose(actor, 'Idle'); assert.equal(actor.cookTool.visible, false); assert.equal(actor.cookCycle, null);
+        assert.ok(actor.meshes.every(mesh => mesh.morphTargetInfluences[2] === 0), 'original open hands restored');
         H.Shapes.disposeGeometry(actor.root);
+    }
+});
+
+test('dining uses actual cups and spoons from plate to mouth and restores props on leaving', () => {
+    for (const id of ['silver-red-v1', 'bunny-blue-v1']) for (const action of ['Eat', 'Drink']) for (const rotation of [0, Math.PI / 2]) {
+        const { H, T } = harness(), actor = { root: new T.Group(), who: 'char', modelId: id, visual: 'model3d', eyes: [], path: [], startedAt: 0 };
+        Object.assign(actor, H.CharacterModels.rig(model(T, path.join(root, 'assets/home3d/characters', id)), actor)); actor.root.add(actor.modelRoot);
+        const rows = H.Rooms.get('dining_room').furniture.map(p => ({ item: H.Furniture.get(p.furnitureId), placement: { ...p, position: [p.position[0] * Math.cos(rotation) + p.position[2] * Math.sin(rotation), p.position[1], -p.position[0] * Math.sin(rotation) + p.position[2] * Math.cos(rotation)], rotation: (p.rotation || 0) + rotation } }));
+        const anchor = H.Rooms.anchorInRoom(rows, rows.find(row => row.item.variant === 'dining'), action, 'char');
+        H.CharacterModels.pose(actor, action, anchor); assert.ok(actor.diningCycle.maxError < .012);
+        assert.equal(actor.cup.visible, action === 'Drink'); assert.equal(actor.eatTool.visible, action === 'Eat');
+        assert.ok(actor.cup.getObjectByName('mug-handle') && actor.cup.getObjectByName('mug-tea'));
+        const prop = action === 'Eat' ? actor.eatTool : actor.cup, bones = actor.skeleton.bones.map(b => b.position.clone());
+        const before = prop.getWorldPosition(new T.Vector3());
+        for (const fraction of [0, .25, .5, .75]) {
+            H.Animation.tick(actor, actor.startedAt + fraction * 5200, .016, false);
+            assert.ok(actor.diningCycle.gripError < .001, 'utensil follows real hand');
+            actor.skeleton.bones.forEach((b, i) => assert.ok(b.position.distanceTo(bones[i]) < 1e-8));
+            if (fraction === .5) {
+                assert.ok(prop.getWorldPosition(new T.Vector3()).distanceTo(before) > .15, 'hand raises food/drink toward face');
+                const end = action === 'Eat' ? prop.localToWorld(new T.Vector3(0, .18, 0)) : prop.localToWorld(new T.Vector3(-.064, .045, -.049));
+                assert.ok(end.distanceTo(H.Dining.mouth(actor)) < .028, 'spoon or mug rim is at the lip surface');
+            }
+        }
+        H.CharacterModels.pose(actor, 'Read', anchor); assert.equal(actor.cup.visible, false); assert.equal(actor.eatTool.visible, false); assert.equal(actor.book.visible, true);
+        assert.ok(actor.meshes.every(mesh => mesh.morphTargetInfluences[2] === 0));
+        H.Shapes.disposeGeometry(actor.root);
+    }
+});
+
+test('couple dining stays on real cushions, alternates feeding and restores solo poses', () => {
+    for (const rotation of [0, Math.PI / 2, Math.PI]) {
+        const { H, T } = harness();
+        const material = new T.MeshStandardMaterial(), materials = { get: () => material, woven: () => material, glow: () => material };
+        const rows = H.Rooms.get('dining_room').furniture.filter(p => { const item = H.Furniture.get(p.furnitureId); return item.type === 'chair' || item.variant === 'dining'; }).map(p => {
+            const placement = { ...p, position: [p.position[0] * Math.cos(rotation) + p.position[2] * Math.sin(rotation), 0, -p.position[0] * Math.sin(rotation) + p.position[2] * Math.cos(rotation)], rotation: (p.rotation || 0) + rotation };
+            const item = H.Furniture.get(p.furnitureId), model = H.FurnitureVisuals.create(item, materials);
+            model.position.fromArray(placement.position); model.rotation.y = placement.rotation; model.updateMatrixWorld(true);
+            return { item, placement, model };
+        });
+        const table = rows.find(r => r.item.variant === 'dining');
+        const actors = ['char', 'user'].map(who => {
+            const id = who === 'char' ? 'silver-red-v1' : 'bunny-blue-v1', actor = { root: new T.Group(), who, modelId: id, eyes: [], path: [], visual: 'model3d' };
+            Object.assign(actor, H.CharacterModels.rig(model(T, path.join(root, 'assets/home3d/characters', id)), actor)); actor.root.add(actor.modelRoot);
+            H.CharacterModels.pose(actor, 'Eat', H.Rooms.anchorInRoom(rows, table, 'Eat', who)); return actor;
+        });
+        const positions = actors.map(a => a.skeleton.bones.map(b => b.position.clone()));
+        const restingGap = H.Dining.mouth(actors[0]).distanceTo(H.Dining.mouth(actors[1]));
+        H.Dining.update(rows, actors, 10000, true);
+        const cycles = actors.map(a => a.diningCycle), key = table.model.userData.mealPairKey;
+        assert.ok(actors.every(a => a.mealPair));
+        assert.ok(actors[0].root.position.distanceTo(actors[1].root.position) <= .75);
+        const lips = actors.map(a => a.mealLips);
+        H.Dining.update(rows, actors, 11040, true);
+        assert.ok(actors.every(a => a.mealPair.approach > .8), 'both lean before the spoon lifts');
+        assert.ok(H.Dining.mouth(actors[0]).distanceTo(H.Dining.mouth(actors[1])) < restingGap * .65);
+        assert.equal(actors[0].diningCycle.frames[4].lift, 0);
+        assert.ok(actors.every(a => a.expressions.every(e => e.mouth.value === 0)), 'mouths stay relaxed before food approaches');
+        for (const [time, who] of [[12600, 'char'], [17800, 'user']]) {
+            actors.forEach(a => H.Animation.tick(a, time, .016, false)); H.Dining.update(rows, actors, time, true);
+            const giver = actors.find(a => a.who === who), receiver = actors.find(a => a.who !== who);
+            assert.ok(giver.eatTool.visible && !receiver.eatTool.visible);
+            const tip = giver.eatTool.localToWorld(new T.Vector3(0, .18, 0));
+            assert.ok(tip.distanceTo(H.Dining.mouth(receiver)) < .028);
+            assert.ok(!giver.eatTool.getObjectByName('spoon-food').visible);
+            assert.ok(H.Dining.mouth(giver).distanceTo(H.Dining.mouth(receiver)) < .38, 'feed at a visibly closer face distance');
+            assert.ok(receiver.expressions.every(e => e.mouth.value > .95) && giver.expressions.every(e => e.mouth.value === 0), 'only the receiver softly opens their lips');
+            const axis = receiver.head.getWorldPosition(new T.Vector3()).sub(giver.head.getWorldPosition(new T.Vector3())).normalize();
+            const spans = [giver, receiver].map(a => {
+                let low = Infinity, high = -Infinity; const point = new T.Vector3();
+                for (const mesh of a.meshes) for (const index of new Set(mesh.geometry.index.array)) {
+                    if (mesh.geometry.attributes.position.getY(index) / a.modelHeight < (a.modelId === 'silver-red-v1' ? .79 : .71)) continue;
+                    mesh.getVertexPosition(index, point); point.applyMatrix4(mesh.matrixWorld);
+                    low = Math.min(low, point.dot(axis)); high = Math.max(high, point.dot(axis));
+                }
+                return { low, high };
+            });
+            assert.ok(spans[1].low - spans[0].high > .10, 'actual faces, crowns and ears remain separated');
+            actors.forEach((a, i) => {
+                assert.equal(a.diningCycle, cycles[i]);
+                assert.equal(a.mealLips, lips[i], 'sample only cached lip vertices, not the whole mesh every frame');
+                const toward = H.Dining.mouth(actors[1 - i]).sub(H.Dining.mouth(a)).normalize();
+                const forward = new T.Vector3(0, 0, 1).applyQuaternion(a.head.getWorldQuaternion(new T.Quaternion()));
+                assert.ok(forward.dot(toward) > .85, 'look toward partner rather than down at the plate');
+                assert.equal(table.model.userData.mealPairKey, key);
+                const seat = rows.find(r => r.placement.id === a.anchor.seatId), hip = a.hips.getWorldPosition(new T.Vector3()), local = seat.model.worldToLocal(hip.clone());
+                const hit = new T.Raycaster(new T.Vector3(hip.x, 2, hip.z), new T.Vector3(0, -1, 0)).intersectObject(seat.model, true)[0];
+                assert.ok(Math.abs(local.x) < .02 && local.z > -.15 && local.z < .275 && Math.abs(hip.y - hit.point.y) < .015, 'pelvis remains supported by rendered cushion');
+                a.skeleton.bones.forEach((b, j) => assert.ok(b.position.distanceTo(positions[i][j]) < 1e-8));
+            });
+        }
+        H.Dining.update(rows, actors, 18840, true);
+        assert.ok(actors.every(a => a.expressions.every(e => e.mouth.value === 0 && e.smile.value > .5)), 'close lips and soften into a smile after accepting');
+        assert.ok(!actors[1].eatTool.getObjectByName('spoon-food').visible, 'return with an empty spoon');
+        H.Dining.update(rows, actors, 17800, true, true);
+        assert.ok(actors.every(a => !a.eatTool.visible && a.mealPair.approach === 0 && a.expressions.every(e => e.mouth.value === 0 && e.smile.value === 0 && e.blink.value === 0)), 'reduced motion gives a calm, supported pose');
+        H.Dining.update(rows, actors, 18000, false); assert.ok(actors.every(a => !a.mealPair && !a.diningCycle.partner));
+        assert.ok(actors.every(a => a.expressions.every(e => e.mouth.value === 0 && e.smile.value === 0 && e.blink.value === 0)), 'consent off restores all expression uniforms');
+        H.Dining.update(rows, actors, 19000, true); assert.ok(actors.every(a => a.mealPair));
+        H.CharacterModels.pose(actors[1], 'Idle'); H.Dining.update(rows, actors, 20000, true);
+        assert.equal(actors[0].mealPair, null); assert.equal(actors[0].head.rotation.y, 0);
+        assert.equal(actors[1].eatTool.visible, false);
+        H.CharacterModels.pose(actors[1], 'Eat', { ...actors[0].anchor, seatId: 'far-chair', x: actors[0].anchor.x + 1.5 });
+        H.Dining.update(rows, actors, 21000, true); assert.ok(actors.every(a => !a.mealPair));
+        actors.forEach(a => H.Shapes.disposeGeometry(a.root)); rows.forEach(r => H.Shapes.disposeGeometry(r.model));
     }
 });
 

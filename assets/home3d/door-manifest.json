@@ -1,0 +1,25 @@
+{
+  "source": "Kenney Furniture Kit",
+  "sourceUrl": "https://kenney.nl/assets/furniture-kit",
+  "downloadUrl": "https://kenney.nl/media/pages/assets/furniture-kit/440e0608a4-1677580847/kenney_furniture-kit.zip",
+  "license": "CC0-1.0",
+  "licenseFile": "assets/home3d/licenses/Kenney-Doors-CC0.txt",
+  "file": "assets/home3d/doors/geometry.js",
+  "sha256": "4e4a73d02a2770608386c4ca18f2a0eca9dbaa54fa8c78e12eb9899e98b4bec9",
+  "bytes": 41661,
+  "processing": "Door leaf only, original indexed geometry and normals; rounded to six decimals. Materials remapped to the selected home palette at runtime. BYND supplies jambs, open passage and frosted sliding variants.",
+  "assets": [
+    {
+      "id": "panel",
+      "sourceFile": "doorway.glb",
+      "originalSha256": "08983e299822140d580eb55d4b4e4e4552c37bb6e88571e41d2b7b5d2eef987e",
+      "triangles": 160
+    },
+    {
+      "id": "glazed",
+      "sourceFile": "doorwayFront.glb",
+      "originalSha256": "b5b8e4c14ee1f2ffa10ef5c69badc995ae6fbcc868abac240221c61b8c593b0e",
+      "triangles": 128
+    }
+  ]
+}

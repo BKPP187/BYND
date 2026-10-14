@@ -14,6 +14,7 @@ fs.mkdirSync(output, { recursive: true });
         await page.locator('.hero-art img').evaluate(img => img.decode());
         assert.equal(await page.locator('.purchase-button').isDisabled(), true);
         assert.equal(await page.locator('.download-row button').isDisabled(), true);
+        assert.equal(await page.locator('#shop-retry').isVisible(), false);
         for (const width of [320, 390, 430, 1280]) {
             await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
             for (const safe of [0, 47, 59]) {

@@ -30,6 +30,13 @@ function harness(type = 'voiceCall') {
     vm.runInContext(fs.readFileSync(path.join(root, 'apps/wechat/chat/call-audio.js'), 'utf8'), context);
     return { state, context, char, call, player: context.window.ByndWechatCallAudio, globalApi };
 }
+test('Vivix calls never request or play ordinary TTS even with a configured role voice', async () => {
+    const h = harness('videoCall'); h.call.videoProvider = 'vivix';
+    h.char.chatConfig.voiceBinding = { provider: 'minimax', voiceId: 'role-a' };
+    assert.equal(h.player.isEnabled(h.call), false);
+    await h.player.enqueue(h.call, '接通后的开场白', new Node());
+    assert.equal(h.state.requests.length, 0); assert.equal(h.state.players.length, 0);
+});
 test('voice and video calls use enabled global TTS, with role-specific voices taking priority', async () => {
     for (const type of ['voiceCall', 'videoCall']) {
         const h = harness(type), item = new Node(); h.char.chatConfig.voiceBinding = { provider: 'local', voiceId: 'role-a', voiceModel: 'custom-model' };

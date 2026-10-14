@@ -1152,6 +1152,10 @@ function collectThemeDataFromInputs() {
     }
     const calMode = document.querySelector('.cal-mode-btn.active')?.dataset.mode || fallback.calMode || 'manual';
     return {
+        builtinTheme: fallback.builtinTheme || '',
+        plushSince: fallback.plushSince || '',
+        plushBubbleLeft: fallback.plushBubbleLeft,
+        plushBubbleRight: fallback.plushBubbleRight,
         wpLock: readValue('input-wp-lock', fallback.wpLock),
         wpHome: readValue('input-wp-home', fallback.wpHome),
         music: readValue('input-music-text', fallback.music),
@@ -1352,16 +1356,53 @@ async function saveCurrentThemeLibraryItem() {
 }
 window.saveCurrentThemeLibraryItem = saveCurrentThemeLibraryItem;
 
+let themeLibraryApplying = false;
 async function applyThemeLibraryItem(id) {
-    const item = (await getThemeLibraryStore()).find(entry => entry.id === id);
-    if (!item) return;
-    localStorage.setItem('my_theme_data', JSON.stringify(item.themeData || {}));
-    if (item.desktopLayout && Array.isArray(item.desktopLayout.items) && item.desktopLayout.items.length) {
-        localStorage.setItem('desktop_layout_v2', JSON.stringify(item.desktopLayout));
-    } else {
-        localStorage.removeItem('desktop_layout_v2');
+    if (themeLibraryApplying || themeLibrarySaving) return;
+    themeLibraryApplying = true;
+    const buttons = document.querySelectorAll('#theme-library-list .apply');
+    buttons.forEach(button => { button.disabled = true; });
+    setThemeLibraryStatus('正在套用主题…', '');
+    const previous = new Map();
+    let writing = false;
+    try {
+        const builtin = typeof getBuiltinThemeLibraryItem === 'function' ? getBuiltinThemeLibraryItem(id) : null;
+        const item = builtin || (await getThemeLibraryStore()).find(entry => entry.id === id);
+        if (!item) throw new Error('没有找到这套主题');
+        const data = { ...(item.themeData || {}) };
+        const layout = builtin ? buildPlushDesktopLayout() : item.desktopLayout;
+        if (builtin) {
+            await preloadBuiltinThemeAssets(data);
+            // Native status bar preferences are a device setting, not a decoration.
+            const saved = getSavedThemeData();
+            data.phoneStatusBarEnabled = saved.phoneStatusBarEnabled;
+            data.plushSince = saved.plushSince || '';
+        }
+        const updates = [
+            ['my_theme_data', JSON.stringify(data)],
+            ['desktop_layout_v2', layout && Array.isArray(layout.items) && layout.items.length ? JSON.stringify(layout) : null]
+        ];
+        for (const [key] of updates) previous.set(key, localStorage.getItem(key));
+        writing = true;
+        for (const [key, value] of updates) {
+            if (value === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, value);
+        }
+        window.location.href = window.location.pathname + '?v=theme-' + Date.now();
+    } catch (error) {
+        if (writing) {
+            for (const [key, value] of previous) {
+                try {
+                    if (value === null) localStorage.removeItem(key);
+                    else localStorage.setItem(key, value);
+                } catch (restoreError) { console.error('theme restore failed:', key, restoreError); }
+            }
+        }
+        setThemeLibraryStatus('套用失败：' + (error.message || '无法保存主题，请重试'), 'error');
+    } finally {
+        themeLibraryApplying = false;
+        buttons.forEach(button => { button.disabled = false; });
     }
-    window.location.href = window.location.pathname + '?v=theme-' + Date.now();
 }
 window.applyThemeLibraryItem = applyThemeLibraryItem;
 
@@ -1412,8 +1453,10 @@ async function renderThemeLibrary() {
     const listEl = document.getElementById('theme-library-list');
     if (!listEl) return;
     const list = await getThemeLibraryStore();
+    const builtinCards = typeof renderBuiltinThemeLibraryCard === 'function'
+        ? (window.BYND_BUILTIN_THEMES || []).map(renderBuiltinThemeLibraryCard).join('') : '';
     if (!list.length) {
-        listEl.innerHTML = `
+        listEl.innerHTML = builtinCards + `
             <div class="theme-library-empty">
                 <strong>还没有保存的主题</strong>
                 <span>调好壁纸、图标、锁屏、日历和桌面布局后点上方保存。</span>
@@ -1421,7 +1464,7 @@ async function renderThemeLibrary() {
         `;
         return;
     }
-    listEl.innerHTML = list.map(item => {
+    listEl.innerHTML = builtinCards + list.map(item => {
         const data = item.themeData || {};
         const preview = data.wpHome || data.wpLock || data.d1 || data.l1 || '';
         const iconCount = Array.isArray(data.icons) ? data.icons.filter(Boolean).length : 0;
@@ -1556,6 +1599,10 @@ function saveTheme() {
     const tapEffect = collectTapEffectDataFromInputs();
 
     const themeData = {
+        builtinTheme: getSavedThemeData().builtinTheme || '',
+        plushSince: getSavedThemeData().plushSince || '',
+        plushBubbleLeft: getSavedThemeData().plushBubbleLeft,
+        plushBubbleRight: getSavedThemeData().plushBubbleRight,
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
         l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs,
         lockEnabled, phoneStatusBarEnabled,
@@ -1569,6 +1616,7 @@ function saveTheme() {
     };
     try {
         localStorage.setItem('my_theme_data', JSON.stringify(themeData));
+        if (typeof applyBuiltinThemeAppearance === 'function') applyBuiltinThemeAppearance(themeData);
         if (typeof refreshDesktopThemedIcons === 'function') refreshDesktopThemedIcons(themeData);
         applyGlobalTapEffectSettings(tapEffect);
         applyLsShortcuts(lsLeft, lsRight);
@@ -1588,6 +1636,7 @@ function saveTheme() {
 function initTheme() {
     try {
         const data = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+        if (typeof applyBuiltinThemeAppearance === 'function') applyBuiltinThemeAppearance(data);
         const saveBtn = getThemeLibrarySaveButton();
         if (saveBtn) saveBtn.onclick = saveCurrentThemeLibraryItem;
         renderThemeLibrary();

@@ -69,6 +69,27 @@ test('user hangup cancels the old request and queues exactly one text follow-up 
     assert.equal(event.hiddenFromChat, true);
     assert.equal(event.callTranscript[0].content, '我先去忙了');
 });
+test('hangup records use the character remark for the user, with persona name fallback', () => {
+    for (const [config, expected] of [
+        [{ userTitle: '大小姐', nickname: '用户给角色的备注' }, '大小姐'],
+        [{ userTitle: ' 我 ', userProfile: { name: '林林' } }, '林林'],
+        [{}, '我']
+    ]) {
+        const h = harness(); h.char.chatConfig = config;
+        h.context.endWechatCall();
+        assert.equal(h.char.history[0].reason, expected + '挂断了电话');
+    }
+});
+test('legacy hangup card uses this role remark while preserving authored reasons and saved nicknames', () => {
+    const h = harness(); h.char.chatConfig = { userTitle: '宝宝' };
+    vm.runInContext(sourceSection('apps/wechat/chat/message-core.js', 'function getWechatCallDescription(', 'function getWechatMessageSummary('), h.context);
+    const record = { status: '已结束', duration: 97, reason: '用户挂断了电话' };
+    assert.match(h.context.getWechatCallDescription(record, h.char), /宝宝挂断了电话/);
+    assert.equal(record.reason, '用户挂断了电话', 'rendering does not rewrite history');
+    for (const reason of ['大小姐挂断了电话', '用户让我休息']) {
+        assert.ok(h.context.getWechatCallDescription({ ...record, reason }, h.char).endsWith(reason));
+    }
+});
 
 test('unconnected cancellation and character hangup do not queue a user-hangup reply', () => {
     for (const connected of [false, true]) {

@@ -100,7 +100,7 @@ function renderCoReadDaily() {
             <em>${musicEscapeHtml(text)}</em>
             <div class="coread-quote-byline">${quote ? `<span>${musicEscapeHtml([quote.author, quote.work ? `《${quote.work}》` : ''].filter(Boolean).join(' · ') || '出处未提供')}</span>
                 <a href="${musicEscapeAttr(CoReadLiterature.source(quote))}" target="_blank" rel="noopener noreferrer">${musicEscapeHtml(quote.provider)}</a>` : ''}
-                <button type="button" onclick="CoReadLiterature.refresh(true)">${musicEscapeHtml(quote ? (CoReadLiterature.status || '换一句') : (CoReadLiterature.status.includes('失败') || CoReadLiterature.status.includes('无法') ? '重新获取' : '获取中…'))}</button>
+                ${quote && CoReadLiterature.status ? `<span class="coread-quote-status" role="status">${musicEscapeHtml(CoReadLiterature.status)}</span>` : ''}
             </div>
             <strong><span class="coread-sense-title-text">${musicEscapeHtml(holiday?.title || '惊喜')}</span></strong>
             <small>${musicEscapeHtml(holiday ? `${holiday.title} · ${CoReadLiterature.today()}` : `每日一言 · ${CoReadLiterature.today()}`)}</small>
@@ -327,6 +327,7 @@ window.selectCoReadChar = selectCoReadChar;
 
 function setCoReadTab(tab) {
     CoReadJournal.stop();
+    const previousTab = coreadActiveTab;
     coreadActiveTab = tab || 'discover';
     if (coreadActiveTab !== 'shelf') {
         coreadShelfMenuOpen = false;
@@ -336,7 +337,7 @@ function setCoReadTab(tab) {
     if (content) content.dataset.tab = coreadActiveTab;
     renderCoReadApp();
     maybeLoadCoReadDiscoveryData();
-    if (coreadActiveTab === 'discover') CoReadLiterature.refresh();
+    if (coreadActiveTab === 'discover' && previousTab !== 'discover') CoReadLiterature.refresh(true);
 }
 window.setCoReadTab = setCoReadTab;
 

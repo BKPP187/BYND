@@ -11,6 +11,7 @@
         return typeof getDefaultVoiceApi === 'function' ? getDefaultVoiceApi() : null;
     }
     function isEnabled(call) {
+        if (call?.videoProvider === 'vivix') return false;
         const char = window.myCharacters?.find(candidate => candidate.id === call?.charId);
         try { return !!char && !!apiForChar(char); } catch (_) { return false; }
     }
@@ -110,6 +111,7 @@
         return state.tail;
     }
     function enqueue(call, text, item) {
+        if (call?.videoProvider === 'vivix') return Promise.resolve();
         if (!live(call) || !String(text || '').trim()) return Promise.resolve();
         const state = prepare(call); if (!state || state.stopped) return Promise.resolve();
         if (item && state.jobs.has(item)) return state.jobs.get(item).promise;
@@ -132,4 +134,59 @@
     window.ByndWechatCallAudio = { prepare, unlock, enqueue, stop, apiForChar, isEnabled,
         isSpeaking: call => !!call && !!live(call) && !!states.get(call)?.speaking,
         drain: call => states.get(call)?.tail || Promise.resolve() };
+})();
+
+// Incoming calls use a local ringtone, independently of paid speech providers.
+(function () {
+    let context, pending = null, timer = null, lastPulse = -Infinity;
+    const nodes = new Set();
+    const waiting = call => call && !call.ended && !call.acceptedAt && window._wechatIncomingCall === call;
+    function pulse() {
+        if (!waiting(pending)) { stop(); return; }
+        if (!context || context.state !== 'running' || context.currentTime - lastPulse < 1) return;
+        lastPulse = context.currentTime;
+        for (const offset of [0, 0.45]) for (const frequency of [440, 480]) {
+            const oscillator = context.createOscillator(), gain = context.createGain();
+            const node = { oscillator, gain }; nodes.add(node);
+            oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+            const start = context.currentTime + offset;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.055, start + 0.025);
+            gain.gain.setValueAtTime(0.055, start + 0.25);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+            oscillator.connect(gain); gain.connect(context.destination);
+            oscillator.onended = () => { nodes.delete(node); oscillator.disconnect(); gain.disconnect(); };
+            oscillator.start(start); oscillator.stop(start + 0.34);
+        }
+    }
+    function unlock() {
+        try {
+            const Context = window.AudioContext || window.webkitAudioContext;
+            if (!Context) return;
+            if (!context || context.state === 'closed') context = new Context();
+            if (context.state === 'suspended') {
+                context.resume().then(() => { if (waiting(pending)) pulse(); }).catch(() => {});
+            } else if (waiting(pending)) pulse();
+        } catch (_) { /* A later user gesture retries mobile audio permission. */ }
+    }
+    function start(call) {
+        if (!waiting(call)) return;
+        stop(); pending = call; lastPulse = -Infinity;
+        unlock(); timer = setInterval(() => { try { pulse(); } catch (_) { stop(); } }, 2400);
+    }
+    function stop(call) {
+        if (call && pending !== call) return;
+        clearInterval(timer); timer = null; pending = null;
+        for (const { oscillator, gain } of nodes) {
+            try { gain.gain.cancelScheduledValues(context.currentTime); gain.gain.setValueAtTime(0, context.currentTime); oscillator.stop(); } catch (_) {}
+            oscillator.disconnect(); gain.disconnect();
+        }
+        nodes.clear();
+    }
+    // Prime in a real gesture before the asynchronous role response arrives.
+    document.addEventListener?.('pointerdown', unlock, { capture: true, passive: true });
+    document.addEventListener?.('keydown', unlock, { capture: true });
+    window.ByndWechatCallRingtone = { start, stop, unlock,
+        isRinging: call => pending === call && waiting(call),
+        isAudible: call => pending === call && waiting(call) && context?.state === 'running' && nodes.size > 0 };
 })();

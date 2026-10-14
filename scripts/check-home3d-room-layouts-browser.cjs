@@ -23,7 +23,7 @@ async function main() {
             return { torso: H.SleepPair.bounds(actor, row.model, .50, .74), head: H.SleepPair.bounds(actor, row.model, .80, 1), support: H.Furniture.support(row.item), pose: H.CharacterModels.geometry(actor) };
         });
         await page.screenshot({ path: path.join(output, 'sofa-rest-close.png') });
-        assert.ok(report.sofa.torso.min.y >= .615 && report.sofa.torso.min.y < .65, 'back touches seat: ' + report.sofa.torso.min.y);
+        assert.ok(report.sofa.torso.min.y >= report.sofa.support.restSurface - .005 && report.sofa.torso.min.y < report.sofa.support.restSurface + .03, 'back touches the current catalog seat: ' + report.sofa.torso.min.y);
         assert.ok(report.sofa.head.min.y >= report.sofa.support.pillowSurface - .005 && report.sofa.head.min.y < report.sofa.support.pillowSurface + .025, 'head touches pillow: ' + report.sofa.head.min.y);
         for (const [room, target, action] of [['game_room', 'desk', 'Game'], ['bedroom', 'bed', 'Sleep'], ['kitchen', 'stove', 'Cook'], ['dining_room', 'dining-table', 'Eat']]) {
             await page.evaluate(async ({ room, target, action }) => {
@@ -32,7 +32,7 @@ async function main() {
                 await H.UI.loadRoom(room); H.runtime.setQuality('balanced');
                 document.querySelector('.home3d-notice').hidden = true;
             }, { room, target, action });
-            await page.waitForFunction(({ room, action }) => ByndHome3D.runtime.stats().room === room && ByndHome3D.runtime.stats().actors.find(a => a.who === 'char')?.action === action && !document.querySelector('.home3d-scene.is-loading'), { room, action });
+            await page.waitForFunction(({ room, action }) => ByndHome3D.runtime.stats().room === room && ByndHome3D.runtime.stats().actors.find(a => a.who === 'char')?.action === action && window.layoutActors?.some(a => a.who === 'char' && !a.released && a.action === action) && !document.querySelector('.home3d-scene.is-loading'), { room, action });
             const state = await page.evaluate(() => {
                 const H = ByndHome3D, T = ByndHomeEngine, rows = H.runtime.furniture(), actor = layoutActors.find(a => a.who === 'char');
                 const monitor = rows.find(r => r.item.type === 'computer');
@@ -40,18 +40,20 @@ async function main() {
                 if (monitor) { const direction = new T.Vector3(0, 0, 1).transformDirection(monitor.model.matrixWorld), delta = actor.root.position.clone().sub(monitor.model.position); delta.y = 0; facing = direction.dot(delta.normalize()); }
                 return { stats: H.runtime.stats(), anchor: actor.anchor, monitorFacing: facing, furniture: rows.map(r => ({ id: r.placement.id, type: r.item.type, name: r.item.name })), overflow: document.documentElement.scrollWidth > innerWidth, header: document.querySelector('.home3d-header button').getBoundingClientRect().top };
             });
+            report.latest = state;
             assert.equal(state.overflow, false); assert.ok(state.stats.resolution.pixelRatio <= 2); assert.equal(state.stats.actors.find(a => a.who === 'char').pose.bodyScale.y, 1);
             if (room === 'game_room') { assert.ok(state.monitorFacing > .8); assert.ok(state.anchor.seatId); assert.ok(!state.furniture.some(r => r.type === 'television')); }
             if (room === 'bedroom') assert.equal(state.stats.actors.find(a => a.who === 'char').pose.eyesClosed, true);
             if (room === 'kitchen') {
                 assert.equal(state.anchor.rotation, Math.PI);
+                await page.waitForFunction(() => ByndHome3D.runtime.furniture().find(r => r.item.type === 'stove').model.getObjectByName('cooking-steam').visible === (ByndHome3D.runtime.stats().quality.particles > 0));
                 report.cooking = await page.evaluate(() => {
                     const actor = layoutActors.find(a => a.who === 'char'), cycle = actor.cookCycle;
-                    return { visible: actor.cookTool?.visible, mode: cycle?.mode, handError: cycle?.maxError, holdError: cycle?.maxHoldError, tipError: cycle?.tipError, steam: ByndHome3D.runtime.furniture().find(r => r.item.type === 'stove').model.getObjectByName('cooking-steam')?.visible };
+                    return { visible: actor.cookTool?.visible, mode: cycle?.mode, handError: cycle?.maxError, holdError: cycle?.maxHoldError, tipError: cycle?.tipError, particles: ByndHome3D.runtime.stats().quality.particles, steam: ByndHome3D.runtime.furniture().find(r => r.item.type === 'stove').model.getObjectByName('cooking-steam')?.visible };
                 });
                 assert.equal(report.cooking.visible, true); assert.equal(report.cooking.mode, 'stir');
                 assert.ok(report.cooking.handError < .012 && report.cooking.holdError < .012 && Math.abs(report.cooking.tipError) < .012);
-                assert.equal(report.cooking.steam, true);
+                assert.equal(report.cooking.steam, report.cooking.particles > 0, 'steam follows the adaptive quality budget');
             }
             if (room === 'dining_room') assert.ok(state.anchor.seatId && state.anchor.seated);
             await page.screenshot({ path: path.join(output, room + '-390.png') });

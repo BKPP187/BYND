@@ -747,7 +747,7 @@ function renderNeteasePlayer() {
             </div>
         </div>
         <div class="mn-player-lyric" id="mn-player-lyric">&nbsp;</div>
-        <div class="mn-player-progress mn-wave-progress" id="mn-player-progress" onclick="seekNeteasePlayer(event)" aria-label="播放进度">
+        <div class="mn-player-progress mn-wave-progress" id="mn-player-progress" onclick="seekNeteasePlayer(event)" onkeydown="ByndMusicWaveform.keySeek(event)" tabindex="0" role="slider" aria-valuemin="0" aria-label="播放进度">
             ${renderNeteaseWaveBars(track)}
         </div>
         <div class="mn-player-times"><span id="mn-player-elapsed">0:00</span><span id="mn-player-duration">--:--</span></div>
@@ -765,32 +765,7 @@ function renderNeteasePlayer() {
 window.renderNeteasePlayer = renderNeteasePlayer;
 
 function renderNeteaseWaveBars(track) {
-    const count = 76;
-    const seed = getNeteaseWaveSeed(track);
-    return Array.from({ length: count }, (_, index) => {
-        const height = getNeteaseWaveHeight(seed, index, count);
-        return `<span class="mn-wave-bar" style="--bar-h:${height}px;--bar-i:${index}"></span>`;
-    }).join('');
-}
-
-function getNeteaseWaveSeed(track) {
-    const text = `${track?.trackName || ''}|${track?.artistName || ''}|${track?.remoteId || track?.id || ''}`;
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i += 1) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-}
-
-function getNeteaseWaveHeight(seed, index, count) {
-    const position = (index + 0.5) / count;
-    const envelope = Math.sin(position * Math.PI);
-    const pulseA = Math.abs(Math.sin((seed % 97 + index * 11.73) * 0.19));
-    const pulseB = Math.abs(Math.cos((seed % 53 + index * 5.91) * 0.37));
-    const pulseC = Math.abs(Math.sin((seed % 31 + index * 2.17) * 0.53));
-    const mix = (pulseA * 0.48) + (pulseB * 0.32) + (pulseC * 0.2);
-    return Math.round(4 + (mix * 18 * envelope) + (envelope * 12));
+    return window.ByndMusicWaveform?.markup(track) || '';
 }
 
 function renderNeteasePlayerProgress() {
@@ -802,6 +777,7 @@ function renderNeteasePlayerProgress() {
         ? musicAudio.duration
         : (track?.duration || 0);
     const percent = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
+    window.ByndMusicWaveform?.setTrack(track);
     progress.style.setProperty('--wave-progress', `${percent}%`);
     progress.classList.toggle('is-playing', !!musicIsPlaying);
     const bars = progress.querySelectorAll('.mn-wave-bar');
@@ -824,6 +800,7 @@ function renderNeteasePlayerProgress() {
     if (lyricEl && neteasePlayerLyrics.lines.length) {
         lyricEl.innerHTML = renderNeteaseLyricWindow(neteasePlayerLyrics.lines, current);
     }
+    window.ByndMusicWaveform?.sync(current, total, musicIsPlaying);
 }
 window.renderNeteasePlayerProgress = renderNeteasePlayerProgress;
 
@@ -846,7 +823,7 @@ function renderNeteaseLyricWindow(lines, current) {
 }
 
 function seekNeteasePlayer(event) {
-    if (!musicAudio || !musicAudio.duration) return;
+    if (!musicAudio || !Number.isFinite(musicAudio.duration) || musicAudio.duration <= 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     musicAudio.currentTime = musicAudio.duration * percent;

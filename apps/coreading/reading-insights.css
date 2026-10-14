@@ -25,7 +25,7 @@ html.mobile-runtime .coread-shell.coread-reader-mode .coread-topbar.coread-reade
 .coread-quote-byline { display:grid; justify-items:center; gap:7px; padding:0 18px 24px; color:#929294; font-size:12px; line-height:1.6; text-align:center; }
 .coread-quote-byline > span { font-size:11px; font-weight:400; letter-spacing:0; }
 .coread-quote-byline a { color:#73757a; text-underline-offset:3px; }
-.coread-quote-byline button { color:#79767a; background:transparent; border:0; padding:4px 10px; font-size:12px; }
+.coread-quote-byline .coread-quote-status { color:#79767a; font-size:12px; }
 
 #coread-reading-calendar { border:0 !important; padding:0; background:none !important; box-shadow:none !important; }
 .coread-activity-card { padding:18px; margin-bottom:16px; border:2px solid #171717; border-radius:26px; background:#fff; color:#171717; min-width:0; }

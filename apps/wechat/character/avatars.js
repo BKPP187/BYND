@@ -391,6 +391,7 @@ async function saveChatSettings() {
 
     // 保存聊天配置到角色
     const prevConfig = char.chatConfig || {};
+    const prevDescription = char.description;
     const voiceBinding = normalizeWechatCharacterVoiceBinding({
         provider: document.getElementById('wcs-char-voice-provider')?.value || '',
         voiceModel: document.getElementById('wcs-char-voice-model')?.value || '',
@@ -426,6 +427,11 @@ async function saveChatSettings() {
         imageReference: prevConfig.imageReference || '',
         videoCallBg: prevConfig.videoCallBg || '',
         videoCallUseCamera: !!document.getElementById('wcs-video-real-camera')?.checked,
+        videoCallProvider: ['vivix', 'ordinary'].includes(document.getElementById('wcs-video-provider')?.value)
+            ? document.getElementById('wcs-video-provider').value : 'inherit',
+        vivixSoundSource: ['vivix', 'tts', 'silent'].includes(document.getElementById('wcs-vivix-sound')?.value)
+            ? document.getElementById('wcs-vivix-sound').value : 'inherit',
+        vivixVoiceId: String(document.getElementById('wcs-vivix-voice')?.value || '').trim(),
         momentCovers: Array.isArray(prevConfig.momentCovers) ? prevConfig.momentCovers : [],
         contactProfile: prevConfig.contactProfile || null,
         contactProfileError: prevConfig.contactProfileError || '',
@@ -450,10 +456,8 @@ async function saveChatSettings() {
         aiPhoneSnapshot: prevConfig.aiPhoneSnapshot || null,
         userProfile: prevConfig.userProfile || null,
         customCss: (document.getElementById('wcs-custom-css') || {}).value || '',
-        bubblePresetId: getActiveKawaiiBubblePreset({ customCss: (document.getElementById('wcs-custom-css') || {}).value || '' })?.id || ''
+        bubblePresetId: getActiveBubblePreset({ customCss: (document.getElementById('wcs-custom-css') || {}).value || '' })?.id || ''
     };
-    window._tempChatBgImage = null;
-
     // 保存角色描述
     char.description = document.getElementById('wcs-char-desc').value;
 
@@ -465,25 +469,24 @@ async function saveChatSettings() {
         signature: document.getElementById('wcs-user-signature')?.value.trim() || '',
         personaId: prevConfig.userProfile?.personaId || ''
     };
-    saveWechatChatUserProfile(char, scopedProfile);
-
-    const memoryStore = getWechatMemoryStore();
-    const memoryBucket = getWechatMemoryBucket(memoryStore, char.id);
-    promoteWechatMemoryBucket(memoryBucket, char);
-    saveWechatMemoryStore(memoryStore);
-
-    // 应用配置到当前聊天
-    applyChatConfig(char);
-
     // 保存成功后才关闭面板，避免将存储失败伪装成已保存。
     try {
+        saveWechatChatUserProfile(char, scopedProfile);
+        const memoryStore = getWechatMemoryStore();
+        const memoryBucket = getWechatMemoryBucket(memoryStore, char.id);
+        promoteWechatMemoryBucket(memoryBucket, char);
+        saveWechatMemoryStore(memoryStore);
         const saved = await saveCharactersToStorage();
         if (saved === false) throw new Error('设置未能保存');
     } catch (error) {
+        char.chatConfig = prevConfig;
+        char.description = prevDescription;
         if (typeof showWechatToast === 'function') showWechatToast('设置保存失败，请清理空间后重试');
         console.error('聊天设置保存失败:', error);
         return false;
     }
+    window._tempChatBgImage = null;
+    applyChatConfig(char);
     refreshChatView(char);
     renderChatList();
 

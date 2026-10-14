@@ -3,6 +3,14 @@ function getWechatCallLabel(type) {
     return type === 'videoCall' ? '视频通话' : '语音通话';
 }
 
+function getWechatCallUserDisplayName(char) {
+    const remark = String(char?.chatConfig?.userTitle || '').trim();
+    if (remark && remark !== '我') return remark;
+    const profile = typeof getWechatChatUserProfile === 'function' ? getWechatChatUserProfile(char)
+        : char?.chatConfig?.userProfile || (typeof getUserProfile === 'function' ? getUserProfile() : {});
+    return String(profile?.name || '').trim() || '我';
+}
+
 function getWechatCallIcon(type) {
     return type === 'videoCall' ? 'ri-video-chat-fill' : 'ri-phone-fill';
 }
@@ -780,6 +788,8 @@ function ensureWechatCallScreen() {
         <video id="wc-call-camera-preview" class="wc-call-camera-preview hidden" autoplay muted playsinline></video>
         <div id="wc-call-ai-portrait" class="wc-call-ai-portrait hidden">
             <img id="wc-call-ai-portrait-img" src="" alt="" role="button" tabindex="0">
+            <div id="wc-call-vivix-video" class="wc-call-vivix-video hidden"></div>
+            <button id="wc-call-vivix-sound" class="wc-call-vivix-sound hidden" type="button" onclick="ByndVivix.resumeSound()">开启声音</button>
             <span id="wc-call-ai-portrait-status">正在生成 AI 画面...</span>
         </div>
         <div class="wc-call-top">
@@ -893,6 +903,7 @@ function handleWechatIncomingCall(char, msg) {
     } else {
         showWechatIncomingIsland(call);
     }
+    window.ByndWechatCallRingtone?.start(call);
 }
 
 function getWechatActiveCallChar() {
@@ -944,16 +955,19 @@ function setWechatCallTyping(show) {
 
 function refreshWechatCallControls() {
     const call = window._wechatActiveCall;
+    const vivixUnavailable = call?.videoProvider === 'vivix' && (!call.vivix?.ready || call.vivix?.stopped);
     const screen = document.getElementById('wc-call-screen');
     if (screen) screen.classList.toggle('beauty-on', !!call?.beautyOn);
     const states = {
-        mute: { active: !!call?.muted, label: call?.muted ? '已静音' : '静音', icon: call?.muted ? 'ri-mic-off-line' : 'ri-mic-line' },
+        mute: { active: !!call?.muted, label: vivixUnavailable ? (call.vivix?.failed ? '未连接' : '连接中') : call?.muted ? (call.videoProvider === 'vivix' ? '开麦' : '已静音') : '静音', icon: call?.muted ? 'ri-mic-off-line' : 'ri-mic-line' },
         speaker: { active: !!call?.speakerOn, label: '扬声器', icon: call?.speakerOn ? 'ri-volume-up-fill' : 'ri-volume-up-line' },
         beauty: { active: !!call?.beautyOn, label: call?.beautyOn ? '已美颜' : '美颜', icon: 'ri-sparkling-2-line' }
     };
     Object.entries(states).forEach(([key, state]) => {
         const btn = document.querySelector(`[data-wc-call-control="${key}"]`);
         if (!btn) return;
+        btn.disabled = (key === 'mute' || key === 'speaker') && vivixUnavailable;
+        if (key === 'mute') btn.setAttribute('aria-label', call?.videoProvider !== 'vivix' ? state.label : vivixUnavailable ? 'AI 视频未连接，麦克风不可用' : call?.muted ? '开启麦克风，直接说话' : '关闭麦克风');
         btn.classList.toggle('active', state.active);
         const icon = btn.querySelector('i');
         const label = btn.querySelector('span');
@@ -965,6 +979,7 @@ function refreshWechatCallControls() {
 function toggleWechatCallControl(kind) {
     const call = window._wechatActiveCall;
     if (!call || call.ended) return;
+    if (call.videoProvider === 'vivix' && kind !== 'beauty') { void window.ByndVivix.toggleControl(call, kind); return; }
     if (kind === 'mute') call.muted = !call.muted;
     if (kind === 'speaker') call.speakerOn = !call.speakerOn;
     if (kind === 'beauty' && call.type === 'videoCall') call.beautyOn = !call.beautyOn;
@@ -1002,7 +1017,7 @@ function addWechatCallLine(role, text) {
     item.innerHTML = wcEscapeHtml(content).replace(/\n/g, '<br>');
     log.appendChild(item);
     scrollWechatCallLogToBottom(item);
-    if (role === 'assistant' && call.acceptedAt && !call.ended) return window.ByndWechatCallAudio?.enqueue(call, content, item);
+    if (role === 'assistant' && call.acceptedAt && !call.ended && call.videoProvider !== 'vivix') return window.ByndWechatCallAudio?.enqueue(call, content, item);
 }
 
 function scrollWechatCallLogToBottom(item = null) {
@@ -1095,6 +1110,10 @@ async function startWechatCall(type) {
     if (window._wechatAiBusy || window._wechatActiveCall) return;
     const char = getCurrentChatChar();
     if (!char) return;
+    if (type === 'videoCall' && window.ByndVivix?.selected(char)) {
+        try { window.ByndVivix.preflight(char); }
+        catch (error) { showToast(error.message); return; }
+    }
     closeChatToolbar();
     closeStickerPicker();
 
@@ -1122,6 +1141,7 @@ async function startWechatCall(type) {
 }
 
 function setupWechatCallScreen(call, char) {
+    call.videoProvider = call.type === 'videoCall' && window.ByndVivix?.selected(char) ? 'vivix' : 'ordinary';
     window.ByndWechatCallAudio?.prepare(call);
     ensureWechatCallScreen();
     const config = char.chatConfig || {};
@@ -1135,6 +1155,9 @@ function setupWechatCallScreen(call, char) {
     callInput.disabled = false;
     const screen = ensureWechatCallScreen();
     screen.classList.toggle('is-video-call', call.type === 'videoCall');
+    screen.classList.toggle('is-vivix-call', call.videoProvider === 'vivix');
+    document.getElementById('wc-call-vivix-video')?.classList.add('hidden');
+    document.getElementById('wc-call-vivix-sound')?.classList.add('hidden');
     const camera = document.getElementById('wc-call-camera-preview');
     const portrait = document.getElementById('wc-call-ai-portrait');
     const localTile = document.getElementById('wc-video-local-tile');
@@ -1149,8 +1172,8 @@ function setupWechatCallScreen(call, char) {
     }
     const portraitImg = document.getElementById('wc-call-ai-portrait-img');
     const portraitStatus = document.getElementById('wc-call-ai-portrait-status');
-    if (portraitImg) portraitImg.src = config.imageReference || char.avatar || DEFAULT_AVATAR;
-    if (portraitStatus) portraitStatus.textContent = call.type === 'videoCall' ? '等待接通后生成 AI 画面' : '';
+    if (portraitImg) { portraitImg.src = config.imageReference || char.avatar || DEFAULT_AVATAR; portraitImg.classList.remove('hidden'); }
+    if (portraitStatus) portraitStatus.textContent = call.type === 'videoCall' ? (call.videoProvider === 'vivix' ? '接通后连接 Vivix 实时画面' : '等待接通后生成 AI 画面') : '';
     setWechatCallMode(call.direction === 'incoming' ? 'incoming' : 'ringing');
 }
 
@@ -1198,7 +1221,8 @@ async function requestWechatCallDecision(call) {
 }
 
 function acceptWechatCall(call, firstMessage) {
-    if (!call || call.ended) return;
+    if (!call || call.ended || call.acceptedAt) return;
+    window.ByndWechatCallRingtone?.stop(call);
     call.acceptedAt = Date.now();
     setWechatCallMode('connected');
     setWechatCallStatus('通话中');
@@ -1208,10 +1232,10 @@ function acceptWechatCall(call, firstMessage) {
     if (firstMessage) addWechatCallLine('assistant', firstMessage);
     const input = document.getElementById('wc-call-input');
     if (input) input.focus();
-    if (call.type === 'videoCall') activateWechatVideoCallFeatures(call);
+    if (call.type === 'videoCall') activateWechatVideoCallFeatures(call, firstMessage);
 }
 
-async function activateWechatVideoCallFeatures(call) {
+async function activateWechatVideoCallFeatures(call, firstMessage = '') {
     const char = getWechatActiveCallChar();
     if (!call || !char || call.ended) return;
     const config = char.chatConfig || {};
@@ -1221,6 +1245,10 @@ async function activateWechatVideoCallFeatures(call) {
         startWechatCallCameraStream().catch(err => {
             addWechatCallLine('system', '真实相机没有打开：' + (err && err.message ? err.message : '浏览器未授权'));
         });
+    }
+    if (call.videoProvider === 'vivix') {
+        await window.ByndVivix.start(call, char, firstMessage);
+        return;
     }
     if (portraitStatus) portraitStatus.textContent = '正在生成 AI 视频画面...';
     const reference = config.imageReference || char.avatar || '';
@@ -1251,11 +1279,13 @@ async function startWechatCallCameraStream() {
     }
     const video = document.getElementById('wc-call-camera-preview');
     if (!video) return;
+    const owner = window._wechatActiveCall;
     stopWechatCallCameraStream();
     const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false
     });
+    if (owner && (window._wechatActiveCall !== owner || owner.ended)) { stream.getTracks().forEach(track => track.stop()); return; }
     window._wechatCallCameraStream = stream;
     video.srcObject = stream;
     document.getElementById('wc-video-local-tile')?.classList.add('hidden');
@@ -1293,9 +1323,9 @@ function openWechatIncomingCallScreen(call) {
 function acceptWechatIncomingCall() {
     const call = window._wechatIncomingCall
         || (window._wechatActiveCall?.direction === 'incoming' && !window._wechatActiveCall.acceptedAt ? window._wechatActiveCall : null);
-    if (!call || call.ended) return;
-    window.ByndWechatCallAudio?.unlock(call);
+    if (!call || call.ended || call.acceptedAt) return;
     const char = window.myCharacters.find(c => c.id === call.charId);
+    if (!char) return;
     if (char) {
         if (typeof openApp === 'function') openApp('wechat');
         if (window.currentChatCharId !== char.id) openChat(char.id);
@@ -1304,10 +1334,11 @@ function acceptWechatIncomingCall() {
     window._wechatIncomingCall = null;
     window._wechatActiveCall = call;
     const screen = ensureWechatCallScreen();
-    if (screen.classList.contains('hidden')) {
-        if (char) setupWechatCallScreen(call, char);
-        screen.classList.remove('hidden');
-    }
+    // The island may reuse a still-visible screen from an earlier call. Always
+    // bind this incoming call and its provider before adding the first line.
+    setupWechatCallScreen(call, char);
+    window.ByndWechatCallAudio?.unlock(call);
+    screen.classList.remove('hidden');
     acceptWechatCall(call, call.reason);
 }
 
@@ -1315,6 +1346,7 @@ function rejectWechatIncomingCall() {
     const call = window._wechatIncomingCall
         || (window._wechatActiveCall?.direction === 'incoming' && !window._wechatActiveCall.acceptedAt ? window._wechatActiveCall : null);
     if (!call) return;
+    window.ByndWechatCallRingtone?.stop(call);
     const char = window.myCharacters.find(c => c.id === call.charId);
     hideWechatIncomingIsland();
     addWechatCallRecord(call, '已拒绝', '你已拒绝');
@@ -1348,14 +1380,15 @@ function appendWechatIncomingCallRejectedEvent(char, call) {
     saveCharactersToStorage();
 }
 
-async function sendWechatCallMessage() {
+async function sendWechatCallMessage(transcript) {
     const call = window._wechatActiveCall;
     const char = getWechatActiveCallChar();
     const input = document.getElementById('wc-call-input');
     if (!call || !char || !input || call.ended || call.busy || !call.acceptedAt) return;
-    const text = input.value.trim();
+    const text = typeof transcript === 'string' ? transcript.trim() : input.value.trim();
     if (!text) return;
-    input.value = '';
+    if (call.videoProvider === 'vivix' && (!call.vivix?.ready || call.vivix.stopped)) { showToast('AI 视频尚未连接，请稍后重试或重新拨打。'); return; }
+    if (typeof transcript !== 'string') input.value = '';
     addWechatCallLine('user', text);
     scrollWechatCallLogToBottom();
 
@@ -1364,6 +1397,10 @@ async function sendWechatCallMessage() {
     setWechatCallStatus('通话中');
     setWechatCallTyping(true);
     try {
+        if (call.videoProvider === 'vivix') {
+            await window.ByndVivix.reply(call, char, text);
+            return;
+        }
         const messages = buildMessages(char, char.history || []);
         messages.push({
             role: 'system',
@@ -1393,13 +1430,16 @@ async function sendWechatCallMessage() {
         } else {
             addWechatCallLine('system', `通话信号不稳定：${result.error}`);
         }
+    } catch (error) {
+        if (window._wechatActiveCall?.id === call.id && !call.ended) addWechatCallLine('system', call.videoProvider === 'vivix' ? String(error.message || 'AI 视频发送失败，请重试。') : '通话发送失败，请检查网络后重试。');
     } finally {
         if (window._wechatActiveCall?.id === call.id && !call.ended) {
             call.busy = false;
             input.disabled = false;
             setWechatCallTyping(false);
-            setWechatCallStatus('通话中');
+            setWechatCallStatus(call.videoProvider === 'vivix' ? (call.vivix?.failed ? 'AI 视频连接失败' : 'AI 实时视频通话中') : '通话中');
             input.focus();
+            if (call.videoProvider === 'vivix') void window.ByndVivix.consumeTranscript(call);
         }
     }
 }
@@ -1453,13 +1493,15 @@ function appendWechatUserEndedCallEvent(char, call, reason = '') {
 function endWechatCall(status = '已结束', reason = '') {
     const call = window._wechatActiveCall;
     if (!call || call.ended) return;
+    window.ByndWechatCallRingtone?.stop(call);
     const char = window.myCharacters.find(c => c.id === call.charId);
     const userEndedConnectedCall = status === '已结束' && call.acceptedAt;
     call.ended = true;
+    void window.ByndVivix?.stop(call);
     window.ByndWechatCallAudio?.stop(call);
     call.requestController?.abort();
     clearInterval(call.timerId);
-    const recordReason = userEndedConnectedCall && !reason ? '用户挂断了电话' : reason;
+    const recordReason = userEndedConnectedCall && !reason ? `${getWechatCallUserDisplayName(char)}挂断了电话` : reason;
     addWechatCallRecord(call, call.acceptedAt ? status : '已取消', recordReason);
     if (userEndedConnectedCall && char) {
         appendWechatUserEndedCallEvent(char, call, reason);
@@ -1476,7 +1518,9 @@ function closeWechatCallScreen(callId) {
     const call = window._wechatActiveCall;
     if (call && callId && call.id !== callId) return;
     if (call) {
+        window.ByndWechatCallRingtone?.stop(call);
         call.ended = true;
+        void window.ByndVivix?.stop(call);
         window.ByndWechatCallAudio?.stop(call);
         call.requestController?.abort();
         clearInterval(call.timerId);

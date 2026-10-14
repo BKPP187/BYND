@@ -108,6 +108,8 @@ function compactWechatChatConfigForLocal(config = {}) {
         'backgroundImage',
         'generatedImages',
         'outingPhotos',
+        'aiPhoneSavedChatPhotos',
+        'aiPhoneDesktopAssets',
         'agentActivity',
         'agentTodos'
     ].forEach(key => delete compact[key]);
@@ -125,6 +127,7 @@ function serializeWechatCharacterForStorage(char) {
         avatarGallery: Array.isArray(char.avatarGallery) ? char.avatarGallery.filter(isWechatRealAvatarSource) : [],
         coverImage: char.coverImage || '',
         builtinId: char.builtinId || '',
+        builtinDebutSeen: !!char.builtinDebutSeen,
         lastMsg: char.lastMsg,
         worldBook: char.worldBook || [],
         regex: char.regex || [],
@@ -167,6 +170,7 @@ function compactWechatCharacterForLocal(char, updatedAt) {
         _smallAvatar: char._smallAvatar || '',
         avatarGallery: avatar ? [avatar] : [],
         builtinId: char.builtinId || '',
+        builtinDebutSeen: !!char.builtinDebutSeen,
         lastMsg: char.lastMsg || '',
         isGroupNpc: !!char.isGroupNpc,
         groupNpc: !!char.groupNpc,

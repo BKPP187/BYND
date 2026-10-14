@@ -112,6 +112,16 @@
                 indices[i * 4] = index(a); indices[i * 4 + 1] = index(b); weights[i * 4] = 1 - blend; weights[i * 4 + 1] = blend;
             }
             geometry.setAttribute('skinIndex', new T.Uint16BufferAttribute(indices, 4)); geometry.setAttribute('skinWeight', new T.Float32BufferAttribute(weights, 4));
+            // Generated outfits are baked into these meshes. Keep the reviewed
+            // head/hair and hands while a modest robe replaces the outfit in water.
+            const bathKeep = new Float32Array(vertices.count);
+            for (let i=0;i<vertices.count;i++) {
+                const y=vertices.getY(i)/height,x=Math.abs(vertices.getX(i)/height);
+                let headWeight=0,handWeight=0;
+                for(let k=0;k<4;k++){const joint=bones[indices[i*4+k]],weight=weights[i*4+k];if(joint===head)headWeight+=weight;if(/Hand/.test(joint?.name||''))handWeight+=weight;}
+                bathKeep[i]=y>(female?.705:.785)||headWeight>.65||handWeight>.65||(!female&&x>.17&&y>.29&&y<.44)?1:0;
+            }
+            geometry.setAttribute('homeBathKeep',new T.Float32BufferAttribute(bathKeep,1));
             // The generated mesh includes boots in one primitive. Partition their
             // triangles once, preserving UVs; never flatten or recolor the body.
             const bodyIndices = [], bootIndices = [], triangles = geometry.index.array, boundary = new Uint8Array(vertices.count);
@@ -225,7 +235,7 @@
         const phone = prop([.085, .15, .018], '#a9b4be', [.17, height * .6, .20]);
         const cup = prop([.085, .10, .085], '#ddd2c2', [.17, height * .6, .25]);
         const restPositions = bones.map(b => b.position.clone());
-        return { modelRoot, body, head, arms, legs, knees, hips, skeleton, meshes, book, phone, cup, cookTool: null, cookCycle: null, boots, socks, bootPile, contact, restPositions, grips, expressions, ankleSeams, modelHeight: height, navigationRadius: female ? .52 : .38, rigSource: nativeSkeleton ? 'tripo-mixamo' : 'local-starter' };
+        return { modelRoot, body, head, arms, legs, knees, hips, skeleton, meshes, book, phone, cup, cookTool: null, cookCycle: null, eatTool: null, diningCycle: null, boots, socks, bootPile, contact, restPositions, grips, expressions, ankleSeams, modelHeight: height, navigationRadius: female ? .52 : .38, rigSource: nativeSkeleton ? 'tripo-mixamo' : 'local-starter' };
     }
     function fitBarefoot(model, mesh, side, female) {
         const T = ByndHomeEngine, geometry = mesh.geometry, positions = geometry.attributes.position;
@@ -300,7 +310,7 @@
         } catch (error) { H.Shapes.disposeGeometry(model.modelRoot); throw error; }
     }
     function attach(actor, model, level) {
-        const previous = actor.modelRoot || actor.body; actor.root.add(model.modelRoot); Object.assign(actor, model, { level });
+        const previous = actor.modelRoot || actor.body; actor.root.add(model.modelRoot); Object.assign(actor, model, { level, gazeEye: null });
         H.Shapes.disposeGeometry(previous); pose(actor, actor.action, actor.anchor); actor.needsAssetQuality = true;
     }
     async function create(who, profile, id = who === 'user' ? 'bunny-blue-v1' : 'silver-red-v1') {
@@ -311,15 +321,16 @@
     }
     function pose(actor, action, anchor) {
         const config = configuration(actor), height = config.height;
-        actor.sleepPair = null; actor.action = action; actor.anchor = anchor || null; actor.startedAt = performance.now();
+        actor.sleepPair = null; actor.mealPair = null; actor.action = action; actor.anchor = anchor || null; actor.startedAt = performance.now();
         actor.expressions?.forEach(expression => { expression.value = action === 'Sleep' ? 1 : 0; });
+        H.Expressions?.meal(actor);
         actor.body.rotation.set(0, 0, 0); actor.body.position.set(0, 0, 0); actor.body.scale.set(1, 1, 1);
         actor.skeleton.bones.forEach((b, i) => b.position.copy(actor.restPositions[i]));
         actor.skeleton.bones.forEach(b => b.rotation.set(0, 0, 0));
-        actor.book.visible = action === 'Read'; actor.phone.visible = action === 'Use Phone'; actor.cup.visible = ['Drink', 'Eat'].includes(action);
-        const shoesOff = !!anchor?.lying;
+        actor.book.visible = action === 'Read'; actor.phone.visible = action === 'Use Phone'; actor.cup.visible = action === 'Drink';
+        const bathing = ['Bathe','Shower'].includes(action), shoesOff = !!anchor?.lying || bathing;
         actor.meshes.forEach(m => { m.morphTargetInfluences[0] = shoesOff ? 1 : 0; m.morphTargetInfluences[1] = shoesOff ? 1 : 0; });
-        actor.boots.forEach(mesh => { mesh.visible = !shoesOff; }); actor.socks.forEach(group => { group.visible = shoesOff; }); actor.bootPile.visible = shoesOff;
+        actor.boots.forEach(mesh => { mesh.visible = !shoesOff; }); actor.socks.forEach(group => { group.visible = shoesOff && !bathing; }); actor.bootPile.visible = shoesOff && !bathing;
         if (anchor) {
             actor.root.position.set(anchor.x, anchor.y, anchor.z); actor.root.rotation.y = anchor.rotation || 0;
             if (anchor.lying) {
@@ -347,21 +358,31 @@
                 // Shorter characters need a sloped thigh to reach the floor;
                 // forcing every seat into a 90-degree knee leaves boots hovering.
                 const thigh = height * (config.hips - config.knee), shin = height * config.knee;
-                const drop = anchor.y - shin - .012, angle = Math.acos(Math.max(0, Math.min(1, drop / thigh)));
-                // Keep the descending thigh beyond the cushion edge, with the
-                // back of the pelvis still supported. Knee position alone would
-                // leave the upper leg hidden inside the seat volume.
-                actor.body.position.set(0, -height * config.hips, Math.max(0, (anchor.seatFront || 0) + (actor.modelId === 'bunny-blue-v1' ? .10 : .04)));
+                // A hip joint is inside the body, above the underside that
+                // touches upholstery. Aligning that joint to the seat itself
+                // buries the trousers and thighs inside the cushion.
+                const hipLift = anchor.furnitureType === 'sofa' ? (actor.modelId === 'bunny-blue-v1' ? .09 : .11) : 0;
+                const drop = anchor.y + hipLift - (anchor.floorY || 0) - shin - .012, angle = Math.acos(Math.max(0, Math.min(1, drop / thigh)));
+                // Chair anchors already describe the pelvis on the cushion.
+                // Normalize the native rig's off-centre hips too; the female
+                // model's bounding-box pivot is ahead of her anatomical hips.
+                const chair = anchor.seatId || ['chair', 'sofa'].includes(anchor.furnitureType);
+                actor.body.position.set(0, -height * config.hips + hipLift, chair ? 0 : Math.max(0, (anchor.seatFront || 0) + (actor.modelId === 'bunny-blue-v1' ? .10 : .04)));
+                if (chair) {
+                    actor.root.updateMatrixWorld(true);
+                    const pelvis = actor.body.worldToLocal(actor.hips.getWorldPosition(new ByndHomeEngine.Vector3()));
+                    actor.body.position.x = -pelvis.x; actor.body.position.z = -pelvis.z;
+                }
                 actor.legs.forEach(b => { b.rotation.x = -angle; }); actor.knees.forEach(b => { b.rotation.x = angle; });
             }
         }
         if (['Read', 'Use Phone', 'Work', 'Use Computer', 'Game', 'Drink', 'Eat'].includes(action)) actor.arms.forEach(b => { b.rotation.x = -.65; });
-        if (action === 'Read') actor.arms.forEach((b, i) => { const female = actor.modelId === 'bunny-blue-v1'; b.rotation.x = female ? -.6 : -.32; b.rotation.z = (i ? -1 : 1) * (female ? .9 : .50); b.children[0].rotation.x = female ? -1.4 : -1.55; });
+        if (action === 'Read') actor.arms.forEach((b, i) => { const female = actor.modelId === 'bunny-blue-v1'; b.rotation.x = female ? -.6 : -1.15; b.rotation.z = (i ? -1 : 1) * (female ? .9 : .50); b.children[0].rotation.x = female ? -1.4 : -.9; });
         if (action === 'Cook') actor.arms.forEach((b, i) => { b.rotation.x = -.55; b.rotation.z = i ? -.12 : .12; b.children[0].rotation.x = -.65; });
         if (action === 'Hug') actor.arms.forEach((b, i) => { b.rotation.x = -.9; b.rotation.z = i ? .35 : -.35; });
         if (['Wave', 'Happy'].includes(action)) actor.arms[1].rotation.z = -1.8;
         if (anchor?.lying) settleFeet(actor, (anchor.quiltSurface ?? anchor.restSurface ?? anchor.y) + .006);
-        actor.root.updateMatrixWorld(true); actor.skeleton.update(); H.Cooking?.prepare(actor); updateProps(actor);
+        actor.root.updateMatrixWorld(true); actor.skeleton.update(); H.Cooking?.prepare(actor); H.Dining?.prepare(actor); H.Hygiene?.prepare(actor); updateProps(actor);
     }
     function settleFeet(actor, surface) {
         // Solve each measured leg against actual sock vertices. The hair and
@@ -385,7 +406,7 @@
     }
     function updateProps(actor) {
         const height = configuration(actor).height;
-        if (!actor.book.visible) return;
+        if (!actor.book.visible) { updateGaze(actor); return; }
         actor.root.updateMatrixWorld(true);
         const T = ByndHomeEngine, hands = actor.grips.map((samples, i) => {
             if (!samples.length) return actor.arms[i].children[0].localToWorld(new T.Vector3(0, -height * .17, .025));
@@ -395,10 +416,39 @@
         });
         const grip = actor.body.worldToLocal(hands[0].add(hands[1]).multiplyScalar(.5));
         actor.book.position.copy(grip); actor.book.position.y -= .012;
+        updateGaze(actor);
+    }
+    function updateGaze(actor) {
+        const reading = actor.action === 'Read' && actor.book.visible, watching = actor.action === 'Watch' && actor.anchor?.watchingTV;
+        if (!reading && !watching) { actor.gaze = null; return; }
+        const T = ByndHomeEngine, height = configuration(actor).height;
+        // The reviewed meshes have painted eyes. Aim the head from the eye
+        // location, rather than the neck pivot; leave the seated pelvis fixed.
+        if (!actor.gazeEye) {
+            const saved = actor.head.quaternion.clone(); actor.head.rotation.set(0, 0, 0); actor.root.updateMatrixWorld(true);
+            actor.gazeEye = actor.head.worldToLocal(actor.body.localToWorld(new T.Vector3().fromArray(H.Expressions.eyeRest(actor.modelId || 'silver-red-v1', height))));
+            actor.head.quaternion.copy(saved);
+        }
+        actor.root.updateMatrixWorld(true);
+        const target = reading ? actor.book.localToWorld(new T.Vector3(0, .012, 0)) : new T.Vector3().fromArray(actor.anchor.gazeTarget);
+        const direction = actor.head.parent.worldToLocal(target.clone()).sub(actor.head.position), e = actor.gazeEye;
+        // Solve from the eye offset analytically. Repeatedly turning toward a
+        // moving eye point oscillates when the book is close to the face.
+        const eyeRay = new T.Vector3(e.x, e.y, Math.sqrt(Math.max(.0001, direction.lengthSq() - e.x * e.x - e.y * e.y))).normalize();
+        const rotation = new T.Euler().setFromQuaternion(new T.Quaternion().setFromUnitVectors(eyeRay, direction.normalize()), 'YXZ');
+        actor.head.rotation.set(Math.max(-.5, Math.min(reading ? 1.25 : .6, rotation.x)), Math.max(-1.25, Math.min(1.25, rotation.y)), rotation.z, 'YXZ');
+        actor.root.updateMatrixWorld(true); const eye = actor.head.localToWorld(actor.gazeEye.clone());
+        const forward = new T.Vector3(0, 0, 1).transformDirection(actor.head.matrixWorld);
+        actor.gaze = { kind: reading ? 'book' : 'television', target: target.toArray(), eye: eye.toArray(), alignment: forward.dot(target.clone().sub(eye).normalize()) };
     }
     function update(actor, camera, viewport, profile, onNotice) {
         if (!actor.root.visible || actor.loading || actor.released) return;
-        const pixels = configuration(actor).height * viewport / (camera.top - camera.bottom) * profile.renderScale;
+        let span = camera.top - camera.bottom;
+        if(camera.isPerspectiveCamera){
+            const T=ByndHomeEngine,eye=actor.head.getWorldPosition(new T.Vector3()),depth=Math.max(camera.near,eye.sub(camera.position).dot(camera.getWorldDirection(new T.Vector3())));
+            span=2*depth*Math.tan(camera.fov*Math.PI/360)/camera.zoom;
+        }
+        const pixels = configuration(actor).height * viewport / span * profile.renderScale;
         const level = pixels > (actor.level === 'near' ? 300 : 370) && profile.tier !== 'smooth' ? 'near' : pixels > (actor.level === 'middle' ? 150 : 180) ? 'middle' : 'far';
         if (level === actor.level || level === actor.failureLevel) return;
         actor.loading = true;
@@ -410,7 +460,7 @@
     function geometry(actor) {
         actor.root.updateMatrixWorld(true);
         const point = bone => { const p = bone.getWorldPosition(new ByndHomeEngine.Vector3()); return { x: p.x, y: p.y, z: p.z }; };
-        return { sleepPair: actor.sleepPair ? { ...actor.sleepPair, hand: actor.sleepPair.arm == null ? null : H.SleepPair.hand(actor, actor.sleepPair.arm).toArray() } : null, kind: actor.anchor?.lying ? 'lying' : actor.anchor?.seated ? 'seated' : 'standing', visual: 'model3d', modelId: actor.modelId || 'silver-red-v1', rigSource: actor.rigSource, skinned: true, bones: actor.skeleton.bones.length, level: actor.level, head: point(actor.head), feet: point(actor.knees[0].children[0]), depthTest: true, eyesClosed: actor.action === 'Sleep' && !!actor.expressions?.length && actor.expressions.every(e => e.value === 1), footAsset: actor.footAsset || 'procedural', navigationRadius: actor.navigationRadius, shoesOff: !actor.boots[0]?.visible, bodyScale: { x: actor.body.scale.x, y: actor.body.scale.y, z: actor.body.scale.z }, contact: { ...actor.contact } };
+        return { gaze: actor.gaze || null, sleepPair: actor.sleepPair ? { ...actor.sleepPair, hand: actor.sleepPair.arm == null ? null : H.SleepPair.hand(actor, actor.sleepPair.arm).toArray() } : null, kind: actor.anchor?.lying ? 'lying' : actor.anchor?.seated ? 'seated' : 'standing', visual: 'model3d', modelId: actor.modelId || 'silver-red-v1', rigSource: actor.rigSource, skinned: true, bones: actor.skeleton.bones.length, level: actor.level, head: point(actor.head), feet: point(actor.knees[0].children[0]), depthTest: true, eyesClosed: actor.action === 'Sleep' && !!actor.expressions?.length && actor.expressions.every(e => e.value === 1), footAsset: actor.footAsset || 'procedural', navigationRadius: actor.navigationRadius, shoesOff: !actor.boots[0]?.visible, bodyScale: { x: actor.body.scale.x, y: actor.body.scale.y, z: actor.body.scale.z }, contact: { ...actor.contact } };
     }
     H.CharacterModels = { settleFeet, selected, modelId, create, pose, update, updateProps, geometry, rig, registerBuffer: (level, bytes, id = 'silver-red-v1') => receivers.get(id + ':' + level)?.(bytes) };
 })(window.ByndHome3D);

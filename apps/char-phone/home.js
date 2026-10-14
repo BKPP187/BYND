@@ -28,9 +28,9 @@ function getWechatAiPhoneAllApps() {
 function getWechatAiPhoneApps(char = null, snapshot = null) {
     const apps = getWechatAiPhoneAllApps();
     const installed = snapshot?.installedApps;
-    if (Array.isArray(installed)) return apps.filter(app => installed.includes(app.key) || ['chat','settings'].includes(app.key)).map(app => ({...app,label:snapshot.appData?.[app.key]?.name || app.label}));
-    // An app catalog is not an installation list. Until the model chooses,
-    // show a small provisional desktop without assigning a lifestyle.
+    if (Array.isArray(installed)) return apps.filter(app => installed.includes(app.key) || ['chat','settings'].includes(app.key) || (app.key==='album' && char?.chatConfig?.aiPhoneSavedChatPhotos?.length)).map(app => ({...app,label:snapshot.appData?.[app.key]?.name || app.label}));
+    // Keep the app catalog internal. Show icons only after the character chooses
+    // its installed apps, or when an older phone already has generated content.
     if (!snapshot?.appSelectionMissing && ['api','error'].includes(snapshot?.generatedBy)) {
         const fields = {memo:'memos',schedule:'scheduleRecords',shopping:'shoppingRecords',takeout:'takeoutRecords',games:'gameRecords',browser:'browser',wallet:'walletRecords',diary:'diaryLetters',footprints:'footprints',usage:'usageRecords'};
         const saved = apps.filter(app => {
@@ -43,7 +43,7 @@ function getWechatAiPhoneApps(char = null, snapshot = null) {
         // Keep legacy saved content accessible; do not invent empty apps.
         if (saved.length>2) return saved.map(app=>({...app,label:snapshot.appData?.[app.key]?.name||app.label}));
     }
-    return apps.filter(app=>['chat','memo','schedule','browser','clock','settings'].includes(app.key)).map(app=>({...app,pending:!['chat','clock','settings'].includes(app.key)}));
+    return [];
 }
 
 function getWechatAiPhoneAppMeta(tabName, char = null, snapshot = null) {
@@ -53,8 +53,8 @@ function getWechatAiPhoneAppMeta(tabName, char = null, snapshot = null) {
 }
 
 function renderWechatAiPhoneAppIcon(app, char) {
-    const source = getWechatAiPhoneHomeSettings(char).icons[app.key];
-    return `<span class="wc-ai-phone-icon-image"><i class="${app.icon}"></i>${source ? `<img src="${wcEscapeAttr(source)}" alt="" onerror="this.remove()">` : ''}</span>`;
+    const source = getWechatAiPhoneDesktopSettings(char).icons[app.key];
+    return `<span class="wc-ai-phone-icon-image">${typeof renderCharPhoneGlyph==='function' ? renderCharPhoneGlyph(app.key) : `<i class="${app.icon}"></i>`}${source ? `<img src="${wcEscapeAttr(source)}" alt="" onerror="this.remove()">` : ''}</span>`;
 }
 
 function renderWechatAiPhoneAppButton(app, char) {
@@ -93,6 +93,21 @@ function getWechatAiPhoneHomeAvatar(char) {
     return /^(?:data:image\/|blob:|https?:\/\/|\/|\.\.?\/)/i.test(String(avatar || '').trim())
         ? avatar
         : DEFAULT_AVATAR;
+}
+
+// Model choices stay separate so manual edits never accidentally pin generated assets.
+function getWechatAiPhoneDesktopSettings(char) {
+    const settings = getWechatAiPhoneHomeSettings(char);
+    const design = typeof getCharPhoneDesktopDesign === 'function' ? getCharPhoneDesktopDesign(char) : {};
+    const assets = char?.chatConfig?.aiPhoneDesktopAssets || {};
+    const photo = id => typeof getCharPhoneDesktopPhoto === 'function' ? getCharPhoneDesktopPhoto(char, id) : '';
+    return {
+        ...settings,
+        wallpaper: settings.wallpaper || photo(design.wallpaperPhotoId) || (assets.prompts?.wallpaper===design.wallpaperPrompt && typeof charPhoneDesktopImage==='function' ? charPhoneDesktopImage(assets.wallpaper) : ''),
+        lockWallpaper: photo(design.lockPhotoId) || (assets.prompts?.lockWallpaper===design.lockWallpaperPrompt && typeof charPhoneDesktopImage==='function' ? charPhoneDesktopImage(assets.lockWallpaper) : '') || settings.wallpaper,
+        photos: settings.photos.map((source,index) => source || photo(design.photoIds?.[index])),
+        icons: {...Object.fromEntries(Object.entries(assets.icons || {}).filter(([key,url])=>assets.prompts?.['icon:'+key]===design.iconPrompts?.[key] && typeof charPhoneDesktopImage==='function' && charPhoneDesktopImage(url))),...settings.icons}
+    };
 }
 
 function renderWechatAiPhonePhotoSlot(source, className, label, editIndex = null) {

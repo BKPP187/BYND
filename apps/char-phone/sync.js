@@ -109,6 +109,7 @@ function normalizeWechatAiPhoneSnapshot(raw, char) {
         updatedAt: Date.now(),
         schemaVersion: WECHAT_AI_PHONE_SCHEMA_VERSION,
         generatedBy: raw ? 'api' : 'local',
+        ...(typeof normalizeCharPhoneHomeDesign === 'function' ? {homeDesign:normalizeCharPhoneHomeDesign(data.homeDesign,char)} : {}),
         userRemark: userDisplayName,
         chats,
         memos: normalizeWechatAiPhoneMemoList(pickWechatAiPhoneField(data, ['memos', 'memo', 'notes', 'reminders', '备忘录', '便签']), fallback.memos),
@@ -411,7 +412,7 @@ async function requestWechatAiPhoneSnapshot(charOrId, options = {}) {
                 {
                     role: 'system',
                     content: `你是「${char.name}」本人手机的数据生成器。读角色卡/世界书/记忆后，按这个角色真实生活合理生成 iPhone 数据。只返回一个可 JSON.parse 的压缩 JSON 对象；不要 Markdown、不要解释、不要换行排版、不要省略号。
-基础字段：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary${preserveDiary ? '' : ',diaryLetters'}。所有业务内容都必须由你依据当前角色资料生成；前端不会用固定角色模板补齐任何缺项。
+基础字段：userRemark,chats,memos,browser,wallet,walletRecords,footprints,usageRecords,scheduleRecords,shoppingRecords,takeoutRecords,gameRecords,diary${preserveDiary ? '' : ',diaryLetters'}。所有业务内容都必须由你依据当前角色资料生成；前端不会用固定角色模板补齐任何缺项。${typeof charPhoneHomeDesignPrompt==='function' ? charPhoneHomeDesignPrompt(char) : ''}
 只有 installedApps 选中 wallet 时，wallet 才需要写含具体余额/可用额度数字的字符串，不要返回对象；格式示例："零钱 ¥328.60 · 工资卡可用额度 ¥12000 · 日常消费正常"。未选中 wallet 时返回空字符串。
 数组格式：chats[{name,text,time}]；memos[{title,content,meta}]；browser/walletRecords/footprints/usageRecords/shoppingRecords/takeoutRecords/gameRecords[{title,detail,meta}]；scheduleRecords[{time,title,meta}]${preserveDiary ? '' : '；diaryLetters[{title,subtitle,meta,salutation,greeting,body,closing,wish,signature,date}]'}。walletRecords.meta 必须写具体金额，例如 "-25.00"、"+8000.00" 或 "¥128.50"。
 数量：只生成 installedApps 中已选应用的数据，除 gameRecords 外，已选应用每个数组 2-3 条，未选应用的数组返回 []、字符串返回空字符串。chats 只写 char 手机里除 user 以外的其他联系人/NPC，禁止包含 user/用户/用户备注，也禁止替 user 生成聊天内容；系统会用真实聊天历史自动插入 user 那一条。chats.name 必须是明确联系人身份或姓名，禁止写“联系人/好友/朋友/NPC/工作联系人”；chats.text 禁止写“最近一条未读消息/有一条新消息/聊天/消息”等占位文案。${preserveDiary ? '' : '选中 diary 时 diaryLetters 2 条。'}memos.content 30-90 字；diary 30-90 字；${preserveDiary ? '' : '选中 diary 时 diaryLetters.body 必须分为 2-4 段、总长 120-260 字；'}其他字符串 8-38 字。
@@ -537,9 +538,15 @@ ${preserveDiary ? '日记信件已经保存，由系统原样保留。本次只�
         const keepsTurn = options.diaryOnly || options.patchOnly;
         if (!keepsTurn) snapshot.syncTurnKey = syncTurn?.key || '';
         char.chatConfig.aiPhoneSnapshot = snapshot;
+        const previousDesignPhotos = char.chatConfig.aiPhoneSavedChatPhotos;
+        if (snapshot.generatedBy === 'api' && snapshot.homeDesign && typeof collectCharPhoneDesignPhotos === 'function') {
+            char.chatConfig.aiPhoneSavedChatPhotos = collectCharPhoneDesignPhotos(char,snapshot.homeDesign);
+        }
         try {
             if (await saveCharactersToStorage() === false) throw new Error('小手机内容未能保存，请检查存储后手动重试。');
         } catch (error) {
+            if (previousDesignPhotos===undefined) delete char.chatConfig.aiPhoneSavedChatPhotos;
+            else char.chatConfig.aiPhoneSavedChatPhotos = previousDesignPhotos;
             snapshot = buildFailureSnapshot(error.message || '小手机内容保存失败');
             if (!keepsTurn) snapshot.syncTurnKey = syncTurn?.key || '';
             char.chatConfig.aiPhoneSnapshot = snapshot;
@@ -579,6 +586,7 @@ function openWechatAiPhone(charId) {
     window._wechatAiPhoneChatIndex = 0;
     window._wechatAiPhoneMemoIndex = -1;
     window._wechatAiPhoneBrowserIndex = -1;
+    window._charPhoneHomePage = 0;
     let modal = document.getElementById('wc-ai-phone-overlay');
     if (!modal) {
         modal = document.createElement('div');
@@ -588,6 +596,7 @@ function openWechatAiPhone(charId) {
         getWechatModalRoot().appendChild(modal);
     }
     renderWechatAiPhone(char);
+    if (typeof startCharPhoneDesktopClock==='function') startCharPhoneDesktopClock(char);
     if (shouldAutoSyncWechatAiPhone(char)) {
         requestWechatAiPhoneSnapshot(char).catch(e => console.warn('ai phone open failed:', e));
     } else {

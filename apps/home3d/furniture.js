@@ -13,7 +13,10 @@
     // are the top of the cushion, never an arbitrary character-root subtraction.
     function support(item) {
         if (item.type === 'bed') { const h = item.seatHeight ?? .65, cozy = H.FurnitureVisuals?.handles(item); return { mattressSurface: h + (cozy ? .365 : .395), baseHeight: h, seatHeight: h + .35, sleepHeight: h + .24, restSurface: h + (cozy ? .365 : .395), quiltSurface: h + (cozy ? .352 : .375), pillowSurface: h + (cozy ? .36 : .40) }; }
-        if (['sofa', 'chair'].includes(item.type)) return { seatHeight: .62, seatDepth: .20, seatFront: item.footprint[1] / 2 + .025, restSurface:.62, quiltSurface:.62, pillowSurface:.66 };
+        if (['sofa', 'chair'].includes(item.type)) {
+            const h = item.seatHeight ?? .5;
+            return { seatHeight: h, seatDepth: item.type === 'sofa' ? .28 : .20, seatFront: item.footprint[1] / 2 + .025, restSurface: h, quiltSurface: h, pillowSurface: h + .04 };
+        }
         if(item.type==='desk'||item.variant==='dining')return {seatHeight:.62,seatDepth:.20,seatFront:.335};
         return { seatHeight: item.positions?.[0]?.[1] || .45, seatDepth: item.positions?.[0]?.[2] || .08, seatFront: item.footprint[1] / 2 + .02 };
     }
@@ -126,5 +129,5 @@
         const imagePlane = new T.Mesh(new T.PlaneGeometry(0.59, 0.49), material); imagePlane.position.set(0, 0.31, 0.074);
         imagePlane.userData.ownedTexture = texture; imagePlane.userData.ownedMaterial = material; root.add(imagePlane);
     }
-    H.Furniture = { get, support, load, readBuffer, setPhoto, registerBuffer, cacheInfo: () => ({ models: byteCache.size, bytes: cachedBytes }) };
+    H.Furniture = { get, support, load, modelBuffer: buffer, readBuffer, setPhoto, registerBuffer, cacheInfo: () => ({ models: byteCache.size, bytes: cachedBytes }) };
 })(window.ByndHome3D);

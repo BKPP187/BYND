@@ -149,6 +149,68 @@ test('adding a built-in character produces a normal roster entry with an inline 
     assert.equal(h.characters.length, 1);
 });
 
+test('the first successful Shanghuan pick plays his debut before navigating, but re-adds and existing chats do not', async () => {
+    const h = harness();
+    const order = [];
+    let finish;
+    h.context.openChat = id => order.push(['chat', id]);
+    h.context.window.ByndCharacterDebut = { play: char => { order.push(['debut', char.id]); return new Promise(resolve => { finish = resolve; }); } };
+    h.L.open();
+    const picking = h.L.pick('shanghuan');
+    for (let i = 0; i < 8 && !finish; i++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(order.length, 1);
+    assert.equal(order[0][0], 'debut');
+    assert.equal(h.characters[0].builtinDebutSeen, true);
+    assert.equal(h.storage.getItem('bynd_character_debut_shanghuan_v1'), '1');
+    assert.equal(h.nodes.has('bynd-builtin-library'), false);
+    finish();
+    await picking;
+    assert.deepEqual(order.map(item => item[0]), ['debut', 'chat']);
+    await h.L.pick('shanghuan');
+    assert.equal(order.length, 2);
+    h.characters.splice(0);
+    await h.L.pick('shanghuan');
+    assert.equal(order.length, 2, 'deleting and re-adding must not replay the first introduction');
+    const old = harness({ characters: [{ id: 'old', builtinId: 'shanghuan', name: '商桓' }] });
+    old.context.openChat = () => assert.fail('an existing card must not be redirected');
+    old.context.window.ByndCharacterDebut = { play: () => assert.fail('an existing card must not debut') };
+    await old.L.pick('shanghuan');
+});
+
+test('a failed or thrown save does not play or consume the debut; retry remains eligible', async () => {
+    for (const throws of [false, true]) {
+        const h = harness({ saveResult: false });
+        const order = [];
+        h.context.openChat = () => order.push('chat');
+        h.context.window.ByndCharacterDebut = { play: async () => order.push('debut') };
+        if (throws) h.context.saveCharactersToStorage = async () => { throw new Error('storage failure'); };
+        h.L.open();
+        await h.L.pick('shanghuan');
+        assert.equal(h.characters.length, 0);
+        assert.equal(h.storage.getItem('bynd_character_debut_shanghuan_v1'), null);
+        assert.deepEqual(order, []);
+        assert.match(h.nodes.get('bynd-builtin-library').innerHTML, /没有保存成功/);
+        h.context.saveCharactersToStorage = async () => true;
+        await h.L.pick('shanghuan');
+        assert.deepEqual(order, ['debut', 'chat']);
+    }
+});
+
+test('bulk addition also plays Shanghuan once, and closing the app cancels chat navigation', async () => {
+    const h = harness();
+    const order = [];
+    h.context.openChat = id => order.push(['chat', id]);
+    h.context.window.ByndCharacterDebut = { play: async char => order.push(['debut', char.id]) };
+    await h.L.pickAll();
+    assert.equal(h.characters.length, 2);
+    assert.deepEqual(order.map(item => item[0]), ['debut', 'chat']);
+    assert.equal(order[0][1], h.characters[1].id);
+    const cancelled = harness();
+    cancelled.context.openChat = () => assert.fail('closing WeChat must not reopen the chat');
+    cancelled.context.window.ByndCharacterDebut = { play: async () => ({ cancelled: true }) };
+    await cancelled.L.pick('shanghuan');
+});
+
 test('a missing avatar file falls back to a monogram and a failed save removes the character again', async () => {
     const h = harness({ fetchOk: false, saveResult: false });
     await assert.rejects(h.L.add('wenjinbei'), /没有保存成功/);

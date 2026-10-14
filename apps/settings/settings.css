@@ -1,4 +1,19 @@
 /* --- Settings App Styles --- */
+.set-diagnostics { margin: 18px 0; padding: 16px; border: 1px solid #e3e3e3; border-radius: 14px; background: #fff; color: #292929; }
+.set-diagnostics h3 { margin: 0 0 12px; font-size: 15px; font-weight: 650; }
+.set-diagnostics button { width: 100%; min-height: 44px; padding: 11px 12px; border: 1px solid #d8d8d8; border-radius: 10px; background: #fff; color: #292929; font: inherit; font-size: 14px; cursor: pointer; }
+.set-diagnostics .set-diagnostics-export { display: flex; align-items: center; gap: 8px; background: #292929; color: #fff; border-color: #292929; }
+.set-diagnostics-export > i:last-child { margin-left: auto; }
+.set-diagnostics p { margin: 10px 0; font-size: 13px; line-height: 1.65; color: #666; overflow-wrap: anywhere; }
+.set-diagnostics details { border-top: 1px solid #ececec; padding-top: 12px; margin-top: 12px; }
+.set-diagnostics summary { min-height: 24px; font-size: 14px; cursor: pointer; }
+.set-diagnostics label { display: block; margin: 12px 0 6px; font-size: 14px; }
+.set-diagnostics select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; margin-bottom: 10px; padding: 8px; border: 1px solid #d8d8d8; border-radius: 8px; background: #fff; color: #292929; font-size: 16px; }
+.set-diagnostics pre { max-height: 260px; margin: 12px 0 0; padding: 10px; border-radius: 8px; overflow: auto; background: #f6f6f6; color: #444; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+#bynd-diagnostics-status:empty { display: none; }
+#bynd-diagnostics-status[data-error="true"] { color: #a33c38; }
+.set-diagnostics button:focus-visible, .set-diagnostics summary:focus-visible { outline: 2px solid #666; outline-offset: 3px; }
+.set-diagnostics button:disabled { opacity: .55; cursor: wait; }
 /* The mobile parent owns the inset on iOS; fullscreen parents pass it to the header. */
 html.mobile-runtime #app-settings-window > .window-header { box-sizing: border-box; height: calc(52px + var(--bynd-header-safe-top, 0px)) !important; padding-top: var(--bynd-header-safe-top, 0px) !important; }
 html.mobile-runtime #app-settings-window > .window-header .close-btn { min-height: 44px; display: flex; align-items: center; }

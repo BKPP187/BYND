@@ -63,11 +63,11 @@
           "id": "armchair",
           "furnitureId": "armchair_01",
           "position": [
-            2.05,
+            2.65,
             0,
-            0.7
+            -0.1
           ],
-          "rotation": -0.65
+          "rotation": 0
         },
         {
           "id": "tv-cabinet",
@@ -117,16 +117,6 @@
           ]
         },
         {
-          "id": "radio",
-          "furnitureId": "radio_01",
-          "position": [
-            -2.47,
-            0.62,
-            1.08
-          ],
-          "rotation": 1.5708
-        },
-        {
           "id": "frame",
           "furnitureId": "frame_01",
           "position": [
@@ -142,7 +132,8 @@
             -2.47,
             0.62,
             -0.42
-          ]
+          ],
+          "rotation": 1.5708
         }
       ]
     },
@@ -542,9 +533,9 @@
           "id": "chair-front-left",
           "furnitureId": "cream_chair",
           "position": [
-            -0.48600000000000004,
+            -0.37,
             0,
-            0.9500000000000001
+            0.78
           ],
           "rotation": 3.141592653589793
         },
@@ -552,9 +543,9 @@
           "id": "chair-front-right",
           "furnitureId": "cream_chair",
           "position": [
-            0.48600000000000004,
+            0.37,
             0,
-            0.9500000000000001
+            0.78
           ],
           "rotation": 3.141592653589793
         },
@@ -562,9 +553,9 @@
           "id": "chair-back-left",
           "furnitureId": "cream_chair",
           "position": [
-            -0.48600000000000004,
+            -0.37,
             0,
-            -1.25
+            -1.08
           ],
           "rotation": 0
         },
@@ -572,9 +563,9 @@
           "id": "chair-back-right",
           "furnitureId": "cream_chair",
           "position": [
-            0.48600000000000004,
+            0.37,
             0,
-            -1.25
+            -1.08
           ],
           "rotation": 0
         },
@@ -636,9 +627,9 @@
           "id": "tub",
           "furnitureId": "cream_tub",
           "position": [
+            -1.65,
             0,
-            0,
-            -1.4
+            -1.2
           ],
           "rotation": 0
         },
@@ -646,9 +637,49 @@
           "id": "plant",
           "furnitureId": "cream_plant",
           "position": [
-            2,
+            0.65,
+            0,
+            0.8
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "shower",
+          "furnitureId": "cream_shower",
+          "position": [
+            2.3,
             0,
             -1.8
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "toilet",
+          "furnitureId": "cream_toilet",
+          "position": [
+            2.3,
+            0,
+            0.6
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "vanity",
+          "furnitureId": "cream_vanity",
+          "position": [
+            -0.2,
+            0,
+            -2.2
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "bath-mirror",
+          "furnitureId": "cream_mirror",
+          "position": [
+            -0.2,
+            1.28,
+            -2.68
           ],
           "rotation": 0
         }
@@ -662,7 +693,7 @@
       "expandable": true,
       "size": [
         6.6,
-        5.6
+        3.2
       ],
       "slots": {},
       "furniture": [
@@ -672,7 +703,7 @@
           "position": [
             -2,
             0,
-            -1.6
+            -0.8
           ],
           "rotation": 0
         },
@@ -682,7 +713,7 @@
           "position": [
             2,
             0,
-            -1.6
+            -0.8
           ],
           "rotation": 0
         },
@@ -692,7 +723,7 @@
           "position": [
             0,
             0,
-            -1.2
+            -0.55
           ],
           "rotation": 0
         }
@@ -795,6 +826,128 @@
             0.4,
             0,
             -1.6
+          ],
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "stair_hall",
+      "name": "楼梯厅",
+      "size": [
+        6.6,
+        5.6
+      ],
+      "icon": "ri-stairs-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "hallway",
+      "name": "一楼过道",
+      "size": [
+        1.4,
+        11.6
+      ],
+      "icon": "ri-stairs-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "landing",
+      "name": "二楼楼梯厅",
+      "size": [
+        6.6,
+        5.6
+      ],
+      "icon": "ri-stairs-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "upper_hallway",
+      "name": "二楼过道",
+      "size": [
+        1.4,
+        11.6
+      ],
+      "icon": "ri-stairs-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "garden",
+      "name": "花园",
+      "size": [
+        14.6,
+        7
+      ],
+      "icon": "ri-plant-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "greenhouse",
+      "name": "花房",
+      "size": [
+        6.6,
+        3.2
+      ],
+      "icon": "ri-plant-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": []
+    },
+    {
+      "id": "terrace",
+      "name": "花房露台",
+      "size": [
+        14.6,
+        3.2
+      ],
+      "icon": "ri-plant-line",
+      "open": false,
+      "expandable": true,
+      "slots": {},
+      "furniture": [
+        {
+          "id": "terrace-chair-left",
+          "furnitureId": "cream_chair",
+          "position": [
+            -1.1,
+            0,
+            0.15
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "terrace-chair-right",
+          "furnitureId": "cream_chair",
+          "position": [
+            1.1,
+            0,
+            0.15
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "terrace-table",
+          "furnitureId": "coffee_01",
+          "position": [
+            0,
+            0,
+            0.25
           ],
           "rotation": 0
         }

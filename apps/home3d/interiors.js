@@ -11,22 +11,34 @@
             (!config.wall || Object.hasOwn(data().walls, config.wall)) && (!config.floor || Object.hasOwn(data().floors, config.floor)) &&
             (!config.furniture || typeof config.furniture === 'object' && !Array.isArray(config.furniture) && Object.entries(config.furniture).every(([id, style]) => /^[\w-]{1,100}$/.test(id) && !['__proto__', 'constructor', 'prototype'].includes(id) && Object.hasOwn(H.catalogs.furnitureCatalog.styles, style)));
     }
+    function plan(room, home, changes, matchFurniture) {
+        const current = resolve(room, home), old = home.interiors?.[room.id] || {};
+        const next = { preset: current.id, ...old, ...changes };
+        if (!home.interiors?.[room.id] && !matchFurniture) next.furniture = Object.fromEntries(room.furniture.filter(p => !home.layouts?.[room.id]?.items?.[p.id]).map(p => [p.id, current.furnitureStyle]));
+        if (changes.preset) { delete next.wall; delete next.floor; }
+        if (matchFurniture && data().presets[next.preset]) next.furniture = Object.fromEntries(H.Rooms.placements(room, home).map(p => [p.id, data().presets[next.preset].furnitureStyle]));
+        if (!valid(next)) throw new Error('墙面或地板方案无效，没有保存。');
+        return next;
+    }
     function apply(roomId, changes, matchFurniture = false) {
         const room = H.Rooms.get(roomId);
         if (!room || !H.Rooms.available(room, H.State.home())) throw new Error('这个房间还没有开放。');
         return H.State.withHome(home => {
-            const current = resolve(room, home), old = home.interiors?.[roomId] || {};
-            const next = { preset: current.id, ...old, ...changes };
-            if (!home.interiors?.[roomId] && !matchFurniture) {
-                next.furniture = Object.fromEntries(room.furniture.filter(p => !home.layouts?.[roomId]?.items?.[p.id]).map(p => [p.id, current.furnitureStyle]));
-            }
-            if (changes.preset) { delete next.wall; delete next.floor; }
-            if (matchFurniture && data().presets[next.preset]) {
-                next.furniture = Object.fromEntries(H.Rooms.placements(room, home).map(p => [p.id, data().presets[next.preset].furnitureStyle]));
-            }
-            if (!valid(next)) throw new Error('墙面或地板方案无效，没有保存。');
+            const next = plan(room, home, changes, matchFurniture);
             home.interiors ||= {}; home.interiors[roomId] = next;
         });
+    }
+    function applyAll(changes, matchFurniture = true) {
+        // One transaction covers current and future rooms of this character's
+        // home. Layouts, removals, open rooms and other characters are untouched.
+        return H.State.withHome(home => {
+            const next = Object.fromEntries(H.catalogs.roomCatalog.rooms.map(room => [room.id, plan(room, home, changes, matchFurniture)]));
+            home.interiors = { ...home.interiors, ...next };
+        });
+    }
+    function uniform(home = H.State.home()) {
+        const ids = H.catalogs.roomCatalog.rooms.map(room => resolve(room, home).id);
+        return ids.every(id => id === ids[0]) ? ids[0] : null;
     }
     function furniture(item, placement, room, home) {
         const config = resolve(room, home);
@@ -50,7 +62,11 @@
             for (let i = 0; i < 4; i++) for (const side of [-1, 1]) leaf(side * 3, 5 - i * 15, side * .85, 23 - i * 2, color);
             c.restore();
         }
-        if (p === 'pastel_flower') {
+        if (p === 'grass') {
+            for(let i=0;i<3800;i++){const x=(i*127.41)%1024,y=(i*93.71)%1024;c.strokeStyle=i%3?ink:light;c.lineWidth=1.2;c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.sin(i)*3,y-3-i%5);c.stroke();}
+        } else if (p === 'roof_tiles') {
+            for(let row=0;row<16;row++)for(let col=-1;col<9;col++){const x=col*128+(row%2)*64,y=row*64;c.fillStyle=(row+col)%3?finish.base:ink;c.fillRect(x+2,y+2,124,60);c.strokeStyle=light;c.lineWidth=2;c.strokeRect(x+4,y+4,120,55);}
+        } else if (p === 'pastel_flower') {
             for (let x = 0; x < 1024; x += 256) {
                 c.fillStyle = ink; c.fillRect(x + 24, 0, 56, 1024); c.fillStyle = light; c.fillRect(x + 145, 0, 54, 1024);
                 for (let y = 52; y < 1024; y += 128) { sprig(x + 110, y, .6, ink); sprig(x + 227, y + 64, .55, light); }
@@ -143,7 +159,7 @@
         box([w + .27, .32, d + .27], [0, -.17, 0], materials.get('milky_plastic', config.wood), .06);
         box([w, .12, d], [0, -.008, 0], wood, .018);
         const floorMat = materials.surface(data().floors[config.floor], w, d, 'floor');
-        const floor = add(new T.PlaneGeometry(w - .03, d - .03), floorMat, [0, .056, 0]); floor.rotation.x = -Math.PI / 2; floor.castShadow = false; floor.userData.finish = config.floor;
+        const floor = add(new T.PlaneGeometry(w - .03, d - .03), floorMat, [0, .056, 0]); floor.rotation.x = -Math.PI / 2; floor.castShadow = false; floor.userData.finish = config.floor;floor.userData.floor=true;
         box([w + .13, 2.8, .13], [0, 1.4, -d / 2], trim); box([.13, 2.8, d], [-w / 2, 1.4, 0], trim);
         const back = add(new T.PlaneGeometry(w, 2.7), materials.surface(data().walls[config.wall], w, 2.7), [0, 1.4, -d / 2 + .071]); back.castShadow = false; back.userData.finish = config.wall;
         const left = add(new T.PlaneGeometry(d, 2.7), materials.surface(data().walls[config.wall], d, 2.7), [-w / 2 + .071, 1.4, 0]); left.rotation.y = Math.PI / 2; left.castShadow = false; left.userData.finish = config.wall;
@@ -254,5 +270,5 @@
         }
         root.userData.interior = { preset: config.id, wall: config.wall, floor: config.floor }; return root;
     }
-    H.Interiors = { resolve, valid, apply, furniture, paint, shell, data };
+    H.Interiors = { resolve, valid, apply, applyAll, uniform, furniture, paint, shell, data };
 })(window.ByndHome3D);

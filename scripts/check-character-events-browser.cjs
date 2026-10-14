@@ -35,13 +35,14 @@ fs.mkdirSync(output, { recursive: true });
             const events = [
                 { id: 'mail-1', type: 'letter', title: '终于寄出去的信', body: '展信好。\n\n窗边那盆植物长出了新叶。想等你来的时候再说，想了想，还是先写给你。\n\n等你有空，我们再慢慢聊。' },
                 { id: 'news-1', type: 'newspaper', title: '寻人启事：一位熟悉的读者', body: '本报今日留出一栏，寻找那位总在傍晚出现的读者。\n\n桌上的书还停在上次那一页。若你路过，随时可以继续读下去。' },
-                { id: 'bottle-1', type: 'bottle', title: '攒了一小瓶的话', body: '这些零零碎碎的小事，想等你有空时说给你听。', words: ['新长出的叶子', '今天的晚霞', '那首没听完的歌', '窗外下雨了', '想和你说晚安', '等你有空'] }
+                { id: 'bottle-1', type: 'bottle', title: '攒了一小瓶的话', body: '这些零零碎碎的小事，想等你有空时说给你听。', words: ['新长出的叶子', '今天的晚霞', '那首没听完的歌', '窗外下雨了', '想和你说晚安', '等你有空'] },
+                { id: 'doodle-1', type: 'doodle', title: '测试画作', body: '仅用于布局测试。', strokes:[{color:'#333333',points:[[20,20],[100,200],[230,70]]}] }
             ].map(e => ({ ...e, charId: 'events-browser', createdAt: now, unread: true }));
             ByndCharacterEvents.importEvents(JSON.stringify({ version: 1, events }));
             for (const e of events) await ByndCharacterEvents.retryDelivery(e.id);
             document.getElementById('event-arrival').hidden = true;
         });
-        assert.equal(await page.locator('.event-row').count(), 3);
+        assert.equal(await page.locator('.event-row').count(), 4);
         await page.evaluate(() => ByndEventInbox.showId('mail-1'));
         assert.equal(await page.evaluate(() => ByndCharacterEvents.eventById('mail-1').unread), true);
         await page.locator('.event-story-skip').click();
@@ -58,8 +59,8 @@ fs.mkdirSync(output, { recursive: true });
                 phone.style.setProperty('--bynd-header-safe-top', owner === 'header' ? safe + 'px' : '0px');
                 phone.style.height = owner === 'parent' ? `calc(100dvh - ${safe}px)` : '100dvh';
             }, { safe, owner });
-            for (const mode of ['inbox', 'letter', 'newspaper', 'bottle', 'doodle']) {
-                await page.evaluate(mode => { ByndEventInbox.closeViewer(); if (mode !== 'inbox') ByndEventInbox.showPreview(mode); if (mode === 'letter') ByndEventInbox.finishLetterIntro(); }, mode);
+            for (const mode of ['inbox', 'letter', 'newspaper', 'bottle', 'doodle', 'request']) {
+                await page.evaluate(mode => { ByndEventInbox.closeViewer(); if(mode==='request') ByndEventInbox.request('letter'); else if (mode !== 'inbox') { const id={letter:'mail-1',newspaper:'news-1',bottle:'bottle-1',doodle:'doodle-1'}[mode]; const state=ByndCharacterEvents.read();state.events.find(e=>e.id===id).unread=true;localStorage.setItem(ByndCharacterEvents.storageKey,JSON.stringify(state));ByndEventInbox.showId(id); } if (mode === 'letter') ByndEventInbox.finishLetterIntro(); }, mode);
                 const layout = await page.evaluate(mode => {
                     const header = document.querySelector(mode === 'inbox' ? '.event-header button' : '.event-viewer-header button').getBoundingClientRect();
                     const content = document.querySelector(mode === 'inbox' ? '.event-content' : '.event-viewer-scroll');
@@ -91,11 +92,11 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(await page.locator('#event-viewer').evaluate(n => n.hidden), true);
         assert.equal(await page.locator('.event-story-scene').count(), 0);
         await page.emulateMedia({ reducedMotion: 'reduce' });
-        await page.evaluate(() => ByndEventInbox.showPreview('letter'));
+        await page.evaluate(() => {const s=ByndCharacterEvents.read();s.events.find(e=>e.id==='mail-1').unread=true;localStorage.setItem(ByndCharacterEvents.storageKey,JSON.stringify(s));ByndEventInbox.showId('mail-1');});
         assert.equal(await page.evaluate(() => document.getElementById('event-viewer').dataset.phase), 'envelope');
         await page.locator('.event-seal').click();
         assert.equal(await page.evaluate(() => document.getElementById('event-viewer').dataset.phase), 'read');
-        await page.evaluate(() => ByndEventInbox.showPreview('bottle'));
+        await page.evaluate(() => ByndEventInbox.showId('bottle-1'));
         assert.equal(await page.locator('.event-bottle-words.is-falling').count(), 0);
         await page.evaluate(async () => {
             ByndCharacterEvents.importEvents(JSON.stringify({ version: 1, events: [{ id: 'bottle-limit', type: 'bottle', charId: 'events-browser', title: '装得下的想念', body: '每句话都留着。', words: Array.from({ length: 24 }, (_, i) => String(i + 1) + '想把今天遇见的这些小事都慢慢说给你听以后我们再一起看晚霞'.slice(0, 26)), createdAt: Date.now() }] }));
@@ -114,7 +115,7 @@ fs.mkdirSync(output, { recursive: true });
         await page.locator('.event-options').evaluate(n => n.open = true);
         const download = page.waitForEvent('download'); await page.locator('button[onclick="ByndEventInbox.exportFile()"]').click();
         const backup = path.join(output, 'synthetic-heartmail.json'); await (await download).saveAs(backup);
-        assert.equal(JSON.parse(fs.readFileSync(backup, 'utf8')).events.length, 3);
+        assert.equal(JSON.parse(fs.readFileSync(backup, 'utf8')).events.length, 4);
         await page.locator('#event-import').setInputFiles(backup);
         await page.waitForFunction(() => document.getElementById('event-status').textContent.includes('已导入 0 条'));
         await page.locator('#event-import').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{broken') });
@@ -198,7 +199,7 @@ fs.mkdirSync(output, { recursive: true });
         assert.deepEqual(report.errors, []);
         report.motion = { phases: ['ribbon', 'pause', 'calendar', 'verse', 'envelope', 'read'], unreadUntilUnsealed: true, replayAndClose: true, reducedMotion: true, maximumBottleWords: 24 };
         fs.writeFileSync(path.join(output, 'checks.json'), JSON.stringify(report, null, 2));
-        console.log('40 safe-area layouts, letter sequence/replay/cancellation/unread/reduced-motion, 24 bottle phrases, persistence/Agent/chat/album integration, export/import and failed writes passed.');
+        console.log('48 safe-area layouts, letter sequence/replay/cancellation/unread/reduced-motion, 24 bottle phrases, persistence/Agent/chat/album integration, export/import and failed writes passed.');
         if (process.argv.includes('--video')) {
             const motionPage = await browser.newPage({ viewport: { width: 375, height: 844 }, isMobile: true, hasTouch: true, recordVideo: { dir: output, size: { width: 375, height: 844 } } });
             await motionPage.addInitScript(version => { localStorage.setItem('bynd_lastSeenVersion', version); localStorage.setItem('bynd_builtin_library_seen_v1', '1'); }, require('./bump-version.cjs').currentVersion());
@@ -209,13 +210,16 @@ fs.mkdirSync(output, { recursive: true });
                 await window.__byndCoreReady; await window.byndStylesReady; unlockPhone(); ByndBuiltinLibrary?.close();
                 document.documentElement.classList.add('mobile-runtime'); document.body.style.paddingTop = '0';
                 const phone = document.querySelector('.phone-container'); phone.style.setProperty('--bynd-header-safe-top', '59px'); phone.style.height = '100dvh';
-                openApp('events'); ByndEventInbox.showPreview('letter');
+                window.myCharacters=[{id:'events-video',name:'测试角色',history:[],chatConfig:{}}];
+                ByndCharacterEvents.importEvents(JSON.stringify({version:1,events:[{id:'video-letter',type:'letter',charId:'events-video',title:'测试来信',body:'仅用于录制动画。',createdAt:Date.now(),unread:true},{id:'video-bottle',type:'bottle',charId:'events-video',title:'测试瓶子',body:'仅用于录制动画。',words:['测试短语'],createdAt:Date.now(),unread:true}]}));
+                await ByndCharacterEvents.retryDelivery('video-letter');await ByndCharacterEvents.retryDelivery('video-bottle');document.getElementById('event-arrival').hidden=true;
+                openApp('events'); ByndEventInbox.showId('video-letter');
             });
             await motionPage.waitForFunction(() => document.getElementById('event-viewer').dataset.phase === 'envelope');
             await motionPage.waitForTimeout(900); await motionPage.locator('.event-seal').click();
             await motionPage.waitForFunction(() => document.getElementById('event-viewer').dataset.phase === 'read');
             await motionPage.waitForTimeout(1400);
-            await motionPage.evaluate(() => ByndEventInbox.showPreview('bottle')); await motionPage.waitForTimeout(5200);
+            await motionPage.evaluate(() => ByndEventInbox.showId('video-bottle')); await motionPage.waitForTimeout(5200);
             const video = motionPage.video(); await motionPage.close();
             fs.copyFileSync(await video.path(), path.join(output, 'letter-and-bottle-motion.webm'));
             console.log('Recorded letter-and-bottle-motion.webm');

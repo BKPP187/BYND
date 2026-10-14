@@ -62,6 +62,18 @@ test('room camera crops narrow phones, pans in world coordinates, smooths pinch 
     view.pan(100000, 100000); assert.ok(Math.abs(view.stats().desired.x) <= 3.3 && Math.abs(view.stats().desired.z) <= 2.8);
     view.reset(true); assert.equal(view.stats().zoom, 1); assert.equal(view.stats().x, initial.x);
 });
+test('first and third person use perspective, exterior fits a narrow phone and indoor framing restores',()=>{
+    const {H,T}=harness(),orbit=new T.OrthographicCamera(-1,1,1,-1,.1,70),view=H.RoomCamera.create(orbit,T);
+    view.resize(320,620);view.room([16.4,23],{x:-4.1,y:0,z:.8});view.reset(true);const before=view.stats();
+    view.follow({eye:{x:-3,y:1.4,z:2},yaw:0,lookAt:{x:-4,z:0}});const first=view.viewpoint('first');view.step(.1,true);assert.equal(first.isPerspectiveCamera,true);assert.ok(Math.abs(first.position.y-1.49)<1e-10);
+    view.follow({eye:{x:-2,y:1.4,z:2},yaw:0});view.step(.1,true);assert.equal(first.position.x,-2,'camera follows the actual eye');
+    view.pan(40,0);view.step(.1,true);assert.equal(first.position.x,-2,'look drag never teleports the eye');
+    const third=view.viewpoint('third');view.step(.1,true);assert.ok(third.position.z<2 && third.position.y>1.49);
+    const bounds=new T.Box3(new T.Vector3(-7.7,-.2,-8.1),new T.Vector3(7.5,8.35,11.0));view.viewpoint('exterior',bounds);view.step(.1,true);
+    for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z]){const p=new T.Vector3(x,y,z).project(view.active());assert.ok(Math.abs(p.x)<1&&Math.abs(p.y)<1,'whole roof and garden remain in view');}
+    view.viewpoint('isometric');view.step(0,true);assert.equal(view.active(),orbit);assert.equal(view.stats().zoom,before.zoom);assert.equal(view.stats().x,before.x);assert.equal(view.stats().z,before.z);
+});
+
 test('shared texture budgets preserve color space, mipmaps and hero priority without upscaling', () => {
     const { H, T } = harness(), renderer = { capabilities: { maxTextureSize: 8192, getMaxAnisotropy: () => 4 } }, manager = H.RenderAssets.create(T, renderer), scene = new T.Scene();
     const hero = new T.Texture({ width: 2048, height: 2048 }), normal = new T.Texture({ width: 2048, height: 2048 });

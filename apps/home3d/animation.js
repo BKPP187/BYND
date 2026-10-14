@@ -1,22 +1,56 @@
 (function (H) {
     'use strict';
+    function boxDistance(point, obstacle) {
+        return Math.hypot(Math.max(0,Math.abs(point.x-obstacle.x)-obstacle.width/2),Math.max(0,Math.abs(point.z-obstacle.z)-obstacle.depth/2));
+    }
     function clear(point, obstacles, size = [6.6, 5.6], radius = .18) {
-        return Math.abs(point.x) <= size[0] / 2 - radius - .06 && Math.abs(point.z) <= size[1] / 2 - radius - .06 && !obstacles.some(o => Math.abs(point.x - o.x) < o.width / 2 + radius && Math.abs(point.z - o.z) < o.depth / 2 + radius);
+        if (size.regions) for (let i = -1; i < 8; i++) {
+            const a = i * Math.PI / 4, x = point.x + (i < 0 ? 0 : Math.cos(a) * radius), z = point.z + (i < 0 ? 0 : Math.sin(a) * radius);
+            if (!size.regions.some(r => Math.abs(x - r.x) <= r.width / 2 + .11 && Math.abs(z - r.z) <= r.depth / 2 + .11)) return false;
+        }
+        return Number.isFinite(point.x) && Number.isFinite(point.z) && Math.abs(point.x) <= size[0] / 2 - radius - .06 && Math.abs(point.z) <= size[1] / 2 - radius - .06 && !obstacles.some(o => boxDistance(point,o) < radius);
     }
     function segmentClear(a, b, obstacles, size, radius) {
         if (!clear(a, obstacles, size, radius) || !clear(b, obstacles, size, radius)) return false;
+        if (size.regions) {
+            const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .12);
+            for (let i = 1; i < count; i++) if (!clear({ x: a.x + (b.x - a.x) * i / count, z: a.z + (b.z - a.z) * i / count }, [], size, radius)) return false;
+        }
         return !obstacles.some(o => {
             let low = 0, high = 1;
-            for (const [axis, half] of [['x', o.width / 2 + radius], ['z', o.depth / 2 + radius]]) {
+            let intersects=true;
+            for (const [axis, half] of [['x', o.width / 2], ['z', o.depth / 2]]) {
                 const delta = b[axis] - a[axis], min = o[axis] - half, max = o[axis] + half;
-                if (Math.abs(delta) < 1e-9) { if (a[axis] <= min || a[axis] >= max) return false; }
-                else { const t1 = (min - a[axis]) / delta, t2 = (max - a[axis]) / delta; low = Math.max(low, Math.min(t1, t2)); high = Math.min(high, Math.max(t1, t2)); if (low >= high) return false; }
+                if (Math.abs(delta) < 1e-9) { if (a[axis] < min || a[axis] > max) intersects=false; }
+                else { const t1 = (min - a[axis]) / delta, t2 = (max - a[axis]) / delta; low = Math.max(low, Math.min(t1, t2)); high = Math.min(high, Math.max(t1, t2)); if (low > high) intersects=false; }
             }
-            return high > 0 && low < 1;
+            if(intersects&&high>=0&&low<=1)return true;
+            // Exact capsule vs rectangle distance: the centre segment may miss
+            // the rectangle while the avatar's circular hull clips a corner.
+            if(boxDistance(a,o)<radius||boxDistance(b,o)<radius)return true;
+            const dx=b.x-a.x,dz=b.z-a.z,length=dx*dx+dz*dz;
+            for(const x of [o.x-o.width/2,o.x+o.width/2])for(const z of [o.z-o.depth/2,o.z+o.depth/2]){
+                const t=length?Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/length)):0;
+                if(Math.hypot(x-a.x-t*dx,z-a.z-t*dz)<radius)return true;
+            }
+            return false;
         });
     }
     function nearest(point, obstacles, size, radius = .18) {
         if (clear(point, obstacles, size, radius)) return { x: point.x, z: point.z };
+        if (size.regions) {
+            // Start near the intended room, avoiding a whole-floor sort for a
+            // blocked spawn or chair exit. Search only each new ring perimeter.
+            for (let ring = 1; ring <= Math.ceil(Math.max(...size) / .14); ring++) {
+                const candidates = [];
+                for (let i = -ring; i <= ring; i++) for (const [dx,dz] of [[i,-ring],[i,ring],[-ring,i],[ring,i]]) {
+                    const p = { x: point.x + dx * .14, z: point.z + dz * .14 };
+                    if (clear(p, obstacles, size, radius)) candidates.push(p);
+                }
+                if (candidates.length) return candidates.sort((a,b) => Math.hypot(a.x-point.x,a.z-point.z)-Math.hypot(b.x-point.x,b.z-point.z))[0];
+            }
+            return null;
+        }
         const candidates = [];
         for (let x = -size[0] / 2 + radius + .07; x <= size[0] / 2 - radius - .06; x += .14) for (let z = -size[1] / 2 + radius + .07; z <= size[1] / 2 - radius - .06; z += .14) {
             const p = { x, z }; if (clear(p, obstacles, size, radius)) candidates.push(p);
@@ -70,6 +104,22 @@
         if (!route.length) return false;
         H.Characters.pose(actor, 'Walk'); actor.path = route; actor.destination = { ...destination, finish }; return true;
     }
+    function destination(start, requested, obstacles, size, radius = .18, maxShift = .65) {
+        if(!Number.isFinite(requested.x)||!Number.isFinite(requested.z))return null;
+        const region=size.regions?.find(r=>Math.abs(requested.x-r.x)<=r.width/2&&Math.abs(requested.z-r.z)<=r.depth/2);
+        if(size.regions&&!region)return null;
+        const sameRegion=p=>!region||(Math.abs(p.x-region.x)<=region.width/2&&Math.abs(p.z-region.z)<=region.depth/2);
+        if(clear(requested,obstacles,size,radius))return path(start,requested,obstacles,size,radius).length?{x:requested.x,z:requested.z}:null;
+        const candidates=[];
+        for(let ring=.13;ring<=maxShift+.001;ring+=.13)for(let i=0;i<24;i++){const angle=i*Math.PI/12;candidates.push({x:requested.x+Math.cos(angle)*ring,z:requested.z+Math.sin(angle)*ring});}
+        const attempted=[];
+        for(const candidate of candidates)if(sameRegion(candidate)&&clear(candidate,obstacles,size,radius)){
+            if(attempted.some(p=>Math.hypot(p.x-candidate.x,p.z-candidate.z)<.20))continue;
+            if(attempted.length>=8)break;attempted.push(candidate);
+            if(path(start,candidate,obstacles,size,radius).length)return candidate;
+        }
+        return null;
+    }
     function approach(start, placement, obstacles, size, radius = .18) {
         return H.Rooms.approaches(placement, radius).find(end => clear(end, obstacles, size, radius) && path(start, end, obstacles, size, radius).length);
     }
@@ -81,6 +131,7 @@
             actor.root.rotation.y = model ? actor.root.rotation.y + Math.atan2(Math.sin(direction - actor.root.rotation.y), Math.cos(direction - actor.root.rotation.y)) * (1 - Math.exp(-dt * 14)) : direction;
             if (distance <= move) { actor.root.position.x = goal.x; actor.root.position.z = goal.z; actor.path.shift(); }
             else { actor.root.position.x += dx / distance * move; actor.root.position.z += dz / distance * move; }
+            if (Number.isFinite(goal.y)) actor.root.position.y += (goal.y - actor.root.position.y) * Math.min(1, move / Math.max(distance, .0001));
             if (model) {
                 const phase = (time - actor.startedAt) * .0058, swing = Math.sin(phase);
                 actor.book.visible = actor.phone.visible = actor.cup.visible = false;
@@ -109,7 +160,7 @@
         }
         const blink = actor.action === 'Sleep' || (!reduced && (t + (actor.who === 'user' ? 1.3 : 0)) % 5 < 0.14);
         actor.eyes.forEach(eye => { eye.scale.y = blink ? 0.006 : 0.048; });
-        if (actor.visual === 'model3d') { H.Cooking?.animate(actor, time, reduced); H.CharacterModels.updateProps(actor); }
+        if (actor.visual === 'model3d') { H.Cooking?.animate(actor, time, reduced); H.Dining?.animate(actor, time, reduced); H.Hygiene?.animate(actor, time, reduced); H.CharacterModels.updateProps(actor); }
     }
-    H.Animation = { path, walk, tick, approach, clear, nearest, segmentClear };
+    H.Animation = { path, walk, tick, approach, clear, nearest, destination, segmentClear };
 })(window.ByndHome3D);

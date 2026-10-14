@@ -397,7 +397,7 @@ function buildWechatSpecialBubble(msg, quoteHtml = '', msgIndex = -1, charObj = 
         const isVideo = msg.type === 'videoCall';
         const title = isVideo ? '视频通话' : '语音通话';
         const icon = isVideo ? 'ri-video-chat-fill' : 'ri-phone-fill';
-        const desc = getWechatCallDescription(msg);
+        const desc = getWechatCallDescription(msg, charObj);
         const callAvatarHtml = charObj?.isGroupChat
             ? renderWechatCallAvatarStack(charObj, msg, 'msg-call-avatars')
             : `<div class="msg-call-icon"><i class="${icon}"></i></div>`;

@@ -774,12 +774,14 @@ function createDesktopCustomWidget(kind, id) {
         calendar: renderDesktopCalendarWidgetInner(),
         'photo-square': renderDesktopPhotoSquareWidgetInner(layoutId),
         'notes-trio': renderDesktopNotesTrioWidgetInner(layoutId),
-        catalog: renderDesktopCatalogWidgetInner(layoutId)
+        catalog: renderDesktopCatalogWidgetInner(layoutId),
+        plush: typeof renderDesktopPlushWidgetInner === 'function' ? renderDesktopPlushWidgetInner(layoutId) : ''
     };
     el.innerHTML = templates[safeKind];
     if (safeKind === 'status') setTimeout(updateDesktopStatusWidgets, 0);
     if (safeKind === 'notes-trio') setTimeout(updateDesktopStatusWidgets, 0);
     if (safeKind === 'calendar') setTimeout(initCalendar, 0);
+    if (safeKind === 'plush' && typeof updatePlushWidgets === 'function') setTimeout(updatePlushWidgets, 0);
     return el;
 }
 

@@ -14,6 +14,7 @@ const scriptParts = [
     'systems/proactive-notifications/notifications.js',
     'systems/character-events/events.js',
     'systems/character-events/inbox.js',
+    'apps/music/waveform.js',
     'apps/music/music.js',
     'apps/money/money.js',
     'apps/dream/dream.js',
@@ -110,6 +111,7 @@ const wechatParts = [
     'apps/char-phone/mail.js',
     'apps/char-phone/native-apps.js',
     'apps/char-phone/system-apps.js',
+    'apps/char-phone/desktop.js',
     'apps/char-phone/snapshot-data.js',
     'apps/char-phone/sync.js',
     'apps/char-phone/home.js',
@@ -125,6 +127,7 @@ const wechatParts = [
 // override earlier rules across feature boxes.
 const styleParts = [
     'ui/theme/foundation.css',
+    'core/character/character-debut.css',
     'ui/animations/tap-effects.css',
     'ui/theme/foundation-layout.css',
     'ui/components/status-bar.css',
@@ -167,6 +170,7 @@ const styleParts = [
     'apps/music/player-polish.css',
     'apps/monitor/pet-gallery.css',
     'apps/music/player-fixes.css',
+    'apps/music/waveform.css',
     'apps/wechat/ui/ios-safe-area.css',
     'apps/manual/manual.css',
     'apps/coreading/shelf-tools.css',
@@ -175,7 +179,8 @@ const styleParts = [
     'apps/settings/version-letter.css',
     'ui/components/experience.css',
     'systems/character-events/events.css',
-    'apps/wechat/ui/interaction-theme.css'
+    'apps/wechat/ui/interaction-theme.css',
+    'apps/settings/vivix.css'
 ];
 
 // These two apps intentionally keep their private IIFE scope. Their feature
@@ -212,6 +217,7 @@ const settingsParts = [
     'apps/settings/api-test.js',
     'apps/settings/image-provider.js',
     'apps/settings/tripo.js',
+    'core/api/vivix.js',
     'apps/settings/presets.js',
     'core/storage/backup.js',
     'apps/settings/releases.js',

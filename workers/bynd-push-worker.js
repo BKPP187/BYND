@@ -90,6 +90,9 @@ export default {
       if (request.method === 'GET' && url.pathname.startsWith('/mcp/relay/codex-pets/')) {
         return proxyCodexPets(request, url);
       }
+      if (url.pathname.startsWith('/mcp/relay/vivix/')) {
+        return proxyVivix(request, url, env);
+      }
       const pinnedProxy = getPinnedApiProxy(url);
       if (pinnedProxy) {
         return proxyPinnedApi(request, url, pinnedProxy);
@@ -133,6 +136,55 @@ export default {
 // Pinned proxies answer on their own prefix and, because bynd.ccwu.cc/mcp/* is already routed to this
 // Worker, also under /mcp/relay/<prefix>. The page then only ever talks to its own domain.
 const RELAY_PREFIX = '/mcp/relay';
+
+// Narrow Vivix relay. Images use unguessable, expiring URLs because the avatar
+// API fetches HTTPS references itself. No client credentials are stored in KV.
+async function proxyVivix(request, url, env) {
+  const path = url.pathname.slice('/mcp/relay/vivix'.length);
+  const origin = request.headers.get('Origin');
+  const imageMatch = path.match(/^\/images\/([a-f0-9]{64})$/);
+  if (imageMatch && request.method === 'GET' && !url.search) {
+    if (!env.BYND_PUSH) return new Response('Image storage unavailable', { status: 503 });
+    const image = await env.BYND_PUSH.get('vivix-image:' + imageMatch[1], 'json');
+    if (!image || image.expiresAt <= Date.now()) return new Response('Image expired', { status: 404 });
+    const bytes = Uint8Array.from(atob(image.base64), char => char.charCodeAt(0));
+    return new Response(bytes, { headers: { 'Content-Type': image.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+  }
+  if (!isAllowedWisartOrigin(origin, url)) return wisartJsonResponse(url, origin, 403, 'origin not allowed');
+  const method = path === '/v1/voices' ? 'GET' : (path === '/images' || path === '/v1/realtime-avatar/sessions' || /^\/v1\/realtime-avatar\/sessions\/[A-Za-z0-9_-]{1,160}\/close$/.test(path)) ? 'POST' : null;
+  if (!method || url.search) return wisartJsonResponse(url, origin, 404, 'not found');
+  if (request.method === 'OPTIONS') return wisartResponse(null, 204, url, origin);
+  if (request.method !== method) return wisartJsonResponse(url, origin, 405, 'method not allowed');
+  const auth = request.headers.get('Authorization');
+  if (!/^Bearer \S+$/i.test(auth || '')) return wisartJsonResponse(url, origin, 401, 'missing api key');
+  if (path !== '/images') {
+    const routes = new Map([[path, method]]);
+    return proxyPinnedApi(request, url, { prefix: '/mcp/relay/vivix', origin: 'https://api.vivix.ai', routes, jsonOnly: true, maxRequestBytes: 128 * 1024 });
+  }
+  if (!env.BYND_PUSH) return wisartJsonResponse(url, origin, 503, 'image storage unavailable');
+  if (!String(request.headers.get('Content-Type') || '').startsWith('application/json')) return wisartJsonResponse(url, origin, 415, 'unsupported content type');
+  let body;
+  try { body = JSON.parse(new TextDecoder().decode(await readMcpRequestBody(request, 8 * 1024 * 1024))); }
+  catch (error) { return wisartJsonResponse(url, origin, error?.status === 413 ? 413 : 400, 'invalid image request'); }
+  const match = String(body?.image || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
+  if (!match) return wisartJsonResponse(url, origin, 400, 'invalid image');
+  let binary;
+  try { binary = atob(match[2]); } catch (_) { return wisartJsonResponse(url, origin, 400, 'invalid image'); }
+  const valid = match[1] === 'image/png' ? binary.startsWith('\x89PNG\r\n\x1a\n')
+    : match[1] === 'image/jpeg' ? binary.startsWith('\xff\xd8\xff')
+    : binary.startsWith('RIFF') && binary.slice(8, 12) === 'WEBP';
+  if (!valid) return wisartJsonResponse(url, origin, 400, 'invalid image bytes');
+  // Validate the caller's key before accepting temporary storage writes.
+  let authResponse;
+  try { authResponse = await fetch('https://api.vivix.ai/v1/voices', { headers: { Authorization: auth }, redirect: 'error', signal: AbortSignal.timeout(15000) }); }
+  catch (_) { return wisartJsonResponse(url, origin, 502, 'authentication unavailable'); }
+  if (!authResponse.ok) return wisartJsonResponse(url, origin, authResponse.status === 401 || authResponse.status === 403 ? 401 : 502, 'authentication failed');
+  const validation = await authResponse.json();
+  if (validation.code !== 0) return wisartJsonResponse(url, origin, 401, 'authentication failed');
+  const token = [...crypto.getRandomValues(new Uint8Array(32))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  await env.BYND_PUSH.put('vivix-image:' + token, JSON.stringify({ type: match[1], base64: match[2], expiresAt: Date.now() + 1200000 }), { expirationTtl: 1200 });
+  return wisartResponse(JSON.stringify({ code: 0, data: { url: url.origin + '/mcp/relay/vivix/images/' + token } }), 200, url, origin, new Headers({ 'Content-Type': 'application/json' }));
+}
 
 function xmlText(value) {
   return String(value || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')

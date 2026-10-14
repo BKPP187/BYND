@@ -274,7 +274,7 @@ async function triggerAiAfterMessage(char, contentEl, options = {}) {
             if (!options.textOnly && (typeof getWechatAgentPreferences !== 'function' || getWechatAgentPreferences(char).allowImages) && shouldRetryWechatImageDirectiveResponse(result.content || '', char)) {
                 const imageRetry = await callChatApi(messages.concat({
                     role: 'system',
-                    content: '【必须重写为生图指令】你刚才用普通文字说了“看图/照片来了/给你看”等内容，这是错误的。现在如果要发图，必须输出一段 [微信图片:画面提示词|说明]，不要只写普通文字。画面提示词要具体描述角色本人、外观、服饰、表情、姿势、光线、环境，并保持角色参考图的同一张脸和画风。'
+                    content: '【必须重写为生图指令】你刚才用普通文字说了“看图/照片来了/给你看”等内容，这是错误的。现在如果要发图，必须输出一段 [微信图片:画面提示词|说明]，不要只写普通文字。画面提示词要具体描述角色本人、外观、服饰、表情、姿势、光线、环境，并保持角色参考图的同一张脸和辨识度。默认采用乙女游戏半写实 3D CG 质感、细腻发丝衣料、柔和光影与浅景深，用户明确要求其他画风时遵从用户要求。'
                 }), chatApiOptions);
                 if (imageRetry && imageRetry.ok) result = imageRetry;
             }

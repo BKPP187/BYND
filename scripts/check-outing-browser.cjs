@@ -19,10 +19,10 @@ fs.mkdirSync(output, { recursive: true });
     const page = await browser.newPage({ viewport: { width: 375, height: 844 }, isMobile: true, hasTouch: true });
     const errors = [];
     const tileResults = [];
-    page.on('requestfailed', request => { if (request.url().includes('tile.openstreetmap.org')) tileResults.push({ url: request.url(), error: request.failure() }); });
-    page.on('response', response => { if (response.url().includes('tile.openstreetmap.org')) tileResults.push({ url: response.url(), status: response.status() }); });
+    page.on('requestfailed', request => { if (request.url().includes('tiles.openfreemap.org')) tileResults.push({ url: request.url(), error: request.failure() }); });
+    page.on('response', response => { if (response.url().includes('tiles.openfreemap.org')) tileResults.push({ url: response.url(), status: response.status() }); });
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('https://**/*', route => route.request().url().includes('tile.openstreetmap.org') ? route.continue() : route.abort());
+    await page.route('https://**/*', route => route.request().url().includes('tiles.openfreemap.org') ? route.continue() : route.abort());
     await page.route('https://overpass-api.de/api/interpreter', route => route.fulfill({ json: { elements: [
         { id: 1, type: 'node', lat: 31.2328, lon: 121.473, tags: { name: '咖啡馆（测试数据）', amenity: 'cafe' } },
         { id: 2, type: 'way', center: { lat: 31.229, lon: 121.471 }, tags: { name: '小公园（测试数据）', leisure: 'park' } }
@@ -45,12 +45,15 @@ fs.mkdirSync(output, { recursive: true });
             window.saveCharactersToStorage = async () => true;
             window.queueWechatAutoReplyToChar = () => {};
             window.callChatApi = async () => ({ ok: true, content: '{"comment":"阳光落在这里，连这一刻都变得柔软了。想把今天好好留住。","keepPhoto":true}' });
+            // This UI-flow test uses deterministic nearby records. The separate map
+            // browser check exercises real vector POIs and both blocked query servers.
+            window.queryOutingVectorPlaces = async () => null;
             openApp('outing');
         });
         await page.addStyleTag({ content: '.app-window{transition:none !important;}.phone-container{margin:0!important;}.tapfx-burst{display:none!important;}.outing-content{scroll-behavior:auto!important;}' });
         await page.locator('#outing-map-placeholder button').click();
         await page.waitForFunction(() => getOutingState().nearby?.places.length === 2 && typeof outingMap !== 'undefined' && outingMap);
-        await page.waitForFunction(() => document.querySelector('.leaflet-tile-loaded') || document.getElementById('outing-map-error').textContent, { timeout: 20000 });
+        await page.waitForFunction(() => outingBasemapLayer?.getMaplibreMap().isStyleLoaded() && !outingMapFailed, { timeout: 30000 });
         await page.waitForTimeout(600);
         fs.writeFileSync(path.join(output, 'tile-network.json'), JSON.stringify(tileResults, null, 2));
         await page.screenshot({ path: path.join(output, 'map-375.png') });

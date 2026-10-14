@@ -98,6 +98,8 @@
         "Sit",
         "Lie",
         "Sleep",
+        "Read",
+        "Use Phone",
         "Hug"
       ],
       "positions": [
@@ -680,7 +682,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "cream_sofa",
@@ -880,7 +890,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Bathe",
+        "Shower"
+      ]
     },
     {
       "id": "cream_piano",
@@ -930,7 +944,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Cook"
+      ]
     },
     {
       "id": "european_bed",
@@ -955,7 +972,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "european_sofa",
@@ -1155,7 +1180,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Bathe",
+        "Shower"
+      ]
     },
     {
       "id": "european_piano",
@@ -1205,7 +1234,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Cook"
+      ]
     },
     {
       "id": "japanese_bed",
@@ -1230,7 +1262,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "japanese_sofa",
@@ -1430,7 +1470,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Bathe",
+        "Shower"
+      ]
     },
     {
       "id": "japanese_piano",
@@ -1480,7 +1524,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Cook"
+      ]
     },
     {
       "id": "modern_bed",
@@ -1505,7 +1552,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "modern_sofa",
@@ -1705,7 +1760,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Bathe",
+        "Shower"
+      ]
     },
     {
       "id": "modern_piano",
@@ -1755,7 +1814,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Cook"
+      ]
     },
     {
       "id": "chinese_bed",
@@ -1780,7 +1842,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "chinese_sofa",
@@ -1980,7 +2050,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Bathe",
+        "Shower"
+      ]
     },
     {
       "id": "chinese_piano",
@@ -2030,7 +2104,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Cook"
+      ]
     },
     {
       "id": "cream_sink",
@@ -2056,7 +2133,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Wash Hands",
+        "Wash Face"
+      ]
     },
     {
       "id": "cream_fridge",
@@ -2117,14 +2198,14 @@
       ],
       "positions": [
         [
-          -0.48600000000000004,
+          -0.37,
           0.62,
-          0.9
+          -0.93
         ],
         [
-          0.48600000000000004,
+          0.37,
           0.62,
-          0.9
+          -0.93
         ]
       ],
       "intent": [
@@ -2209,7 +2290,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Change Outfit"
+      ]
     },
     {
       "id": "european_sink",
@@ -2235,7 +2319,11 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Wash Hands",
+        "Wash Face"
+      ]
     },
     {
       "id": "european_fridge",
@@ -2296,14 +2384,14 @@
       ],
       "positions": [
         [
-          -0.48600000000000004,
+          -0.37,
           0.62,
-          0.9
+          -0.93
         ],
         [
-          0.48600000000000004,
+          0.37,
           0.62,
-          0.9
+          -0.93
         ]
       ],
       "intent": [
@@ -2388,7 +2476,10 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Change Outfit"
+      ]
     },
     {
       "id": "botanical_bed",
@@ -2413,7 +2504,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "botanical_sofa",
@@ -2626,7 +2725,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "rose_sofa",
@@ -2839,7 +2946,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "pink_sofa",
@@ -3052,7 +3167,15 @@
       "conditions": {
         "user": true,
         "char": true
-      }
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
     },
     {
       "id": "monochrome_sofa",
@@ -3368,6 +3491,124 @@
         "char": true
       },
       "state": {}
+    },
+    {
+      "id": "cream_shower",
+      "name": "奶油 · 玻璃淋浴房",
+      "type": "shower",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.45,
+      "height": 2.3,
+      "footprint": [
+        1.45,
+        1.45
+      ],
+      "materials": [
+        "milky_plastic",
+        "soft_wood",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Shower"
+      ]
+    },
+    {
+      "id": "cream_toilet",
+      "name": "奶油 · 陶瓷马桶",
+      "type": "toilet",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.62,
+      "height": 1,
+      "footprint": [
+        0.62,
+        0.9
+      ],
+      "materials": [
+        "milky_plastic",
+        "soft_wood",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Use Toilet"
+      ]
+    },
+    {
+      "id": "cream_vanity",
+      "name": "奶油 · 浴室洗手台",
+      "type": "vanity",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.3,
+      "height": 1.14,
+      "footprint": [
+        1.3,
+        0.65
+      ],
+      "materials": [
+        "milky_plastic",
+        "soft_wood",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Wash Hands",
+        "Wash Face",
+        "Groom"
+      ]
+    },
+    {
+      "id": "cream_mirror",
+      "name": "奶油 · 洗手台镜子",
+      "type": "mirror",
+      "style": "cream",
+      "category": "生活设施",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "height": 0.98,
+      "footprint": [
+        1.1,
+        0.1
+      ],
+      "materials": [
+        "milky_plastic",
+        "soft_wood",
+        "warm_metal"
+      ],
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Groom"
+      ]
     }
   ],
   "styles": {
@@ -3433,9 +3674,10 @@
       "category": "床",
       "actions": [
         "Sit",
-        "Sleep",
         "Lie",
+        "Sleep",
         "Read",
+        "Use Phone",
         "Hug"
       ],
       "positions": [
@@ -3581,7 +3823,7 @@
       "category": "生活设施",
       "actions": [
         "Bathe",
-        "Lie"
+        "Shower"
       ],
       "positions": [
         [
@@ -3614,8 +3856,7 @@
     "stove": {
       "category": "生活设施",
       "actions": [
-        "Cook",
-        "Eat"
+        "Cook"
       ],
       "positions": [
         [
@@ -3632,7 +3873,8 @@
     "sink": {
       "category": "生活设施",
       "actions": [
-        "Look At"
+        "Wash Hands",
+        "Wash Face"
       ],
       "positions": [],
       "intent": []
@@ -3656,9 +3898,67 @@
     "wardrobe": {
       "category": "收纳",
       "actions": [
-        "Look At"
+        "Change Outfit"
       ],
       "positions": [],
+      "intent": []
+    },
+    "shower": {
+      "category": "生活设施",
+      "actions": [
+        "Shower"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          1.225
+        ]
+      ],
+      "intent": []
+    },
+    "toilet": {
+      "category": "生活设施",
+      "actions": [
+        "Use Toilet"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.95
+        ]
+      ],
+      "intent": []
+    },
+    "vanity": {
+      "category": "生活设施",
+      "actions": [
+        "Wash Hands",
+        "Wash Face",
+        "Groom"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.825
+        ]
+      ],
+      "intent": []
+    },
+    "mirror": {
+      "category": "生活设施",
+      "actions": [
+        "Groom"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.55
+        ]
+      ],
       "intent": []
     }
   }

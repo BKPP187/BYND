@@ -103,6 +103,67 @@ test('nearby locations come from real query results, and empty/error results nev
     h.ctx.fetch = async () => ({ ok: false, status: 503 }); await h.ctx.loadOutingNearby(true);
     assert.match(vm.runInContext('outingNearbyError', h.ctx), /503/); assert.equal(h.ctx.getOutingState().nearby.places.length, 2);
 });
+test('nearby query falls back to a second permitted instance after the first fails', async () => {
+    const h = harness(), state = h.ctx.getOutingState(); state.currentPoint = { lat: 31.23, lng: 121.47 }; h.ctx.saveOutingState(state);
+    const urls = [];
+    h.ctx.fetch = async url => {
+        urls.push(url); if (urls.length === 1) throw new TypeError('Failed to fetch');
+        return { ok: true, json: async () => ({ elements: [{ id: 1, type: 'node', lat: 31.231, lon: 121.47, tags: { name: '备选查询里的咖啡馆', amenity: 'cafe' } }] }) };
+    };
+    await h.ctx.loadOutingNearby(true);
+    assert.equal(urls.length, 2); assert.match(urls[1], /overpass\.private\.coffee/);
+    assert.equal(h.ctx.getOutingState().nearby.places[0].name, '备选查询里的咖啡馆');
+    assert.equal(vm.runInContext('outingNearbyError', h.ctx), '');
+});
+test('both failed nearby services expose a Chinese error and preserve the previous real results', async () => {
+    const h = harness(), state = h.ctx.getOutingState(); state.currentPoint = { lat: 31.23, lng: 121.47 };
+    state.nearby = { at: 1, point: state.currentPoint, places: [{ name: '之前查到的地点', category: 'play', lat: 31.23, lng: 121.47 }] }; h.ctx.saveOutingState(state);
+    h.ctx.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    await h.ctx.loadOutingNearby(true);
+    assert.match(vm.runInContext('outingNearbyError', h.ctx), /连接失败/);
+    assert.doesNotMatch(vm.runInContext('outingNearbyError', h.ctx), /Failed to fetch/);
+    assert.equal(h.ctx.getOutingState().nearby.places[0].name, '之前查到的地点');
+});
+test('real vector POIs allow discovery and char synchronization without either Overpass service', async () => {
+    const h = harness(), state = h.ctx.getOutingState(); state.currentPoint = { lat: 31.23, lng: 121.47 }; h.ctx.saveOutingState(state);
+    h.ctx.queryOutingVectorPlaces = async () => [{ id: 'real', name: '地图里的咖啡馆', lat: 31.231, lng: 121.47, distance: 111, category: 'food' }];
+    h.ctx.fetch = async () => { throw new Error('Must not query an extra service when map data is ready'); };
+    await h.ctx.loadOutingNearby(true);
+    assert.equal(h.ctx.getOutingState().nearby.source, 'map'); assert.equal(h.ctx.getOutingState().nearby.places.length, 1);
+    assert.match(h.char.history[0].content, /地图里的咖啡馆/);
+});
+test('vector POIs exclude medical/unnamed/faraway data and deduplicate tile-boundary copies', () => {
+    const h = harness(), point = { lat: 31.23, lng: 121.47 };
+    const feature = (name, subclass, coordinates) => ({ properties: { name, subclass }, geometry: { type: 'Point', coordinates } });
+    const features = [feature('咖啡', 'cafe', [121.47, 31.231]), feature('咖啡', 'cafe', [121.47, 31.231]), feature('剧场', 'theatre', [121.47, 31.232]), feature('', 'restaurant', [121.47, 31.23]), feature('诊所', 'clinic', [121.47, 31.23]), feature('很远的餐厅', 'restaurant', [121.47, 32.23])];
+    const gl = { getSource: () => ({}), isSourceLoaded: () => true, querySourceFeatures: () => features };
+    const places = h.ctx.readOutingVectorPlaces(gl, point);
+    assert.deepEqual(Array.from(places, p => p.name), ['咖啡', '剧场']);
+    assert.equal(h.ctx.readOutingVectorPlaces({ getSource: () => null }, point), null);
+});
+test('query success remains visible when sending nearby results to the char fails', async () => {
+    const h = harness(), state = h.ctx.getOutingState(); state.currentPoint = { lat: 31.23, lng: 121.47 }; h.ctx.saveOutingState(state);
+    h.ctx.queryOutingVectorPlaces = async () => [{ name: '真实地点', lat: 31.23, lng: 121.47, category: 'play', distance: 0 }];
+    h.ctx.saveCharactersToStorage = async () => false;
+    await h.ctx.loadOutingNearby(true);
+    assert.equal(h.ctx.getOutingState().nearby.places[0].name, '真实地点'); assert.equal(vm.runInContext('outingNearbyError', h.ctx), '');
+    assert.match(vm.runInContext('outingNearbySyncError', h.ctx), /尚未同步/); assert.equal(h.char.history.length, 0);
+    h.ctx.saveCharactersToStorage = async () => true; await h.ctx.retryOutingNearbySync();
+    assert.equal(vm.runInContext('outingNearbySyncError', h.ctx), ''); assert.equal(h.char.history.length, 1);
+});
+test('dense real POIs group by screen distance without losing names, and separate on zoom', () => {
+    const h = harness(); const places = [{ name: 'A', lat: 0, lng: 0 }, { name: 'B', lat: 0, lng: 10 }, { name: 'C', lat: 0, lng: 100 }];
+    const groups = h.ctx.groupOutingMapPlaces(places, p => ({ x: p.lng, y: p.lat }));
+    assert.deepEqual(Array.from(groups, g => g.places.length), [2, 1]); assert.equal(groups[0].lng, 5);
+    const zoomed = h.ctx.groupOutingMapPlaces(places, p => ({ x: p.lng * 10, y: p.lat }));
+    assert.equal(zoomed.length, 3);
+});
+test('map runtime no longer uses blocked Standard tiles and retains provider attribution and retries', () => {
+    const source = fs.readFileSync(path.join(root, 'apps/outing/map.js'), 'utf8');
+    assert.doesNotMatch(source, /https:\/\/tile\.openstreetmap\.org/);
+    assert.match(source, /tiles\.openfreemap\.org\/styles\/positron/); assert.match(source, /OpenMapTiles/);
+    assert.match(source, /function retryOutingMap/); assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /id="outing-map-unavailable"/);
+});
 test('invalid GPS and corrupt saved state cannot overwrite existing records', () => {
     const h = harness(); const before = h.values.get('bynd_outing_date_state_v1');
     h.ctx.handleOutingPosition({ coords: { latitude: NaN, longitude: 0 } }); assert.equal(h.values.get('bynd_outing_date_state_v1'), before);

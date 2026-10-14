@@ -11,12 +11,12 @@
     });
     try { if (localStorage.getItem(UNREAD_KEY)) document.documentElement?.classList?.add('lw-forum-unread'); } catch (_) {}
 
-    function getRelevantEventsForChar(char, limit = 4) {
-        const charId = char?.id ? (loadState().npcs.find(item => item.contactCharId === char.id)?.id || `char:${char.id}`) : String(char || ''); if (!charId) return '';
+    function getRelevantEventsForChar(char, limit = 4, structured = false) {
+        const charId = char?.id ? (loadState().npcs.find(item => item.contactCharId === char.id)?.id || `char:${char.id}`) : String(char || ''); if (!charId) return structured ? [] : '';
         const world = loadState(); const knownIds = new Set(safeList(world.knowledge[charId]).map(row => row?.eventId));
         const rows = world.events.filter(event => knownIds.has(event.id)).filter(event => ['forum_post', 'forum_reply', 'forum_news_reply', 'forum_like', 'forum_access_detected', 'forum_follow', 'forum_delete'].includes(event.type)).slice(-Math.max(1, Math.min(8, limit)));
         const ownRecentPosts = world.posts.filter(post => post.authorId === charId && post.generated === true && !post.deletedAt && Number(post.createdAt) > now() - 7 * DAY).slice(0,2);
-        if (!rows.length && !ownRecentPosts.length) return '';
+        if (!rows.length && !ownRecentPosts.length) return structured ? [] : '';
         const describe = event => {
             if (event.type === 'forum_access_detected') return '察觉自己的论坛账号有异常痕迹，但还不能确定是谁操作的；可以暂时不说。';
             const post = world.posts.find(item => item.id === event.targetId);
@@ -33,6 +33,7 @@
             if (event.type === 'forum_follow') return `${account(event.actorId).name}关注了你的论坛账号。`;
             return `${title}已被删除；此前看到的人不会因此失去记忆。`;
         };
+        if (structured) return [...rows.map(event => ({ id: event.id, at: event.createdAt, text: describe(event) })), ...ownRecentPosts.map(post => ({ id: 'own-post:' + post.id, at: post.createdAt, text: `你最近发布《${String(post.title).slice(0,60)}》：${String(post.body || '').slice(0,220)}` }))];
         const ownPostsAnchor = ownRecentPosts.map(post => `- 你最近在论坛发布《${String(post.title).slice(0,60)}》：${String(post.body || '').slice(0,220)}`).join('\n');
         return `【Living World 近期可知事实】\n${rows.map(event => `- ${new Date(event.createdAt).toLocaleDateString('zh-CN')}：${describe(event)}`).join('\n')}${ownPostsAnchor ? `\n【你自己最近发布的帖子】\n${ownPostsAnchor}` : ''}\n如果用户在私聊中主动提起与你帖子相符的细节，可以自然联想到对方或许刷到了帖子，但这只是猜测，不要断言对方确实看过，也不要无端主动追问。只可依据这些事实及你自己的真实聊天历史行动。公开发言可能是误解或谎言；不知道的事不要断言。可以知道但不提起；不要提及系统、后台或视角切换。`;
     }
@@ -75,6 +76,7 @@
     window.LivingWorld.retryRelationImpression = retryRelationImpression;
     window.LivingWorld.closeRelation = closeRelation;
     window.getLivingWorldRelevantEventsForChar = getRelevantEventsForChar;
+    window.getLivingWorldEventRecordsForChar = (char, limit = 6) => getRelevantEventsForChar(char, limit, true);
     window.LivingWorld.getPostPreview = getPostPreview;
     window.getLivingWorldMemoryCandidatesForChar = getMemoryCandidatesForChar;
 }());

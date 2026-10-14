@@ -454,6 +454,7 @@ function readByndCameraFile(file) {
 }
 
 function closeApp(appName) {
+    if (appName === 'wechat') window.ByndCharacterDebut?.close();
     if (appName === 'game') window.WolfchaAudio?.stop();
     if (appName === 'coread') window.CoReadJournal?.stop();
     window.ByndExperience?.closed(appName);

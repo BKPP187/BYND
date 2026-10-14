@@ -32,6 +32,12 @@
 .event-options input[type="number"] { width: 65px; font: inherit; padding: 8px; border: 1px solid #d5d1c7; border-radius: 5px; background: #fffefa; }
 .event-options input[type="checkbox"] { width: 19px; height: 19px; accent-color: #292824; }
 .event-option-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+.event-request-form { max-width: 400px; margin: 8px auto; display: grid; gap: 16px; font-size: 14px; }
+.event-request-form label { font-weight: 600; }
+.event-request-form select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #d5d1c7; border-radius: 8px; background: #fffefa; color: #292824; font: inherit; }
+.event-request-form p { margin: 0; color: #817b71; line-height: 1.8; }
+.event-request-form button { padding: 13px 18px; border: 0; border-radius: 8px; background: #292824; color: #fff !important; }
+.event-request-form button:disabled { opacity: .55; }
 #event-status, #event-pending { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 #event-status { padding: 10px 0; color: #776340; }
 .event-error, .event-delivery-error, #event-viewer-error { color: #963d36; font-size: 13px; overflow-wrap: anywhere; }
