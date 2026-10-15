@@ -415,7 +415,13 @@ test('invalid imported layouts never overwrite storage and private home context 
     assert.match(H.Living.prompt({ id: 'a' }), /只有A知道/); assert.equal(H.Living.prompt({ id: 'b' }), '');
     const data = H.State.load(); data.homes.a.layouts.living_room = { removed: [], items: { broken: { id: 'broken', furnitureId: 'unknown', position: [0, 0, 0], rotation: 0 } } };
     const raw = JSON.stringify(data); localStorage.setItem(H.State.key, raw);
-    assert.throws(() => H.State.visit(), /家具存档/); assert.equal(localStorage.getItem(H.State.key), raw);
+    // A furniture id that left the catalog is dropped per item, not fatal for the whole save.
+    assert.equal(H.State.load().homes.a.layouts.living_room.items.broken, undefined); assert.equal(localStorage.getItem(H.State.key), raw);
+    H.State.visit(); assert.equal(H.State.home().layouts.living_room.items.broken, undefined);
+    // Structural corruption (a non-finite position) still fails without overwriting the raw save.
+    const corrupt = H.State.load(); corrupt.homes.a.layouts.living_room = { removed: [], items: { bad: { id: 'bad', furnitureId: 'cream_chair', position: [0, 'x', 0], rotation: 0 } } };
+    const broken = JSON.stringify(corrupt); localStorage.setItem(H.State.key, broken);
+    assert.throws(() => H.State.visit(), /家具存档/); assert.equal(localStorage.getItem(H.State.key), broken);
 });
 
 test('the navigation grid includes the narrow corridor at the right edge of the initial room', () => {

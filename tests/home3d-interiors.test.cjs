@@ -71,13 +71,20 @@ test('failed interior writes and invalid finish IDs preserve the old durable hom
     assert.throws(() => H.Interiors.apply('living_room', { preset: 'natural' }, true), /没有保存成功/);
     assert.equal(localStorage.getItem(H.State.key), before);
 });
-test('corrupt imported interior choices never overwrite the raw saved data', () => {
-    const { H, localStorage } = setup();
+test('stale imported interior choices are repaired per room without touching the raw saved data', () => {
+    const { H, localStorage } = setup(), options = H.Interiors.data();
     for (const invalid of [{ preset: 'future-style' }, { preset: 'garden', floor: 'constructor' }, { preset: 'palace', furniture: { sofa: '__proto__' } }, ['garden']]) {
-        const data = JSON.parse(localStorage.getItem(H.State.key)); data.homes.a.interiors = { living_room: invalid };
+        const data = JSON.parse(localStorage.getItem(H.State.key)); data.homes.a.interiors = { living_room: invalid, bedroom: { preset: 'garden' } };
         const raw = JSON.stringify(data); localStorage.setItem(H.State.key, raw);
-        assert.throws(() => H.State.load(), /墙面地板存档无效/); assert.equal(localStorage.getItem(H.State.key), raw);
+        const home = H.State.home(), config = H.Interiors.resolve(H.Rooms.get('living_room'), home);
+        assert.ok(Object.hasOwn(options.floors, config.floor) && Object.hasOwn(options.walls, config.wall));
+        assert.equal(home.interiors.bedroom.preset, 'garden', 'other rooms keep their saved finish');
+        assert.ok(!home.interiors.living_room || !Object.values(home.interiors.living_room.furniture || {}).includes('__proto__'));
+        assert.equal(localStorage.getItem(H.State.key), raw);
     }
+    const data = JSON.parse(localStorage.getItem(H.State.key)); data.homes.a.interiors = ['garden'];
+    const raw = JSON.stringify(data); localStorage.setItem(H.State.key, raw);
+    assert.throws(() => H.State.load(), /墙面地板存档无效/); assert.equal(localStorage.getItem(H.State.key), raw);
 });
 test('stored and newly added custom furniture retain their own look until a full kit is applied', () => {
     const { H } = setup(), room = H.Rooms.get('living_room');
