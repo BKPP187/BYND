@@ -770,7 +770,11 @@ function isRichMessageContent(content) {
 
 function isWechatRichCardContent(content) {
     // Markdown produces inline tags and <br>; only authored layouts bypass the speech bubble.
-    return /<\s*(?:!doctype|html|body|div|section|article|header|footer|main|aside|nav|style|script|table|iframe|img|video|audio|svg|canvas|form|details|button|input|textarea|select|ul|ol)\b/i.test(String(content || ''));
+    const source = String(content || '');
+    return /<\s*(?:!doctype|html|body|div|section|article|header|footer|main|aside|nav|style|script|table|iframe|img|video|audio|svg|canvas|form|details|button|input|textarea|select|ul|ol)\b/i.test(source)
+        // Tags with attributes may carry handlers. Only exact, attribute-free
+        // Markdown formatting may remain in the app document.
+        || /<\s*\/?\s*[a-z][\w:-]*\b[^>]*>/i.test(source.replace(/<\/?(?:strong|em|b|i|s|u|del|code|br)\s*\/?>/gi, ''));
 }
 
 function cleanWechatVisibleContent(value, options = {}) {
@@ -831,10 +835,10 @@ function isWechatAiMetaLeakContent(value) {
 }
 
 function wcEscapeHtml(value) {
-    if (typeof escapeHtml === 'function') return escapeHtml(value == null ? '' : String(value));
-    const div = document.createElement('div');
-    div.textContent = value == null ? '' : String(value);
-    return div.innerHTML;
+    // Also escape quotes: this helper is used in attributes, and other apps'
+    // global escapeHtml implementations may only escape text-node characters.
+    return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function wcEscapeAttr(value) {

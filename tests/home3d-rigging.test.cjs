@@ -3,14 +3,17 @@ const test = require('node:test'), assert = require('node:assert/strict'), fs = 
 const { main } = require('../scripts/rig-home3d-character.cjs');
 const fixture = () => { const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bynd-rig-')), input = path.resolve(__dirname, '../assets/home3d/furniture/q-Sofa.glb'), out = path.join(directory, 'out'); return { directory, input, out }; };
 const json = data => ({ ok: true, json: async () => ({ code: 0, data }) });
-test('failed compatibility check stops before any paid rig', async () => {
+let validatorAvailable = false;
+try { require.resolve('../artifacts/home3d-tools/node_modules/gltf-validator'); validatorAvailable = true; } catch {}
+const validatorCheck = { skip: validatorAvailable ? false : 'Install optional offline gltf-validator tool to run this integration check.' };
+test('failed compatibility check stops before any paid rig', validatorCheck, async () => {
     const f = fixture(), calls = [];
     try {
         await assert.rejects(main([f.input, f.out], { apiKey: 'fake', fetchImpl: async url => { calls.push(url); if (url.endsWith('/files')) return json({ file_token: 'file_one' }); if (url.endsWith('/rig-check')) return json({ task_id: 'check_one' }); return json({ task_id: 'check_one', status: 'success', output: { riggable: false, rig_type: 'biped' } }); } }), /no paid rig/);
         assert.equal(calls.filter(url => url.endsWith('/animations/rig')).length, 0);
     } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
 });
-test('rig download failure resumes the same paid task and validates actual joints', async () => {
+test('rig download failure resumes the same paid task and validates actual joints', validatorCheck, async () => {
     const f = fixture(), calls = [], rig = fs.readFileSync(path.resolve(__dirname, '../assets/home3d/characters/bunny-blue-v1/far.glb')); let downloadFails = true;
     const fetchImpl = async (url, options) => {
         calls.push(url);

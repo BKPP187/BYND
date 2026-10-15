@@ -1,16 +1,24 @@
 const DEFAULT_UPSTREAM_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
+const ALLOWED_ORIGINS = new Set(['https://bynd.ccwu.cc', 'null']);
 
 export default {
-  async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+  async fetch(request, env = {}) {
+    const origin = request.headers.get('Origin');
+    const url = new URL(request.url);
+    const allowed = !!origin && (origin === url.origin || ALLOWED_ORIGINS.has(origin));
+    const cors = { ...CORS_HEADERS, Vary: 'Origin' };
+    if (allowed) cors['Access-Control-Allow-Origin'] = origin;
+    const json = (payload, status = 200) => new Response(JSON.stringify(payload), { status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+    // Origin checks constrain browser clients; they do not replace API-key auth.
+    // "null" is retained for the APK's file:// entry point, as in the MCP proxy.
+    if (!allowed && !(request.method === 'GET' && ['/', '/health'].includes(url.pathname) && !origin)) return json({ ok: false, error: 'origin not allowed' }, 403);
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     try {
-      const url = new URL(request.url);
       if (url.pathname === '/' || url.pathname === '/health') {
         return json({ ok: true, service: 'bynd-ai-proxy-worker' });
       }
@@ -33,12 +41,11 @@ export default {
       const target = new URL(upstreamBase + path);
       target.search = url.search;
 
-      const headers = new Headers(request.headers);
+      // Forward only API headers; app cookies and browser metadata stay here.
+      const headers = new Headers();
       headers.set('Authorization', auth);
       headers.set('Accept', request.headers.get('Accept') || 'application/json');
-      headers.delete('Host');
-      headers.delete('Origin');
-      headers.delete('Referer');
+      if (request.headers.has('Content-Type')) headers.set('Content-Type', request.headers.get('Content-Type'));
 
       const upstream = await fetch(target, {
         method: request.method,
@@ -47,7 +54,11 @@ export default {
       });
 
       const responseHeaders = new Headers(upstream.headers);
-      Object.entries(CORS_HEADERS).forEach(([key, value]) => responseHeaders.set(key, value));
+      responseHeaders.delete('Access-Control-Allow-Origin');
+      Object.entries(cors).forEach(([key, value]) => responseHeaders.set(key, value));
+      const vary = new Set((upstream.headers.get('Vary') || '').split(',').map(value => value.trim()).filter(Boolean));
+      vary.add('Origin'); responseHeaders.set('Vary', [...vary].join(', '));
+      responseHeaders.set('Cache-Control', 'no-store');
       responseHeaders.delete('Content-Security-Policy');
       responseHeaders.delete('Content-Security-Policy-Report-Only');
 
@@ -66,14 +77,4 @@ function normalizeProxyPath(pathname, upstreamBase) {
   let path = String(pathname || '/').replace(/\/+/g, '/');
   if (path.startsWith('/v1/') && /\/v1$/i.test(upstreamBase)) path = path.slice(3);
   return path;
-}
-
-function json(payload, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      'Content-Type': 'application/json; charset=utf-8'
-    }
-  });
 }

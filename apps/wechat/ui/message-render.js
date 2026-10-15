@@ -70,7 +70,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     }
 
     const config = charObj.chatConfig || {};
-    const fontSize = config.fontSize || 15;
+    const fontSize = Math.max(10, Math.min(40, Number(config.fontSize) || 15));
     const useWechatExternalQuote = shouldRenderWechatExternalQuote() && !!displayMsg.replyTo;
     const quoteHtml = useWechatExternalQuote ? '' : renderWechatMessageQuote(displayMsg.replyTo, charObj);
     const externalQuoteHtml = useWechatExternalQuote ? renderWechatExternalMessageQuote(displayMsg.replyTo, charObj) : '';
@@ -78,6 +78,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     if (isWechatImageStackMessage(displayMsg)) row.classList.add('has-image-stack');
 
     let bubbleHtml = '';
+    let richContent = null;
     const avatarClass = msg.isMe ? 'msg-avatar' : 'msg-avatar msg-avatar-ai';
     const groupMemberLabel = (!msg.isMe && charObj?.isGroupChat && groupMember)
         ? renderWechatQQGroupMessageSenderLabel(charObj, groupMember)
@@ -117,6 +118,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         let rawContent = hasVisibleText && forumText ? processMsgContent(forumText, charObj) : '';
         const metaHtml = buildMessageMeta(displayMsg);
         const isRich = isWechatRichCardContent(rawContent);
+        if (isRich) richContent = rawContent;
         if (!isRich) rawContent = renderWechatBuiltinEmojiMarkersHtml(rawContent);
         const emojiTextClass = !isRich && (displayMsg.wechatEmojiText || hasWechatBuiltinEmojiMarker(displayMsg.content)) ? ' wechat-emoji-text' : '';
         const quoteBubbleClass = externalQuoteHtml ? ' has-wechat-quote' : '';
@@ -143,7 +145,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
                 : `<div class="msg-bubble wc-text-bubble${msg.isMe ? ' green' : ''}${quoteBubbleClass}${qqQuoteBubbleClass}${rednoteQuoteBubbleClass}${douyinQuoteBubbleClass}${emojiTextClass}" style="font-size:${fontSize}px;">${quoteHtml}${rawContent ? `<div class="msg-text">${rawContent}</div>` : ''}${metaHtml}</div>`
             : '';
         const richCardHtml = hasVisibleText && isRich
-            ? `<div class="msg-rich-card${msg.isMe ? ' is-self' : ''}" style="font-size:${fontSize}px;">${quoteHtml}${rawContent}${metaHtml}</div>`
+            ? `<div class="msg-rich-card${msg.isMe ? ' is-self' : ''}" style="font-size:${fontSize}px;">${quoteHtml}<iframe class="wc-rich-frame" sandbox="allow-scripts" referrerpolicy="no-referrer" title="互动消息卡片"></iframe>${metaHtml}</div>`
             : '';
 
         if (isRich) {
@@ -167,7 +169,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
     if (displayMsg.type === 'sticker') bindWechatStickerAlphaTrim(row);
     appendWechatApiTicketEntry(row, msg, charObj, msgIndex);
     container.appendChild(row);
-    executeScriptsInElement(row);
+    if (richContent !== null) mountWechatRichMessageFrame(row.querySelector('.wc-rich-frame'), richContent);
     bindWechatMusicCardPlayback(row);
     bindWechatImageStacks(row);
     applyWechatBubbleMetaContrast(row);
