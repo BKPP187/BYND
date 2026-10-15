@@ -65,10 +65,12 @@ const server = http.createServer((request, response) => {
                 await page.locator('[data-action="settings"]').click();
                 assert.equal(await page.locator('.home3d-sheet-head h2').count(), 0);
                 assert.equal(await page.locator('.home3d-sheet').getAttribute('aria-label'), '小屋设置');
+                await page.locator('details').filter({ has: page.locator('[data-action="generate-user"]') }).locator('summary').click();
                 await page.locator('[data-action="generate-user"]').click();
                 await page.waitForFunction(() => ByndHome3D.State.load().user.portraitDraft, null, { timeout: 120000 });
                 assert.equal(await page.evaluate(() => !!ByndHome3D.State.load().user.portrait), false);
                 await page.screenshot({ path: path.join(output, 'transparent-preview.png') });
+                await page.locator('details').filter({ has: page.locator('[data-action="confirm-portrait"][data-who="user"]') }).locator('summary').click();
                 await page.locator('[data-action="confirm-portrait"][data-who="user"]').click();
                 await page.waitForFunction(() => ByndHome3D.State.load().user.portrait && !ByndHome3D.State.load().user.portraitDraft);
                 await page.evaluate(() => ByndHome3D.close());

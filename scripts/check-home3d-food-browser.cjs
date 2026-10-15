@@ -43,11 +43,11 @@ async function main() {
         await page.evaluate(() => { const H = ByndHome3D; window.originalFoodBuffer = H.Furniture.modelBuffer; H.Furniture.modelBuffer = () => Promise.reject(Error('missing food fixture')); });
         await page.locator('#home3d-meal').selectOption('breakfast');
         await page.waitForFunction(() => !document.querySelector('#home3d-meal').disabled && document.querySelector('#home3d-meal').value === 'tea');
-        assert.deepEqual(await state(), before); assert.match(await page.locator('.home3d-notice').innerText(), /没有加载成功/); report.failures.push('missing resource retains previous meal');
+        assert.deepEqual(await state(), before); assert.match(await page.locator('.home3d-sheet-notice').innerText(), /没有加载成功/); report.failures.push('missing resource retains previous meal');
         await page.evaluate(() => { ByndHome3D.Furniture.modelBuffer = originalFoodBuffer; window.originalStorageSet = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === ByndHome3D.State.key) throw Error('disk full fixture'); return originalStorageSet.call(this, key, value); }; });
         await page.locator('#home3d-meal').selectOption('sushi');
         await page.waitForFunction(() => !document.querySelector('#home3d-meal').disabled && document.querySelector('#home3d-meal').value === 'tea');
-        assert.deepEqual(await state(), before); assert.match(await page.locator('.home3d-notice').innerText(), /没有保存成功/); report.failures.push('failed save retains previous meal and selection');
+        assert.deepEqual(await state(), before); assert.match(await page.locator('.home3d-sheet-notice').innerText(), /没有保存成功/); report.failures.push('failed save retains previous meal and selection');
         await page.evaluate(() => { Storage.prototype.setItem = originalStorageSet; }); await page.locator('.home3d-sheet-head button').click();
         await page.evaluate(async () => { const H = ByndHome3D; await H.UI.loadRoom('kitchen'); });
         await page.waitForFunction(() => ByndHome3D.runtime.stats().room === 'kitchen' && !document.querySelector('.home3d-scene.is-loading'));

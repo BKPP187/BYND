@@ -55,7 +55,7 @@ function closeChat(event) {
     const room = document.getElementById('wechat-chat-room');
     if (room) {
         room.classList.remove('active');
-        setTimeout(() => room.classList.add('hidden'), 300);
+        setTimeout(() => { if (!room.classList.contains('active')) room.classList.add('hidden'); }, 300);
     }
     window.currentChatCharId = null;
     if (typeof updateWechatUiThemeStructure === 'function') updateWechatUiThemeStructure(getWechatUiTheme());

@@ -2,7 +2,7 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const { chromium } = require(process.env.BYND_PLAYWRIGHT || 'C:/Users/l/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root = path.resolve(__dirname, '..'), output = path.join(root, 'artifacts/home3d-cozy'); fs.mkdirSync(output, { recursive: true });
-const fixture = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="apps/home3d/home3d.css"><style>html,body{margin:0;height:100%;font-family:Arial,'Microsoft Yahei',sans-serif}.app-window{height:100%;position:relative;box-sizing:border-box}</style></head><body><div class="app-window active"><div id="home3d-root"></div></div><script>window.myCharacters=[{id:'cozy-proof',name:'林间',personality:'喜欢阅读',history:[],chatConfig:{}}];window.closeApp=()=>ByndHome3D.close();window.getLivingWorldRelevantEventsForChar=()=>[];</script><script src="apps/home3d/home3d.js"></script><script>ByndHome3D.open();</script></body></html>`;
+const fixture = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="apps/home3d/home3d.css"><style>html,body{margin:0;height:100%;font-family:Arial,'Microsoft Yahei',sans-serif}.app-window{height:100%;position:relative;box-sizing:border-box}</style></head><body><div class="app-window active"><div id="home3d-root"></div></div><script>window.__byndSingleRoom=true;window.myCharacters=[{id:'cozy-proof',name:'林间',personality:'喜欢阅读',history:[],chatConfig:{}}];window.closeApp=()=>ByndHome3D.close();window.getLivingWorldRelevantEventsForChar=()=>[];</script><script src="apps/home3d/home3d.js"></script><script>ByndHome3D.open();</script></body></html>`;
 const mime = { '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.glb': 'model/gltf-binary' };
 const server = http.createServer((req, res) => {
     const route = req.url.split('?')[0]; if (route === '/__poses__') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(fixture); return; }
@@ -18,7 +18,7 @@ const server = http.createServer((req, res) => {
     const ready = () => page.waitForFunction(() => ByndHome3D.runtime?.stats().actors.length === 2 && !document.querySelector('.home3d-scene.is-loading'));
     const load = async (room, action, target, theme = 'cream') => {
         await page.evaluate(async ({ room, action, target, theme }) => {
-            const H = ByndHome3D; H.State.withHome(h => { h.theme = theme; h.activity = { room, action, target, reason: action === 'Sleep' ? '在软软的被窝里睡着了' : '给你留了身旁的位置', until: Date.now() + 3600000 }; });
+            const H = ByndHome3D; H.State.withHome((h, data) => { h.modelId = 'portrait'; data.user.modelId = 'portrait'; h.theme = theme; h.activity = { room, action, target, reason: action === 'Sleep' ? '在软软的被窝里睡着了' : '给你留了身旁的位置', until: Date.now() + 3600000 }; });
             H.runtime?.dispose(); H.runtime = null; await H.UI.loadRoom(room); document.querySelector('.home3d-notice').hidden = true;
         }, { room, action, target, theme }); await ready();
     };

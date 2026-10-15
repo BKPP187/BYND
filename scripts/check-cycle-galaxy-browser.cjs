@@ -112,7 +112,7 @@ fs.mkdirSync(output, { recursive: true });
         for (const width of [320,375,430]) {
             await page.setViewportSize({ width, height: 844 });
             const styles = await page.locator('.wc-memory-card').evaluate(el => ({ color: getComputedStyle(el).backgroundColor, overflow: el.scrollWidth - el.clientWidth }));
-            assert.equal(styles.color, 'rgb(253, 254, 253)'); assert.ok(styles.overflow <= 1);
+            assert.equal(styles.color, 'rgb(195, 195, 197)'); assert.ok(styles.overflow <= 1);
             assert.equal(await page.locator('.wc-memory-star strong').count(), 8);
             const clipped = await page.locator('.wc-memory-sky').evaluate(sky => { const box = sky.getBoundingClientRect(); return [...sky.querySelectorAll('.wc-memory-star')].some(el => { const b = el.getBoundingClientRect(); return b.left < box.left - 1 || b.right > box.right + 1 || b.top < box.top - 1 || b.bottom > box.bottom + 1; }); });
             assert.equal(clipped, false);

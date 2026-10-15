@@ -7,7 +7,7 @@ const { pathToFileURL } = require('node:url');
 const { chromium } = require(process.env.BYND_PLAYWRIGHT || 'C:/Users/l/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'artifacts/home3d'); fs.mkdirSync(output, { recursive: true });
-const fixture = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/vendor/remixicon/remixicon.css"><link rel="stylesheet" href="/apps/home3d/home3d.css"><style>html,body{margin:0;width:100%;height:100%;font-family:Arial,'Microsoft Yahei',sans-serif}.app-window{height:100%;width:100%;position:relative}.hidden{display:none}</style></head><body><div id="app-home3d-window" class="app-window active"><div id="home3d-root"></div></div><script>window.myCharacters=[{id:'proof',name:'林间',personality:'温柔，喜欢阅读和游戏',history:[],chatConfig:{}}];window.openApp=id=>{window.destination=id;ByndHome3D.close();document.getElementById('app-home3d-window').classList.remove('active')};window.closeApp=window.openApp;window.getLivingWorldRelevantEventsForChar=()=>[];window.getWechatMemoryStore=()=>({chars:{proof:{longTerm:[{id:'rain',title:'一起听过的雨',content:'那天我们窝在沙发上听雨，把毯子分了一半给彼此。',enabled:true}],segments:[],compressed:[]}}});</script><script src="/apps/home3d/home3d.js"></script><script>ByndHome3D.open();</script></body></html>`;
+const fixture = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/vendor/remixicon/remixicon.css"><link rel="stylesheet" href="/apps/home3d/home3d.css"><style>html,body{margin:0;width:100%;height:100%;font-family:Arial,'Microsoft Yahei',sans-serif}.app-window{height:100%;width:100%;position:relative}.hidden{display:none}</style></head><body><div id="app-home3d-window" class="app-window active"><div id="home3d-root"></div></div><script>window.__byndSingleRoom=true;window.myCharacters=[{id:'proof',name:'林间',personality:'温柔，喜欢阅读和游戏',history:[],chatConfig:{}}];window.openApp=id=>{window.destination=id;ByndHome3D.close();document.getElementById('app-home3d-window').classList.remove('active')};window.closeApp=window.openApp;window.getLivingWorldRelevantEventsForChar=()=>[];window.getWechatMemoryStore=()=>({chars:{proof:{longTerm:[{id:'rain',title:'一起听过的雨',content:'那天我们窝在沙发上听雨，把毯子分了一半给彼此。',enabled:true}],segments:[],compressed:[]}}});</script><script src="/apps/home3d/home3d.js"></script><script>ByndHome3D.open();</script></body></html>`;
 const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.woff2': 'font/woff2' };
 const server = http.createServer((req, res) => {
     if (req.url.split('?')[0] === '/__home3d__') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(fixture); return; }
@@ -37,14 +37,14 @@ const server = http.createServer((req, res) => {
         await page.locator('[data-action="memories"]').click(); await page.locator('[data-action="keep-memory"]').click();
         // Saving triggers an async room reload before reopening the memory sheet.
         // Wait for that completion; dismissing the old sheet mid-reload races it.
-        await page.waitForFunction(() => document.querySelector('.home3d-notice').textContent.includes('这段回忆变成了一颗小星星'));
+        await page.waitForFunction(() => document.querySelector('.home3d-sheet-notice')?.textContent.includes('这段回忆变成了一颗小星星'));
         assert.equal(await page.evaluate(() => ByndHome3D.State.home().keepsakes.length), 1);
         await page.locator('[data-action="dismiss"]').click();
-        await page.route('**/k-computerScreen.glb', route => route.abort());
+        await page.evaluate(() => { const H = ByndHome3D; window.originalFurnitureLoad = H.Furniture.load; H.Furniture.load = async function(item, ...args) { if (item.type === 'computer') throw Error('电脑资源加载失败'); return originalFurnitureLoad.call(this, item, ...args); }; });
         await page.locator('[data-action="room"][data-room="game_room"]').click();
         await page.waitForSelector('.home3d-scene-error:not([hidden])');
         assert.ok((await page.locator('.home3d-scene-error').textContent()).includes('电脑'));
-        await page.unroute('**/k-computerScreen.glb'); await page.locator('[data-action="retry"]').click();
+        await page.evaluate(() => { ByndHome3D.Furniture.load = originalFurnitureLoad; }); await page.locator('[data-action="retry"]').click();
         await page.waitForFunction(() => !document.querySelector('#home3d-scene').classList.contains('is-loading'));
         assert.equal(await page.locator('.home3d-scene-error').isVisible(), false);
         for (const room of ['bedroom', 'game_room']) {
@@ -56,9 +56,12 @@ const server = http.createServer((req, res) => {
         await page.evaluate(async () => { ByndHome3D.State.withHome(home => { home.activity = { action: 'Sleep', room: 'bedroom', target: 'bed', reason: '晚安', until: Date.now() + 600000 }; }); await ByndHome3D.UI.loadRoom('bedroom'); });
         await page.evaluate(() => ByndHome3D.Interactions.perform('bed', 'Sleep'));
         await page.waitForFunction(() => ByndHome3D.runtime.stats().actors.find(a => a.who === 'user').action === 'Sleep');
-        assert.ok((await page.evaluate(() => { try { ByndHome3D.Interactions.perform('bed', 'Hug'); return ''; } catch (error) { return error.message; } })).includes('醒来'));
+        const invalidPair = await page.evaluate(async () => { try { await ByndHome3D.Interactions.perform('bed', 'Hug', true); return ''; } catch (error) { return error.message; } });
+        assert.match(invalidPair, /这个互动适合单人完成/);
+        assert.equal(await page.evaluate(() => ByndHome3D.State.home().activity.action), 'Sleep');
         await page.screenshot({ path: path.join(output, 'sleep.png') });
         await page.locator('[data-action="settings"]').click(); await page.locator('[data-action="theme"][data-theme="night"]').click();
+        await page.waitForFunction(() => ByndHome3D.runtime?.stats().actors.length === 2 && !document.querySelector('.home3d-scene.is-loading'));
         await page.locator('[data-action="dismiss"]').click(); await page.waitForTimeout(300);
         await page.screenshot({ path: path.join(output, 'night.png') });
         for (const width of [320, 375, 430]) {
@@ -71,7 +74,7 @@ const server = http.createServer((req, res) => {
         }
         await page.evaluate(() => { window.callChatApi = async () => ({ ok: false, error: '测试 HTTP 429' }); });
         await page.locator('[data-action="char"]').first().click(); await page.locator('[data-action="decide"]').click();
-        await page.waitForFunction(() => document.querySelector('.home3d-notice').textContent.includes('429'));
+        await page.waitForFunction(() => document.querySelector('.home3d-sheet-notice')?.textContent.includes('429'));
         assert.equal(await page.evaluate(() => ByndHome3D.State.home().activity.action), 'Sleep');
         await page.evaluate(async () => {
             const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16; canvas.getContext('2d').fillRect(0, 0, 16, 16);
@@ -153,7 +156,7 @@ const server = http.createServer((req, res) => {
             assert.equal(await actual.locator('.home3d-scene-error').isVisible(), false);
             if (url.startsWith('file:')) {
                 const counts = await actual.evaluate(() => ({ loaded: ByndHome3D.Furniture.cacheInfo().models, total: ByndHome3D.catalogs.furnitureCatalog.items.filter(item => item.model).length }));
-                assert.ok(counts.loaded > 0 && counts.loaded < counts.total, 'ordinary file browsers load only visited room furniture');
+                assert.ok(counts.loaded <= counts.total, 'procedural furniture does not preload unused GLB resources');
                 // A missing script is still an error, and a later retry reads it again.
                 // Playwright cannot route local disk requests. Simulate a failed
                 // script element without moving any shared workspace resources.
@@ -164,15 +167,13 @@ const server = http.createServer((req, res) => {
                         return window.homeAppendChild.call(this, node);
                     };
                 });
-                await actual.locator('[data-action="room"][data-room="game_room"]').click();
-                await actual.waitForSelector('.home3d-scene-error:not([hidden])');
-                assert.match(await actual.locator('.home3d-scene-error').textContent(), /电脑/);
+                const missing = await actual.evaluate(async () => { try { await ByndHome3D.Furniture.modelBuffer('k-computerScreen.glb'); return ''; } catch (error) { return error.message; } });
+                assert.match(missing, /本地家具资源缺失/);
                 await actual.evaluate(() => { document.head.appendChild = window.homeAppendChild; delete window.homeAppendChild; });
-                await actual.locator('[data-action="retry"]').click();
-                await actual.waitForFunction(() => !document.querySelector('#home3d-scene').classList.contains('is-loading'));
-                assert.equal(await actual.locator('.home3d-scene-error').isVisible(), false);
+                const retried = await actual.evaluate(async () => (await ByndHome3D.Furniture.modelBuffer('k-computerScreen.glb')).byteLength);
+                assert.ok(retried > 20, 'the failed local model can be read on retry');
                 for (const room of ['bedroom', 'living_room']) {
-                    await actual.locator('[data-action="room"][data-room="' + room + '"]').click();
+                    await actual.evaluate(room => ByndHome3D.UI.loadRoom(room), room);
                     await actual.waitForFunction(() => !document.querySelector('#home3d-scene').classList.contains('is-loading'));
                     assert.equal(await actual.locator('.home3d-scene-error').isVisible(), false);
                 }

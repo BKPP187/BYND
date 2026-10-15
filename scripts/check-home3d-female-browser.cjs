@@ -23,7 +23,7 @@ async function main() {
         await page.evaluate(() => { window.originalWrite = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === 'bynd_home3d_v1') throw Error('quota'); return window.originalWrite.call(this, key, value); }; });
         await page.locator('#home3d-user-model').selectOption('portrait');
         assert.equal(await page.locator('#home3d-user-model').inputValue(), 'bunny-blue-v1');
-        assert.match(await page.locator('.home3d-notice').innerText(), /没有保存成功/);
+        assert.match(await page.locator('.home3d-sheet-notice').innerText(), /没有保存成功/);
         await page.evaluate(() => { Storage.prototype.setItem = window.originalWrite; });
         await page.locator('#home3d-user-model').selectOption('portrait');
         await page.waitForFunction(() => ByndHome3D.runtime?.stats().actors.find(a => a.who === 'user')?.visual === 'portrait' && !document.querySelector('.home3d-scene.is-loading'));

@@ -27,12 +27,12 @@ const server = http.createServer((req,res) => {
         await page.reload({waitUntil:'domcontentloaded'});
         await page.waitForFunction(() => navigator.serviceWorker.controller && window.__byndCoreReady);
         const manifest = await page.evaluate(async () => (await fetch(document.querySelector('link[rel=manifest]').href)).json());
-        assert.equal(manifest.display,'standalone');
+        assert.equal(manifest.display,'fullscreen');
         await context.setOffline(true);
         const response = await page.reload({waitUntil:'domcontentloaded'});
         assert.equal(response.status(),503); assert.equal(await page.locator('h1').innerText(),'暂时没有网络');
         await context.setOffline(false); await page.locator('button').click();
         await page.waitForFunction(() => window.__byndCoreReady && navigator.serviceWorker.controller);
-        console.log('Worker registered with push disabled, survived cleanup/reload, standalone manifest loaded, offline failure and retry verified. Samsung hardware installation still needs device validation.');
+        console.log('Worker registered with push disabled, survived cleanup/reload, fullscreen manifest loaded, offline failure and retry verified. Samsung hardware installation still needs device validation.');
     } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; server.close(); });

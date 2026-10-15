@@ -20,6 +20,14 @@ const output = path.resolve(__dirname, '../artifacts/desktop-legacy-transfer'); 
             await page.waitForTimeout(250);
             const before = await page.evaluate(height => {
                 enterEditMode();
+                // This scenario exercises loose icons, independently of the default tools folder.
+                const groupedApps = window._folders.flatMap(folder => folder.apps);
+                document.querySelectorAll('.desktop-layout-item.is-folder').forEach(item => item.remove());
+                window._folders = []; saveFolders();
+                for (const app of groupedApps) if (!document.querySelector('[data-layout-id="app-' + app.id + '"]')) {
+                    prepareDesktopLayoutItem(createDesktopAppElement(getDesktopAnyAppDefinition(app)), ensureDesktopPage(3).querySelector('.desktop-scroll-area'), { left: 12, top: 48, width: 72, height: 82 });
+                }
+
                 const target = getDesktopPages()[1].querySelector('.desktop-scroll-area');
                 const source = ensureDesktopPage(2).querySelector('.desktop-scroll-area');
                 const spare = ensureDesktopPage(3).querySelector('.desktop-scroll-area'); spare.classList.add('layout-canvas');

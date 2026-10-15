@@ -116,7 +116,8 @@
         root.classList.toggle('is-surveying',!!v?.browsing);
         let badge=root.querySelector('.home3d-survey-badge');
         if(!badge&&v){root.querySelector('.home3d-world').insertAdjacentHTML('beforeend',button('return-person','','ri-user-smile-line','class="home3d-survey-badge"'));badge=root.querySelector('.home3d-survey-badge');}
-        if(badge){badge.hidden=!v?.browsing;badge.innerHTML=(stats.camera.mode==='dollhouse'?'全屋剖面':'俯瞰 '+(v.viewedLevel+1)+'F')+' · 返回人物';}
+        // Theme, retry and rebind dispose the renderer before rebuilding the room.
+        if(badge){badge.hidden=!v?.browsing;if(v)badge.innerHTML=(stats.camera.mode==='dollhouse'?'全屋剖面':'俯瞰 '+(v.viewedLevel+1)+'F')+' · 返回人物';}
     }
     function areaArrived(id) {
         H.State.withHome(home => { home.room = id; }); roomNavigation(id); updateStatus();

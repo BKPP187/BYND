@@ -494,11 +494,11 @@ function closeApp(appName) {
         if (appName === 'manual') resetManualSearchState();
         if (appName === 'bill') window.ByndBillApp?.close();
         if (appName === 'home3d') window.ByndHome3D?.close();
-        setTimeout(() => win.classList.add('hidden'), 300);
+        setTimeout(() => { if (!win.classList.contains('active')) win.classList.add('hidden'); }, 300);
 
         if (appName === 'wechat' && typeof closeChat === 'function') {
             if (typeof collapseWechatMusicOverlaysToIsland === 'function') collapseWechatMusicOverlaysToIsland();
-            setTimeout(closeChat, 300);
+            setTimeout(() => { if (!win.classList.contains('active')) closeChat(); }, 300);
         }
         if (typeof syncMonitorPetFloating === 'function') setTimeout(syncMonitorPetFloating, 320);
     }

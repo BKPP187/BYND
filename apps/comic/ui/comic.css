@@ -267,7 +267,7 @@
 .ct-ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ct-cta { position: sticky; bottom: 0; z-index: 4; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); margin-top: 18px; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 34%); }
 .ct-primary, .ct-secondary { height: 48px; border-radius: 10px; font-size: 15px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px; }
-.ct-primary { border: 0; background: var(--ct-ink); color: #fff; }
+.ct-shell .ct-primary { border: 0; background: var(--ct-ink); color: #fff; }
 .ct-secondary { border: 1px solid #dcdce2; background: #fff; color: var(--ct-ink); }
 .ct-cta .ct-primary { width: 100%; }
 .ct-create .ct-main, .ct-editor .ct-main { padding-bottom: 0; }

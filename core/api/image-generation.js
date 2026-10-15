@@ -116,10 +116,13 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             : '参考图是最高优先级的外观与画风来源：必须保持参考图中的角色脸型、发型发色、眼睛、年龄感、气质、配色和整体辨识度。如果参考图是动漫、插画、头像或二次元风格，必须保持同类画风，不要真人化。') : ''
     ].filter(Boolean).join('\n');
     const buildBody = includeReference => {
+        // NovelAI relays price GPT-sized portrait/landscape requests as large images.
+        const novelAiSize = /^nai-diffusion(?:-|$)/i.test(imageModel)
+            ? (options.novelAiSize || getWechatNovelAiSizeFromOption(options.size)) : null;
         const body = {
             model: imageModel,
             prompt: enhancedPrompt,
-            size: options.size || '1024x1024',
+            size: novelAiSize ? `${novelAiSize.width}x${novelAiSize.height}` : (options.size || '1024x1024'),
             response_format: 'b64_json'
         };
         if (options.background === 'transparent') body.background = 'transparent';

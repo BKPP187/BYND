@@ -37,7 +37,7 @@ async function verify(server) {
                 return { width: innerWidth, height: innerHeight, scene: { width: scene.width, height: scene.height }, blocked: hud.width * hud.height + tools.width * tools.height + chip.width * chip.height, headerTop: document.querySelector('.home3d-header button').getBoundingClientRect().top, overflow: document.documentElement.scrollWidth > innerWidth, stats: ByndHome3D.runtime.stats() };
             });
             const visibleFraction = (layout.scene.width * layout.scene.height - layout.blocked) / (width * (height - safe));
-            assert.ok(visibleFraction >= .75 && visibleFraction <= .85, 'unobscured world area: ' + visibleFraction);
+            assert.ok(visibleFraction >= .75 && visibleFraction <= .85, 'unobscured world area: ' + JSON.stringify({ visibleFraction, width, height, safe, parent, scene: layout.scene, blocked: layout.blocked }));
             assert.ok(layout.headerTop >= safe && layout.headerTop < safe + 10); assert.equal(layout.overflow, false);
             assert.ok(Math.abs(layout.stats.resolution.width - layout.scene.width * layout.stats.resolution.pixelRatio) <= 1, 'buffer mismatch: ' + JSON.stringify({ width, height, safe, parent, scene: layout.scene, resolution: layout.stats.resolution }));
             assert.ok(layout.stats.resolution.pixelRatio <= 1.25, 'software renderer uses safe automatic tier');
@@ -115,7 +115,7 @@ async function verify(server) {
         }
         await page.evaluate(() => { window.originalWrite = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === 'bynd_home3d_render_quality_v1') throw Error('quota'); return window.originalWrite.call(this, key, value); }; });
         await page.locator('#home3d-render-quality').selectOption('ultra');
-        assert.match(await page.locator('.home3d-notice').innerText(), /没有保存成功/); assert.equal(await page.locator('#home3d-render-quality').inputValue(), 'auto');
+        assert.match(await page.locator('.home3d-sheet-notice').innerText(), /没有保存成功/); assert.equal(await page.locator('#home3d-render-quality').inputValue(), 'auto');
         assert.equal(await page.evaluate(() => ByndHome3D.runtime.stats().quality.mode), 'auto');
         await page.evaluate(() => { Storage.prototype.setItem = window.originalWrite; document.querySelector('.home3d-notice').hidden = true; });
         await page.locator('[data-action="dismiss"]').click();

@@ -60,7 +60,8 @@
             result = await callNovelAiImageGeneration(naiInput(book, panel), { settings: route.settings, signal, usageFeature: 'comic', usageChar: char, onProgress: say });
         } else if (route.provider === 'api') {
             const refs = [book.charRef, book.userRef, book.extraRef].filter(Boolean);
-            result = await callWechatImageGenerationApi(apiPrompt(book, panel), { feature: 'comic', referenceImage: refs[0] || '', additionalReferences: refs.slice(1), size: shotOf(panel.shot).api, requireReference: false, usageChar: char });
+            const [width, height] = shotOf(panel.shot).nai;
+            result = await callWechatImageGenerationApi(apiPrompt(book, panel), { feature: 'comic', referenceImage: refs[0] || '', additionalReferences: refs.slice(1), size: shotOf(panel.shot).api, novelAiSize: { width, height }, requireReference: false, usageChar: char });
         } else {
             throw new Error('还没有可用的生图服务：设置 → API → 生图服务');
         }

@@ -39,11 +39,12 @@ async function main() {
         await page.waitForFunction(() => [...document.querySelectorAll('.home3d-build-preview img')].every(img => img.complete && img.naturalWidth >= 128));
         await page.screenshot({ path: path.join(out, 'furniture-picker-monochrome.png') });
         await page.locator('[data-action="build-interiors"]').click();
+        await page.locator('details').filter({ has: page.locator('#home3d-interior-wall') }).locator('summary').click();
         await page.locator('#home3d-interior-wall').selectOption('rose_brick'); await page.locator('#home3d-interior-floor').selectOption('tatami');
         await page.locator('[data-action="interior-finishes"]').click(); await ready();
         const before = await page.evaluate(() => localStorage.getItem(ByndHome3D.State.key));
         await page.evaluate(() => { window.originalInteriorWrite = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === ByndHome3D.State.key) throw Error('quota'); return originalInteriorWrite.call(this, key, value); }; });
-        await page.locator('[data-interior="palace"]').click(); assert.match(await page.locator('.home3d-notice').innerText(), /没有保存成功/);
+        await page.locator('[data-interior="palace"]').click(); assert.match(await page.locator('.home3d-sheet-notice').innerText(), /没有保存成功/);
         assert.equal(await page.evaluate(() => localStorage.getItem(ByndHome3D.State.key)), before);
         await page.evaluate(() => { Storage.prototype.setItem = originalInteriorWrite; });
         await page.reload(); await ready();

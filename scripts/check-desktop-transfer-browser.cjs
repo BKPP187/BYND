@@ -23,6 +23,9 @@ const output = path.join(root, 'artifacts/desktop-transfer'); fs.mkdirSync(outpu
                     if (all.some(other => other !== item && getDesktopRectIntersectionRatio(footprint, getDesktopTransferFootprint(other, area)) > 0.001)) throw new Error('Default layout overlap: ' + item.dataset.layoutId);
                 }
             }
+            // Check the real default layout before constructing the loose-icon fixture.
+            document.querySelectorAll('.desktop-layout-item.is-folder').forEach(item => item.remove());
+            window._folders = []; saveFolders();
             const target = ensureDesktopPage(1).querySelector('.desktop-scroll-area');
             const source = ensureDesktopPage(2).querySelector('.desktop-scroll-area');
             const ids = ['comic', 'coread', 'living-world', 'role-tools', 'outing', 'pet', 'dream', 'manual', 'mcp'];
@@ -148,7 +151,7 @@ const output = path.join(root, 'artifacts/desktop-transfer'); fs.mkdirSync(outpu
         await page.locator('#page-dots .page-dot').nth(0).tap();
         const savedAlignment = await page.evaluate(() => {
             const area = getDesktopPages()[0].querySelector('.desktop-scroll-area');
-            const tops = ['game', 'theme', 'role-tools'].map(id => area.querySelector('[data-layout-id="app-' + id + '"] .app-icon').getBoundingClientRect().top);
+            const tops = ['game', 'theme', 'role-tools'].map(id => area.querySelector(':scope > .desktop-layout-item[data-layout-id="app-' + id + '"] .app-icon').getBoundingClientRect().top);
             return Math.max(...tops) - Math.min(...tops);
         });
         assert.ok(savedAlignment < 1, 'first-screen rows remain aligned after reopening');

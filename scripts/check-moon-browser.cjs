@@ -47,17 +47,19 @@ fs.mkdirSync(output, { recursive: true });
         await page.setViewportSize({ width: 375, height: 844 });
         await page.locator('[data-moon-tab="records"]').click();
         assert.equal(await page.locator('.moon-page').getAttribute('data-moon-page'), 'records');
+        await page.locator('.moon-heading-action').click();
         assert.equal(await page.locator('#moon-start').isVisible(), true);
         const start = await page.evaluate(() => {
             const current = window.ByndLifeState.localDate();
             return new Date(Date.parse(`${current}T12:00:00Z`) - 5 * 86400000).toISOString().slice(0, 10);
         });
         await page.locator('#moon-start').fill(start);
-        await page.locator('.moon-record-form button[type="submit"]').click();
+        await page.locator('.moon-recorder button[type="submit"]').click();
         assert.equal(await page.evaluate(() => ByndMoon.read().records.length), 1, 'record is persisted from the new tab');
         assert.match(await page.locator('#moon-status').innerText(), /记录已保存/);
         await page.screenshot({ path: path.join(output, 'records-375.png'), animations: 'disabled' });
 
+        await page.locator('.moon-heading-action').click();
         const failedSave = await page.evaluate(() => {
             document.getElementById('moon-start').value = ByndLifeState.localDate();
             const original = Storage.prototype.setItem;
@@ -67,14 +69,15 @@ fs.mkdirSync(output, { recursive: true });
             };
             try {
                 ByndMoon.saveFromForm();
-                return document.getElementById('moon-status').textContent;
+                return document.getElementById('moon-record-error').textContent;
             } finally {
                 Storage.prototype.setItem = original;
             }
         });
-        assert.match(failedSave, /操作失败.*模拟写入失败/, 'failed storage write does not report a saved record');
+        assert.match(failedSave, /保存失败.*模拟写入失败/, 'failed storage write does not report a saved record');
         assert.equal(await page.evaluate(() => ByndMoon.read().records.length), 1, 'failed storage write leaves existing records intact');
 
+        await page.locator('.moon-dialog-close').click();
         await page.locator('[data-moon-tab="companion"]').click();
         await page.locator('#moon-level').selectOption('overview');
         await page.locator('#moon-remind').check();

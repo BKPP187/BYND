@@ -216,6 +216,36 @@ test('chat pictures convert descriptions to tags before calling NovelAI; pet edi
     assert.equal(calls.length, 2, 'editing a reference picture never goes to NovelAI');
 });
 
+test('OpenAI-compatible NovelAI relays receive native comic dimensions without changing other image models', async () => {
+    const bodies = [];
+    let model = 'nai-diffusion-4-5-full';
+    const context = vm.createContext({
+        window: {}, console, AbortSignal,
+        getDefaultImageApi: () => ({ baseUrl: 'https://image-relay.example/v1', apiKey: 'fixture-token', imageModel: model }),
+        fetch: async (_, options) => {
+            bodies.push(JSON.parse(options.body));
+            return new Response(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }), { headers: { 'Content-Type': 'application/json' } });
+        }
+    });
+    vm.runInContext(read('core/api/image-generation.js'), context);
+    for (const [size, native, expected] of [
+        ['1536x1024', { width: 1216, height: 832 }, '1216x832'],
+        ['1024x1536', { width: 832, height: 1216 }, '832x1216'],
+        ['1536x1024', { width: 1472, height: 704 }, '1472x704'],
+        ['1024x1536', { width: 704, height: 1472 }, '704x1472'],
+        ['1024x1024', undefined, '1024x1024']
+    ]) {
+        const result = await context.callWechatImageGenerationApi('1boy, adult, park', { size, novelAiSize: native });
+        assert.equal(result.ok, true);
+        assert.equal(bodies.at(-1).size, expected);
+    }
+    await context.callWechatImageGenerationApi('park', { size: '1536x1024' });
+    assert.equal(bodies.at(-1).size, '1216x832', 'other NovelAI callers also use the ordinary wide tier');
+    model = 'gpt-image-2';
+    await context.callWechatImageGenerationApi('park', { size: '1536x1024', novelAiSize: { width: 1216, height: 832 } });
+    assert.equal(bodies.at(-1).size, '1536x1024');
+});
+
 test('the NovelAI settings modal and scripts are wired into the page', () => {
     const html = read('index.html');
     assert.match(html, /id="api-novelai-image-modal"/);

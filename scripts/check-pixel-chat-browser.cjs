@@ -147,7 +147,7 @@ fs.mkdirSync(output, { recursive: true });
             const data = getStickerPacks();
             if (stripWechatBuiltinStickerPacks(data).packs.some(p => p.id === 'pack_pixel_builtin')) throw new Error('Built-in pack leaked into backup');
         });
-        await grid.locator('img[title="害羞"]').click();
+        await grid.locator('img[alt="害羞"]').click();
         assert.equal(await page.evaluate(() => myCharacters[0].history.at(-1).stickerName), '害羞');
         assert.ok(await page.locator('#wc-chat-toolbar').isVisible(), 'toolbar stays after send');
 

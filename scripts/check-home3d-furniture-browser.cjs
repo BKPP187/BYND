@@ -29,11 +29,14 @@ async function main() {
             const H = ByndHome3D, T = ByndHomeEngine, materials = H.Materials.create('cream');
             const rows = H.catalogs.furnitureCatalog.items.filter(H.FurnitureVisuals.handles).map(data => {
                 const item = H.Furniture.get(data.id), model = H.FurnitureVisuals.create(item, materials), bounds = new T.Box3().setFromObject(model);
-                const result = { id: item.id, meshes: model.children.length, triangles: model.children.reduce((sum, n) => sum + n.geometry.attributes.position.count / 3, 0), min: bounds.min.toArray(), max: bounds.max.toArray() };
+                let meshes = 0, triangles = 0, quiltTriangles = 0;
+                model.traverse(node => { if (node.isMesh) { meshes++; const count = (node.geometry.index?.count || node.geometry.attributes.position.count) / 3; if (node.userData.bedding) quiltTriangles += count; else triangles += count; } });
+                const result = { id: item.id, meshes, triangles, quiltTriangles, min: bounds.min.toArray(), max: bounds.max.toArray() };
                 H.Shapes.disposeGeometry(model); return result;
             }); materials.dispose(); return rows;
         });
-        assert.ok(designs.every(row => row.meshes <= 10 && row.triangles < 10000)); report.designs = designs;
+        // The interactive quilt is a separate deformable surface added after the static design.
+        assert.ok(designs.every(row => row.meshes <= 10 && row.triangles < 10000 && row.quiltTriangles <= 7000), JSON.stringify(designs.filter(row => row.meshes > 10 || row.triangles >= 10000 || row.quiltTriangles > 7000))); report.designs = designs;
         for (const style of ['cream', 'european']) {
             await page.evaluate(async style => {
                 const H = ByndHome3D;
