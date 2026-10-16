@@ -18,6 +18,44 @@
             list.forEach(g=>g.dispose());geometry.computeBoundingSphere();geometry.computeBoundingBox();const mesh=new T.Mesh(geometry,material);mesh.castShadow=mesh.receiveShadow=true;if(material.emissive?.getHex())mesh.userData.luminousMaterial=material;const resources=owned.get(material);mesh.userData.ownedMaterials=[...resources.materials];mesh.userData.ownedTextures=[...resources.textures];group.add(mesh);
         }
     }
+    // Merge the direct, static mesh children of `group` in its local space,
+    // one mesh per (material, shadow flags, key(mesh)). Unlike bake() this is
+    // safe on nested/animated groups and keeps per-key userData so callers can
+    // keep visibility partitions (camera cutaway walls) and picking flags.
+    function batch(group, key = () => '', userData = () => ({})) {
+        const T=ByndHomeEngine, buckets=new Map();
+        for(const mesh of group.children){
+            if(!mesh.isMesh||mesh.isInstancedMesh||mesh.isSkinnedMesh||Array.isArray(mesh.material)||mesh.material.transparent||mesh.children.length||mesh.userData.renderLods||mesh.userData.noBatch)continue;
+            const id=mesh.material.uuid+'|'+mesh.castShadow+'|'+mesh.receiveShadow+'|'+key(mesh);
+            if(!buckets.has(id))buckets.set(id,[]);buckets.get(id).push(mesh);
+        }
+        let merged=0;
+        for(const list of buckets.values()){
+            if(list.length<2)continue;
+            const parts=[];
+            for(const mesh of list){
+                mesh.updateMatrix();const source=mesh.geometry.clone().applyMatrix4(mesh.matrix),flat=source.index?source.toNonIndexed():source;if(flat!==source)source.dispose();
+                if(!flat.attributes.normal)flat.computeVertexNormals();
+                if(!flat.attributes.uv)flat.setAttribute('uv',new T.Float32BufferAttribute(new Float32Array(flat.attributes.position.count*2),2));
+                parts.push(flat);
+            }
+            const geometry=new T.BufferGeometry();
+            for(const name of ['position','normal','uv']){
+                const size=name==='uv'?2:3,array=new Float32Array(parts.reduce((n,g)=>n+g.attributes[name].count*size,0));let offset=0;
+                for(const g of parts){const a=g.attributes[name];for(let i=0;i<a.count;i++){array[offset++]=a.getX(i);array[offset++]=a.getY(i);if(size===3)array[offset++]=a.getZ(i);}}
+                geometry.setAttribute(name,new T.BufferAttribute(array,size));
+            }
+            parts.forEach(g=>g.dispose());geometry.computeBoundingSphere();geometry.computeBoundingBox();
+            const first=list[0],mesh=new T.Mesh(geometry,first.material);mesh.castShadow=first.castShadow;mesh.receiveShadow=first.receiveShadow;
+            Object.assign(mesh.userData,first.userData,userData(list));mesh.userData.batched=list.length;
+            if(list.some(m=>m.userData.luminousMaterial))mesh.userData.luminousMaterial=first.material;
+            const index=group.children.indexOf(first);
+            for(const m of list){m.geometry.dispose();m.removeFromParent();}
+            group.add(mesh);if(index>=0){group.children.splice(group.children.indexOf(mesh),1);group.children.splice(Math.min(index,group.children.length),0,mesh);}
+            merged+=list.length-1;
+        }
+        return merged;
+    }
     function exterior(materials,home,cutaway=false) {
         const T=ByndHomeEngine,root=new T.Group(),facade=new T.Group(),roofs=new T.Group();root.name='villa-exterior';facade.name='villa-facade';roofs.name='villa-pitched-roof';root.add(facade,roofs);facade.visible=!cutaway;
         const cream=materials.get('matte_ceramic','#ece4d1'),trim=materials.get('milky_plastic','#fff3df'),wood=materials.get('soft_wood','#a88c65'),sage=materials.get('matte_ceramic','#7f977e'),stone=materials.get('matte_ceramic','#bfb69f');
@@ -81,5 +119,5 @@
             pose.scale.set(.12,.065,.18);pose.rotation.set(.3,Math.sin(i)*2,i*.7);pose.updateMatrix();leaves.setMatrixAt(i,pose.matrix);
         }leaves.castShadow=true;leaves.computeBoundingSphere();root.add(leaves);
     }
-    H.Architecture={exterior,bake};
+    H.Architecture={exterior,bake,batch};
 })(window.ByndHome3D);

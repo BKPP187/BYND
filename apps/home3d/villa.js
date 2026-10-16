@@ -47,7 +47,9 @@
         const T = ByndHomeEngine, groups = new Map();
         for (const mesh of root.children) {
             if (!mesh.isMesh || mesh.isInstancedMesh || mesh.userData.floor || mesh.userData.villaWall || mesh.material.transparent || mesh.geometry.type !== 'RoundedBoxGeometry') continue;
-            const key = mesh.material.uuid + JSON.stringify(mesh.geometry.parameters) + JSON.stringify(mesh.userData.wallFinish || null);
+            // All finish-only meshes share one visibility rule, so posts from
+            // different walls can share one instanced draw.
+            const key = mesh.material.uuid + JSON.stringify(mesh.geometry.parameters) + !!mesh.userData.wallFinish + mesh.castShadow;
             if (!groups.has(key)) groups.set(key, []); groups.get(key).push(mesh);
         }
         for (const meshes of groups.values()) if (meshes.length >= 3) {
@@ -96,14 +98,15 @@
         const box = (size, pos, mat = trim) => H.Shapes.rounded(root, size, pos, mat, .012);
         const garden = H.Garden?.palette(config) || { grass: '#a9bf91', leaf: '#88a671', trim: '#c2d3a4' };
         root.userData.gardenPalette = outdoor ? garden : null;
-        const floor = new T.Mesh(new T.PlaneGeometry(node.width, node.depth), node.id === 'garden' ? materials.surface({pattern:'grass',base:garden.grass,ink:garden.leaf,secondary:garden.trim},node.width,node.depth,'floor') : materials.surface(H.Interiors.data().floors[config.floor], node.width, node.depth, 'floor'));
+        const floorFinish = node.id === 'garden' ? {pattern:'grass',base:garden.grass,ink:garden.leaf,secondary:garden.trim} : H.Interiors.data().floors[config.floor];
+        const floor = new T.Mesh(surfaceGeometry(new T.PlaneGeometry(node.width, node.depth), node.width, node.depth, materials), surfaceMaterial(materials, floorFinish, node.width, node.depth, 'floor'));
         floor.rotation.x = -Math.PI / 2; floor.position.set(node.x, plan.y + .056, node.z); floor.receiveShadow = true; floor.userData.floor = true; floor.userData.area = node.id;
         if (node.id !== 'landing') { root.add(floor); box([node.width, .18, node.depth], [node.x, plan.y - .055, node.z], wood); }
         else {
             floor.geometry.dispose();
             // Preserve an actual stairwell hole in the upper slab.
             for (const [w, d, x, z] of [[.8, 5.6, -7, -5], [2.9, 5.6, -2.25, -5], [2.9, 1, -5.15, -7.3], [2.9, 1.3, -5.15, -2.85]]) {
-                const slab = new T.Mesh(new T.BoxGeometry(w, .18, d), floor.material); slab.position.set(x, plan.y - .034, z); slab.receiveShadow = true; slab.userData.floor = true; slab.userData.area = node.id; root.add(slab);
+                const slab = new T.Mesh(surfaceGeometry(new T.BoxGeometry(w, .18, d), w, d, materials), materials.tiled ? floor.material : materials.surface(floorFinish, w, d, 'floor')); slab.position.set(x, plan.y - .034, z); slab.receiveShadow = true; slab.userData.floor = true; slab.userData.area = node.id; root.add(slab);
             }
             for (const x of [-6.6, -3.7]) {
                 for (let i = 0; i < 6; i++) box([.04, .85, .04], [x, plan.y + .5, -6.8 + i * .55], wood);
@@ -127,7 +130,8 @@
             }
             if (height > 1) {
                 wall.userData.villaWall = { axis: w.axis, x: w.x, z: w.z, cutaway: outside || w.side === 'back' && !node.id.includes('hall') && node.id !== 'landing' };
-                const plane = new T.Mesh(new T.PlaneGeometry(w.axis === 'x' ? w.depth : w.width, height - .12), materials.surface(H.Interiors.data().walls[config.wall], w.axis === 'x' ? w.depth : w.width, height - .12));
+                const span = w.axis === 'x' ? w.depth : w.width;
+                const plane = new T.Mesh(surfaceGeometry(new T.PlaneGeometry(span, height - .12), span, height - .12, materials), surfaceMaterial(materials, H.Interiors.data().walls[config.wall], span, height - .12, 'wall'));
                 plane.position.set(w.x + (w.axis === 'x' ? .051 * inward : 0), plan.y + height / 2 + .06, w.z + (w.axis === 'z' ? .051 * inward : 0)); plane.rotation.y = w.axis === 'x' ? inward * Math.PI / 2 : inward < 0 ? Math.PI : 0; plane.userData.villaWall = wall.userData.villaWall; finish(plane); root.add(plane);
                 // Shared cream wainscoting gives every connected room the same
                 // finish, with the wallpaper above the protective lower panels.
@@ -156,8 +160,40 @@
         }
         if (['garden', 'greenhouse', 'terrace', 'balcony'].includes(node.id)) outdoors(root, node, plan, materials, config);
         if (!outdoor && H.Daylight) { const fixture=H.Daylight.fixture(materials,node.id.includes('hall')||node.id==='landing'); fixture.position.set(node.x,plan.y+2.78,node.z);root.add(fixture); }
+        thinShadows(root);
         instanceStatic(root);
+        batchShell(root);
         return root;
+    }
+    // Metric UVs let every wall/floor of one finish share a single material
+    // (and so one batched draw) instead of a material per wall length.
+    function surfaceMaterial(materials, finish, width, height, kind) {
+        return materials.tiled ? materials.tiled(finish, kind) : materials.surface(finish, width, height, kind);
+    }
+    function surfaceGeometry(geometry, width, height, materials) {
+        return materials.tiled ? H.Shapes.metricUV(geometry, width, height) : geometry;
+    }
+    const minExtent = mesh => { const g = mesh.geometry; if (!g.boundingBox) g.computeBoundingBox(); const b = g.boundingBox; return Math.min(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z); };
+    // Static shell: thin trim/wallpaper/wainscot/caps stop casting shadows, then
+    // direct static meshes merge per material inside each visibility partition:
+    // floor (picking), each camera-cutaway wall group (same cutaway/axis/z
+    // predicate as the render loop), always-on finishes, and plain statics.
+    // Doors, fixtures and other groups are batched inside themselves only, so
+    // hinges/lamps keep working. Collision comes from the plan, not meshes.
+    function thinShadows(root) {
+        for (const mesh of root.children) if (mesh.isMesh && !mesh.isInstancedMesh && mesh.castShadow && minExtent(mesh) < .08) mesh.castShadow = false;
+    }
+    function batchShell(root) {
+        if (!H.Architecture?.batch) return;
+        const key = mesh => {
+            const w = mesh.userData.villaWall;
+            if (mesh.userData.floor) return 'floor:' + mesh.userData.area;
+            if (w) return 'wall:' + !!w.cutaway + ':' + w.axis + ':' + (w.axis === 'z' ? w.z : '');
+            if (mesh.userData.wallFinish) return 'finish';
+            return 'static';
+        };
+        H.Architecture.batch(root, key, list => list.some(m => m.userData.villaWall && m.geometry?.type === 'RoundedBoxGeometry') ? { cameraBlocker: true } : {});
+        root.traverse(node => { if (node !== root && node.isGroup && !node.userData.gardenSwing) H.Architecture.batch(node); });
     }
     function outdoors(root, node, plan, materials, config) {
         const palette = H.Garden?.palette(config) || { wood: '#af9471', trim: '#eee9dc', cushion: '#abbfa3', paving: '#d6cbb1', flower: '#deb0b7', secondary: '#efcc8c', leaf: '#779772' };
