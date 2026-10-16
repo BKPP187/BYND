@@ -6,7 +6,7 @@ function harness() {
     class Clock extends Date { constructor(...args) { super(...(args.length ? args : [time])); } static now() { return time; } }
     const storage = memoryStorage(), window = { ByndHome3D: { session: 1 }, myCharacters: [{ id: 'a', name: 'A', history: [] }, { id: 'b', name: 'B', history: [] }] };
     const context = vm.createContext({ window, localStorage: storage, Date: Clock, console, performance });
-    for (const name of ['data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'animation', 'build', 'life-context', 'living', 'actions', 'interactions']) vm.runInContext(fs.readFileSync(path.resolve('apps/home3d', name + '.js'), 'utf8'), context);
+    for (const name of ['home3d', 'data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'animation', 'build', 'life-context', 'living', 'actions', 'interactions']) vm.runInContext(fs.readFileSync(path.resolve('apps/home3d', name + '.js'), 'utf8'), context);
     const H = window.ByndHome3D; H.State.bind('a');
     return { H, storage, window, context, now: () => time, advance: ms => time += ms, plain: x => JSON.parse(JSON.stringify(x)), ctx: () => ({ charId: 'a', personality: '', events: [], history: [] }) };
 }
@@ -119,7 +119,8 @@ test('inbox rejects future and expired data, keeps source cursors independent, a
 });
 test('shared prompt distinguishes intentions, blocked receipts and simulated activity', () => {
     const { H } = harness(), token = H.Actions.begin('char', read); H.Actions.transition(token, 'blocked', '座位有人');
-    const prompt = H.Living.prompt({ id: 'a' }); assert.match(prompt, /activity只是计划/); assert.match(prompt, /"phase":"blocked"/); assert.match(prompt, /座位有人/);
+    const prompt = H.Living.prompt({ id: 'a' }); assert.match(prompt, /模拟生活/); assert.match(prompt, /没做成/); assert.match(prompt, /座位有人/); assert.ok(prompt.length <= 600);
+    assert.doesNotMatch(prompt, /cream_|"needs"|lifeInbox/);
     assert.equal(H.Living.prompt({ id: 'missing' }), '');
 });
 

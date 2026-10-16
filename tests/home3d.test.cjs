@@ -10,7 +10,7 @@ function harness(extra = {}) {
     const localStorage = memoryStorage();
     const window = { ByndHome3D: {}, myCharacters: [{ id: 'a', name: 'A', history: [], chatConfig: {} }, { id: 'b', name: 'B', history: [], chatConfig: {} }] };
     const context = vm.createContext({ window, localStorage, Date, console, performance, ...extra });
-    for (const name of ['data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'living', 'animation', 'build']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
+    for (const name of ['home3d', 'data/catalogs', 'characters', 'state', 'bridge', 'furniture', 'rooms', 'living', 'animation', 'build']) vm.runInContext(fs.readFileSync(path.join(root, 'apps/home3d', name + '.js'), 'utf8'), context);
     const H = window.ByndHome3D;
     H.State.bind('a', { avatar: H.Characters.defaultProfile('user') });
     return { H, localStorage, context, window };
@@ -64,9 +64,12 @@ test('night, fatigue, personality and Living World produce compatible furniture 
     const ctx = { personality: '', history: [], phone: {}, events: [] }, home = H.State.home();
     assert.equal(H.Living.plan(home, ctx, new Date(2026, 8, 27, 2).getTime()).action, 'Sleep');
     const noon = new Date(2026, 8, 27, 12, 16).getTime();
-    assert.equal(H.Living.plan(home, { ...ctx, history: [{ isMe: true, text: '加班好累', at: noon }] }, noon).action, 'Lie');
-    assert.equal(H.Living.plan(home, { ...ctx, events: [{ text: '今天有会议' }] }, noon).action, 'Work');
-    assert.equal(H.Living.plan(home, { ...ctx, personality: '喜欢游戏' }, noon).action, 'Game');
+    // A tired user gets a short care block from Ta (tea, blanket, note), not Ta lying down.
+    const care = H.Living.plan(home, { ...ctx, history: [{ isMe: true, text: '加班好累', at: noon }] }, noon + 5 * 60000);
+    assert.equal(care.kind, 'care'); assert.notEqual(care.action, 'Lie');
+    const dayActions = extra => { const seen = new Set(); for (let m = 9 * 60; m < 22 * 60; m += 10) seen.add(H.Living.plan(home, { ...ctx, ...extra }, new Date(2026, 8, 27, 0, m).getTime()).action); return seen; };
+    assert.ok(dayActions({ events: [{ type: 'work', at: noon }] }).has('Work'), 'typed work events schedule desk time');
+    assert.ok(dayActions({ personality: '喜欢游戏' }).has('Game'), 'persona hobbies appear in the day');
     for (let hour = 0; hour < 24; hour++) {
         const decision = H.Living.plan(home, ctx, new Date(2026, 8, 27, hour, 16).getTime());
         assert.doesNotThrow(() => H.Living.validateDecision(decision));
@@ -330,9 +333,9 @@ test('expansion enables real rooms and living facilities only for that character
     assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), false);
     H.Build.expand('bathroom');
     assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), true);
-    const activities = Array.from({ length: 12 }, (_, minute) => H.Living.plan(H.State.home(), { history: [], personality: '', events: [] }, new Date(2026, 8, 27, 21, minute * 2).getTime()));
+    const activities = Array.from({ length: 216 }, (_, i) => H.Living.plan(H.State.home(), { history: [], personality: '', events: [] }, new Date(2026, 8, 27, 6, i * 5).getTime()));
     const bath = activities.find(p => p.action === 'Bathe');
-    assert.ok(bath, 'an available tub enables autonomous bathing during the evening'); assert.equal(bath.room, 'bathroom');
+    assert.ok(bath, 'an available tub enables one bath in the day'); assert.equal(bath.room, 'bathroom');
     H.State.bind('b'); assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), false);
 });
 
@@ -345,8 +348,8 @@ test('plans use installed furniture and invalidated AI plans cannot use a remove
     H.Build.remove('game_room', 'desk');
     assert.throws(() => H.Living.validateDecision({ action: 'Work', room: 'game_room', target: 'desk' }));
     emptyRoom(H); H.Build.commit('living_room', placement('mydesk', 'chinese_desk'));
-    const work = H.Living.plan(H.State.home(), { history: [], events: ['学习工作'], personality: '' }, new Date(2026, 8, 27, 10).getTime());
-    assert.equal(work.action, 'Work'); assert.equal(work.target, 'mydesk'); assert.equal(work.room, 'living_room');
+    const work = Array.from({ length: 120 }, (_, i) => H.Living.plan(H.State.home(), { history: [], events: [{ type: 'study', at: new Date(2026, 8, 27, 10).getTime() }], personality: '' }, new Date(2026, 8, 27, 9, i * 5).getTime())).find(p => p.action === 'Work');
+    assert.ok(work, 'a typed study event schedules desk time'); assert.equal(work.action, 'Work'); assert.equal(work.target, 'mydesk'); assert.equal(work.room, 'living_room');
 });
 
 test('offline catch-up is bounded, idempotent, atomic and distinguished from shared interactions', () => {
@@ -403,11 +406,11 @@ test('offline need integration matches repeated ticks across activity transition
     assert.ok(a.H.State.home().needs.energy>80,'sleep minutes restore energy before the daytime action');
 });
 
-test('a late AI plan cannot overwrite a newer life action for the same character',async()=>{
-    let finish;const {H,localStorage}=harness({callChatApi:()=>new Promise(r=>{finish=r;})});
-    const pending=H.Living.decide();H.State.withHome(home=>{home.activity={action:'Sleep',room:'bedroom',target:'bed',until:Date.now()+10000};});
-    const before=localStorage.getItem(H.State.key);finish({ok:true,content:JSON.stringify({action:'Read',room:'living_room',target:'sofa'})});
-    await assert.rejects(pending,/生活安排已经变化/);assert.equal(localStorage.getItem(H.State.key),before);
+test('a late AI plan is not discarded just because the local routine moved on',async()=>{
+    let finish;const {H}=harness({callChatApi:()=>new Promise(r=>{finish=r;})});
+    const pending=H.Living.decide();H.State.withHome(home=>{home.activity={action:'Sit',room:'living_room',target:'sofa',until:Date.now()+10000,source:'local'};});
+    finish({ok:true,content:'<think>想一想</think>```json\n'+JSON.stringify({action:'Read',room:'living_room',target:'sofa',reason:'看会儿书'})+'\n```'});
+    await pending;assert.equal(H.State.home().activity.action,'Read');
 });
 
 test('invalid imported layouts never overwrite storage and private home context stays scoped', () => {

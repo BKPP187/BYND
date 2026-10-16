@@ -85,6 +85,21 @@
             window.openApp(destination);
         }
     }
+    // Shared parser for model JSON replies: drops <think> blocks and code fences,
+    // then takes the first brace-balanced object (string-aware). Never evals.
+    function parseJson(value) {
+        const text = String(value ?? '').replace(/<(think|thinking|analysis|reasoning)\b[^>]*>[\s\S]*?<\/\1>/gi, '').replace(/```(?:json)?/gi, '').trim();
+        try { return JSON.parse(text); } catch (_) {}
+        let depth = 0, start = -1, quoted = false, escaped = false;
+        for (let i = 0; i < text.length; i++) {
+            const c = text[i];
+            if (quoted) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === '"') quoted = false; continue; }
+            if (c === '"') { quoted = depth > 0; continue; }
+            if (c === '{') { if (!depth) start = i; depth++; }
+            else if (c === '}' && depth) { depth--; if (!depth) { try { return JSON.parse(text.slice(start, i + 1)); } catch (_) { start = -1; } } }
+        }
+        throw new Error('回复里没有有效的 JSON。');
+    }
     function parseAvatarResponse(value, finishReason = '') {
         const failure = /length|max[_ -]?tokens/i.test(finishReason) ? '模型的外观回复被截断，旧形象已保留。请换用输出额度更充足的看图模型后重试。' : '模型没有返回完整的外观参数，旧形象已保留。请确认聊天模型支持看图，或手动调整形象。';
         const text = String(value ?? '').replace(/<(think|thinking|analysis|reasoning)\b[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
@@ -122,5 +137,5 @@
         if (!result?.ok) throw new Error(result?.error || '参考图分析失败，请使用支持看图的模型或手动调整。');
         return parseAvatarResponse(result.content || result.text || '', result.finishReason || '');
     }
-    H.Bridge = { characters, char, name, reference, referenceKey, context, memories, photos, open, inferAvatar, parseAvatarResponse, request, cooldownRemaining, requestBusy: () => requestPending };
+    H.Bridge = { parseJson, characters, char, name, reference, referenceKey, context, memories, photos, open, inferAvatar, parseAvatarResponse, request, cooldownRemaining, requestBusy: () => requestPending };
 })(window.ByndHome3D);
