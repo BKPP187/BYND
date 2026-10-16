@@ -29,6 +29,13 @@
         }
         return { tree_oak: trees, tree_small: saplings, plant_bushDetailed: bushes, grass_leafsLarge: grass, flower_purpleA: purple, flower_yellowA: yellow };
     }
+    // Plants respond to care: lush within a day of watering, normal up to three
+    // days, then wilting until someone waters them again.
+    function plantState(home = {}, now = Date.now()) {
+        const watered = Object.values(home.objectState || {}).reduce((n, row) => Math.max(n, Number(row?.wateredAt) || 0), 0);
+        const days = watered ? (now - watered) / 86400000 : Infinity;
+        return { state: days < 1 ? 'lush' : days <= 3 ? 'normal' : watered ? 'wilting' : 'normal', wateredAt: watered || null };
+    }
     async function populate(parent, materials, isCurrent = () => true, home = {}) {
         const T = ByndHomeEngine, group = new T.Group(); group.name = 'garden-kenney-nature';
         const colors = palette(H.Interiors.resolve(H.Rooms.get('garden'), home)); group.userData.gardenPalette = colors;
@@ -39,19 +46,20 @@
             models.forEach(m => H.Shapes.disposeGeometry(m)); throw Error('花园植物暂时没能加载，请重新进入小屋。');
         }
         const transform = new T.Object3D(), matrix = new T.Matrix4();
+        const mood = plantState(home).state, grow = mood === 'lush' ? 1.06 : mood === 'wilting' ? .94 : 1;
         results.forEach((result, index) => {
             const model = result.value, [id, places] = rows[index]; model.updateMatrixWorld(true);
             model.traverse(mesh => {
                 if (!mesh.isMesh) return;
                 // Keep the pack's separate bark, leaf and flower materials;
                 // tint only foliage/bark to the home's muted garden palette.
-                if (/leaf|grass/i.test(mesh.material.name)) mesh.material.color.set(colors.leaf);
+                if (/leaf|grass/i.test(mesh.material.name)) { mesh.material.color.set(colors.leaf); if (mood === 'wilting') mesh.material.color.lerp(new T.Color('#b39a62'), .45); }
                 if(mesh.material.name==='woodBark')mesh.material.color.set(colors.wood);
                 if (/flower|petal|purple|yellow/i.test(mesh.material.name)) mesh.material.color.set(id.includes('yellow') ? colors.secondary : colors.flower);
                 const batch = new T.InstancedMesh(mesh.geometry, mesh.material, places.length); batch.name = 'garden-' + id;
                 batch.userData.ownedMaterials = mesh.userData.ownedMaterials; batch.userData.ownedTextures = mesh.userData.ownedTextures;
                 places.forEach(([x, z, scale], i) => {
-                    transform.position.set(x, .07, z); transform.scale.setScalar(scale); transform.rotation.y = i * 2.4; transform.updateMatrix();
+                    transform.position.set(x, .07, z); transform.scale.setScalar(scale * grow); transform.rotation.y = i * 2.4; transform.updateMatrix();
                     batch.setMatrixAt(i, matrix.multiplyMatrices(transform.matrix, mesh.matrixWorld));
                 });
                 batch.castShadow = batch.receiveShadow = true; batch.computeBoundingSphere(); group.add(batch);
@@ -60,5 +68,5 @@
         group.userData.gardenAssets = { source: 'Kenney Nature Kit (CC0)', instances: rows.reduce((n, r) => n + r[1].length, 0), batches: group.children.length };
         parent.add(group); return group;
     }
-    H.Garden = { populate, blocks, placements, palette };
+    H.Garden = { populate, blocks, placements, palette, plantState };
 })(window.ByndHome3D);

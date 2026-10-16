@@ -724,7 +724,7 @@
             try {
                 for (const row of furniture.filter(r => H.Foods.supports(r.item))) staged.push({ row, group: await H.Foods.create(row.item, id) });
                 if (disposed || token !== generation || mealToken !== mealGeneration) throw Error('房间或餐点已切换，请在当前房间重新选择。');
-                H.State.withHome((home, data) => { if (data.activeCharId !== charId) throw Error('同住角色已切换，这次餐点没有保存。'); home.mealId = id; });
+                H.State.withHome((home, data) => { if (data.activeCharId !== charId) throw Error('同住角色已切换，这次餐点没有保存。'); if (H.Foods.remember) H.Foods.remember(home, id); else home.mealId = id; });
             } catch (error) { staged.forEach(({ group }) => H.Shapes.disposeGeometry(group)); throw error; }
             for (const { row, group } of staged) H.Shapes.disposeGeometry(H.Foods.attach(row.model, group));
             actors.forEach(a => a.eatTool?.getObjectByName('spoon-food').material.color.set(H.Foods.menus[id].bite));

@@ -1,7 +1,34 @@
 /* The desktop loads only this tiny entry point. Renderer, catalogs and room assets are lazy. */
 (function () {
     'use strict';
-    const H = window.ByndHome3D = { runtime: null, session: 0, open: null, close: null };
+    const H = window.ByndHome3D = Object.assign({ runtime: null, session: 0, open: null, close: null }, window.ByndHome3D || {});
+    // One compact, natural-language view of the home for chat (≤600 chars):
+    // what Ta is doing now, what you two did today, one small thing from Ta's day.
+    // No furniture list, raw need numbers or echoed chat text.
+    const ago = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 2 ? '刚刚' : m < 60 ? m + '分钟前' : Math.round(m / 60) + '小时前'; };
+    const clock = (minute) => { const h = Math.floor(minute / 60) % 24, m = minute % 60; return (h < 6 ? '凌晨' : h < 12 ? '上午' : h < 14 ? '中午' : h < 18 ? '下午' : '晚上') + (h % 12 || 12) + '点' + (m ? (m < 10 ? '0' : '') + m : ''); };
+    H.lifeBrief = (home, now = Date.now()) => {
+        if (!home) return '';
+        const d = new Date(now), date = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), minute = d.getHours() * 60 + d.getMinutes();
+        const parts = ['【小屋生活】这是角色自己家里的日常，按人设自然地提起或不提；记录只代表小屋里的模拟生活，不要说成现实里做过的事。'];
+        if (home.relationship) parts.push('关系：' + home.relationship + '。');
+        const steps = home.schedule?.date === date ? home.schedule.steps || [] : [];
+        const step = steps.find(s => s[0] <= minute && minute < s[1]);
+        if (step) {
+            parts.push('现在：' + (step[3] ? '在' + step[3] : '在家') + (step[4] || '') + '（从' + clock(step[0]) + '开始）。');
+            const next = steps.find(s => s[0] >= step[1] && s[4] !== step[4] && !/走动|伸伸|歇/.test(s[4] || ''));
+            if (next) parts.push('接下来大约' + clock(next[0]) + (next[4] || '') + '。');
+        } else if (home.activity?.reason) parts.push('现在：' + home.activity.reason + '。');
+        const receipt = home.executions?.char;
+        if (receipt && ['blocked', 'cancelled'].includes(receipt.phase) && now - (receipt.at || 0) < 6 * 3600000) parts.push('刚才想' + (receipt.action ? (H.Living?.labels?.[receipt.action] || receipt.action) : '做点事') + '，没做成' + (receipt.reason ? '（' + String(receipt.reason).slice(0, 30) + '）' : '') + '，不要说成已经做了。');
+        const shared = (home.moments || []).filter(m => m && m.source !== 'simulation' && now - m.at < 86400000 && m.at <= now).slice(-4);
+        if (shared.length) parts.push('今天和你一起：' + shared.map(m => ago(now - m.at) + String(m.text || '').slice(0, 30)).join('；') + '。');
+        const own = home.awaySummary?.until && now - home.awaySummary.until < 86400000 ? home.awaySummary.highlights?.[0] || home.awaySummary.text : (home.moments || []).filter(m => m?.source === 'simulation' && now - m.at < 86400000).slice(-1)[0]?.text;
+        if (own) parts.push('Ta今天的一件小事：' + String(own).slice(0, 60) + '。');
+        let text = parts.join('');
+        if (text.length > 600) text = text.slice(0, 599) + '…';
+        return text;
+    };
     // Chat and single-actor Living World can read a saved home without loading WebGL.
     window.getByndHomeLifePrompt = char => {
         if (H.Living) return H.Living.prompt(char);
@@ -9,7 +36,7 @@
         try {
             const home = JSON.parse(localStorage.getItem('bynd_home3d_v1') || '{}').homes?.[String(char.id)];
             if (!home) return '';
-            return '【小屋生活】这是这个角色私密小屋的本地存档，不是公开消息，不得让其他角色自动知道。lastActivity只是计划；execution是上次执行回执，blocked/cancelled不能说成完成。离开期间与未显示楼层的记录属于本地生活推演，不要声称做了现实中的事。' + JSON.stringify({ relationship: home.relationship, lastActivity: home.activity, execution: home.executions?.char || null, preferences: home.preferences, updatedAt: home.lastLifeAt, needs: home.needs, recent: (home.moments || []).slice(-5) }).slice(0, 2400);
+            return H.lifeBrief(home, Date.now());
         } catch (_) { return ''; }
     };
     let pending = null;

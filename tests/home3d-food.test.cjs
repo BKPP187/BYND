@@ -22,6 +22,8 @@ test('food models preserve reviewed CC0 provenance, offline bytes and bounded mo
     const F = context.window.ByndHome3D.Foods;
     assert.equal(Object.keys(F.menus).length, 4);
     for (const menu of Object.values(F.menus)) for (const id of menu.foods) assert.ok(manifest.assets.some(a => a.id === id));
-    assert.equal(F.selected({ mealId: 'sushi' }, 8), 'sushi'); assert.equal(F.selected({}, 8), 'breakfast'); assert.equal(F.selected({}, 19), 'supper');
+    const now = new Date(2026, 9, 12, 8).getTime(), pinned = {}; F.remember(pinned, 'sushi', now);
+    assert.equal(F.selected(pinned, 8, now), 'sushi'); assert.equal(F.selected(pinned, 19, now), 'supper', 'a chosen dish holds for that meal only');
+    assert.equal(F.selected(pinned, 8, now + 86400000), 'breakfast', 'and not on the next day'); assert.equal(F.selected({ mealId: 'sushi' }, 8), 'breakfast', 'undated legacy picks expire'); assert.equal(F.selected({}, 8), 'breakfast'); assert.equal(F.selected({}, 19), 'supper');
     assert.equal(F.selected({ mealId: '__proto__' }, 8), 'breakfast');
 });
