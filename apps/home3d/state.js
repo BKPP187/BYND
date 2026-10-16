@@ -9,10 +9,10 @@
         let data;
         try { data = JSON.parse(raw); } catch (_) { throw new Error('小屋存档无法读取。原存档已保留，请先从设置导出备份。'); }
         if (data?.version !== 1 || !data.homes || typeof data.homes !== 'object' || Array.isArray(data.homes)) throw new Error('小屋存档版本不兼容，请先备份。');
-        if (data.user?.modelId !== undefined && !['portrait', 'bunny-blue-v1'].includes(data.user.modelId)) throw new Error('我的小屋模型无效，原存档已保留。');
+        if (data.user?.modelId !== undefined && !['portrait', 'bunny-blue-v1', 'silver-red-v1'].includes(data.user.modelId)) throw new Error('我的小屋模型无效，原存档已保留。');
         for (const current of Object.values(data.homes)) {
             if (!current || typeof current !== 'object') throw new Error('小屋存档内容无效，请先备份。');
-            if (current.modelId !== undefined && !['portrait', 'silver-red-v1'].includes(current.modelId)) throw new Error('小屋人物模型无效，原存档已保留。');
+            if (current.modelId !== undefined && !['portrait', 'bunny-blue-v1', 'silver-red-v1'].includes(current.modelId)) throw new Error('小屋人物模型无效，原存档已保留。');
             if (current.openRooms && (!Array.isArray(current.openRooms) || current.openRooms.some(id => !H.Rooms.get(id)?.expandable))) throw new Error('小屋扩建存档无效，原存档已保留。');
             const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
             const receipt = value => object(value) && typeof value.id === 'string' && ['user', 'char'].includes(value.actor) && ['queued', 'walking', 'acting', 'finished', 'blocked', 'cancelled'].includes(value.phase) && Number.isFinite(value.at);

@@ -108,3 +108,8 @@ test('every default furniture placement passes its own placement validation, als
     }
     assert.deepEqual(failures,[]);
 });
+test('every icon referenced by the home sources has an offline drawing', () => {
+    const dir=path.resolve('apps/home3d'),icons=fs.readFileSync(path.join(dir,'icons.js'),'utf8'),missing=new Set();
+    for(const f of fs.readdirSync(dir).filter(f=>f.endsWith('.js')&&f!=='icons.js'))for(const m of fs.readFileSync(path.join(dir,f),'utf8').matchAll(/ri-[a-z0-9-]+-(?:line|fill)/g))if(!icons.includes("'"+m[0]+"'"))missing.add(f+': '+m[0]);
+    assert.deepEqual([...missing],[]);
+});

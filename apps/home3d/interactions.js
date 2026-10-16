@@ -1,6 +1,6 @@
 (function (H) {
     'use strict';
-    const labels = { Sit: '坐一会儿', Lie: '醒着躺一会儿', Sleep: '睡觉', Hug: '一起抱抱', 'Use Phone': '坐着看手机', 'Use Computer': '使用电脑', Game: '玩电脑游戏', Work: '坐下来工作', Watch: '坐着看电视', Read: '坐着看书', Drink: '喝点热饮', Eat: '吃点东西', 'Look At': '看看它', 'Play Music': '播放音乐', Photo: '打开相册', Care: '浇水', Cook: '做饭', Bathe: '泡澡', Shower: '洗澡', 'Wash Hands': '洗手', 'Wash Face': '洗脸', 'Use Toilet': '上厕所', Groom: '整理仪容', 'Change Outfit': '管理人物形象' };
+    const labels = { Sit: '坐一会儿', Lie: '醒着躺一会儿', Sleep: '睡觉', Hug: '一起抱抱', 'Use Phone': '坐着看手机', 'Use Computer': '使用电脑', Game: '玩电脑游戏', Work: '坐下来工作', Watch: '坐着看电视', Read: '坐着看书', Drink: '喝点热饮', Eat: '吃点东西', 'Look At': '看看它', 'Play Music': '播放音乐', Photo: '打开相册', Care: '浇水', Memory: '看看回忆', Cook: '做饭', Bathe: '泡澡', Shower: '洗澡', 'Wash Hands': '洗手', 'Wash Face': '洗脸', 'Use Toilet': '上厕所', Groom: '整理仪容', 'Change Outfit': '管理人物形象' };
     const destinations = { 'Play Music': 'music', Photo: 'album', Game: 'game' };
     let pending = null, shared = null;
     function cancel(phase = 'cancelled', reason = '已取消这次互动') {
