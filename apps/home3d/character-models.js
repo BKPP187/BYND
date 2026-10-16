@@ -419,8 +419,9 @@
         if (['Read', 'Use Phone', 'Work', 'Use Computer', 'Game', 'Drink', 'Eat'].includes(action)) actor.arms.forEach(b => { b.rotation.x = -.65; });
         if (action === 'Read') actor.arms.forEach((b, i) => { const female = actor.modelId === 'bunny-blue-v1'; b.rotation.x = female ? -.6 : -1.15; b.rotation.z = (i ? -1 : 1) * (female ? .9 : .50); b.children[0].rotation.x = female ? -1.4 : -.9; });
         if (action === 'Cook') actor.arms.forEach((b, i) => { b.rotation.x = -.55; b.rotation.z = i ? -.12 : .12; b.children[0].rotation.x = -.65; });
-        if (action === 'Hug') actor.arms.forEach((b, i) => { b.rotation.x = -.9; b.rotation.z = i ? .35 : -.35; });
-        if (['Wave', 'Happy'].includes(action)) actor.arms[1].rotation.z = -1.8;
+        // Gestures place the hands with the same two-joint reach the cooking and
+        // dining grips use, instead of fixed angles that swept through the body.
+        if (['Wave', 'Happy', 'Hug', 'Use Phone'].includes(action) && H.Cooking?.hands?.reach) gesture(actor, action);
         if (anchor?.lying) settleFeet(actor, (anchor.quiltSurface ?? anchor.restSurface ?? anchor.y) + .006);
         actor.root.updateMatrixWorld(true); actor.skeleton.update(); H.Cooking?.prepare(actor); H.Dining?.prepare(actor); H.Hygiene?.prepare(actor); updateProps(actor);
     }
@@ -444,7 +445,30 @@
             sole((low + high) / 2);
         }
     }
+    function gesture(actor, action) {
+        const T = ByndHomeEngine, reach = H.Cooking.hands.reach;
+        actor.root.updateMatrixWorld(true); actor.skeleton.update();
+        const shoulder = side => actor.body.worldToLocal(actor.arms[side].getWorldPosition(new T.Vector3()));
+        const mid = shoulder(0).add(shoulder(1)).multiplyScalar(.5), out = side => Math.sign(shoulder(side).x - mid.x) || (side ? 1 : -1);
+        const world = local => actor.body.localToWorld(new T.Vector3(...local));
+        if (action === 'Wave' || action === 'Happy') {
+            // Raised beside the head, in front of the shoulder, palm forward.
+            const s = shoulder(1); reach(actor, 1, world([s.x + out(1) * .1, s.y + .3, s.z + .1]));
+        } else if (action === 'Use Phone') {
+            for (const side of [0, 1]) reach(actor, side, world([mid.x + out(side) * .05, mid.y - .27, mid.z + .27]));
+        } else if (action === 'Hug') {
+            // Arms close around someone standing in front, hands meeting behind their back.
+            for (const side of [0, 1]) reach(actor, side, world([mid.x + out(side) * .12, mid.y - .13, mid.z + .3]));
+        }
+        actor.root.updateMatrixWorld(true); actor.skeleton.update();
+    }
     function updateProps(actor) {
+        if (actor.phone?.visible && actor.action === 'Use Phone' && H.Cooking?.hands?.sample) {
+            // The phone stays in the hands instead of floating at a fixed body offset.
+            const T = ByndHomeEngine, a = H.Cooking.hands.sample(actor, 0), b = H.Cooking.hands.sample(actor, 1);
+            const local = actor.body.worldToLocal(a.add(b).multiplyScalar(.5)); local.z += .015;
+            const target = actor.phoneProp || actor.phone; if (target.parent === actor.body) target.position.copy(local);
+        }
         const height = configuration(actor).height;
         if (!actor.book.visible) { updateGaze(actor); return; }
         actor.root.updateMatrixWorld(true);
