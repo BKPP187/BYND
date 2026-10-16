@@ -14,13 +14,21 @@
                     const previous = maps.get(texture); maps.set(texture, { texture, color: colorMaps.has(slot) || previous?.color, hero: hero || previous?.hero });
                 }
             });
-            const entries = [...maps.values()].sort((a, b) => Number(b.hero) - Number(a.hero)), budget = profile.textureMiB * 1024 * 1024;
-            for (const entry of entries) {
-                const texture = entry.texture, image = originals.get(texture) || texture.image;
+            // Textures cloned from one image (shared painted surfaces, GLTF clones)
+            // are sized, budgeted and re-uploaded once per image and priority.
+            const groups = new Map();
+            for (const item of maps.values()) {
+                const texture = item.texture, image = originals.get(texture) || texture.image;
                 if (!image?.width || !image?.height) continue;
                 originals.set(texture, image);
-                const cap = Math.min(renderer.capabilities.maxTextureSize, entry.hero ? profile.heroTextureSize : profile.textureSize);
-                entry.source = image; entry.scale = Math.min(1, cap / Math.max(image.width, image.height));
+                const key = image, byHero = groups.get(key) || new Map(); groups.set(key, byHero);
+                const group = byHero.get(item.hero) || { source: image, hero: !!item.hero, color: false, textures: [] }; byHero.set(item.hero, group);
+                group.color = group.color || !!item.color; group.textures.push(texture);
+            }
+            const entries = [...groups.values()].flatMap(byHero => [...byHero.values()]).sort((a, b) => Number(b.hero) - Number(a.hero)), budget = profile.textureMiB * 1024 * 1024;
+            for (const entry of entries) {
+                const image = entry.source, cap = Math.min(renderer.capabilities.maxTextureSize, entry.hero ? profile.heroTextureSize : profile.textureSize);
+                entry.scale = Math.min(1, cap / Math.max(image.width, image.height));
                 entry.bytes = image.width * image.height * entry.scale * entry.scale * 4 * 4 / 3;
             }
             let total = entries.reduce((sum, item) => sum + (item.bytes || 0), 0);
@@ -30,24 +38,30 @@
                 total -= entry.bytes * .75; entry.scale /= 2; entry.bytes /= 4; if (total <= budget) break;
             }
             for (const entry of entries) {
-                if (!entry.source) continue;
-                const texture = entry.texture, w = Math.max(1, Math.floor(entry.source.width * entry.scale)), h = Math.max(1, Math.floor(entry.source.height * entry.scale));
-                const changed = texture.image?.width !== w || texture.image?.height !== h;
-                if (changed) {
-                    let image = entry.source;
-                    if (entry.scale !== 1) { const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('设备无法准备家具贴图。'); ctx.drawImage(entry.source, 0, 0, w, h); image = canvas; }
-                    // WebGL storage dimensions are immutable after upload. Release
-                    // the old allocation before the next upload at another size.
-                    // Cloned GLTF textures can share a Source but have distinct UVs
-                    // or priorities. Detach it so resizing one does not resize peers.
-                    texture.dispose(); texture.source = new T.Source(image);
-                }
-                const colorSpace = entry.color ? T.SRGBColorSpace : T.NoColorSpace, anisotropy = Math.min(profile.anisotropy, renderer.capabilities.getMaxAnisotropy());
-                if (changed || texture.colorSpace !== colorSpace || texture.anisotropy !== anisotropy || !texture.generateMipmaps) {
-                    texture.colorSpace = colorSpace; texture.anisotropy = anisotropy; texture.generateMipmaps = true; texture.minFilter = T.LinearMipmapLinearFilter; texture.magFilter = T.LinearFilter; texture.needsUpdate = true;
+                const w = Math.max(1, Math.floor(entry.source.width * entry.scale)), h = Math.max(1, Math.floor(entry.source.height * entry.scale));
+                let shared = null;
+                for (const texture of entry.textures) {
+                    const changed = texture.image?.width !== w || texture.image?.height !== h;
+                    if (changed) {
+                        if (!shared) {
+                            let image = entry.source;
+                            if (entry.scale !== 1) { const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('设备无法准备家具贴图。'); ctx.drawImage(entry.source, 0, 0, w, h); image = canvas; }
+                            shared = new T.Source(image);
+                        }
+                        // WebGL storage dimensions are immutable after upload. Release
+                        // the old allocation before the next upload at another size.
+                        // Peers with another priority keep their own Source; peers in
+                        // this group share the one resized Source (one upload).
+                        texture.dispose(); texture.source = shared;
+                    }
+                    const colorSpace = entry.color ? T.SRGBColorSpace : T.NoColorSpace, anisotropy = Math.min(profile.anisotropy, renderer.capabilities.getMaxAnisotropy());
+                    if (changed || texture.colorSpace !== colorSpace || texture.anisotropy !== anisotropy || !texture.generateMipmaps) {
+                        texture.colorSpace = colorSpace; texture.anisotropy = anisotropy; texture.generateMipmaps = true; texture.minFilter = T.LinearMipmapLinearFilter; texture.magFilter = T.LinearFilter; texture.needsUpdate = true;
+                    }
                 }
             }
-            report = { textureBytes: Math.ceil(total), budgetBytes: budget, textures: entries.length, lodMeshes: lodMeshes.size };
+            const textureCount = entries.reduce((n, entry) => n + entry.textures.length, 0);
+            report = { textureBytes: Math.ceil(total), budgetBytes: budget, textures: textureCount, images: entries.length, lodMeshes: lodMeshes.size };
             return { ...report };
         }
         function lod(camera, height, profile) {
