@@ -714,6 +714,62 @@ function buildChatApiImageContent(msg) {
     ];
 }
 
+// Pixels of pictures the character itself sent, shown back to it on the user's turn.
+// Chat APIs take images only in user turns, so they ride the latest user message.
+const chatApiCharacterImageFallbacks = new WeakMap();
+
+function describeChatApiCharacterImage(msg) {
+    const caption = cleanChatApiVisibleContent(msg.caption || msg.description || '').replace(/<[^>]+>/g, '').trim();
+    const prompt = cleanChatApiVisibleContent(msg.imagePrompt || '').replace(/<[^>]+>/g, '').trim();
+    const state = msg.imagePending || msg.imageResolving ? '（还在生成中）'
+        : (msg.imageError && !getChatApiImageUrls(msg).length ? '（生成失败，对方没收到）' : '');
+    const parts = [caption && caption !== '照片' ? caption : '', prompt ? `画面要求：${truncateChatAnchorText(prompt, 200)}` : ''].filter(Boolean);
+    return `[你发出了一张图片${state}${parts.length ? `：${parts.join('｜')}` : ''}]`;
+}
+
+function collectChatApiCharacterImages(recentHistory, latestUserMsg, limit = 2) {
+    const end = recentHistory.indexOf(latestUserMsg);
+    if (end < 0) return [];
+    // Only pictures from the turn just before this user message: older ones were already seen.
+    let start = 0;
+    for (let i = end - 1; i >= 0; i--) {
+        const msg = recentHistory[i];
+        if (msg && msg.isMe && msg !== latestUserMsg && isChatApiVisibleUserHistoryMessage(msg)) { start = i + 1; break; }
+    }
+    const urls = [];
+    for (let i = start; i < end; i++) {
+        const msg = recentHistory[i];
+        if (!msg || msg.isMe || (msg.type !== 'image' && msg.type !== 'image_stack')) continue;
+        urls.push(...getChatApiImageUrls(msg));
+    }
+    return urls.slice(-limit);
+}
+
+function appendChatApiCharacterImages(content, imageUrls) {
+    if (!imageUrls.length) return content;
+    const fallback = content;
+    const parts = Array.isArray(content) ? content.map(item => ({ ...item })) : [{ type: 'text', text: String(content || '') }];
+    parts.push({
+        type: 'text',
+        text: `【你刚才发给用户的${imageUrls.length > 1 ? ` ${imageUrls.length} 张` : ''}图片的实际画面，这是你自己发出去的，不是用户发来的】如果用户提到这张图，按画面真实内容回应；画面和你原本想发的不一样时，可以按人设自然地发现、吐槽或解释。`
+    });
+    imageUrls.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
+    chatApiCharacterImageFallbacks.set(parts, fallback);
+    return parts;
+}
+
+function stripChatApiCharacterImages(messages) {
+    let changed = false;
+    const stripped = (messages || []).map(message => {
+        if (message && Array.isArray(message.content) && chatApiCharacterImageFallbacks.has(message.content)) {
+            changed = true;
+            return { ...message, content: chatApiCharacterImageFallbacks.get(message.content) };
+        }
+        return message;
+    });
+    return changed ? stripped : null;
+}
+
 function prependChatApiQuoteToContent(content, quoteText) {
     if (!quoteText) return content;
     if (Array.isArray(content)) {
@@ -1526,6 +1582,7 @@ function buildMessages(char, history, maxMessages) {
             break;
         }
     }
+    const characterImageUrls = collectChatApiCharacterImages(recentHistory, latestUserMsg);
     recentHistory.forEach(msg => {
         if (!msg) return;
         const isInternalContext = isChatApiInternalHistoryMessage(msg) || msg.type === 'user_event';
@@ -1536,7 +1593,7 @@ function buildMessages(char, history, maxMessages) {
         if ((msg.type === 'image' || msg.type === 'image_stack') && msg.isMe) {
             content = buildChatApiImageContent(msg);
         } else if (msg.type === 'image' || msg.type === 'image_stack') {
-            content = msg.description || '[图片]';
+            content = describeChatApiCharacterImage(msg);
         } else if (msg.type === 'sticker') {
             content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
         } else if (msg.type === 'poke') {
@@ -1596,6 +1653,8 @@ function buildMessages(char, history, maxMessages) {
                 content,
                 `【本轮私有系统上下文，不是用户发言】\n${timeAnchor}\n${prepareChatApiPromptText(coreIdentityAnchor, 9000)}\n\n【执行要求】只回应用户真实消息；回复必须按「${(char && char.name) || '角色'}」的人设、世界书、记忆和当前关系生成。`
             );
+            // Last, so the text-only fallback keeps every prefix above.
+            content = appendChatApiCharacterImages(content, characterImageUrls);
         }
 
         messages.push({
@@ -1859,6 +1918,14 @@ async function callChatApi(messages, options = {}) {
             const visionHint = /image|vision|multi[- ]?modal|content\s*array|image_url/i.test(detailText)
                 ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
                 : '';
+            if (visionHint && !options._characterImagesStripped) {
+                // A text-only model refuses the character's own pictures; resend the turn without them.
+                const withoutImages = stripChatApiCharacterImages(messages);
+                if (withoutImages) {
+                    finishUsage(`HTTP ${resp.status}: ${detailText.slice(0, 120)}`);
+                    return callChatApi(withoutImages, { ...options, _characterImagesStripped: true });
+                }
+            }
             const rateLimitHint = retryAfterMs > 0 ? `；接口要求等待约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
             finishUsage(`HTTP ${resp.status}: ${detailText.slice(0, 120)}`);
             if (useStream && params.stream_options && resp.status === 400 && /stream_options|include_usage/i.test(detailText)) {
