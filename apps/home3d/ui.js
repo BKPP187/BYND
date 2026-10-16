@@ -225,7 +225,7 @@
     }
     function portraitCard(person, who) {
         const model = H.CharacterModels.selected(person, who), id = who === 'user' ? 'bunny-blue-v1' : 'silver-red-v1';
-        const image = person.portraitDraft || person.portrait, url = image?.url || (model ? H.initialModelPortraits[who] : H.initialPortraits[who]);
+        const image = person.portraitDraft || person.portrait, url = image?.url || (model ? H.initialModelPortraits?.[who] : H.initialPortraits?.[who]) || '';
         const choice = '<label class="home3d-field">小屋人物<select id="home3d-' + (who === 'user' ? 'user' : 'character') + '-model"><option value="' + id + '" ' + (model ? 'selected' : '') + '>' + (who === 'user' ? '兔耳蓝裙女生' : '银发男生') + ' · 3D 模型</option><option value="portrait" ' + (!model ? 'selected' : '') + '>已保存的 Q 版立绘</option></select></label>';
         const card = '<div class="home3d-portrait-preview"><img src="' + esc(url) + '" alt="' + (who === 'user' ? '我的' : '角色') + ' Q 版立绘"><span>' + (person.portraitDraft ? '新形象 · 待确认' : person.portrait ? '已保存的立绘' : model ? '3D 初始形象预览 · 可生成专属立绘' : '初始立绘 · 可生成专属形象') + '</span></div>' + button('generate-' + who, '<span data-image-label>AI 生成 Q 版立绘</span>', 'ri-sparkling-line', 'class="home3d-wide" data-home-image data-idle="AI 生成 Q 版立绘" data-pending="正在生成立绘…"') + (person.portraitDraft ? '<div class="home3d-portrait-confirm">' + button('confirm-portrait', '使用这个形象', '', 'data-who="' + who + '"') + button('discard-portrait', '保留原形象', '', 'data-who="' + who + '"') + '</div>' : '');
         return choice + (model ? '<details><summary>立绘与生图</summary>' + card + '</details>' : card);
@@ -259,6 +259,7 @@
         } finally { interiorBusy=false;controls.forEach(b=>{b.disabled=false;}); }
     }
     function showSettings() {
+        if (H.loadAsset && (!H.initialModelPortraits || !H.initialPortraits)) { Promise.all([H.loadAsset('previews'), H.loadAsset('portraits')]).then(() => { if (H.initialModelPortraits && H.initialPortraits && root?.querySelector('.home3d-portrait-preview')) showSettings(); }).catch(() => {}); }
         const data = H.State.load(), home = H.State.home(data); if (!home) { setup(); return; }
         const chars = H.Bridge.characters(), char = H.Bridge.char();
         referenceDraft = data.user.reference || '';

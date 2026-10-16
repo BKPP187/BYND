@@ -31,14 +31,15 @@
             await script('assets/vendor/home3d/engine.js');
             await script('apps/home3d/data/catalogs.js');
             await script('assets/home3d/doors/geometry.js');
-            await script('assets/home3d/characters/initial-portraits.js');
-            await script('assets/home3d/characters/initial-sleep-portraits.js');
-            await script('assets/home3d/characters/initial-model-previews.js');
             for (const name of ['render-quality', 'room-camera', 'render-assets', 'materials', 'daylight', 'interiors', 'bedding', 'hygiene', 'cooking', 'dining', 'foods', 'television', 'furniture-visuals', 'furniture', 'garden', 'furniture-previews', 'rooms', 'villa', 'architecture', 'floor-view', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'life-context', 'living', 'actions', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
         })().catch(error => { pending = null; throw error; });
         return pending;
     }
     H.ensure = ensure;
+    // The bundled default portraits are ~6.5 MB of base64; load each only when
+    // a Q portrait, a sleep portrait or the settings preview actually needs it.
+    const assetFiles = { portraits: 'initial-portraits', sleep: 'initial-sleep-portraits', previews: 'initial-model-previews' };
+    H.loadAsset = name => assetFiles[name] ? script('assets/home3d/characters/' + assetFiles[name] + '.js') : Promise.reject(new Error('未知的小屋资源。'));
     H.open = async () => {
         const session = ++H.session, root = document.getElementById('home3d-root');
         if (!root) return;
