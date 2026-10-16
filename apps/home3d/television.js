@@ -23,10 +23,19 @@
         tv.canvas = canvas; tv.context = context; tv.texture = texture; tv.screen.userData.ownedTexture = texture;
         return true;
     }
+    // Five local programmes follow the time of day (colours only, same drawing).
+    const PROGRAMMES = [
+        { id: 'morning', name: '晨间天气', from: 6, to: 10, sky: '#bfe3f2', sun: '#fff1c2' },
+        { id: 'nature', name: '小动物纪录片', from: 10, to: 14, sky: '#9cd1eb', sun: '#ffebaf' },
+        { id: 'cartoon', name: '午后动画', from: 14, to: 18, sky: '#f4c9a8', sun: '#fff0d0' },
+        { id: 'drama', name: '晚间连续剧', from: 18, to: 23, sky: '#6f7fb6', sun: '#f6e2a8' },
+        { id: 'night', name: '深夜音乐台', from: 23, to: 30, sky: '#3b4470', sun: '#e8e4ff' }
+    ];
+    function programmeAt(hour) { const h = hour < 6 ? hour + 24 : hour; return PROGRAMMES.find(p => h >= p.from && h < p.to) || PROGRAMMES[1]; }
     function programme(tv, time) {
-        const c = tv.context, t = time * .001;
-        c.fillStyle = '#9cd1eb'; c.fillRect(0, 0, 512, 256);
-        c.fillStyle = '#ffebaf'; c.beginPath(); c.arc(415, 48, 23, 0, Math.PI * 2); c.fill();
+        const c = tv.context, t = time * .001, show = programmeAt(new Date().getHours());
+        c.fillStyle = show.sky; c.fillRect(0, 0, 512, 256);
+        c.fillStyle = show.sun; c.beginPath(); c.arc(415, 48, 23, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#fff6e6';
         for (let i = 0; i < 3; i++) { const x = ((i * 183 + t * 12) % 610) - 50; c.beginPath(); c.ellipse(x, 52 + i * 15, 38, 12, 0, 0, Math.PI * 2); c.fill(); }
         for (const [color, y, rise] of [['#8dbca0', 180, 65], ['#bfd58c', 223, 44]]) {
@@ -58,5 +67,5 @@
             if (watching && (tv.frames === 0 || !reduced && time - tv.last >= 1000 / fps)) { programme(tv, time); tv.last = time; }
         }
     }
-    H.Television = { screen, update };
+    H.Television = { screen, update, programmeAt, programmes: PROGRAMMES };
 })(window.ByndHome3D);

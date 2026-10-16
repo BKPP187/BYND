@@ -6,7 +6,14 @@
         sushi: { name: '寿司与点心', foods: ['sushi-salmon', 'maki-vegetable', 'rice-ball', 'dim-sum'], bite: '#f0c4a6' },
         tea: { name: '甜甜下午茶', foods: ['cake', 'waffle', 'sandwich', 'strawberry'], bite: '#ddaa85' }
     };
-    function selected(home, hour = new Date().getHours()) { return Object.hasOwn(menus, home?.mealId) ? home.mealId : hour < 11 ? 'breakfast' : hour < 17 ? 'tea' : 'supper'; }
+    const slotOf = hour => hour < 11 ? 'breakfast' : hour < 17 ? 'tea' : 'supper';
+    const today = (now = Date.now()) => { const d = new Date(now); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+    // A chosen dish holds for that day's meal only; the next meal falls back to the default.
+    function selected(home, hour = new Date().getHours(), now = Date.now()) {
+        const slot = slotOf(hour), pinned = Object.hasOwn(menus, home?.mealId) && (!home.mealFor || (home.mealFor.date === today(now) && home.mealFor.slot === slot));
+        return pinned && home.mealFor ? home.mealId : slot;
+    }
+    function remember(home, id, now = Date.now()) { home.mealId = id; home.mealFor = { date: today(now), slot: slotOf(new Date(now).getHours()) }; }
     function supports(item) { return item.variant === 'dining' || item.type === 'stove' || item.variant === 'prep'; }
     async function create(item, id) {
         if (!Object.hasOwn(menus, id)) throw new Error('这个餐点暂时不可用。');
@@ -65,5 +72,5 @@
         root.traverse(node => { if (node.userData.mealPlaceholder) node.visible = false; });
         return previous;
     }
-    H.Foods = { menus, selected, supports, create, attach };
+    H.Foods = { remember, menus, selected, supports, create, attach };
 })(window.ByndHome3D);
