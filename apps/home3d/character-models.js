@@ -4,7 +4,7 @@
         'silver-red-v1': { height: 1.55, hips: .5, spine: .63, head: .76, shoulder: .68, armWidth: .145, armLength: .14, thighWidth: .065, knee: .25, ankle: .05, shoeCut: .145 },
         // Measured separately on the female mesh. Total height includes ears;
         // hips, neck and knees must not use the male proportions.
-        'bunny-blue-v1': { height: 1.62, hips: .47, spine: .585, head: .67, shoulder: .61, armWidth: .155, armLength: .115, thighWidth: .065, knee: .22, ankle: .045, shoeCut: .10 }
+        'bunny-blue-v1': { restArm: [.14, -.05, .16], height: 1.62, hips: .47, spine: .585, head: .67, shoulder: .61, armWidth: .155, armLength: .115, thighWidth: .065, knee: .22, ankle: .045, shoeCut: .10 }
     }, receivers = new Map(), pendingBuffers = new Map();
     function modelId(person, who = 'char') {
         if (person?.modelId === 'portrait' || (!person?.modelId && person?.portrait)) return 'portrait';
@@ -26,11 +26,19 @@
             node.onload = () => { if (receivers.get(key) === accept) done(new Error('3D 人物资源不完整。')); }; document.head.appendChild(node);
         });
     }
+    // Downloaded bytes are kept (bounded) so an LOD switch back, a second
+    // actor or the shared barefoot asset never re-downloads or re-decodes base64.
+    const bufferCache = new Map(), bufferCacheLimit = 7;
     async function read(level, id) {
         const key = id + ':' + level;
+        if (bufferCache.has(key)) { const bytes = bufferCache.get(key); bufferCache.delete(key); bufferCache.set(key, bytes); return bytes; }
         if (pendingBuffers.has(key)) return pendingBuffers.get(key);
         const promise = readRaw(level, id); pendingBuffers.set(key, promise);
-        try { return await promise; } finally { if (pendingBuffers.get(key) === promise) pendingBuffers.delete(key); }
+        try {
+            const bytes = await promise; bufferCache.set(key, bytes);
+            while (bufferCache.size > bufferCacheLimit) bufferCache.delete(bufferCache.keys().next().value);
+            return bytes;
+        } finally { if (pendingBuffers.get(key) === promise) pendingBuffers.delete(key); }
     }
     // These starter rigs belong to the two reviewed meshes only. Neither is a
     // generic image-to-animation or production autorigger.
@@ -58,7 +66,7 @@
         const bones = [], boots = [], socks = [], expressions = [], ankleSeams = [[], []], contact = { bodyBack: 0, sleepBack: 0, headBack: 0 }, bone = (name, position, parent) => { const b = new T.Bone(); b.name = name; b.position.set(...position); (parent || body).add(b); bones.push(b); return b; };
         let nativeSkeleton; source.traverse(node => { if (node.isSkinnedMesh) nativeSkeleton ||= node.skeleton; });
         if (female && !nativeSkeleton) throw Error('女生模型缺少已审核的骨骼绑定。');
-        let hips, spine, head;
+        let hips, spine, head, restBake = null;
         const arms = [], legs = [], knees = [];
         if (nativeSkeleton) {
             // Keep the provider's per-vertex weights and every joint. Express
@@ -76,6 +84,23 @@
             const sides = ['Left', 'Right'].sort((a, b) => positions[bones.indexOf(joint(a + 'Arm'))].x - positions[bones.indexOf(joint(b + 'Arm'))].x);
             for (const side of sides) { arms.push(joint(side + 'Arm')); legs.push(joint(side + 'UpLeg')); knees.push(joint(side + 'Leg')); }
             actor.rigMeasurements = { hips: positions[bones.indexOf(hips)].y / height, knee: positions[bones.indexOf(knees[0])].y / height, ankle: positions[bones.indexOf(knees[0].children[0])].y / height, head: positions[bones.indexOf(head)].y / height };
+            // The provider bind pose is an A-pose (~30 deg abduction). Bake a
+            // relaxed rest once: arms lowered until the hands rest along the
+            // skirt, elbows softly bent. Vertices are re-skinned with the
+            // provider weights and the skeleton is bound to this new rest, so
+            // every action starts from it with identity joint rotations.
+            if (config.restArm) {
+                body.updateMatrixWorld(true);
+                const before = bones.map(b => b.matrixWorld.clone());
+                arms.forEach((upper, side) => {
+                    upper.quaternion.setFromEuler(new T.Euler(config.restArm[1], 0, (side ? -1 : 1) * config.restArm[0]));
+                    upper.children[0].quaternion.setFromEuler(new T.Euler(-config.restArm[2], 0, 0));
+                });
+                body.updateMatrixWorld(true);
+                restBake = bones.map((b, i) => b.matrixWorld.clone().multiply(before[i].clone().invert()));
+                const rested = bones.map(b => b.getWorldPosition(new T.Vector3()));
+                bones.forEach((b, i) => { b.quaternion.identity(); b.position.copy(rested[i]); const parent = bones.indexOf(b.parent); if (parent >= 0) b.position.sub(rested[parent]); });
+            }
         } else {
             hips = bone('hips', [0, height * config.hips, 0]); spine = bone('spine', [0, height * (config.spine - config.hips), 0], hips); head = bone('head', [0, height * (config.head - config.spine), 0], spine);
             for (const sign of [-1, 1]) {
@@ -95,6 +120,21 @@
             if (nativeSkeleton) {
                 const point = new T.Vector3(), matrix = transform.clone().multiply(node.matrixWorld);
                 for (let i = 0; i < vertices.count; i++) { node.getVertexPosition(i, point); point.applyMatrix4(matrix); vertices.setXYZ(i, point.x, point.y, point.z); }
+                if (restBake) {
+                    const ids = node.geometry.attributes.skinIndex, ws = node.geometry.attributes.skinWeight, normals = geometry.attributes.normal, methods = ['getX', 'getY', 'getZ', 'getW'];
+                    const sum = new T.Vector3(), part = new T.Vector3(), normal = new T.Vector3(), turned = new T.Vector3(), rotation = new T.Matrix3();
+                    for (let i = 0; i < vertices.count; i++) {
+                        point.fromBufferAttribute(vertices, i); sum.set(0, 0, 0); turned.set(0, 0, 0);
+                        if (normals) normal.fromBufferAttribute(normals, i);
+                        for (let k = 0; k < 4; k++) {
+                            const w = ws[methods[k]](i); if (!w) continue; const m = restBake[ids[methods[k]](i)];
+                            sum.addScaledVector(part.copy(point).applyMatrix4(m), w);
+                            if (normals) turned.addScaledVector(part.copy(normal).applyMatrix3(rotation.setFromMatrix4(m)), w);
+                        }
+                        vertices.setXYZ(i, sum.x, sum.y, sum.z);
+                        if (normals && turned.lengthSq() > 1e-12) { turned.normalize(); normals.setXYZ(i, turned.x, turned.y, turned.z); }
+                    }
+                }
             }
             for (let i = 0; i < vertices.count; i++) {
                 const x = vertices.getX(i) / height, y = vertices.getY(i) / height, side = x < 0 ? 0 : 1;
