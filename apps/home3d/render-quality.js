@@ -29,7 +29,7 @@
     }
     function controller(mode, device = {}) {
         if (!valid(mode)) throw new Error('不支持的画质选项。');
-        let ceiling = names.indexOf(mode === 'auto' ? deviceTier(device) : mode), tier = ceiling, scale = 1, start = null, samples = [], stableWindows = 0, lastChange = -Infinity, measurements = { fps: 0, frameMs: 0, gpuMs: null };
+        let ceiling = names.indexOf(mode === 'auto' ? deviceTier(device) : mode), tier = ceiling, scale = 1, start = null, samples = [], stableWindows = 0, lastChange = -Infinity, upgradedAt = -Infinity, failures = {}, blockedUntil = {}, measurements = { fps: 0, frameMs: 0, gpuMs: null };
         const current = () => ({ mode, tier: names[tier], ...presets[names[tier]], renderScale: scale, postProcessing: 'off', antialias: true, measurements: { ...measurements } });
         function reset() { start = null; samples = []; stableWindows = 0; }
         function setMode(value) { if (!valid(value)) throw new Error('不支持的画质选项。'); mode = value; ceiling = names.indexOf(mode === 'auto' ? deviceTier(device) : mode); tier = ceiling; scale = 1; reset(); return current(); }
@@ -45,13 +45,18 @@
             samples = []; start = sample.time; stableWindows = healthy ? stableWindows + 1 : 0;
             if (slow && sample.time - lastChange >= 8000) {
                 if (scale > .8) scale = Math.max(.8, Math.round((scale - .1) * 10) / 10);
-                else if (tier > 0) { tier--; scale = 1; }
+                else if (tier > 0) {
+                    // A tier that fails soon after an upgrade is held back with a
+                    // growing pause (2/5/15 min) so auto mode cannot oscillate.
+                    if (sample.time - upgradedAt < 60000) { const n = failures[tier] = (failures[tier] || 0) + 1; blockedUntil[tier] = sample.time + [2, 5, 15][Math.min(n, 3) - 1] * 60000; }
+                    tier--; scale = 1;
+                }
                 else return false;
                 lastChange = sample.time; stableWindows = 0; return true;
             }
             if (healthy && stableWindows >= 6 && sample.time - lastChange >= 30000) {
                 if (scale < 1) scale = Math.min(1, Math.round((scale + .1) * 10) / 10);
-                else if (tier < ceiling) tier++;
+                else if (tier < ceiling && sample.time >= (blockedUntil[tier + 1] || 0)) { tier++; upgradedAt = sample.time; }
                 else return false;
                 lastChange = sample.time; stableWindows = 0; return true;
             }

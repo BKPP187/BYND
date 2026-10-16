@@ -51,6 +51,8 @@
         const sun = new T.DirectionalLight(options.theme === 'night' ? '#c5d6ef' : theme.light, options.theme === 'night' ? .8 : 2.3); sun.position.set(-3, 8, 6); sun.castShadow = true;
         sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = -6; sun.shadow.camera.right = 6; sun.shadow.camera.top = 6; sun.shadow.camera.bottom = -6; sun.shadow.normalBias = 0.035; sun.shadow.bias = -0.0002; sun.shadow.radius = 3; scene.add(sun);
         const fill = new T.DirectionalLight('#f4ded6', options.theme === 'night' ? .35 : .65); fill.position.set(6, 4, -2); scene.add(fill);
+        // Only two furniture lights ever exist; they are created once and reused per room.
+        for (let i = 0; i < 2; i++) { const light = new T.PointLight('#ffd7a5', 0, 5, 2); scene.add(light); lampLights.push(light); }
         const dustPositions = new Float32Array(12 * 3), dustGeometry = new T.BufferGeometry();
         for (let i = 0; i < 12; i++) { dustPositions[i * 3] = Math.sin(i * 2.4) * 2.4; dustPositions[i * 3 + 1] = .5 + (i % 5) * .37; dustPositions[i * 3 + 2] = Math.cos(i * 2.4) * 2; }
         dustGeometry.setAttribute('position', new T.BufferAttribute(dustPositions, 3));
@@ -59,7 +61,9 @@
             profile = quality.current();
             if (sun.shadow.mapSize.x !== profile.shadowSize) { sun.shadow.map?.dispose(); sun.shadow.map = null; sun.shadow.mapSize.set(profile.shadowSize, profile.shadowSize); }
             renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
-            fill.visible = profile.tier !== 'smooth'; lampLights.forEach((light, index) => { light.visible = index < profile.lights; });
+            // Lights stay in the scene (toggling .visible recompiles every shader);
+            // a disabled light is simply dimmed to zero on the next lighting pass.
+            lastLighting = -Infinity;
             if(view.stats().mode==='dollhouse')for(const group of [inspection?.group,wholeFloor?.group])group?.traverse(n=>{if(n.isMesh)n.castShadow=profile.tier!=='smooth';});
             dust.visible = !reduced && profile.particles > 0; dustGeometry.setDrawRange(0, profile.particles);
             assetQuality.apply(scene, profile); resize(); options.onQuality?.(profile);
@@ -141,8 +145,16 @@
             sun.position.set(c.x+lighting.sun[0],base+lighting.sun[1],c.z+lighting.sun[2]);sun.target.position.set(c.x,base,c.z);sun.target.updateMatrixWorld();
             const extent=overview()?12:6;sun.shadow.camera.left=-extent;sun.shadow.camera.right=extent;sun.shadow.camera.top=extent;sun.shadow.camera.bottom=-extent;sun.shadow.camera.updateProjectionMatrix();
             sources.sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z));
-            lampLights.forEach((light,i)=>{light.visible=i<profile.lights&&!!sources[i];if(sources[i])light.position.copy(sources[i]);light.intensity=.35+lighting.lamps*4.1;});
+            lampLights.forEach((light,i)=>{const on=i<profile.lights&&!!sources[i];if(sources[i])light.position.copy(sources[i]);light.intensity=on?.35+lighting.lamps*4.1:0;});
+            if(profile.tier==='smooth')fill.intensity=0;
             renderer.shadowMap.needsUpdate=true;options.onLighting?.(lighting);
+        }
+        // One failing subsystem must not freeze every frame: it is switched off
+        // for this scene with a single notice and rendering carries on.
+        const brokenSystems = new Set();
+        function guard(name, run) {
+            if (brokenSystems.has(name)) return;
+            try { run(); } catch (e) { brokenSystems.add(name); console.error('home3d ' + name, e); try { options.onNotice?.('小屋的一部分动画暂时停用了（' + name + '）。'); } catch (_) {} }
         }
         function tick(time) {
             if (disposed) return; raf = requestAnimationFrame(tick);
@@ -151,7 +163,8 @@
             nextPaint = Math.max(time, nextPaint + interval);
             const frameStart = performance.now(), paintInterval = lastPaint ? time - lastPaint : interval;
             const dt = Math.min((time - (lastTime || time)) / 1000, 0.08); lastTime = time; lastPaint = time;
-            view.step(Math.min(paintInterval / 1000, .25), !!reduced); assetQuality.lod(camera, host.clientHeight, profile);
+            const following = ['first','third'].includes(view.stats().mode) && actors.some(a => a.who === 'user');
+            if (!following) view.step(Math.min(paintInterval / 1000, .25), !!reduced); assetQuality.lod(camera, host.clientHeight, profile);
             actors.forEach(actor => { if (!buildMode) H.Animation.tick(actor, time, dt, reduced); H.Characters.faceCamera(actor, camera); if (actor.visual === 'model3d') H.CharacterModels.update(actor, camera, host.clientHeight, profile, options.onNotice); });
             if (villa && !buildMode) {
                 const user = actors.find(a => a.who === 'user'), area = user && H.Villa.nodeAt(villa, user.root.position);
@@ -170,13 +183,14 @@
                 H.Villa.updateDoors(doors,actors,dt,reduced);
                 if(inspection)H.Villa.updateDoors(inspection.doors,[],dt,reduced);
             }
-            const home = H.State.home();
-            H.SleepPair.update(furniture, actors, home.consentHug !== false);
-            H.Dining.update(furniture, actors, time, home.consentHug !== false && ['亲近', '恋人'].includes(home.relationship), reduced || buildMode);
-            H.Bedding.update(furniture, actors);
-            H.Cooking.update(furniture, actors, time, profile, reduced || buildMode);
-            H.Hygiene?.update(furniture, actors, time, profile, reduced || buildMode);
-            H.Television.update(furniture, actors, time, profile, reduced || buildMode || overview() || surveying(), options.onNotice);
+            const home = (H.State.peekHome ? H.State.peekHome() : H.State.home()) || {};
+            const hug = home.consentHug !== false, still = reduced || buildMode;
+            guard('SleepPair', () => H.SleepPair.update(furniture, actors, hug));
+            guard('Dining', () => H.Dining.update(furniture, actors, time, hug && ['亲近', '恋人'].includes(home.relationship), still));
+            guard('Bedding', () => H.Bedding.update(furniture, actors));
+            guard('Cooking', () => H.Cooking.update(furniture, actors, time, profile, still));
+            guard('Hygiene', () => H.Hygiene?.update(furniture, actors, time, profile, still));
+            guard('Television', () => H.Television.update(furniture, actors, time, profile, still || overview() || surveying(), options.onNotice));
             updateLighting(time);
             if (time - lastAssets > 1500 || actors.some(a => a.needsAssetQuality)) { assetQuality.apply(scene, profile); actors.forEach(a => { a.needsAssetQuality = false; }); lastAssets = time; }
             if (time - lastShadow > 1000 / profile.shadowFps) { renderer.shadowMap.needsUpdate = true; lastShadow = time; }
@@ -188,7 +202,7 @@
                 if(mode==='third'){
                     const target=new T.Vector3(head.x,head.y+.09,head.z),vector=camera.position.clone().sub(target),length=vector.length();
                     ray.set(target,vector.normalize());ray.far=length;
-                    const hit=ray.intersectObjects(cutawayWalls.filter(m=>m.geometry?.type==='RoundedBoxGeometry'),false)[0];
+                    const hit=ray.intersectObjects(cutawayWalls.filter(m=>m.userData.cameraBlocker||m.geometry?.type==='RoundedBoxGeometry'),false)[0];
                     if(hit){camera.position.copy(target).addScaledVector(vector,Math.max(.12,hit.distance-.12));camera.lookAt(target);camera.updateMatrixWorld(true);}ray.far=Infinity;
                 }
             }
@@ -215,7 +229,7 @@
             const token = ++generation, previousRoom = room?.id; room = H.Rooms.get(roomId);
             if (!H.Rooms.available(room, home)) throw new Error('这个房间还在准备中。');
             villa = options.villa && H.Villa ? H.Villa.plan(roomId) : null; stairs = null; changingFloor = false; failedArea = ''; cutawayWalls = [];wallFinishes=[];doors=[];
-            if (previousRoom !== roomId || villa) view.room(navigationSize(), { ...offset(roomId), y: floorY() }); quality.reset(); lampLights.forEach(l=>l.removeFromParent());lampLights = [];
+            if (previousRoom !== roomId || villa) view.room(navigationSize(), { ...offset(roomId), y: floorY() }); quality.reset();
             clearDraft();
             actors.forEach(actor => { actor.released = true; }); H.Shapes.disposeGeometry(roomGroup); roomGroup = new T.Group(); scene.add(roomGroup); actors = []; furniture = [];
             materials.clearSurfaces();
@@ -254,7 +268,6 @@
             if (disposed || token !== generation) return false;
             // Only two furniture lights per room; decorations and materials can
             // glow without adding an unbounded number of dynamic lights on phones.
-            for(let i=0;i<2;i++){const light=new T.PointLight('#ffd7a5',1,5,2);scene.add(light);lampLights.push(light);}
             for (const who of ['user', 'char']) {
                 const person = who === 'user' ? H.State.load().user : home, portrait = person.portrait;
                 const actor = H.CharacterModels.selected(person, who) ? await H.CharacterModels.create(who, profile, H.CharacterModels.modelId(person, who)) : await H.Characters.createPortrait(portrait, who);

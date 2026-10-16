@@ -138,3 +138,14 @@ test('GPU timing never reads unfinished results, discards disjoint samples and r
     disjoint = true; assert.equal(timer.read(), null); assert.equal(disposed, 3);
     timer.begin(); timer.dispose(); assert.equal(disposed, 4);
 });
+test('auto quality backs off a tier that failed right after upgrading instead of oscillating', () => {
+    const { H } = harness(), c = H.RenderQuality.controller('balanced');
+    let t = 0; const run = (ms, slow) => { for (const end = t + ms; t < end; t += slow ? 50 : 1000 / c.current().fps) c.observe({ time: t, interval: slow ? 50 : 1000 / c.current().fps, cpuMs: slow ? 30 : 2, gpuMs: slow ? null : 2 }); };
+    run(60000, true); assert.equal(c.current().tier, 'smooth');
+    while (c.current().tier !== 'balanced' && t < 400000) run(1000, false); assert.equal(c.current().tier, 'balanced', 'healthy frames still upgrade once');
+    run(5000, true); while (c.current().tier !== 'smooth') run(5000, true);
+    const failedAt = t; run(90000, false);
+    assert.equal(c.current().tier, 'smooth', 'a tier that just failed is held back for a while');
+    run(Math.max(0, failedAt + 2 * 60000 - t) + 120000, false);
+    assert.equal(c.current().tier, 'balanced', 'after the backoff it may try again');
+});
