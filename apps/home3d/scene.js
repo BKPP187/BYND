@@ -36,8 +36,7 @@
             if (changingFloor) return;
             const row = getFurniture(id);
             if (row && villa) {
-                if (buildMode && row.area !== room.id) { options.onNotice('先结束当前房间的装修，再去另一间房。'); return; }
-                if (buildMode) { try { focusArea(row.area); } catch (e) { options.onNotice(e.message); return; } }
+                if (buildMode && row.area !== room.id) { focusBuildArea(row.area); options.onBuildArea?.(row.area); }
                 options.onSelect(buildMode ? row.local.id : row.placement.id); return;
             }
             options.onSelect(id);
@@ -205,6 +204,104 @@
                 return { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, width: maxX - minX, depth: maxZ - minZ };
             }).concat(villa ? H.Villa.blocks(villa) : []);
         }
+        function worldEntry(areaId, local) {
+            return { local, area: areaId, placement: villa ? { ...local, id: areaId + '__' + local.id, floorY: floorY(), position: H.Villa.translate(villa, areaId, local.position) } : local };
+        }
+        function renderedItem(local, area, home) { const raw = H.Furniture.get(local.furnitureId); return raw && H.Interiors.furniture(raw, local, H.Rooms.get(area), home); }
+        async function createRow(entry, home, alive) {
+            const { placement, local, area } = entry, item = renderedItem(local, area, home);
+            if (!item) throw Object.assign(new Error('家具型号无效。'), { label: placement.furnitureId });
+            let model;
+            try { model = await H.Furniture.load(item, materials); } catch (error) { error.label = item.name; throw error; }
+            if (H.Foods.supports(item)) {
+                try { H.Foods.attach(model, await H.Foods.create(item, H.Foods.selected(home))); }
+                catch (error) { if (alive()) options.onNotice(error.message); }
+            }
+            if (!alive()) { H.Shapes.disposeGeometry(model); return null; }
+            model.position.set(...placement.position); model.rotation.y = placement.rotation || 0; model.userData.furniture = placement.id;
+            if (item.type === 'frame' && home.photo?.url) H.Furniture.setPhoto(model, home.photo.url, alive).catch(() => options.onNotice('相框照片暂时加载失败，可重新选择照片。'));
+            return { placement, local, area, item, model };
+        }
+        async function addKeepsakes(home, token) {
+            const count = Math.min(home.keepsakes.length, 6), stars = [];
+            for (let i = 0; i < count; i++) {
+                const star = await H.Furniture.load(H.Furniture.get('memory_01'), materials);
+                if (disposed || token !== generation) { H.Shapes.disposeGeometry(star); stars.forEach(s => H.Shapes.disposeGeometry(s)); return false; }
+                star.position.fromArray(worldPosition([-1.08 + i * .36, .15, 2.25])); star.userData.furniture = 'memory-' + i; stars.push(star);
+            }
+            roomGroup?.children.filter(child => String(child.userData.furniture || '').startsWith('memory-')).forEach(child => { child.removeFromParent(); H.Shapes.disposeGeometry(child); });
+            stars.forEach(star => roomGroup.add(star));
+            return true;
+        }
+        // Furniture that changed under someone ends only that person's use of it.
+        function releaseFurniture(ids) {
+            for (const actor of actors) {
+                const anchor = actor.destination?.anchor || actor.anchor;
+                if (!anchor || !(ids.has(anchor.placementId) || ids.has(anchor.seatId))) continue;
+                try {
+                    if (actor.who === 'user') H.Interactions?.cancel('cancelled', '家具已经挪动');
+                    else { actor.sharedInteraction = false; H.Actions?.end('char', 'cancelled', '家具已经挪动'); }
+                } catch (error) { options.onNotice(error.message, true); }
+                actor.path = []; actor.destination = null; standUp(actor);
+            }
+        }
+        function settleActors() {
+            const blocks = obstacles(), size = navigationSize();
+            for (const actor of actors) {
+                if (!actor.root.visible || actor.anchor || actor.onStairs) continue;
+                const radius = actor.navigationRadius || .18;
+                if (H.Animation.clear(actor.root.position, blocks, size, radius)) continue;
+                const p = H.Animation.nearest(actor.root.position, blocks, size, radius);
+                if (p) { actor.path = []; actor.destination = null; actor.root.position.set(p.x, actor.root.position.y, p.z); }
+            }
+        }
+        // Applies one area's saved layout to the live scene: adds, replaces, moves
+        // and removes only the furniture that differs, keeping camera and actors.
+        async function syncArea(areaId = room?.id) {
+            if (disposed || !roomGroup || !room) return false;
+            const node = villa ? villa.nodes.find(n => n.id === areaId) : room.id === areaId ? { id: areaId, room } : null;
+            if (!node) return false;
+            const home = H.State.home(), token = generation, alive = () => !disposed && token === generation;
+            const saved = H.Rooms.placements(node.room, home), live = furniture.filter(r => r.area === areaId), stale = [], moved = [], added = [];
+            for (const row of live) {
+                const next = saved.find(p => p.id === row.local.id);
+                if (!next) { stale.push(row); continue; }
+                const item = renderedItem(next, areaId, home), samePlace = next.position.every((v, i) => Math.abs(v - row.local.position[i]) < 1e-9) && Math.abs((next.rotation || 0) - (row.local.rotation || 0)) < 1e-9;
+                const sameLook = item && item.id === row.item.id && item.style === row.item.style && (item.interiorPalette?.id || '') === (row.item.interiorPalette?.id || '') && (item.interiorPalette?.wood || '') === (row.item.interiorPalette?.wood || '');
+                if (sameLook && samePlace) continue;
+                if (sameLook) moved.push([row, next]); else { stale.push(row); added.push(next); }
+            }
+            for (const p of saved) if (!live.some(r => r.local.id === p.id)) added.push(p);
+            if (!stale.length && !moved.length && !added.length) return { added: 0, removed: 0, moved: 0 };
+            const created = [];
+            try {
+                for (const local of added) { const row = await createRow(worldEntry(areaId, local), home, alive); if (row) created.push(row); }
+            } catch (error) { created.forEach(r => H.Shapes.disposeGeometry(r.model)); throw new Error('家具没能加载：' + (error.label || error.message) + '。已保存，可以重新进入小屋查看。'); }
+            if (!alive()) { created.forEach(r => H.Shapes.disposeGeometry(r.model)); return false; }
+            releaseFurniture(new Set([...stale, ...moved.map(m => m[0])].map(r => r.placement.id)));
+            for (const row of stale) { row.model.removeFromParent(); H.Shapes.disposeGeometry(row.model); }
+            furniture = furniture.filter(r => !stale.includes(r));
+            for (const [row, next] of moved) { const entry = worldEntry(areaId, next); row.local = next; row.placement = entry.placement; row.model.position.set(...entry.placement.position); row.model.rotation.y = entry.placement.rotation || 0; }
+            for (const row of created) { roomGroup.add(row.model); furniture.push(row); }
+            settleActors(); applyQuality(); renderer.shadowMap.needsUpdate = true;
+            return { added: created.length, removed: stale.length, moved: moved.length };
+        }
+        async function syncKeepsakes() { if (disposed || !roomGroup) return false; const ok = await addKeepsakes(H.State.home(), generation); if (ok) applyQuality(); return ok; }
+        async function refreshPhoto() {
+            const url = H.State.home()?.photo?.url, token = generation; if (!url || disposed) return false;
+            await Promise.all(furniture.filter(r => r.item.type === 'frame').map(r => H.Furniture.setPhoto(r.model, url, () => !disposed && token === generation)));
+            return true;
+        }
+        // Decoration can look at any room on the current floor without moving the avatar.
+        function focusBuildArea(id) {
+            if (!buildMode) return false;
+            if (!villa) return room?.id === id;
+            const n = villa.nodes.find(n => n.id === id); if (!n) return false;
+            if (room.id !== id) { clearDraft(); options.onDraft?.(null); }
+            room = n.room; failedArea = ''; view.focus(n.x, n.z); roomGroup.userData.interior = H.Interiors.resolve(room, H.State.home());
+            return true;
+        }
+        function viewCenter() { const s = view.stats(), o = offset(room.id); return { x: s.x - o.x, z: s.z - o.z }; }
         async function load(roomId, home, userProfile, activity, stairEntry = false) {
             if(!stairEntry)H.Interactions?.cancel();
             viewToken++;
@@ -230,24 +327,16 @@
             if (villa) { stairs = H.Villa.staircase(villa, materials); targetGroup.add(stairs.group); }
             if(villa&&!villa.level)await H.Garden.populate(targetGroup,materials,()=>!disposed&&token===generation,home);
             if(disposed||token!==generation)return false;
-            const placements = nodes.flatMap(n => H.Rooms.placements(n.room, home).map(local => ({ local, area: n.id, placement: villa ? { ...local, id: n.id + '__' + local.id, floorY: floorY(), position: H.Villa.translate(villa, n.id, local.position) } : local })));
+            const placements = nodes.flatMap(n => H.Rooms.placements(n.room, home).map(local => worldEntry(n.id, local)));
             // Only three GLBs decode concurrently; the previous room's geometry is released first.
-            let cursor = 0; const failures = [];
+            let cursor = 0; const failures = [], alive = () => !disposed && token === generation;
             const worker = async () => {
-                while (cursor < placements.length && !disposed && token === generation) {
-                    const { placement, local, area } = placements[cursor++], rawItem = H.Furniture.get(placement.furnitureId), item = rawItem && H.Interiors.furniture(rawItem, local, H.Rooms.get(area), home);
-                    if (!item) { failures.push(placement.furnitureId); continue; }
+                while (cursor < placements.length && alive()) {
+                    const entry = placements[cursor++];
                     try {
-                        const model = await H.Furniture.load(item, materials);
-                        if (H.Foods.supports(item)) {
-                            try { H.Foods.attach(model, await H.Foods.create(item, H.Foods.selected(home))); }
-                            catch (error) { if (!disposed && token === generation) options.onNotice(error.message); }
-                        }
-                        if (disposed || token !== generation) { H.Shapes.disposeGeometry(model); continue; }
-                        model.position.set(...placement.position); model.rotation.y = placement.rotation; model.userData.furniture = placement.id;
-                        targetGroup.add(model); furniture.push({ placement, local, area, item, model });
-                        if (item.type === 'frame' && home.photo?.url) H.Furniture.setPhoto(model, home.photo.url, () => !disposed && token === generation).catch(() => options.onNotice('相框照片暂时加载失败，可重新选择照片。'));
-                    } catch (error) { failures.push(item.name); console.warn('小屋家具加载失败', item.id, error.message); }
+                        const row = await createRow(entry, home, alive);
+                        if (row) { targetGroup.add(row.model); furniture.push(row); }
+                    } catch (error) { failures.push(error.label || entry.placement.furnitureId); console.warn('小屋家具加载失败', entry.placement.furnitureId, error.message); }
                 }
             };
             await Promise.all([worker(), worker(), worker()]);
@@ -277,12 +366,7 @@
                 actors.push(actor);
             }
             setCharActivity(activity, true);
-            const count = Math.min(home.keepsakes.length, 6);
-            for (let i = 0; i < count; i++) {
-                const star = await H.Furniture.load(H.Furniture.get('memory_01'), materials);
-                if (disposed || token !== generation) { H.Shapes.disposeGeometry(star); return false; }
-                star.position.fromArray(worldPosition([-1.08 + i * .36, .15, 2.25])); star.userData.furniture = 'memory-' + i; targetGroup.add(star);
-            }
+            if (!await addKeepsakes(home, token)) return false;
             applyQuality(); quality.reset(); options.onView?.();
             if (failures.length) throw new Error('部分家具没能加载：' + failures.join('、') + '。可以重试进入。');
             return true;
@@ -599,9 +683,17 @@
             const origin = offset(room.id);
             draft.position[0] = Math.round((point.x - origin.x) / .1) * .1; draft.position[2] = Math.round((point.z - origin.z) / .1) * .1; refreshDraft();
         }
-        function nudgeDraft(dx, dz) { if (draft) { draft.position[0] = Math.round((draft.position[0] + dx) * 10) / 10; draft.position[2] = Math.round((draft.position[2] + dz) * 10) / 10; refreshDraft(); } }
+        function nudgeDraft(dx, dz, relative = false) {
+            if (draft && relative) {
+                // Screen right/up follow the camera, snapped to the room grid axis closest to that direction.
+                const yaw = view.stats().yaw || 0, c = Math.cos(yaw), s = Math.sin(yaw), step = Math.hypot(dx, dz), wx = c * dx + s * dz, wz = -s * dx + c * dz;
+                if (Math.abs(wx) >= Math.abs(wz)) { dx = Math.sign(wx) * step; dz = 0; } else { dz = Math.sign(wz) * step; dx = 0; }
+            }
+            if (draft) { draft.position[0] = Math.round((draft.position[0] + dx) * 10) / 10; draft.position[2] = Math.round((draft.position[2] + dz) * 10) / 10; refreshDraft(); } }
         function rotateDraft() { if (draft) { draft.rotation = (draft.rotation + Math.PI / 2) % (Math.PI * 2); refreshDraft(); } }
-        function setBuild(value) { if(value && (view.stats().mode!=='isometric'||surveying()))setViewpoint('isometric');clearDraft(); buildMode = !!value; renderer.domElement.setAttribute('aria-label', buildMode ? '装修房间，拖动家具移动，双指缩放，使用底部按钮旋转和确认' : '实时3D小屋，拖动探索，双指缩放，点击家具互动'); }
+        function setBuild(value) { if(value && (view.stats().mode!=='isometric'||surveying()))setViewpoint('isometric');clearDraft();
+            if (!value && buildMode && villa && room && room.id !== H.State.home()?.room) { const n = villa.nodes.find(n => n.id === H.State.home().room); if (n) { room = n.room; view.focus(n.x, n.z); roomGroup.userData.interior = H.Interiors.resolve(room, H.State.home()); } }
+            buildMode = !!value; renderer.domElement.setAttribute('aria-label', buildMode ? '装修房间，拖动家具移动，双指缩放，使用底部按钮旋转和确认' : '实时3D小屋，拖动探索，双指缩放，点击家具互动'); }
         function dispose() {
             try { H.Interactions?.cancel(); H.Actions?.end('char', 'cancelled', '已离开当前画面'); }
             catch (error) { options.onNotice(error.message, true); }
@@ -626,7 +718,7 @@
             applyQuality(); return true;
         }
         function setQuality(mode) { H.RenderQuality.save(mode); quality.setMode(mode); applyQuality(); }
-        return { load, dispose, navigate, getFurniture, cancelInteraction: () => { const user = actors.find(a => a.who === 'user'); if (user && !user.onStairs) { if (user.path.length && user.action === 'Walk') H.Characters.pose(user, 'Idle'); user.path = []; user.destination = null; } }, stopAction: () => { if(changingFloor)return false; const user=actors.find(a=>a.who==='user'); if(!user)return false; user.path=[];user.destination=null; const stood = standUp(user); H.Interactions?.cancel(stood ? 'finished' : 'blocked', stood ? '已主动结束动作' : '家具旁没有起身空间'); return stood; }, browseFloor, setWalls, setViewpoint, walkTo: walkUser, canNavigate: id => !!villa?.nodes.some(n => n.id === id), interact, interactPair, cancelShared, emote, resetCamera, setCharActivity, setBuild, beginDraft, moveDraft, nudgeDraft, rotateDraft, clearDraft, setQuality, chooseMeal, camera: view, draft: () => draft ? JSON.parse(JSON.stringify(draft)) : null, project: (x, z, world = false) => { const p = new T.Vector3(...(world ? [x, floorY(), z] : worldPosition([x, 0, z]))).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (p.x + 1) * r.width / 2, y: r.top + (1 - p.y) * r.height / 2 }; }, furniture: () => furniture.filter(r => !villa || r.area === room.id).map(r => villa ? { ...r, placement: r.local } : r), worldFurniture: () => furniture, zoom: delta => view.zoom(Math.exp(delta)), stats: () => ({ ...renderer.info.memory, renderedView, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, quality: quality.current(), texturesBudget: assetQuality.stats(), resolution: { cssWidth: host.clientWidth, cssHeight: host.clientHeight, width: renderer.domElement.width, height: renderer.domElement.height, pixelRatio: renderer.getPixelRatio(), antialias: !!renderer.getContext().getContextAttributes()?.antialias }, camera: view.stats(), lighting: { ...lighting, pointLights: lampLights.filter(l=>l.visible).length }, buildMode, actors: actors.map(a => ({ who: a.who, action: a.action, visible: a.root.visible, visual: a.visual, position: { x: a.root.position.x, y: a.root.position.y, z: a.root.position.z }, pose: H.Characters.geometry(a), path: a.path.length })), room: room?.id, villa: villa ? { level: villa.level, viewedLevel: viewedLevel ?? villa.level, levels: H.Villa.levelCount, browsing: surveying(), inspecting, surveyFurniture: inspection?.rows.length || 0, architecture: exteriorGroup?.userData.architecture || null, areas: villa.nodes.map(n => n.id), transitioning: changingFloor, generation, walls:wallMode, wallMeshes:wallFinishes.filter(m=>m.visible).length, doors:doors.map(d=>({name:d.name,angle:d.userData.door.angle})), exterior:view.stats().mode==='exterior' } : null }) };
+        return { load, syncArea, syncKeepsakes, refreshPhoto, focusBuildArea, viewCenter, dispose, navigate, getFurniture, cancelInteraction: () => { const user = actors.find(a => a.who === 'user'); if (user && !user.onStairs) { if (user.path.length && user.action === 'Walk') H.Characters.pose(user, 'Idle'); user.path = []; user.destination = null; } }, stopAction: () => { if(changingFloor)return false; const user=actors.find(a=>a.who==='user'); if(!user)return false; user.path=[];user.destination=null; const stood = standUp(user); H.Interactions?.cancel(stood ? 'finished' : 'blocked', stood ? '已主动结束动作' : '家具旁没有起身空间'); return stood; }, browseFloor, setWalls, setViewpoint, walkTo: walkUser, canNavigate: id => !!villa?.nodes.some(n => n.id === id), interact, interactPair, cancelShared, emote, resetCamera, setCharActivity, setBuild, beginDraft, moveDraft, nudgeDraft, rotateDraft, clearDraft, setQuality, chooseMeal, camera: view, draft: () => draft ? JSON.parse(JSON.stringify(draft)) : null, project: (x, z, world = false) => { const p = new T.Vector3(...(world ? [x, floorY(), z] : worldPosition([x, 0, z]))).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (p.x + 1) * r.width / 2, y: r.top + (1 - p.y) * r.height / 2 }; }, furniture: () => furniture.filter(r => !villa || r.area === room.id).map(r => villa ? { ...r, placement: r.local } : r), worldFurniture: () => furniture, zoom: delta => view.zoom(Math.exp(delta)), stats: () => ({ ...renderer.info.memory, renderedView, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, quality: quality.current(), texturesBudget: assetQuality.stats(), resolution: { cssWidth: host.clientWidth, cssHeight: host.clientHeight, width: renderer.domElement.width, height: renderer.domElement.height, pixelRatio: renderer.getPixelRatio(), antialias: !!renderer.getContext().getContextAttributes()?.antialias }, camera: view.stats(), lighting: { ...lighting, pointLights: lampLights.filter(l=>l.visible).length }, buildMode, actors: actors.map(a => ({ who: a.who, action: a.action, visible: a.root.visible, visual: a.visual, position: { x: a.root.position.x, y: a.root.position.y, z: a.root.position.z }, pose: H.Characters.geometry(a), path: a.path.length })), room: room?.id, villa: villa ? { level: villa.level, viewedLevel: viewedLevel ?? villa.level, levels: H.Villa.levelCount, browsing: surveying(), inspecting, surveyFurniture: inspection?.rows.length || 0, architecture: exteriorGroup?.userData.architecture || null, areas: villa.nodes.map(n => n.id), transitioning: changingFloor, generation, walls:wallMode, wallMeshes:wallFinishes.filter(m=>m.visible).length, doors:doors.map(d=>({name:d.name,angle:d.userData.door.angle})), exterior:view.stats().mode==='exterior' } : null }) };
     }
     H.Scene = { create };
 })(window.ByndHome3D);

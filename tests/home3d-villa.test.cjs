@@ -101,3 +101,10 @@ test('door imports carry verified CC0 provenance and stay inside mobile geometry
     const bytes=fs.readFileSync(manifest.file);assert.equal(createHash('sha256').update(bytes).digest('hex'),manifest.sha256);assert.ok(bytes.length<50000);
     for(const a of manifest.assets){assert.ok(a.triangles<=160);assert.match(a.originalSha256,/^[a-f0-9]{64}$/);}
 });
+test('every default furniture placement passes its own placement validation, also after a full rotation', () => {
+    const {H}=setup(),home=H.State.home(),failures=[];
+    for(const level of ['living_room','bedroom'])for(const n of H.Villa.plan(level).nodes)for(const p of H.Rooms.placements(n.room,home))for(const turn of [0,Math.PI*2]){
+        try{H.Build.validate(n.room,home,{...p,position:[...p.position],rotation:(p.rotation||0)+turn});}catch(e){failures.push(n.id+'/'+p.id+': '+e.message);}
+    }
+    assert.deepEqual(failures,[]);
+});
