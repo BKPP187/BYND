@@ -35,7 +35,7 @@ test('whole-home interior changes are one atomic save and include future rooms w
     const before=H.State.home(),layouts=JSON.stringify(before.layouts),open=JSON.stringify(before.openRooms),theme=before.theme,save=localStorage.setItem.bind(localStorage);let writes=0;localStorage.setItem=(...args)=>{writes++;save(...args);};
     H.Interiors.applyAll({preset:'natural'},true);assert.equal(writes,1);assert.equal(H.Interiors.uniform(),'natural');
     const home=H.State.home();assert.equal(JSON.stringify(home.layouts),layouts);assert.equal(JSON.stringify(home.openRooms),open);assert.equal(home.theme,theme);
-    for(const room of H.catalogs.roomCatalog.rooms){const config=H.Interiors.resolve(room,home);assert.equal(config.id,'natural');assert.ok(H.Rooms.placements(room,home).every(p=>config.furniture[p.id]==='modern'));}
+    for(const room of H.catalogs.roomCatalog.rooms){const config=H.Interiors.resolve(room,home);assert.equal(config.id,'natural');assert.ok(H.Rooms.placements(room,home).every(p=>(room.id==='living_room'&&p.id==='sofa')?config.furniture[p.id]===undefined:config.furniture[p.id]==='modern'));}
     assert.equal(JSON.stringify(H.State.load().homes.b),other);
     H.Interiors.apply('bedroom',{preset:'pink'},true);assert.equal(H.Interiors.uniform(),null);assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'),H.State.home()).id,'natural');
 });
@@ -91,7 +91,11 @@ test('stored and newly added custom furniture retain their own look until a full
     H.State.withHome(home => { home.layouts.living_room = { items: { sofa: { id: 'sofa', furnitureId: 'chinese_sofa', position: [0, 0, -1.5], rotation: 0 } }, removed: [] }; });
     const p = H.Rooms.placements(room, H.State.home()).find(row => row.id === 'sofa'), item = H.Furniture.get(p.furnitureId);
     assert.equal(H.Interiors.furniture(item, p, room, H.State.home()).style, 'chinese');
+    // A complete kit keeps a model the user picked with its own style, unless they opt in.
     H.Interiors.apply('living_room', { preset: 'natural' }, true);
+    assert.equal(H.Interiors.furniture(item, p, room, H.State.home()).style, 'chinese');
+    assert.equal(H.Interiors.furniture(H.Furniture.get('cream_plant'), { id: 'plant' }, room, H.State.home()).style, 'modern');
+    H.Interiors.apply('living_room', { preset: 'natural' }, true, { includeCustom: true });
     const styled = H.Interiors.furniture(item, p, room, H.State.home());
     assert.equal(styled.style, 'modern'); assert.deepEqual(styled.footprint, item.footprint);
     assert.equal(H.Interiors.furniture(H.Furniture.get('european_chair'), { id: 'new-chair' }, room, H.State.home()).style, 'european');

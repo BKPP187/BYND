@@ -34,7 +34,7 @@
     }
     function repairHome(current) {
         if (!object(current)) throw new Error('小屋存档内容无效，请先备份。');
-        if (current.modelId !== undefined && !['portrait', 'silver-red-v1'].includes(current.modelId)) delete current.modelId;
+        if (current.modelId !== undefined && !['portrait', 'bunny-blue-v1', 'silver-red-v1'].includes(current.modelId)) delete current.modelId;
         for (const field of ['visits', 'moments', 'keepsakes']) if (!Array.isArray(current[field])) current[field] = [];
         current.visits = current.visits.filter(day => typeof day === 'string');
         current.moments = current.moments.filter(object); current.keepsakes = current.keepsakes.filter(object);
@@ -86,7 +86,7 @@
         try { data = JSON.parse(raw); } catch (_) { throw new Error('小屋存档无法读取。原存档已保留，请先从设置导出备份。'); }
         if (data?.version !== 1 || !object(data.homes)) throw new Error('小屋存档版本不兼容，请先备份。');
         if (data.user != null && !object(data.user)) throw new Error('小屋存档内容无效，请先备份。');
-        if (data.user?.modelId !== undefined && !['portrait', 'bunny-blue-v1'].includes(data.user.modelId)) delete data.user.modelId;
+        if (data.user?.modelId !== undefined && !['portrait', 'bunny-blue-v1', 'silver-red-v1'].includes(data.user.modelId)) delete data.user.modelId;
         const homes = {};
         for (const [id, current] of Object.entries(data.homes)) { if (unsafeKey(id)) continue; homes[id] = repairHome(current); }
         return { ...defaults(), ...data, homes, user: { ...defaults().user, ...data.user } };

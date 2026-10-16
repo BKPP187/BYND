@@ -2,6 +2,12 @@
 (function (H) {
     'use strict';
     const paths = {
+        'ri-check-line': '<path d="m5 12 5 5 9-10"/>',
+        'ri-pencil-ruler-line': '<path d="m4 20 1-4L16 5l3 3L8 19zM14 7l3 3M3 9l6-6 3 3m3 9 3 3 3-3-3-3"/>',
+        'ri-settings-3-line': '<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10 2.1 2.1M4.9 19.1 7 17m10-10 2.1-2.1"/>',
+        'ri-time-line': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        'ri-walk-line': '<circle cx="13" cy="4" r="2"/><path d="m9 21 3-7 3 3v4M7 12l2-4 4-1 2 4 3 1M12 14l-1-6"/>',
+        'ri-wechat-line': '<path d="M9 4C5 4 2 6.7 2 10c0 1.9 1 3.5 2.6 4.6L4 17l2.7-1.4c.7.2 1.5.3 2.3.3"/><path d="M15 9c3.9 0 7 2.5 7 5.5 0 1.6-.9 3-2.3 4l.5 2-2.3-1.2c-.9.3-1.9.5-2.9.5-3.9 0-7-2.5-7-5.5S11.1 9 15 9z"/><path d="M7 9h.1M11 9h.1M13 14h.1M17 14h.1"/>',
         'ri-eye-line': '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
         'ri-stairs-line': '<path d="M3 20h5v-5h5v-5h5V5h3M3 3h18M3 3v17"/>',
         'ri-arrow-left-s-line': '<path d="m14 5-7 7 7 7"/>',

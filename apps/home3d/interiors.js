@@ -11,28 +11,35 @@
             (!config.wall || Object.hasOwn(data().walls, config.wall)) && (!config.floor || Object.hasOwn(data().floors, config.floor)) &&
             (!config.furniture || typeof config.furniture === 'object' && !Array.isArray(config.furniture) && Object.entries(config.furniture).every(([id, style]) => /^[\w-]{1,100}$/.test(id) && !['__proto__', 'constructor', 'prototype'].includes(id) && Object.hasOwn(H.catalogs.furnitureCatalog.styles, style)));
     }
-    function plan(room, home, changes, matchFurniture) {
+    // A piece is the user's own style choice when they placed a model that is
+    // not simply the room's default piece moved around.
+    function chosenByUser(room, home, placement) {
+        const saved = home.layouts?.[room.id]?.items?.[placement.id]; if (!saved) return false;
+        const original = room.furniture.find(p => p.id === placement.id);
+        return !original || (saved.furnitureId && saved.furnitureId !== original.furnitureId);
+    }
+    function plan(room, home, changes, matchFurniture, options = {}) {
         const current = resolve(room, home), old = home.interiors?.[room.id] || {};
         const next = { preset: current.id, ...old, ...changes };
         if (!home.interiors?.[room.id] && !matchFurniture) next.furniture = Object.fromEntries(room.furniture.filter(p => !home.layouts?.[room.id]?.items?.[p.id]).map(p => [p.id, current.furnitureStyle]));
         if (changes.preset) { delete next.wall; delete next.floor; }
-        if (matchFurniture && data().presets[next.preset]) next.furniture = Object.fromEntries(H.Rooms.placements(room, home).map(p => [p.id, data().presets[next.preset].furnitureStyle]));
+        if (matchFurniture && data().presets[next.preset]) next.furniture = Object.fromEntries(H.Rooms.placements(room, home).filter(p => options.includeCustom || !chosenByUser(room, home, p)).map(p => [p.id, data().presets[next.preset].furnitureStyle]));
         if (!valid(next)) throw new Error('墙面或地板方案无效，没有保存。');
         return next;
     }
-    function apply(roomId, changes, matchFurniture = false) {
+    function apply(roomId, changes, matchFurniture = false, options = {}) {
         const room = H.Rooms.get(roomId);
         if (!room || !H.Rooms.available(room, H.State.home())) throw new Error('这个房间还没有开放。');
         return H.State.withHome(home => {
-            const next = plan(room, home, changes, matchFurniture);
+            const next = plan(room, home, changes, matchFurniture, options);
             home.interiors ||= {}; home.interiors[roomId] = next;
         });
     }
-    function applyAll(changes, matchFurniture = true) {
+    function applyAll(changes, matchFurniture = true, options = {}) {
         // One transaction covers current and future rooms of this character's
         // home. Layouts, removals, open rooms and other characters are untouched.
         return H.State.withHome(home => {
-            const next = Object.fromEntries(H.catalogs.roomCatalog.rooms.map(room => [room.id, plan(room, home, changes, matchFurniture)]));
+            const next = Object.fromEntries(H.catalogs.roomCatalog.rooms.map(room => [room.id, plan(room, home, changes, matchFurniture, options)]));
             home.interiors = { ...home.interiors, ...next };
         });
     }
