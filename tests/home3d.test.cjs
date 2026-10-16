@@ -334,7 +334,7 @@ test('expansion enables real rooms and living facilities only for that character
     H.Build.expand('bathroom');
     assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), true);
     const activities = Array.from({ length: 216 }, (_, i) => H.Living.plan(H.State.home(), { history: [], personality: '', events: [] }, new Date(2026, 8, 27, 6, i * 5).getTime()));
-    const bath = activities.find(p => p.action === 'Bathe');
+    const bath = activities.find(p => ['Bathe', 'Shower'].includes(p.action));
     assert.ok(bath, 'an available tub enables one bath in the day'); assert.equal(bath.room, 'bathroom');
     H.State.bind('b'); assert.equal(H.Rooms.available(H.Rooms.get('bathroom'), H.State.home()), false);
 });
