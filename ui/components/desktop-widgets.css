@@ -170,28 +170,31 @@
     height: 100% !important;
     padding: 0 0 calc(84px + env(safe-area-inset-bottom)) !important;
     gap: 0 !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     align-items: stretch !important;
 }
 .coread-content[data-tab="discover"] .coread-daily[data-coread-panel="discover"] {
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
     width: 100% !important;
     max-width: none !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
     border-radius: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
 }
 .coread-content[data-tab="discover"] .coread-daily-card {
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 0 !important;
     border-radius: 0 !important;
 }
 .coread-content[data-tab="discover"] .coread-sense-card {
-    height: 100% !important;
+    height: auto !important;
     min-height: 0 !important;
     border-radius: 0 !important;
     border-left: 0 !important;

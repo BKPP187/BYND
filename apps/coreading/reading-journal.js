@@ -61,7 +61,9 @@ const CoReadJournal = (() => {
     }
     function active() {
         return document.visibilityState !== 'hidden' && document.getElementById('app-coread-window')?.classList.contains('active')
-            && coreadActiveTab === 'reader' && !coreadReaderPanelOpen && !coreadSettingsOpen && !coreadTocOpen && !coreadCommentPanelOpen;
+            && coreadActiveTab === 'reader' && !coreadReaderPanelOpen && !coreadSettingsOpen && !coreadTocOpen && !coreadCommentPanelOpen
+            && !(typeof coreadReviewAnchor !== 'undefined' && coreadReviewAnchor)
+            && !(typeof coreadAuthorSupport !== 'undefined' && coreadAuthorSupport);
     }
     function flush(now = Date.now()) {
         if (!session) return;

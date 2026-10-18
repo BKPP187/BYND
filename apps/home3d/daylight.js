@@ -21,12 +21,12 @@
     function apply(state, lights, renderer, scene, ground, skyBase, luminous) {
         const T = ByndHomeEngine, daylight = state.daylight;
         lights.sun.color.set(state.sunlight); lights.sun.intensity = state.sunIntensity;
-        lights.ambient.color.set(state.night ? '#cfdaec' : '#fff6df'); lights.ambient.groundColor.set(state.night ? '#827e9c' : '#c5b69c'); lights.ambient.intensity = state.ambientIntensity;
+        lights.ambient.color.set(state.night ? '#cfdaec' : '#fff8ec'); lights.ambient.groundColor.set(state.night ? '#827e9c' : '#b4a48e'); lights.ambient.intensity = state.ambientIntensity * (state.night ? 1.05 : .78);
         lights.fill.intensity = .17 + daylight * .48; lights.fill.color.set(state.night ? '#c4cfee' : '#f4ded6');
         // Keep rooms readable at midnight, with a warm indoor ambient fallback
         // even on the smooth tier where extra point lights are disabled.
-        lights.ambient.color.lerp(new T.Color('#ffe6c5'), state.lamps * .28);
-        renderer.toneMappingExposure = .92 + daylight * .11;
+        lights.ambient.color.lerp(new T.Color('#ffe6c5'), state.lamps * .55);
+        renderer.toneMappingExposure = .94 + daylight * .13;
         scene.background.copy(new T.Color(skyBase)).lerp(new T.Color(state.sky), .72); ground.color.copy(scene.background);
         for (const material of luminous) { material.emissiveIntensity = .08 + state.lamps * 1.15; material.emissive.set(state.night?'#ffdaa6':'#fff0ce'); }
     }

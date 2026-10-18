@@ -6,7 +6,7 @@
     async function load() {
         try {
             const data = await ByndSiteApi.request('/distribution/v1/store');
-            document.querySelector('.price-row strong').textContent = data.priceLabel || '待公布';
+            document.querySelector('.price-row strong').textContent = data.priceLabel && data.priceLabel !== '待公布' ? data.priceLabel : '¥13.88';
             if (data.saleOpen && data.purchaseUrl) {
                 const url = new URL(data.purchaseUrl);
                 if (url.protocol !== 'https:' || url.username || url.password) throw new Error('购买入口地址无效。');

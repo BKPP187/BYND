@@ -10,8 +10,12 @@ Android 的 `addJavascriptInterface` 会暴露给子框架，因此 APK 使用�
 
 Android 默认禁止外部明文 HTTP，仅为本机音乐和 MCP 服务保留 `127.0.0.1`、`localhost`。自动云备份和设备迁移排除应用私有数据；用户主动导出的备份流程不受此规则影响。
 
-AI 代理 Worker 按 BYND、Worker 同源和 APK 的 `null` 来源返回明确的 CORS 头，并在转发前拒绝其他来源。`null` 不是可靠的身份标识，来源检查也不是鉴权；调用仍要求用户自己的 Bearer Key。这不是新增的服务端共享密钥授权机制。Worker 修改需要另行部署后才在线生效。
+AI 代理 Worker 按 BYND、Worker 同源和 APK 的 `null` 来源返回明确的 CORS 头，并在转发前拒绝其他来源。`null` 不是可靠的身份标识，来源检查也不是鉴权；调用仍要求用户自己的 Bearer Key。这不是新增的服务端共享密钥授权机制。此规则已于 2026-10-15 部署到 `bynd-ai-proxy`，版本 `e2303de6-4d78-454a-8885-48d347ab289b`；原有 NVIDIA 上游配置保留。
+
+其他已确认的入口包括 API 配置和路由选项、预设标识、参数与消息角色字段、字体标识、桌面照片与图标、商品封面渐变。文本和双引号属性分别按其上下文转义；内联事件中的标识还需要先转义 JavaScript 字符串。API 状态 CSS 类仅允许预定义值；状态更新通过比较 dataset 查找卡片，避免将标识拼入 CSS 选择器。
 
 验证：`node scripts/check-rich-message-security-browser.cjs` 覆盖虚构密钥读取、事件处理、框架存储隔离、真实点击、展开、自适应高度、伪造消息和 APK 受控交互。`tests/security-config.test.cjs` 覆盖 Worker 拒绝路径及 Android 配置。`tests/home3d-rigging.test.cjs` 缺少可选校验工具时明确跳过；工具齐全时仍执行真实离线校验。
+
+`node scripts/check-html-boundaries-browser.cjs` 使用全新浏览器资料和虚构存储标记，验证上述设置、桌面及商品入口不能注入主页面事件处理程序，并验证含引号的 API、预设标识仍能正常点击。`tests/html-boundaries.test.cjs` 验证转义及标识往返。线上 Worker 检查涵盖健康接口、BYND/APK 预检、外站拒绝和缺少 Key 的 401，未使用真实 Key 或发起付费请求。
 
 这次修复已确认的聊天入口及报告中的配置问题，不代表全仓库每处 innerHTML 都已完成安全审计。后续应按输入来源和实际 HTML 上下文逐点审查，不能仅靠统一转义函数或搜索数量判定安全。

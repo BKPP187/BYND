@@ -1,5 +1,6 @@
 // 4. 打开编辑弹窗
 function openApiModal(editId) {
+    settingsApiTestRevision++;
     const modal = document.getElementById('api-edit-modal');
     const titleEl = document.getElementById('api-modal-title');
     const resultEl = document.getElementById('api-test-result');
@@ -82,6 +83,7 @@ function openApiModal(editId) {
 }
 
 function closeApiModal() {
+    settingsApiTestRevision++;
     closeApiFloatingPickers();
     document.getElementById('api-edit-modal').classList.add('hidden');
 }
@@ -90,7 +92,7 @@ function closeApiModal() {
 function saveApi() {
     const id = document.getElementById('api-edit-id').value;
     const name = document.getElementById('api-edit-name').value.trim();
-    const baseUrl = document.getElementById('api-edit-url').value.trim();
+    const baseUrl = normalizeSettingsApiBaseUrl(document.getElementById('api-edit-url').value);
     const apiKey = document.getElementById('api-edit-key').value.trim();
     const modelEl = document.getElementById('api-edit-model');
     const model = (modelEl.value || '').trim();

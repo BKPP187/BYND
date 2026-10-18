@@ -1,4 +1,6 @@
 // 9. 测试 API（从弹窗）— 一次请求同时拿模型列表
+let settingsApiTestRevision = 0;
+
 async function testApiFromModal() {
     const baseUrl = document.getElementById('api-edit-url').value.trim();
     const apiKey = document.getElementById('api-edit-key').value.trim();
@@ -7,17 +9,23 @@ async function testApiFromModal() {
     let imageSelectEl = document.getElementById('api-edit-image-model');
     const hintEl = document.getElementById('api-model-hint');
     const imageHintEl = document.getElementById('api-image-model-hint');
+    const revision = ++settingsApiTestRevision;
+    const editingId = document.getElementById('api-edit-id').value;
+    const savedModel = selectEl.value || '';
+    const savedImageModel = imageSelectEl.value || '';
 
     if (!baseUrl) {
         resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Base URL</span>';
         return;
     }
 
-    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 测试中...</span>';
+    resultEl.innerHTML = '<span style="color:#b7791f;">⏳ 正在识别接口地址和模型...</span>';
     restoreModelSelect();
     restoreImageModelSelect();
     selectEl = document.getElementById('api-edit-model');
     imageSelectEl = document.getElementById('api-edit-image-model');
+    selectEl.dataset.savedModel = savedModel;
+    imageSelectEl.dataset.savedModel = savedImageModel;
     selectEl.disabled = true;
     selectEl.innerHTML = '<option value="">拉取中...</option>';
     selectEl.style.cursor = 'wait';
@@ -27,9 +35,33 @@ async function testApiFromModal() {
     refreshApiModelPickers();
 
     const result = await doTestApi(baseUrl, apiKey);
+    if (revision !== settingsApiTestRevision) return;
+    if (document.getElementById('api-edit-url').value.trim() !== baseUrl || document.getElementById('api-edit-key').value.trim() !== apiKey || document.getElementById('api-edit-id').value !== editingId) {
+        resultEl.textContent = '配置已改变，请重新测试。';
+        convertModelToInput();
+        convertImageModelToInput();
+        return;
+    }
+    const corrected = result.baseUrl && result.baseUrl !== baseUrl.replace(/\/+$/, '');
+    if (result.baseUrl && (result.ok || result.detected)) document.getElementById('api-edit-url').value = result.baseUrl;
+
+    if (result.detected && result.imageOnly) {
+        resultEl.innerHTML = `<span style="color:#b7791f;">${corrected ? '已自动补全接口地址。' : ''}${escapeHtml(result.error)}</span>`;
+        selectEl.innerHTML = '<option value="">不在这个 API 使用聊天</option>';
+        selectEl.value = '';
+        selectEl.disabled = false;
+        if (hintEl) hintEl.textContent = '此接口仅用于生图';
+        // Prefer the documented default for new configurations; retain manual choices.
+        const imageModels = [...new Set([...result.models, savedImageModel].filter(Boolean))];
+        imageSelectEl.dataset.savedModel = savedImageModel || result.models[0] || '';
+        fillImageModelSelect(imageModels);
+        if (imageHintEl) imageHintEl.textContent = 'image-1 为 GPT，image-2 为 Grok；尚未实测';
+        refreshApiModelPickers();
+        return;
+    }
 
     if (result.ok) {
-        resultEl.innerHTML = `<span style="color:#66d9a0;">✅ 连接成功！${result.detail || ''}</span>`;
+        resultEl.innerHTML = `<span style="color:#66d9a0;">✅ ${corrected ? '已自动补全接口地址，' : ''}连接成功！${escapeHtml(result.detail || '')}</span>`;
 
         const models = result.models || [];
         if (models.length > 0) {
@@ -55,7 +87,7 @@ async function testApiFromModal() {
             convertImageModelToInput();
         }
     } else {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${result.error || '连接失败'}</span>`;
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(result.error || '连接失败')}</span>`;
         convertModelToInput();
         convertImageModelToInput();
         if (hintEl) hintEl.textContent = '连接失败，可核对文档后手动填写模型';

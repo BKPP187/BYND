@@ -9,6 +9,9 @@ const files = new Map([
     ['/assets/website/shop.css', ['assets/website/shop.css', 'text/css; charset=utf-8']],
     ['/assets/website/bynd-companion.png', ['assets/website/bynd-companion.png', 'image/png']]
 ]);
+for (const name of fs.readdirSync(path.join(__dirname, '../assets/website'))) {
+    if (/^bynd-companion-(256|480|840)-[a-f0-9]{12}\.webp$/.test(name)) files.set('/assets/website/' + name, ['assets/website/' + name, 'image/webp']);
+}
 const port = Number(process.env.BYND_SHOP_PREVIEW_PORT || 8992);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid preview port');
 const server = http.createServer((request, response) => {

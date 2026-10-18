@@ -201,27 +201,27 @@ function renderPresetList() {
         if (isExpanded) {
             promptsHtml = `<div class="preset-prompts-list">
                 <div class="preset-params">
-                    <span>temp: ${p.temperature}</span>
-                    <span>max_tokens: ${p.max_tokens}</span>
-                    <span>top_p: ${p.top_p}</span>
-                    ${p.frequency_penalty ? `<span>freq: ${p.frequency_penalty}</span>` : ''}
-                    ${p.presence_penalty ? `<span>pres: ${p.presence_penalty}</span>` : ''}
+                    <span>temp: ${escapeHtml(p.temperature)}</span>
+                    <span>max_tokens: ${escapeHtml(p.max_tokens)}</span>
+                    <span>top_p: ${escapeHtml(p.top_p)}</span>
+                    ${p.frequency_penalty ? `<span>freq: ${escapeHtml(p.frequency_penalty)}</span>` : ''}
+                    ${p.presence_penalty ? `<span>pres: ${escapeHtml(p.presence_penalty)}</span>` : ''}
                 </div>
                 ${p.prompts.map((pr, i) => `
                     <div class="preset-prompt-item ${pr.enabled ? '' : 'disabled'}">
-                        <div class="preset-prompt-header" onclick="togglePromptExpand('${p.id}', ${i})">
+                        <div class="preset-prompt-header" onclick="togglePromptExpand('${escapeJsString(p.id)}', ${i})">
                             <label class="preset-toggle" onclick="event.stopPropagation()">
-                                <input type="checkbox" ${pr.enabled ? 'checked' : ''} onchange="togglePromptEnabled('${p.id}', ${i}, this.checked)">
+                                <input type="checkbox" ${pr.enabled ? 'checked' : ''} onchange="togglePromptEnabled('${escapeJsString(p.id)}', ${i}, this.checked)">
                                 <span class="preset-toggle-slider"></span>
                             </label>
                             <span class="preset-prompt-name">${escapeHtml(pr.name)}</span>
-                            <span class="preset-prompt-role">${pr.role}</span>
-                            <i class="ri-delete-bin-6-line preset-prompt-del" onclick="event.stopPropagation(); deletePromptItem('${p.id}', ${i})" title="删除"></i>
+                            <span class="preset-prompt-role">${escapeHtml(pr.role)}</span>
+                            <i class="ri-delete-bin-6-line preset-prompt-del" onclick="event.stopPropagation(); deletePromptItem('${escapeJsString(p.id)}', ${i})" title="删除"></i>
                             <i class="ri-arrow-${window._expandedPromptKey === p.id+'_'+i ? 'up' : 'down'}-s-line"></i>
                         </div>
                         ${window._expandedPromptKey === p.id+'_'+i ? `
                             <div class="preset-prompt-content">
-                                <textarea onchange="editPromptContent('${p.id}', ${i}, this.value)">${escapeHtml(pr.content)}</textarea>
+                                <textarea onchange="editPromptContent('${escapeJsString(p.id)}', ${i}, this.value)">${escapeHtml(pr.content)}</textarea>
                             </div>
                         ` : ''}
                     </div>
@@ -230,8 +230,8 @@ function renderPresetList() {
         }
 
         return `
-            <div class="preset-card ${isActive ? 'active' : ''}" data-id="${p.id}">
-                <div class="preset-card-header" onclick="togglePresetExpand('${p.id}')">
+            <div class="preset-card ${isActive ? 'active' : ''}" data-id="${escapeHtml(p.id)}">
+                <div class="preset-card-header" onclick="togglePresetExpand('${escapeJsString(p.id)}')">
                     <div class="preset-card-left">
                         <i class="ri-arrow-${isExpanded ? 'up' : 'down'}-s-line preset-chevron"></i>
                         <div class="preset-card-info">
@@ -239,12 +239,12 @@ function renderPresetList() {
                                 ${isActive ? '<span style="color:#f8a4b8;margin-right:4px;">♛</span>' : ''}
                                 ${escapeHtml(p.name)}
                             </div>
-                            <div class="preset-card-meta">${enabledCount}/${totalCount} prompts · temp ${p.temperature}</div>
+                            <div class="preset-card-meta">${enabledCount}/${totalCount} prompts · temp ${escapeHtml(p.temperature)}</div>
                         </div>
                     </div>
                     <div class="preset-card-actions" onclick="event.stopPropagation()">
-                        <i class="ri-star-${isActive ? 'fill' : 'line'}" title="${isActive ? '取消启用' : '启用'}" onclick="setActivePreset('${p.id}')" style="${isActive ? 'color:#f8a4b8;' : 'color:#999;'}"></i>
-                        <i class="ri-delete-bin-6-line" title="删除" onclick="deletePreset('${p.id}')" style="color:#999;"></i>
+                        <i class="ri-star-${isActive ? 'fill' : 'line'}" title="${isActive ? '取消启用' : '启用'}" onclick="setActivePreset('${escapeJsString(p.id)}')" style="${isActive ? 'color:#f8a4b8;' : 'color:#999;'}"></i>
+                        <i class="ri-delete-bin-6-line" title="删除" onclick="deletePreset('${escapeJsString(p.id)}')" style="color:#999;"></i>
                     </div>
                 </div>
                 ${promptsHtml}

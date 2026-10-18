@@ -6,6 +6,7 @@
         // hips, neck and knees must not use the male proportions.
         'bunny-blue-v1': { height: 1.62, hips: .47, spine: .585, head: .67, shoulder: .61, armWidth: .155, armLength: .115, thighWidth: .065, knee: .22, ankle: .045, shoeCut: .10 }
     }, receivers = new Map(), pendingBuffers = new Map();
+    let barefootBytes = null;
     function modelId(person, who = 'char') {
         if (person?.modelId === 'portrait' || (!person?.modelId && person?.portrait)) return 'portrait';
         return person?.modelId || (who === 'user' ? 'bunny-blue-v1' : 'silver-red-v1');
@@ -27,10 +28,11 @@
         });
     }
     async function read(level, id) {
+        if (level === 'barefeet' && barefootBytes) return barefootBytes;
         const key = id + ':' + level;
         if (pendingBuffers.has(key)) return pendingBuffers.get(key);
         const promise = readRaw(level, id); pendingBuffers.set(key, promise);
-        try { return await promise; } finally { if (pendingBuffers.get(key) === promise) pendingBuffers.delete(key); }
+        try { const bytes = await promise; if (level === 'barefeet' && bytes.byteLength <= 2 * 1024 * 1024) barefootBytes = bytes; return bytes; } finally { if (pendingBuffers.get(key) === promise) pendingBuffers.delete(key); }
     }
     // These starter rigs belong to the two reviewed meshes only. Neither is a
     // generic image-to-animation or production autorigger.
@@ -449,7 +451,7 @@
             span=2*depth*Math.tan(camera.fov*Math.PI/360)/camera.zoom;
         }
         const pixels = configuration(actor).height * viewport / span * profile.renderScale;
-        const level = pixels > (actor.level === 'near' ? 300 : 370) && profile.tier !== 'smooth' ? 'near' : pixels > (actor.level === 'middle' ? 150 : 180) ? 'middle' : 'far';
+        const level = profile.tier === 'smooth' ? 'far' : pixels > (actor.level === 'near' ? 300 : 370) ? 'near' : pixels > (actor.level === 'middle' ? 150 : 180) ? 'middle' : 'far';
         if (level === actor.level || level === actor.failureLevel) return;
         actor.loading = true;
         load(level, actor).then(model => {

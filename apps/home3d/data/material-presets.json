@@ -183,9 +183,9 @@
       "pale_parquet": {
         "name": "浅橡木拼花",
         "pattern": "parquet",
-        "base": "#c8b899",
-        "ink": "#b6a488",
-        "secondary": "#d5c5aa"
+        "base": "#d9ceba",
+        "ink": "#c4b69e",
+        "secondary": "#e5dac7"
       },
       "walnut_parquet": {
         "name": "胡桃木拼花",
@@ -240,15 +240,15 @@
     "presets": {
       "garden": {
         "name": "奶油花园",
-        "description": "碎花壁纸 · 浅木拼花",
-        "wall": "sage_flower",
+        "description": "亚麻白墙 · 浅木窗光",
+        "wall": "limewash",
         "floor": "pale_parquet",
         "rug": "botanical",
-        "trim": "#f1ede0",
-        "wood": "#aa9070",
-        "fabric": "#e8e5d7",
-        "accent": "#a9bba3",
-        "background": "#e8eddf",
+        "trim": "#f6f3e9",
+        "wood": "#c5b397",
+        "fabric": "#f0eee7",
+        "accent": "#a6b49c",
+        "background": "#eee9dd",
         "furnitureStyle": "cream"
       },
       "palace": {

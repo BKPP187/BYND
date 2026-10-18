@@ -77,30 +77,41 @@
 [data-wechat-ui-theme="pixel"] .wc-music-listen-actions .ri-loader-4-line::before { background: transparent; border: 3px dotted currentColor; box-sizing: border-box; }
 [data-wechat-ui-theme="pixel"] .wc-music-listen-close i::before { clip-path: polygon(10% 30%,30% 30%,30% 45%,45% 45%,45% 60%,55% 60%,55% 45%,70% 45%,70% 30%,90% 30%,90% 45%,75% 45%,75% 60%,60% 60%,60% 75%,40% 75%,40% 60%,25% 60%,25% 45%,10% 45%); }
 
-/* Chat composers only: keep unrelated settings/worldbook modals independent. */
-[data-wechat-ui-theme] #wc-composer-modal { padding-top: var(--bynd-header-safe-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-[data-wechat-ui-theme] #wc-composer-modal .wc-compose-card {
+/* Message composers and text editors share the active chat theme. */
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) { padding-top: var(--bynd-header-safe-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) .wc-compose-card {
     border-radius: var(--wci-radius); background: var(--wci-surface); color: var(--wci-text);
     border-color: var(--wci-border); box-shadow: var(--wci-shadow);
     max-height: min(82%, calc(100% - 24px));
 }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-title, .wc-compose-header > i) { color: var(--wci-text); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-title i, .wc-voice-estimate-icon, .wc-edit-target-pill) { border-radius: var(--wci-control-radius); background: var(--wci-tint); color: var(--wci-accent); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-header, .wc-compose-footer) { border-color: var(--wci-border); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-field, .wc-compose-hint) { color: var(--wci-muted); }
-[data-wechat-ui-theme] #wc-composer-modal :is(input, textarea, select, .wc-music-result-item, .wc-compose-secondary) {
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-compose-title, .wc-compose-header > i) { color: var(--wci-text); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-compose-title i, .wc-voice-estimate-icon, .wc-edit-target-pill) { border-radius: var(--wci-control-radius); background: var(--wci-tint); color: var(--wci-accent); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-compose-header, .wc-compose-footer) { border-color: var(--wci-border); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-compose-field, .wc-compose-hint) { color: var(--wci-muted); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(input, textarea, select, .wc-music-result-item, .wc-compose-secondary) {
     border-radius: var(--wci-control-radius); background: var(--wci-well); color: var(--wci-text); border-color: var(--wci-border);
 }
-[data-wechat-ui-theme] #wc-composer-modal :is(input, textarea, select):focus { border-color: var(--wci-accent); box-shadow: 0 0 0 2px var(--wci-tint); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-compose-primary, .wc-music-search-row button) { border-radius: var(--wci-control-radius); background: var(--wci-accent); color: var(--wci-on-accent); box-shadow: var(--wci-control-shadow); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-music-result-item strong, .wc-voice-estimate strong) { color: var(--wci-text); }
-[data-wechat-ui-theme] #wc-composer-modal :is(.wc-music-result-item span, .wc-voice-estimate span) { color: var(--wci-muted); }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-card { animation: none; }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal { backdrop-filter: none; -webkit-backdrop-filter: none; }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-header { background: #292654; }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-header :is(.wc-compose-title, .wc-compose-title i, .wc-compose-header > i) { background: transparent; color: #fff; }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal :is(input, textarea, select) { box-shadow: inset 1px 1px #77777c, inset -1px -1px #fff; }
-[data-wechat-ui-theme="pixel"] #wc-composer-modal .wc-compose-secondary { box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(input, textarea, select):focus { border-color: var(--wci-accent); box-shadow: 0 0 0 2px var(--wci-tint); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-compose-primary, .wc-music-search-row button) { border-radius: var(--wci-control-radius); background: var(--wci-accent); color: var(--wci-on-accent); box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-music-result-item strong, .wc-voice-estimate strong) { color: var(--wci-text); }
+[data-wechat-ui-theme] :is(#wc-composer-modal, #wc-text-edit-modal) :is(.wc-music-result-item span, .wc-voice-estimate span) { color: var(--wci-muted); }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) .wc-compose-card { animation: none; }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) .wc-compose-header { background: #292654; }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) .wc-compose-header :is(.wc-compose-title, .wc-compose-title i, .wc-compose-header > i) { background: transparent; color: #fff; }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) :is(input, textarea, select) { box-shadow: inset 1px 1px #77777c, inset -1px -1px #fff; }
+[data-wechat-ui-theme="pixel"] :is(#wc-composer-modal, #wc-text-edit-modal) .wc-compose-secondary { box-shadow: var(--wci-control-shadow); }
+
+[data-wechat-ui-theme] #wc-text-edit-modal { font-family: var(--wci-font-family, inherit); }
+[data-wechat-ui-theme] #wc-text-edit-modal .wc-compose-card { display: flex; flex-direction: column; }
+[data-wechat-ui-theme] #wc-text-edit-modal :is(.wc-compose-header, .wc-compose-footer) { flex-shrink: 0; }
+[data-wechat-ui-theme] #wc-text-edit-modal .wc-compose-body { min-height: 0; }
+[data-wechat-ui-theme] #wc-text-edit-modal :is(button, textarea) { font-family: inherit; }
+[data-wechat-ui-theme] #wc-text-edit-modal .wc-text-edit-close { width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--wci-control-radius); background: transparent; color: var(--wci-muted); font-size: 24px; cursor: pointer; }
+[data-wechat-ui-theme="pixel"] #wc-text-edit-modal .wc-text-edit-close { color: #fff; }
+[data-wechat-ui-theme] #wc-text-edit-modal button:disabled { opacity: .55; cursor: wait; }
+[data-wechat-ui-theme] #wc-text-edit-modal .wc-text-edit-error { margin: 0; padding: 10px; border: 1px solid var(--wci-border); border-radius: var(--wci-control-radius); background: var(--wci-tint); color: var(--wci-text); font-size: 12px; line-height: 1.5; }
+[data-wechat-ui-theme] #wc-text-edit-modal .wc-text-edit-error[hidden] { display: none; }
 
 /* Link/music/call/share cards and lightweight action notices. Text bubbles remain theme-owned. */
 [data-wechat-ui-theme] #app-wechat-window #wechat-chat-room .msg-row .msg-bubble:is(.msg-link-card, .msg-music-card, .msg-music-invite-card, .msg-call-bubble, .wc-share-moment-card, .wc-share-product-card) {

@@ -1,0 +1,11 @@
+{
+  "versions": {
+    "word-extractor": "1.0.4",
+    "mammoth": "1.13.0",
+    "buffer": "6.0.3",
+    "stream-browserify": "3.0.0",
+    "process": "0.11.10",
+    "events": "3.3.0"
+  },
+  "sha256": "ae712f61a775343713a1e7f7c89869a9464e56193b534eee1e511d80beb85f66"
+}

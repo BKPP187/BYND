@@ -2465,8 +2465,8 @@
 }
 .coread-sense-title-text {
     display: block;
-    writing-mode: vertical-rl;
-    text-orientation: upright;
+    writing-mode: horizontal-tb;
+    direction: ltr;
     text-shadow: 10px 10px 0 rgba(0,0,0,0.06);
 }
 .coread-sense-card small {
@@ -2654,8 +2654,8 @@
     line-height: inherit;
     letter-spacing: inherit;
     transform: none;
-    writing-mode: vertical-rl;
-    text-orientation: upright;
+    writing-mode: horizontal-tb;
+    direction: ltr;
     text-shadow: 12px 12px 0 rgba(0,0,0,0.06);
 }
 .coread-content[data-tab="discover"] .coread-sense-card.is-holiday strong {

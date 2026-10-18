@@ -105,6 +105,8 @@ function addDesktopCustomWidget(kind) {
 
 function ensureDesktopLovelyWidget() {
     if (localStorage.getItem(DESKTOP_DEFAULT_LOVELY_DELETED_KEY) === '1') return;
+    // This complete preset already supplies its own second-page widget.
+    if (document.querySelector('[data-ribbon-note]')) return;
     const page = ensureDesktopPage(1);
     const pageArea = page?.querySelector('.desktop-scroll-area');
     if (!pageArea || pageArea.querySelector('.desktop-widget-lovely')) return;

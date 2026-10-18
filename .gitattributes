@@ -2,3 +2,8 @@
 /apps/monitor/pet-background-worker.js text eol=lf
 /assets/vendor/pet-background/ort.wasm.bundle.min.mjs text eol=lf
 /assets/home3d/doors/geometry.js text eol=lf
+# Vendored study resources are verified byte-for-byte against their manifests.
+/assets/vendor/pdfjs/** -text
+/assets/vendor/study-ocr/** -text
+/assets/vendor/study-thai/** -text
+/assets/vendor/study-word/** -text

@@ -254,6 +254,15 @@ function getWechatMonitorMode(char) {
     return Object.prototype.hasOwnProperty.call(WECHAT_MONITOR_MODE_LABELS, mode) ? mode : 'persona';
 }
 
+function getWechatMonitorBarrageStyle(char) {
+    return char?.chatConfig?.monitorBarrageStyle === 'scroll' ? 'scroll' : 'cards';
+}
+
+function getWechatMonitorBarrageStylePrompt(char) {
+    if (getWechatMonitorBarrageStyle(char) !== 'scroll') return '弹幕显示为可点开全文的卡片。chorus 留空。';
+    return '弹幕显示为看剧式慢速飘屏，不是长篇评论卡。barrage 每条正文以 2-18 字为主，最多 24 字，给 6-10 条。像一群不同观众看 user 和 char 聊天：按本轮话题写热梗、吃瓜八卦、磕糖、吐槽、问号、接梗；允许少量自然跑题的生活闲聊或无关短评，不能整批无关，也不要固定套梗或编造现实人物八卦。密度随当前话题变化：日常聊天稀疏、chorus 留空；只有本轮出现爆笑、反转、暧昧名场面或强烈共鸣、值得观众接力时，chorus 选择 barrage 中最适合大家复读的一整条（含原昵称），正文应在 2-12 字，例如观众自己的共鸣短句；系统会用它形成一小波重复刷屏。chorus 只能从本轮 barrage 原样选择，不得引用 user/char 台词，不得每轮都刷屏。刷屏靠增加数量，不能加快滚动。';
+}
+
 function getWechatMonitorModePrompt(mode) {
     if (mode === 'observer') return '采用第三方路人弹幕视角。你不是角色本人，也不是 user/char 的代言人，而是屏幕外一群吃瓜群众、看剧路人、磕糖党、梗党、亲妈粉、显眼包和前排观众在围观当前互动。barrage 每条都必须是“昵称：吐槽言论”的字符串，昵称必须由你按当次剧情原创，搞笑、中二、抽象、有网感，不要从固定列表选，不要使用真实用户姓名或角色名。吐槽言论要像真实弹幕/抖音热评/小红书评论区：短句、疯言疯语、语气词乱飞、可有错别字、emoji、@别人、盖楼、互相点赞/质疑/接梗，可以出现“这幕我收藏了/备孕了”这类网络语感。弹幕只写围观反应，不写剧情正文，不做长篇分析，不替任何人说话。严禁引用、复述或改写 user/char 的原话；不要使用“用户：”“char：”“他说/她说/你说”这类发言转述；不要把弹幕写成角色发给用户的聊天消息。可以缺德但不恶毒，可以磕、可以疑惑、可以起哄、可以提醒“这波不对劲”。重点看气氛、反差、暧昧、误会、动作和关系张力。不得攻击用户人格，不得威胁、控制、网暴或声称访问真实设备。除非完全没有可吐槽内容，否则 level 优先返回 barrage，并给 4-9 条 12-42 字弹幕。';
     return '采用角色本人视角，必须贴合角色卡、人设、关系和记忆，可吃味、嘴硬或吐槽，但默认是娱乐化反应，不要偏激。';
@@ -321,6 +330,7 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
     const monitorMode = getWechatMonitorMode(watcher);
     const monitorModeLabel = WECHAT_MONITOR_MODE_LABELS[monitorMode] || WECHAT_MONITOR_MODE_LABELS.persona;
     const monitorModePrompt = getWechatMonitorModePrompt(monitorMode);
+    const barrageStylePrompt = getWechatMonitorBarrageStylePrompt(targetChar);
     const systemPrompt = typeof buildSystemPrompt === 'function'
         ? buildSystemPrompt(watcher)
         : `你是「${watcher.name || watcherName}」。请保持角色设定。`;
@@ -332,7 +342,7 @@ function buildWechatMonitorMessages(watcher, targetChar, userMsg) {
         },
         {
             role: 'system',
-            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃瓜、起哄或旁观反应。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；只有角色本人视角才允许按人设返回 deleteContact；第三方视角必须让 deleteContact 为空。普通消息可 silent/island；有戏剧张力时优先用 barrage，像路人刷弹幕；如果当前模式是「第三方视角吐槽」，除非完全无内容，否则必须返回 level:"barrage" 并让 barrage 至少 4 条。第三方视角的 barrage 每条必须写成“AI原创抽象昵称：吐槽言论”，昵称不要用 user/char/用户/角色/真实姓名，不要从固定列表选择，言论要有网络语感、短句、疯言疯语、错别字、表情符、@互动、盖楼感或热梗。禁止照抄、引用、复述 user/char 原话，不要写成角色发言或系统解说。每次必须根据当前这条消息重新生成，不要复用上次弹幕，不要套用“前排吃瓜、镜头别切、这波有戏、气氛微妙”这类通用固定句。只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。本次生成随机因子：${randomSeed}。`
+            content: `这是 BYND 应用内部的虚构娱乐剧情功能「监控」，只允许观察 BYND 内部微信角色聊天记录，不能声称访问真实手机联系人、真实微信、系统短信或外部设备。监控吐槽视角：${monitorModeLabel}。${monitorModePrompt} 请按人设、关系、世界书、记忆和当前聊天气氛反应。不要写极端威胁、封锁、强控制、恐吓、惩罚或黑客攻击；本质是像观众看剧一样的弹幕吐槽、磕糖、吃瓜、起哄或旁观反应。只返回 JSON，不要 Markdown，不要解释。JSON 字段：level, island, warning, barrage, chorus, deleteContact。level 只能是 silent/island/barrage/warning。island 是灵动岛短句 8-30 字；warning 是弹窗提示 12-70 字；barrage 是 0-10 条随机飞字短句数组。deleteContact 可为空；只有角色本人视角才允许按人设返回 deleteContact；第三方视角必须让 deleteContact 为空。普通消息可 silent/island；有戏剧张力时优先用 barrage，像路人刷弹幕；如果当前模式是「第三方视角吐槽」，除非完全无内容，否则必须返回 level:"barrage" 并让 barrage 至少 4 条。第三方视角的 barrage 每条必须写成“AI原创抽象昵称：吐槽言论”，昵称不要用 user/char/用户/角色/真实姓名，不要从固定列表选择，言论要有网络语感、短句、疯言疯语、错别字、表情符、@互动、盖楼感或热梗。禁止照抄、引用、复述 user/char 原话，不要写成角色发言或系统解说。每次必须根据当前这条消息重新生成，不要复用上次弹幕，不要套用“前排吃瓜、镜头别切、这波有戏、气氛微妙”这类通用固定句。只有用户明确要求严肃提醒或剧情已经非常尖锐时才 warning。显示样式补充（长度和刷屏规则优先按此执行）：${barrageStylePrompt} 本次生成随机因子：${randomSeed}。`
         },
         {
             role: 'user',
@@ -465,6 +475,8 @@ async function ensureWechatObserverReactionVisible(watcher, targetChar, userMsg,
         if (!cleaned.length && text) cleaned.push(text);
     });
     reaction.barrage = cleaned.filter((item, index, arr) => arr.indexOf(item) === index).slice(0, 10);
+    const chorus = sanitizeWechatObserverBarrageText(reaction.chorus);
+    reaction.chorus = reaction.barrage.includes(chorus) ? chorus : '';
     reaction.island = reaction.barrage[0] || '';
     reaction.warning = '';
     reaction.deleteContact = null;
@@ -486,7 +498,9 @@ function normalizeWechatMonitorReaction(raw) {
         reason: stripWechatPromptText(deleteRaw.reason || '', 80)
     } : null;
     if (level !== 'silent' && !island && !warning && !barrage.length && !(deleteContact && deleteContact.name)) return null;
-    return { level, island, warning, barrage, deleteContact };
+    const candidateChorus = normalizeWechatBarrageItemText(raw.chorus);
+    const chorus = barrage.includes(candidateChorus) ? candidateChorus : '';
+    return { level, island, warning, barrage, chorus, deleteContact };
 }
 
 function escalateWechatMonitorLevel(state, reaction, targetChar, watcher) {
@@ -604,7 +618,9 @@ function presentWechatMonitorReaction(watcher, targetChar, reaction, level) {
     }
     if (['barrage', 'warning'].includes(level)) {
         const basePhrases = reaction.barrage.length ? reaction.barrage : [islandText, reaction.warning || islandText];
-        showWechatMonitorBarrage(watcher, buildWechatMonitorBarrageBurst(basePhrases, level));
+        const burst = buildWechatMonitorBarrageBurst(basePhrases, level);
+        if (reaction.chorus && basePhrases.includes(reaction.chorus) && !burst.includes(reaction.chorus)) burst.push(reaction.chorus);
+        showWechatMonitorBarrage(watcher, burst, { targetChar, chorus: reaction.chorus });
     }
     if (navigator.vibrate && ['warning', 'barrage'].includes(level)) {
         navigator.vibrate([45, 25, 65]);
@@ -678,7 +694,15 @@ function openWechatMonitorChat(charId) {
     setTimeout(() => openChat(charId), 80);
 }
 
-function showWechatMonitorBarrage(watcher, phrases) {
+function showWechatMonitorBarrage(watcher, phrases, options = {}) {
+    if (!watcher) return;
+    const targetChar = options.targetChar || (window.myCharacters || []).find(char => char.id === window.currentChatCharId) || watcher;
+    if (getWechatMonitorBarrageStyle(targetChar) === 'scroll') {
+        if (options.targetChar && (window.currentChatCharId !== targetChar.id ||
+            (typeof isWechatChatPageActive === 'function' && !isWechatChatPageActive(targetChar.id)))) return;
+        showWechatMonitorScrollingBarrage(watcher, phrases, { ...options, targetChar });
+        return;
+    }
     const host = getWechatModalRoot();
     const old = document.getElementById('wc-monitor-barrage');
     if (old) old.remove();
@@ -686,7 +710,7 @@ function showWechatMonitorBarrage(watcher, phrases) {
     barrage.id = 'wc-monitor-barrage';
     barrage.className = 'wc-monitor-barrage';
     const safePhrases = (phrases || [])
-        .map(phrase => stripWechatPromptText(phrase, 72))
+        .map(phrase => stripWechatPromptText(phrase, 4000))
         .filter(Boolean)
         .slice(0, 6);
     if (!safePhrases.length) return;
@@ -695,13 +719,13 @@ function showWechatMonitorBarrage(watcher, phrases) {
     const duration = (compact ? 4.6 : 6.2) / speed;
     const delays = (compact ? [0, 0.24, 0.48, 0.72, 4, 4.24] : [0, 0.28, 0.56, 0.84, 1.12, 1.4]).map(value => value / speed);
     const name = wcEscapeHtml(getWechatCharDisplayName(watcher));
-    const avatar = wcEscapeHtml(watcher.avatar || DEFAULT_AVATAR);
+    const initial = wcEscapeHtml(Array.from(String(getWechatCharDisplayName(watcher) || '').trim())[0] || '角');
     const positions = compact ? [12, 30, 48, 66, 24, 52] : [17, 29, 42, 55, 68, 79];
     const shifts = [-7, 10, -11, 7, -8, 9];
     const tilts = [-2.5, 1.8, -1.4, 2.2, -1.8, 1.5];
     barrage.innerHTML = safePhrases.map((phrase, index) => `
-        <article class="wc-monitor-comment" style="--i:${index};--top:${positions[index]}%;--shift:${shifts[index]}px;--tilt:${tilts[index]}deg;--dur:${duration.toFixed(2)}s;--delay:${delays[index].toFixed(2)}s;">
-            <img class="wc-monitor-comment-avatar" src="${avatar}" alt="" onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}'">
+        <article class="wc-monitor-comment" role="button" tabindex="0" aria-label="查看完整弹幕" aria-haspopup="dialog" style="--i:${index};--top:${positions[index]}%;--shift:${shifts[index]}px;--tilt:${tilts[index]}deg;--dur:${duration.toFixed(2)}s;--delay:${delays[index].toFixed(2)}s;">
+            <span class="wc-monitor-comment-avatar wc-monitor-initial" aria-hidden="true">${initial}</span>
             <div class="wc-monitor-comment-main">
                 <div class="wc-monitor-comment-byline"><strong>${name}</strong><time>刚刚</time></div>
                 <p class="wc-monitor-comment-text">${wcEscapeHtml(phrase)}</p>
@@ -710,11 +734,167 @@ function showWechatMonitorBarrage(watcher, phrases) {
         </article>
     `).join('');
     host.appendChild(barrage);
+    const removalTimer = setTimeout(() => barrage.remove(), Math.ceil((duration + delays[safePhrases.length - 1]) * 1000) + 250);
     const height = barrage.clientHeight;
     barrage.querySelectorAll('.wc-monitor-comment').forEach((card, index) => {
         card.style.top = `${Math.min(height * positions[index] / 100, Math.max(8, height - card.offsetHeight - 24))}px`;
+        const read = () => {
+            showWechatMonitorBarrageReader(watcher, safePhrases, index);
+            clearTimeout(removalTimer);
+            barrage.remove();
+        };
+        card.addEventListener('click', read);
+        card.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            read();
+        });
     });
-    setTimeout(() => barrage.remove(), Math.ceil((duration + delays[safePhrases.length - 1]) * 1000) + 250);
+}
+
+function buildWechatMonitorScrollItems(phrases, chorus) {
+    const originals = [...new Set((phrases || []).map(text => stripWechatPromptText(text, 4000)).filter(Boolean))].slice(0, 10);
+    const items = originals.map(text => ({ text, repeat: false }));
+    // Only a short reaction actually generated in this batch can become a chant.
+    const selected = originals.find(text => text === chorus);
+    const body = selected && (parseWechatObserverBarrageSpeaker(selected)?.body || selected);
+    if (body && Array.from(body).length <= 12) {
+        for (let index = 0; index < 18; index++) items.splice(Math.min(items.length, index * 2 + 1), 0, { text: selected, repeat: true });
+    }
+    return items;
+}
+
+function showWechatMonitorScrollingBarrage(watcher, phrases, { targetChar, chorus } = {}) {
+    const root = getWechatModalRoot();
+    // Keep drifting text inside its chat, including when the user switches apps.
+    const host = root.querySelector('.wc-chat-room.active') || root;
+    document.getElementById('wc-monitor-barrage')?.remove();
+    const items = buildWechatMonitorScrollItems(phrases, chorus);
+    if (!items.length) return;
+    const readerPhrases = [...new Set(items.map(item => item.text))];
+    const barrage = document.createElement('div');
+    barrage.id = 'wc-monitor-barrage';
+    barrage.className = 'wc-monitor-barrage wc-monitor-barrage-scroll';
+    barrage.dataset.style = 'scroll';
+    const crowded = items.some(item => item.repeat);
+    barrage.classList.toggle('is-chorus', crowded);
+    const hostRect = host.getBoundingClientRect();
+    // Read actual header bounds: its parent may already own the native safe area.
+    const safeTop = parseFloat(getComputedStyle(host).getPropertyValue('--bynd-header-safe-top')) || 0;
+    let top = 0;
+    host.querySelectorAll('.wc-room-header, .wc-floating-avatar, .wc-float-back').forEach(header => {
+        if (header.getClientRects().length && getComputedStyle(header).display !== 'none') {
+            top = Math.max(top, header.getBoundingClientRect().bottom - hostRect.top + 8);
+        }
+    });
+    if (!top) top = safeTop + 56;
+    barrage.style.top = `${top}px`;
+    const contentBottom = host.querySelector('.wc-room-content')?.getBoundingClientRect().bottom || hostRect.bottom - 100;
+    const available = Math.max(28, contentBottom - hostRect.top - top - 16);
+    const lanes = Math.min(crowded ? 8 : 3, Math.max(1, Math.floor(available * (crowded ? 0.7 : 0.4) / 30)));
+    barrage.style.height = `${lanes * 30}px`;
+    host.appendChild(barrage);
+    const width = barrage.clientWidth;
+    const speed = width / Math.max(12, 18 / getWechatMonitorBarrageSpeed(targetChar || watcher));
+    const laneReady = Array(lanes).fill(0);
+    const colors = ['#ffffff', '#ffffff', '#ffe79b', '#ffffff', '#b9edff', '#ffd1e6'];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let end = 0;
+    items.forEach((item, index) => {
+        const lane = laneReady.indexOf(Math.min(...laneReady));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wc-monitor-flying-text';
+        button.setAttribute('aria-label', '查看完整弹幕');
+        button.setAttribute('aria-haspopup', 'dialog');
+        const body = parseWechatObserverBarrageSpeaker(item.text)?.body || item.text;
+        const letters = Array.from(body);
+        button.textContent = letters.slice(0, 24).join('') + (letters.length > 24 ? '…' : '');
+        button.style.top = `${lane * 30}px`;
+        button.style.color = colors[index % colors.length];
+        button.dataset.lane = String(lane);
+        barrage.appendChild(button);
+        const textWidth = button.getBoundingClientRect().width;
+        const delay = laneReady[lane] + (laneReady[lane] ? 0 : lane * 0.55);
+        const duration = (width + textWidth) / speed;
+        laneReady[lane] = delay + (textWidth + 36) / speed;
+        end = Math.max(end, delay + duration);
+        button.style.setProperty('--flight-width', `${width}px`);
+        button.style.setProperty('--flight-duration', `${duration}s`);
+        button.style.setProperty('--flight-delay', `${delay}s`);
+        if (reducedMotion) {
+            // A few stationary, readable entries replace motion without stacking chants.
+            if (index >= lanes) button.remove();
+            else { button.style.left = '12px'; button.style.transform = 'none'; button.style.animation = 'none'; }
+        }
+        button.addEventListener('click', () => {
+            showWechatMonitorBarrageReader(watcher, readerPhrases, readerPhrases.indexOf(item.text));
+            barrage.remove();
+        });
+    });
+    const timer = setTimeout(() => barrage.remove(), reducedMotion ? 20000 : Math.ceil(end * 1000) + 250);
+    // Removing/replacing the layer also cancels its outstanding lifetime timer.
+    const remove = barrage.remove.bind(barrage);
+    barrage.remove = () => { clearTimeout(timer); remove(); };
+}
+
+function showWechatMonitorBarrageReader(watcher, phrases, selectedIndex = 0) {
+    const host = getWechatModalRoot();
+    const items = phrases.slice();
+    if (!items.length) return;
+    document.getElementById('wc-monitor-reader')?.remove();
+    const previousFocus = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.id = 'wc-monitor-reader';
+    overlay.className = 'wc-monitor-reader';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'wc-monitor-reader-title');
+    overlay.innerHTML = `
+        <section class="wc-monitor-reader-card">
+            <header class="wc-monitor-reader-header">
+                <strong id="wc-monitor-reader-title">弹幕详情</strong>
+                <button type="button" data-reader-close aria-label="关闭弹幕详情">关闭</button>
+            </header>
+            <div class="wc-monitor-reader-content" tabindex="0" aria-label="弹幕完整内容">
+                <p class="wc-monitor-reader-text"></p>
+            </div>
+            <footer class="wc-monitor-reader-footer">
+                <button type="button" data-reader-prev aria-label="查看上一条弹幕">上一条</button>
+                <span data-reader-count aria-live="polite"></span>
+                <button type="button" data-reader-next aria-label="查看下一条弹幕">下一条</button>
+            </footer>
+        </section>`;
+    let index = Math.max(0, Math.min(items.length - 1, selectedIndex));
+    const content = overlay.querySelector('.wc-monitor-reader-content');
+    const previous = overlay.querySelector('[data-reader-prev]');
+    const next = overlay.querySelector('[data-reader-next]');
+    const render = () => {
+        overlay.querySelector('.wc-monitor-reader-text').textContent = items[index];
+        overlay.querySelector('[data-reader-count]').textContent = `${index + 1} / ${items.length}`;
+        previous.disabled = index === 0;
+        next.disabled = index === items.length - 1;
+        content.scrollTop = 0;
+    };
+    const close = () => {
+        overlay.remove();
+        if (previousFocus?.isConnected) previousFocus.focus?.({ preventScroll: true });
+    };
+    previous.addEventListener('click', () => { if (index > 0) { index--; render(); if (previous.disabled) next.focus(); } });
+    next.addEventListener('click', () => { if (index < items.length - 1) { index++; render(); if (next.disabled) previous.focus(); } });
+    overlay.querySelector('[data-reader-close]').addEventListener('click', close);
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+    overlay.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { event.stopPropagation(); close(); }
+        if (event.key !== 'Tab') return;
+        const focusable = [...overlay.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+    render();
+    host.appendChild(overlay);
+    overlay.querySelector('[data-reader-close]').focus({ preventScroll: true });
 }
 
 function showWechatMonitorLockdown(watcher, text) {

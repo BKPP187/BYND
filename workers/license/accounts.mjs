@@ -47,6 +47,11 @@ async function session(request, env, now, origin, h, required = true) {
     if (required) h.requireValue(row, 401, 'login_required', '请先登录你的 BYND 账号。');
     return row || null;
 }
+export async function requireAccount(request, env, now, h) {
+    const origin = originFor(request, env, h);
+    h.requireValue(env.ACCOUNTS_ENABLED === 'true', 503, 'accounts_unavailable', '账号服务尚未开放。');
+    return session(request, env, now, origin, h);
+}
 async function throttle(request, env, now, label, email, h) {
     h.requireValue(env.ACCOUNT_RATE_LIMITER, 503, 'account_limiter_unavailable', '账号服务尚未配置。');
     const limited = await env.ACCOUNT_RATE_LIMITER.limit({ key: label + ':' + (request.headers.get('CF-Connecting-IP') || 'unknown') });

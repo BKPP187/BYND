@@ -1,0 +1,16 @@
+{
+  "revision": "c4759eef7df03e11fcbb9aa83efe8cf21709fd2f",
+  "format": "ipa-v2",
+  "entries": 149140,
+  "sourceSha256": "f7a7bc1563c8eab5df5baf537a244c878922cd835dc5c6a7aa9c0bc24f31b991",
+  "additional": {
+    "source": "https://raw.githubusercontent.com/PyThaiNLP/thai-g2p-v4/0b0cbe7c8aee9cdfef93371104478e412da668f6/thaig2p_v4.csv",
+    "revision": "0b0cbe7c8aee9cdfef93371104478e412da668f6",
+    "sourceSha256": "1d11e83e765f01c0d7e0cc5d6c4cd90c89ac00583b74cf9fda42dc5ddde0b205",
+    "added": 88175,
+    "repaired": 10,
+    "rejected": 881,
+    "conflicts": 22438
+  },
+  "sha256": "ef978e2672d396c689bfd3e21210f76f0ad476156440110f88cf2d391cf75ebf"
+}

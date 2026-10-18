@@ -1,6 +1,8 @@
 import { handleDistribution } from './distribution.mjs';
 import { website } from './assets.mjs';
 import { handleAccounts } from './accounts.mjs';
+import { handlePayments } from './payments.mjs';
+import { handleAfdian, drainAfdian } from './afdian.mjs';
 const PRODUCT = 'cc.ccwu.bynd';
 const encoder = new TextEncoder();
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -210,7 +212,10 @@ async function publishRelease(request, env, now) {
     return json({ ok: true, versionCode: release.versionCode });
 }
 export default {
-    async fetch(request, env) {
+    async scheduled(event, env, ctx) {
+        ctx.waitUntil(drainAfdian(env, Math.floor(Date.now() / 1000), { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url }));
+    },
+    async fetch(request, env, ctx) {
         try {
             const url = new URL(request.url), path = url.pathname, now = Math.floor(Date.now() / 1000);
             const page = await website(request, env);
@@ -226,6 +231,10 @@ export default {
             }
             const accounts = await handleAccounts(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url });
             if (accounts) return accounts;
+            const payments = await handlePayments(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url });
+            if (payments) return payments;
+            const afdian = await handleAfdian(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url }, ctx);
+            if (afdian) return afdian;
             const distribution = await handleDistribution(request, env, now, { requireValue, json, readBody, issuedKey, keyHash, hmac, digest, base64url });
             if (distribution) return distribution;
             if (path === '/updates/v1/android/stable' && request.method === 'GET') {

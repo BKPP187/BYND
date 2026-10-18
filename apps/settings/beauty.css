@@ -1,3 +1,28 @@
+/* Theme save feedback stays in the browser top layer, above app windows. */
+.theme-save-feedback {
+    position: fixed;
+    inset: 0;
+    width: min(312px, calc(100vw - 48px));
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 48px);
+    margin: auto;
+    padding: 28px 24px 22px;
+    overflow: auto;
+    border: 1px solid rgba(24, 24, 27, .06);
+    border-radius: 24px;
+    background: #fff;
+    color: #202124;
+    text-align: center;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .16);
+}
+.theme-save-feedback::backdrop { background: rgba(20, 22, 26, .28); backdrop-filter: blur(4px); }
+.theme-save-feedback-mark { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 18px; border: 1px solid #e8e8eb; border-radius: 50%; background: #f8f8f9; }
+.theme-save-feedback-mark svg { display: block; width: 25px; height: 25px; }
+.theme-save-feedback h2 { margin: 0; font-size: 19px; line-height: 1.4; font-weight: 600; letter-spacing: .02em; }
+.theme-save-feedback p { margin: 10px 0 24px; color: #73757b; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.theme-save-feedback button { display: block; width: 100%; min-height: 46px; padding: 11px 16px; border: 0; border-radius: 13px; background: #242528; color: #fff; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.theme-save-feedback button:active { background: #44464b; }
+.theme-save-feedback button:focus-visible { outline: 2px solid #73757b; outline-offset: 3px; }
+
 /* --- 缇庡寲 App --- */
 .setting-card { background: white; border-radius: 24px; padding: 15px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.02); border: 1px solid #f7f7f7; }
 .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #444; font-weight: 600; font-size: 14px; }

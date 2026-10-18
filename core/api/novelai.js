@@ -452,10 +452,13 @@ async function convertTextToNovelAiPrompt(text, options = {}) {
                 'You convert a picture request into NovelAI Diffusion V4.5 prompts. Reply with JSON only:',
                 '{"prompt":"base tags: subject count tags (1boy, 1girl, 2girls...), setting, time, lighting, camera angle, framing, art style","characters":[{"prompt":"one person: boy/girl/other, hair, eyes, body, outfit, expression, pose, action tags with source#/target#/mutual# for interactions","x":0.5,"y":0.5}],"negative":"extra undesired tags or empty"}',
                 'Use English Danbooru-style tags, comma separated, no sentences longer than a short clause. Keep every appearance detail from the character sheet (hair colour, eye colour, outfit, accessories) so the person stays recognisable.',
-                'One entry in "characters" per visible person, max 4. Omit characters for scenery-only pictures. Never add text, captions, speech bubbles, watermarks or UI.'
+                'One entry in "characters" per visible person, max 4. Omit characters for scenery-only pictures. A character selfie/photo is one person (solo, 1boy or 1girl), never a contact sheet, a collage, a grid, multiple views or a cast lineup unless explicitly requested. Never add text, captions, speech bubbles, watermarks or UI.',
+                'If a reference image is supplied, inspect it for identity (gender, hair, eyes, facial features). Keep this identity and the character sheet consistent; the prose request describes the new scene, not permission to replace the person. Never invent an appearance that contradicts the reference.'
             ].join('\n')
         },
-        { role: 'user', content: String(text || '').slice(0, 7000) }
+        { role: 'user', content: options.referenceImage && /^(?:https?:\/\/|data:image\/)/i.test(options.referenceImage)
+            ? [{ type: 'text', text: String(text || '').slice(0, 7000) }, { type: 'image_url', image_url: { url: options.referenceImage } }]
+            : String(text || '').slice(0, 7000) }
     ], {
         max_tokens: 900,
         temperature: 0.4,

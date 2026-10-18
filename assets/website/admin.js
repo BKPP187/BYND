@@ -22,6 +22,7 @@
         for (const id of ['admin-token', 'admin-code', 'delivery-link', 'customer-email', 'delivery-email', 'order-ref']) $(id).value = '';
         $('license-list').replaceChildren(); $('license-facts').replaceChildren(); $('delivery-history').replaceChildren(); $('artifact-list').replaceChildren(); $('account-mail-list').replaceChildren();
         $('license-detail').hidden = true; $('delivery-result').hidden = true; pending.clear(); message('已退出管理。');
+        $('afdian-admin-order').value = ''; $('afdian-admin-status').textContent = '';
     }
     async function requestId(kind, payload) {
         const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
@@ -112,6 +113,14 @@
         });
     };
     $('admin-logout').onclick = logout;
+    $('afdian-admin-form').onsubmit = event => {
+        event.preventDefault();
+        void busy(event.submitter, async () => {
+            const result = await api('/admin/v1/pay/afdian/recheck', { orderNo: $('afdian-admin-order').value.trim() });
+            $('afdian-admin-status').textContent = result.message;
+            if (result.licenseId) { await list(); await select(result.licenseId); }
+        }, text => { $('afdian-admin-status').textContent = text; });
+    };
     $('account-mail-panel').hidden = !(location.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname));
     $('account-mail-refresh').onclick = () => { void busy($('account-mail-refresh'), async () => {
         const result = await api('/admin/v1/account-mail'); $('account-mail-list').replaceChildren();

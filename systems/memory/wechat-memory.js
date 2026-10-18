@@ -1601,7 +1601,7 @@ function ensureWechatTextEditModal() {
         <div class="wc-compose-card">
             <div class="wc-compose-header">
                 <div class="wc-compose-title"><i class="ri-edit-line"></i><span>编辑消息</span></div>
-                <i class="ri-close-line" onclick="closeWechatMessageEditor()"></i>
+                <button type="button" class="wc-text-edit-close" aria-label="关闭编辑消息" onclick="closeWechatMessageEditor()">×</button>
             </div>
             <div class="wc-compose-body">
                 <div class="wc-edit-target-pill" id="wc-edit-target-pill"></div>
@@ -1609,6 +1609,7 @@ function ensureWechatTextEditModal() {
                     <span>消息内容</span>
                     <textarea id="wc-edit-content" rows="7"></textarea>
                 </label>
+                <p class="wc-text-edit-error" role="alert" hidden></p>
             </div>
             <div class="wc-compose-footer">
                 <button class="wc-compose-secondary" onclick="closeWechatMessageEditor()">取消</button>
@@ -1635,6 +1636,8 @@ function openWechatMessageEditor(msgIdx) {
     if (!char || !char.history || msgIdx < 0 || msgIdx >= char.history.length) return;
     const msg = char.history[msgIdx];
     const modal = ensureWechatTextEditModal();
+    if (modal.dataset.saving === 'true') return;
+    modal.querySelector('.wc-text-edit-error').hidden = true;
     modal.dataset.msgIdx = String(msgIdx);
     document.getElementById('wc-edit-content').value = msg.content || msg.dialogue || msg.description || '';
     const target = document.getElementById('wc-edit-target-pill');
@@ -1649,21 +1652,50 @@ function openWechatMessageEditor(msgIdx) {
 
 function closeWechatMessageEditor() {
     const modal = document.getElementById('wc-text-edit-modal');
+    if (modal?.dataset.saving === 'true') return;
     if (modal) modal.classList.add('hidden');
 }
 
-function submitWechatMessageEditor() {
+async function submitWechatMessageEditor() {
     const modal = document.getElementById('wc-text-edit-modal');
     const char = getCurrentChatChar();
-    if (!modal || !char || !char.history) return;
+    if (!modal || !char || !char.history || modal.dataset.saving === 'true') return;
     const msgIdx = parseInt(modal.dataset.msgIdx, 10);
     const msg = char.history[msgIdx];
     if (!msg) return;
-    msg.content = document.getElementById('wc-edit-content').value;
+    const field = document.getElementById('wc-edit-content');
+    const draft = field.value;
+    const previous = { ...msg };
+    const errorLabel = modal.querySelector('.wc-text-edit-error');
+    const buttons = modal.querySelectorAll('.wc-compose-footer button, .wc-text-edit-close');
+    modal.dataset.saving = 'true';
+    field.readOnly = true;
+    buttons.forEach(button => { button.disabled = true; });
+    errorLabel.hidden = true;
+    msg.content = draft;
     msg.description = (msg.type === 'image' || msg.type === 'image_stack') ? msg.description : '';
-    saveCharactersToStorage();
-    refreshChatView(char);
-    renderChatList();
-    closeWechatMessageEditor();
+    let saved = false;
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('请检查设备存储后重试');
+        saved = true;
+    } catch (error) {
+        if (msg.content === draft) {
+            ['content','description'].forEach(key => {
+                if (Object.prototype.hasOwnProperty.call(previous,key)) msg[key] = previous[key];
+                else delete msg[key];
+            });
+        }
+        errorLabel.textContent = '保存失败：' + (error.message || '请重试') + '，编辑草稿已保留。';
+        errorLabel.hidden = false;
+    } finally {
+        delete modal.dataset.saving;
+        field.readOnly = false;
+        buttons.forEach(button => { button.disabled = false; });
+    }
+    if (saved) {
+        refreshChatView(char);
+        renderChatList();
+        closeWechatMessageEditor();
+    }
 }
 

@@ -444,6 +444,7 @@ async function saveChatSettings() {
         monitorEnabled: !!document.getElementById('wcs-monitor-enabled')?.checked,
         monitorMode: getWechatMonitorMode({ chatConfig: { monitorMode: document.getElementById('wcs-monitor-mode')?.value } }),
         monitorBarrageSpeed: normalizeWechatMonitorBarrageSpeed(document.getElementById('wcs-monitor-barrage-speed')?.value),
+        monitorBarrageStyle: document.getElementById('wcs-monitor-barrage-style')?.value === 'scroll' ? 'scroll' : 'cards',
         promptWorldBookIds,
         voiceBinding,
         monitorState: prevConfig.monitorState || null,
@@ -486,6 +487,9 @@ async function saveChatSettings() {
         return false;
     }
     window._tempChatBgImage = null;
+    if (prevConfig.monitorBarrageStyle !== char.chatConfig.monitorBarrageStyle) {
+        document.getElementById('wc-monitor-barrage')?.remove();
+    }
     applyChatConfig(char);
     refreshChatView(char);
     renderChatList();

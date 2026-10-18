@@ -13,28 +13,28 @@
         } catch (_) { return ''; }
     };
     let pending = null;
-    const loaded = new Set();
+    const loaded = new Set(), loading = new Map();
     function script(url) {
         if (loaded.has(url)) return Promise.resolve();
-        return new Promise((resolve, reject) => {
+        if (loading.has(url)) return loading.get(url);
+        const request = new Promise((resolve, reject) => {
             const node = document.createElement('script');
             const version = document.querySelector('script[src*="home3d/home3d.js"]')?.src.split('?')[1] || '';
             node.src = url + (version ? '?' + version : ''); node.async = false;
-            node.onload = () => { loaded.add(url); resolve(); };
-            node.onerror = () => { node.remove(); reject(new Error('小屋组件没能加载，请检查本地资源或网络后重试。')); };
+            node.onload = () => { loaded.add(url); loading.delete(url); resolve(); };
+            node.onerror = () => { loading.delete(url); node.remove(); reject(new Error('小屋组件没能加载，请检查本地资源或网络后重试。')); };
             document.head.appendChild(node);
         });
+        loading.set(url, request); return request;
     }
+    H.loadScript = script;
     async function ensure() {
         if (pending) return pending;
         pending = (async () => {
-            await script('assets/vendor/home3d/engine.js');
-            await script('apps/home3d/data/catalogs.js');
-            await script('assets/home3d/doors/geometry.js');
-            await script('assets/home3d/characters/initial-portraits.js');
-            await script('assets/home3d/characters/initial-sleep-portraits.js');
-            await script('assets/home3d/characters/initial-model-previews.js');
-            for (const name of ['render-quality', 'room-camera', 'render-assets', 'materials', 'daylight', 'interiors', 'bedding', 'hygiene', 'cooking', 'dining', 'foods', 'television', 'furniture-visuals', 'furniture', 'garden', 'furniture-previews', 'rooms', 'villa', 'architecture', 'floor-view', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'life-context', 'living', 'actions', 'scene', 'interactions', 'icons', 'ui', 'build-ui']) await script('apps/home3d/' + name + '.js');
+            await Promise.all(['assets/vendor/home3d/engine.js', 'apps/home3d/data/catalogs.js', 'assets/home3d/doors/geometry.js'].map(script));
+            // async=false preserves registration order while requests overlap.
+            // Multi-megabyte portrait mirrors are only needed by the 2D renderer.
+            await Promise.all(['render-quality', 'room-camera', 'render-assets', 'materials', 'daylight', 'interiors', 'atmosphere', 'bedding', 'hygiene', 'cooking', 'dining', 'foods', 'television', 'furniture-visuals', 'furniture', 'garden', 'furniture-previews', 'rooms', 'villa', 'architecture', 'floor-view', 'expressions', 'character-models', 'sleep-pair', 'characters', 'animation', 'state', 'bridge', 'portraits', 'build', 'life-context', 'living', 'actions', 'scene', 'interactions', 'icons', 'ui', 'build-ui'].map(name => script('apps/home3d/' + name + '.js')));
         })().catch(error => { pending = null; throw error; });
         return pending;
     }

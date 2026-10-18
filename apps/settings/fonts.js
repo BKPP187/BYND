@@ -292,7 +292,7 @@ function renderFontDropdown() {
     if (store.fonts.length > 0) {
         html += '<optgroup label="我的字体">';
         store.fonts.forEach(f => {
-            html += `<option value="${f.id}">${escapeHtml(f.name)}</option>`;
+            html += `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`;
         });
         html += '</optgroup>';
     }

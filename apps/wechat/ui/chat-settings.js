@@ -382,6 +382,18 @@ function setWechatMonitorModeOption(mode) {
 }
 window.setWechatMonitorModeOption = setWechatMonitorModeOption;
 
+function setWechatMonitorBarrageStyleOption(style) {
+    const safe = style === 'scroll' ? 'scroll' : 'cards';
+    const input = document.getElementById('wcs-monitor-barrage-style');
+    if (input) input.value = safe;
+    document.querySelectorAll('#wcs-monitor-barrage-style-options button').forEach(button => {
+        const selected = button.dataset.style === safe;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+    });
+}
+window.setWechatMonitorBarrageStyleOption = setWechatMonitorBarrageStyleOption;
+
 function normalizeWechatMonitorBarrageSpeed(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 1;
@@ -639,6 +651,7 @@ function openChatSettings() {
     const monitorEnabled = document.getElementById('wcs-monitor-enabled');
     if (monitorEnabled) monitorEnabled.checked = !!config.monitorEnabled;
     setWechatMonitorModeOption(getWechatMonitorMode(char));
+    setWechatMonitorBarrageStyleOption(getWechatMonitorBarrageStyle(char));
     const monitorSpeed = document.getElementById('wcs-monitor-barrage-speed');
     if (monitorSpeed) monitorSpeed.value = getWechatMonitorBarrageSpeed(char);
     updateWechatMonitorSpeedLabel(getWechatMonitorBarrageSpeed(char));

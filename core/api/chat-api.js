@@ -698,14 +698,17 @@ function getChatApiImageUrls(msg) {
 
 function buildChatApiImageContent(msg) {
     const imageUrls = getChatApiImageUrls(msg);
-    const note = cleanChatApiVisibleContent(msg.caption || msg.text || msg.description || '[用户发送了一张图片]')
+    const ownImage = msg.isMe === false;
+    const note = cleanChatApiVisibleContent(msg.caption || msg.text || msg.description || (ownImage ? '[你发送的图片]' : '[用户发送了一张图片]'))
         .replace(/<[^>]+>/g, '')
         .trim() || '[用户发送了一张图片]';
     if (!imageUrls.length) return note;
     return [
         {
             type: 'text',
-            text: `${note}\n请直接观察${imageUrls.length > 1 ? `这 ${imageUrls.length} 张图片` : '这张图片'}的内容，并结合角色人设、上下文和用户关系自然回复。不要说你看不到图片，除非接口明确无法解析图片。`
+            text: ownImage
+                ? `【图片观察上下文，不是用户发言】这是你（角色）之前生成或发送到当前聊天的实际图片。说明：${note}\n请根据实际图像判断内容；生成时的提示词只是预期，不能当成成图事实。若成图与预期不同，应如实承认。不要要求用户重发同一张图。`
+                : `${note}\n请直接观察${imageUrls.length > 1 ? `这 ${imageUrls.length} 张图片` : '这张图片'}的内容，并结合角色人设、上下文和用户关系自然回复。不要说你看不到图片，除非接口明确无法解析图片。`
         },
         ...imageUrls.map(imageUrl => ({
             type: 'image_url',
@@ -1383,8 +1386,13 @@ function buildSystemPrompt(char) {
     prompt += `- 旁白只能用 [旁白:内容] 独立一段，用来拆出一个普通描述气泡；角色自己说的话不要放进旁白里，必须拆成单独普通消息段或 [微信语音:内容]\n`;
     prompt += `- 所有 [微信xxx:...] / [旁白:...] 指令必须在同一条消息段里完整闭合右方括号 ]，不能把 [ 和 ] 拆到不同段落，也不能把正则/状态栏塞进旁白指令里\n`;
     prompt += `- 如果用户发送图片，系统会把图片以可视觉识别的消息交给模型；你需要观察图片内容，结合人设、上下文、备注/称呼、记忆和朋友圈自然回复，不要把图片只当成“[图片]”占位符。\n`;
-    prompt += `- 【发图硬规则】如果用户要求你发照片、自拍、现拍、给他看现在的样子，或者你自己想让用户“看图/看照片/给你看看/发张图”，必须把照片作为单独消息段输出：[微信图片:画面提示词|可选说明]。画面提示词必须按你自己的角色卡写清楚“你本人”的外观、发型发色、眼睛、服饰、表情、姿势、光线、环境，并明确“参考图用于保持同一张脸和辨识度”。默认使用乙女游戏角色 CG、半写实 3D 美型渲染：细腻发丝、柔润皮肤、真实衣料、克制的冷灰低饱和色调、柔和电影光影与浅景深，光线符合当前环境。二次元头像只用于保持角色身份，允许转换为这种 CG 质感；不要擅自改成银发蓝眼或复制固定场景，用户明确指定其他画风时遵从用户要求。\n`;
-    prompt += `- 发图时禁止只输出普通文字来假装已经发图。错误示例：看图。/ 照片发你了。/ 给你看一下。/ 你看图片。正确示例：[微信图片:角色本人刚睡醒靠在昏暗房间里举手机自拍，外貌与发色瞳色严格按自己的角色卡，头发微乱，眼神懒散，穿深色居家上衣，手机近景自拍构图，自然屏幕光，乙女游戏半写实 3D CG 质感，参考图用于保持同一张脸和辨识度|刚醒，给你看一眼]。如果想先说话再发图，必须用 ||| 分段，例如：等我一下。|||[微信图片:...|照片]\n`;
+    prompt += `- 【发图硬规则】用户要照片、自拍、物品或风景时，单独输出 [微信图片:画面提示词|可选说明]。提示词通常40至100字，只写主体、动作、场景、光线和取景，不重复整张角色卡或长篇身份规则。人物照默认乙女向半写实3D、轻微BJD娃娃感、自然窗光与低饱和暖灰调，保留本人外貌；物品环境默认真实手机随拍，不额外加入人物。用户指定画风或尺寸优先；“真实一点/原相机”用自然摄影，“不要真人化”保持角色画风。\n`;
+    prompt += `- 不要用“看图/照片发你了”等文字假装发图。正确示例：[微信图片:角色本人刚睡醒靠在窗边，头发微乱，穿居家上衣，竖幅近景自拍，自然晨光|刚醒]。说话和发图用 ||| 分段：等我一下。|||[微信图片:...|照片]。\n`;
+    prompt += `- 生活随拍示例：[微信图片:竖版手机后置镜头随手拍超市零食货架，沿过道斜向取景，货架和包装清楚，普通日光灯与自然色彩，轻微噪点，不出现人物、自拍或边框|看看想吃什么]；[微信图片:第一人称俯拍红色购物篮，篮中水果、零食和酸奶包装自然摆放，背景是自助收银台，原相机直出，真实生活细节|给你挑的]。这类画面不加入角色外貌和身份参考图。\n`;
+    if (typeof getDefaultImageApi === 'function' && getDefaultImageApi()?.imageModel && (typeof getWechatAgentPreferences !== 'function' || getWechatAgentPreferences(char).allowImages)) {
+        const recentSelfSticker = (Array.isArray(char.history) ? char.history : []).slice(-16).some(item => !item.isMe && item.imageKind === 'character-sticker');
+        prompt += `- 【偶尔自绘表情】轻松聊天、撒娇、害羞、求抱抱或斗嘴时，你可以偶尔主动发送一张自己的 Q 版自画像表情包，像一个会表达情绪的人；不要每轮生成、不要连续发送，严肃或难过的话题不硬塞卖萌。${recentSelfSticker ? '最近已经发过自绘表情，本轮优先文字或现有表情库，除非用户明确要求再画。' : ''}使用已有生图指令：[微信图片:角色本人Q版自画像表情包，黑白极简线稿，圆乎乎二头身，大头小身体，超大黑亮高光眼，淡粉腮红，保留自己的发型和辨识点，按此刻心情画一个动作，透明或纯白背景|可选的简短情绪说明]。不固定白发、长发、卫衣或捧花，身份按你自己的设定；不要发角色立绘、真人自拍或表情合集。遵守当前生图权限，生成失败时不要假装发成功。\n`;
+    }
     prompt += `- 用户可以在前台主动给你发送转账、红包、语音或通话记录；如果你作为角色需要主动给用户发微信特殊消息，把它作为单独一段输出，系统会自动渲染，不会显示指令文本；开启监控会先弹窗征求用户允许：\n`;
     prompt += `  [微信转账:金额|备注] 例如 [微信转账:88.00|给你买奶茶]\n`;
     prompt += `  [微信红包:标题|金额|状态] 例如 [微信红包:恭喜发财，大吉大利|8.88|待领取]\n`;
@@ -1519,6 +1527,8 @@ function buildMessages(char, history, maxMessages) {
     }
     // 历史消息（取最近的 N 条）
     const recentHistory = history.slice(-maxMessages);
+    const ownImages = new Set(recentHistory.filter(msg => msg && !msg.isMe &&
+        (msg.type === 'image' || msg.type === 'image_stack') && !msg.imagePending && !msg.imageError && getChatApiImageUrls(msg).length).slice(-2));
     let latestUserMsg = null;
     for (let i = recentHistory.length - 1; i >= 0; i--) {
         if (isChatApiVisibleUserHistoryMessage(recentHistory[i])) {
@@ -1603,6 +1613,9 @@ function buildMessages(char, history, maxMessages) {
             role: isInternalContext || msg.type === 'tool_result' ? 'system' : (msg.isMe ? 'user' : 'assistant'),
             content: content
         });
+        if (ownImages.has(msg)) {
+            messages.push({ role: 'user', content: buildChatApiImageContent(msg) });
+        }
     });
 
     messages.push({

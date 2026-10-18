@@ -454,7 +454,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.905' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.956' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
