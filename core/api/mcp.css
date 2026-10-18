@@ -685,6 +685,7 @@
     height: auto !important;
 }
 .msg-rich-card :where(table) { width: 100% !important; table-layout: fixed; border-collapse: collapse; }
+.msg-rich-card iframe.wc-rich-frame { display: block; width: 100%; height: 120px !important; border: 0; background: transparent; }
 .msg-rich-card :where(td, th, pre, code) { word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
 .msg-rich-card .msg-meta { float: none; display: flex; width: max-content; max-width: 100%; margin: 6px 0 0 auto; }
 .msg-rich-card .msg-quote { margin-bottom: 6px; }

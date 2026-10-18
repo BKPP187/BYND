@@ -53,18 +53,20 @@ async function callWechatNovelAiImage(prompt, options, settings) {
     let input = options.novelAi || null;
     if (!input) {
         if (typeof options.onProgress === 'function') options.onProgress('正在把画面描述整理成 NovelAI 标签…');
-        const converted = await convertTextToNovelAiPrompt(prompt, { usageChar: options.usageChar });
+        const converted = await convertTextToNovelAiPrompt(prompt, { usageChar: options.usageChar, referenceImage: options.referenceImage });
         if (!converted.ok) return { ok: false, error: converted.error };
         input = converted;
     }
     const size = options.novelAiSize || getWechatNovelAiSizeFromOption(options.size);
-    return callNovelAiImageGeneration({ ...input, width: input.width || size.width, height: input.height || size.height }, {
+    const result = await callNovelAiImageGeneration({ ...input, width: input.width || size.width, height: input.height || size.height }, {
         settings,
         signal: options.signal,
         onProgress: options.onProgress,
         usageChar: options.usageChar,
         usageFeature: options.feature === 'comic' ? 'comic' : 'image'
     });
+    if (result.ok) result.requestPrompt = [input.prompt, ...(input.characters || []).map(character => character.prompt)].filter(Boolean).join(', ');
+    return result;
 }
 
 async function callWechatImageGenerationApi(prompt, options = {}) {
@@ -77,9 +79,11 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         : (typeof getDefaultApi === 'function' ? getDefaultApi() : null);
     if (!api || !api.baseUrl) return { ok: false, error: '未配置生图 API' };
     const configuredBaseUrl = api.baseUrl.replace(/\/+$/, '');
+    const normalizedBaseUrl = typeof normalizeSettingsApiBaseUrl === 'function'
+        ? normalizeSettingsApiBaseUrl(configuredBaseUrl) : configuredBaseUrl;
     const baseUrl = typeof resolveByndApiBaseUrl === 'function'
-        ? resolveByndApiBaseUrl(configuredBaseUrl)
-        : configuredBaseUrl;
+        ? resolveByndApiBaseUrl(normalizedBaseUrl)
+        : normalizedBaseUrl;
     const jsonHeaders = { 'Content-Type': 'application/json' };
     if (api.apiKey) jsonHeaders.Authorization = `Bearer ${api.apiKey}`;
     const formHeaders = {};
@@ -95,6 +99,19 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
     const imageTimeoutMs = Math.max(60000, Number(options.timeoutMs) || 180000);
     let imageUsage = null;
     let imageRequestStartedAt = Date.now();
+    let imageRequestPath = '/images/generations';
+    const imageConnectionFailure = error => {
+        const reason = getWechatImageApiErrorDetails(error && error.message ? error.message : '图片生成失败', api.apiKey);
+        const elapsedMs = Math.max(0, Date.now() - imageRequestStartedAt);
+        const interrupted = /Failed to fetch|NetworkError|Load failed/i.test(reason.message);
+        return {
+            ok: false,
+            error: interrupted && elapsedMs >= 60000
+                ? `等待约 ${Math.round(elapsedMs / 1000)} 秒后连接中断，未收到生成结果。请先到生图站查看任务记录，确认后再重试。`
+                : normalizeWechatImageApiError(reason.message),
+            details: { ...reason, model: imageModel, path: imageRequestPath, elapsedMs }
+        };
+    };
     const recordImageUsage = result => {
         const at = Date.now();
         try {
@@ -109,7 +126,19 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         imageRequestStartedAt = Date.now();
         return result;
     };
-    const enhancedPrompt = [
+    const novelAiRelay = /^nai-diffusion(?:-|$)/i.test(imageModel);
+    if (novelAiRelay && options.editOnly) return { ok: false, error: '当前 NovelAI 模型按标签绘图，不支持参考图编辑；请选择支持图生图的模型。' };
+    let novelAiInput = options.novelAi || null;
+    if (novelAiRelay && !novelAiInput && (referenceImage || /[\u3400-\u9fff]/.test(String(prompt || '')))) {
+        if (typeof convertTextToNovelAiPrompt !== 'function') return { ok: false, error: 'NovelAI 标签转换尚未加载，请刷新页面重试。' };
+        try {
+            if (typeof options.onProgress === 'function') options.onProgress('正在识别角色外貌并整理 NovelAI 标签…');
+            novelAiInput = await convertTextToNovelAiPrompt(prompt, { usageChar: options.usageChar, referenceImage });
+            if (!novelAiInput?.ok) return { ok: false, error: novelAiInput?.error || '无法转换 NovelAI 标签，本次未发送生图请求。' };
+        } catch (error) { return { ok: false, error: error.message || 'NovelAI 标签转换失败，本次未发送生图请求。' }; }
+    }
+    const enhancedPrompt = novelAiRelay ? [novelAiInput?.prompt || String(prompt || '').trim(),
+        ...(novelAiInput?.characters || []).map(character => character.prompt)].filter(Boolean).join(', ') : [
         String(prompt || '').trim(),
         referenceImage ? (options.referenceStyle === 'identity'
             ? '第一张参考图锁定角色身份与辨识特征，画风按本次任务转换；其余参考图的用途以任务说明为准，不能把风格示例中的人物身份复制给当前角色。'
@@ -127,7 +156,11 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         };
         if (options.background === 'transparent') body.background = 'transparent';
         if (options.outputFormat === 'png') body.output_format = 'png';
-        if (includeReference && referenceImage) {
+        if (novelAiRelay) {
+            body.n = 1;
+            body.negative_prompt = [novelAiInput?.negative, 'multiple views, collage, grid, character sheet, text, watermark'].filter(Boolean).join(', ');
+        }
+        if (includeReference && referenceImage && !novelAiRelay) {
             body.image = referenceImage;
             body.image_url = referenceImage;
             body.reference_image = referenceImage;
@@ -139,7 +172,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
     };
     const parseImageResponse = async (resp, path) => recordImageUsage(await parseImageResponseBody(resp, path));
     const parseImageResponseBody = async (resp, path) => {
-        const rawText = await resp.text().catch(() => '');
+        const rawText = await resp.text();
         const failure = raw => {
             const reason = getWechatImageApiErrorDetails(raw || resp.statusText || '图片生成失败', api.apiKey);
             return { ok: false, status: resp.status, error: normalizeWechatImageApiError(reason.message, resp.status), details: { ...reason, status: resp.status, model: imageModel, path, requestId: resp.headers.get('x-request-id') || '' } };
@@ -161,7 +194,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             const encoded = text.replace(/\s+/g, '');
             return /^[A-Za-z0-9+/]+={0,2}$/.test(encoded) ? `data:image/${json.output_format === 'jpeg' ? 'jpeg' : json.output_format === 'webp' ? 'webp' : 'png'};base64,${encoded}` : '';
         };
-        const success = value => { const url = imageUrl(value); return url ? { ok: true, url } : failure('生图服务返回的图片地址或编码无效。'); };
+        const success = value => { const url = imageUrl(value); return url ? { ok: true, url, requestPrompt: enhancedPrompt } : failure('生图服务返回的图片地址或编码无效。'); };
         const first = json.data && json.data[0];
         if (first?.url || first?.b64_json) return success(first.url || first.b64_json);
         if (json.url || json.image_url || json.b64_json) return success(json.url || json.image_url || json.b64_json);
@@ -180,9 +213,9 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
     try {
         let editError = '';
         let lastEditResult = null;
-        if (referenceImage && (options.editOnly || shouldWechatUseImageEditEndpoint(baseUrl, imageModel))) {
+        if (referenceImage && !novelAiRelay && (options.editOnly || options.requireReference || shouldWechatUseImageEditEndpoint(baseUrl, imageModel))) {
             let editOptions = { ...options, referenceImages };
-            let jsonEdit = false;
+            let jsonEdit = referenceImages.some(image => /^https?:\/\//i.test(image));
             // Retry only explicit request-validation failures. Keep the model,
             // endpoint and every identity reference; share one total time limit.
             const editSignal = AbortSignal.timeout(imageTimeoutMs);
@@ -195,6 +228,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
                     break;
                 }
                 try {
+                    imageRequestPath = '/images/edits';
                     const editResp = await fetch(baseUrl + '/images/edits', {
                         method: 'POST',
                         headers: jsonEdit ? jsonHeaders : formHeaders,
@@ -205,20 +239,21 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
                     if (editResult.ok) return editResult;
                     lastEditResult = editResult;
                     editError = editResult.error || '参考图编辑接口失败';
-                    const compatibility = options.allowEditCompatibility && getWechatImageEditCompatibility(editResult, editOptions, jsonEdit);
+                    const compatibility = (options.allowEditCompatibility === true || (options.requireReference && options.allowEditCompatibility !== false)) && getWechatImageEditCompatibility(editResult, editOptions, jsonEdit);
                     if (!compatibility || attempt === 3) break;
                     if (compatibility === 'json') jsonEdit = true;
                     else editOptions = { ...editOptions, [compatibility]: undefined };
                     if (typeof options.onProgress === 'function') options.onProgress(compatibility === 'background' ? '当前服务不接受透明背景参数，正在保留角色参考图重试…' : '正在适配当前生图服务，角色参考图保持不变…');
                 } catch (e) {
-                    editError = normalizeWechatImageApiError(e && e.message ? e.message : '参考图编辑接口失败');
-                    lastEditResult = { ok: false, error: editError, details: { model: imageModel, path: '/images/edits', message: editError } };
+                    lastEditResult = imageConnectionFailure(e);
+                    editError = lastEditResult.error;
                     break;
                 }
             }
         }
         // Character pets must never silently downgrade to a text-only generation request.
-        if (options.editOnly) return lastEditResult || { ok: false, error: editError || '当前生图服务不支持角色参考图编辑，请在生图设置中选择支持图生图的模型或服务。' };
+        if (options.editOnly || (options.requireReference && !novelAiRelay)) return lastEditResult || { ok: false, error: editError || '当前生图服务不支持角色参考图编辑，请在生图设置中选择支持图生图的模型或服务。' };
+        imageRequestPath = '/images/generations';
         const resp = await fetch(baseUrl + '/images/generations', {
             method: 'POST',
             headers: jsonHeaders,
@@ -240,7 +275,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         }
         return result;
     } catch (e) {
-        return recordImageUsage({ ok: false, error: normalizeWechatImageApiError(e && e.message ? e.message : '图片生成失败') });
+        return recordImageUsage(imageConnectionFailure(e));
     }
 }
 
@@ -393,26 +428,101 @@ function buildWechatCharacterImageSourceText(char) {
     return parts.join('\n\n').slice(0, 5200);
 }
 
-function buildWechatCharacterImagePrompt(char, prompt, caption = '') {
-    const config = (char && char.chatConfig) || {};
-    const displayName = char ? getWechatCharDisplayName(char) : '角色';
-    const rawPrompt = String(prompt || caption || '角色自拍').trim();
-    const characterImageSource = buildWechatCharacterImageSourceText(char);
-    const appearanceHints = getWechatImageAppearanceHints(characterImageSource, 1800);
+function isWechatCharacterStickerImage(prompt, caption = '') {
+    const source = `${prompt || ''}\n${caption || ''}`;
+    return /Q\s*版|chibi|大头小身|二头身|三头身/i.test(source)
+        && /表情包|表情|贴纸|sticker|自画像/i.test(source)
+        && /自画像|角色|本人|自己的|你(?:的|自己)|self.portrait/i.test(source);
+}
+
+function getWechatImageUserRequest(char, msg = null) {
+    const history = Array.isArray(char?.history) ? char.history : [];
+    const at = msg ? history.indexOf(msg) : -1;
+    const recent = history.slice(0, at >= 0 ? at : history.length).slice(-12);
+    for (let index = recent.length - 1; index >= 0; index--) {
+        const item = recent[index];
+        if (item?.type === 'image' && !item.isMe && !item.imageError && !item.imagePending) break;
+        if (!item?.isMe || item.type !== 'text') continue;
+        const text = cleanWechatVisibleContent(item.content || '').slice(0, 1200);
+        if (/拍|照|图|画|表情|贴纸|Q版|看看|横版|竖版|横屏|竖屏|尺寸|真实|写实|CG|原相机|\d{3,5}\s*[x×*]\s*\d{3,5}/i.test(text)) return text;
+    }
+    return '';
+}
+
+function getWechatChatImageSize(prompt, explicitSize = '', userRequest = '') {
+    const validSize = value => /^(?:auto|\d{3,5}x\d{3,5})$/i.test(String(value || '').trim());
+    if (validSize(explicitSize)) return String(explicitSize).trim().toLowerCase();
+    for (const text of [userRequest, prompt]) {
+        const source = String(text || '');
+        const dimensions = source.match(/\b(\d{3,5})\s*[x×*]\s*(\d{3,5})\b/i);
+        if (dimensions && Number(dimensions[1]) >= 256 && Number(dimensions[2]) >= 256) return `${Number(dimensions[1])}x${Number(dimensions[2])}`;
+        if (/正方形|方图|方形|square|1\s*[:：/]\s*1/i.test(source)) return '1024x1024';
+        if (/横(?:版|图|幅|向|屏)|全景|landscape|panorama|(?:16\s*[:：/]\s*9|3\s*[:：/]\s*2)/i.test(source)) return '1536x1024';
+        if (/竖(?:版|图|幅|向|屏)|portrait|(?:9\s*[:：/]\s*16|2\s*[:：/]\s*3)/i.test(source)) return '1024x1536';
+    }
+    return '1024x1536';
+}
+
+function getWechatImageSubjectIntent(intent) {
+    const noPeople = /不要(?:拍人|人像|人物|自拍)|不拍(?:人|自己)|(?:不要|别)拍(?:你|他|她|自己)(?:了)?(?=[，,。.!！?？\s]|$)|无人(?:物|像)?|不露脸|no people/i.test(intent);
+    const affirmative = intent.replace(/(?:不要|不需要|别|避免|禁止)(?:拍)?(?:真人化|真人|写实|CG|3D|二次元|动漫|插画|自拍|人物|人像)/gi, '');
+    const person = /自拍|合照|人像|肖像|半身|全身|自己的样子|你的样子|你现在的样子|(?:你|他|她|角色)(?:本人)?(?:站|坐|拿着|抱着|提着|穿着|手持|出镜)|(?:拍|看看)(?:一下|一张|张|下)?(?:你|他|她|自己)(?=[，,。.!！?？\s]|$|的(?:照片|样子))|selfie|portrait/i.test(affirmative);
+    const scene = /货架|购物篮|购物车|零食|商品|物品|衣服|鞋子|食物|美食|早餐|午餐|晚餐|晚饭|午饭|饭菜|蛋糕|咖啡|饮料|风景|景色|街景|窗外|天空|海边|海景|山景|书店|桌面|房间|宠物|小猫|小狗|第一人称|后置镜头|你看到的|买的东西|shelves|shopping basket|groceries|food|scenery/i.test(intent);
+    return { sceneOnly: noPeople || (scene && !person), specified: noPeople || person || scene, affirmative };
+}
+
+function buildWechatChatImagePlan(char, prompt, msg = null) {
+    const rawPrompt = String(prompt || '微信聊天照片').trim();
+    const userRequest = getWechatImageUserRequest(char, msg);
+    const stickerRefused = /(?:不要|不需要|别)(?:发|画|生成|用)?[^。！？\n]{0,8}(?:Q版|Q\s*版|自画像表情|表情包)/i.test(userRequest);
+    const characterSticker = !stickerRefused && (msg?.imageKind === 'character-sticker' || isWechatCharacterStickerImage(rawPrompt, msg?.description) || isWechatCharacterStickerImage(userRequest));
+    const intent = userRequest || rawPrompt;
+    const requestedSubject = getWechatImageSubjectIntent(userRequest);
+    const { sceneOnly } = requestedSubject.specified ? requestedSubject : getWechatImageSubjectIntent(rawPrompt);
+    const { affirmative } = getWechatImageSubjectIntent(intent);
+    const againstRealism = /不要(?:真人化|真人|写实)|不(?:要|需要).*真人|保持二次元|避免真人/i.test(intent);
+    const realistic = !againstRealism && /真实(?:点|一点|一些|些|感|照片|摄影|拍摄)?|真人(?:化|照片|摄影)?|写实|实拍|原相机|直出|纪实|不要\s*(?:CG|3D)|photoreal|realistic photo/i.test(intent);
+    const explicitArt = /动漫|二次元|插画|水彩|油画|像素|漫画|CG|3D|anime|illustration|watercolor/i.test(affirmative);
+    const naturalPhoto = !explicitArt && (realistic || sceneOnly);
+    const conflicts = (sceneOnly && /自拍|角色本人|人像|CG|3D.*渲染/i.test(rawPrompt)) || (naturalPhoto && /乙女|CG|3D.*渲染/i.test(rawPrompt));
+    return {
+        sceneOnly: characterSticker ? false : sceneOnly, naturalPhoto: characterSticker ? false : naturalPhoto, userRequest, characterSticker,
+        prompt: characterSticker && isWechatCharacterStickerImage(userRequest) && !isWechatCharacterStickerImage(rawPrompt) ? userRequest : (userRequest && conflicts ? userRequest : rawPrompt),
+        size: getWechatChatImageSize(rawPrompt, msg?.imageSize || (characterSticker ? '1024x1024' : ''), userRequest)
+    };
+}
+
+function buildWechatCharacterImagePrompt(char, prompt, caption = '', imagePlan = null) {
+    const name = char ? getWechatCharDisplayName(char) : '角色';
+    const plan = imagePlan || buildWechatChatImagePlan(char, prompt || caption || '角色自拍');
+    const scene = normalizeWechatImagePromptSource(plan.prompt, 360);
+    const request = plan.userRequest && plan.userRequest !== plan.prompt
+        ? normalizeWechatImagePromptSource(plan.userRequest, 120) : '';
+    const framing = plan.size === '1024x1024' ? '方形' : plan.size === '1536x1024' ? '横幅' : plan.size === '1024x1536' ? '竖幅' : plan.size;
+    const cleanFrame = '单张自然构图，无水印、相框、拼贴或聊天界面。';
+    if (plan.sceneOnly) return [
+        `${name}发来的${framing}生活图片。画面：${scene}`,
+        request ? `用户要求：${request}` : '',
+        '只拍指定物品或环境，不加人物或自拍；需要时可露出持物的手。',
+        plan.naturalPhoto ? '默认画风：真实摄影，手机后置镜头第一人称随手拍，原相机自然色彩、现场光线与细微噪点，物品清楚，不套CG或大片虚化。' : '画风按用户明确要求。',
+        cleanFrame
+    ].filter(Boolean).join('\n');
+    const appearance = getWechatImageAppearanceHints(buildWechatCharacterImageSourceText(char), 160);
+    const identity = `人物：${name}。${appearance ? `外貌：${appearance}` : '外貌按身份参考图。'}保留本人的脸、发型、性别和辨识点，服装动作按场景变化。`;
+    if (plan.characterSticker) return [
+        `${name}本人Q版自画像表情包，单个小人、单个动作。情绪动作：${scene}`,
+        identity,
+        '黑白极简手绘线稿，大头小身体的圆润二头身，超大黑亮眼睛和白色高光，小鼻嘴、淡粉色腮红，少量灰色点缀。',
+        '保留角色发型和服装标记，不固定捧花或穿卫衣。全身完整，透明或纯白底，不要CG、照片、文字或合集。'
+    ].join('\n');
     return [
-        `任务：生成一张${displayName}在微信聊天里发给用户的图片/照片。`,
-        `这张图必须画的是角色本人，不是泛泛的路人、网图、真人帅哥、他人照片或聊天截图。`,
-        `用户/剧情要求：${rawPrompt}`,
-        `角色显示名：${displayName}`,
-        config.signature ? `角色公开签名/气质：${config.signature}` : '',
-        appearanceHints ? `角色卡外观重点：\n${appearanceHints}` : '',
-        characterImageSource ? `角色卡/人设原文：\n${characterImageSource}` : '',
-        `参考图规则：参考图优先用于锁定角色身份。必须保持同一张脸的结构与辨识特征、发型发色、刘海/眼睛特征、肤色、年龄感和气质；服装、姿势、表情、光线、构图和场景按当前聊天要求变化。画风按以下要求转换，不必照搬头像的平面线稿或上色方式。`,
-        `默认画风：乙女游戏角色 CG，半写实 3D 美型渲染（otome game character CG, semi-realistic 3D render）。人物五官精致但保留角色原有的性别、年龄和骨相，细腻柔和的皮肤与自然次表面散射，清晰且有层次的细发丝，真实细致的衣料纹理。采用克制的冷灰低饱和调色、柔和电影光影和浅景深，背景自然虚化；环境允许时加入细碎的斑驳自然光。整体是高品质游戏 CG 的立体与柔润质感，避免平涂动漫、粗黑描边、蜡像塑料感、过度磨皮和普通真人摄影。`,
-        `画风优先级：当前用户明确指定的其他画风优先于默认 CG。只有明确要求真人化、真人摄影等风格时才转为真人照片，并保留角色的脸部结构、发型、五官气质和辨识度；“不要真人化”或场景中的“现实”不代表要求真人摄影。`,
-        `风格不等于外貌或固定场景：不擅自添加银发、蓝眼、耳饰、花束、灰色毛衣或森林背景，不更改角色本人的设定；无人风景或物品画面不为了画风额外加入人物。`,
-        `画面要求：像角色在微信里发来的新图片，主体清楚，构图自然，符合当前聊天语境。`,
-        `禁止：文字水印、聊天气泡、界面截图、扭曲手指、换脸、换发型、换角色、生成与参考图无关的真人。`
+        `${name}发来的${framing}人物照。画面：${scene}`,
+        request ? `用户要求：${request}` : '',
+        identity,
+        plan.naturalPhoto ? '默认画风：真实摄影，手机原相机质感、自然皮肤纹理和现场光线，不磨皮、不加CG光泽。'
+            : '默认画风：乙女向半写实3D美型CG，轻微BJD娃娃感，精致柔润五官、精细发丝与织物，自然窗光、低饱和暖灰调，日常手机随拍感。',
+        '用户指定画风和取景优先，不复制固定服装或背景；默认单人，明确要求多人时按要求。',
+        cleanFrame
     ].filter(Boolean).join('\n');
 }
 
@@ -424,18 +534,25 @@ async function resolveWechatAiGeneratedImage(char, msg) {
     let outcome = '';
     try {
         if (typeof getWechatAgentPreferences === 'function' && !getWechatAgentPreferences(char).allowImages) throw new Error('该角色的生成图片权限已关闭');
-        const reference = getWechatImageReferenceForChar(char);
-        const prompt = buildWechatCharacterImagePrompt(char, msg.imagePrompt || msg.description || '微信聊天照片', msg.description || '');
+        const imagePlan = buildWechatChatImagePlan(char, msg.imagePrompt || msg.description || '微信聊天照片', msg);
+        if (imagePlan.characterSticker) msg.imageKind = 'character-sticker';
+        else if (msg.imageKind === 'character-sticker') delete msg.imageKind;
+        const reference = imagePlan.sceneOnly ? '' : getWechatImageReferenceForChar(char);
+        const prompt = buildWechatCharacterImagePrompt(char, msg.imagePrompt || msg.description || '微信聊天照片', msg.description || '', imagePlan);
         const result = await callWechatImageGenerationApi(prompt, {
             usageChar: char,
             referenceImage: reference,
             referenceStyle: 'identity',
-            size: msg.imageSize || '1024x1024',
+            size: imagePlan.size,
             requireReference: !!reference
         });
         if (!(window.myCharacters || []).includes(char)) throw new Error('角色已移除，未保存图片');
         if (!result?.ok || !result.url) throw new Error(result?.error || '图片生成失败');
         if (typeof result.url !== 'string' || !/^(?:https?:\/\/|data:image\/)/i.test(result.url)) throw new Error('图片接口返回的图片地址格式不正确');
+        if (result.requestPrompt) {
+            msg.imageResolvedPrompt = String(result.requestPrompt).slice(0, 6000);
+            if (activity) activity.input = msg.imageResolvedPrompt;
+        }
         msg.content = result.url;
         msg.imageUrl = result.url;
         msg.imagePending = false;

@@ -19,11 +19,11 @@ function renderApiList() {
     container.innerHTML = data.apis.map(api => {
         const isDefault = api.model && api.id === data.defaultId;
         const isImageDefault = api.imageModel && api.id === data.imageDefaultId;
-        const statusClass = api._status || ''; // online / offline / testing / ''
+        const statusClass = ['online', 'offline', 'testing'].includes(api._status) ? api._status : '';
         return `
-            <div class="api-card ${isDefault ? 'is-default' : ''} ${isImageDefault ? 'is-image-default' : ''}" data-id="${api.id}">
+            <div class="api-card ${isDefault ? 'is-default' : ''} ${isImageDefault ? 'is-image-default' : ''}" data-id="${escapeHtml(api.id)}">
                 <div class="api-status-dot ${statusClass}"></div>
-                <div class="api-card-info" onclick="openApiModal('${api.id}')">
+                <div class="api-card-info" onclick="openApiModal('${escapeJsString(api.id)}')">
                     <div class="api-card-name">
                         ${isDefault ? '<span class="crown">♛</span>' : ''}
                         ${isImageDefault ? '<span class="api-image-badge"><i class="ri-image-2-fill"></i></span>' : ''}
@@ -33,13 +33,14 @@ function renderApiList() {
                     <div class="api-card-tags">
                         ${api.model ? `<span class="api-card-model">聊天 ${escapeHtml(api.model)}</span>` : ''}
                         ${api.imageModel ? `<span class="api-card-model image">生图 ${escapeHtml(api.imageModel)}</span>` : ''}
+                        ${api._status === 'unverified' ? '<span class="api-card-model">生图配置已识别，待实际生成验证</span>' : ''}
                     </div>
                 </div>
                 <div class="api-card-actions">
-                    <i class="ri-signal-tower-line" title="测试" onclick="testApiById('${api.id}')"></i>
-                    <i class="ri-star-${isDefault ? 'fill' : 'line'}" title="设为聊天默认" onclick="setDefaultApi('${api.id}')" style="${isDefault ? 'color:#f8a4b8;' : ''}"></i>
-                    <i class="ri-image-${isImageDefault ? 'fill' : 'line'}" title="设为生图默认" onclick="setDefaultImageApi('${api.id}')" style="${isImageDefault ? 'color:#6ea8ff;' : ''}"></i>
-                    <i class="ri-delete-bin-6-line del-btn" title="删除" onclick="deleteApi('${api.id}')"></i>
+                    <i class="ri-signal-tower-line" title="测试" onclick="testApiById('${escapeJsString(api.id)}')"></i>
+                    <i class="ri-star-${isDefault ? 'fill' : 'line'}" title="设为聊天默认" onclick="setDefaultApi('${escapeJsString(api.id)}')" style="${isDefault ? 'color:#f8a4b8;' : ''}"></i>
+                    <i class="ri-image-${isImageDefault ? 'fill' : 'line'}" title="设为生图默认" onclick="setDefaultImageApi('${escapeJsString(api.id)}')" style="${isImageDefault ? 'color:#6ea8ff;' : ''}"></i>
+                    <i class="ri-delete-bin-6-line del-btn" title="删除" onclick="deleteApi('${escapeJsString(api.id)}')"></i>
                 </div>
             </div>
         `;
@@ -178,7 +179,7 @@ function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
         ].filter(Boolean).join(' · ') || '未选择模型';
         return `
             <button type="button" class="api-route-option ${active ? 'active' : ''}" onclick="chooseApiRoute('${type}', '${escapeJsString(api.id)}')">
-                <span class="api-route-option-dot ${api._status || ''}"></span>
+                <span class="api-route-option-dot ${['online', 'offline', 'testing'].includes(api._status) ? api._status : ''}"></span>
                 <span class="api-route-option-main">
                     <b>${escapeHtml(api.name || '未命名')}</b>
                     <em>${escapeHtml(tags)}</em>
@@ -206,7 +207,11 @@ function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
 }
 
 function escapeJsString(str) {
-    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    // This is a JS single-quoted string inside an HTML double-quoted attribute.
+    // Protect both grammars; HTML entities are decoded before the handler runs.
+    return String(str ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function toggleApiRouteMenu(type) {

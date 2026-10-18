@@ -10,6 +10,10 @@ function bindCoReadReaderTapZones(body) {
 }
 
 function handleCoReadReaderPointerDown(event) {
+    if (event.target?.closest('button') || coreadReviewAnchor) {
+        coreadReaderTapState = null;
+        return;
+    }
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) {
         coreadReaderTapState = null;
         return;
@@ -27,6 +31,7 @@ function handleCoReadReaderPointerDown(event) {
 function handleCoReadReaderPointerUp(event) {
     const state = coreadReaderTapState;
     coreadReaderTapState = null;
+    if (event.target?.closest('button') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
     if (!state || state.pointerId !== event.pointerId) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     if (event.button != null && event.button !== 0) return;
@@ -44,6 +49,7 @@ function handleCoReadReaderPointerUp(event) {
 }
 
 function handleCoReadReaderClick(event) {
+    if (event.target?.closest('button') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
     if (Date.now() - coreadReaderTapHandledAt < 350) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     const body = event.currentTarget;
@@ -57,6 +63,7 @@ function handleCoReadReaderClick(event) {
 }
 
 function handleCoReadReaderKeydown(event) {
+    if (event.target?.closest('button') || coreadReviewAnchor) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
         event.preventDefault();
@@ -471,7 +478,14 @@ function renderCoReadReader() {
                 ? String(book.content || book.description || '这本书目前只有书名和来源链接，还没有正文。')
                 : getCoReadPageText(book))
             : '书架空着。导入一本书，选择一个角色，就可以开始共读。';
-        if (body.textContent !== text) body.textContent = text;
+        if (book?.content && !book.resolving) {
+            const length = String(book.content).length;
+            const lastPage = Math.max(0, Math.ceil(length / COREAD_PAGE_SIZE) - 1);
+            const page = Math.max(0, Math.min(lastPage, Math.floor(Number(book.page) || 0)));
+            const start = settings.pageMode === 'scroll' ? 0 : page * COREAD_PAGE_SIZE;
+            const html = renderCoReadParagraphText(book, start, settings.pageMode === 'scroll' ? length : start + COREAD_PAGE_SIZE);
+            if (body.innerHTML !== html) body.innerHTML = html;
+        } else if (body.textContent !== text || body.querySelector('.coread-reader-paragraph')) body.textContent = text;
         body.dataset.coreadPageMode = settings.pageMode;
         if (settings.pageMode === 'scroll') {
             if (book && coreadReaderPendingScrollPage != null) {

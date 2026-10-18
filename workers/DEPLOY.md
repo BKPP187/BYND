@@ -90,6 +90,21 @@ wrangler 的浏览器登录过期了。设置 `CLOUDFLARE_API_TOKEN`，或重新
 
 ## 部署记录
 
+### 独立 AI 代理
+
+AI 代理使用 `wrangler-ai-proxy.toml`，与上文的 `bynd-push` 分开部署。在项目根目录运行：
+
+```bash
+npx wrangler deploy --config workers/wrangler-ai-proxy.toml --dry-run
+npx wrangler deploy --config workers/wrangler-ai-proxy.toml --keep-vars
+```
+
+部署前核对线上 `UPSTREAM_API_BASE_URL` 与配置一致；`--keep-vars` 保留其他线上变量，配置文件显式声明的变量仍以配置为准。代理继续转发调用者自己的 Bearer Key，不配置共享用户 Key。来源白名单不替代鉴权，尤其 APK 使用的 `null` 来源不具有唯一身份。
+
+- 2026-10-15：`bynd-ai-proxy` 上线来源检查，版本 `e2303de6-4d78-454a-8885-48d347ab289b`，地址 `https://bynd-ai-proxy.myluckylxy.workers.dev`。保留 NVIDIA 上游。健康接口 200、BYND/APK 预检 204、外站预检及请求 403、BYND 缺少 Key 的请求 401。未使用真实 Key。
+
+### 主 Worker
+
 - 2026-09-24：上线 `/l0veyou`、`/jev` 转发。
 - 2026-09-25：所有固定转发加上 `/mcp/relay/*` 入口，前端改走 `bynd.ccwu.cc`，不再出现 workers.dev 地址。
 - 2026-09-25：增加网页搜索、MCP 示例服务和表情包同域代理。

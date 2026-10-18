@@ -28,6 +28,7 @@ function coReadHarness() {
         getCoReadRecentPageContextText: book => `第 ${book.page} 页正文`,
         getCoReadCharName: char => char.name, DEFAULT_AVATAR: ''
     });
+    context.getCoReadBook = id => context.getCoReadLibrary().find(book => book.id === id) || null;
     vm.runInContext(`
         const COREAD_LIBRARY_KEY = 'bynd_coread_library_v1';
         const COREAD_AI_COMMENT_MAX_TOKENS = 1800, COREAD_AI_REPLY_MAX_TOKENS = 1800;
@@ -42,6 +43,8 @@ function coReadHarness() {
         ['function shouldResolveCoReadBookContent(', 'function renderCoReadBookCard('],
         ['function createCoReadThoughtRecord(', 'function getCoReadRecentDiscussionContext('],
         ['async function requestCoReadAiComment(', 'function groupCoReadThoughtsByCharAndBook('],
+        ['// Reviews and paragraph discussions share', 'function normalizeCoReadBookReviewItems('],
+        ['// Copy before writing: failed quota writes', 'async function generateCoReadBookReviews('],
         ['async function generateCoReadBookReviews(', 'function likeCoReadBookReview('],
         ['async function resolveCoReadBookContent(', 'async function readCoReadFileAsBook('],
         ['async function askCoReadComment(', 'window.askCoReadComment']

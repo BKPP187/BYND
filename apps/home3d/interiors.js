@@ -268,6 +268,7 @@
         if (['kitchen', 'bathroom'].includes(room.id)) {
             const tile = add(new T.PlaneGeometry(w - .22, .44), materials.surface(data().floors.checker_tile, w, .44, 'wall'), [0, 1.08, -d / 2 + .125]); tile.castShadow = false;
         }
+        if (H.Atmosphere) H.Shapes.disposeGeometry(window);
         root.userData.interior = { preset: config.id, wall: config.wall, floor: config.floor }; return root;
     }
     H.Interiors = { resolve, valid, apply, applyAll, uniform, furniture, paint, shell, data };

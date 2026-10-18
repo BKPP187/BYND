@@ -233,7 +233,7 @@ function renderWechatShopTextCover(product, index = 0, mode = '') {
     const name = wcEscapeHtml(product.name || '商品');
     const source = wcEscapeHtml(product.source || 'BYND');
     return `
-        <div class="wc-shop-text-cover ${mode}" style="background:${getWechatShopProductTone(product, index)}">
+        <div class="wc-shop-text-cover ${wcEscapeAttr(mode)}" style="background:${wcEscapeAttr(getWechatShopProductTone(product, index))}">
             <span>${tag}</span>
             <strong>${name}</strong>
             <em>${source}</em>

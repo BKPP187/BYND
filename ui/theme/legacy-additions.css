@@ -832,7 +832,8 @@
     font-size: 16px;
 }
 #api-edit-modal {
-    padding: 10px 0;
+    box-sizing: border-box;
+    padding: calc(10px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 0 calc(10px + env(safe-area-inset-bottom, 0px));
 }
 #api-edit-modal .wc-char-card {
     max-height: calc(100% - 20px);

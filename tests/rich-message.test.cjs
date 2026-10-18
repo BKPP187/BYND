@@ -10,6 +10,13 @@ const themes = [...themeSource.matchAll(/^        id: '([^']+)'/gm)].map(match =
 assert.equal(themes.length, 11);
 assert.ok(themes.includes('pixel'));
 
+test('shared message escaping protects quoted attributes even when another app replaces escapeHtml', () => {
+    const context = vm.createContext({ escapeHtml: value => value });
+    vm.runInContext(sourceSection('wechat.js', 'function wcEscapeHtml(', 'function wcEscapeAttr('), context);
+    assert.equal(context.wcEscapeHtml('x" onerror="steal()\' <&>'), 'x&quot; onerror=&quot;steal()&#39; &lt;&amp;&gt;');
+    assert.equal(context.wcEscapeHtml(0), '0');
+});
+
 function render(theme, content, isMe = false) {
     const rows = [];
     const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -37,7 +44,7 @@ function render(theme, content, isMe = false) {
         getWechatUiThemeId: () => theme,
         isWechatQqNumericLinkText: () => false,
         highlightWechatRednoteMentions: value => value,
-        executeScriptsInElement: noop, bindWechatMusicCardPlayback: noop,
+        mountWechatRichMessageFrame: noop, bindWechatMusicCardPlayback: noop,
         bindWechatImageStacks: noop, applyWechatBubbleMetaContrast: noop,
         bindWechatAiAvatarInteractions: noop, bindWechatMessageRowActions: noop
     });
@@ -54,7 +61,8 @@ for (const theme of themes) {
         for (const isMe of [false, true]) {
             const html = render(theme, '<div class="role-card"><button>展开角色卡</button></div>', isMe);
             assert.match(html, /class="msg-rich-card/);
-            assert.match(html, /class="role-card"/);
+            assert.match(html, /class="wc-rich-frame" sandbox="allow-scripts"/);
+            assert.doesNotMatch(html, /class="role-card"/, 'authored HTML never enters the app DOM');
             assert.doesNotMatch(html, /class="msg-bubble(?:\s|")/);
             assert.doesNotMatch(html, /class="msg-bubble-shell/);
         }

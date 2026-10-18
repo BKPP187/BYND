@@ -147,9 +147,7 @@ function migrateThemeIconData(data) {
 }
 
 function themeEscapeHtml(value) {
-    const div = document.createElement('div');
-    div.textContent = value == null ? '' : String(value);
-    return div.innerHTML;
+    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
 
 function normalizeThemeWidgetStyle(value) {
@@ -1038,7 +1036,7 @@ function convertFile(input, targetInputId) {
 
                 const previewId = targetInputId.replace('input-', 'preview-');
                 const previewEl = document.getElementById(previewId);
-                if(previewEl) previewEl.innerHTML = `<img src="${compressedData}">`;
+                if(previewEl) previewEl.innerHTML = `<img src="${themeEscapeHtml(compressedData)}">`;
 
                 if (targetInputId === 'input-wp-lock') applyLockscreenAdaptiveTheme(compressedData);
                 if (targetInputId === 'input-wp-home') applyByndAdaptiveTheme(compressedData);
@@ -1094,7 +1092,7 @@ function loadSavedSettings() {
                     inputEl.value = url;
                     if(url && url.length > 0) {
                         const previewEl = document.getElementById('preview-icon-' + index);
-                        if(previewEl) previewEl.innerHTML = `<img src="${url}">`;
+                        if(previewEl) previewEl.innerHTML = `<img src="${themeEscapeHtml(url)}">`;
                     }
                 }
             });
@@ -1156,6 +1154,7 @@ function collectThemeDataFromInputs() {
         plushSince: fallback.plushSince || '',
         plushBubbleLeft: fallback.plushBubbleLeft,
         plushBubbleRight: fallback.plushBubbleRight,
+        plushPhotos: fallback.plushPhotos,
         wpLock: readValue('input-wp-lock', fallback.wpLock),
         wpHome: readValue('input-wp-home', fallback.wpHome),
         music: readValue('input-music-text', fallback.music),
@@ -1377,6 +1376,7 @@ async function applyThemeLibraryItem(id) {
             const saved = getSavedThemeData();
             data.phoneStatusBarEnabled = saved.phoneStatusBarEnabled;
             data.plushSince = saved.plushSince || '';
+            data.plushPhotos = saved.plushPhotos;
         }
         const updates = [
             ['my_theme_data', JSON.stringify(data)],
@@ -1485,7 +1485,35 @@ async function renderThemeLibrary() {
     }).join('');
 }
 
-// 4. 💾 保存设置
+function showThemeSaveFeedback(saved, message) {
+    const existing = document.getElementById('theme-save-feedback');
+    if (existing) return existing.querySelector('button')?.focus();
+    const dialog = document.createElement('dialog');
+    dialog.id = 'theme-save-feedback';
+    dialog.className = 'theme-save-feedback';
+    dialog.setAttribute('aria-labelledby', 'theme-save-feedback-title');
+    dialog.setAttribute('aria-describedby', 'theme-save-feedback-message');
+    dialog.innerHTML = `
+        <div class="theme-save-feedback-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                ${saved ? '<path d="m7 12 3.2 3.2L17 8.5"/>' : '<path d="M12 7v6m0 4h.01"/>'}
+            </svg>
+        </div>
+        <h2 id="theme-save-feedback-title">${saved ? '保存成功' : '暂时无法保存'}</h2>
+        <p id="theme-save-feedback-message"></p>
+        <button type="button" autofocus>${saved ? '完成' : '返回调整'}</button>
+    `;
+    dialog.querySelector('p').textContent = message;
+    dialog.querySelector('button').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => {
+        dialog.remove();
+        if (saved && typeof closeApp === 'function') closeApp('theme');
+    }, { once: true });
+    (document.querySelector('.phone-container') || document.body).appendChild(dialog);
+    dialog.showModal();
+}
+
+// 4. 保存设置
 function saveTheme() {
     const wpLock = document.getElementById('input-wp-lock').value;
     const wpHome = document.getElementById('input-wp-home').value;
@@ -1580,7 +1608,7 @@ function saveTheme() {
             if (dockIcons[dockIndex]) {
                 const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                 if (iconBox) {
-                    iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
+                    iconBox.innerHTML = `<img src="${themeEscapeHtml(url)}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
                 }
             }
         }
@@ -1603,6 +1631,7 @@ function saveTheme() {
         plushSince: getSavedThemeData().plushSince || '',
         plushBubbleLeft: getSavedThemeData().plushBubbleLeft,
         plushBubbleRight: getSavedThemeData().plushBubbleRight,
+        plushPhotos: getSavedThemeData().plushPhotos,
         wpLock: wpLock, wpHome: wpHome, music: musicText, vibe: vibeText,
         l1: lockImg1, l2: lockImg2, d1: deskImg1, d2: deskImg2, icons: iconInputs,
         lockEnabled, phoneStatusBarEnabled,
@@ -1621,15 +1650,16 @@ function saveTheme() {
         applyGlobalTapEffectSettings(tapEffect);
         applyLsShortcuts(lsLeft, lsRight);
 
-        alert("✅ 保存成功！文字颜色已自动适配");
-        if (typeof closeApp === 'function') closeApp('theme');
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
-             alert("❌ 空间不足！请重新点击上传按钮，触发压缩逻辑！");
+            showThemeSaveFeedback(false, '设备存储空间不足，请释放空间或重新上传较小的图片后重试。');
         } else {
-             alert("❌ 错误: " + e.message);
+            console.error('保存个性化设置失败：', e);
+            showThemeSaveFeedback(false, '设置未能完整保存，请重试。若仍失败，请检查设备存储空间。');
         }
+        return;
     }
+    showThemeSaveFeedback(true, '个性化设置已保存，文字颜色将随壁纸自动适配。');
 }
 
 // 5. 初始化
@@ -1710,7 +1740,7 @@ function initTheme() {
                     if(dockIcons[dockIndex]) {
                         const iconBox = dockIcons[dockIndex].querySelector('.dock-icon-box');
                         if (iconBox) {
-                            iconBox.innerHTML = `<img src="${url}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
+                            iconBox.innerHTML = `<img src="${themeEscapeHtml(url)}" style="width:100%; height:100%; border-radius:12px; object-fit:cover; display:block;">`;
                         }
                     }
                 }

@@ -1884,6 +1884,11 @@ function processMsgContent(content, char) {
 function openChat(charId) {
     const char = window.myCharacters.find(c => c.id === charId);
     if (!char) return;
+    if (char.chatConfig?.npcFriendRequestId) void window.ByndNpcFriends?.ensureContactAvatar(char);
+    if (window.currentChatCharId !== charId) {
+        document.getElementById('wc-monitor-barrage')?.remove();
+        document.getElementById('wc-monitor-reader')?.remove();
+    }
 
     // A forum deep link can reopen WeChat while an old chat-settings panel is
     // still mounted. Dismiss that panel before showing the destination chat.

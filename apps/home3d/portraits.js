@@ -92,7 +92,8 @@
         });
     }
     function discard(who) { H.State.update(data => { delete target(data, who).portraitDraft; }); }
-    function initial(who, pose = 'standing') {
+    async function initial(who, pose = 'standing') {
+        if (!(pose === 'sleep' ? H.initialSleepPortraits : H.initialPortraits)) await H.loadScript('assets/home3d/characters/initial-' + (pose === 'sleep' ? 'sleep-' : '') + 'portraits.js');
         const key = who + ':' + pose, images = pose === 'sleep' ? H.initialSleepPortraits : H.initialPortraits;
         if (!initialImages.has(key)) initialImages.set(key, inspect(images[who]).catch(error => { initialImages.delete(key); throw error; }));
         return initialImages.get(key);

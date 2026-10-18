@@ -1,0 +1,82 @@
+/* The shared interaction palette follows the app even though this page is a sibling overlay. */
+#bynd-npc-friends {
+    --npc-avatar-radius: var(--wci-control-radius, 8px);
+    position: absolute; inset: 0; z-index: 6200;
+    background: var(--wci-content, #fff); color: var(--wci-text, #191919);
+    font-family: inherit; font-size: 15px; line-height: 1.5;
+}
+#bynd-npc-friends * { box-sizing: border-box; }
+.wc-npc-panel { position: relative; display: flex; flex-direction: column; height: 100%; }
+.wc-npc-header { flex: none; display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: calc(57px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); padding: calc(8px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))) 12px 8px; background: var(--wci-header, #fafafa); }
+.wc-npc-header h2 { margin: 0; text-align: center; font-size: 18px; font-weight: 650; }
+#bynd-npc-friends button { cursor: pointer; font: inherit; color: inherit; }
+#bynd-npc-friends .wc-npc-header button { width: 40px; height: 40px; padding: 0; border: 0; background: none; line-height: 1; font-size: 29px; }
+#bynd-npc-friends button:disabled { opacity: .5; cursor: default; }
+#bynd-npc-friends :focus-visible { outline: 2px solid var(--wci-accent, #555); outline-offset: 2px; }
+.wc-npc-search { position: relative; flex: none; margin: 12px 16px 16px; }
+.wc-npc-search input { width: 100%; height: 42px; border: 1px solid var(--wci-border, #eee); border-radius: var(--wci-control-radius, 9px); background: var(--wci-search, #f5f5f5); padding: 8px 12px 8px 40px; font: inherit; color: var(--wci-text, #222); }
+.wc-npc-search input::placeholder { color: var(--wci-muted, #888); }
+.wc-npc-search > i { position: absolute; left: 13px; top: 9px; color: var(--wci-muted, #888); font-size: 19px; pointer-events: none; }
+.wc-npc-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: env(safe-area-inset-bottom, 0px); border-top: 1px solid var(--wci-border, #eee); }
+.wc-npc-group > h3 { margin: 0; padding: 11px 18px; border-bottom: 1px solid var(--wci-border, #eee); background: var(--wci-header, #fafafa); color: var(--wci-muted, #888); font-size: 14px; font-weight: 500; }
+.wc-npc-row { display: flex; align-items: center; gap: 12px; min-height: 84px; padding: 14px 16px; border-bottom: 1px solid var(--wci-border, #eee); background: var(--wci-surface, #fff); }
+#bynd-npc-friends .wc-npc-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; text-align: left; background: transparent; }
+.wc-npc-avatar { flex: none; width: 48px; height: 48px; display: block; object-fit: cover; background: var(--wci-tint, #eee); border-radius: var(--npc-avatar-radius, 8px); }
+.wc-npc-avatar-note { color: var(--wci-muted, #888); font-size: 13px; }
+.wc-npc-error > button { display: block; min-height: 36px; margin-top: 8px; border: 0; border-radius: var(--wci-control-radius, 6px); padding: 6px 12px; background: var(--wci-tint, #eee); color: var(--wci-accent, #333); }
+.wc-npc-row-text { flex: 1; display: grid; gap: 4px; min-width: 0; }
+.wc-npc-row-text strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 16px; font-weight: 600; }
+.wc-npc-row-text > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--wci-muted, #888); font-size: 13px; }
+#bynd-npc-friends .wc-npc-accept { flex: none; min-height: 36px; padding: 6px 14px; border: 0; border-radius: var(--wci-control-radius, 6px); background: var(--wci-tint, #ededed); color: var(--wci-accent, #333); box-shadow: var(--wci-control-shadow, none); font-weight: 600; font-size: 14px; }
+.wc-npc-status { flex: none; font-size: 13px; color: var(--wci-muted, #888); }
+.wc-npc-menu { position: absolute; z-index: 1; right: 12px; top: calc(53px + var(--bynd-header-safe-top, env(safe-area-inset-top, 0px))); background: var(--wci-surface, #fff); border: 1px solid var(--wci-border, #ddd); border-radius: var(--wci-control-radius, 9px); box-shadow: var(--wci-shadow, 0 6px 20px #0001); }
+.wc-npc-menu button { min-height: 44px; border: 0; background: none; padding: 10px 16px; }
+.wc-npc-detail { min-height: 0; overflow: auto; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.wc-npc-detail-person { display: flex; align-items: center; gap: 16px; padding-bottom: 24px; }
+.wc-npc-detail-person .wc-npc-avatar { width: 60px; height: 60px; }
+.wc-npc-detail-person > div { min-width: 0; }
+.wc-npc-detail-person h3 { font-size: 21px; margin: 0 0 6px; overflow-wrap: anywhere; }
+.wc-npc-detail-person p { margin: 0; color: var(--wci-muted, #888); font-size: 12px; overflow-wrap: anywhere; }
+.wc-npc-verification { padding: 18px 0; border-top: 1px solid var(--wci-border, #eee); border-bottom: 1px solid var(--wci-border, #eee); overflow-wrap: anywhere; }
+.wc-npc-verification h4 { margin: 0; font-weight: 500; font-size: 14px; color: var(--wci-muted, #888); }
+.wc-npc-verification p { white-space: pre-wrap; margin: 12px 0 0; }
+.wc-npc-source { font-size: 13px; color: var(--wci-muted, #888); }
+.wc-npc-actions { display: flex; gap: 12px; margin-top: 24px; }
+.wc-npc-actions > button, .wc-npc-chat { flex: 1; min-height: 42px; padding: 8px 14px; border: 0; border-radius: var(--wci-control-radius, 8px); background: var(--wci-well, #eee); }
+#bynd-npc-friends .wc-npc-actions > .wc-npc-accept, #bynd-npc-friends .wc-npc-chat { background: var(--wci-accent, #222); color: var(--wci-on-accent, #fff); box-shadow: var(--wci-control-shadow, none); }
+.wc-npc-chat { width: 100%; margin-top: 24px; }
+.wc-npc-error { margin: 12px 16px; padding: 10px 12px; border: 1px solid var(--wci-border, #ddd); border-radius: var(--wci-control-radius, 8px); background: var(--wci-well, #f5f5f5); color: var(--wci-text, #333); font-size: 13px; overflow-wrap: anywhere; }
+.wc-npc-entry { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-bottom: 1px solid var(--wc-theme-border, #eee); min-height: 56px; background: var(--wc-theme-card, #fff); color: var(--wc-theme-text, #222); padding: 10px 18px; font: inherit; font-size: 15px; cursor: pointer; }
+.wc-npc-entry > i { font-size: 22px; color: var(--wc-theme-accent, #333); }
+.wc-npc-entry > span:first-of-type { flex: 1; text-align: left; }
+.wc-npc-entry > b { border-radius: var(--wci-control-radius, 12px); padding: 1px 7px; background: var(--wc-theme-accent, #333); color: var(--wci-on-accent, #fff); font-size: 12px; }
+
+/* Theme geometry reuses the interaction system; only structural differences live here. */
+[data-wechat-ui-theme="wechat"] #bynd-npc-friends { --npc-avatar-radius: 6px; }
+[data-wechat-ui-theme="wechat"] .wc-npc-search input { border: 0; }
+[data-wechat-ui-theme="qq"] #bynd-npc-friends .wc-npc-header { color: #fff; }
+[data-wechat-ui-theme="qq"] #bynd-npc-friends .wc-npc-group > h3 { background: transparent; }
+[data-wechat-ui-theme="qq"] #bynd-npc-friends .wc-npc-row { margin: 10px 12px; border: 0; border-radius: var(--wci-radius); }
+[data-wechat-ui-theme="qq"] #bynd-npc-friends { --npc-avatar-radius: 50%; }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends,
+[data-wechat-ui-theme="line"] #bynd-npc-friends,
+[data-wechat-ui-theme="hallowrok"] #bynd-npc-friends,
+[data-wechat-ui-theme="douyin"] #bynd-npc-friends,
+[data-wechat-ui-theme="rednote"] #bynd-npc-friends { --npc-avatar-radius: 50%; }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends .wc-npc-header button { color: var(--wci-accent); }
+[data-wechat-ui-theme="hallowrok"] #bynd-npc-friends .wc-npc-search input,
+[data-wechat-ui-theme="hallowrok"] #bynd-npc-friends .wc-npc-accept { border-radius: 24px; }
+[data-wechat-ui-theme="rednote"] #bynd-npc-friends .wc-npc-row { margin: 8px 12px; border: 1px solid var(--wci-border); border-radius: var(--wci-radius); }
+[data-wechat-ui-theme="claude"] #bynd-npc-friends .wc-npc-row { background: transparent; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends { background-color: var(--wci-content); background-image: linear-gradient(160deg, var(--wci-content), var(--wci-tint)); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends :is(.wc-npc-avatar, .wc-npc-row > .wc-npc-accept) { color: color-mix(in srgb, var(--wci-accent) 55%, var(--wci-text)); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-header,
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-row { backdrop-filter: var(--wci-blur); -webkit-backdrop-filter: var(--wci-blur); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-row { margin: 10px 12px; border: 1px solid var(--wci-border); border-radius: var(--wci-radius); }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends,
+[data-wechat-ui-theme="pixel"] .wc-npc-entry { font-family: 'Courier New', 'Microsoft YaHei', monospace; }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-header { color: var(--wci-accent); box-shadow: inset 0 -2px var(--wci-accent); }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-header button { font-size: 24px; box-shadow: var(--wci-control-shadow); }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-search input { box-shadow: inset 1px 1px #77777c, inset -1px -1px #fff; }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-avatar { border: 1px solid var(--wci-border); }
+[data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-actions > button { box-shadow: var(--wci-control-shadow); }

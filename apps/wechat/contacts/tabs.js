@@ -1087,6 +1087,12 @@ function renderLineMePage(page, profile) {
 // === End Telegram reference tab renderers 20260525 ===
 
 function renderContacts(query = '') {
+    renderWechatContactsContent(query);
+    const list = document.getElementById('wc-contacts-list');
+    if (list && window.ByndNpcFriends) list.insertAdjacentHTML('afterbegin', window.ByndNpcFriends.entryHtml());
+}
+
+function renderWechatContactsContent(query = '') {
     if (isWechatTelegramTheme()) { renderTelegramContacts(query); return; }
     if (isWechatLineTheme()) { renderLineContacts(query); return; }
     if (isWechatXTheme()) { renderXContacts(query); return; }

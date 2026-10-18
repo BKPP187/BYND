@@ -49,8 +49,8 @@ android {
         applicationId 'cc.ccwu.bynd'
         minSdk 23
         targetSdk 28
-        versionCode 327
-        versionName '1.1.902'
+        versionCode 380
+        versionName '1.1.955'
         buildConfigField 'boolean', 'BYND_REQUIRE_LICENSE', requireLicense
         buildConfigField 'boolean', 'BYND_ENABLE_UPDATES', enableUpdates
         buildConfigField 'String', 'BYND_PUBLIC_KEYS', javaString(publicKeys)
@@ -117,6 +117,7 @@ tasks.register('syncWebAssets', Sync) {
         exclude 'shop.html'
         exclude 'license-admin.html'
         exclude 'license-receipt.html'
+        exclude 'checkout.html'
         exclude 'account.html'
         exclude 'assets/website/**'
         // file:// home models use classic-script mirrors; APK background removal

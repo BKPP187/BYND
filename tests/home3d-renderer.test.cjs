@@ -74,6 +74,18 @@ test('first and third person use perspective, exterior fits a narrow phone and i
     view.viewpoint('isometric');view.step(0,true);assert.equal(view.active(),orbit);assert.equal(view.stats().zoom,before.zoom);assert.equal(view.stats().x,before.x);assert.equal(view.stats().z,before.z);
 });
 
+test('indoor camera starts at room height, keeps bounded close zoom, and editing follows the current room', () => {
+    const { H, T } = harness(), orbit = new T.OrthographicCamera(-1, 1, 1, -1, .1, 70), view = H.RoomCamera.create(orbit, T);
+    view.resize(320, 700); view.room([16.4, 23], { x: -4.1, y: 3.2, z: .8 }); view.reset(true);
+    const camera = view.viewpoint('interior'); view.step(0, true);
+    assert.equal(camera.isPerspectiveCamera, true); assert.equal(camera.fov, 58);
+    assert.ok(camera.position.y > 4.4 && camera.position.y < 4.9, 'camera sits at eye height on the upper floor');
+    view.zoom(.001); view.step(0, true); assert.equal(view.stats().zoom, .9);
+    view.zoom(1000); view.step(0, true); assert.equal(view.stats().zoom, 1.8);
+    view.focus(3.9, .8); view.step(0, true); view.viewpoint('isometric'); view.step(0, true);
+    assert.equal(view.active(), orbit); assert.equal(view.stats().x, 3.9, 'editing opens at the room just visited');
+});
+
 test('shared texture budgets preserve color space, mipmaps and hero priority without upscaling', () => {
     const { H, T } = harness(), renderer = { capabilities: { maxTextureSize: 8192, getMaxAnisotropy: () => 4 } }, manager = H.RenderAssets.create(T, renderer), scene = new T.Scene();
     const hero = new T.Texture({ width: 2048, height: 2048 }), normal = new T.Texture({ width: 2048, height: 2048 });

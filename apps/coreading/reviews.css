@@ -1,0 +1,76 @@
+/* PageMate reviews: compact reading discussions and a bottom sheet. */
+.coread-shell { position: relative; }
+.coread-paragraph-reviews[hidden], .coread-author-support[hidden], .coread-review-status[hidden] { display: none; }
+.coread-paragraph-reviews { position: absolute; inset: 0; z-index: 120; display: flex; align-items: flex-end; }
+.coread-review-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgb(0 0 0 / 32%); }
+.coread-review-sheet { position: relative; display: flex; flex-direction: column; width: 100%; height: min(600px, calc(100% - 66px - var(--bynd-header-safe-top, 0px))); overflow: hidden; background: var(--pm-panel, #fff); color: var(--pm-ink, #111); border: 2px solid var(--pm-ink, #111); border-bottom: 0; border-radius: 22px 22px 0 0; padding: 0 16px max(16px, env(safe-area-inset-bottom)); box-shadow: 0 -8px 24px rgb(0 0 0 / 8%); }
+.coread-review-sheet-head { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; min-height: 64px; background: #fff; }
+.coread-review-sheet-head::after { content: ''; position: absolute; bottom: 8px; width: 36px; height: 4px; border-radius: 4px; background: var(--pm-ink, #111); }
+.coread-review-sheet-head strong { font-size: 18px; }
+.coread-review-close { position: absolute; right: -4px; top: 8px; width: 40px; height: 40px; border: 0; background: transparent; color: #777; font-size: 28px; }
+.coread-review-sheet .coread-book-review-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; padding: 10px 0 0 !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
+.coread-review-sheet .coread-book-review-panel > header { flex-shrink: 0; }
+.coread-review-sheet .coread-book-review-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.coread-review-sheet .coread-review-compose { position: static; flex-shrink: 0; }
+.coread-review-sheet .coread-review-status { flex-shrink: 0; max-height: 64px; overflow: auto; }
+.coread-book-review-panel { min-width: 0; }
+.coread-review-sort { display: flex; gap: 4px; }
+.coread-review-sort button { min-width: 42px; min-height: 36px; padding: 4px 8px; border-radius: 10px; color: #888 !important; }
+.coread-review-sort button[aria-pressed="true"] { color: #111 !important; background: #eee; }
+.coread-review-quote { flex-shrink: 0; margin: 0 0 10px; padding: 12px; max-height: 76px; overflow: auto; border-radius: 12px; background: #f4f4f4; color: #555; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.coread-review-quote b { color: #111; margin-right: 4px; }
+.coread-review-ai { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.coread-review-ai button { min-height: 36px; padding: 6px 12px; background: #f3f3f3; color: #222; border: 1px solid #ddd; border-radius: 10px; font-size: 13px; }
+.coread-review-ai button:disabled { opacity: .55; }
+.coread-review-status { margin: 8px 0; color: #8a3b32; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.coread-book-review { display: block; padding: 16px 0 10px; border-top: 0; border-bottom: 1px solid #eee; }
+.coread-book-review.is-reply { margin-left: 12px; padding: 12px 0 8px 12px; border-left: 2px solid #eee; }
+.coread-book-review header { justify-content: space-between; align-items: center; gap: 12px; }
+.coread-book-review header strong { font-size: 15px; font-weight: 650; color: #777 !important; overflow-wrap: anywhere; }
+.coread-book-review header small { display: inline-flex; align-items: center; justify-content: flex-end; flex-shrink: 0; gap: 8px; color: #999; font-size: 11px; font-weight: 400; }
+.coread-book-review p { font-size: 16px; line-height: 1.7; margin-top: 8px; }
+.coread-review-gift-badge { font-size: 20px; }
+.coread-book-review p em { font-size: 13px; font-style: normal; color: #777; }
+.coread-book-review footer { justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.coread-review-author-badge { margin-left: 6px; padding: 2px 5px; border-radius: 5px; background: #eee; color: #555; font-size: 11px; font-style: normal; }
+.coread-book-review footer button { min-width: 32px; min-height: 34px; font-size: 12px; padding: 4px; border-radius: 8px; color: #aaa; }
+.coread-book-review footer button svg { width: 21px; height: 21px; }
+.coread-book-review footer button span { margin-left: 3px; }
+.coread-book-review footer button[aria-pressed="true"] { background: #eee; color: #111; }
+.coread-review-compose { position: static; padding: 14px 0 2px; background: #fff; border-top: 1px solid #eee; }
+.coread-content[data-tab="detail"] { scroll-padding-bottom: calc(128px + env(safe-area-inset-bottom)); }
+/* Keep the full review height in the scroll flow, including the space above navigation. */
+.coread-content[data-tab="detail"] > .coread-book-detail { flex-shrink: 0; }
+.coread-content[data-tab="detail"] .coread-review-compose { padding: 0 0 12px; border-top: 0; border-bottom: 1px solid #eee; margin-bottom: 4px; }
+.coread-content[data-tab="detail"] .coread-review-compose textarea,
+.coread-content[data-tab="detail"] .coread-review-compose button[type="submit"] { scroll-margin-bottom: calc(128px + env(safe-area-inset-bottom)); }
+.coread-review-gifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 12px; }
+.coread-review-gifts button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 34px; padding: 4px; border: 1px solid #ececec; border-radius: 20px; background: #fff; color: #555; font-size: 12px; white-space: nowrap; }
+.coread-review-gifts button span { display: inline-flex; font-size: 15px; }
+.coread-review-gifts button svg { width: 16px; height: 16px; }
+.coread-review-compose .coread-book-review-input { position: static; margin: 0; align-items: stretch; }
+.coread-review-compose textarea { resize: none; width: 100%; min-width: 0; min-height: 48px; max-height: 130px; padding: 12px; border: 1px solid #eee; border-radius: 14px; background: #fff; color: #222; font: inherit; font-size: 16px; line-height: 1.5; }
+.coread-review-compose .coread-book-review-input > button { min-height: 48px; align-self: end; background: #111 !important; color: #fff !important; border: 0; border-radius: 14px; }
+.coread-review-compose button:disabled { opacity: .5; }
+.coread-review-response-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; color: #888; font-size: 12px; overflow-wrap: anywhere; }
+.coread-review-response-state button { min-height: 32px; border: 0; background: #f3f3f3; border-radius: 8px; padding: 4px 10px; color: #555; }
+.coread-review-reply-target { display: flex; align-items: center; justify-content: space-between; color: #666; font-size: 13px; margin-bottom: 6px; }
+.coread-review-reply-target button { min-height: 32px; border: 0; background: transparent; color: #555; }
+.coread-reader-body .coread-reader-paragraph { display: block; margin: 0 0 .85em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.coread-paragraph-count { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-width: 36px; min-height: 32px; margin: 0 0 0 8px; padding: 0 6px; border: 1px solid #ddd; border-radius: 10px; background: transparent; color: #888; font: 12px/1.2 system-ui, sans-serif; text-indent: 0; cursor: pointer; }
+.coread-paragraph-count:focus-visible, .coread-review-sheet button:focus-visible { outline: 2px solid #555; outline-offset: 2px; }
+.coread-paragraph-count svg { width: 15px; height: 15px; margin-right: 3px; }
+.coread-author-support { position: absolute; inset: 0; z-index: 180; display: grid; place-items: center; padding: calc(18px + var(--bynd-header-safe-top, 0px)) 20px max(18px, env(safe-area-inset-bottom)); }
+.coread-author-support-card { position: relative; width: 100%; max-width: 360px; max-height: 100%; overflow: auto; overscroll-behavior: contain; border: 2px solid #111; border-radius: 22px; background: #fff; box-shadow: 0 16px 44px rgb(0 0 0 / 15%); }
+.coread-author-support-card > header { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 16px; border-bottom: 1px solid #eee; color: #777; font-size: 13px; }
+.coread-author-support-card > header button { width: 36px; height: 36px; border: 0; background: transparent; color: #555; font-size: 26px; }
+.coread-author-support-copy { padding: 22px 20px 16px; text-align: center; }
+.coread-author-support-symbol { display: inline-grid; place-items: center; width: 64px; height: 64px; border: 1.5px solid #111; border-radius: 20px; background: #f4f4f4; color: #111; font: 36px/1 system-ui, sans-serif; }
+.coread-author-support-symbol svg { width: 32px; height: 32px; }
+.coread-author-support-copy h3 { margin: 16px 0 8px; font-size: 20px; color: #111; }
+.coread-author-support-copy p { margin: 0; color: #888; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.coread-author-support-card form { padding: 0 20px 22px; }
+.coread-author-support-card label { display: block; margin-bottom: 8px; color: #555; font-size: 13px; }
+.coread-author-support-card textarea { display: block; width: 100%; min-height: 108px; max-height: 160px; resize: vertical; padding: 12px; border: 1px solid #ddd; border-radius: 14px; background: #fafafa; color: #111; font-family: inherit; font-size: 16px; line-height: 1.6; }
+.coread-author-support-card .coread-author-support-confirm { display: block; width: 100%; min-height: 44px; margin: 16px auto 0; padding: 10px 16px; border: 0; border-radius: 14px; background: #111; color: #fff; font: inherit; font-size: 14px; font-weight: 700; }
+.coread-author-support-card button:disabled { opacity: .5; }

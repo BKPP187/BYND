@@ -191,7 +191,10 @@ function syncWechatInteractionTheme(theme) {
     theme = theme || getWechatUiTheme(root.dataset.uiTheme || getWechatUiThemeId());
     host.dataset.wechatUiTheme = theme.id;
     const computed = getComputedStyle(root);
+    host.style.setProperty('--wci-font-family', computed.fontFamily);
     const palette = {
+        background: ['bg', '#f4f5f7'], header: ['header', '#fafafa'],
+        content: ['content', '#ffffff'], search: ['search', '#f0f0f0'],
         surface: ['card', '#ffffff'], text: ['text', '#111827'], muted: ['muted', '#667085'],
         border: ['border', 'rgba(15,23,42,0.12)'], accent: ['accent', theme.accent]
     };

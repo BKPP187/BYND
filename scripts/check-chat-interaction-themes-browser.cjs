@@ -21,7 +21,7 @@ const styleOf = el => {
         await page.goto(pathToFileURL(path.join(root, 'index.html')).href, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => typeof openWechatMusicListenPlayer === 'function' && typeof applyWechatUiTheme === 'function');
         await page.evaluate(async () => {
-            await byndStylesReady; unlockPhone();
+            await window.__byndCoreReady; await byndStylesReady; unlockPhone();
             document.documentElement.classList.add('mobile-runtime');
             window.myCharacters = [{ id: 'interaction-proof', name: '林间', avatar: DEFAULT_AVATAR, chatConfig: {}, history: [
                 { type: 'poke', content: '拍了拍肩膀', isMe: true },

@@ -58,6 +58,15 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(await page.locator('.wcs-body').evaluate(node => node.scrollTop), scroll);
         await page.locator('#wcs-back-btn').click();
 
+        await entry('interaction').click();
+        assert.equal(await page.locator('#wcs-monitor-barrage-style').inputValue(), 'cards');
+        await page.locator('[data-style="scroll"]').click();
+        assert.equal(await page.locator('[data-style="scroll"]').getAttribute('aria-pressed'), 'true');
+        await page.locator('#wcs-back-btn').click();
+        await entry('interaction').click();
+        assert.equal(await page.locator('#wcs-monitor-barrage-style').inputValue(), 'scroll', 'style draft survives category changes');
+        await page.locator('#wcs-back-btn').click();
+
         // Test the actual form save path while forcing the final persistence step to fail.
         await page.evaluate(() => {
             window._settingsProofSave = window.saveCharactersToStorage;
@@ -69,6 +78,8 @@ fs.mkdirSync(output, { recursive: true });
         await page.waitForFunction(() => !document.getElementById('wcs-save-settings').disabled);
         assert.equal(await page.evaluate(() => document.getElementById('wc-chat-settings-panel').classList.contains('active')), true);
         assert.match(await page.evaluate(() => window._settingsProofMessage), /保存失败/);
+        assert.equal(await page.evaluate(() => getWechatMonitorBarrageStyle(window.myCharacters[0])), 'cards', 'failed style save rolls back the active configuration');
+        assert.equal(await page.locator('#wcs-monitor-barrage-style').inputValue(), 'scroll', 'the failed draft stays editable');
         assert.equal(await page.locator('#wcs-user-name').inputValue(), '小满');
         await page.evaluate(() => { window.saveCharactersToStorage = window._settingsProofSave; });
         await page.locator('#wcs-save-settings').click();
@@ -77,9 +88,14 @@ fs.mkdirSync(output, { recursive: true });
         assert.equal(saved.userProfile.name, '小满');
         assert.equal(saved.fontSize, 18);
         assert.equal(saved.memorySegmentLimit, 12);
+        assert.equal(saved.monitorBarrageStyle, 'scroll');
         await page.evaluate(() => { window.showWechatToast = window._settingsProofToast; openChatSettings(); });
         await entry('appearance').click();
         assert.equal(await page.locator('#wcs-font-size').inputValue(), '18');
+        await page.locator('#wcs-back-btn').click();
+        await entry('interaction').click();
+        assert.equal(await page.locator('#wcs-monitor-barrage-style').inputValue(), 'scroll', 'saved style reloads');
+        await page.screenshot({ path: path.join(output, 'barrage-style-375.png') });
         await page.locator('#wcs-back-btn').click();
 
         for (const theme of ['wechat', 'telegram', 'couple']) {
@@ -108,6 +124,12 @@ fs.mkdirSync(output, { recursive: true });
                     if (theme === 'wechat' && width === 375 && ['appearance', 'memory'].includes(name)) {
                         await page.waitForTimeout(900);
                         await page.screenshot({ path: path.join(output, `${name}-375.png`) });
+                    }
+                    if (name === 'interaction') {
+                        await page.locator('#wcs-monitor-barrage-style-options').scrollIntoViewIfNeeded();
+                        const styles = await page.locator('#wcs-monitor-barrage-style-options button').evaluateAll(buttons => buttons.map(button => ({width:button.clientWidth,height:button.getBoundingClientRect().height,scroll:button.scrollWidth})));
+                        assert.ok(styles.every(button => button.width >= 90 && button.height >= 44 && button.scroll <= button.width + 1), `both style choices stay readable: ${theme} ${width} ${JSON.stringify(styles)}`);
+                        if (theme === 'wechat' && width === 375) await page.screenshot({path:path.join(output,'barrage-style-375.png')});
                     }
                     await page.locator('#wcs-back-btn').click();
                 }

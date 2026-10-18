@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..'), source = path.join(root, 'workers/li
 const origin = 'https://bynd.ccwu.cc', pass = '把喜欢带在身边，今天也是很可爱的一天。', replacement = '明天也要好好保存我的小小世界和所有喜欢。';
 async function main() {
     const mails = [], outgoing = [], options = { workers: [{ name: 'accounts-runtime-test', modulesRoot: source,
-        modules: ['worker.mjs', 'accounts.mjs', 'distribution.mjs', 'assets.mjs'].map(file => ({ type: 'ESModule', path: path.join(source, file) })),
+        modules: ['worker.mjs', 'accounts.mjs', 'distribution.mjs', 'assets.mjs', 'payments.mjs', 'alipay-sandbox.mjs', 'afdian.mjs', 'afdian-client.mjs'].map(file => ({ type: 'ESModule', path: path.join(source, file) })),
         compatibilityDate: '2026-09-30', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
         ratelimits: { ACCOUNT_RATE_LIMITER: { namespace_id: '1003', simple: { limit: 30, period: 60 } } },
         bindings: { PUBLIC_ORIGIN: origin, ACCOUNTS_ENABLED: 'true', ACCOUNT_SECRET: 'runtime-test-' + 'a'.repeat(40), ADMIN_TOKEN: 'runtime-admin-' + 'b'.repeat(40), LICENSE_KEY_SECRET: 'runtime-issuer-' + 'c'.repeat(40), EMAIL_ENABLED: 'true', EMAIL_FROM: 'BYND <accounts@example.invalid>', RESEND_API_KEY: 'test-only-key' },

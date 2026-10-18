@@ -20,6 +20,21 @@ html.mobile-runtime .coread-shell.coread-reader-mode .coread-topbar.coread-reade
     padding-bottom:6px !important;
 }
 .coread-content[data-tab="discover"] .coread-sense-card { grid-template-rows:auto auto 28px auto auto minmax(230px,1fr) auto; cursor:default; }
+.coread-content[data-tab="discover"] .coread-sense-card.has-long-title strong { font-size:clamp(54px,20vw,78px); }
+.coread-content[data-tab="discover"] .coread-sense-card small { font-size:13px; line-height:1.6; text-align:center; }
+.coread-history { width:100%; padding:0 22px; box-sizing:border-box; text-align:left; }
+.coread-history > header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:20px 0 4px; border-top:1px solid #ecebea; }
+.coread-history h2 { margin:0; color:#737981; font-size:14px; font-weight:600; }
+.coread-content[data-tab="discover"] .coread-history > header > span { color:#93979c; font-size:11px; font-weight:400; letter-spacing:0; }
+.coread-history-body { padding-top:6px; color:#555b62; font-size:14px; line-height:1.85; overflow-wrap:anywhere; }
+.coread-history-event { padding:17px 0; border-bottom:1px solid #f0efed; }
+.coread-history-event h3 { margin:5px 0; color:#25292e; font-size:15px; line-height:1.6; }
+.coread-history-event p { margin:4px 0 0; }
+.coread-history-body time { display:block; color:#25292e; font-weight:700; }
+.coread-history-body a { display:inline-block; margin-top:8px; color:#81858a; font-size:11px; text-underline-offset:3px; }
+.coread-history-more { margin-left:12px; }
+.coread-content[data-tab="discover"] .coread-history-license { display:block; margin-top:4px; color:#93979c; font-size:10px; font-weight:400; letter-spacing:0; }
+.coread-history-status { display:block; border:0; padding:10px 0; background:transparent; color:#81858a; font:inherit; font-size:12px; cursor:pointer; text-align:left; }
 .coread-content[data-tab="discover"] .coread-sense-card em { max-width:min(86%,380px); margin-bottom:12px; overflow-wrap:anywhere; }
 .coread-topbar button > svg { display:block; width:18px; height:18px; }
 .coread-quote-byline { display:grid; justify-items:center; gap:7px; padding:0 18px 24px; color:#929294; font-size:12px; line-height:1.6; text-align:center; }

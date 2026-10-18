@@ -14,7 +14,13 @@
         host.appendChild(renderer.domElement);
         let camera = new T.OrthographicCamera(-6, 6, 6, -6, 0.1, 70);
         const view = H.RoomCamera.create(camera, T);
-        let disposed = false, roomGroup = null, room = null, generation = 0, mealGeneration = 0, actors = [], furniture = [], raf = 0, lastTime = 0, lastPaint = 0, nextPaint = 0;
+        let disposed = false, roomReady = false, roomGroup = null, room = null, generation = 0, mealGeneration = 0, actors = [], furniture = [], atmosphere = [], raf = 0, lastTime = 0, lastPaint = 0, nextPaint = 0;
+        let homeRaw, frameHome, contactShadows = null;
+        function currentHome() {
+            const raw = localStorage.getItem(H.State.key);
+            if (raw !== homeRaw || !frameHome) { frameHome = H.State.home(); homeRaw = raw; }
+            return frameHome;
+        }
         let villa = null, stairs = null, changingFloor = false, failedArea = '', cutawayWalls = [], wallFinishes = [], doors = [], wallMode = 'cutaway', exteriorGroup = null;
         let inspection = null, viewedLevel = null, surveyToken = 0, surveySaved = null, inspecting = false, cutawayGroup = null, viewToken = 0, renderedView = '', wholeFloor = null, wholeActors = null;
         const overview = () => ['exterior','dollhouse'].includes(view.stats().mode);
@@ -137,6 +143,7 @@
                 const position=node.getWorldPosition(new T.Vector3());position.y+=node.userData.ceilingLamp?-.5:node.userData.lampHeight;sources.push(position);
             });
             H.Daylight.apply(lighting,{sun,ambient,fill},renderer,scene,groundMaterial,skyBase,luminous);
+            H.Atmosphere?.update(atmosphere, lighting, view.stats().mode, wallMode); contactShadows?.sync();
             const c=view.stats(),base=overview()?3.2:(viewedLevel??villa?.level??0)*3.2;
             sun.position.set(c.x+lighting.sun[0],base+lighting.sun[1],c.z+lighting.sun[2]);sun.target.position.set(c.x,base,c.z);sun.target.updateMatrixWorld();
             const extent=overview()?12:6;sun.shadow.camera.left=-extent;sun.shadow.camera.right=extent;sun.shadow.camera.top=extent;sun.shadow.camera.bottom=-extent;sun.shadow.camera.updateProjectionMatrix();
@@ -146,7 +153,7 @@
         }
         function tick(time) {
             if (disposed) return; raf = requestAnimationFrame(tick);
-            if (document.hidden || !host.isConnected || !host.clientHeight || contextUnavailable) { lastTime = time; lastPaint = 0; nextPaint = 0; quality.reset(); return; }
+            if (!roomReady || document.hidden || !host.isConnected || !host.clientHeight || contextUnavailable) { lastTime = time; lastPaint = 0; nextPaint = 0; quality.reset(); return; }
             const interval = 1000 / profile.fps; if (time + .5 < nextPaint) return;
             nextPaint = Math.max(time, nextPaint + interval);
             const frameStart = performance.now(), paintInterval = lastPaint ? time - lastPaint : interval;
@@ -170,7 +177,7 @@
                 H.Villa.updateDoors(doors,actors,dt,reduced);
                 if(inspection)H.Villa.updateDoors(inspection.doors,[],dt,reduced);
             }
-            const home = H.State.home();
+            const home = currentHome();
             H.SleepPair.update(furniture, actors, home.consentHug !== false);
             H.Dining.update(furniture, actors, time, home.consentHug !== false && ['亲近', '恋人'].includes(home.relationship), reduced || buildMode);
             H.Bedding.update(furniture, actors);
@@ -178,8 +185,9 @@
             H.Hygiene?.update(furniture, actors, time, profile, reduced || buildMode);
             H.Television.update(furniture, actors, time, profile, reduced || buildMode || overview() || surveying(), options.onNotice);
             updateLighting(time);
-            if (time - lastAssets > 1500 || actors.some(a => a.needsAssetQuality)) { assetQuality.apply(scene, profile); actors.forEach(a => { a.needsAssetQuality = false; }); lastAssets = time; }
-            if (time - lastShadow > 1000 / profile.shadowFps) { renderer.shadowMap.needsUpdate = true; lastShadow = time; }
+            if (time - lastAssets > 5000 || actors.some(a => a.needsAssetQuality)) { assetQuality.apply(scene, profile); actors.forEach(a => { a.needsAssetQuality = false; }); lastAssets = time; }
+            const movingShadows = actors.some(a => a.path.length || ['Cook', 'Eat', 'Drink', 'Bathe', 'Shower'].includes(a.action)) || !!draft;
+            if (time - lastShadow > 1000 / (movingShadows ? profile.shadowFps : Math.min(2, profile.shadowFps))) { renderer.shadowMap.needsUpdate = true; lastShadow = time; }
             if (dust.visible) { dust.rotation.y = Math.sin(time * .00003) * .2; dust.position.y = Math.sin(time * .0004) * .035; }
             const user=actors.find(a=>a.who==='user'), mode=view.stats().mode;
             if(user && ['first','third'].includes(mode)){
@@ -212,12 +220,13 @@
             if(overview())setViewpoint('isometric');
             H.Shapes.disposeGeometry(exteriorGroup);exteriorGroup=null;
             H.Shapes.disposeGeometry(cutawayGroup);cutawayGroup=null;
+            roomReady = false;
             const token = ++generation, previousRoom = room?.id; room = H.Rooms.get(roomId);
             if (!H.Rooms.available(room, home)) throw new Error('这个房间还在准备中。');
             villa = options.villa && H.Villa ? H.Villa.plan(roomId) : null; stairs = null; changingFloor = false; failedArea = ''; cutawayWalls = [];wallFinishes=[];doors=[];
             if (previousRoom !== roomId || villa) view.room(navigationSize(), { ...offset(roomId), y: floorY() }); quality.reset(); lampLights.forEach(l=>l.removeFromParent());lampLights = [];
             clearDraft();
-            actors.forEach(actor => { actor.released = true; }); H.Shapes.disposeGeometry(roomGroup); roomGroup = new T.Group(); scene.add(roomGroup); actors = []; furniture = [];
+            actors.forEach(actor => { actor.released = true; }); H.Shapes.disposeGeometry(roomGroup); roomGroup = new T.Group(); scene.add(roomGroup); actors = []; furniture = []; atmosphere = []; contactShadows = null;
             materials.clearSurfaces();
             const config = H.Interiors.resolve(room, home);
             skyBase=config.background; lastLighting=-Infinity;
@@ -226,10 +235,21 @@
                 const shell = villa ? H.Villa.shell(node, villa, materials, home) : H.Rooms.shell(room, materials, home);
                 if (villa) shell.traverse(mesh => { if (mesh.userData.villaWall) cutawayWalls.push(mesh);if(mesh.userData.wallFinish)wallFinishes.push(mesh);if(mesh.userData.door)doors.push(mesh); });
                 targetGroup.userData.interior = shell.userData.interior; targetGroup.add(shell);
+                if (H.Atmosphere) {
+                    const dressing = H.Atmosphere.create(node.room, materials, H.Interiors.resolve(node.room, home));
+                    if (villa) dressing.position.set(node.x, floorY(), node.z);
+                    targetGroup.add(dressing); atmosphere.push(dressing);
+                }
             }
             if (villa) { stairs = H.Villa.staircase(villa, materials); targetGroup.add(stairs.group); }
             if(villa&&!villa.level)await H.Garden.populate(targetGroup,materials,()=>!disposed&&token===generation,home);
             if(disposed||token!==generation)return false;
+            // Both characters decode concurrently with furniture. Always collect
+            // all outcomes so cancelled/failed loads can release every model.
+            const characterJobs = Promise.allSettled(['user', 'char'].map(async who => {
+                const person = who === 'user' ? H.State.load().user : home;
+                return H.CharacterModels.selected(person, who) ? H.CharacterModels.create(who, profile, H.CharacterModels.modelId(person, who)) : H.Characters.createPortrait(person.portrait, who);
+            }));
             const placements = nodes.flatMap(n => H.Rooms.placements(n.room, home).map(local => ({ local, area: n.id, placement: villa ? { ...local, id: n.id + '__' + local.id, floorY: floorY(), position: H.Villa.translate(villa, n.id, local.position) } : local })));
             // Only three GLBs decode concurrently; the previous room's geometry is released first.
             let cursor = 0; const failures = [];
@@ -251,14 +271,17 @@
                 }
             };
             await Promise.all([worker(), worker(), worker()]);
-            if (disposed || token !== generation) return false;
+            const characterResults = await characterJobs;
+            if (disposed || token !== generation || characterResults.some(r => r.status === 'rejected')) {
+                characterResults.forEach(r => { if (r.status === 'fulfilled') H.Shapes.disposeGeometry(r.value.root); });
+                if (disposed || token !== generation) return false;
+                throw characterResults.find(r => r.status === 'rejected').reason;
+            }
             // Only two furniture lights per room; decorations and materials can
             // glow without adding an unbounded number of dynamic lights on phones.
             for(let i=0;i<2;i++){const light=new T.PointLight('#ffd7a5',1,5,2);scene.add(light);lampLights.push(light);}
-            for (const who of ['user', 'char']) {
-                const person = who === 'user' ? H.State.load().user : home, portrait = person.portrait;
-                const actor = H.CharacterModels.selected(person, who) ? await H.CharacterModels.create(who, profile, H.CharacterModels.modelId(person, who)) : await H.Characters.createPortrait(portrait, who);
-                if (disposed || token !== generation) { H.Shapes.disposeGeometry(actor.root); return false; }
+            try { for (const who of ['user', 'char']) {
+                const actor = characterResults[who === 'user' ? 0 : 1].value;
                 const area = who === 'char' && villa?.nodes.some(n => n.id === activity.room) ? activity.room : roomId, origin = offset(area);
                 actor.area = area;
                 actor.root.position.set(origin.x + (who === 'user' ? 1.25 : -.8), floorY() + .07, origin.z + 1.6);
@@ -269,12 +292,14 @@
                 }
                 targetGroup.add(actor.root);
                 const spawn = H.Animation.nearest(actor.root.position, obstacles(), navigationSize(), actor.navigationRadius || .18);
-                if (!spawn) { H.Shapes.disposeGeometry(actor.root); throw Error('房间没有足够的人物活动空间，请先挪动家具。'); }
+                if (!spawn) throw Error('房间没有足够的人物活动空间，请先挪动家具。');
                 actor.root.position.set(spawn.x, floorY() + .07, spawn.z);
                 if (materials.night && actor.spriteMaterial) for (const material of [actor.spriteMaterial, actor.surface.material]) material.color.set('#dcd3d4');
                 if (who === 'char' && activity.room !== roomId && !villa?.nodes.some(n => n.id === activity.room) && !invitation?.travelWithPartner) actor.root.visible = false;
                 if (invitation && actor.root.visible) actor.sharedInteraction = true;
                 actors.push(actor);
+            } } catch (error) {
+                characterResults.forEach(result => { if (result.status === 'fulfilled') { result.value.released = true; H.Shapes.disposeGeometry(result.value.root); } }); actors = []; throw error;
             }
             setCharActivity(activity, true);
             const count = Math.min(home.keepsakes.length, 6);
@@ -283,7 +308,10 @@
                 if (disposed || token !== generation) { H.Shapes.disposeGeometry(star); return false; }
                 star.position.fromArray(worldPosition([-1.08 + i * .36, .15, 2.25])); star.userData.furniture = 'memory-' + i; targetGroup.add(star);
             }
-            applyQuality(); quality.reset(); options.onView?.();
+            if (!previousRoom) camera = view.viewpoint('interior');
+            else camera = view.active();
+            if (H.Atmosphere) { contactShadows = H.Atmosphere.contacts(furniture); targetGroup.add(contactShadows.mesh); }
+            roomReady = true; applyQuality(); quality.reset(); options.onView?.();
             if (failures.length) throw new Error('部分家具没能加载：' + failures.join('、') + '。可以重试进入。');
             return true;
         }
@@ -540,7 +568,7 @@
         }
         async function setViewpoint(mode) {
             if(changingFloor||buildMode)throw Error('先完成楼梯行走或结束装修，再切换视角。');
-            if(!['isometric','first','third','exterior','dollhouse'].includes(mode))throw Error('未知视角。');
+            if(!['interior','isometric','first','third','exterior','dollhouse'].includes(mode))throw Error('未知视角。');
             const modeToken=++viewToken;
             clearInspection();
             const user=actors.find(a=>a.who==='user');if(user)view.follow({eye:H.Characters.geometry(user).head,yaw:user.root.rotation.y,lookAt:offset(room.id)});

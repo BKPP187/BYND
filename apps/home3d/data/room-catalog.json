@@ -394,10 +394,11 @@
           "id": "frame",
           "furnitureId": "frame_01",
           "position": [
-            -0.8,
+            -3.18,
             1.85,
-            -2.65
-          ]
+            -0.7
+          ],
+          "rotation": 1.5707963267948966
         },
         {
           "id": "speaker-left",

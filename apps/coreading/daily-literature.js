@@ -10,12 +10,18 @@ const CoReadLiterature = (() => {
     function occasion(date = new Date()) {
         const month = date.getMonth() + 1, day = date.getDate();
         if (month === 10 && day <= 7) return { title: '国庆', category: 'shuqing/aiguo' };
-        const fixed = { '1-1': ['元旦','jieri/chunjie'], '5-1': ['劳动节','shenghuo/tianyuan'], '6-1': ['儿童节','renwu/ertong'] }[`${month}-${day}`];
+        const fixed = { '1-1': ['元旦','jieri/chunjie'], '2-14': ['情人节','all'], '3-8': ['妇女节','all'],
+            '5-1': ['劳动节','shenghuo/tianyuan'], '6-1': ['儿童节','renwu/ertong'],
+            '12-24': ['平安夜','all'], '12-25': ['圣诞节','all'] }[`${month}-${day}`];
         const lunar = typeof getChatApiLunarDateParts === 'function' ? getChatApiLunarDateParts(date) : null;
         const festival = lunar && !lunar.isLeap ? {
             '1-1': ['春节','jieri/chunjie'], '1-15': ['元宵','jieri/yuanxiaojie'], '5-5': ['端午','jieri/duanwujie'],
-            '7-7': ['七夕','jieri/qixijie'], '8-15': ['中秋','jieri/zhongqiujie'], '9-9': ['重阳','jieri/chongyangjie']
+            '7-7': ['七夕','jieri/qixijie'], '8-15': ['中秋','jieri/zhongqiujie'], '9-9': ['重阳','jieri/chongyangjie'], '12-8': ['腊八','all']
         }[`${lunar.month}-${lunar.day}`] : null;
+        if (lunar?.month === 12 && lunar.day >= 29) {
+            const next = getChatApiLunarDateParts(new Date(date.getFullYear(), date.getMonth(), day + 1));
+            if (next?.month === 1 && next.day === 1 && !next.isLeap) return { title: '除夕', category: 'jieri/chunjie' };
+        }
         const value = festival || fixed;
         return value ? { title: value[0], category: value[1] } : null;
     }
@@ -82,15 +88,23 @@ const CoReadLiterature = (() => {
         if (midnightTimer) clearTimeout(midnightTimer);
         const now = new Date();
         midnightTimer = setTimeout(() => {
+            if (typeof CoReadAlmanac !== 'undefined') { CoReadAlmanac.refreshTerms(); CoReadAlmanac.refreshHistory(); }
             refresh(); schedule();
         }, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime() + 50);
     }
     function init() {
+        if (typeof CoReadAlmanac !== 'undefined') { CoReadAlmanac.refreshTerms(); CoReadAlmanac.refreshHistory(); }
         schedule(); refresh(true);
         if (!init.bound) {
             init.bound = true;
-            window.addEventListener('online', () => { if (!get()) refresh(true); });
-            document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'hidden') { refresh(); schedule(); } });
+            window.addEventListener('online', () => {
+                if (!get()) refresh(true);
+                if (typeof CoReadAlmanac !== 'undefined' && !CoReadAlmanac.history()) CoReadAlmanac.refreshHistory();
+            });
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'hidden') {
+                if (typeof CoReadAlmanac !== 'undefined') CoReadAlmanac.refreshHistory();
+                refresh(); schedule();
+            } });
         }
     }
     function source(entry) {

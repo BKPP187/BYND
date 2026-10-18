@@ -96,4 +96,4 @@ async function createLocalEnvironment(directory, origin) {
         PUBLIC_ORIGIN: origin, LICENSE_ACTIVATION_ENABLED: 'true', SALES_ENABLED: 'false', EMAIL_ENABLED: 'false',
         APK_ALLOWED_HOSTS: 'bynd.ccwu.cc', APK_SIGNER_SHA256: process.env.BYND_APK_SIGNER_SHA256 || '', ACTIVATION_RATE_LIMITER: limiter(), RECEIPT_RATE_LIMITER: limiter() };
 }
-module.exports = { LocalD1, LocalBucket, createLocalEnvironment };
+module.exports = { LocalD1, LocalBucket, createLocalEnvironment, createLocalRateLimiter: limiter };

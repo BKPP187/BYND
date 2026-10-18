@@ -42,7 +42,7 @@ test('voice mode stays in the composer, monitor text is bounded, and the poke he
     const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
     assert.match(source, /if \(panel\) panel\.classList\.add\('hidden'\)/);
-    assert.match(source, /stripWechatPromptText\(phrase, 72\)/);
+    assert.match(source, /stripWechatPromptText\(phrase, 4000\)/);
     assert.doesNotMatch(html, /填写“的”后面的内容/);
     assert.match(css, /\.wc-message-island-text span\s*\{[\s\S]*?-webkit-line-clamp: 2/);
     assert.match(css, /\.wc-monitor-comment-text\s*\{[\s\S]*?white-space: normal/);

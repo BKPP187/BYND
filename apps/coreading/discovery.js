@@ -85,29 +85,51 @@ function renderCoReadDaily() {
     const rec = getCoReadDailyRecommendation();
     const quote = CoReadLiterature.get();
     const holiday = CoReadLiterature.occasion();
+    const almanac = CoReadAlmanac.model();
+    const history = CoReadAlmanac.history();
+    const historyStatus = CoReadAlmanac.historyStatus;
     const text = quote?.text || CoReadLiterature.status || '正在获取今日文句…';
     const volume = `VOL.${String(new Date().getDate()).padStart(2, '0')}`;
     const card = document.getElementById('coread-daily-card');
     const line = document.getElementById('coread-daily-line');
     if (line) line.textContent = text;
     const heading = document.getElementById('coread-daily-title');
-    if (heading) heading.textContent = holiday?.title || '每日一言';
+    if (heading) heading.textContent = almanac.title;
     const volumeBox = document.getElementById('coread-daily-volume');
     if (volumeBox) volumeBox.textContent = volume;
     if (card) card.innerHTML = `
-        <article class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}">
+        <article class="coread-daily-book coread-sense-card${holiday ? ' is-holiday' : ''}${almanac.title.length > 2 ? ' has-long-title' : ''}">
             <span>${musicEscapeHtml(volume)}</span><b>SENSE</b><i aria-hidden="true"></i>
             <em>${musicEscapeHtml(text)}</em>
             <div class="coread-quote-byline">${quote ? `<span>${musicEscapeHtml([quote.author, quote.work ? `《${quote.work}》` : ''].filter(Boolean).join(' · ') || '出处未提供')}</span>
                 <a href="${musicEscapeAttr(CoReadLiterature.source(quote))}" target="_blank" rel="noopener noreferrer">${musicEscapeHtml(quote.provider)}</a>` : ''}
                 ${quote && CoReadLiterature.status ? `<span class="coread-quote-status" role="status">${musicEscapeHtml(CoReadLiterature.status)}</span>` : ''}
             </div>
-            <strong><span class="coread-sense-title-text">${musicEscapeHtml(holiday?.title || '惊喜')}</span></strong>
-            <small>${musicEscapeHtml(holiday ? `${holiday.title} · ${CoReadLiterature.today()}` : `每日一言 · ${CoReadLiterature.today()}`)}</small>
+            <strong><span class="coread-sense-title-text">${musicEscapeHtml(almanac.title)}</span></strong>
+            <small>${musicEscapeHtml([almanac.subtitle, almanac.date].filter(Boolean).join(' · '))}</small>
+            <section class="coread-history" aria-label="历史上的今天">
+                <header><h2>历史上的今天</h2><span>${history ? `${history.events.length} 件往事` : ''}</span></header>
+                <div class="coread-history-body" aria-live="polite">
+                    ${history ? history.events.map(event => `<article class="coread-history-event"><time>${musicEscapeHtml(event.year)}年</time>
+                        ${event.title ? `<h3>${musicEscapeHtml(event.title)}</h3>` : ''}<p>${musicEscapeHtml(event.text)}</p></article>`).join('') : ''}
+                    ${historyStatus || !history ? `<button type="button" class="coread-history-status" onclick="CoReadAlmanac.refreshHistory(true)">${musicEscapeHtml(historyStatus || '正在翻阅历史…')}</button>` : ''}
+                    ${history ? `<a class="coread-history-source" href="${musicEscapeAttr(CoReadAlmanac.historySource(new Date(), history.provider))}" target="_blank" rel="noopener noreferrer">来源：${musicEscapeHtml(history.provider)}</a>` : ''}
+                    <a class="coread-history-more" href="${musicEscapeAttr(CoReadAlmanac.historySource())}" target="_blank" rel="noopener noreferrer">查看当天的更多故事 ↗</a>
+                    ${history?.provider === '维基百科' ? '<span class="coread-history-license">CC BY-SA 4.0</span>' : ''}
+                </div>
+            </section>
         </article>`;
 }
 
 function handleCoReadBack() {
+    if (coreadAuthorSupport) {
+        closeCoReadAuthorSupport();
+        return false;
+    }
+    if (coreadReviewAnchor) {
+        closeCoReadParagraphReviews();
+        return false;
+    }
     if (coreadActiveTab === 'reader' && coreadReaderPanelOpen) {
         closeCoReadReaderPanel();
         return false;
@@ -220,6 +242,8 @@ function renderCoReadApp() {
         coreadSettingsOpen = false;
         coreadCommentPanelOpen = false;
     }
+    renderCoReadParagraphReviews();
+    renderCoReadAuthorSupport();
     if (!coreadActiveBookId && library[0]) coreadActiveBookId = library[0].id;
     if (!coreadActiveCharId && getCoReadCharacters()[0]) coreadActiveCharId = getCoReadCharacters()[0].id;
     if (!isReader) {

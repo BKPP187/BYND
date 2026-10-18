@@ -51,6 +51,8 @@ function closeChat(event) {
         return;
     }
     closeChatToolbar();
+    document.getElementById('wc-monitor-barrage')?.remove();
+    document.getElementById('wc-monitor-reader')?.remove();
     setWechatVoiceInputMode(false, { keepDraft: true });
     const room = document.getElementById('wechat-chat-room');
     if (room) {

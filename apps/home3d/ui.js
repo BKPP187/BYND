@@ -124,7 +124,7 @@
     }
     function showViewControls() {
         const stats=H.runtime?.stats();if(!stats)return;
-        const views=[['isometric','俯视'],['first','第一人称'],['third','第三人称'],...(stats.villa?[['exterior','整栋含屋顶'],['dollhouse','全屋剖面']]:[])];
+        const views=[['interior','室内近景'],['isometric','俯视'],['first','第一人称'],['third','第三人称'],...(stats.villa?[['exterior','整栋含屋顶'],['dollhouse','全屋剖面']]:[])];
         const choices=views.map(([id,label])=>button('viewpoint',label,'','data-view="'+id+'" aria-pressed="'+(stats.camera.mode===id)+'"')).join('');
         const walls=stats.villa&&!['exterior','dollhouse'].includes(stats.camera.mode)?'<p class="home3d-view-label">墙体</p><div class="home3d-view-choices">'+[['cutaway','墙体剖切'],['full','显示墙体'],['hidden','隐藏墙体']].map(([id,label])=>button('wall-mode',label,'','data-wall="'+id+'" aria-pressed="'+(stats.villa.walls===id)+'"')).join('')+'</div>':'';
         const travel=stats.villa?button('villa-floor',stats.villa.level?'人物走下一楼':'人物走上二楼','ri-stairs-line','data-room="'+(stats.villa.level?'stair_hall':'landing')+'" class="home3d-wide"'):'';
@@ -169,7 +169,7 @@
         if (subtitle === 'TA 的此刻') { const home = H.State.home(); content = '<p class="home3d-fineprint">共同生活第 ' + Math.max(1, Math.floor((Date.now() - home.createdAt) / 86400000) + 1) + ' 天 · ' + home.keepsakes.length + ' 件小小纪念</p>' + content; }
         const box = root.querySelector('.home3d-modal'); box.hidden = false;
         box.innerHTML = '<section class="home3d-sheet" role="dialog" aria-modal="true" aria-label="' + esc(title || subtitle) + '"><div class="home3d-sheet-head"><div><span>' + esc(subtitle) + '</span>' + (title ? '<h2>' + esc(title) + '</h2>' : '') + '</div>' + button('dismiss', '', 'ri-close-line', 'aria-label="关闭"') + '</div><div class="home3d-sheet-body">' + content + '</div></section>';
-        refreshApiControls(); box.querySelector('button')?.focus();
+        refreshApiControls(); loadSettingsPreviews(); box.querySelector('button')?.focus();
         refreshQuality();
     }
     function dismiss() { const box = root?.querySelector('.home3d-modal'); if (box) box.hidden = true; }
@@ -225,9 +225,9 @@
     }
     function portraitCard(person, who) {
         const model = H.CharacterModels.selected(person, who), id = who === 'user' ? 'bunny-blue-v1' : 'silver-red-v1';
-        const image = person.portraitDraft || person.portrait, url = image?.url || (model ? H.initialModelPortraits[who] : H.initialPortraits[who]);
+        const image = person.portraitDraft || person.portrait, url = image?.url || (model ? H.initialModelPortraits?.[who] : H.initialPortraits?.[who]);
         const choice = '<label class="home3d-field">小屋人物<select id="home3d-' + (who === 'user' ? 'user' : 'character') + '-model"><option value="' + id + '" ' + (model ? 'selected' : '') + '>' + (who === 'user' ? '兔耳蓝裙女生' : '银发男生') + ' · 3D 模型</option><option value="portrait" ' + (!model ? 'selected' : '') + '>已保存的 Q 版立绘</option></select></label>';
-        const card = '<div class="home3d-portrait-preview"><img src="' + esc(url) + '" alt="' + (who === 'user' ? '我的' : '角色') + ' Q 版立绘"><span>' + (person.portraitDraft ? '新形象 · 待确认' : person.portrait ? '已保存的立绘' : model ? '3D 初始形象预览 · 可生成专属立绘' : '初始立绘 · 可生成专属形象') + '</span></div>' + button('generate-' + who, '<span data-image-label>AI 生成 Q 版立绘</span>', 'ri-sparkling-line', 'class="home3d-wide" data-home-image data-idle="AI 生成 Q 版立绘" data-pending="正在生成立绘…"') + (person.portraitDraft ? '<div class="home3d-portrait-confirm">' + button('confirm-portrait', '使用这个形象', '', 'data-who="' + who + '"') + button('discard-portrait', '保留原形象', '', 'data-who="' + who + '"') + '</div>' : '');
+        const card = '<div class="home3d-portrait-preview"><img ' + (url ? 'src="' + esc(url) + '"' : 'data-initial-preview="' + who + '" data-preview-model="' + model + '"') + ' alt="' + (who === 'user' ? '我的' : '角色') + ' Q 版立绘"><span>' + (person.portraitDraft ? '新形象 · 待确认' : person.portrait ? '已保存的立绘' : model ? '3D 初始形象预览 · 可生成专属立绘' : '初始立绘 · 可生成专属形象') + '</span></div>' + button('generate-' + who, '<span data-image-label>AI 生成 Q 版立绘</span>', 'ri-sparkling-line', 'class="home3d-wide" data-home-image data-idle="AI 生成 Q 版立绘" data-pending="正在生成立绘…"') + (person.portraitDraft ? '<div class="home3d-portrait-confirm">' + button('confirm-portrait', '使用这个形象', '', 'data-who="' + who + '"') + button('discard-portrait', '保留原形象', '', 'data-who="' + who + '"') + '</div>' : '');
         return choice + (model ? '<details><summary>立绘与生图</summary>' + card + '</details>' : card);
     }
     function qualityControls() {
@@ -263,6 +263,14 @@
         const chars = H.Bridge.characters(), char = H.Bridge.char();
         referenceDraft = data.user.reference || '';
         modal('', '小屋设置', '<p class="home3d-fineprint">小屋支持立体模型和透明 Q 版立绘，可在下方切换。生图生成的是立绘，先预览，确认后才替换。</p><h3 class="home3d-list-title">我的形象</h3><button type="button" class="home3d-reference" data-action="pick-user">' + (referenceDraft ? '<img src="' + esc(referenceDraft) + '" alt="我的参考图">' : icon('ri-user-smile-line')) + '<span>' + esc(data.user.name || '我') + '<small>更换自己的参考图</small></span><b>＋</b></button>' + portraitCard(data.user, 'user') + '<h3 class="home3d-list-title">' + esc(H.Bridge.name(char)) + '的形象</h3><p class="home3d-fineprint">参考图沿用聊天设置，生成时保留人物的发型、衣服与配饰。</p>' + portraitCard(home, 'char') + '<p class="home3d-fineprint" data-image-cooldown hidden></p>'  + '<h3 class="home3d-list-title">家的气氛</h3><div class="home3d-theme-options">' + Object.entries({ auto: { name: '跟随昼夜' }, ...H.catalogs.materialPresets.themes }).map(([id, theme]) => button('theme', esc(theme.name), '', 'data-theme="' + id + '" class="' + (home.theme === id ? 'is-current' : '') + '"')).join('') + '</div><label class="home3d-check"><input type="checkbox" id="home3d-consent" ' + (home.consentHug ? 'checked' : '') + '>允许小屋中的拥抱、互喂互动</label><label class="home3d-field">我们现在的关系<select id="home3d-relationship">' + ['朋友', '亲近', '恋人', '家人'].map(value => '<option ' + (home.relationship === value ? 'selected' : '') + '>' + value + '</option>').join('') + '</select></label><h3 class="home3d-list-title">切换同住角色</h3><label class="home3d-field"><select id="home3d-rebind">' + chars.map(char => '<option value="' + esc(char.id) + '" ' + (String(char.id) === data.activeCharId ? 'selected' : '') + '>' + esc(H.Bridge.name(char)) + '</option>').join('') + '</select></label><p class="home3d-fineprint">每位角色都有各自的小屋存档，照片和回忆会保留。小屋存档随 BYND 的整机备份一起保存。</p>' + button('rebind', '和这个人回家', 'ri-home-heart-line', 'class="home3d-wide"') + '<h3 class="home3d-list-title">以后，还有更多日常</h3><div class="home3d-future-rooms">' + H.catalogs.roomCatalog.rooms.filter(room => !H.Rooms.available(room, home)).map(room => '<span>' + icon(room.icon) + esc(room.name) + '</span>').join('') + '</div>' + button('expand', '给家添一间房', 'ri-add-line', 'class="home3d-wide"') + button('licenses', '家具与 3D 资源来源', 'ri-information-line', 'class="home3d-wide"'));
+    }
+    function loadSettingsPreviews() {
+        for (const image of root.querySelectorAll('[data-initial-preview]')) {
+            const model = image.dataset.previewModel === 'true', key = model ? 'initialModelPortraits' : 'initialPortraits';
+            H.loadScript('assets/home3d/characters/' + (model ? 'initial-model-previews.js' : 'initial-portraits.js')).then(() => {
+                if (image.isConnected) image.src = H[key][image.dataset.initialPreview];
+            }).catch(error => { if (image.isConnected) notice(error.message, true); });
+        }
     }
     function showPhotos() {
         const photos = H.Bridge.photos();
@@ -350,7 +358,7 @@
                 case 'view-menu': showViewControls(); break;
                 case 'viewpoint': await H.runtime?.setViewpoint(target.dataset.view); dismiss(); break;
                 case 'view-floor': await H.runtime?.browseFloor(Number(target.dataset.floorDirection)); refreshFloorView(); break;
-                case 'return-person': await H.runtime?.setViewpoint('isometric');refreshFloorView();break;
+                case 'return-person': await H.runtime?.setViewpoint('interior');refreshFloorView();break;
                 case 'wall-mode': H.runtime?.setWalls(target.dataset.wall); dismiss(); break;
                 case 'zoom-in': H.runtime?.zoom(0.15); break;
                 case 'zoom-out': H.runtime?.zoom(-0.15); break;

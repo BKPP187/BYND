@@ -13,7 +13,7 @@ function setup() {
     const elements = new Map();
     const store = new Map();
     const events = [];
-    let fail = false;
+    let failure = null;
     const noop = () => {};
     const context = vm.createContext({
         document: {
@@ -27,7 +27,7 @@ function setup() {
         localStorage: {
             getItem: key => store.get(key) || null,
             setItem: (key, value) => {
-                if (fail) throw new Error('QA storage full');
+                if (failure) throw failure;
                 store.set(key, value);
             },
             removeItem: key => store.delete(key)
@@ -47,12 +47,13 @@ function setup() {
         setLockMusicText: noop, applyLockscreenOptions: noop, renderWidget: noop,
         refreshDesktopThemedIcons: data => events.push({ type: 'refresh', icons: data.icons }),
         applyGlobalTapEffectSettings: noop, applyLsShortcuts: noop,
-        alert: text => events.push({ type: 'alert', text }),
+        console: { error: noop },
+        showThemeSaveFeedback: (saved, text) => events.push({ type: 'feedback', saved, text }),
         closeApp: app => events.push({ type: 'close', app })
     });
     vm.runInContext(prefix + '\n' + iconFunctions, context);
     vm.runInContext(theme.slice(theme.indexOf('function saveTheme()'), theme.indexOf('// 5. 初始化')), context);
-    return { context, elements, store, events, failSaving: () => { fail = true; } };
+    return { context, elements, store, events, failSaving: (name = 'Error') => { failure = Object.assign(new Error('QA storage full'), { name }); } };
 }
 
 test('all desktop and dock apps have matching customization slots, including MCP and pet', () => {
@@ -112,8 +113,8 @@ test('saving replacement icons persists and refreshes both new apps', () => {
     assert.equal(c.getDesktopThemeIconUrl('mcp', saved), elements.get('input-icon-17').value);
     assert.equal(c.getDesktopThemeIconUrl('pet', saved), elements.get('input-icon-18').value);
     assert.equal(events.filter(event => event.type === 'refresh').length, 1);
-    assert.ok(events.some(event => event.type === 'alert' && event.text.includes('保存成功')));
-    assert.ok(events.some(event => event.type === 'close'));
+    assert.ok(events.some(event => event.type === 'feedback' && event.saved));
+    assert.ok(!events.some(event => event.type === 'close'), 'keep settings visible until the user dismisses feedback');
 });
 
 test('a failed icon save preserves the previous theme and never refreshes or claims success', () => {
@@ -124,7 +125,15 @@ test('a failed icon save preserves the previous theme and never refreshes or cla
     failSaving();
     c.saveTheme();
     assert.equal(store.get('my_theme_data'), previous);
-    assert.ok(events.some(event => event.type === 'alert' && event.text.includes('错误')));
+    assert.ok(events.some(event => event.type === 'feedback' && !event.saved));
     assert.ok(!events.some(event => event.type === 'refresh' || event.type === 'close'));
     assert.ok(!events.some(event => event.text?.includes('保存成功')));
+});
+
+test('storage quota failure gives an actionable message without closing settings', () => {
+    const { context: c, events, failSaving } = setup();
+    failSaving('QuotaExceededError');
+    c.saveTheme();
+    assert.ok(events.some(event => event.type === 'feedback' && !event.saved && event.text.includes('存储空间不足')));
+    assert.ok(!events.some(event => event.saved || event.type === 'close' || event.type === 'refresh'));
 });

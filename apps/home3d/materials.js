@@ -127,6 +127,7 @@
         },
         disposeGeometry(root) {
             const disposed = new Set(); root?.traverse(node => {
+                if (node.isInstancedMesh) node.dispose();
                 const resources = [node.geometry, ...(node.userData.renderLods || []), node.userData.ownedTexture, node.userData.ownedMaterial, node.userData.ownedSkeleton, ...(node.userData.ownedTextures || []), ...(node.userData.ownedMaterials || [])];
                 for (const resource of resources) if (resource && !disposed.has(resource)) { disposed.add(resource); resource.dispose(); }
             });

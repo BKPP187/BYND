@@ -389,6 +389,8 @@ test('generated images reach the gallery after persistence; permission and stora
         h.context.callWechatImageGenerationApi = async () => { requests++; return mode === 'api-failed' ? { ok: false, error: 'API 失败' } : { ok: true, url: 'https://example.test/generated.jpg' }; };
         h.context.recordWechatGeneratedImageToAlbum = async () => { album++; if (mode === 'album-failed') throw new Error('相册保存失败'); return true; };
         if (mode === 'save-failed') h.state.saveResult = () => false;
+        h.context.cleanWechatVisibleContent = value => String(value || '');
+        vm.runInContext(sourceSection('wechat.js', 'function isWechatCharacterStickerImage(', 'function buildWechatCharacterImagePrompt('), h.context);
         vm.runInContext(sourceSection('wechat.js', 'async function resolveWechatAiGeneratedImage(', 'function selectWechatShopPayer('), h.context);
         await h.context.resolveWechatAiGeneratedImage(h.char, msg);
         assert.equal(requests, mode === 'denied' ? 0 : 1);
