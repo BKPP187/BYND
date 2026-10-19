@@ -54,7 +54,7 @@ async function main() {
             });
             assert.equal(await page.locator('#qq-number').inputValue(), '3648068162');
             assert.equal(await page.locator('#payment-cashier, #payment-code, #afdian-payment').count(), 0);
-            assert.equal(await page.locator('.qq-code').getAttribute('href'), 'assets/website/bynd-qq-contact-ca44cdaaaaa9.png');
+            assert.equal(await page.locator('.qq-code').getAttribute('href'), 'assets/contact/bynd-qq-contact-ca44cdaaaaa9.png');
             assert.equal(service.env.DB.database.prepare('SELECT count(*) AS n FROM licenses').get().n, 0);
         }
         assert.deepEqual(writes, [], 'Returning from a payment app must not claim or issue a license');

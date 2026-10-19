@@ -24,7 +24,7 @@ async function start({ port = Number(process.env.BYND_LICENSE_DEV_PORT || 8993),
             }
             let file;
             if (['/', '/shop.html', '/account.html', '/checkout.html', '/license-admin.html', '/license-receipt.html'].includes(pathname)) file = pathname === '/' ? 'shop.html' : pathname.slice(1);
-            else if (/^\/assets\/website\/[a-z0-9-]+\.(css|js|png|webp)$/.test(pathname)) file = pathname.slice(1);
+            else if (/^\/assets\/(website|contact)\/[a-z0-9-]+\.(css|js|png|webp)$/.test(pathname)) file = pathname.slice(1);
             if (!file || !['GET', 'HEAD'].includes(incoming.method) || !fs.existsSync(path.join(root, file))) { outgoing.writeHead(404); outgoing.end(); return; }
             const type = file.endsWith('.html') ? 'text/html; charset=utf-8' : file.endsWith('.css') ? 'text/css; charset=utf-8' : file.endsWith('.js') ? 'text/javascript; charset=utf-8' : file.endsWith('.webp') ? 'image/webp' : 'image/png';
             outgoing.writeHead(200, { 'Content-Type': type, 'Cache-Control': websiteCacheControl(pathname), 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff',

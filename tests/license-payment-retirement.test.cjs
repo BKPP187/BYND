@@ -76,10 +76,20 @@ test('all applied payment migrations remain byte-identical after newline normali
 test('QQ contact replaces provider clients and retains the exact supplied contact image', () => {
     const html = fs.readFileSync(path.join(root, 'checkout.html'), 'utf8');
     assert.doesNotMatch(html, /支付宝|爱发电|payment-cashier|payment-order-number|payment-code|assets\/website\/payment\.js/);
-    for (const file of fs.readdirSync(path.join(root, 'assets/website')).filter(name => name.endsWith('.js'))) {
-        assert.doesNotMatch(fs.readFileSync(path.join(root, 'assets/website', file), 'utf8'), /\/payment\/v1\/|alipaydev\.com|\/pay\/afdian\//, file);
+    for (const group of ['website', 'contact']) for (const file of fs.readdirSync(path.join(root, 'assets', group)).filter(name => name.endsWith('.js'))) {
+        assert.doesNotMatch(fs.readFileSync(path.join(root, 'assets', group, file), 'utf8'), /\/payment\/v1\/|alipaydev\.com|\/pay\/afdian\//, file);
     }
     assert.match(html, /id="qq-number" value="3648068162"/);
-    const image = fs.readFileSync(path.join(root, 'assets/website/bynd-qq-contact-ca44cdaaaaa9.png'));
+    const image = fs.readFileSync(path.join(root, 'assets/contact/bynd-qq-contact-ca44cdaaaaa9.png'));
     assert.equal(crypto.createHash('sha256').update(image).digest('hex'), 'ca44cdaaaaa911127f20eea036a8ad4f0cc4973e3cd40c73f1ab302aaf12088d');
+});
+
+test('changed contact assets bypass the legacy website route and every page reference exists', () => {
+    for (const page of ['shop.html', 'checkout.html', 'license-admin.html']) {
+        const html = fs.readFileSync(path.join(root, page), 'utf8');
+        assert.doesNotMatch(html, /assets\/website\/(?:checkout|shop|admin)\.js|assets\/website\/(?:payment\.css|bynd-qq-contact)/);
+        for (const match of html.matchAll(/(?:src|href)="(assets\/[^"?#]+)/g)) {
+            assert.equal(fs.existsSync(path.join(root, match[1])), true, page + ': ' + match[1]);
+        }
+    }
 });

@@ -4,7 +4,7 @@ export function websiteCacheControl(path, status = 200) {
 }
 export async function website(request, env) {
     const path = new URL(request.url).pathname;
-    if (!['/shop.html', '/account.html', '/checkout.html', '/license-admin.html', '/license-receipt.html'].includes(path) && !/^\/assets\/website\/[a-z0-9-]+\.(css|js|png|webp)$/.test(path)) return null;
+    if (!['/shop.html', '/account.html', '/checkout.html', '/license-admin.html', '/license-receipt.html'].includes(path) && !/^\/assets\/(website|contact)\/[a-z0-9-]+\.(css|js|png|webp)$/.test(path)) return null;
     if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 });
     if (!env.ASSETS) return new Response('Website assets are not configured', { status: 503 });
     const response = await env.ASSETS.fetch(request), headers = new Headers(response.headers);

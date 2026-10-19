@@ -11,7 +11,7 @@ execFileSync(process.execPath, [path.join(__dirname, 'assemble-sources.cjs')], {
 fs.mkdirSync(web, { recursive: true });
 function copyWeb(source, destination) {
     const relative = path.relative(root, source).split(path.sep).join('/');
-    if (['shop.html', 'account.html', 'checkout.html', 'license-admin.html', 'license-receipt.html'].includes(relative) || relative === 'assets/website' || relative.startsWith('assets/website/')) return;
+    if (['shop.html', 'account.html', 'checkout.html', 'license-admin.html', 'license-receipt.html'].includes(relative) || /^assets\/(website|contact)(\/|$)/.test(relative)) return;
     const stat = fs.lstatSync(source);
     if (stat.isSymbolicLink()) throw new Error(`Web assets cannot be symbolic links: ${source}`);
     if (stat.isDirectory()) {

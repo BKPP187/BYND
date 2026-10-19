@@ -43,7 +43,7 @@ function inspectApk(file, { verifyResources = true } = {}) {
         for (const [name, read] of entries) {
             if (!name.startsWith('assets/www/') || name.endsWith('/')) continue;
             const relative = name.slice('assets/www/'.length);
-            if (relative.startsWith('assets/website/') || ['shop.html', 'license-admin.html', 'license-receipt.html'].includes(relative)) throw Error('Website-only asset found in APK');
+            if (/^assets\/(website|contact)\//.test(relative) || ['shop.html', 'license-admin.html', 'license-receipt.html'].includes(relative)) throw Error('Website-only asset found in APK');
             const source = path.join(root, relative), stage = path.join(staged, relative), content = read();
             if (!fs.existsSync(stage) || !fs.readFileSync(stage).equals(content) || !fs.existsSync(source) || !fs.readFileSync(source).equals(content)) throw Error('APK resource differs from current source: ' + relative);
             verifiedFiles++;
