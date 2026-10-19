@@ -87,7 +87,7 @@ test('QQ contact replaces provider clients and retains the exact supplied contac
 test('changed contact assets bypass the legacy website route and every page reference exists', () => {
     for (const page of ['shop.html', 'checkout.html', 'license-admin.html']) {
         const html = fs.readFileSync(path.join(root, page), 'utf8');
-        assert.doesNotMatch(html, /assets\/website\/(?:checkout|shop|admin)\.js|assets\/website\/(?:payment\.css|bynd-qq-contact)/);
+        assert.doesNotMatch(html, /assets\/website\/(?:checkout|shop|admin)\.js|assets\/website\/(?:payment\.css|bynd-qq-contact|bynd-payment-frame)/);
         for (const match of html.matchAll(/(?:src|href)="(assets\/[^"?#]+)/g)) {
             assert.equal(fs.existsSync(path.join(root, match[1])), true, page + ': ' + match[1]);
         }
