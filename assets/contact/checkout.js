@@ -1,11 +1,5 @@
 (function () {
     'use strict';
-    const policy = document.getElementById('refund-policy');
-    function openRefundPolicy() {
-        if (policy && location.hash === '#refund-policy') policy.open = true;
-    }
-    openRefundPolicy();
-    window.addEventListener('hashchange', openRefundPolicy);
     const number = document.getElementById('qq-number'), status = document.getElementById('qq-status');
     document.getElementById('qq-copy').onclick = async () => {
         try {

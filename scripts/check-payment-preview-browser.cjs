@@ -19,6 +19,7 @@ async function main() {
         await page.goto(service.origin + '/shop.html');
         await page.waitForFunction(() => document.getElementById('shop-status').textContent.length > 0);
         assert.equal(await page.locator('.price-row strong').innerText(), '¥13.88');
+        assert.doesNotMatch(await page.locator('body').innerText(), /退款|手续费/);
         assert.equal(await page.locator('.purchase-button').getAttribute('href'), 'checkout.html');
         await page.locator('.purchase-button').click();
         await page.locator('.payment-art>img').evaluate(image => image.decode());
@@ -60,7 +61,9 @@ async function main() {
         assert.deepEqual(writes, [], 'Returning from a payment app must not claim or issue a license');
         assert.deepEqual(retiredRequests, [], 'Checkout must never call retired payment endpoints');
         await page.goto(service.origin + '/checkout.html#refund-policy');
-        await page.waitForFunction(() => document.getElementById('refund-policy').open);
+        await page.waitForLoadState('networkidle');
+        assert.equal(await page.locator('#refund-policy, .refund-notice, a[href*="refund-policy"]').count(), 0);
+        assert.doesNotMatch(await page.locator('body').innerText(), /退款|手续费/);
         assert.equal(await page.locator('#payment-cashier, #payment-code').count(), 0);
         await page.evaluate(() => {
             Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedQQ = value; } } });
@@ -86,7 +89,7 @@ async function main() {
         assert.deepEqual(errors, []);
         const staged = path.join(root, '.bynd-distribution-web/assets/website');
         if (fs.existsSync(staged)) assert.equal(fs.readdirSync(staged).some(name => /alipay|framed-preview|original|^(payment|afdian)\.js$/.test(name)), false, 'Retired clients and collection codes must stay out of deployment assets');
-        const result = { qqContact: '3648068162', originalContactImage: true, copySuccessAndFailure: true, contactWorksDuringOutage: true, noRetiredPaymentRequests: true, refundAnchorOpens: true, clientReturnCannotGrant: true, unauthorizedIssuanceRejected: true, narrowSafeAreaCases: 8, javascriptErrors: errors };
+        const result = { qqContact: '3648068162', originalContactImage: true, copySuccessAndFailure: true, contactWorksDuringOutage: true, noRetiredPaymentRequests: true, refundSectionRemoved: true, clientReturnCannotGrant: true, unauthorizedIssuanceRejected: true, narrowSafeAreaCases: 8, javascriptErrors: errors };
         fs.writeFileSync(path.join(output, 'browser-check.json'), JSON.stringify(result, null, 2));
         console.log(JSON.stringify(result));
     } finally { if (browser) await browser.close(); if (service) await service.close(); }

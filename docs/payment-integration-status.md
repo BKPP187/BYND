@@ -21,10 +21,11 @@
 
 - `/payment/v1/*`、`/license/v1/pay/afdian/*`、`/admin/v1/pay/afdian/recheck` 不再挂载，旧渠道开关不能重新启用；旧记录保留但不会继续自动发码。
 - 首页购买按钮始终进入本站 QQ 联系页，不再根据旧购买配置跳往支付平台。下载信息暂时不可读取时，QQ 联系仍可使用。
+- 当前没有外接收款接口，购买页和 QQ 联系页均不展示原渠道退款与手续费说明；对应入口、样式和锚点脚本已移除。
 - QQ 码来自用户提供的原始 PNG，SHA-256 为 `ca44cdaaaaa911127f20eea036a8ad4f0cc4973e3cd40c73f1ab302aaf12088d`；只在 HTML/CSS 中套框显示，没有重绘二维码。原图点击可放大。边框原始生成记录见归档分支的本文件。
 - 联系页图片、CSS 及修改过的页面脚本位于 `assets/contact/`，避开线上旧 `/assets/website/*` Worker 静态路由，随 Pages 更新。预览服务、独立网站打包与移动端资源排除规则均覆盖该目录。
 - 管理后台保留人工签发、领取链接及邮件交付；移除爱发电订单核对。账号中的既有激活码仍可查看。
 - 角色手机的虚构支付宝应用、屏幕陪伴的支付应用隐私排除规则不属于收款接口，保持原功能。
 - `node --test tests/license-payment-retirement.test.cjs tests/license-distribution.test.cjs` 检查旧接口不可用、历史数据不变、迁移一致，以及领取、签发和邮件失败路径。
-- `node scripts/check-payment-preview-browser.cjs` 检查 QQ 入口、复制成功与失败、后台故障、无旧渠道请求、伪造回跳不发码、退款锚点及窄屏安全区。
+- `node scripts/check-payment-preview-browser.cjs` 检查 QQ 入口、复制成功与失败、后台故障、无旧渠道请求、伪造回跳不发码、无退款及手续费区块、窄屏安全区。
 - `node scripts/check-license-flow-browser.cjs` 回归管理后台、人工交付、领取、禁用及失败恢复。
