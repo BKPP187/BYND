@@ -11,8 +11,7 @@
   <link rel="stylesheet" href="assets/website/distribution.css">
   <link rel="stylesheet" href="assets/website/payment.css">
   <script src="assets/website/distribution-api.js" defer></script>
-  <script src="assets/website/payment.js" defer></script>
-  <script src="assets/website/afdian.js" defer></script>
+  <script src="assets/website/checkout.js" defer></script>
 </head>
 <body class="distribution-page payment-page">
   <header class="site-header">
@@ -20,61 +19,32 @@
     <a href="account.html">我的账号 ↗</a>
   </header>
   <main class="payment-main">
-    <section class="payment-art" aria-label="BYND 购买窗口，尚未开售">
+    <section class="payment-art" aria-label="BYND QQ 联系二维码">
       <img src="assets/website/bynd-payment-frame-e4a9f7ba69a0.webp" width="900" height="1125" alt="奶油粉色的复古 BYND 小窗口，点缀蝴蝶结、爱心与探出脑袋的小狗。" fetchpriority="high" decoding="async">
-      <div class="payment-slot">
-        <span class="payment-heart" aria-hidden="true">♡</span>
-        <strong id="payment-art-title">还在认真准备中</strong>
-        <p id="payment-art-note">等准备好了，<br>再把喜欢带回家。</p>
-        <span id="payment-art-badge" class="payment-closed">尚未开售</span>
+      <div class="payment-slot qq-slot">
+        <a class="qq-code" href="assets/website/bynd-qq-contact-ca44cdaaaaa9.png" target="_blank" rel="noopener noreferrer" aria-label="放大 QQ 好友二维码">
+          <img src="assets/website/bynd-qq-contact-ca44cdaaaaa9.png" width="1253" height="2272" alt="QQ 3648068162 的好友二维码，点击查看原图">
+        </a>
       </div>
     </section>
     <section class="payment-summary" aria-labelledby="payment-title">
       <p class="eyebrow">A LITTLE SOMETHING FOR YOU</p>
-      <h1 id="payment-title">你的 BYND。</h1>
+      <h1 id="payment-title">来 QQ 找我吧。</h1>
       <p class="payment-subtitle">一次购买 · 永久授权 · BYOK</p>
       <div class="payment-price"><span>正式版价格</span><strong><small>¥</small>13.88</strong></div>
-      <p id="payment-environment" class="payment-environment" hidden>支付宝沙箱 · 模拟交易，不收真钱</p>
-      <p id="payment-identity" class="muted" hidden></p>
-      <p class="refund-notice">本页支付宝支付产品已收取的交易服务费，退款时不退还给 BYND。协商退款的费用处理见说明；依法应全额退款的情形不扣除。<a href="#refund-policy">查看退款说明</a></p>
+      <p class="qq-intro">扫一扫加好友，或复制 QQ 号搜索。<br>购买与授权的事，我们在 QQ 聊。</p>
+      <label class="qq-label" for="qq-number">QQ · 不熬夜啦～</label>
+      <div class="qq-contact-row"><input id="qq-number" value="3648068162" readonly inputmode="numeric" aria-label="QQ 号码"><button id="qq-copy" class="green-button" type="button">复制 QQ 号</button></div>
+      <p id="qq-status" class="muted payment-note" role="status" aria-live="polite">扫码仅用于添加好友。</p>
+      <p class="refund-notice">购买渠道与退款规则会在正式开售前说明。BYND 不另收退款服务费。<a href="#refund-policy">查看退款说明</a></p>
       <details id="refund-policy">
         <summary>退款与支付手续费</summary>
-        <p>本页采用的支付宝支付产品会向 BYND 收取交易服务费，退款时已收取的服务费不退还给 BYND。费用金额以该笔订单的实际账单为准。这是支付宝向商家收取的费用，并非支付宝自动从买家退款中扣款。</p>
+        <p>购买渠道的手续费与退款规则以正式开售时展示的渠道协议和该笔订单的实际账单为准。BYND 不另收退款服务费。</p>
         <p>对于无法定全额退款义务、由双方协商接受的退款，仅在适用法律、支付协议允许，且退款前双方明确确认的情况下，按该笔实际未退还的渠道手续费核减退款金额。退款前会列明原付款金额、手续费和实退金额；渠道已退还的手续费不扣除。BYND 不另收退款服务费。</p>
         <p>依法应全额退款，或因 BYND 原因未交付授权、重复扣款等应全额退还的情形，不扣除渠道手续费。本说明不限制消费者的法定权利。</p>
       </details>
-      <button id="payment-start" class="green-button" type="button" disabled>尚未开售</button>
-      <p id="payment-status" class="muted payment-note" role="status" aria-live="polite">付款入口准备中，目前不收款。</p>
-      <a id="payment-login" class="plain-button" href="account.html">登录 / 注册账号 ↗</a>
-      <section id="payment-order" class="payment-order" aria-label="测试订单" hidden>
-        <p id="payment-order-number" class="muted"></p>
-        <p id="payment-order-state"></p>
-        <a id="payment-cashier" class="green-button" target="_blank" rel="noopener noreferrer" hidden>打开支付宝测试收银台 ↗</a>
-        <button id="payment-check" class="plain-button" type="button">查询付款结果</button>
-        <button id="payment-new" class="plain-button" type="button" hidden>再建一笔测试订单</button>
-      </section>
-      <section id="payment-license" class="payment-license" aria-label="测试激活码" hidden>
-        <label for="payment-code">测试激活码（仅本机测试环境有效）</label>
-        <textarea id="payment-code" readonly rows="2"></textarea>
-        <button id="payment-copy" class="plain-button" type="button">复制测试激活码</button>
-      </section>
       <p class="muted">已购买？<a class="payment-account-link" href="account.html">在账号里查看激活码</a></p>
-      <section id="afdian-payment" class="payment-order" aria-label="爱发电购买" hidden>
-        <h2>通过爱发电购买 · ¥13.88</h2>
-        <p class="muted">先关联付款账号，到账核验后自动保存激活码。请购买一份 BYND 永久授权。</p>
-        <p class="muted">此渠道的手续费与退款规则以爱发电订单及购买前展示的协议为准。BYND 不另收退款服务费。</p>
-        <button id="afdian-link" class="plain-button" type="button">关联爱发电账号</button>
-        <a id="afdian-buy" class="green-button" target="_blank" rel="noopener noreferrer" hidden>前往爱发电付款 ↗</a>
-        <button id="afdian-refresh" class="plain-button" type="button">查看到账结果</button>
-        <p id="afdian-status" class="form-status" role="status" aria-live="polite"></p>
-        <div id="afdian-receipts"></div>
-        <details><summary>付款后还没收到？</summary>
-          <form id="afdian-check-form"><label for="afdian-order-no">爱发电订单号</label>
-            <input id="afdian-order-no" inputmode="numeric" pattern="[0-9]{10,64}" maxlength="64" required autocomplete="off">
-            <button class="plain-button" type="submit">重新核对这笔付款</button></form>
-        </details>
-      </section>
-      <details><summary>之后怎样领取？</summary><p>正式开售后，先登录并验证邮箱，再创建订单付款。到账核验通过后，激活码将保存到对应账号。模型 API 的使用费用由模型服务商另行收取。</p></details>
+      <details><summary>之后怎样领取？</summary><p>添加 QQ 后确认购买与交付方式。已有激活码和领取链接仍可照常使用；扫码加好友不会自动扣款或发放激活码。模型 API 的使用费用由模型服务商另行收取。</p></details>
       <a class="payment-back" href="shop.html#get">← 回到购买与下载</a>
     </section>
   </main>

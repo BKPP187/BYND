@@ -1,4 +1,3 @@
-import { afdianSaleOpen } from './afdian.mjs';
 const MAX_APK_SIZE = 100000000;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const fields = 'id,key_hint,status,created_at,activated_at,bound_device,revision,order_ref,customer_email,last_version_code';
@@ -31,9 +30,9 @@ async function store(request, env, h) {
             size: release.claims.size, sha256: release.claims.sha256,
             url: artifact ? '/downloads/' + artifact.filename : release.claims.apkUrl };
     }
-    const afdianOpen = afdianSaleOpen(env), saleOpen = afdianOpen || (env.SALES_ENABLED === 'true' && !!config?.purchase_url);
-    return h.json({ saleOpen, priceLabel: afdianOpen ? '¥13.88' : config?.price_label || '待公布',
-        purchaseUrl: afdianOpen ? env.PUBLIC_ORIGIN + '/checkout.html' : saleOpen ? config.purchase_url : '', download });
+    const saleOpen = env.SALES_ENABLED === 'true' && !!config?.purchase_url;
+    return h.json({ saleOpen, priceLabel: config?.price_label || '待公布',
+        purchaseUrl: saleOpen ? config.purchase_url : '', download });
 }
 async function createDelivery(request, env, now, licenseId, h) {
     h.requireValue(uuid.test(licenseId), 400, 'invalid_id', 'License 编号无效。');

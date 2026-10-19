@@ -61,7 +61,7 @@ async function main() {
         await admin.waitForFunction(() => document.getElementById('admin-status').textContent.includes('更新清单已发布'));
         const shop = await context.newPage(); shop.on('pageerror', error => errors.push(error.message));
         await shop.goto(service.origin + '/shop.html'); await shop.waitForFunction(() => !document.querySelector('.download-row button').disabled);
-        assert.equal(await shop.locator('.purchase-button').isDisabled(), true);
+        assert.equal(await shop.locator('.purchase-button').getAttribute('href'), 'checkout.html');
         assert.equal(await shop.locator('#shop-retry').isVisible(), false);
         const download = shop.waitForEvent('download'); await shop.locator('.download-row button').click(); const apk = await download;
         assert.deepEqual(fs.readFileSync(await apk.path()), bytes);
@@ -72,7 +72,7 @@ async function main() {
         assert.equal(new URL(shop.url()).pathname, '/shop.html');
         service.env.APK_BUCKET.head = savedHead;
         await shop.reload(); await shop.waitForFunction(() => !document.querySelector('.download-row button').disabled);
-        checks.push('closed sale with live APK download; upload and signed publication reach the website');
+        checks.push('QQ contact with live APK download; upload and signed publication reach the website');
         await receipt.reload(); await receipt.locator('#receipt-download').waitFor({ state: 'visible' });
         for (const page of [shop, receipt, admin]) {
             for (const width of [320, 390, 430, 1280]) {

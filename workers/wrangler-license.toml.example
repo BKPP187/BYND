@@ -23,15 +23,6 @@ workers_dev = false
 [vars]
 LICENSE_ACTIVATION_ENABLED = "false"
 SALES_ENABLED = "false"
-AFDIAN_ENABLED = "false"
-# Configure only after reviewing the exact one-unit ¥13.88 plan; no secrets here.
-# AFDIAN_USER_ID = "creator-id"
-# AFDIAN_PLAN_ID = "plan-id"
-# AFDIAN_PRODUCT_TYPE = "0" # 0 regular plan, 1 sale plan (also requires AFDIAN_SKU_ID)
-# AFDIAN_SKU_ID = "sku-id"
-# AFDIAN_PURCHASE_URL = "https://afdian.com/a/your-page"
-# AFDIAN_CLIENT_ID = "official-oauth-client-id"
-# Worker secrets: AFDIAN_API_TOKEN, AFDIAN_CLIENT_SECRET, AFDIAN_WEBHOOK_SECRET (random 32+ characters)
 EMAIL_ENABLED = "false"
 # Enable accounts only after configuring the verified email sender and ACCOUNT_SECRET.
 ACCOUNTS_ENABLED = "false"
@@ -47,14 +38,6 @@ directory = "../.bynd-distribution-web"
 binding = "ASSETS"
 run_worker_first = true
 html_handling = "none"
-
-[triggers]
-crons = ["*/5 * * * *"]
-
-[[ratelimits]]
-name = "PAYMENT_RATE_LIMITER"
-namespace_id = "1004"
-simple = { limit = 30, period = 60 }
 
 [[d1_databases]]
 binding = "DB"

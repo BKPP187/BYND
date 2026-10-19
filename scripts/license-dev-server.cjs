@@ -2,14 +2,10 @@
 'use strict';
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const { Readable } = require('node:stream');
-const { createLocalEnvironment, createLocalRateLimiter } = require('./lib/license-dev-runtime.cjs');
+const { createLocalEnvironment } = require('./lib/license-dev-runtime.cjs');
 const root = path.resolve(__dirname, '..');
-async function start({ port = Number(process.env.BYND_LICENSE_DEV_PORT || 8993), directory = path.join(root, '.bynd-license-dev'), sandbox = null } = {}) {
+async function start({ port = Number(process.env.BYND_LICENSE_DEV_PORT || 8993), directory = path.join(root, '.bynd-license-dev') } = {}) {
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('Invalid port');
-    if (sandbox) {
-        if (path.resolve(directory) === path.join(root, '.bynd-license-dev')) throw Error('Sandbox must use its own database and signing keys');
-        const { sandboxAlipay } = await import('../workers/license/alipay-sandbox.mjs'); sandboxAlipay(sandbox);
-    }
     const { default: worker } = await import('../workers/license/worker.mjs');
     const { websiteCacheControl } = await import('../workers/license/assets.mjs');
     let env;
@@ -39,9 +35,6 @@ async function start({ port = Number(process.env.BYND_LICENSE_DEV_PORT || 8993),
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
     const origin = 'http://127.0.0.1:' + server.address().port;
     env = await createLocalEnvironment(directory, origin);
-    if (sandbox) {
-        Object.assign(env, sandbox, { PAYMENT_SANDBOX_ENABLED: 'true', PAYMENT_ISOLATION: 'sandbox-v1', PAYMENT_RATE_LIMITER: createLocalRateLimiter() });
-    }
     return { server, env, origin, async close() { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); env.DB.database.close(); } };
 }
 if (require.main === module) start().then(({ origin }) => console.log('BYND local distribution: ' + origin + '/shop.html\nManagement: ' + origin + '/license-admin.html\nLocal login token: .bynd-license-dev/admin-token.txt (not printed). Production unchanged.')).catch(error => { console.error(error.message); process.exitCode = 1; });
