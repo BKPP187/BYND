@@ -6,6 +6,67 @@ let _wbAudioCtx = null;
 let _wbLastToneAt = 0;
 
 const WB_TONES = [261.63, 293.66, 329.63, 392.00, 440.00, 493.88, 523.25];
+const STANDALONE_WORLD_BOOK_KEY = 'bynd_worldbooks_v1';
+
+function getStandaloneWorldBooks() {
+    const raw = localStorage.getItem(STANDALONE_WORLD_BOOK_KEY);
+    if (!raw) return [];
+    const books = JSON.parse(raw);
+    if (!Array.isArray(books) || books.some(book => !book || book.kind !== 'worldbook' || !book.id || !Array.isArray(book.worldBook))) {
+        throw new Error('独立世界书数据格式无效，请先导出备份检查。');
+    }
+    return books;
+}
+
+function getWorldBookLibrary() {
+    return [...(Array.isArray(window.myCharacters) ? window.myCharacters : []), ...getStandaloneWorldBooks()];
+}
+
+// Only explicitly linked books participate in a character's prompts and sticker pool.
+function getCharacterWorldBookEntries(char) {
+    if (!char) return [];
+    const selection = char.chatConfig?.promptWorldBookIds;
+    return getAvailableCharacterWorldBookEntries(char).map((entry, index) => {
+        // Preserve the original index-based ID before filtering disabled or unselected entries.
+        if (!entry || entry.id) return entry;
+        const id = typeof getWechatWorldBookEntryId === 'function' ? getWechatWorldBookEntryId(entry, index)
+            : String(entry.uid || entry.name || entry.title || entry.key || entry.keys || entry.keyword || `wb-${index}`);
+        return { ...entry, id };
+    }).filter((entry, index) => {
+        if (!entry || entry.enabled === false) return false;
+        const id = typeof getWechatWorldBookEntryId === 'function' ? getWechatWorldBookEntryId(entry, index)
+            : String(entry.id || entry.uid || entry.name || entry.title || entry.key || entry.keys || entry.keyword || `wb-${index}`);
+        if (entry._worldBookName !== undefined) return !(char.chatConfig?.disabledSharedWorldBookEntryIds || []).includes(id);
+        return !Array.isArray(selection) || selection.map(String).includes(id);
+    });
+}
+
+// The settings list also needs unchecked and disabled entries, so it uses the full list.
+function getAvailableCharacterWorldBookEntries(char) {
+    const own = Array.isArray(char?.worldBook) ? char.worldBook : [];
+    return [...own, ...getStandaloneWorldBooks()
+        .filter(book => Array.isArray(book.characterIds) && book.characterIds.includes(String(char?.id)))
+        .flatMap(book => book.worldBook.map((entry, index) => ({ ...entry, id: `shared:${book.id}:${entry.id || entry.uid || index}`, _worldBookName: book.name })))];
+}
+
+async function saveWorldBookOwner(owner) {
+    if (owner?.kind === 'worldbook') {
+        const books = getStandaloneWorldBooks();
+        const index = books.findIndex(book => book.id === owner.id);
+        if (index < 0) throw new Error('世界书已不存在，请返回书架重新打开。');
+        books[index] = owner;
+        localStorage.setItem(STANDALONE_WORLD_BOOK_KEY, JSON.stringify(books));
+    } else if (typeof saveCharactersToStorage !== 'function' || await saveCharactersToStorage() !== true) {
+        throw new Error('世界书保存失败，请检查设备存储空间后重试。');
+    }
+}
+
+async function updateWorldBookEntries(owner, entries) {
+    const original = owner.worldBook;
+    owner.worldBook = entries;
+    try { await saveWorldBookOwner(owner); }
+    catch (error) { owner.worldBook = original; throw error; }
+}
 
 function wbEscapeHtml(value) {
     return String(value == null ? '' : value)
@@ -64,7 +125,10 @@ function initWorldBook() {
     if (!container) return;
     container.innerHTML = '';
 
-    if (!window.myCharacters || window.myCharacters.length === 0) {
+    let books;
+    try { books = getWorldBookLibrary(); }
+    catch (error) { container.innerHTML = `<div class="wb-empty">世界书读取失败：${wbEscapeHtml(error.message)}</div>`; return; }
+    if (books.length === 0) {
         container.innerHTML = `
             <div class="wb-empty wb-library-empty">
                 <i class="ri-book-3-line"></i>
@@ -73,11 +137,10 @@ function initWorldBook() {
             </div>`;
         return;
     }
-    renderBookshelf(container);
+    renderBookshelf(container, books);
 }
 
-function renderBookshelf(container) {
-    const chars = Array.isArray(window.myCharacters) ? window.myCharacters : [];
+function renderBookshelf(container, chars = getWorldBookLibrary()) {
     container.innerHTML = `
         <div class="wb-library">
             <div class="wb-library-title">
@@ -124,12 +187,12 @@ function renderBookshelf(container) {
                             <button type="button" class="wb-book" data-char-index="${index}" style="--book-color:${color}; --wb-scale:1; --wb-y:0px; --wb-rotate:0deg;">
                                 <div class="wb-cover">
                                     <div class="wb-spine"></div>
-                                    <img class="wb-cover-image" src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.classList.add('is-missing')">
+                                    ${char.kind === 'worldbook' ? '<i class="ri-book-3-line wb-book-symbol" aria-hidden="true"></i>' : `<img class="wb-cover-image" src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" alt="${wbEscapeAttr(char.name || '角色')}" onerror="this.classList.add('is-missing')">`}
                                     <div class="wb-cover-shine"></div>
                                     <span>${entries.length}</span>
                                 </div>
                                 <div class="wb-title">${wbEscapeHtml(char.name || '未命名角色')}</div>
-                                <small>${entries.length ? `${entries.length} 条设定` : '空白书'}</small>
+                                <small>${char.kind === 'worldbook' ? '独立世界书 · ' : ''}${entries.length ? `${entries.length} 条设定` : '空白书'}</small>
                             </button>
                         `;
                     }).join('')}
@@ -247,7 +310,7 @@ function bindWorldBookShelfMotion(shelf) {
 }
 
 function openWorldBookWithAnimation(index, bookEl) {
-    const char = (window.myCharacters || [])[index];
+    const char = getWorldBookLibrary()[index];
     if (!char) return;
     if (document.querySelector('.wb-transition-layer')) return;
     playWorldBookTone(index, true);
@@ -296,6 +359,7 @@ function openWorldBookWithAnimation(index, bookEl) {
 
 function renderBookDetail(char) {
     closeWorldBookTransferMenu();
+    const bindingsOpen = currentReadingChar === char && document.querySelector('.wb-character-bindings')?.open;
     currentReadingChar = char;
     const container = document.getElementById('wb-content-area');
     if (!container) return;
@@ -305,19 +369,20 @@ function renderBookDetail(char) {
         <div class="wb-detail-page">
             <div class="wb-nav-bar">
                 <button type="button" class="wb-nav-action" onclick="initWorldBook()" aria-label="返回书架"><i class="ri-arrow-left-line" aria-hidden="true"></i></button>
-                <span>${wbEscapeHtml(char.name || '角色')} 的世界书</span>
+                <span>${wbEscapeHtml(char.name || '世界书')}${char.kind === 'worldbook' ? '' : ' 的世界书'}</span>
                 <button type="button" class="wb-nav-action" onclick="openWorldBookTransferMenu()" aria-label="导入导出世界书"><i class="ri-file-transfer-line" aria-hidden="true"></i></button>
             </div>
             <div class="wb-open-book">
                 <div class="wb-open-cover" style="--book-color:${stringToColor(char.name || '角色')}">
-                    <img src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" onerror="this.style.opacity='0.25'">
+                    ${char.kind === 'worldbook' ? '<i class="ri-book-3-line wb-book-symbol" aria-hidden="true"></i>' : `<img src="${wbEscapeAttr(char.coverImage || char.avatar || '')}" onerror="this.style.opacity='0.25'">`}
                 </div>
                 <div class="wb-open-meta">
                     <strong>${wbEscapeHtml(char.name || '未命名角色')}</strong>
-                    <span>${entries.length} 条世界设定</span>
+                    <span>${entries.length} 条世界设定${char.kind === 'worldbook' ? ' · 独立世界书' : ''}</span>
                 </div>
             </div>
             <div class="wb-detail-scroll">
+                ${char.kind === 'worldbook' ? renderWorldBookCharacterBindings(char, bindingsOpen) : ''}
                 <div class="wb-list-container">${generateListHtml(entries)}</div>
             </div>
         </div>
@@ -351,11 +416,33 @@ function generateListHtml(entries) {
     }).join('');
 }
 
-function toggleWBEntry(index, enabled) {
+async function toggleWBEntry(index, enabled) {
     if (!currentReadingChar || !currentReadingChar.worldBook[index]) return;
-    currentReadingChar.worldBook[index].enabled = enabled;
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    renderBookDetail(currentReadingChar);
+    const owner = currentReadingChar;
+    try { await updateWorldBookEntries(owner, owner.worldBook.map((entry, i) => i === index ? { ...entry, enabled } : entry)); }
+    catch (error) { alert(`保存世界书失败：${error.message}`); }
+    if (currentReadingChar === owner) renderBookDetail(owner);
+}
+
+function renderWorldBookCharacterBindings(book, open = false) {
+    const ids = Array.isArray(book.characterIds) ? book.characterIds : [];
+    const chars = (window.myCharacters || []).filter(char => !char.isGroupChat);
+    return `<details class="wb-character-bindings" ${open ? 'open' : ''}><summary>使用角色 · ${chars.filter(char => ids.includes(String(char.id))).length} 人</summary>
+        <p>勾选后，该角色可读取这本书的设定和表情包链接。</p>
+        ${chars.length ? chars.map(char => `<label><input type="checkbox" ${ids.includes(String(char.id)) ? 'checked' : ''} data-wb-character-id="${wbEscapeAttr(char.id)}" onchange="toggleWorldBookCharacter(this)"><span>${wbEscapeHtml(char.name || '未命名角色')}</span></label>`).join('') : '<p>创建联系人后可在这里选择。</p>'}</details>`;
+}
+
+async function toggleWorldBookCharacter(input) {
+    const book = currentReadingChar;
+    if (book?.kind !== 'worldbook') return;
+    const original = book.characterIds;
+    const ids = new Set(Array.isArray(original) ? original : []);
+    if (input.checked) ids.add(input.dataset.wbCharacterId); else ids.delete(input.dataset.wbCharacterId);
+    book.characterIds = [...ids];
+    input.disabled = true;
+    try { await saveWorldBookOwner(book); }
+    catch (error) { book.characterIds = original; alert(`保存使用角色失败：${error.message}`); }
+    if (currentReadingChar === book) renderBookDetail(book);
 }
 
 function openEntryDetail(index) {
@@ -372,18 +459,17 @@ function openEntryDetail(index) {
     modal.classList.remove('hidden');
 }
 
-function saveEntryDetail() {
+async function saveEntryDetail() {
     if (currentEntryIndex === -1 || !currentReadingChar) return;
 
     const keysStr = document.getElementById('wb-detail-key').value;
     const content = document.getElementById('wb-detail-content').value;
-    const entry = currentReadingChar.worldBook[currentEntryIndex];
-    entry.keys = keysStr.split(/,|，/).map(k => k.trim()).filter(k => k);
-    entry.content = content;
-
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    closeWBDetailModal();
-    renderBookDetail(currentReadingChar);
+    const owner = currentReadingChar;
+    try {
+        await updateWorldBookEntries(owner, owner.worldBook.map((entry, i) => i === currentEntryIndex ? { ...entry, keys: keysStr.split(/,|，/).map(k => k.trim()).filter(Boolean), content } : entry));
+        closeWBDetailModal();
+        if (currentReadingChar === owner) renderBookDetail(owner);
+    } catch (error) { alert(`保存世界书失败：${error.message}`); }
 }
 
 function closeWBDetailModal() {
@@ -447,17 +533,8 @@ async function importWorldBookFile(input) {
         if (!currentReadingChar) throw new Error('请先打开一本世界书。');
         const imported = parseWorldBookImport(JSON.parse(await file.text()));
         const char = currentReadingChar;
-        const original = Array.isArray(char.worldBook) ? char.worldBook : [];
-        char.worldBook = original.concat(imported);
-        try {
-            if (typeof saveCharactersToStorage !== 'function' || await saveCharactersToStorage() !== true) {
-                throw new Error('世界书保存失败，请检查设备存储空间后重试。');
-            }
-        } catch (error) {
-            char.worldBook = original;
-            throw error;
-        }
-        renderBookDetail(char);
+        await updateWorldBookEntries(char, getWorldBookEntries(char).concat(imported));
+        if (currentReadingChar === char) renderBookDetail(char);
         alert(`已导入 ${imported.length} 条世界书设定。`);
     } catch (error) {
         alert(`导入世界书失败：${error.message || '文件无法读取。'}`);
@@ -470,7 +547,7 @@ function exportWorldBook() {
     try {
         if (!currentReadingChar) throw new Error('请先打开一本世界书。');
         const char = currentReadingChar;
-        const data = { format: 'bynd-worldbook', version: 1, character: char.name || '', entries: getWorldBookEntries(char) };
+        const data = { format: 'bynd-worldbook', version: 1, name: char.name || '', ...(char.kind === 'worldbook' ? {} : { character: char.name || '' }), entries: getWorldBookEntries(char) };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         try {
@@ -500,7 +577,7 @@ function openCreateWBModal() {
     }
 }
 
-function saveNewWBEntry() {
+async function saveNewWBEntry() {
     const keysStr = document.getElementById('wb-new-key').value;
     const content = document.getElementById('wb-new-content').value;
     if (!content) { alert('内容不能为空！'); return; }
@@ -512,29 +589,30 @@ function saveNewWBEntry() {
         enabled: true
     };
 
-    if (!currentReadingChar.worldBook) currentReadingChar.worldBook = [];
-    currentReadingChar.worldBook.push(newEntry);
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    document.getElementById('wb-add-entry-modal').classList.add('hidden');
-    renderBookDetail(currentReadingChar);
+    const owner = currentReadingChar;
+    if (!owner) return;
+    try {
+        await updateWorldBookEntries(owner, getWorldBookEntries(owner).concat(newEntry));
+        document.getElementById('wb-add-entry-modal').classList.add('hidden');
+        if (currentReadingChar === owner) renderBookDetail(owner);
+    } catch (error) { alert(`新增条目失败：${error.message}`); }
 }
 
 function confirmCreateBook() {
     const name = document.getElementById('wb-book-name').value.trim();
     if (!name) { alert('书名不能为空！'); return; }
 
-    const newChar = {
-        id: 'char_' + Date.now(),
+    const book = {
+        kind: 'worldbook',
+        id: 'wb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
         name,
-        avatar: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        lastMsg: '...',
         worldBook: [],
-        regex: [],
-        history: []
+        characterIds: []
     };
-
-    window.myCharacters.push(newChar);
-    if (typeof saveCharactersToStorage === 'function') saveCharactersToStorage();
-    document.getElementById('wb-create-book-modal').classList.add('hidden');
-    initWorldBook();
+    try {
+        const books = getStandaloneWorldBooks();
+        localStorage.setItem(STANDALONE_WORLD_BOOK_KEY, JSON.stringify([...books, book]));
+        document.getElementById('wb-create-book-modal').classList.add('hidden');
+        initWorldBook();
+    } catch (error) { alert(`新建世界书失败：${error.message}`); }
 }

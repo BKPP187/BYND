@@ -1,4 +1,17 @@
 /* === WorldBook Styles === */
+#app-worldbook-window > .window-header {
+    box-sizing: border-box;
+    height: calc(55px + var(--bynd-header-safe-top, 0px)) !important;
+    padding-top: var(--bynd-header-safe-top, 0px) !important;
+}
+.wb-book-symbol { font-size: 36px; color: #fff; margin: auto; }
+.wb-open-cover .wb-book-symbol { color: #5d4037; }
+.wb-character-bindings { margin-bottom: 16px; border: 1px solid #d7ccc8; border-radius: 10px; background: #fffcf5; padding: 12px; color: #4e342e; }
+.wb-character-bindings summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.wb-character-bindings p { margin: 10px 0; font-size: 13px; line-height: 1.5; color: #796b63; }
+.wb-character-bindings label { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; }
+.wb-character-bindings label span { overflow-wrap: anywhere; min-width: 0; }
+.wb-character-bindings input { flex-shrink: 0; accent-color: #5d4037; width: 18px; height: 18px; }
 .wb-shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 30px 20px; }
 .wb-book { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; animation: popIn 0.3s ease; }
 .wb-cover { width: 85px; height: 115px; background: #5d4037; border-radius: 4px 8px 8px 4px; box-shadow: 4px 4px 12px rgba(0,0,0,0.3), inset 3px 0 10px rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }

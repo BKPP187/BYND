@@ -31,7 +31,7 @@
     }
     function prompt() { return E.policyText(activePolicy()); }
     function decisionPrompt() { return E.policyText(activePolicy(), 'jev'); }
-    function worldBook(char) { return E.select(char?.worldBook, char || {}, activePolicy().worldBookMode); }
+    function worldBook(char) { return E.select(typeof window.getCharacterWorldBookEntries === 'function' ? window.getCharacterWorldBookEntries(char) : char?.worldBook, char || {}, activePolicy().worldBookMode); }
     function memories(char, original) {
         const p = activePolicy();
         return Object.fromEntries(Object.entries(original).map(([key, list]) => [key, E.select(list, char, p.memoryMode)]));

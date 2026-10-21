@@ -405,6 +405,8 @@ async function saveChatSettings() {
     const promptWorldBookIds = Array.from(document.querySelectorAll('#wcs-prompt-worldbook-list input[type="checkbox"]:checked'))
         .map(input => String(input.dataset.worldbookId || ''))
         .filter(Boolean);
+    const disabledSharedWorldBookEntryIds = Array.from(document.querySelectorAll('#wcs-prompt-worldbook-list input[data-worldbook-shared="true"]:not(:checked)'))
+        .map(input => String(input.dataset.worldbookId || '')).filter(Boolean);
     char.chatConfig = {
         ...prevConfig,
         chatBg: prevConfig.chatBg || '#ededed',
@@ -446,6 +448,7 @@ async function saveChatSettings() {
         monitorBarrageSpeed: normalizeWechatMonitorBarrageSpeed(document.getElementById('wcs-monitor-barrage-speed')?.value),
         monitorBarrageStyle: document.getElementById('wcs-monitor-barrage-style')?.value === 'scroll' ? 'scroll' : 'cards',
         promptWorldBookIds,
+        disabledSharedWorldBookEntryIds,
         voiceBinding,
         monitorState: prevConfig.monitorState || null,
         pendingMonitorRequest: prevConfig.pendingMonitorRequest || null,

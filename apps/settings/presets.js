@@ -14,10 +14,38 @@ function savePresetData(data) {
     localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(data));
 }
 
+function presetHasPromptContent(preset) {
+    return !!preset && Array.isArray(preset.prompts) && preset.prompts.some(p =>
+        p && typeof p.content === 'string' && p.content.trim());
+}
+
+function presetHasExtensionContent(preset) {
+    const extensions = preset && preset.extensions;
+    return !!extensions && typeof extensions === 'object' && !Array.isArray(extensions)
+        && Object.keys(extensions).length > 0;
+}
+
+function renderPresetExtensions(preset) {
+    if (!presetHasExtensionContent(preset)) return '';
+    const renderValue = (label, value) => `<details class="preset-extension-item">
+        <summary>${escapeHtml(label)}</summary>
+        <div class="preset-prompt-content"><textarea readonly aria-label="${escapeHtml(label)} 原始内容">${escapeHtml(JSON.stringify(value, null, 2))}</textarea></div>
+    </details>`;
+    const sections = Object.entries(preset.extensions).map(([key, value]) => {
+        const count = Array.isArray(value) ? ` · ${value.length} 条` : '';
+        const body = key === 'regex_scripts' && Array.isArray(value)
+            ? value.map((rule, index) => renderValue(rule && rule.scriptName || `规则 ${index + 1}`, rule)).join('')
+            : renderValue('查看原始配置', value);
+        return `<details class="preset-extension-section"><summary>${escapeHtml(key)}${count}</summary>${body}</details>`;
+    }).join('');
+    return `<div class="preset-prompts-list preset-extensions"><p class="preset-extension-note">扩展已保存，可展开查看。当前仅供测试查看，尚未接入聊天运行。</p>${sections}</div>`;
+}
+
 function getActivePreset() {
     const data = getPresetData();
     if (!data.activeId) return null;
-    return data.presets.find(p => p.id === data.activeId) || null;
+    const preset = data.presets.find(p => p.id === data.activeId);
+    return presetHasPromptContent(preset) ? preset : null;
 }
 
 function importPresetFile(input) {
@@ -28,28 +56,37 @@ function importPresetFile(input) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const json = JSON.parse(e.target.result);
+            const json = JSON.parse(e.target.result.replace(/^\uFEFF/, ''));
             const preset = parsePromptPreset(json, file.name);
             if (!preset) {
-                alert('无法识别预设格式');
+                alert('没有识别到可读取的预设或扩展配置。请确认文件格式后重新导入。');
                 return;
             }
 
             const data = getPresetData();
             const existing = data.presets.findIndex(p => p.name === preset.name);
+            const replacesActive = existing >= 0 && data.presets[existing].id === data.activeId;
             if (existing >= 0) {
                 if (!confirm(`已存在同名预设「${preset.name}」，覆盖吗？`)) return;
                 data.presets[existing] = preset;
             } else {
                 data.presets.push(preset);
             }
-            data.activeId = preset.id;
+            if (presetHasPromptContent(preset)) data.activeId = preset.id;
+            else if (replacesActive) data.activeId = null;
             savePresetData(data);
+            window._expandedPresetId = preset.id;
+            window._expandedPromptKey = null;
             renderPresetList();
-            alert(`预设「${preset.name}」导入成功！`);
+            alert(presetHasPromptContent(preset)
+                ? `预设「${preset.name}」导入成功！`
+                : `「${preset.name}」已导入，可展开查看扩展内容；扩展尚未接入聊天运行。`);
         } catch (err) {
             alert('预设解析失败: ' + err.message);
         }
+    };
+    reader.onerror = function() {
+        alert('预设文件读取失败，请确认文件可访问后重新导入。');
     };
     reader.readAsText(file);
 }
@@ -122,6 +159,7 @@ function saveManualPreset() {
 }
 
 function parsePromptPreset(json, filename) {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
     const name = json.name || filename.replace(/\.json$/i, '') || '未命名预设';
 
     // prompt_order 存放真实启用状态（兼容多种旧格式）
@@ -139,7 +177,7 @@ function parsePromptPreset(json, filename) {
     let prompts = [];
     if (Array.isArray(json.prompts)) {
         prompts = json.prompts
-            .filter(p => p.content && p.content.trim())
+            .filter(p => p && typeof p.content === 'string' && p.content.trim())
             .map(p => {
                 const id = p.identifier || '';
                 const enabled = (hasOrder && id in orderMap) ? orderMap[id] : (p.enabled !== false);
@@ -153,20 +191,26 @@ function parsePromptPreset(json, filename) {
             });
     }
 
-    if (prompts.length === 0 && json.main_prompt) {
+    if (prompts.length === 0 && typeof json.main_prompt === 'string' && json.main_prompt.trim()) {
         prompts.push({ name: 'Main', role: 'system', content: json.main_prompt, identifier: 'main', enabled: true });
-        if (json.jailbreak_prompt) {
+        if (typeof json.jailbreak_prompt === 'string' && json.jailbreak_prompt.trim()) {
             prompts.push({ name: 'Jailbreak', role: 'system', content: json.jailbreak_prompt, identifier: 'jailbreak', enabled: true });
         }
-        if (json.nsfw_prompt) {
+        if (typeof json.nsfw_prompt === 'string' && json.nsfw_prompt.trim()) {
             prompts.push({ name: 'NSFW', role: 'system', content: json.nsfw_prompt, identifier: 'nsfw', enabled: true });
         }
     }
+
+    // Preserve extension payloads for test inspection; never promote them to chat instructions.
+    const hasExtensions = presetHasExtensionContent(json);
+    if (!prompts.length && !hasExtensions) return null;
 
     return {
         id: 'preset_' + Date.now(),
         name: name,
         prompts: prompts,
+        ...(hasExtensions ? { extensions: json.extensions } : {}),
+        importSource: { purpose: 'testing', fileName: filename },
         temperature: json.temperature ?? 0.8,
         max_tokens: json.max_tokens || json.openai_max_tokens || 1000,
         top_p: json.top_p ?? 1,
@@ -192,14 +236,20 @@ function renderPresetList() {
     }
 
     container.innerHTML = data.presets.map(p => {
-        const isActive = p.id === data.activeId;
-        const enabledCount = p.prompts.filter(pr => pr.enabled).length;
-        const totalCount = p.prompts.length;
+        const hasContent = presetHasPromptContent(p);
+        const hasExtensions = presetHasExtensionContent(p);
+        const isActive = hasContent && p.id === data.activeId;
+        const prompts = Array.isArray(p.prompts) ? p.prompts : [];
+        const enabledCount = prompts.filter(pr => pr.enabled).length;
+        const totalCount = prompts.length;
         const isExpanded = window._expandedPresetId === p.id;
 
         let promptsHtml = '';
         if (isExpanded) {
-            promptsHtml = `<div class="preset-prompts-list">
+            promptsHtml = !hasContent && !hasExtensions ? `<div class="preset-prompts-list preset-missing-content">
+                <p>这条记录没有可查看的内容。旧版导入时可能未保留扩展，请重新导入原文件查看。</p>
+                <button type="button" class="set-add-btn" onclick="document.getElementById('import-preset-file').click()">重新导入原文件</button>
+            </div>` : hasContent ? `<div class="preset-prompts-list">
                 <div class="preset-params">
                     <span>temp: ${escapeHtml(p.temperature)}</span>
                     <span>max_tokens: ${escapeHtml(p.max_tokens)}</span>
@@ -207,7 +257,7 @@ function renderPresetList() {
                     ${p.frequency_penalty ? `<span>freq: ${escapeHtml(p.frequency_penalty)}</span>` : ''}
                     ${p.presence_penalty ? `<span>pres: ${escapeHtml(p.presence_penalty)}</span>` : ''}
                 </div>
-                ${p.prompts.map((pr, i) => `
+                ${prompts.map((pr, i) => `
                     <div class="preset-prompt-item ${pr.enabled ? '' : 'disabled'}">
                         <div class="preset-prompt-header" onclick="togglePromptExpand('${escapeJsString(p.id)}', ${i})">
                             <label class="preset-toggle" onclick="event.stopPropagation()">
@@ -226,7 +276,8 @@ function renderPresetList() {
                         ` : ''}
                     </div>
                 `).join('')}
-            </div>`;
+            </div>` : '';
+            promptsHtml += renderPresetExtensions(p);
         }
 
         return `
@@ -239,11 +290,11 @@ function renderPresetList() {
                                 ${isActive ? '<span style="color:#f8a4b8;margin-right:4px;">♛</span>' : ''}
                                 ${escapeHtml(p.name)}
                             </div>
-                            <div class="preset-card-meta">${enabledCount}/${totalCount} prompts · temp ${escapeHtml(p.temperature)}</div>
+                            <div class="preset-card-meta">${hasContent ? `${enabledCount}/${totalCount} prompts · temp ${escapeHtml(p.temperature)}` : hasExtensions ? '扩展配置 · 测试查看' : '记录为空 · 请重新导入'}</div>
                         </div>
                     </div>
                     <div class="preset-card-actions" onclick="event.stopPropagation()">
-                        <i class="ri-star-${isActive ? 'fill' : 'line'}" title="${isActive ? '取消启用' : '启用'}" onclick="setActivePreset('${escapeJsString(p.id)}')" style="${isActive ? 'color:#f8a4b8;' : 'color:#999;'}"></i>
+                        ${hasContent ? `<i class="ri-star-${isActive ? 'fill' : 'line'}" title="${isActive ? '取消启用' : '启用'}" onclick="setActivePreset('${escapeJsString(p.id)}')" style="${isActive ? 'color:#f8a4b8;' : 'color:#999;'}"></i>` : ''}
                         <i class="ri-delete-bin-6-line" title="删除" onclick="deletePreset('${escapeJsString(p.id)}')" style="color:#999;"></i>
                     </div>
                 </div>
@@ -298,6 +349,10 @@ function deletePromptItem(presetId, promptIdx) {
 
 function setActivePreset(presetId) {
     const data = getPresetData();
+    if (!presetHasPromptContent(data.presets.find(p => p.id === presetId))) {
+        alert('这条记录没有可启用的聊天提示词；扩展配置请展开查看。');
+        return;
+    }
     data.activeId = (data.activeId === presetId) ? null : presetId;
     savePresetData(data);
     renderPresetList();

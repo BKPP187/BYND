@@ -432,7 +432,7 @@ function getWechatPromptWorldBookSelection(char) {
 function renderWechatPromptWorldBookList(char) {
     const list = document.getElementById('wcs-prompt-worldbook-list');
     if (!list) return;
-    const entries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    const entries = typeof getAvailableCharacterWorldBookEntries === 'function' ? getAvailableCharacterWorldBookEntries(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : []);
     const selection = getWechatPromptWorldBookSelection(char);
     if (!entries.length) {
         list.innerHTML = '<div class="wcs-worldbook-empty">这个角色还没有世界书。</div>';
@@ -440,13 +440,14 @@ function renderWechatPromptWorldBookList(char) {
     }
     list.innerHTML = entries.map((entry, index) => {
         const id = getWechatWorldBookEntryId(entry, index);
-        const title = stripWechatPromptText(entry?.name || entry?.title || entry?.key || entry?.keys || entry?.keyword || `世界书 ${index + 1}`, 28);
+        const title = stripWechatPromptText([entry?._worldBookName, entry?.name || entry?.title || entry?.key || entry?.keys || entry?.keyword || `世界书 ${index + 1}`].filter(Boolean).join(' · '), 40);
         const content = stripWechatPromptText(entry?.content || entry?.text || entry?.entry || entry?.value || entry?.comment || entry?.description || '', 64);
-        const checked = entry?.enabled !== false && (!selection || selection.includes(id));
+        const selected = entry?._worldBookName !== undefined ? !(char.chatConfig?.disabledSharedWorldBookEntryIds || []).includes(id) : (!selection || selection.includes(id));
+        const checked = entry?.enabled !== false && selected;
         const disabled = entry?.enabled === false ? 'disabled' : '';
         return `
             <label class="wcs-worldbook-item ${disabled}">
-                <input type="checkbox" data-worldbook-id="${wcEscapeHtml(id)}" ${checked ? 'checked' : ''} ${disabled}>
+                <input type="checkbox" data-worldbook-id="${wcEscapeHtml(id)}" ${entry?._worldBookName !== undefined ? 'data-worldbook-shared="true"' : ''} ${checked ? 'checked' : ''} ${disabled}>
                 <span><b>${wcEscapeHtml(title)}</b><em>${wcEscapeHtml(content || '无内容预览')}</em></span>
             </label>
         `;

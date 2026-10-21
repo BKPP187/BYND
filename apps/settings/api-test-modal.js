@@ -77,17 +77,19 @@ async function testApiFromModal() {
             selectEl.style.background = '#faf5f0';
             selectEl.style.color = '#5a4a52';
             selectEl.style.cursor = 'pointer';
-            if (hintEl) hintEl.textContent = result.chatModel ? `${models.length} 个模型可选` : '未测到聊天能力，可只做生图 API';
+            if (hintEl) hintEl.textContent = '请选择聊天模型，实际可用性以聊天结果为准';
             fillImageModelSelect(models);
             refreshApiModelPickers();
         } else {
             selectEl.innerHTML = '<option value="">未获取到模型列表</option>';
-            if (hintEl) hintEl.textContent = '获取模型列表失败，可手动输入';
+            if (hintEl) hintEl.textContent = '接口返回空模型列表，可手动输入';
             convertModelToInput();
             convertImageModelToInput();
         }
     } else {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(result.error || '连接失败')}</span>`;
+        const attempts = Array.isArray(result.attempts) ? result.attempts : [];
+        const probeDetails = attempts.length ? `<details class="api-discovery-details"><summary>查看已检查的地址</summary><ul>${attempts.map(attempt => `<li>${escapeHtml(attempt.baseUrl + '/models')}：${escapeHtml(attempt.status ? `HTTP ${attempt.status}` : attempt.error || '请求失败')}</li>`).join('')}</ul></details>` : '';
+        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(result.error || '连接失败')}</span>${probeDetails}`;
         convertModelToInput();
         convertImageModelToInput();
         if (hintEl) hintEl.textContent = '连接失败，可核对文档后手动填写模型';

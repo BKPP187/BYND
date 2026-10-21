@@ -444,7 +444,13 @@ async function testNovelAiImageConnection(rawSettings) {
 // only reads English/Japanese well, so one background request rewrites them into
 // tags. Background mode waits for the chat relay's quiet gap (no request bursts).
 async function convertTextToNovelAiPrompt(text, options = {}) {
-    if (typeof callChatApi !== 'function') return { ok: false, error: '需要先配置聊天 API 才能把描述转成 NovelAI 标签' };
+    const conversionFailure = (error, finishReason = '') => ({
+        ok: false,
+        stage: 'prompt-conversion',
+        finishReason,
+        error: `整理生图标签失败：${error}；图片生成请求尚未发出。`
+    });
+    if (typeof callChatApi !== 'function') return conversionFailure('需要先配置聊天 API 才能把描述转成 NovelAI 标签');
     const result = await callChatApi([
         {
             role: 'system',
@@ -466,7 +472,7 @@ async function convertTextToNovelAiPrompt(text, options = {}) {
         usageFeature: options.usageFeature || 'image-prompt',
         usageChar: options.usageChar
     });
-    if (!result?.ok) return { ok: false, error: result?.error || '无法把画面描述转换为 NovelAI 标签' };
+    if (!result?.ok) return conversionFailure(result?.error || '无法把画面描述转换为 NovelAI 标签', result?.finishReason || '');
     const clean = String(result.content || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
     let parsed = null;
     try { parsed = JSON.parse(clean); } catch (_) {
@@ -476,7 +482,7 @@ async function convertTextToNovelAiPrompt(text, options = {}) {
             try { parsed = JSON.parse(clean.slice(start, end + 1)); } catch (_) {}
         }
     }
-    if (!parsed || !String(parsed.prompt || '').trim()) return { ok: false, error: '模型没有返回可用的 NovelAI 标签' };
+    if (!parsed || !String(parsed.prompt || '').trim()) return conversionFailure('模型没有返回可用的 NovelAI 标签', result.finishReason || '');
     return {
         ok: true,
         prompt: String(parsed.prompt).slice(0, 1600),

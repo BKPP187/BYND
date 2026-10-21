@@ -77,6 +77,47 @@ function harness() {
     return { context, state, char, modal };
 }
 
+test('an empty-length retry reports the actual second failure instead of the first truncation', async () => {
+    for (const second of ['stop', 'content_filter', 'network']) {
+        const h = harness();
+        let calls = 0;
+        h.state.respond = () => {
+            calls++;
+            if (calls === 1) return response(200, { choices: [{ message: { content: '' }, finish_reason: 'length' }] });
+            if (second === 'network') throw new TypeError('Failed to fetch');
+            return response(200, { choices: [{ message: { content: '' }, finish_reason: second }] });
+        };
+        const result = await h.context.callChatApi([{ role: 'user', content: '描述一片海边日落' }]);
+        assert.equal(result.ok, false);
+        assert.equal(calls, 2);
+        assert.equal(result.emptyLengthRetried, true);
+        assert.equal(result.firstFinishReason, 'length');
+        if (second === 'network') {
+            assert.equal(result.errorSource, 'client');
+            assert.match(result.error, /Failed to fetch/);
+        } else {
+            assert.equal(result.finishReason, second);
+            assert.match(result.error, second === 'content_filter' ? /安全策略/ : /空内容/);
+        }
+        assert.doesNotMatch(result.error, /模型输出被截断/);
+    }
+});
+
+test('empty response diagnostics retain token counts without exposing reasoning or claiming a retry that did not run', async () => {
+    const h = harness();
+    h.state.respond = () => response(200, {
+        choices: [{ message: { content: '', reasoning_content: 'private internal text' }, finish_reason: 'length' }],
+        usage: { completion_tokens: 900, completion_tokens_details: { reasoning_tokens: 900 } }
+    });
+    const result = await h.context.callChatApi([{ role: 'user', content: '描述一片海边日落' }], { max_tokens: 900, skipEmptyLengthRetry: true });
+    assert.equal(h.state.requests.length, 1);
+    assert.equal(result.responseInfo.outputTokenLimit, 900);
+    assert.equal(result.responseInfo.reasoningTokens, 900);
+    assert.equal(result.responseInfo.visibleContentChars, 0);
+    assert.doesNotMatch(result.error, /已.*重试|已自动加大/);
+    assert.doesNotMatch(JSON.stringify(result), /private internal text/);
+});
+
 test('queued work rechecks its dispatch guard and cancels before selecting or calling the API', async () => {
     const { context, state } = harness();
     const held = deferred(); state.respond = () => held.promise;

@@ -729,7 +729,7 @@ function getAllWechatStickers() {
 }
 
 function getWechatWorldBookStickerEntries(char) {
-    const entries = Array.isArray(char?.worldBook) ? char.worldBook : [];
+    const entries = typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char?.worldBook) ? char.worldBook : []);
     const results = [];
     const lineRe = /([^：:\n]{1,36})[：:]\s*((?:https?:\/\/)?(?:i\.postimg\.cc\/)?[A-Za-z0-9_-]+\/[^\s<>"']+\.(?:png|jpe?g|gif|webp)(?:\?[^\s<>"']*)?)/ig;
 

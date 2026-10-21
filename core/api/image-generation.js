@@ -54,7 +54,7 @@ async function callWechatNovelAiImage(prompt, options, settings) {
     if (!input) {
         if (typeof options.onProgress === 'function') options.onProgress('正在把画面描述整理成 NovelAI 标签…');
         const converted = await convertTextToNovelAiPrompt(prompt, { usageChar: options.usageChar, referenceImage: options.referenceImage });
-        if (!converted.ok) return { ok: false, error: converted.error };
+        if (!converted.ok) return { ...converted, ok: false, stage: 'prompt-conversion' };
         input = converted;
     }
     const size = options.novelAiSize || getWechatNovelAiSizeFromOption(options.size);
@@ -134,7 +134,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         try {
             if (typeof options.onProgress === 'function') options.onProgress('正在识别角色外貌并整理 NovelAI 标签…');
             novelAiInput = await convertTextToNovelAiPrompt(prompt, { usageChar: options.usageChar, referenceImage });
-            if (!novelAiInput?.ok) return { ok: false, error: novelAiInput?.error || '无法转换 NovelAI 标签，本次未发送生图请求。' };
+            if (!novelAiInput?.ok) return { ...novelAiInput, ok: false, stage: 'prompt-conversion', error: novelAiInput?.error || '无法转换 NovelAI 标签，本次未发送生图请求。' };
         } catch (error) { return { ok: false, error: error.message || 'NovelAI 标签转换失败，本次未发送生图请求。' }; }
     }
     const enhancedPrompt = novelAiRelay ? [novelAiInput?.prompt || String(prompt || '').trim(),
@@ -410,7 +410,7 @@ function buildWechatCharacterImageSourceText(char) {
     };
     pushPart('角色卡', char.description, 2800);
     pushPart('开场白', char.first_mes_original || char.first_mes, 900);
-    const worldBookEntries = Array.isArray(char.worldBook) ? char.worldBook : [];
+    const worldBookEntries = typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char.worldBook) ? char.worldBook : []);
     const worldBookText = worldBookEntries
         .filter(entry => entry && entry.enabled !== false)
         .map(entry => {

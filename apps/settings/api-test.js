@@ -41,9 +41,13 @@ async function doTestApi(baseUrl, apiKey) {
     } catch (_) {
         return { ok: false, error: '请填写完整的 http 或 https 站点地址，不要包含账号、查询参数或页面锚点', models: [] };
     }
-    let firstFailure;
+    let bestFailure;
+    const attempts = [];
+    // Root /models commonly returns 404; keep more informative failures from discovered paths.
+    const failurePriority = result => [401, 403].includes(result.status) ? 2 : result.status === 404 ? 0 : 1;
     for (const candidate of candidates) {
-        const result = await testApiModelsAtBaseUrl(candidate, apiKey, candidate !== 'https://img.pipiwangcom.com/api/v1');
+        const result = await testApiModelsAtBaseUrl(candidate, apiKey);
+        attempts.push({ baseUrl: candidate, status: result.status || (result.ok ? 200 : null), error: result.error || '' });
         if (candidate === 'https://img.pipiwangcom.com/api/v1') {
             // /models is session-protected on this image-only service. Its
             // documented model IDs are configuration hints, never proof that
@@ -54,14 +58,14 @@ async function doTestApi(baseUrl, apiKey) {
                 error: '已识别生图配置；未验证 Key 和实际生成，请保存后生成图片确认。'
             };
         }
-        if (result.ok) return { ...result, baseUrl: candidate };
-        firstFailure = firstFailure || result;
-        if (result.status === 429) return result;
+        if (result.ok) return { ...result, baseUrl: candidate, attempts };
+        if (!bestFailure || failurePriority(result) > failurePriority(bestFailure)) bestFailure = result;
+        if (result.status === 429) return { ...result, attempts };
     }
-    return { ...firstFailure, error: `${firstFailure.error}（已检查常见接口路径）` };
+    return { ...bestFailure, attempts, error: `${bestFailure.error}${candidates.length > 1 ? '（已检查常见接口路径）' : ''}` };
 }
 
-async function testApiModelsAtBaseUrl(baseUrl, apiKey, testChat = true) {
+async function testApiModelsAtBaseUrl(baseUrl, apiKey) {
     baseUrl = baseUrl.replace(/\/+$/, '');
     const requestBaseUrl = resolveByndApiBaseUrl(baseUrl);
 
@@ -87,21 +91,9 @@ async function testApiModelsAtBaseUrl(baseUrl, apiKey, testChat = true) {
             } catch (parseErr) {
                 return { ok: false, error: '此地址未返回有效模型列表，可按站点文档手动填写模型', models: [] };
             }
-            const count = models.length;
-            if (count === 0) return { ok: true, detail: '', models: models };
-            if (!testChat) return { ok: true, models, chatModel: '' };
-
-            const probe = await probeChatModels(requestBaseUrl, apiKey, models);
-            if (probe.ok) {
-                const sortedModels = [probe.model, ...models.filter(m => m !== probe.model)];
-                return { ok: true, detail: `(${count} 个模型，可聊天: ${probe.model})`, models: sortedModels, chatModel: probe.model };
-            }
-            const imageCandidates = getImageModelCandidates(models);
-            const hasImageLike = imageCandidates.some(m => /(image|gpt-image|imagen|flux|dall|dall-e|stable|sdxl|sd-|seedream|jimeng|kolors|hidream|recraft|ideogram|qwen-image|wan)/i.test(m));
-            if (hasImageLike) {
-                return { ok: true, detail: `(${count} 个模型，未测到聊天模型，可作为生图 API)`, models: imageCandidates, chatModel: '' };
-            }
-            return { ok: true, detail: `(${count} 个模型，聊天探测未通过，可手动选择)`, models: models, chatModel: '' };
+            // Discovery must not wait for (or spend quota on) generated chat replies.
+            // Model IDs are choices, not evidence of chat or image capability.
+            return { ok: true, detail: `已获取 ${models.length} 个模型；聊天和生图尚未实测。`, models, chatModel: '', chatVerified: false };
         }
         if (resp.status === 401) return { ok: false, status: 401, error: '接口要求身份验证或 API Key 无效 (401)', models: [] };
         if (resp.status === 403) return { ok: false, status: 403, error: '没有权限或访问受限 (403)', models: [] };
@@ -111,59 +103,6 @@ async function testApiModelsAtBaseUrl(baseUrl, apiKey, testChat = true) {
         const corsLike = /failed to fetch|network|load failed|无法连接|fetch/i.test(msg);
         return { ok: false, error: corsLike ? `${msg}。${getApiProxyHint(baseUrl)}` : msg, models: [] };
     }
-}
-
-async function probeChatModels(baseUrl, apiKey, models) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-    const candidates = models
-        .filter(m => !/(embed|embedding|tts|audio|whisper|image|video|moderation|rerank|vision)/i.test(m))
-        .slice(0, 8);
-
-    if (candidates.length === 0) {
-        return { ok: false, error: '没有可测试的聊天模型' };
-    }
-
-    let lastError = '';
-    for (const model of candidates) {
-        try {
-            const resp = await fetch(baseUrl + '/chat/completions', {
-                method: 'POST',
-                headers: headers,
-                redirect: 'error',
-                body: JSON.stringify({
-                    model,
-                    messages: [{ role: 'user', content: 'Reply exactly OK.' }],
-                    max_tokens: 8,
-                    temperature: 0
-                }),
-                signal: AbortSignal.timeout(15000)
-            });
-
-            if (resp.ok) {
-                const rawText = await resp.text().catch(() => '');
-                const json = rawText ? parseSettingsApiJsonResponseText(rawText) : {};
-                const content = json.choices?.[0]?.message?.content || '';
-                try { window.ByndUsageLedger?.record({ feature: 'other', provider: baseUrl, apiName: 'API 测试', model, usage: json.usage || null, input: 6, output: 1, ok: true, ticket: null, source: null }); } catch (_) {}
-                if (content.trim()) return { ok: true, model };
-                lastError = `${model}: 空响应`;
-            } else {
-                const errText = await resp.text().catch(() => '');
-                let detail = errText;
-                try {
-                    const errJson = parseSettingsApiJsonResponseText(errText);
-                    detail = errJson.error?.message || errJson.message || errText;
-                } catch (_) {}
-                lastError = `${model}: HTTP ${resp.status} ${String(detail).slice(0, 80)}`;
-            }
-        } catch (e) {
-            const msg = (e.name === 'AbortError' || e.message === 'The operation was aborted') ? '超时' : (e.message || '请求失败');
-            lastError = `${model}: ${msg}`;
-        }
-    }
-
-    return { ok: false, error: lastError || '聊天测试失败' };
 }
 
 // 恢复模型选择为 select（如果之前被降级成 input）

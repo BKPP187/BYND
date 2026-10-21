@@ -85,6 +85,29 @@ test('tag conversion failures never spend an image request or silently send Chin
     assert.equal(requests,0);
 });
 
+test('empty tag-conversion output identifies the text stage and never submits an image job',async()=>{
+    for(const direct of [false,true]){
+        let imageCalls=0;
+        const h=vm.createContext({window:{},URL,AbortSignal,
+            getImageRouteForFeature:()=>direct?{provider:'novelai',settings:{}}:null,
+            getDefaultImageApi:()=>({baseUrl:'https://nai-relay.test/v1',imageModel:'nai-diffusion-4-5-full'}),
+            callChatApi:async()=>({ok:false,finishReason:'length',error:'AI 返回了空内容，模型输出被截断，已自动加大输出额度但仍失败'}),
+            fetch:async()=>{imageCalls++;throw Error('must not submit an image job');}
+        });
+        vm.runInContext(read('core/api/novelai.js'),h);
+        vm.runInContext(read('core/api/image-generation.js'),h);
+        h.callNovelAiImageGeneration=async()=>{imageCalls++;throw Error('must not submit an image job');};
+        const result=await h.callWechatImageGenerationApi('海边的日落风景，没有人物');
+        assert.equal(result.ok,false);
+        assert.equal(result.stage,'prompt-conversion');
+        assert.equal(result.finishReason,'length');
+        assert.match(result.error,/整理生图标签失败/);
+        assert.match(result.error,/图片生成请求尚未发出/);
+        assert.match(result.error,/输出被截断/);
+        assert.equal(imageCalls,0);
+    }
+});
+
 test('required remote identity images use JSON edits and never fall back to text-only generation on failure',async()=>{
     const calls=[];
     const h=vm.createContext({window:{},URL,AbortSignal,Response,

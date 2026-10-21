@@ -540,12 +540,12 @@ function buildWechatPreviousAiStatusPrompt(char) {
 }
 
 function buildWechatWorldBookPrompt(char, limit = 30) {
-    const originalEntries = Array.isArray(char && char.worldBook) ? char.worldBook : [];
+    const originalEntries = typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : []);
     const entries = typeof window !== 'undefined' && window.ByndPromptLab?.worldBook
         ? window.ByndPromptLab.worldBook(char) : originalEntries;
     const selectedIds = getWechatPromptWorldBookSelection(char);
     const enabled = entries
-        .filter(entry => entry && entry.enabled !== false && (!selectedIds || selectedIds.includes(getWechatWorldBookEntryId(entry, originalEntries.indexOf(entry)))))
+        .filter(entry => entry && entry.enabled !== false && (entry._worldBookName !== undefined || !selectedIds || selectedIds.includes(getWechatWorldBookEntryId(entry, originalEntries.indexOf(entry)))))
         .slice(0, limit)
         .map(entry => {
             const title = entry.name || entry.title || entry.key || entry.keys || entry.keyword || '世界书';

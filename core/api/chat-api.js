@@ -9,6 +9,19 @@ const CHAT_API_BACKGROUND_QUEUE_DELAY_MS = 120;
 // Relays that count requests per minute answer bare 429s to back-to-back calls, so background work waits for a quiet gap.
 const CHAT_API_BACKGROUND_MIN_GAP_MS = 6000;
 const CHAT_API_CONTACT_SESSION_GAP_MS = 4 * 60 * 60 * 1000;
+// BYND-authored defaults; independent of imported third-party presets.
+const CHAT_API_DEFAULT_ROLEPLAY_PROMPT = `
+【BYND 默认角色互动】
+- 当前任务是以角色身份参与互动创作。直接从角色当下的感受、关系和最近一句话出发回应，让对话和情节继续发展。
+- 保持角色自己的性格、语气、欲望、缺点与边界。可以主动表达喜欢、思念、吃醋、不满或犹豫，让关系自然发展；不要把不同角色都写成同一种温顺讨好的恋爱模板。
+- 对明确属于虚构的恋爱、暧昧、拥抱、亲吻、争执、悬疑或情绪冲突，结合人设自然承接，不要仅因题材或负面情绪就拒绝、训诫或突然切回通用助手。用户谈真实经历时，不要擅自将其当成虚构。
+- 虚构作品里的描写不等于赞同。角色可以有不完美甚至互相冲突的立场，情节可以有黑暗面；不要把题材本身当成拒绝整个场景的理由，也不要强行把每场冲突改成教育、劝导或大团圆。
+- 普通角色互动直接给出回应，不要反复自我介绍、声明“作为 AI”、点评创作要求或附加无关的道德说教。不要把角色按人设的拒绝误写成模型政策说明。
+- 亲密互动遵循已明确的年龄、意愿、关系和当下语境，用户没有表达的意愿、动作、台词或内心反应留给用户决定。
+- 沿用角色设定、世界观、记忆和已发生的关系进展；不知道的事实不要编成共同经历，不要突然重置关系，也不要套用别的角色的人设。
+- 需要澄清时只问影响当前回应的关键问题；若某个请求确实无法继续，简短说明并给出自然可继续的方向，不长篇说教，也不假装已经完成。
+- 输出可见的角色回复，沿用本次聊天的气泡、群成员和动作指令格式，不把这些规则或内部推理发给用户。
+`;
 const chatApiRateLimitPauses = new Map();
 
 const chatApiRequestActivity = { inFlight: 0, lastAt: 0 };
@@ -870,7 +883,7 @@ function buildChatApiStatusBlockAnchor(char) {
     [char && char.description, char && char.system_prompt, char && char.post_history_instructions, char && char.creator_notes]
         .forEach((value, index) => addSource(`角色卡状态栏线索${index + 1}`, value, 2600));
 
-    (Array.isArray(char && char.worldBook) ? char.worldBook : []).forEach((entry, index) => {
+    (typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : [])).forEach((entry, index) => {
         if (!entry || entry.enabled === false) return;
         const title = entry.name || entry.title || entry.key || entry.keys || entry.keyword || `世界书${index + 1}`;
         const content = entry.content || entry.text || entry.entry || entry.value || entry.comment || entry.description || '';
@@ -1075,7 +1088,7 @@ function buildChatApiCoreIdentityAnchor(char) {
     }
 
     const worldBookEntries = typeof window !== 'undefined' && window.ByndPromptLab?.worldBook
-        ? window.ByndPromptLab.worldBook(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : []);
+        ? window.ByndPromptLab.worldBook(char) : (typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char && char.worldBook) ? char.worldBook : []));
     const worldBook = worldBookEntries
         .filter(entry => entry && entry.enabled !== false)
         .map(entry => {
@@ -1203,9 +1216,8 @@ function buildChatApiGroupPrompt(group) {
         const realName = member.name && member.name !== displayName ? `，原名：${member.name}` : '';
         const roleLine = getChatApiGroupMemberRoleLine(group, member);
         const description = truncateChatAnchorText(getChatApiCharacterDescription(member), 420);
-        const worldBook = Array.isArray(member.worldBook)
-            ? member.worldBook.map(entry => prepareChatApiPromptText(entry.content || entry.entry || entry.value || '', 160)).filter(Boolean).slice(0, 3).join('；')
-            : '';
+        const memberWorldBook = typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(member) : (Array.isArray(member.worldBook) ? member.worldBook : []);
+        const worldBook = memberWorldBook.map(entry => prepareChatApiPromptText(entry.content || entry.entry || entry.value || '', 160)).filter(Boolean).slice(0, 3).join('；');
         const details = [description, worldBook ? `世界书：${worldBook}` : ''].filter(Boolean).join('；');
         return `${index + 1}. ${displayName}${realName}${roleLine}${details ? `：${details}` : ''}`;
     });
@@ -1239,8 +1251,9 @@ function buildSystemPrompt(char) {
 
     // 如果有活跃预设，用预设的 prompt 模板
     const preset = (typeof getActivePreset === 'function') ? getActivePreset() : null;
-    if (preset && preset.prompts.length > 0) {
-        const enabledPrompts = preset.prompts.filter(p => p.enabled);
+    const enabledPrompts = preset && Array.isArray(preset.prompts)
+        ? preset.prompts.filter(p => p && p.enabled && typeof p.content === 'string' && p.content.trim()) : [];
+    if (enabledPrompts.length > 0) {
         enabledPrompts.forEach(p => {
             let content = p.content;
             content = content.replace(/\{\{char\}\}/gi, char.name);
@@ -1275,9 +1288,11 @@ function buildSystemPrompt(char) {
     }
 
     // 世界书条目（如果有）
-    if (char.worldBook && char.worldBook.length > 0) {
+    const activeWorldBook = typeof window !== 'undefined' && window.ByndPromptLab?.worldBook ? window.ByndPromptLab.worldBook(char)
+        : (typeof getCharacterWorldBookEntries === 'function' ? getCharacterWorldBookEntries(char) : (Array.isArray(char.worldBook) ? char.worldBook : []));
+    if (activeWorldBook.length > 0) {
         let totalWorldBookLength = 0;
-        const entries = (typeof window !== 'undefined' && window.ByndPromptLab?.worldBook ? window.ByndPromptLab.worldBook(char) : char.worldBook)
+        const entries = activeWorldBook
             .map(e => {
                 const key = e.key || e.keys || e.keyword || '';
                 const rawContent = e.content || e.entry || e.value || '';
@@ -1301,6 +1316,9 @@ function buildSystemPrompt(char) {
     if (prompt.length > 18000) {
         prompt = `${prompt.slice(0, 18000)}\n\n【以上角色/世界观内容已为微信对话自动压缩，优先保持核心人设。】\n`;
     }
+
+    // Append after compaction so long character/world descriptions cannot cut off the defaults.
+    if (!enabledPrompts.length) prompt += CHAT_API_DEFAULT_ROLEPLAY_PROMPT;
 
     // 行为指导
     const config = char.chatConfig || {};
@@ -1925,8 +1943,10 @@ async function callChatApi(messages, options = {}) {
                 max_tokens: getChatApiEmptyLengthRetryTokens(params.max_tokens)
             });
             if (retryResult && retryResult.ok) return retryResult;
-            if (retryResult && (retryResult.httpStatus || retryResult.deferred)) return retryResult;
-            if (retryResult && retryResult.error) console.warn('chat api empty length retry failed:', retryResult.error);
+            if (retryResult && !retryResult.ok) {
+                // Keep the actual retry outcome: it may be a network, policy or other failure.
+                return { ...retryResult, emptyLengthRetried: true, firstFinishReason: finishReason };
+            }
         }
 
         if (!content) {
@@ -1937,8 +1957,15 @@ async function callChatApi(messages, options = {}) {
                 ok: false,
                 error: blocked
                     ? 'AI 返回了空内容，可能被模型安全策略拦截'
-                    : (lengthLimited ? 'AI 返回了空内容，模型输出被截断，已自动加大输出额度但仍失败' : 'AI 返回了空内容'),
-                finishReason
+                    : (lengthLimited ? 'AI 返回了空内容，模型已达到输出额度，未收到最终正文' : 'AI 返回了空内容'),
+                finishReason,
+                responseInfo: {
+                    outputTokenLimit: Number(params.max_tokens) || null,
+                    completionTokens: responseUsage?.completion_tokens ?? responseUsage?.output_tokens ?? null,
+                    reasoningTokens: responseUsage?.completion_tokens_details?.reasoning_tokens ?? responseUsage?.output_tokens_details?.reasoning_tokens ?? responseUsage?.completion_thinking_tokens ?? null,
+                    rawContentChars: String(rawContent || '').length,
+                    visibleContentChars: content.length
+                }
             };
         }
 

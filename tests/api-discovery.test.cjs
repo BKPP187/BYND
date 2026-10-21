@@ -25,6 +25,30 @@ function harness(respond = () => new Response('{}', { status: 404 })) {
 }
 const models = list => new Response(JSON.stringify({ data: list.map(id => ({ id })) }));
 
+test('model discovery finishes after listing models without waiting for chat inference', async () => {
+    const h = harness((url, options) => options.method === 'GET' ? models(['auto', 'dmodel', 'kmodel'])
+        : new Response('{"error":{"message":"model unavailable"}}', { status: 400 }));
+    const result = await h.context.doTestApi('http://127.0.0.1:8317/v1', 'test-key');
+    assert.equal(result.ok, true);
+    assert.equal(h.requests.length, 1, 'Listing models must not wait for a sequence of generated chat replies');
+    assert.ok(h.requests.every(request => request.options.method === 'GET'));
+    assert.deepEqual(Array.from(result.models), ['auto', 'dmodel', 'kmodel']);
+    assert.equal(result.chatVerified, false);
+    assert.equal(result.chatModel, '', 'Listing a model is not proof of its chat capability');
+});
+
+test('modal immediately offers all listed models without claiming verified chat or image generation', async () => {
+    const h = harness(() => models(['auto', 'kmodel', 'image-model']));
+    h.elements.get('api-edit-url').value = 'http://127.0.0.1:8317/v1';
+    await h.context.testApiFromModal();
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.elements.get('api-edit-model').disabled, false);
+    assert.match(h.elements.get('api-edit-model').innerHTML, /auto/);
+    assert.match(h.elements.get('api-edit-model').innerHTML, /kmodel/);
+    assert.match(h.elements.get('api-test-result').innerHTML, /聊天和生图尚未实测/);
+    assert.doesNotMatch(h.elements.get('api-model-hint').textContent, /未测到聊天能力/);
+});
+
 test('a pasted /v1 on the image-only provider resolves its documented /api/v1 without claiming generation or key validation', async () => {
     const h = harness(() => new Response('{"detail":"未登录"}', { status: 401 }));
     const result = await h.context.doTestApi('https://img.pipiwangcom.com/v1', 'test-key');
@@ -86,6 +110,43 @@ test('root URLs find /v1 and custom prefixes are retained during fallback', asyn
         assert.equal(result.baseUrl, base + '/v1');
         assert.equal(result.ok, true);
         assert.ok(h.requests.every(item => item.url.startsWith(base + '/')));
+    }
+});
+
+test('a local proxy root discovers /v1 and an invalid client key is not masked by the first 404', async () => {
+    const h = harness(url => url === 'http://127.0.0.1:8317/v1/models'
+        ? new Response('{}', { status: 401 }) : new Response('{}', { status: 404 }));
+    const result = await h.context.doTestApi('http://127.0.0.1:8317', 'invalid-test-key');
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 401);
+    assert.match(result.error, /API Key.*401/);
+    assert.equal(result.attempts.find(a => a.status === 401).baseUrl, 'http://127.0.0.1:8317/v1');
+    h.elements.get('api-edit-url').value = 'http://127.0.0.1:8317';
+    h.elements.get('api-edit-key').value = 'invalid-test-key';
+    await h.context.testApiFromModal();
+    assert.match(h.elements.get('api-test-result').innerHTML, /401/);
+    assert.match(h.elements.get('api-test-result').innerHTML, /http:\/\/127\.0\.0\.1:8317\/v1\/models/);
+    assert.doesNotMatch(h.elements.get('api-test-result').innerHTML, /invalid-test-key/);
+    assert.equal(h.elements.get('api-edit-url').value, 'http://127.0.0.1:8317', 'Failed probes do not rewrite the saved URL');
+});
+
+test('a root 404 does not conceal a later network error and a later success still wins', async () => {
+    for (const mode of ['network', 'success']) {
+        const h = harness(url => {
+            if (url.endsWith('/v1/models') && !url.endsWith('/api/v1/models')) {
+                if (mode === 'network') throw new TypeError('Failed to fetch');
+                return models([]);
+            }
+            return new Response('{}', { status: 404 });
+        });
+        const result = await h.context.doTestApi('http://127.0.0.1:8317', 'test-key');
+        if (mode === 'network') {
+            assert.equal(result.ok, false);
+            assert.match(result.error, /Failed to fetch/);
+        } else {
+            assert.equal(result.ok, true);
+            assert.equal(result.baseUrl, 'http://127.0.0.1:8317/v1');
+        }
     }
 });
 
