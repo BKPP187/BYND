@@ -324,6 +324,13 @@ function exportByndBackupThroughAndroid(blob, filename) {
         const id = `backup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         let settled = false;
         let writing = false;
+        let timeout = null;
+        // The picker wait and each write step get their own window. One fixed limit for
+        // picking a location plus writing every chunk aborted large backups mid-write.
+        const armTimeout = (ms, message) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fail(new Error(message)), ms);
+        };
         const cleanup = () => {
             window.removeEventListener('bynd:backup-export-ready', onReady);
             window.removeEventListener('bynd:backup-export', onResult);
@@ -353,23 +360,27 @@ function exportByndBackupThroughAndroid(blob, filename) {
             if (event?.detail?.id !== id || settled) return;
             try {
                 writing = true;
+                const stalled = '备份写入长时间没有进展，已停止。请重新导出';
+                armTimeout(60 * 1000, stalled);
                 const chunkSize = 192 * 1024;
                 for (let offset = 0; offset < blob.size; offset += chunkSize) {
                     const encoded = await readByndBlobChunkAsBase64(blob.slice(offset, offset + chunkSize));
                     if (settled) return;
                     const accepted = bridge.appendBackupExportChunk(id, encoded);
                     if (accepted !== true && accepted !== 'true') throw new Error('备份分段写入失败');
+                    armTimeout(60 * 1000, stalled);
                     // Keep the WebView event queue responsive for large image/font backups.
                     await new Promise(resolveChunk => setTimeout(resolveChunk, 0));
                 }
-                if (!settled) bridge.finishBackupExport(id);
+                if (!settled) {
+                    armTimeout(2 * 60 * 1000, '系统没有确认备份已写完，请检查保存的文件或重新导出');
+                    bridge.finishBackupExport(id);
+                }
             } catch (error) {
                 fail(error);
             }
         };
-        const timeout = setTimeout(() => {
-            fail(new Error('系统文件选择或写入未完成，请重新导出并选择保存位置'));
-        }, 2 * 60 * 1000);
+        armTimeout(5 * 60 * 1000, '没有选择保存位置，请重新导出并选择保存位置');
         window.addEventListener('bynd:backup-export-ready', onReady);
         window.addEventListener('bynd:backup-export', onResult);
         try {
@@ -395,7 +406,8 @@ async function exportAllData() {
             a.href = url;
             a.download = filename;
             a.click();
-            URL.revokeObjectURL(url);
+            // Revoking in the same task can cancel the download in Safari and Firefox.
+            setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
         }
         alert(exportData._backupWarnings?.length
             ? `备份已下载，但以下内容未完整备份：\n${exportData._backupWarnings.join('\n')}\n请保留当前设备的数据。`
@@ -408,12 +420,18 @@ async function exportAllData() {
     }
 }
 
-// 导入数据
+function isByndBackupImportableKey(key) {
+    return isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1');
+}
+
+// 导入数据。先完整校验，再写入；任何一步失败都按快照回滚，不留下半新半旧的数据。
 async function importAllData(input) {
     const file = input.files[0];
     if (!file) return;
     input.value = '';
 
+    const undo = [];
+    let applying = false;
     try {
         const text = await file.text();
         const data = JSON.parse(text);
@@ -427,51 +445,84 @@ async function importAllData(input) {
                 || data.my_characters_data.some(char => !char || typeof char !== 'object' || Array.isArray(char) || char.__indexedDbBacked))) {
             throw new Error('备份中缺少完整角色数据，不能导入轻量索引');
         }
+        const importsCharacters = Array.isArray(data.my_characters_data);
+        // Check every module before the first write, so a missing module cannot leave a partial import.
+        if (importsCharacters) {
+            if (typeof saveWechatImportedCharactersData !== 'function') throw new Error('角色存储模块尚未准备好');
+            if (localStorage.getItem('bynd_life_state_private_v1') && !window.ByndLifeState?.revokeAll) throw new Error('生活授权模块尚未准备好，无法安全导入角色');
+            if (localStorage.getItem('bynd_moon_private_v1') && !window.ByndMoon?.revokeAll) throw new Error('月伴授权模块尚未准备好，无法安全导入角色');
+        }
+        if (data._fontBlobs && typeof data._fontBlobs === 'object' && Object.keys(data._fontBlobs).length && typeof saveFontBlob !== 'function') {
+            throw new Error('字体模块尚未准备好');
+        }
+        const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
+        const localEntries = Object.keys(data)
+            .filter(key => !key.startsWith('_') && key !== 'my_characters_data' && key !== 'my_characters_data_meta' && isByndBackupImportableKey(key))
+            .map(key => [key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key))]);
 
         if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
+        applying = true;
 
-        // 先确认完整角色数据可保存，再恢复其他设置。
-        if (Array.isArray(data.my_characters_data)) {
-            if (typeof saveWechatImportedCharactersData !== 'function') throw new Error('角色存储模块尚未准备好');
-            // Imported characters can reuse an existing ID. Local health consent must be renewed.
-            if (localStorage.getItem('bynd_life_state_private_v1')) {
-                if (!window.ByndLifeState?.revokeAll) throw new Error('生活授权模块尚未准备好，无法安全导入角色');
-                window.ByndLifeState.revokeAll();
-            }
-            if (localStorage.getItem('bynd_moon_private_v1')) {
-                if (!window.ByndMoon?.revokeAll) throw new Error('月伴授权模块尚未准备好，无法安全导入角色');
-                window.ByndMoon.revokeAll();
-            }
-            await saveWechatImportedCharactersData(data.my_characters_data);
-        }
-
-        // 恢复 localStorage。角色数据单独处理，避免大备份再次撑爆 localStorage。
-        const rawLocalStorageKeys = Array.isArray(data._rawLocalStorageKeys) ? data._rawLocalStorageKeys : [];
-        Object.keys(data).forEach(key => {
-            if (key.startsWith('_') || key === 'my_characters_data' || key === 'my_characters_data_meta') return;
-            if (isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1')) {
-                localStorage.setItem(key, stringifyBackupLocalStorageValue(data[key], rawLocalStorageKeys.includes(key)));
-            }
+        // 1. localStorage：记录旧值后逐项写入。
+        const previousLocal = new Map(localEntries.map(([key]) => [key, localStorage.getItem(key)]));
+        undo.push(() => {
+            previousLocal.forEach((value, key) => {
+                if (value === null) localStorage.removeItem(key);
+                else localStorage.setItem(key, value);
+            });
         });
+        localEntries.forEach(([key, value]) => localStorage.setItem(key, value));
 
-        // 恢复 IndexedDB 字体文件
-        if (data._fontBlobs) {
-            for (const [fontId, blob] of Object.entries(data._fontBlobs)) {
-                await saveFontBlob(fontId, blob);
+        // 2. 角色数据：先保存当前快照，失败时写回。快照不可读时仍允许导入，用于修复损坏的安装。
+        if (importsCharacters) {
+            let previousCharacters = null;
+            try {
+                if (typeof getWechatCharacterSnapshotForBackup === 'function') previousCharacters = await getWechatCharacterSnapshotForBackup();
+            } catch (error) {
+                console.warn('导入前无法读取当前角色快照，失败时无法恢复角色数据', error);
+            }
+            // Imported characters can reuse an existing ID. Local health consent must be renewed.
+            if (localStorage.getItem('bynd_life_state_private_v1')) window.ByndLifeState.revokeAll();
+            if (localStorage.getItem('bynd_moon_private_v1')) window.ByndMoon.revokeAll();
+            await saveWechatImportedCharactersData(data.my_characters_data);
+            if (previousCharacters && Array.isArray(previousCharacters.characters)) {
+                undo.push(() => saveWechatImportedCharactersData(previousCharacters.characters));
+            } else {
+                undo.push(() => { throw new Error('导入前的角色数据无法读取，未能恢复'); });
             }
         }
 
-        // 恢复 IndexedDB 桌宠素材包
+        // 3. IndexedDB 字体文件
+        if (data._fontBlobs && typeof data._fontBlobs === 'object') {
+            const fontIds = Object.keys(data._fontBlobs);
+            const previousFonts = new Map();
+            for (const fontId of fontIds) {
+                previousFonts.set(fontId, typeof loadFontBlob === 'function' ? await loadFontBlob(fontId).catch(() => null) : null);
+            }
+            undo.push(async () => {
+                for (const [fontId, value] of previousFonts) {
+                    if (value) await saveFontBlob(fontId, value);
+                    else if (typeof deleteFontBlob === 'function') await deleteFontBlob(fontId);
+                }
+            });
+            for (const fontId of fontIds) {
+                await saveFontBlob(fontId, data._fontBlobs[fontId]);
+            }
+        }
+
+        // 4. IndexedDB 桌宠素材包、梦境图片：整库替换前先读出旧内容。
         if (data._monitorPetAssets) {
+            const previousPetAssets = await exportMonitorPetAssetsForBackup();
+            undo.push(() => importMonitorPetAssetsFromBackup(previousPetAssets || {}));
             await importMonitorPetAssetsFromBackup(data._monitorPetAssets);
         }
-
-        // 恢复 IndexedDB 梦境图片
         if (data._dreamImages) {
+            const previousDreamImages = await exportDreamImagesForBackup();
+            undo.push(() => importDreamImagesFromBackup(previousDreamImages || {}));
             await importDreamImagesFromBackup(data._dreamImages);
         }
 
-        // 恢复 API 账单（按 id 合并，不覆盖本机已有记录）
+        // 5. API 账单（按 id 合并，不覆盖本机已有记录；只增不改，因此放在最后）
         if (Array.isArray(data._usageLedger) && window.ByndUsageLedger?.importFromBackup) {
             await window.ByndUsageLedger.importFromBackup(data._usageLedger);
         }
@@ -479,7 +530,17 @@ async function importAllData(input) {
         alert('导入成功！页面即将刷新...');
         location.reload();
     } catch (e) {
-        alert('导入失败: ' + e.message);
+        let rollbackNote = '';
+        if (applying && undo.length) {
+            const problems = [];
+            for (const step of undo.reverse()) {
+                try { await step(); } catch (error) { problems.push(error?.message || String(error)); }
+            }
+            rollbackNote = problems.length
+                ? `\n部分数据未能恢复到导入前：${problems.join('；')}。请不要关闭应用，先导出一份当前备份。`
+                : '\n已恢复到导入前的数据。';
+        }
+        alert('导入失败: ' + e.message + rollbackNote);
     }
 }
 
