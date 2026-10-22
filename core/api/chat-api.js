@@ -2046,7 +2046,7 @@ async function callChatApi(messages, options = {}) {
             return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };
         }
         const isTimeout = timedOut || e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
-        const msg = isTimeout ? '请求超时（90秒），未收到完整回复。请重试；如果仍超时，请检查接口或换更快的模型。' : (e.message || '网络错误');
+        const msg = isTimeout ? '请求超时（90秒内没有收到新内容），未收到完整回复。请重试；如果仍超时，请检查接口或换更快的模型。' : (e.message || '网络错误');
         return { ok: false, timedOut: isTimeout, errorSource: 'client', error: msg + getChatApiNetworkHint(baseUrl, msg) };
     } finally {
         clearRequestTimeout();
