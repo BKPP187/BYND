@@ -625,7 +625,8 @@ function getFontContentType(pathname) {
 }
 
 async function handleContact(request, env) {
-  const payload = await request.json();
+  // Same size limit as /subscribe; request.json() would buffer any body size.
+  const payload = JSON.parse(new TextDecoder().decode(await readMcpRequestBody(request, SUBSCRIBE_MAX_BYTES)));
   const clientId = normalizeClientId(payload.clientId);
   const record = await getRecord(env, clientId);
   if (!record) return { ok: false, error: 'subscription not found' };
