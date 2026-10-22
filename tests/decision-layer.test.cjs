@@ -12,7 +12,7 @@ function harness(fetchImpl = async () => { throw new Error('unexpected request')
     const window = {};
     const context = {
         window, fetch: fetchImpl, AbortController, setTimeout, clearTimeout, console: { warn() {} },
-        localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
+        localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) }
     };
     vm.runInNewContext(read('systems/agent-runtime/jev.js'), context);
     vm.runInNewContext(read('systems/agent-runtime/decider.js'), context);
@@ -30,7 +30,6 @@ const jevAnswer = answers => async () => ({ ok: true, json: async () => ({ answe
 test('without Jev the chat reply carries hidden verdicts that are stripped from the visible text', async () => {
     const { decider, jev } = harness();
     assert.match(decider.replyInstructions(char()), /<bynd_decide>/);
-    assert.equal(decider.replyInstructions(char({ isGroupChat: true })), '');
     const { content, decisions } = decider.extractReplyDecisions('挺好。\n<bynd_decide>{"status":true,"memory":false,"moment":false}</bynd_decide>');
     assert.equal(content.trim(), '挺好。');
     assert.deepEqual({ ...decisions }, { status: true, memory: false, moment: false });
@@ -79,11 +78,52 @@ test('below the threshold or on errors Jev falls back to the reply verdicts', as
     assert.equal(broken.jev.readLog().some(entry => entry.route === 'jev-error'), true);
 });
 
-test('fewer than two labelled avatars never asks about mood; group chats are left alone', async () => {
+test('fewer than two labelled avatars never asks about mood', async () => {
     const { decider } = harness();
     assert.equal(decider.moodOptions(char({ avatarMoods: { 'a.png': '冷淡' } })).length, 0);
     assert.equal(decider.turnQuestions(char({ avatarMoods: {} })).questions.avatar, undefined);
-    assert.equal((await decider.afterReply(char({ isGroupChat: true }), { replyDecisions: { status: true } })).route, 'none');
+});
+
+test('group chats decide only the status snapshot and memory, by reply block or by Jev', async () => {
+    const group = () => char({ id: 'g1', name: '研究所群', isGroupChat: true });
+    const plain = harness();
+    const instructions = plain.decider.replyInstructions(group());
+    assert.match(instructions, /<bynd_decide>\{"status":true或false,"memory":true或false\}<\/bynd_decide>/);
+    assert.doesNotMatch(instructions, /moment|avatar|npcFriend/);
+    const { decisions } = plain.decider.extractReplyDecisions('【商桓】收到。\n<bynd_decide>{"status":false,"memory":true,"moment":true}</bynd_decide>');
+    const turn = await plain.decider.afterReply(group(), { replyDecisions: decisions });
+    assert.equal(turn.route, 'agent');
+    assert.equal(turn.status, false);
+    assert.equal(turn.memory, true);
+    assert.equal(turn.moment, null, 'groups never decide a moment');
+    assert.equal(turn.avatar, null);
+    assert.deepEqual([...plain.jev.readLog().map(entry => entry.key)].sort(), ['memory', 'status']);
+
+    let body;
+    const withJev = harness(async (_url, options) => { body = JSON.parse(options.body); return jevAnswer({ status: { type: 'noul', noul: 0.9 }, memory: { type: 'noul', noul: 0.1 } })(); });
+    withJev.jev.write({ enabled: true, apiKey: 'k', scopes: {} });
+    const jevTurn = await withJev.decider.afterReply(group(), { replyDecisions: { status: false } });
+    assert.deepEqual(Object.keys(body.questions).sort(), ['memory', 'status']);
+    assert.equal(body.state.group.name, '研究所群');
+    assert.equal(body.state.character, undefined);
+    assert.equal(jevTurn.route, 'jev');
+    assert.equal(jevTurn.status, true);
+    assert.equal(jevTurn.memory, false);
+});
+
+test('the decision log keeps a summary and can be cleared', async () => {
+    const { decider, jev } = harness();
+    decider.replyInstructions(char());
+    await decider.afterReply(char(), { replyDecisions: null });
+    await decider.afterReply(char(), { replyDecisions: { status: true, memory: false } });
+    const summary = jev.summarizeLog();
+    assert.equal(summary.total, 3);
+    assert.equal(summary.agent, 2);
+    assert.equal(summary.missing, 1);
+    jev.clearLog();
+    assert.equal(jev.readLog().length, 0);
+    for (let i = 0; i < 250; i++) jev.logDecision({ route: 'agent', key: 'k' + i });
+    assert.equal(jev.readLog().length, 200);
 });
 
 test('the tool gate blocks only a confident out-of-character verdict', async () => {

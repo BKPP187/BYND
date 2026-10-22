@@ -9,7 +9,9 @@ function getWechatStreamPreviewSegments(rawContent) {
         .replace(/<bynd_(?:summary|tool|pet|decide)\b[^>]*>[\s\S]*$/gi, '')
         .replace(/<\/?bynd_(?:summary|tool|pet|decide)\b[^>]*>/gi, '')
         // A hidden reasoning block that is still open hides everything after it.
-        .replace(/<(thinking|think|thought|execute_think|cot|analysis|reasoning|chain_of_thought)\b[^>]*>(?![\s\S]*?<\/\1\s*>)[\s\S]*$/i, '');
+        .replace(/<(thinking|think|thought|execute_think|cot|analysis|reasoning|chain_of_thought)\b[^>]*>(?![\s\S]*?<\/\1\s*>)[\s\S]*$/i, '')
+        // A tag cut mid-name at the end of the stream ("<bynd_dec", "<thin") is not shown until it completes.
+        .replace(/<\/?[A-Za-z_][\w-]*(?:\s[^<>]*)?$/, '');
     text = cleanWechatVisibleContent(text);
     if (!text) return [];
     // A directive that has not closed yet (e.g. "[微信图片:窗边…") stays hidden until complete.

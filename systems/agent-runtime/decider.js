@@ -13,15 +13,32 @@
     }
 
     // When the reply was asked for a verdict block; lets afterReply tell "the model ignored it" from "never asked".
-    const INSTRUCTED_WINDOW_MS = 10 * 60 * 1000;
+    const INSTRUCTED_WINDOW_MS = 3 * 60 * 1000;
     const instructedAt = new Map();
     const log = entry => window.ByndJev?.logDecision?.(entry);
 
     // The agent route costs no extra request: the chat reply carries its own hidden verdicts.
     // With Jev on, the block is still requested so any question Jev is unsure about has an answer.
+    const GROUP_KEYS = ['status', 'memory'];
+    const groupMemberNames = group => {
+        try {
+            const members = typeof getChatApiGroupMembers === 'function' ? getChatApiGroupMembers(group) : [];
+            return members.map(member => clip(typeof getChatApiGroupMemberName === 'function' ? getChatApiGroupMemberName(member) : member?.name, 20)).filter(Boolean).slice(0, 12);
+        } catch (_) { return []; }
+    };
+
+    // Group chats only decide the two jobs they actually run after a reply: the status snapshot and memory.
+    function groupReplyInstructions() {
+        return '在全部群聊发言之后另起一行，附上用户看不到的判断块：<bynd_decide>{"status":true或false,"memory":true或false}</bynd_decide>。'
+            + 'status：这一轮之后，群里的气氛或成员的状态、没说出口的想法是否明显变化，值得更新群状态；'
+            + 'memory：这一轮群聊是否出现值得长期记住的新事实或共同经历（用户在群里说的经历、偏好、约定、成员之间的关系变化）；普通寒暄、接梗、表情不用记。'
+            + '按群里成员真实会怎么做来判断，不确定就填 false。判断块只能出现一次，不要解释，也不要算作任何成员的发言。';
+    }
+
     function replyInstructions(char) {
-        if (!char || char.isGroupChat) return '';
+        if (!char) return '';
         if (char.id != null) instructedAt.set(char.id, Date.now());
+        if (char.isGroupChat) return groupReplyInstructions();
         const npc = window.ByndNpcFriends?.canConsider(char) === true;
         const discover = window.ByndDiscoverStory?.canPublish(char) === true;
         const moods = moodOptions(char);
@@ -73,6 +90,16 @@
         return options.length >= 2 ? options : [];
     }
 
+    function groupTurnQuestions() {
+        return {
+            questions: {
+                status: { type: 'noul', instructions: 'After this group-chat exchange, has the mood of the group or the state and unspoken thoughts of its members changed noticeably enough to refresh the group status?' },
+                memory: { type: 'noul', instructions: 'Did this group-chat exchange reveal a new fact or shared event worth remembering long term (something the user shared, a preference, a plan, a change between members)? Small talk, jokes and stickers are not enough.' }
+            },
+            moods: []
+        };
+    }
+
     function turnState(char) {
         const history = Array.isArray(char.history) ? char.history : [];
         const recent = history.filter(msg => msg && msg.type !== 'system_notice').slice(-8).map(msg => ({
@@ -86,6 +113,14 @@
         const lastMoment = typeof getWechatMomentStore === 'function'
             ? Math.max(0, ...getWechatMomentStore().posts.filter(post => post.charId === char.id).map(post => Number(post.createdAt || 0)))
             : 0;
+        if (char.isGroupChat) {
+            return {
+                group: { name: displayName(char), members: groupMemberNames(char), description: clip(persona, 500), world: clip(world, 400) },
+                recent,
+                hoursSinceStatusUpdate: status?.updatedAt ? Math.round((Date.now() - status.updatedAt) / 360000) / 10 : null,
+                localTime: new Date().toLocaleString('zh-CN', { hour12: false })
+            };
+        }
         return {
             character: { name: displayName(char), persona: clip(persona, 700), world: clip(world, 500) },
             currentAvatarMood: clip(char.avatarMoods?.[char.avatar], 12) || null,
@@ -99,6 +134,7 @@
     }
 
     function turnQuestions(char) {
+        if (char?.isGroupChat) return groupTurnQuestions();
         const questions = {
             status: { type: 'noul', instructions: "After this exchange, has the character's mood, inner state or unspoken thoughts changed noticeably enough to refresh their inner-voice status?" },
             memory: { type: 'noul', instructions: 'Did this exchange reveal a new fact or shared event worth remembering long term, including a meaningful search the character performed for the user? Do not store one-off search results.' },
@@ -125,16 +161,18 @@
     // Returns { route, status, memory, moment, avatar, ... } where each verdict is true/false or null (= keep BYND's default behaviour).
     async function afterReply(char, context = {}) {
         const empty = { route: 'none', status: null, memory: null, moment: null, avatar: null, npcFriend: null, channel: null, live: null };
-        if (!char || char.isGroupChat) return empty;
+        if (!char) return empty;
+        const group = !!char.isGroupChat;
         const name = displayName(char);
         const askedAt = char.id != null ? instructedAt.get(char.id) : undefined;
         if (char.id != null) instructedAt.delete(char.id);
         const instructed = askedAt !== undefined && Date.now() - askedAt < INSTRUCTED_WINDOW_MS;
         const received = context.replyDecisions || null;
         const reply = received && !received.invalid ? received : null;
-        const npcAllowed = window.ByndNpcFriends?.canConsider(char) === true;
-        const discoverAllowed = window.ByndDiscoverStory?.canPublish(char) === true;
-        const moods = moodOptions(char);
+        const npcAllowed = !group && window.ByndNpcFriends?.canConsider(char) === true;
+        const discoverAllowed = !group && window.ByndDiscoverStory?.canPublish(char) === true;
+        const moods = group ? [] : moodOptions(char);
+        const keys = group ? GROUP_KEYS : TURN_KEYS;
         const replyAvatar = () => {
             const target = typeof reply?.avatar === 'string' ? moods.find(option => option.label === reply.avatar && !option.current) : null;
             return target ? { index: target.index, label: target.label } : null;
@@ -168,11 +206,12 @@
             else if (instructed) log({ scope: 'turn', route: 'agent-missing', charName: name, key: 'missing', label: '模型没有附上判断，本轮按默认处理', answer: null, probability: null, applied: false });
             return empty;
         }
-        TURN_KEYS.filter(key => typeof reply[key] === 'boolean').forEach(key => {
+        keys.filter(key => typeof reply[key] === 'boolean').forEach(key => {
             log({ scope: 'turn', route: 'agent', charName: name, key, label: TURN_LABELS[key], answer: reply[key], probability: null, applied: true });
         });
         const avatar = replyAvatar();
         if (avatar) log({ scope: 'turn', route: 'agent', charName: name, key: 'avatar', label: TURN_LABELS.avatar, answer: avatar.label, probability: null, applied: true });
+        if (group) return { ...empty, route: 'agent', status: reply.status ?? null, memory: reply.memory ?? null };
         return { route: 'agent', status: reply.status ?? null, memory: reply.memory ?? null, moment: reply.moment ?? null, avatar, npcFriend: npcAllowed ? reply.npcFriend ?? null : null, channel: discoverAllowed ? reply.channel ?? null : null, live: discoverAllowed ? reply.live ?? null : null };
     }
 

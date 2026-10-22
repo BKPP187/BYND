@@ -2013,7 +2013,8 @@ FOREVER FREE</p></section>
                     <p class="bynd-jev-privacy">保存后的 Jev 密钥、开关、决策场景和执行门槛会随「导出数据」一起迁移到手机网页或 APK。JSON 备份包含明文密钥，请妥善保管。密钥不写入安装包；决策经 BYND 转发服务发往 TypeSafe（转发不保存密钥）。测试连接会产生一次调用。</p>
                     <div class="bynd-jev-actions"><button type="button" id="bynd-jev-test" onclick="ByndJev.testSettings()">测试连接</button><button type="button" onclick="ByndJev.saveSettings()">保存设置</button></div>
                     <p class="bynd-jev-status" id="bynd-jev-status" role="status" aria-live="polite"></p>
-                    <div class="bynd-jev-log-title">最近的决策 <small>绿色表示已执行</small></div>
+                    <div class="bynd-jev-log-title">最近的决策 <small>绿色表示已执行</small><button type="button" class="bynd-jev-log-clear" onclick="ByndJev.clearLog()">清空</button></div>
+                    <p class="bynd-jev-log-summary" id="bynd-jev-log-summary" aria-live="polite"></p>
                     <ul class="bynd-jev-log" id="bynd-jev-log"></ul>
                 </section>
                 </div>

@@ -4,7 +4,8 @@
 
     const STORAGE_KEY = 'bynd_jev_config_v1';
     const LOG_KEY = 'bynd_decision_log_v1';
-    const LOG_LIMIT = 60;
+    // Kept long enough to see patterns across a few days of chatting; travels with backups (bynd_ key).
+    const LOG_LIMIT = 200;
     const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
     // TypeSafe refuses browser origins, so the page goes through BYND's relay on its own domain
     // (bynd.ccwu.cc/mcp/relay/*, see workers/DEPLOY.md). The APK calls the same address.
@@ -162,10 +163,35 @@
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
     const routeLabel = { jev: 'Jev', agent: 'BYND Agent', 'jev-error': 'Jev 失败', 'agent-missing': 'BYND Agent' };
 
+    // How often each route decided, and how often the chat model skipped or garbled its verdict block.
+    function summarizeLog(entries = readLog()) {
+        const count = { jev: 0, agent: 0, missing: 0, failed: 0 };
+        entries.forEach(entry => {
+            if (entry.route === 'jev') count.jev++;
+            else if (entry.route === 'agent') count.agent++;
+            else if (entry.route === 'agent-missing') count.missing++;
+            else if (entry.route === 'jev-error') count.failed++;
+        });
+        return { total: entries.length, ...count };
+    }
+
+    function clearLog() {
+        try { localStorage.removeItem(LOG_KEY); } catch (_) {}
+        renderLog();
+    }
+
     function renderLog() {
         const box = typeof document !== 'undefined' ? document.getElementById('bynd-jev-log') : null;
         if (!box) return;
-        const entries = readLog().slice(0, 20);
+        const all = readLog();
+        const summaryBox = document.getElementById('bynd-jev-log-summary');
+        if (summaryBox) {
+            const s = summarizeLog(all);
+            summaryBox.textContent = s.total
+                ? `共 ${s.total} 条 · Jev ${s.jev} · BYND ${s.agent}${s.missing ? ` · 模型漏判 ${s.missing}` : ''}${s.failed ? ` · Jev 失败 ${s.failed}` : ''}`
+                : '';
+        }
+        const entries = all.slice(0, 20);
         box.innerHTML = entries.length ? entries.map(entry => {
             const time = new Date(entry.at || 0).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             const answer = entry.answer === true ? '是' : entry.answer === false ? '否' : entry.answer == null ? '不确定' : String(entry.answer);
@@ -224,5 +250,5 @@
         if (label) label.textContent = `${Math.round(Number(value) || 0)}%`;
     }
 
-    window.ByndJev = { read, write, available, ask, choose, request, interpret, testConnection, renderSettings, saveSettings, testSettings, previewThreshold, readLog, logDecision, renderLog, storageKey: STORAGE_KEY, logKey: LOG_KEY, scopes: SCOPES.slice() };
+    window.ByndJev = { read, write, available, ask, choose, request, interpret, testConnection, renderSettings, saveSettings, testSettings, previewThreshold, readLog, logDecision, renderLog, summarizeLog, clearLog, storageKey: STORAGE_KEY, logKey: LOG_KEY, scopes: SCOPES.slice() };
 })();
