@@ -120,7 +120,7 @@ function getBackupLocalStorageKeys() {
     // Character tool keys (AMap / TMDB) remain device-local secrets.
     const toolSecretStorageKey = window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1';
     const tripoSecretStorageKey = window.ByndTripo?.storageKey || 'bynd_tripo_private_v1';
-    const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1', 'bynd_vivix_private_v1']);
+    const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1', 'bynd_vivix_private_v1', 'bynd_proactive_notify_client_secret_v1']);
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
@@ -421,7 +421,7 @@ async function exportAllData() {
 }
 
 function isByndBackupImportableKey(key) {
-    return isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1');
+    return isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1', 'bynd_proactive_notify_client_secret_v1'].includes(key) && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1');
 }
 
 // 导入数据。先完整校验，再写入；任何一步失败都按快照回滚，不留下半新半旧的数据。
