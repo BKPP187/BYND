@@ -1,0 +1,96 @@
+/* Live call voice: minimize button, listening indicator and the floating call pill.
+   The pill lives on .phone-container, which carries data-wechat-ui-theme and the --wci-* palette. */
+.wc-call-minimize {
+    position: absolute;
+    top: calc(14px + var(--bynd-header-safe-top, 0px));
+    left: 14px;
+    z-index: 9;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font-size: 19px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    cursor: pointer;
+}
+.wc-call-screen[data-mode="incoming"] .wc-call-minimize { display: none; }
+.wc-call-minimize:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.wc-call-listen {
+    position: absolute;
+    right: 28px;
+    bottom: 148px;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    max-width: calc(100% - 140px);
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.32);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: none;
+}
+.wc-call-listen > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-call-listen-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: #30d158; }
+.wc-call-listen[data-state="hearing"] .wc-call-listen-dot { animation: wc-call-listen-pulse 0.9s ease-in-out infinite; }
+.wc-call-listen[data-state="busy"] .wc-call-listen-dot { background: #ffd60a; }
+.wc-call-listen:is([data-state="muted"], [data-state="error"]) .wc-call-listen-dot { background: rgba(255, 255, 255, 0.45); }
+.wc-call-screen.is-video-call .wc-call-listen { bottom: 194px; }
+@keyframes wc-call-listen-pulse { 50% { transform: scale(1.6); opacity: 0.55; } }
+
+.wc-call-float {
+    position: absolute;
+    top: calc(96px + var(--bynd-header-safe-top, 0px));
+    right: 10px;
+    z-index: 3200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 72px;
+    padding: 8px 6px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 18px;
+    background: rgba(28, 28, 30, 0.82);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+    color: #fff;
+    font: inherit;
+    touch-action: none;
+    cursor: pointer;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: left 0.18s ease, box-shadow 0.2s ease;
+}
+.wc-call-float.hidden { display: none; }
+.wc-call-float img { width: 48px; height: 48px; border-radius: 13px; object-fit: cover; background: rgba(255, 255, 255, 0.1); }
+.wc-call-float-meta { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wc-call-float-meta i { color: #30d158; font-size: 12px; }
+.wc-call-float.is-speaking img { box-shadow: 0 0 0 2px #30d158; animation: wc-call-float-ring 1.2s ease-in-out infinite; }
+.wc-call-float:focus-visible { outline: 2px solid #30d158; outline-offset: 2px; }
+@keyframes wc-call-float-ring { 50% { box-shadow: 0 0 0 4px rgba(48, 209, 88, 0.45); } }
+
+[data-wechat-ui-theme] .wc-call-float {
+    border-color: var(--wci-border);
+    border-radius: var(--wci-radius, 18px);
+    background: var(--wci-surface);
+    box-shadow: var(--wci-shadow, 0 12px 30px rgba(0, 0, 0, 0.18));
+    color: var(--wci-text);
+}
+[data-wechat-ui-theme] .wc-call-float img { border-radius: var(--wci-control-radius, 13px); }
+[data-wechat-ui-theme] .wc-call-float-meta i { color: var(--wci-accent); }
+[data-wechat-ui-theme] .wc-call-float.is-speaking img { box-shadow: 0 0 0 2px var(--wci-accent); }
+[data-wechat-ui-theme] .wc-call-screen .wc-call-minimize { border-radius: var(--wci-control-radius, 50%); }
+
+@media (prefers-reduced-motion: reduce) {
+    .wc-call-listen[data-state="hearing"] .wc-call-listen-dot,
+    .wc-call-float.is-speaking img { animation: none; }
+}
+[data-wechat-ui-theme="pixel"] .wc-call-screen:not(.is-video-call) .wc-call-minimize { background: var(--wci-well, rgba(0, 0, 0, 0.06)); color: var(--wci-text); }

@@ -60,6 +60,7 @@ function openSettingsTab(name, options = {}) {
     if (options.persist !== false) {
         try { localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, target); } catch (e) {}
     }
+    if (target === 'voice') window.ByndCallVoice?.renderSettings();
     if (target === 'usage') void renderSettingsUsageDashboard();
     if (target === 'lab') window.ByndPromptLab?.render();
     if (target === 'about') window.ByndVersionLetter?.renderAbout();

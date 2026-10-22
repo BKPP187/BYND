@@ -1944,6 +1944,21 @@ FOREVER FREE</p></section>
                 <div class="set-nav-panel" id="settings-tab-voice" data-settings-panel="voice" role="tabpanel" aria-labelledby="settings-nav-voice" hidden>
                     <div class="set-section-title"><i class="ri-volume-up-line"></i> 语音连接</div>
                     <div id="api-voice-route-panel" class="api-route-panel"></div>
+                    <section class="call-voice-settings" id="bynd-call-voice-settings" aria-labelledby="call-voice-title">
+                        <div class="call-voice-head"><h3 id="call-voice-title">通话实时语音</h3><label class="call-voice-switch"><input id="call-voice-enabled" type="checkbox" checked><span>开启</span></label></div>
+                        <p class="call-voice-note">语音或视频通话接通后一直听你说话；角色讲话时你开口，它会停下来听你。你一直不说话，角色会主动接话。</p>
+                        <label for="call-voice-engine">语音识别</label>
+                        <select id="call-voice-engine"><option value="auto">自动（优先手机自带，没有时用接口）</option><option value="system">只用手机 / 浏览器自带识别</option><option value="api">只用接口转写</option></select>
+                        <div class="call-voice-grid">
+                            <div><label for="call-voice-api">转写接口</label><select id="call-voice-api"></select></div>
+                            <div><label for="call-voice-model">转写模型</label><input id="call-voice-model" type="text" value="whisper-1" autocomplete="off" spellcheck="false"></div>
+                        </div>
+                        <label for="call-voice-silence">没人说话多少秒后角色主动开口</label>
+                        <input id="call-voice-silence" type="number" min="3" max="60" step="1" value="8" inputmode="numeric">
+                        <p class="call-voice-note">连续没回应时间隔会翻倍，最多主动开口 3 次。接口转写要求 OpenAI 兼容的 /audio/transcriptions，每句话计费一次。</p>
+                        <div class="call-voice-actions"><button type="button" onclick="ByndCallVoice.saveSettings()">保存</button></div>
+                        <p id="call-voice-status" class="call-voice-note" role="status" aria-live="polite"></p>
+                    </section>
                 </div>
 
                 <div class="set-nav-panel" id="settings-tab-3d" data-settings-panel="3d" role="tabpanel" aria-labelledby="settings-nav-3d" hidden>
@@ -3521,6 +3536,7 @@ FOREVER FREE</p></section>
     <script src="apps/wechat/ui/toolbar.js?v=1.1.992"></script>
     <script src="apps/wechat/chat/calls.js?v=1.1.992"></script>
     <script src="apps/wechat/chat/call-audio.js?v=1.1.992"></script>
+    <script src="apps/wechat/chat/call-voice.js?v=1.1.992"></script>
     <script src="core/character/card-parser.js?v=1.1.992"></script>
     <script src="apps/wechat/character/import.js?v=1.1.992"></script>
     <script src="apps/wechat/character/delete.js?v=1.1.992"></script>

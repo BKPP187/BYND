@@ -173,7 +173,8 @@ html #app-settings-window.app-window .set-nav-panel > div[style*="margin-top"] {
 /* One card style: white, hairline, no gradients, no glow. */
 html #app-settings-window.app-window :is(
     .tripo-settings, .vivix-settings, .bynd-jev-card, .notify-card, .font-batch-box, .font-preview-box,
-    .set-diagnostics, .set-data-btn, .bynd-about-card, .api-route-grid, .api-image-options, .api-image-usage
+    .set-diagnostics, .set-data-btn, .bynd-about-card, .api-route-grid, .api-image-options, .api-image-usage,
+    .call-voice-settings
 ) {
     background: var(--set-card) !important;
     background-image: none !important;
@@ -351,3 +352,18 @@ html #app-settings-window.app-window .bynd-about-card article { border-color: va
 
 html #app-settings-window.app-window .notify-switch input:not(:checked) + span { background: #e4e4e7 !important; }
 html #app-settings-window.app-window .font-del-icon { color: var(--set-faint) !important; }
+
+/* Call live-voice settings card (设置 → 语音). */
+#app-settings-window .call-voice-settings { margin-top: 14px; padding: 16px; }
+#app-settings-window .call-voice-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#app-settings-window .call-voice-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+#app-settings-window .call-voice-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--set-sub); }
+#app-settings-window .call-voice-settings > label,
+#app-settings-window .call-voice-grid label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--set-sub); }
+#app-settings-window .call-voice-settings :is(select, input[type="text"], input[type="number"]) { box-sizing: border-box; width: 100%; min-width: 0; height: 42px; padding: 0 10px; font-size: 15px; }
+#app-settings-window .call-voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#app-settings-window .call-voice-note { margin: 8px 0 0; color: var(--set-sub); font-size: 12.5px; line-height: 1.6; }
+#app-settings-window .call-voice-note:empty { display: none; }
+#app-settings-window .call-voice-actions { margin-top: 14px; }
+#app-settings-window .call-voice-actions button { width: 100%; min-height: 44px; border: 1px solid var(--set-ink); border-radius: 10px; background: var(--set-ink); color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
+@media (max-width: 340px) { #app-settings-window .call-voice-grid { grid-template-columns: 1fr; } }

@@ -1,5 +1,6 @@
 package cc.ccwu.bynd;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.ClipData;
@@ -29,6 +30,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -52,6 +54,7 @@ public class MainActivity extends Activity {
     private static final int PNG_EXPORT_REQUEST = 7313;
     private static final int BACKUP_EXPORT_REQUEST = 7314;
     private static final int COMPANION_CAPTURE_REQUEST = 7315;
+    private static final int AUDIO_PERMISSION_REQUEST = 7316;
     private static final int MAX_CAPTURE_SIDE = 768;
 
     private WebView webView;
@@ -76,6 +79,9 @@ public class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextToSpeech systemTts;
     private volatile boolean systemTtsReady;
+    private NativeSpeech nativeSpeech;
+    private String pendingSpeechLanguage;
+    private PermissionRequest pendingAudioRequest;
     private boolean systemStatusBarVisible = true;
     private boolean systemStatusBarLightIcons;
 
@@ -107,6 +113,7 @@ public class MainActivity extends Activity {
         // 后台陪伴 runs JS while BYND is in the background: never pause timers, keep the renderer alive.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
         ScreenCompanionService.bridge = companionBridge;
+        CallOverlayService.bridge = callBridge;
         webView.loadUrl("file:///android_asset/www/index.html");
     }
 
@@ -129,16 +136,46 @@ public class MainActivity extends Activity {
         }
     };
 
+    // "挂断" in the call notification ends the call in the page.
+    private final CallOverlayService.Bridge callBridge = () -> mainHandler.post(() -> {
+        if (webView != null) webView.evaluateJavascript("window.endWechatCall&&window._wechatActiveCall&&endWechatCall();", null);
+    });
+
     @Override
     protected void onStart() {
         super.onStart();
         ScreenCompanionService.setAppForeground(this, true);
+        CallOverlayService.setAppForeground(true);
     }
 
     @Override
     protected void onStop() {
         ScreenCompanionService.setAppForeground(this, false);
+        CallOverlayService.setAppForeground(false);
         super.onStop();
+    }
+
+    private boolean hasAudioPermission() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestAudioPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, AUDIO_PERMISSION_REQUEST);
+    }
+
+    private void emitSpeech(String json) {
+        if (webView != null) webView.evaluateJavascript("window.ByndCallVoice&&window.ByndCallVoice.onNative(" + json + ");", null);
+    }
+
+    private void startNativeSpeech(String language) {
+        if (!hasAudioPermission()) {
+            pendingSpeechLanguage = language;
+            requestAudioPermission();
+            return;
+        }
+        if (nativeSpeech == null) nativeSpeech = new NativeSpeech(this, json -> mainHandler.post(() -> emitSpeech(json)));
+        nativeSpeech.start(language);
     }
 
     @Override
@@ -253,6 +290,23 @@ public class MainActivity extends Activity {
             }
         });
         view.setWebChromeClient(new WebChromeClient() {
+            // getUserMedia for live call voice. Only audio capture is granted, and only after the
+            // Android microphone permission.
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                mainHandler.post(() -> {
+                    boolean audioOnly = request.getResources().length > 0;
+                    for (String resource : request.getResources()) {
+                        if (!PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) audioOnly = false;
+                    }
+                    if (!audioOnly) { request.deny(); return; }
+                    if (hasAudioPermission()) { request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE}); return; }
+                    if (pendingAudioRequest != null) pendingAudioRequest.deny();
+                    pendingAudioRequest = request;
+                    requestAudioPermission();
+                });
+            }
+
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
                 if (fileChooserCallback != null) {
@@ -537,6 +591,10 @@ public class MainActivity extends Activity {
             fileChooserCallback = null;
         }
         if (ScreenCompanionService.bridge == companionBridge) ScreenCompanionService.bridge = null;
+        if (CallOverlayService.bridge == callBridge) CallOverlayService.bridge = null;
+        CallOverlayService.stop(this);
+        if (nativeSpeech != null) { nativeSpeech.destroy(); nativeSpeech = null; }
+        if (pendingAudioRequest != null) { pendingAudioRequest.deny(); pendingAudioRequest = null; }
         stopProjection();
         systemTtsReady = false;
         if (systemTts != null) {
@@ -709,6 +767,22 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == AUDIO_PERMISSION_REQUEST) {
+            boolean granted = hasAudioPermission();
+            PermissionRequest request = pendingAudioRequest;
+            pendingAudioRequest = null;
+            if (request != null) {
+                if (granted) request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                else request.deny();
+            }
+            String language = pendingSpeechLanguage;
+            pendingSpeechLanguage = null;
+            if (language != null) {
+                if (granted) startNativeSpeech(language);
+                else emitSpeech("{\"type\":\"error\",\"text\":\"没有麦克风权限\",\"fatal\":true}");
+            }
+            return;
+        }
         if (healthReader != null) healthReader.onPermissionsResult(requestCode);
     }
 
@@ -717,6 +791,33 @@ public class MainActivity extends Activity {
     }
 
     public class ByndAndroidBridge {
+        // ---- Live call voice ----
+        @JavascriptInterface
+        public boolean speechAvailable() { return NativeSpeech.available(MainActivity.this); }
+
+        @JavascriptInterface
+        public void speechStart(String language) { mainHandler.post(() -> startNativeSpeech(language)); }
+
+        @JavascriptInterface
+        public void speechStop() {
+            mainHandler.post(() -> {
+                pendingSpeechLanguage = null;
+                if (nativeSpeech != null) nativeSpeech.stop();
+            });
+        }
+
+        @JavascriptInterface
+        public void callOverlayStart(String json) {
+            if (json == null || json.length() > 2_500_000) return;
+            CallOverlayService.start(MainActivity.this, json);
+        }
+
+        @JavascriptInterface
+        public void callOverlayStop() { CallOverlayService.stop(MainActivity.this); }
+
+        @JavascriptInterface
+        public boolean callOverlayAllowed() { return CompanionPermissions.overlay(MainActivity.this); }
+
         @JavascriptInterface
         public boolean healthAvailable() {
             return Build.VERSION.SDK_INT >= 34 && HealthConnectReader.available(MainActivity.this);
