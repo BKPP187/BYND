@@ -186,7 +186,8 @@ const styleParts = [
     'apps/wechat/ui/interaction-theme.css',
     'apps/wechat/moments/discover-story.css',
     'apps/wechat/moments/live-room.css',
-    'apps/settings/vivix.css'
+    'apps/settings/vivix.css',
+    'apps/settings/settings-layout.css'
 ];
 
 // These two apps intentionally keep their private IIFE scope. Their feature

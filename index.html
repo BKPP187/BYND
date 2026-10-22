@@ -1896,26 +1896,45 @@ FOREVER FREE</p></section>
             </nav>
         </div>
 
-        <div id="app-settings-window" class="app-window hidden" style="background: #faf5f0;">
-            <div class="window-header" style="background: linear-gradient(135deg, #fff5f5, #fef0f5, #f5f0ff); border-bottom: 1px solid rgba(248,164,184,0.2);">
-                <span onclick="closeApp('settings')" class="close-btn" style="color: #c9a0b5;">关闭</span>
-                <h3 style="color: #d4749a;">设置</h3>
+        <div id="app-settings-window" class="app-window hidden">
+            <div class="window-header">
+                <span onclick="closeApp('settings')" class="close-btn">关闭</span>
+                <button type="button" class="set-back-btn" onclick="openSettingsHome()" aria-label="返回设置"><i class="ri-arrow-left-s-line" aria-hidden="true"></i><span>设置</span></button>
+                <h3 id="settings-title">设置</h3>
                 <button type="button" class="bynd-settings-search" aria-label="全局搜索" title="全局搜索" onclick="ByndSearch.open()"><i class="ri-search-line" aria-hidden="true"></i></button>
             </div>
             <nav class="set-nav" id="settings-nav" role="tablist" aria-label="设置分类">
-                <button type="button" class="set-nav-tab active" role="tab" id="settings-nav-api" data-settings-tab="api" aria-controls="settings-tab-api" aria-selected="true" onclick="openSettingsTab('api')"><i class="ri-link"></i><span>API</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-voice" data-settings-tab="voice" aria-controls="settings-tab-voice" aria-selected="false" tabindex="-1" onclick="openSettingsTab('voice')"><i class="ri-volume-up-line"></i><span>语音</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-3d" data-settings-tab="3d" aria-controls="settings-tab-3d" aria-selected="false" tabindex="-1" onclick="openSettingsTab('3d')"><i class="ri-box-3-line"></i><span>3D 人物</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-video" data-settings-tab="video" aria-controls="settings-tab-video" aria-selected="false" tabindex="-1" onclick="openSettingsTab('video')"><i class="ri-video-chat-line"></i><span>视频电话</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-decision" data-settings-tab="decision" aria-controls="settings-tab-decision" aria-selected="false" tabindex="-1" onclick="openSettingsTab('decision')"><i class="ri-git-branch-line"></i><span>智能决策</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-lab" data-settings-tab="lab" aria-controls="settings-tab-lab" aria-selected="false" tabindex="-1" onclick="openSettingsTab('lab')"><i class="ri-flask-line"></i><span>Prompt Lab</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-notify" data-settings-tab="notify" aria-controls="settings-tab-notify" aria-selected="false" tabindex="-1" onclick="openSettingsTab('notify')"><i class="ri-notification-3-line"></i><span>提醒</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-font" data-settings-tab="font" aria-controls="settings-tab-font" aria-selected="false" tabindex="-1" onclick="openSettingsTab('font')"><i class="ri-font-size-2"></i><span>字体</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-data" data-settings-tab="data" aria-controls="settings-tab-data" aria-selected="false" tabindex="-1" onclick="openSettingsTab('data')"><i class="ri-database-2-line"></i><span>数据</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-usage" data-settings-tab="usage" aria-controls="settings-tab-usage" aria-selected="false" tabindex="-1" onclick="openSettingsTab('usage')"><i class="ri-bar-chart-2-line"></i><span>用量</span></button>
-                <button type="button" class="set-nav-tab" role="tab" id="settings-nav-about" data-settings-tab="about" aria-controls="settings-tab-about" aria-selected="false" tabindex="-1" onclick="openSettingsTab('about')"><i class="ri-information-line"></i><span>关于 BYND</span></button>
+                <div class="set-home-group" role="presentation">
+                    <p class="set-home-label" role="presentation">模型与服务</p>
+                    <button type="button" class="set-nav-tab active" role="tab" id="settings-nav-api" data-settings-tab="api" aria-controls="settings-tab-api" aria-selected="true" onclick="openSettingsTab('api')"><i class="ri-link" aria-hidden="true"></i><span class="set-row-title">API</span><span class="set-row-value" data-settings-summary="api"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-voice" data-settings-tab="voice" aria-controls="settings-tab-voice" aria-selected="false" tabindex="-1" onclick="openSettingsTab('voice')"><i class="ri-volume-up-line" aria-hidden="true"></i><span class="set-row-title">语音</span><span class="set-row-value" data-settings-summary="voice"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-video" data-settings-tab="video" aria-controls="settings-tab-video" aria-selected="false" tabindex="-1" onclick="openSettingsTab('video')"><i class="ri-video-chat-line" aria-hidden="true"></i><span class="set-row-title">视频电话</span><span class="set-row-value" data-settings-summary="video"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-3d" data-settings-tab="3d" aria-controls="settings-tab-3d" aria-selected="false" tabindex="-1" onclick="openSettingsTab('3d')"><i class="ri-box-3-line" aria-hidden="true"></i><span class="set-row-title">3D 人物</span><span class="set-row-value" data-settings-summary="3d"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                </div>
+                <div class="set-home-group" role="presentation">
+                    <p class="set-home-label" role="presentation">角色智能</p>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-decision" data-settings-tab="decision" aria-controls="settings-tab-decision" aria-selected="false" tabindex="-1" onclick="openSettingsTab('decision')"><i class="ri-git-branch-line" aria-hidden="true"></i><span class="set-row-title">智能决策</span><span class="set-row-value" data-settings-summary="decision"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-lab" data-settings-tab="lab" aria-controls="settings-tab-lab" aria-selected="false" tabindex="-1" onclick="openSettingsTab('lab')"><i class="ri-flask-line" aria-hidden="true"></i><span class="set-row-title">Prompt Lab</span><span class="set-row-value" data-settings-summary="lab"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-notify" data-settings-tab="notify" aria-controls="settings-tab-notify" aria-selected="false" tabindex="-1" onclick="openSettingsTab('notify')"><i class="ri-notification-3-line" aria-hidden="true"></i><span class="set-row-title">提醒</span><span class="set-row-value" data-settings-summary="notify"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                </div>
+                <div class="set-home-group" role="presentation">
+                    <p class="set-home-label" role="presentation">个性化</p>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-font" data-settings-tab="font" aria-controls="settings-tab-font" aria-selected="false" tabindex="-1" onclick="openSettingsTab('font')"><i class="ri-font-size-2" aria-hidden="true"></i><span class="set-row-title">字体</span><span class="set-row-value" data-settings-summary="font"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                </div>
+                <div class="set-home-group" role="presentation">
+                    <p class="set-home-label" role="presentation">数据</p>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-data" data-settings-tab="data" aria-controls="settings-tab-data" aria-selected="false" tabindex="-1" onclick="openSettingsTab('data')"><i class="ri-database-2-line" aria-hidden="true"></i><span class="set-row-title">备份与恢复</span><span class="set-row-value" data-settings-summary="data"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-usage" data-settings-tab="usage" aria-controls="settings-tab-usage" aria-selected="false" tabindex="-1" onclick="openSettingsTab('usage')"><i class="ri-bar-chart-2-line" aria-hidden="true"></i><span class="set-row-title">用量</span><span class="set-row-value" data-settings-summary="usage"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                </div>
+                <div class="set-home-group" role="presentation">
+                    <button type="button" class="set-nav-tab" role="tab" id="settings-nav-about" data-settings-tab="about" aria-controls="settings-tab-about" aria-selected="false" tabindex="-1" onclick="openSettingsTab('about')"><i class="ri-information-line" aria-hidden="true"></i><span class="set-row-title">关于 BYND</span><span class="set-row-value" data-settings-summary="about"></span><i class="ri-arrow-right-s-line set-row-chevron" aria-hidden="true"></i></button>
+                </div>
+                <div class="set-version">
+                    Beyond Screen v1.1.989
+                    <button type="button" class="set-display-check" onclick="ByndDisplayCheck.open()">检查屏幕显示</button>
+                </div>
             </nav>
-            <div class="window-content" style="padding: 20px; background: #faf5f0;">
+            <div class="window-content">
                 <div class="set-nav-panel" id="settings-tab-api" data-settings-panel="api" role="tabpanel" aria-labelledby="settings-nav-api">
                 <div id="api-route-panel" class="api-route-panel"></div>
                 <div class="api-list-heading"><h3>我的接口</h3><button type="button" onclick="openApiModal()"><i class="ri-add-line"></i>添加接口</button></div>
@@ -2164,11 +2183,6 @@ FOREVER FREE</p></section>
                     </section>
                 </div>
 
-                <!-- 版本号 -->
-                <div class="set-version">
-                    Beyond Screen v1.1.989
-                    <button type="button" onclick="ByndDisplayCheck.open()" style="display:block;margin:12px auto 0;padding:8px 14px;border:1px solid #ddd;border-radius:10px;background:#fff;color:#333;font:14px system-ui">检查屏幕显示</button>
-                </div>
             </div>
         </div>
 

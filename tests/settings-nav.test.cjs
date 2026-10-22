@@ -104,11 +104,13 @@ test('tab switching shows one panel, resets scroll and persists to bynd_settings
     assert.equal(localStorage.writes.length, writes, 'restoring on open does not rewrite storage');
 });
 
-test('opening settings restores the stored tab', () => {
+test('opening settings shows the grouped list and still remembers the last page', () => {
     const { context } = runTabNav({ bynd_settings_tab_v1: 'font' });
     assert.equal(context.readSettingsTab(), 'font');
     const initSettings = sourceSection('apps/settings/settings.js', 'function initSettings()', '// --- Settings tab navigation ---');
-    assert.match(initSettings, /openSettingsTab\(readSettingsTab\(\), \{ persist: false/);
+    // Settings opens on the grouped list; deep links call openSettingsTab right after openApp.
+    assert.match(initSettings, /openSettingsHome\(\)/);
+    assert.doesNotMatch(initSettings, /openSettingsTab\(/);
     assert.doesNotMatch(initSettings, /window\.ByndCharacterTools\?\.renderSettings\(\)/);
     assert.match(fs.readFileSync(path.join(root, 'apps/role-tools/role-tools.js'), 'utf8'), /ByndCharacterTools\?\.renderSettings\(\)/);
     assert.match(fs.readFileSync(path.join(root, 'apps/monitor/pet-studio.js'), 'utf8'), /openApp\('settings'\); window\.openSettingsTab\?\.\('api'\)/);

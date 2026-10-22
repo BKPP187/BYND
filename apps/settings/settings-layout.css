@@ -1,0 +1,353 @@
+/* Settings: two-level layout (grouped list → detail page) and one visual language.
+   Loaded last so it wins over the per-feature sheets; every rule is scoped to the settings window. */
+html #app-settings-window.app-window {
+    --set-bg: #f2f2f4;
+    --set-card: #ffffff;
+    --set-line: rgba(20, 20, 24, 0.08);
+    --set-text: #18181b;
+    --set-sub: #6b6b73;
+    --set-faint: #a1a1aa;
+    --set-ink: #1c1c1f;
+    --set-tile: #f0f0f2;
+    --set-radius: 14px;
+    background: var(--set-bg) !important;
+    color: var(--set-text) !important;
+}
+
+/* ---------- Header ---------- */
+html #app-settings-window.app-window > .window-header {
+    position: relative;
+    background: rgba(242, 242, 244, 0.94) !important;
+    border-bottom: 1px solid var(--set-line) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+}
+html #app-settings-window.app-window > .window-header h3 {
+    color: var(--set-text) !important;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+html #app-settings-window.app-window > .window-header .close-btn { color: var(--set-sub) !important; font-size: 15px; }
+html #app-settings-window.app-window .bynd-settings-search { color: var(--set-text) !important; }
+#app-settings-window .set-back-btn {
+    display: none;
+    align-items: center;
+    gap: 0;
+    min-height: 44px;
+    margin-left: -8px;
+    padding: 0 8px 0 0;
+    border: 0;
+    background: none;
+    color: var(--set-text);
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+#app-settings-window .set-back-btn i { font-size: 24px; line-height: 1; }
+#app-settings-window.settings-detail .set-back-btn { display: inline-flex; }
+#app-settings-window.settings-detail > .window-header .close-btn { display: none !important; }
+
+/* ---------- Home: grouped list ---------- */
+html #app-settings-window.app-window .set-nav {
+    flex: 1 1 auto;
+    display: block;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    background: var(--set-bg) !important;
+    border: 0 !important;
+    white-space: normal;
+}
+html #app-settings-window.app-window .window-content { display: none; }
+#app-settings-window.settings-detail .set-nav { display: none !important; }
+html #app-settings-window.app-window.settings-detail .window-content { display: block; }
+
+#app-settings-window .set-home-label {
+    margin: 22px 4px 8px;
+    color: var(--set-sub);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+#app-settings-window .set-home-group:last-of-type { margin-top: 22px; }
+/* Rows are the white surface; the group only rounds its first and last row. */
+#app-settings-window .set-home-group > .set-nav-tab:first-of-type { border-top-left-radius: var(--set-radius) !important; border-top-right-radius: var(--set-radius) !important; }
+#app-settings-window .set-home-group > .set-nav-tab:last-of-type { border-bottom-left-radius: var(--set-radius) !important; border-bottom-right-radius: var(--set-radius) !important; }
+
+html #app-settings-window.app-window .set-nav-tab,
+html #app-settings-window.app-window .set-nav-tab.active {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    margin: 0;
+    padding: 0 12px 0 14px;
+    border: 0 !important;
+    border-radius: 0;
+    background: var(--set-card) !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    text-align: left;
+    transform: none;
+    cursor: pointer;
+}
+html #app-settings-window.app-window .set-nav-tab:active { background: #ececee !important; transform: none; }
+/* Hairline between rows, inset past the icon. */
+#app-settings-window .set-nav-tab + .set-nav-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 56px;
+    height: 1px;
+    background: var(--set-line);
+}
+html #app-settings-window.app-window .set-nav-tab > i:first-child {
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--set-tile);
+    color: var(--set-ink);
+    font-size: 17px;
+}
+#app-settings-window .set-row-title { flex: 0 0 auto; white-space: nowrap; }
+#app-settings-window .set-row-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--set-sub);
+    font-size: 14px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#app-settings-window .set-row-chevron { flex: 0 0 auto; margin-left: -4px; color: var(--set-faint); font-size: 20px; }
+html #app-settings-window.app-window .set-nav-tab:focus-visible { outline: 2px solid var(--set-ink); outline-offset: -2px; }
+
+#app-settings-window .set-version {
+    margin: 28px 0 0;
+    color: var(--set-faint);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+}
+#app-settings-window .set-display-check {
+    display: block;
+    margin: 10px auto 0;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--set-sub);
+    font: inherit;
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+/* ---------- Detail pages ---------- */
+html #app-settings-window.app-window .window-content {
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px)) !important;
+    background: var(--set-bg) !important;
+}
+/* The header now names the page; in-panel repeats of the title go. */
+#app-settings-window .set-nav-panel .set-section-title { display: none; }
+html #app-settings-window.app-window .set-nav-panel > div[style*="margin-top"] { margin-top: 0 !important; }
+#app-settings-window .set-nav-panel { color: var(--set-text); }
+
+/* One card style: white, hairline, no gradients, no glow. */
+html #app-settings-window.app-window :is(
+    .tripo-settings, .vivix-settings, .bynd-jev-card, .notify-card, .font-batch-box, .font-preview-box,
+    .set-diagnostics, .set-data-btn, .bynd-about-card, .api-route-grid, .api-image-options, .api-image-usage
+) {
+    background: var(--set-card) !important;
+    background-image: none !important;
+    border: 1px solid var(--set-line) !important;
+    border-radius: var(--set-radius) !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+}
+/* Voice: one grouped list of providers instead of cards nested three deep. */
+html #app-settings-window.app-window #api-voice-route-panel,
+html #app-settings-window.app-window #api-voice-route-panel :is(.api-route-grid, .api-route-card.voice) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-route-card.voice > :is(i, span) { display: none !important; }
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-choice-grid {
+    display: block !important;
+    overflow: hidden;
+    margin: 0 !important;
+    border-radius: var(--set-radius);
+    background: var(--set-card);
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route {
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    margin: 0 !important;
+    padding: 10px 14px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--set-card) !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route + .api-voice-route::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 14px;
+    height: 1px;
+    background: var(--set-line);
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main {
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    min-width: 0;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main strong {
+    color: var(--set-text) !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main b {
+    color: var(--set-sub) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route.ready .api-voice-route-main b { color: var(--set-text) !important; }
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main em {
+    flex-basis: 100%;
+    color: var(--set-faint) !important;
+    font-size: 12.5px !important;
+    font-style: normal !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions {
+    display: flex !important;
+    flex: 0 0 auto;
+    gap: 6px;
+    margin: 0 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions button {
+    min-width: 52px;
+    min-height: 32px;
+    padding: 0 12px !important;
+    border: 1px solid rgba(20, 20, 24, 0.16) !important;
+    border-radius: 999px !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions button:disabled {
+    border-color: transparent !important;
+    background: var(--set-tile) !important;
+    color: var(--set-sub) !important;
+    opacity: 1 !important;
+}
+
+/* Notify card: neutral text and an ink switch. */
+html #app-settings-window.app-window .notify-card :is(span, small, label, p, em) { color: var(--set-sub) !important; }
+html #app-settings-window.app-window .notify-card strong { color: var(--set-text) !important; }
+html #app-settings-window.app-window .notify-card .notify-preset-trigger {
+    border: 1px solid rgba(20, 20, 24, 0.12) !important;
+    background: #f7f7f8 !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window .notify-switch input:checked + span { background: var(--set-ink) !important; }
+
+/* Text: neutral greys instead of per-feature purple/pink. */
+html #app-settings-window.app-window .window-content :is(.bynd-jev-mark, .bynd-jev-route, .bynd-jev-route b, .bynd-jev-guide summary, .bynd-jev-guide i, .bynd-jev-card .ri-git-branch-line, .font-reset-btn) {
+    color: var(--set-sub) !important;
+}
+html #app-settings-window.app-window .window-content .bynd-jev-route {
+    background: var(--set-tile) !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel strong { color: var(--set-text) !important; }
+
+/* Buttons: one primary (ink), one secondary (outline). */
+html #app-settings-window.app-window .window-content :is(
+    .tripo-save, .vivix-actions button:last-child, #bynd-jev-settings button:not(#bynd-jev-test):not(.bynd-jev-guide button),
+    .set-diagnostics-export, .font-url-apply, #font-batch-import-btn, .set-usage-open, .bynd-history-replay,
+    .api-list-heading button
+) {
+    border: 1px solid var(--set-ink) !important;
+    background: var(--set-ink) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: #fff !important;
+}
+html #app-settings-window.app-window .window-content :is(#tripo-test, #vivix-test, #bynd-jev-test) {
+    border: 1px solid rgba(20, 20, 24, 0.16) !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window .window-content :is(button, summary):focus-visible { outline: 2px solid var(--set-ink); outline-offset: 2px; }
+
+/* Fields share one height and fill. */
+html #app-settings-window.app-window .window-content :is(input[type="text"], input[type="url"], input[type="password"], input[type="number"], input:not([type]), select, textarea) {
+    border: 1px solid rgba(20, 20, 24, 0.12) !important;
+    border-radius: 10px !important;
+    background: #f7f7f8 !important;
+    color: var(--set-text) !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window .window-content :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--set-ink); }
+
+/* Font upload: plain tile instead of a dashed drop zone. */
+html #app-settings-window.app-window .font-upload-box {
+    border: 1px solid var(--set-line) !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+}
+
+/* Data: three equal actions in one card-like grid without grey header bars. */
+html #app-settings-window.app-window .set-data-btn i {
+    background: none !important;
+    color: var(--set-ink) !important;
+}
+html #app-settings-window.app-window .set-data-btn.set-data-btn-warn i,
+html #app-settings-window.app-window .set-data-btn.set-data-btn-warn :is(span, strong, b) { color: #a33c38 !important; }
+
+/* About: readable type instead of typewriter monospace. */
+html #app-settings-window.app-window .bynd-about-card :is(h2, h3, time, small, .bynd-release-number) {
+    font-family: inherit !important;
+}
+html #app-settings-window.app-window .bynd-about-card { border-radius: var(--set-radius) !important; }
+html #app-settings-window.app-window .bynd-about-card article { border-color: var(--set-line) !important; border-style: solid !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    html #app-settings-window.app-window .set-nav-tab { transition: none; }
+}
+
+html #app-settings-window.app-window .notify-switch input:not(:checked) + span { background: #e4e4e7 !important; }
+html #app-settings-window.app-window .font-del-icon { color: var(--set-faint) !important; }
