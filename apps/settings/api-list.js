@@ -10,7 +10,7 @@ function renderApiList() {
         container.innerHTML = `
             <div class="set-empty">
                 <i class="ri-cloud-off-line"></i>
-                还没有添加 API 哦～<br>点下面的按钮添加一个吧
+                还没有接口<br>点击“添加接口”开始配置
             </div>
         `;
         return;
@@ -23,24 +23,30 @@ function renderApiList() {
         return `
             <div class="api-card ${isDefault ? 'is-default' : ''} ${isImageDefault ? 'is-image-default' : ''}" data-id="${escapeHtml(api.id)}">
                 <div class="api-status-dot ${statusClass}"></div>
-                <div class="api-card-info" onclick="openApiModal('${escapeJsString(api.id)}')">
-                    <div class="api-card-name">
+                <button type="button" class="api-card-info" onclick="openApiModal('${escapeJsString(api.id)}')" aria-label="编辑 ${escapeHtml(api.name || '未命名接口')}">
+                    <span class="api-card-name">
                         ${isDefault ? '<span class="crown">♛</span>' : ''}
                         ${isImageDefault ? '<span class="api-image-badge"><i class="ri-image-2-fill"></i></span>' : ''}
                         ${escapeHtml(api.name || '未命名')}
-                    </div>
-                    <div class="api-card-url">${escapeHtml(api.baseUrl || '')}</div>
-                    <div class="api-card-tags">
+                    </span>
+                    <span class="api-card-url">${escapeHtml(api.baseUrl || '')}</span>
+                    <span class="api-card-tags">
                         ${api.model ? `<span class="api-card-model">聊天 ${escapeHtml(api.model)}</span>` : ''}
                         ${api.imageModel ? `<span class="api-card-model image">生图 ${escapeHtml(api.imageModel)}</span>` : ''}
                         ${api._status === 'unverified' ? '<span class="api-card-model">生图配置已识别，待实际生成验证</span>' : ''}
-                    </div>
-                </div>
+                    </span>
+                </button>
                 <div class="api-card-actions">
-                    <i class="ri-signal-tower-line" title="测试" onclick="testApiById('${escapeJsString(api.id)}')"></i>
-                    <i class="ri-star-${isDefault ? 'fill' : 'line'}" title="设为聊天默认" onclick="setDefaultApi('${escapeJsString(api.id)}')" style="${isDefault ? 'color:#f8a4b8;' : ''}"></i>
-                    <i class="ri-image-${isImageDefault ? 'fill' : 'line'}" title="设为生图默认" onclick="setDefaultImageApi('${escapeJsString(api.id)}')" style="${isImageDefault ? 'color:#6ea8ff;' : ''}"></i>
-                    <i class="ri-delete-bin-6-line del-btn" title="删除" onclick="deleteApi('${escapeJsString(api.id)}')"></i>
+                    <button type="button" aria-label="测试 ${escapeHtml(api.name || '接口')}" title="测试连接" onclick="testApiById('${escapeJsString(api.id)}')"><i class="ri-signal-tower-line"></i></button>
+                    <details class="api-card-more">
+                        <summary aria-label="更多操作"><i class="ri-more-2-fill"></i></summary>
+                        <div class="api-card-menu">
+                            <button type="button" onclick="openApiModal('${escapeJsString(api.id)}')">编辑接口</button>
+                            ${api.model ? `<button type="button" onclick="setDefaultApi('${escapeJsString(api.id)}')">${isDefault ? '✓ ' : ''}设为聊天默认</button>` : ''}
+                            ${api.imageModel ? `<button type="button" onclick="setDefaultImageApi('${escapeJsString(api.id)}')">${isImageDefault ? '✓ ' : ''}设为生图默认</button>` : ''}
+                            <button type="button" class="del-btn" onclick="deleteApi('${escapeJsString(api.id)}')">删除接口</button>
+                        </div>
+                    </details>
                 </div>
             </div>
         `;
@@ -50,6 +56,7 @@ function renderApiList() {
 function renderApiRoutePanel(data = getApiData()) {
     const panel = document.getElementById('api-route-panel');
     if (!panel) return;
+    const imageOptionsOpen = !!panel.querySelector?.('.api-image-options[open]');
     const chatApis = data.apis.filter(api => api.model);
     const chatApi = chatApis.find(api => api.id === data.defaultId) || null;
     const imageApi = data.apis.find(api => api.id === data.imageDefaultId && api.imageModel) || null;
@@ -67,10 +74,8 @@ function renderApiRoutePanel(data = getApiData()) {
     const panelHead = `
         <div class="api-route-head">
             <div>
-                <strong>API 工作台</strong>
-                <span>聊天走中转站 API；生图可用中转站或 NovelAI，按用途分别选择；语音供应商单独配置。</span>
+                <strong>默认用途</strong>
             </div>
-            <button type="button" onclick="openApiModal()"><i class="ri-add-line"></i> 添加</button>
         </div>
         <div class="api-route-grid">
             <div class="api-route-card chat">
@@ -83,7 +88,11 @@ function renderApiRoutePanel(data = getApiData()) {
                 <span>中转站生图</span>
                 ${renderApiRoutePicker('image', imageApi, data.apis.filter(api => api.imageModel), data.imageDefaultId)}
             </div>
-            ${typeof renderImageServiceCard === 'function' ? renderImageServiceCard(data) : ''}
+        </div>
+        ${typeof renderImageServiceCard === 'function' ? `<details class="api-image-options" ${imageOptionsOpen ? 'open' : ''}>
+            <summary><span><b>生图服务与用途</b><em>${escapeHtml(getImageRouteForFeature('chat', data).label)}</em></span><i class="ri-arrow-down-s-line"></i></summary>
+            ${renderImageServiceCard(data)}
+        </details>` : ''}
     `;
     const voiceCard = `
             <div class="api-route-card voice">
@@ -141,9 +150,7 @@ function renderApiRoutePanel(data = getApiData()) {
     // Voice providers live on their own settings tab when that container exists.
     const voicePanel = document.getElementById('api-voice-route-panel');
     if (voicePanel) voicePanel.innerHTML = `<div class="api-route-grid">${voiceCard}</div>`;
-    panel.innerHTML = `${panelHead}${voicePanel ? '' : voiceCard}
-        </div>
-    `;
+    panel.innerHTML = `${panelHead}${voicePanel ? '' : `<div class="api-route-grid">${voiceCard}</div>`}`;
 }
 
 function renderVoiceProviderRoute({ provider, title, name, summary, ready, active, editAction }) {
@@ -195,7 +202,7 @@ function renderApiRoutePicker(type, selectedApi, apis, selectedId) {
             <button type="button" class="api-route-trigger" onclick="toggleApiRouteMenu('${type}')">
                 <span>
                     <b>${selectedApi ? escapeHtml(selectedApi.name || '未命名') : escapeHtml(emptyText)}</b>
-                    <em>${escapeHtml(modelText)}</em>
+                    ${selectedApi ? `<em>${escapeHtml(modelText)}</em>` : ''}
                 </span>
                 <i class="ri-arrow-down-s-line"></i>
             </button>
@@ -233,6 +240,9 @@ function closeApiFloatingPickers() {
 }
 
 document.addEventListener('click', event => {
+    document.querySelectorAll('.api-card-more[open]').forEach(menu => {
+        if (!menu.contains(event.target)) menu.open = false;
+    });
     if (event.target.closest('.api-route-picker') || event.target.closest('.api-model-picker')) return;
     closeApiFloatingPickers();
 });
@@ -284,11 +294,10 @@ function renderApiModelPicker(selectId, config = {}) {
 
     picker.classList.toggle('disabled', isDisabled);
     picker.innerHTML = `
-        <button type="button" class="api-model-trigger" onclick="toggleApiModelMenu('${selectId}')" ${isDisabled ? 'disabled' : ''}>
+        <button type="button" class="api-model-trigger" aria-label="${escapeHtml(config.title || '模型')}：${escapeHtml(selectedLabel)}" onclick="toggleApiModelMenu('${selectId}')" ${isDisabled ? 'disabled' : ''}>
             <span>
-                <small>${escapeHtml(config.title || '模型')}</small>
                 <b>${escapeHtml(selectedLabel)}</b>
-                <em>${escapeHtml(selectedDetail)}</em>
+                ${!isDisabled && selected?.value && selectedDetail !== selectedLabel ? `<em>${escapeHtml(selectedDetail)}</em>` : ''}
             </span>
             <i class="ri-arrow-down-s-line"></i>
         </button>
@@ -298,7 +307,7 @@ function renderApiModelPicker(selectId, config = {}) {
                 <button type="button" class="api-model-option ${option.value === selectEl.value ? 'active' : ''}" onclick="chooseApiModelOption('${selectId}', '${escapeJsString(option.value)}')">
                     <span>
                         <b>${escapeHtml(option.text)}</b>
-                        <em>${escapeHtml(option.value || config.noneText || '留空')}</em>
+                        ${option.value && option.value !== option.text ? `<em>${escapeHtml(option.value)}</em>` : ''}
                     </span>
                     ${option.value === selectEl.value ? '<i class="ri-check-line"></i>' : ''}
                 </button>

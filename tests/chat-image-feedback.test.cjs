@@ -7,6 +7,19 @@ const path = require('node:path');
 const read = file => fs.readFileSync(path.join(root,file),'utf8');
 const png = 'data:image/png;base64,aWRlbnRpdHk=';
 
+test('image requests honor the caller cancellation signal so leaving a live room stops generation delivery', async () => {
+    const controller = new AbortController(); let received, started;
+    const ready = new Promise(resolve => { started = resolve; });
+    const h = vm.createContext({ window: {}, URL, AbortSignal, AbortController,
+        getDefaultImageApi: () => ({ baseUrl: 'https://image-fixture.invalid/v1', imageModel: 'custom-image' }),
+        fetch: (_, options) => { received = options.signal; started(); return new Promise((resolve, reject) => { options.signal.addEventListener('abort', () => reject(new Error('request cancelled')), { once: true }); }); }
+    });
+    vm.runInContext(read('core/api/image-generation.js'), h);
+    const request = h.callWechatImageGenerationApi('琴房的竖屏直播场景', { signal: controller.signal });
+    await ready; controller.abort(); const result = await request;
+    assert.equal(received.aborted, true); assert.equal(result.ok, false);
+});
+
 function chatHarness() {
     const context = vm.createContext({window:{},console,Date,setTimeout,clearTimeout});
     vm.runInContext(read('core/api/chat-api.js'),context);

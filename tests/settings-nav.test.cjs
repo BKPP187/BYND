@@ -31,7 +31,9 @@ test('every settings panel has exactly one nav tab and vice versa', () => {
 });
 
 test('existing settings markup keeps its ids inside the matching panel', () => {
-    assert.match(panelSource('api'), /id="api-route-panel"[\s\S]*id="api-list-container"[\s\S]*onclick="openApiModal\(\)"/);
+    const apiPanel = panelSource('api');
+    for (const id of ['api-route-panel', 'api-list-container']) assert.match(apiPanel, new RegExp(`id="${id}"`));
+    assert.equal((apiPanel.match(/onclick="openApiModal\(\)"/g) || []).length, 1, 'API panel has one add action');
     assert.match(panelSource('voice'), /id="api-voice-route-panel"/);
     assert.match(panelSource('decision'), /id="bynd-jev-settings"/);
     assert.doesNotMatch(settingsWindow, /data-settings-panel="tools"|id="bynd-tools-settings"/);

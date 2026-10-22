@@ -1346,6 +1346,8 @@ function buildSystemPrompt(char) {
     // Only authorized, fresh life summaries; never attach the raw device records.
     const lifeState = !isGroupChat && typeof window !== 'undefined' ? window.ByndLifeState?.prompt?.(char) : '';
     if (lifeState) prompt += `- ${lifeState}\n`;
+    const channelContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndDiscoverStory?.chatPrompt?.(char) : '';
+    if (channelContext) prompt += channelContext;
     const cycleContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndMoon?.prompt?.(char) : '';
     if (cycleContext) prompt += `- ${cycleContext}\n`;
     if (typeof window !== 'undefined' && typeof window.buildProactiveNotifyPromptContext === 'function') {

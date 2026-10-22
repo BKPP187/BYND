@@ -97,6 +97,8 @@
         const input = String(text || '').normalize('NFC').replace(/\u0e4d([\u0e48-\u0e4b]?)\u0e32/g, '$1\u0e33').trim().slice(0, 300);
         const dictionary = window.ByndThaiLexicon;
         if (!dictionary || !/[ก-๛]/.test(input)) return null;
+        const classroomReference = window.ByndThaiRules?.referenceReading(input);
+        if (classroomReference) return classroomReference;
         if (cache.has(input)) return cache.get(input);
         let missing = false;
         const syllables = [], ipas = [];

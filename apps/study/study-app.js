@@ -519,6 +519,7 @@
             `【生词】words 里放 0 到 3 个 reply 中值得记的词或短语：term 原文、reading 读音（假名、罗马音、音标或拼音，没有就留空）、meaning 用${native?.label || '中文'}解释。`,
             '【语言准确性】教学中的发音、语法和释义不能随角色性格改变。保留原意，区分语法错误、口语省略、地区变体和敬语差异；不能把合理表达都改成唯一答案。不确定的读音留空，不逐字母猜音，不用中文谐音代替音标。',
             targets.some(item => item.code?.startsWith('th')) ? '【泰语专项核对】保留实际声调和元音长短，区别不送气与送气音；不能把声调符号直接当作实际声调。词中 ต 可用 dt 提示不送气，ด 才是 d；罗马拼读不得丢掉声调、长音和 ɔ/o 区别。不确定的音标留空。' : '',
+            targets.some(item => item.code?.startsWith('th')) ? '【泰语课堂】用户询问拼读时，按音节/逐字→起始辅音名称及高、中、低类别→元音与长短→实际尾音→活死音节→调号名称→适用规则→实际声调与 IPA→词义、句法和语境的顺序讲解，区分字母名称、起音和尾音。采用 1中平33、2低21、3降41、4高45、5升214，调值仅作近似。不要只给罗马音和翻译，不用中文谐音当标准。涉及声调推导，以 App 的本地结构化拼读课堂为核对依据；模型输出不作为规则引擎或练习答案，前引字母、假复辅音或例外不确定时明确说需核对，不编造。' : '',
             window.ByndStudyLanguageGuides?.prompt(targets) || '',
             `【翻译】translation 是 reply 的完整${native?.label || '中文'}翻译，自然通顺，不加解释。`,
             '【输出】只输出一个 JSON 对象：{"reply":"","versions":{},"translation":"","correction":{"original":"","better":"","note":""} 或 null,"words":[{"term":"","reading":"","meaning":""}]}。reply 可以带括号里的动作神态，但不要输出 JSON 之外的任何文字。'
@@ -529,6 +530,10 @@
             { role: 'system', content: personaBlock(char) },
             { role: 'system', content: studyRules(char, settings) }
         ];
+        if (settings.targetIds.some(id => language(id)?.code?.startsWith('th'))) {
+            const lessonFacts = window.ByndThaiRules?.promptFor(userText);
+            if (lessonFacts) messages.push({ role: 'system', content: lessonFacts });
+        }
         chat.messages.slice(-12).forEach(message => {
             if (message.role === 'user') messages.push({ role: 'user', content: message.text });
             else messages.push({ role: 'assistant', content: JSON.stringify({ reply: message.text, versions: message.versions || {}, translation: message.translation || '', correction: message.correction || null, words: message.words || [] }) });
@@ -624,13 +629,13 @@
         try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); } catch (_) {}
     }
 
-    function speakWithSystemVoice(text, code) {
+    function speakWithSystemVoice(text, code, rate = 0.92, requireMatchingVoice = false) {
         const speechText = plainText(text).replace(/（[^）]*）|\([^)]*\)/g, ' ').trim() || plainText(text);
         if (!speechText) return false;
         const label = [...allLanguages(), ...PRESET_LANGUAGES].find(lang => lang.code?.toLowerCase() === code?.toLowerCase())?.label || code || '该语言';
         if (window.ByndAndroid && typeof window.ByndAndroid.speakText === 'function') {
             try {
-                const raw = window.ByndAndroid.speakText(speechText, code || '', 0.92);
+                const raw = window.ByndAndroid.speakText(speechText, code || '', rate);
                 const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
                 if (result?.status === 'queued') return true;
                 if (result?.status === 'missing-data') setStatus(`系统还没有安装 ${label} 语音，请到手机的文字转语音设置中下载。`, 'warn');
@@ -654,7 +659,7 @@
             const voices = speechSynthesis.getVoices?.() || [];
             const voice = voices.find(item => code && item.lang?.toLowerCase() === code.toLowerCase())
                 || voices.find(item => code && item.lang?.toLowerCase().split('-')[0] === code.toLowerCase().split('-')[0]);
-            if (code && voices.length && !voice) {
+            if (code && !voice && (voices.length || requireMatchingVoice)) {
                 setStatus(`浏览器里没有 ${label} 的系统语音，请在设备的文字转语音设置中添加。`, 'warn');
                 render();
                 return false;
@@ -665,7 +670,7 @@
                 if (request !== voiceRequest || ['canceled', 'interrupted'].includes(event.error)) return;
                 setStatus(`${label} 朗读失败（${event.error || '语音不可用'}），请检查网络或该语言的语音包。`, 'error'); render();
             };
-            utterance.rate = 0.92;
+            utterance.rate = rate;
             speechSynthesis.speak(utterance);
             return true;
         } catch (_) {
@@ -700,6 +705,10 @@
             }
         }
         return speakWithSystemVoice(text, code);
+    }
+    function speakThaiLesson(text, slow = false) {
+        stopVoice();
+        return speakWithSystemVoice(text, 'th-TH', slow ? 0.65 : 0.92, true);
     }
 
     // ---------- saving from chat ----------
@@ -1127,7 +1136,8 @@
             </div>`;
     }
     function setLearningView(view) {
-        if (!['book', 'cards', 'guide', 'trace'].includes(view)) return;
+        if (!['book', 'cards', 'guide', 'trace', 'thai'].includes(view)) return;
+        if (view === 'thai') state.foundationLang = 'th';
         const content = byId('study-content');
         if (content) state.scrollPositions[`words:${state.learningView}`] = content.scrollTop;
         state.learningView = view;
@@ -1189,7 +1199,7 @@
         const group = groups[state.foundationGroup] || groups[0];
         const selected = group.items[state.foundationGlyph] || group.items[0];
         const associations = { 'ㄱ': '像舌根抬起的轮廓', 'ㄴ': '像舌尖抵住上齿龈', 'ㅁ': '像合拢的双唇', 'ㅅ': '像牙齿的形状', 'ㅇ': '像喉部的轮廓' };
-        return `${foundationPicker()}${renderLanguageGuide(lang)}
+        return `${foundationPicker()}${renderLanguageGuide(lang)}${lang.id === 'th' ? '<button type="button" class="study-ghost" onclick="ByndStudy.setLearningView(\'thai\')">逐字拼读与声调课堂</button>' : ''}
             <section class="study-panel study-foundation">
                 <div class="study-panel-head"><span>FOUNDATIONS</span><strong>${escapeHtml(lang.label)} · 入门字表</strong></div>
                 <div class="study-segment">${groups.map((item, index) => `<button type="button" class="${group === item ? 'active' : ''}" onclick="ByndStudy.setFoundationGroup(${index})">${escapeHtml(item.name)}</button>`).join('')}</div>
@@ -1230,7 +1240,7 @@
             ${!card ? `<div class="study-empty-state"><strong>还没有这类学习卡片</strong><p>在对话里收藏${state.cardKind === 'sentence' ? '句子' : '词汇'}，或在词本中手动添加。</p><button type="button" class="study-ghost" onclick="ByndStudy.setLearningView('book')">去词本</button></div>` : `
             <article class="study-learn-card">
                 <div class="study-learn-card-top"><span>${escapeHtml(target.label)} · ${index + 1} / ${cards.length}</span><span>${card.source === 'lesson' ? '入门 · ' : ''}${escapeHtml({glyph:'单字',word:'词汇',sentence:'句子'}[cardKind(card.lines[target.id])])}</span></div>
-                <div class="study-learn-front is-${cardKind(card.lines[target.id])}" lang="${escapeAttr(target.code)}">${escapeHtml(card.lines[target.id])}</div>
+                <div class="study-learn-front is-${cardKind(card.lines[target.id])}" lang="${escapeAttr(target.code)}">${target.id === 'th' ? `<button type="button" class="study-thai-term" onclick="ByndStudy.toggleThaiWord(this)">${escapeHtml(card.lines[target.id])}</button>` : escapeHtml(card.lines[target.id])}</div>
                 ${readingCue ? `<p class="study-learn-reading">${escapeHtml(readingCue)}</p>` : ''}
                 ${target.id === 'th' ? renderThaiPronunciation(card) : ''}
                 <div class="study-inline-actions"><button type="button" class="study-ghost" onclick="ByndStudy.speakCard('${escapeAttr(card.id)}')"><i class="ri-volume-up-line"></i>读音</button><button type="button" class="study-ghost" onclick="ByndStudy.toggleDrillDetails()"><i class="ri-information-line"></i>${state.drillDetails ? '收起' : '详情 / 联想'}</button></div>
@@ -1421,11 +1431,13 @@
     }
     function renderWords(statusHtml) {
         const studyNav = `<div class="study-learning-nav" role="group" aria-label="学习方式">${[
-            ['book', '词本'], ['cards', '学习卡片'], ['guide', '入门字表'], ['trace', '照着写']
+            ['book', '词本'], ['cards', '学习卡片'], ['guide', '入门字表'], ['trace', '照着写'],
+            ...(getStudyLanguages().some(lang => lang.id === 'th') ? [['thai', '拼读课堂']] : [])
         ].map(([id, label]) => `<button type="button" class="${state.learningView === id ? 'active' : ''}" onclick="ByndStudy.setLearningView('${id}')" aria-pressed="${state.learningView === id}">${label}</button>`).join('')}</div>`;
         if (state.learningView === 'cards') return `<div class="study-page">${studyNav}${statusHtml}${renderLearningCards()}</div>`;
         if (state.learningView === 'guide') return `<div class="study-page">${studyNav}${statusHtml}${renderFoundation()}</div>`;
         if (state.learningView === 'trace') return `<div class="study-page">${studyNav}${statusHtml}${renderTrace()}</div>`;
+        if (state.learningView === 'thai') return `<div class="study-page">${studyNav}${statusHtml}${window.ByndThaiClassroom?.renderHome() || '<p>泰语课堂组件未就绪，请刷新重试。</p>'}</div>`;
         const books = getStudyBooks();
         const book = books.find(book => book.id === state.activeBookId);
         const query = state.wordQuery.trim().toLowerCase();
@@ -1582,6 +1594,7 @@
         const dictionaryReading = window.ByndStudyReading?.describeThai?.(plainText(card.lines.th));
         const aiReading = !dictionaryReading && explicit?.source === 'ai-review' && explicit.forText === card.lines.th ? window.ByndStudyReading?.fromIpa?.(explicit.ipa) : null;
         const reading = dictionaryReading || aiReading;
+        if (dictionaryReading && window.ByndThaiClassroom) return window.ByndThaiClassroom.render(plainText(card.lines.th), card.lines[getSettings().nativeId] || '');
         const summary = reading ? (reading.syllables.length <= 6 ? `声调 · ${reading.syllables.map(item => `${item.tone}${item.label}`).join(' / ')}` : `声调 / 拼读 · ${reading.syllables.length} 个音节`) : '泰语拼读说明';
         const term = plainText(card.lines.th);
         const candidates = !reading ? renderThaiCandidates(card, term) : '';
@@ -1591,9 +1604,13 @@
     function renderThaiReference() {
         return `<details class="study-thai-reference"><summary>泰语通用发音规则</summary><p>实际声调：1 中平、2 低、3 降、4 高、5 升；平调不加符号，其余用 à、â、á、ǎ 示意。</p><p>dt、bp 不送气；th、ph、kh 送气。元音重复表示长音；ɔ 比 o 开口更大。ʔ 表示喉塞音，尾音 p、t、k 收住不爆破。</p><p>“标二读三”常指低辅音加 ่ 读第 3 调（降），加 ้ 读第 4 调（高）。具体词汇还要结合辅音类别、元音长短和音节结尾判断，词条内仅在依据可核对时说明。</p></details>`;
     }
+    function toggleThaiWord(node) {
+        const panel = node.closest('.study-entry-line, .study-learn-card')?.querySelector('.study-thai-pronunciation');
+        if (panel) panel.open = !panel.open;
+    }
     function renderBookLine(card, lang, index) {
         const reading = cardReading(card, lang.id);
-        return `<div class="study-entry-line"><p class="${index ? 'study-entry-meaning' : 'study-entry-term'}" lang="${escapeAttr(lang.code)}"><span>${escapeHtml(card.lines[lang.id])}</span> <button type="button" class="study-line-speak" onclick="ByndStudy.speakCardLine('${escapeAttr(card.id)}','${escapeAttr(lang.id)}')" aria-label="朗读${escapeAttr(lang.label)}">${notebookIcon('volume')}</button></p>${reading ? `<p class="study-entry-reading" lang="en"><span>${lang.id === 'th' ? (card.pronunciations?.th?.source === 'ai-review' ? 'AI 参考音 · ' : '参考音 · ') : ''}</span>${escapeHtml(reading)}</p>` : lang.id === 'th' ? `<p class="study-entry-reading">${window.ByndStudyReading?.suggestThai?.(plainText(card.lines.th)).length ? '疑似扫描错字 · 展开查看候选读音' : '词库暂未匹配 · 可用整本校对补音'}</p>` : ''}${lang.id === 'th' ? renderThaiPronunciation(card) : ''}</div>`;
+        return `<div class="study-entry-line"><p class="${index ? 'study-entry-meaning' : 'study-entry-term'}" lang="${escapeAttr(lang.code)}">${lang.id === 'th' ? `<button type="button" class="study-thai-term" onclick="ByndStudy.toggleThaiWord(this)">${escapeHtml(card.lines[lang.id])}</button>` : `<span>${escapeHtml(card.lines[lang.id])}</span>`} <button type="button" class="study-line-speak" onclick="ByndStudy.speakCardLine('${escapeAttr(card.id)}','${escapeAttr(lang.id)}')" aria-label="朗读${escapeAttr(lang.label)}">${notebookIcon('volume')}</button></p>${reading ? `<p class="study-entry-reading" lang="en"><span>${lang.id === 'th' ? (card.pronunciations?.th?.source === 'ai-review' ? 'AI 参考音 · ' : '参考音 · ') : ''}</span>${escapeHtml(reading)}</p>` : lang.id === 'th' ? `<p class="study-entry-reading">${window.ByndStudyReading?.suggestThai?.(plainText(card.lines.th)).length ? '疑似扫描错字 · 展开查看候选读音' : '词库暂未匹配 · 可用整本校对补音'}</p>` : ''}${lang.id === 'th' ? renderThaiPronunciation(card) : ''}</div>`;
     }
     function renderBookEntry(card, number) {
         const langs = getStudyLanguages(), nativeId = getSettings().nativeId;
@@ -2024,6 +2041,6 @@
         undoTrace, clearTrace, finishTrace, startFocus, pauseFocus, resetFocus, setFocusMode, saveFocusDuration, selectActivityDay,
         // exposed for tests
         getSettings, saveSettings, getChat, buildTurnMessages, normalizeTurn, parseJson, tutor, characters, primaryTarget, allLanguages, language, plainText, rubyHtml, PRESET_LANGUAGES, LEVELS, STRICTNESS,
-        getFocusData, tickFocus, drillCards, selectedGlyph, speakGuideExample
+        getFocusData, tickFocus, drillCards, selectedGlyph, speakGuideExample, speakThaiLesson, toggleThaiWord
     };
 })();

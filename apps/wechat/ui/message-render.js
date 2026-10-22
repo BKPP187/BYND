@@ -109,12 +109,10 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         let imageBody = '';
         if (displayMsg.content) {
             imageBody = `<img src="${wcEscapeHtml(displayMsg.content)}">`;
-        } else if (displayMsg.imagePending) {
-            imageBody = `<div class="msg-image-placeholder"><i class="ri-loader-4-line"></i><span>${displayMsg.imageKind === 'character-sticker' ? '正在画表情...' : '正在生成照片...'}</span></div>`;
         } else {
-            imageBody = `<div class="msg-image-placeholder error"><i class="ri-error-warning-line"></i><span>${wcEscapeHtml(displayMsg.imageError || '图片生成失败')}</span></div>`;
+            imageBody = renderWechatImageStatus(displayMsg);
         }
-        const inner = `<div class="msg-bubble image-bubble${displayMsg.imagePending ? ' pending' : ''}${displayMsg.imageError ? ' error' : ''}">${quoteHtml}${imageBody}<span class="msg-media-meta">${formatMessageTime(displayMsg)}<i class="ri-check-double-line"></i></span></div>`;
+        const inner = `<div class="msg-bubble image-bubble${!displayMsg.content ? ' image-status-bubble' : ''}${displayMsg.imagePending ? ' pending' : ''}${displayMsg.imageError ? ' error' : ''}">${quoteHtml}${imageBody}<span class="msg-media-meta">${formatMessageTime(displayMsg)}<i class="ri-check-double-line"></i></span></div>`;
         bubbleHtml = msg.isMe && !externalQuoteHtml ? avatarHtml + inner : avatarHtml + `<div class="msg-bubble-shell media">${groupNameHtml}${inner}${externalQuoteHtml}</div>`;
     } else if (isWechatSpecialMessage(displayMsg.type)) {
         syncWechatMessageDescription(displayMsg);
@@ -327,7 +325,22 @@ window.bindWechatClaudeTitleInteractions = bindWechatClaudeTitleInteractions;
 
 function isWechatRichInteractiveTarget(target) {
     if (!target || typeof target.closest !== 'function') return false;
+    if (target.closest('.wc-image-status')) return !!target.closest('button, summary, details');
     if (!target.closest('.msg-rich-card')) return false;
     return !!target.closest('a, button, input, select, textarea, label, summary, details, [role="button"], .wc-rich-clickable, [data-wc-rich-click]');
+}
+
+function renderWechatImageStatus(msg) {
+    const pending = !!msg.imagePending;
+    const error = String(msg.imageError || '图片生成失败，未收到图片。');
+    const preparationFailed = /图片生成请求尚未发出/.test(error);
+    const title = pending ? (msg.imageKind === 'character-sticker' ? '正在画表情' : '正在生成图片') : '图片暂未生成';
+    const description = pending ? '完成后会显示在这里。' : preparationFailed ? '画面描述整理失败，尚未开始生图。' : '请检查接口连接和服务状态。';
+    return `<div class="msg-image-placeholder wc-image-status${pending ? '' : ' error'}" ${pending ? 'role="status" aria-live="polite"' : ''}>
+        <div class="wc-image-status-heading"><i class="${pending ? 'ri-loader-4-line' : 'ri-image-2-line'}" aria-hidden="true"></i><strong>${title}</strong></div>
+        <p>${description}</p>
+        ${pending ? '' : `<div class="wc-image-status-actions"><button type="button" onclick="openApp('settings'); openSettingsTab('api')">接口设置<i class="ri-arrow-right-up-line" aria-hidden="true"></i></button></div>
+        <details class="wc-image-status-detail"><summary>查看原因<i class="ri-arrow-down-s-line" aria-hidden="true"></i></summary><p>${wcEscapeHtml(error)}</p></details>`}
+    </div>`;
 }
 

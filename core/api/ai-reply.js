@@ -36,10 +36,17 @@ function consumeWechatAvatarDirective(char, content) {
 // says which background jobs are worth a request; null keeps the original BYND behaviour for that job.
 async function runWechatTurnFollowUps(char, context = {}) {
     const npcTurn = window.ByndNpcFriends?.captureTurn(char);
+    const discoverTurn = window.ByndDiscoverStory?.capture(char);
     let turn = null;
     try { turn = await window.ByndDecider?.afterReply(char, { replyDecisions: context.replyDecisions }); }
     catch (error) { console.warn('turn decisions failed:', error); }
     if (!(window.myCharacters || []).includes(char)) return;
+    if (!context.textOnly) {
+        for (const [verdict, kind] of [[turn?.channel, 'video'], [turn?.live, 'live']]) {
+            if (verdict === true) void window.ByndDiscoverStory?.consider(char, { verdict: true, kind, route: turn.route, turn: discoverTurn })
+                .catch(error => console.warn('角色发现页更新未完成:', error));
+        }
+    }
     if (turn?.npcFriend === true && !context.textOnly) {
         void window.ByndNpcFriends?.consider(char, { verdict: true, route: turn.route, turn: npcTurn })
             .catch(error => console.warn('剧情好友申请未完成:', error));

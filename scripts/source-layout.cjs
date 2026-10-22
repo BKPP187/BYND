@@ -93,7 +93,9 @@ const wechatParts = [
     'apps/wechat/chat/sticker-store.js',
     'apps/wechat/ui/me-settings.js',
     'apps/wechat/moments/moments.js',
+    'apps/wechat/moments/discover-story.js',
     'apps/wechat/moments/channels.js',
+    'apps/wechat/moments/live-media.js',
     'apps/wechat/moments/live.js',
     'apps/wechat/shop/shop.js',
     'core/api/novelai.js',
@@ -182,6 +184,8 @@ const styleParts = [
     'ui/components/experience.css',
     'systems/character-events/events.css',
     'apps/wechat/ui/interaction-theme.css',
+    'apps/wechat/moments/discover-story.css',
+    'apps/wechat/moments/live-room.css',
     'apps/settings/vivix.css'
 ];
 

@@ -6,6 +6,12 @@ function openApp(appName) {
     if (document.getElementById('app-home3d-window')?.classList.contains('active')) window.ByndHome3D?.close();
     window._activeAppOriginPageByApp = window._activeAppOriginPageByApp || {};
     window._activeAppOriginPageByApp[appName] = Number.isInteger(window._desktopCurrentPage) ? window._desktopCurrentPage : 0;
+    if (appName === 'bill') {
+        const activeWindow = Array.from(document.querySelectorAll('.app-window.active'))
+            .find(candidate => candidate.id !== 'app-bill-window');
+        if (activeWindow) window._byndBillReturnWindowId = activeWindow.id;
+        else if (!document.getElementById('app-bill-window')?.classList.contains('active')) delete window._byndBillReturnWindowId;
+    }
     document.querySelectorAll('.app-window.active').forEach(w => {
         w.classList.remove('active');
         w.classList.add('hidden');
@@ -486,7 +492,16 @@ function closeApp(appName) {
     else if (appName === 'bill') winId = 'app-bill-window';
     const win = document.getElementById(winId);
     if (win) {
-        restoreDesktopPageAfterApp(appName);
+        const billReturnWindow = appName === 'bill'
+            ? document.getElementById(window._byndBillReturnWindowId || '')
+            : null;
+        if (appName === 'bill') delete window._byndBillReturnWindowId;
+        if (billReturnWindow) {
+            billReturnWindow.classList.remove('hidden');
+            setTimeout(() => { if (!billReturnWindow.classList.contains('hidden')) billReturnWindow.classList.add('active'); }, 10);
+        } else {
+            restoreDesktopPageAfterApp(appName);
+        }
         win.classList.remove('active');
         if (appName === 'events') window.ByndEventInbox?.close();
         if (appName === 'monitor') window.ByndMonitor?.close();

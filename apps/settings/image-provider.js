@@ -77,7 +77,7 @@ function renderImageServiceCard(data = getApiData()) {
                         <div class="api-voice-route-main">
                             <strong>NovelAI</strong>
                             <b>${naiReady ? escapeHtml(model.label) : '未配置'}</b>
-                            <em>${naiReady ? `${nai.opusFree ? 'Opus 免费档' : '按 Anlas 计费'} · ${nai.steps} 步` : '二次元生图，可画成人内容'}</em>
+                            <em>${naiReady ? `${nai.opusFree ? 'Opus 免费档' : '按 Anlas 计费'} · ${nai.steps} 步` : '独立配置模型与生成参数'}</em>
                         </div>
                         <div class="api-voice-route-actions">
                             <button type="button" onclick="openNovelAiImageModal()">${naiReady ? '编辑' : '配置'}</button>

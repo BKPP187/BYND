@@ -1089,7 +1089,12 @@ function renderLineMePage(page, profile) {
 function renderContacts(query = '') {
     renderWechatContactsContent(query);
     const list = document.getElementById('wc-contacts-list');
-    if (list && window.ByndNpcFriends) list.insertAdjacentHTML('afterbegin', window.ByndNpcFriends.entryHtml());
+    if (list && window.ByndNpcFriends) {
+        // Telegram owns an inner contacts page; keep its shortcut with the page's
+        // search/actions so it inherits that surface instead of forming a white strip above it.
+        const telegramSearch = list.querySelector('.wc-telegram-contacts-page .wc-telegram-search');
+        (telegramSearch || list).insertAdjacentHTML(telegramSearch ? 'afterend' : 'afterbegin', window.ByndNpcFriends.entryHtml());
+    }
 }
 
 function renderWechatContactsContent(query = '') {

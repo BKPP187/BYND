@@ -97,6 +97,16 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
         .map(value => String(value || '').trim()).filter(Boolean).slice(0, 3);
     if (options.requireReference && !referenceImage) return { ok: false, error: '这次生成必须提供角色参考图，请先上传图片。' };
     const imageTimeoutMs = Math.max(60000, Number(options.timeoutMs) || 180000);
+    const requestSignal = () => {
+        const timeout = AbortSignal.timeout(imageTimeoutMs);
+        if (!options.signal) return timeout;
+        if (typeof AbortSignal.any === 'function') return AbortSignal.any([options.signal, timeout]);
+        const controller = new AbortController();
+        if (options.signal.aborted) controller.abort();
+        else options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+        timeout.addEventListener('abort', () => controller.abort(), { once: true });
+        return controller.signal;
+    };
     let imageUsage = null;
     let imageRequestStartedAt = Date.now();
     let imageRequestPath = '/images/generations';
@@ -218,7 +228,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             let jsonEdit = referenceImages.some(image => /^https?:\/\//i.test(image));
             // Retry only explicit request-validation failures. Keep the model,
             // endpoint and every identity reference; share one total time limit.
-            const editSignal = AbortSignal.timeout(imageTimeoutMs);
+            const editSignal = requestSignal();
             for (let attempt = 0; attempt < 4; attempt++) {
                 const body = jsonEdit
                     ? JSON.stringify(buildWechatImageEditJsonBody(imageModel, enhancedPrompt, referenceImages, editOptions))
@@ -258,7 +268,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             method: 'POST',
             headers: jsonHeaders,
             body: JSON.stringify(buildBody(!!referenceImage)),
-            signal: AbortSignal.timeout(imageTimeoutMs)
+            signal: requestSignal()
         });
         const result = await parseImageResponse(resp, '/images/generations');
         if (!result.ok && referenceImage && isWechatImageReferenceRetryable(result) && !options.requireReference) {
@@ -266,7 +276,7 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
                 method: 'POST',
                 headers: jsonHeaders,
                 body: JSON.stringify(buildBody(false)),
-                signal: AbortSignal.timeout(imageTimeoutMs)
+                signal: requestSignal()
             });
             return parseImageResponse(retry, '/images/generations');
         }
@@ -428,6 +438,12 @@ function buildWechatCharacterImageSourceText(char) {
     return parts.join('\n\n').slice(0, 5200);
 }
 
+function isAdultWechatImageCharacter(source) {
+    const text = String(source || '');
+    if (/(?:未成年|未满\s*18|儿童|幼儿|小学生|初中生|高中生|男孩|女孩|幼年|童年|\bminor\b|\bunderage\b|\bchild(?:ren)?\b|\bteen(?:ager)?\b)/i.test(text)) return false;
+    return /(?:成年|成人|成年人|\b(?:adult|young adult)\b|(?:18|19|2\d|[3-9]\d)\s*岁|\b(?:man|woman|male|female)\b|(?:男人|女人|男子|女子|男性|女性|男青年|女青年))/i.test(text);
+}
+
 function isWechatCharacterStickerImage(prompt, caption = '') {
     const source = `${prompt || ''}\n${caption || ''}`;
     return /Q\s*版|chibi|大头小身|二头身|三头身/i.test(source)
@@ -508,7 +524,9 @@ function buildWechatCharacterImagePrompt(char, prompt, caption = '', imagePlan =
         cleanFrame
     ].filter(Boolean).join('\n');
     const appearance = getWechatImageAppearanceHints(buildWechatCharacterImageSourceText(char), 160);
-    const identity = `人物：${name}。${appearance ? `外貌：${appearance}` : '外貌按身份参考图。'}保留本人的脸、发型、性别和辨识点，服装动作按场景变化。`;
+    const adultProportions = isAdultWechatImageCharacter(buildWechatCharacterImageSourceText(char))
+        ? '成年体态：保持明确成年人的成熟年龄感与成人骨架比例，肩颈和躯干比例自然协调，避免儿童化或小学生体型。' : '';
+    const identity = `人物：${name}。${appearance ? `外貌：${appearance}` : '外貌按身份参考图。'}保留本人的脸、发型、性别和辨识点，服装动作按场景变化。${adultProportions}`;
     if (plan.characterSticker) return [
         `${name}本人Q版自画像表情包，单个小人、单个动作。情绪动作：${scene}`,
         identity,

@@ -225,8 +225,9 @@ test('saving normalizes a known image endpoint and storage failures leave the ed
     assert.equal(closed, true);
     closed = false;
     h.context.saveApiData = () => { throw new Error('storage full'); };
-    assert.throws(() => h.context.saveApi(), /storage full/);
+    assert.equal(h.context.saveApi(), false);
     assert.equal(closed, false);
+    assert.match(h.elements.get('api-test-result').innerHTML, /保存失败.*storage full/);
 });
 
 function imageHarness(respond) {

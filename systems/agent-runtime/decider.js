@@ -2,8 +2,8 @@
 (function () {
     'use strict';
 
-    const TURN_KEYS = ['status', 'memory', 'moment', 'npcFriend'];
-    const TURN_LABELS = { status: '更新心声', memory: '写入记忆', moment: '发朋友圈', avatar: '心情头像', npcFriend: '剧情好友申请' };
+    const TURN_KEYS = ['status', 'memory', 'moment', 'npcFriend', 'channel', 'live'];
+    const TURN_LABELS = { status: '更新心声', memory: '写入记忆', moment: '发朋友圈', avatar: '心情头像', npcFriend: '剧情好友申请', channel: '发布视频号作品', live: '角色开播' };
     const DECIDE_TAG = /<bynd_decide\b[^>]*>([\s\S]*?)<\/bynd_decide>/gi;
     const clip = (value, length) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, length);
     const displayName = char => (typeof getWechatCharDisplayName === 'function' ? getWechatCharDisplayName(char) : '') || char?.name || '角色';
@@ -16,11 +16,13 @@
     function replyInstructions(char) {
         if (!char || char.isGroupChat || usesJev('turn')) return '';
         const npc = window.ByndNpcFriends?.canConsider(char) === true;
-        return '在全部正文之后另起一行，附上用户看不到的判断块：<bynd_decide>{"status":true或false,"memory":true或false,"moment":true或false' + (npc ? ',"npcFriend":true或false' : '') + '}</bynd_decide>。'
+        const discover = window.ByndDiscoverStory?.canPublish(char) === true;
+        return '在全部正文之后另起一行，附上用户看不到的判断块：<bynd_decide>{"status":true或false,"memory":true或false,"moment":true或false' + (npc ? ',"npcFriend":true或false' : '') + (discover ? ',"channel":true或false,"live":true或false' : '') + '}</bynd_decide>。'
             + 'status：这一轮之后你（角色）的心情、状态或没说出口的想法是否明显变化，值得更新心声；'
             + 'memory：这一轮是否出现值得长期记住的新事实或共同经历（用户的经历、偏好、约定、关系变化，或主动查资料带来的重要事件）；普通一次性搜索结果不用记；'
             + 'moment：按你的人设和此刻情绪，是否有自然动机发一条自己的朋友圈。'
             + (npc ? 'npcFriend：当前聊天剧情中是否已经出现具体的第三方联系需求，合理需要你世界里的某位配角现在主动加用户微信（例如已约定由同事联系用户处理某件事）？仅提到一个人、普通闲聊、世界书里有人物都不足以触发；不能为了加人编造转交联系方式或新的剧情。没有明确上下文依据填 false，符合剧情才填 true；申请尚未真正生成前不要声称已加好友。' : '')
+            + (discover ? 'channel：你或世界中的配角是否自然有动机发布与当前剧情有关、可公开的作品？live：你此刻是否真的适合开启一场用户可以参与的做饭、游戏、排练、访谈等直播？私密约定、敏感私聊和普通问候不要发布；不得为了功能编造公开动机。没有明确动机填 false，作品或直播真正创建前不要声称已发布或开播。' : '')
             + '按角色真实会怎么做来判断，不确定就填 false。判断块只能出现一次，不要解释。';
     }
 
@@ -72,6 +74,7 @@
             currentAvatarMood: clip(char.avatarMoods?.[char.avatar], 12) || null,
             recent,
             ...(window.ByndNpcFriends ? { npcFriend: window.ByndNpcFriends.decisionContext(char) } : {}),
+            ...(window.ByndDiscoverStory ? { discovery: window.ByndDiscoverStory.decisionContext(char) } : {}),
             hoursSinceStatusUpdate: status?.updatedAt ? Math.round((Date.now() - status.updatedAt) / 360000) / 10 : null,
             hoursSinceLastMoment: lastMoment ? Math.round((Date.now() - lastMoment) / 360000) / 10 : null,
             localTime: new Date().toLocaleString('zh-CN', { hour12: false })
@@ -85,6 +88,10 @@
             moment: { type: 'noul', instructions: "Given the character's persona and current mood, would they naturally post an update to their own social feed right now?" }
         };
         const moods = moodOptions(char);
+        if (window.ByndDiscoverStory?.canPublish(char) === true) {
+            questions.channel = { type: 'noul', instructions: 'Does the current storyline naturally motivate this character or a supporting NPC to publish a public work now? Require an in-character activity or event. Do not expose private user information or invent a public motive. Default to no.' };
+            questions.live = { type: 'noul', instructions: 'Would this character naturally start an interactive cooking, gaming, rehearsal, interview or other in-character live stream now? Require a concrete current motive and no already active room. Never broadcast private conversations. Default to no.' };
+        }
         if (window.ByndNpcFriends?.canConsider(char) === true) {
             questions.npcFriend = { type: 'noul', instructions: 'Does this specific chat storyline already give a concrete, in-character reason for a supporting NPC from the character world to send the user a WeChat friend request now? Require an established need for third-party contact and a plausible way to obtain the user contact. Mere mentions, casual conversation or world-book existence are insufficient. Do not invent contact sharing or plot to justify a request. Default to no.' };
         }
@@ -100,7 +107,7 @@
 
     // Returns { route, status, memory, moment, avatar } where each verdict is true/false or null (= keep BYND's default behaviour).
     async function afterReply(char, context = {}) {
-        const empty = { route: 'none', status: null, memory: null, moment: null, avatar: null, npcFriend: null };
+        const empty = { route: 'none', status: null, memory: null, moment: null, avatar: null, npcFriend: null, channel: null, live: null };
         if (!char || char.isGroupChat) return empty;
         if (usesJev('turn')) {
             const { questions, moods } = turnQuestions(char);
@@ -109,7 +116,7 @@
                 const verdict = key => answers[key]?.confident ? answers[key].value : null;
                 const avatarLabel = answers.avatar?.confident ? answers.avatar.value : null;
                 const target = moods.find(option => option.label === avatarLabel && !option.current);
-                return { route: 'jev', status: verdict('status'), memory: verdict('memory'), moment: verdict('moment'), avatar: target ? { index: target.index, label: target.label } : null, npcFriend: questions.npcFriend ? verdict('npcFriend') : null };
+                return { route: 'jev', status: verdict('status'), memory: verdict('memory'), moment: verdict('moment'), avatar: target ? { index: target.index, label: target.label } : null, npcFriend: questions.npcFriend ? verdict('npcFriend') : null, channel: questions.channel ? verdict('channel') : null, live: questions.live ? verdict('live') : null };
             }
         }
         const decisions = context.replyDecisions;
@@ -117,7 +124,7 @@
         TURN_KEYS.filter(key => typeof decisions[key] === 'boolean').forEach(key => {
             window.ByndJev?.logDecision?.({ scope: 'turn', route: 'agent', charName: displayName(char), key, label: TURN_LABELS[key], answer: decisions[key], probability: null, applied: true });
         });
-        return { route: 'agent', status: decisions.status ?? null, memory: decisions.memory ?? null, moment: decisions.moment ?? null, avatar: null, npcFriend: window.ByndNpcFriends?.canConsider(char) === true ? decisions.npcFriend ?? null : null };
+        return { route: 'agent', status: decisions.status ?? null, memory: decisions.memory ?? null, moment: decisions.moment ?? null, avatar: null, npcFriend: window.ByndNpcFriends?.canConsider(char) === true ? decisions.npcFriend ?? null : null, channel: window.ByndDiscoverStory?.canPublish(char) === true ? decisions.channel ?? null : null, live: window.ByndDiscoverStory?.canPublish(char) === true ? decisions.live ?? null : null };
     }
 
     // Out-of-character guard for character tools. Jev judges it when available; otherwise the chat model already chose the action in character.

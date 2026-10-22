@@ -51,6 +51,18 @@ test('character selfies still preserve identity and their default CG style', asy
     assert.match(h.requests[0].body.prompt, /默认画风：乙女/);
 });
 
+test('clearly adult characters get mature body proportions without changing minor character designs', async () => {
+    const adult = harness('给我拍张你现在的自拍');
+    adult.char.description = '成年男性，年轻男子，银发、灰色眼睛，乙女游戏人物。';
+    await adult.context.resolveWechatAiGeneratedImage(adult.char, adult.msg);
+    assert.match(adult.requests[0].body.prompt, /成年体态.*成人骨架比例.*避免儿童化或小学生体型/);
+
+    const minor = harness('给我拍张你现在的自拍');
+    minor.char.description = '高中生男孩，银发、灰色眼睛，乙女游戏人物。';
+    await minor.context.resolveWechatAiGeneratedImage(minor.char, minor.msg);
+    assert.doesNotMatch(minor.requests[0].body.prompt, /成年体态/);
+});
+
 test('a request for a more realistic selfie overrides an AI-authored CG description while keeping the same identity', async () => {
     const h = harness('你的自拍真实一点，像手机原相机直出，不要CG', '角色本人的乙女游戏半写实 3D CG 自拍');
     await h.context.resolveWechatAiGeneratedImage(h.char, h.msg);
