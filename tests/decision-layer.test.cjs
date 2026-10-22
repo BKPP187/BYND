@@ -54,7 +54,7 @@ test('with Jev one request answers every turn question and a confident mood swit
         })();
     });
     jev.write({ enabled: true, apiKey: 'test-key', scopes: {} });
-    assert.equal(decider.replyInstructions(char()), '', 'the reply does not spend tokens on verdicts Jev will give');
+    assert.match(decider.replyInstructions(char()), /<bynd_decide>/, 'the reply still carries verdicts so unsure Jev answers have a fallback');
     const turn = await decider.afterReply(char(), { replyDecisions: { status: false } });
     assert.deepEqual(Object.keys(body.questions).sort(), ['avatar', 'memory', 'moment', 'status']);
     assert.deepEqual(Object.keys(body.questions.avatar.criteria).sort(), ['冷淡', '吃醋'].sort());
@@ -105,4 +105,57 @@ test('chat follow-ups honour the decisions and the reply parser/preview strip th
     assert.match(tools, /decisions: decided\.decisions/);
     assert.match(read('index.html'), /systems\/agent-runtime\/decider\.js/);
     assert.match(read('index.html'), /console\.typesafe\.ai/);
+});
+
+test('a reply that ignores or garbles the verdict block is logged instead of silently falling back', async () => {
+    const { decider, jev } = harness();
+    decider.replyInstructions(char());
+    const missing = await decider.afterReply(char(), { replyDecisions: null });
+    assert.equal(missing.route, 'none');
+    assert.equal(jev.readLog()[0].route, 'agent-missing');
+    assert.match(jev.readLog()[0].label, /没有附上判断/);
+    const garbled = decider.extractReplyDecisions('好。<bynd_decide>{status: yes}</bynd_decide>');
+    assert.equal(garbled.content, '好。');
+    assert.equal(garbled.decisions.invalid, true);
+    assert.deepEqual({ ...garbled.decisions }, {}, 'the flag is not enumerable');
+    decider.replyInstructions(char());
+    await decider.afterReply(char(), { replyDecisions: garbled.decisions });
+    assert.match(jev.readLog()[0].label, /格式有误/);
+    const before = jev.readLog().length;
+    await decider.afterReply(char(), { replyDecisions: null });
+    assert.equal(jev.readLog().length, before, 'replies that were never asked for a block log nothing');
+});
+
+test('without Jev the reply can switch the avatar mood, but only to a labelled, different picture', async () => {
+    const { decider, jev } = harness();
+    const instructions = decider.replyInstructions(char());
+    assert.match(instructions, /"avatar"/);
+    assert.match(instructions, /「冷淡」、「吃醋」/);
+    assert.doesNotMatch(decider.replyInstructions(char({ avatarMoods: { 'a.png': '冷淡' } })), /"avatar"/);
+    const { decisions } = decider.extractReplyDecisions('嗯。<bynd_decide>{"status":false,"memory":false,"moment":false,"avatar":"吃醋"}</bynd_decide>');
+    const turn = await decider.afterReply(char(), { replyDecisions: decisions });
+    assert.deepEqual({ ...turn.avatar }, { index: 1, label: '吃醋' });
+    assert.equal(jev.readLog().some(entry => entry.key === 'avatar' && entry.answer === '吃醋'), true);
+    for (const avatar of ['冷淡', '开心', '']) {
+        const same = await decider.afterReply(char(), { replyDecisions: { avatar } });
+        assert.equal(same.avatar, null, `${avatar || 'empty'} keeps the current avatar`);
+    }
+});
+
+test('where Jev is unsure the reply verdict fills in, and the turn request uses a short timeout', async () => {
+    let timeoutSeen = null;
+    const realSetTimeout = setTimeout;
+    const { decider, jev } = harness(jevAnswer({ status: { type: 'noul', noul: 0.9 }, memory: { type: 'noul', noul: 0.5 }, moment: { type: 'noul', noul: 0.5 }, avatar: { type: 'choice', choice: '吃醋', probabilities: { '吃醋': 0.5, '冷淡': 0.5 } } }));
+    jev.write({ enabled: true, apiKey: 'k', scopes: {}, minProbability: 0.7 });
+    const ask = jev.ask;
+    jev.ask = (scope, state, questions, meta) => { timeoutSeen = meta.timeoutMs; return ask(scope, state, questions, meta); };
+    const turn = await decider.afterReply(char(), { replyDecisions: { status: false, memory: true, avatar: '吃醋' } });
+    assert.equal(timeoutSeen, 5000);
+    assert.equal(turn.route, 'jev');
+    assert.equal(turn.status, true, 'a confident Jev verdict wins over the reply');
+    assert.equal(turn.memory, true, 'an unsure Jev verdict uses the reply');
+    assert.equal(turn.moment, null, 'no verdict anywhere keeps the default');
+    assert.deepEqual({ ...turn.avatar }, { index: 1, label: '吃醋' });
+    assert.equal(jev.readLog().some(entry => /Jev 不确定/.test(entry.label)), true);
+    void realSetTimeout;
 });

@@ -1979,7 +1979,7 @@ FOREVER FREE</p></section>
                 <div class="set-nav-panel" id="settings-tab-decision" data-settings-panel="decision" role="tabpanel" aria-labelledby="settings-nav-decision" hidden>
                 <section class="bynd-jev-card" id="bynd-jev-settings" aria-label="智能决策">
                     <div class="bynd-jev-heading"><span class="bynd-jev-mark"><i class="ri-git-branch-line"></i></span><div><strong>智能决策</strong><small>BYND Agent / Jev 双路径</small></div></div>
-                    <p class="bynd-jev-intro">每轮回复后判断要不要更新心声、写记忆、发朋友圈、换心情头像，以及角色工具是否符合人设。没填 Jev 时由 BYND 内置 Agent 在回复里顺带判断，不额外请求；填了 Jev 则交给 Jev，更快、不占聊天接口，也不会引发 429。角色内容始终由聊天模型创作。</p>
+                    <p class="bynd-jev-intro">每轮回复后判断要不要更新心声、写记忆、发朋友圈、换心情头像，以及角色工具是否符合人设。BYND 内置 Agent 在回复里顺带判断，不额外请求；填了 Jev 则由 Jev 先判断，它拿不准的项用回复里的判断补上。模型漏给或写错判断时，下方记录会注明。角色内容始终由聊天模型创作。</p>
                     <p class="bynd-jev-route" id="bynd-jev-route">当前路径：BYND 内置 Agent（未启用 Jev）</p>
                     <label class="bynd-jev-enable"><span><strong>使用 Jev 辅助决策</strong><small>未配置、调用失败或把握不足时自动回到 BYND 路径</small></span><input type="checkbox" id="bynd-jev-enabled"></label>
                     <label class="bynd-jev-key-label" for="bynd-jev-key">TypeSafe Jev API Key</label>

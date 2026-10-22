@@ -126,7 +126,7 @@
         const config = read();
         try {
             const labPolicy = !meta.private && window.ByndPromptLab?.decisionPrompt?.();
-            const answers = await requestQuestions(config.apiKey, labPolicy ? { ...state, evaluationPolicy: labPolicy } : state, questions, 8000, meta.onReceipt);
+            const answers = await requestQuestions(config.apiKey, labPolicy ? { ...state, evaluationPolicy: labPolicy } : state, questions, meta.timeoutMs || 8000, meta.onReceipt);
             const result = {};
             for (const [key, question] of Object.entries(questions)) {
                 result[key] = interpret(question, answers[key], config.minProbability);
@@ -160,7 +160,7 @@
     }
 
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-    const routeLabel = { jev: 'Jev', agent: 'BYND Agent', 'jev-error': 'Jev 失败' };
+    const routeLabel = { jev: 'Jev', agent: 'BYND Agent', 'jev-error': 'Jev 失败', 'agent-missing': 'BYND Agent' };
 
     function renderLog() {
         const box = typeof document !== 'undefined' ? document.getElementById('bynd-jev-log') : null;
