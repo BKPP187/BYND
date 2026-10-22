@@ -1663,7 +1663,7 @@ async function sendWechatCallMessage(transcript, options = {}) {
     if (!nudge) {
         addWechatCallLine('user', text);
         scrollWechatCallLogToBottom();
-        window.dispatchEvent(new CustomEvent('bynd:call-user-line', { detail: { callId: call.id } }));
+        emitWechatCallEvent('bynd:call-user-line', call);
     }
 
     call.busy = true;
@@ -1718,7 +1718,7 @@ async function sendWechatCallMessage(transcript, options = {}) {
     } finally {
         if (window._wechatActiveCall?.id === call.id && !call.ended) {
             call.busy = false;
-            window.dispatchEvent(new CustomEvent('bynd:call-reply-settled', { detail: { callId: call.id } }));
+            emitWechatCallEvent('bynd:call-reply-settled', call);
             input.disabled = false;
             setWechatCallTyping(false);
             setWechatCallStatus(call.videoProvider === 'vivix' ? (call.vivix?.failed ? 'AI 视频连接失败' : 'AI 实时视频通话中') : '通话中');
@@ -1727,6 +1727,13 @@ async function sendWechatCallMessage(transcript, options = {}) {
             if (call.videoProvider === 'vivix') void window.ByndVivix.consumeTranscript(call);
         }
     }
+}
+
+// Live voice listens for these; minimal embedders without CustomEvent simply skip them.
+function emitWechatCallEvent(name, call) {
+    try {
+        if (typeof CustomEvent === 'function' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent(name, { detail: { callId: call.id } }));
+    } catch (_) {}
 }
 
 function addWechatCallRecord(call, status, reason = '') {
