@@ -39,16 +39,31 @@
         return pending;
     }
     H.ensure = ensure;
+    // The illustrated (2.5D) home shares saves, planner and receipts with 3D but never loads WebGL.
+    let pending25 = null;
+    function ensure25() {
+        if (pending25) return pending25;
+        pending25 = (async () => {
+            await script('apps/home3d/data/catalogs.js');
+            await Promise.all(['materials', 'interiors', 'bedding', 'hygiene', 'cooking', 'dining', 'foods', 'furniture-visuals', 'furniture', 'garden', 'rooms', 'villa', 'expressions', 'character-models', 'characters', 'animation', 'state', 'bridge', 'build', 'life-context', 'living', 'actions', 'interactions', 'icons'].map(name => script('apps/home3d/' + name + '.js')));
+            await Promise.all(['illustrated/art', 'illustrated/sprites', 'illustrated/room', 'illustrated/ui'].map(name => script('apps/home3d/' + name + '.js')));
+        })().catch(error => { pending25 = null; throw error; });
+        return pending25;
+    }
+    H.ensure25 = ensure25;
+    const preferredView = () => { try { return localStorage.getItem('bynd_home_view_v1') === '3d' ? '3d' : 'illustrated'; } catch (_) { return 'illustrated'; } };
     H.open = async () => {
         const session = ++H.session, root = document.getElementById('home3d-root');
         if (!root) return;
-        root.innerHTML = '<div class="home3d-loading"><i class="ri-home-heart-line"></i><strong>把家的灯点亮…</strong><span>小屋第一次打开会准备 3D 资源</span><button type="button" data-home-back>返回桌面</button></div>';
+        const illustrated = preferredView() === 'illustrated';
+        root.className = '';
+        root.innerHTML = '<div class="home3d-loading"><i class="ri-home-heart-line"></i><strong>把家的灯点亮…</strong><span>' + (illustrated ? '正在准备插画小屋' : '小屋第一次打开会准备 3D 资源') + '</span><button type="button" data-home-back>返回桌面</button></div>';
         root.querySelector('[data-home-back]').onclick = () => window.closeApp('home3d');
         try {
-            await ensure();
+            await (illustrated ? ensure25() : ensure());
             if (window._wechatCharactersLoadPromise) await window._wechatCharactersLoadPromise;
             if (H.session !== session) return;
-            await H.UI.open(root, session);
+            await (illustrated ? H.UI25.open(root, session) : H.UI.open(root, session));
         } catch (error) {
             if (H.session !== session) return;
             root.replaceChildren();
@@ -58,5 +73,5 @@
             root.appendChild(box);
         }
     };
-    H.close = () => { H.session++; H.UI?.close(); H.runtime?.dispose(); H.runtime = null; };
+    H.close = () => { H.session++; H.UI25?.close(); H.UI?.close(); H.runtime?.dispose(); H.runtime = null; };
 })( );

@@ -184,6 +184,7 @@ const styleParts = [
     'apps/coreading/shelf-tools.css',
     'core/api/mcp.css',
     'apps/home3d/home3d.css',
+    'apps/home3d/illustrated/illustrated.css',
     'apps/settings/version-letter.css',
     'ui/components/experience.css',
     'systems/character-events/events.css',
