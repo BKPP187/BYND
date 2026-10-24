@@ -130,7 +130,7 @@
 .study-thai-word { display: block; margin-top: 7px; color: #49544a; font-size: 14px; overflow-wrap: anywhere; }
 .study-thai-breakdown { list-style: none; margin: 10px 0 0; padding: 0; }
 .study-thai-breakdown li { padding: 9px 0; border-top: 1px solid #e1e5db; }
-.study-thai-breakdown li > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.study-thai-breakdown > li > div:first-child { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .study-thai-breakdown b { font-size: 13px; font-weight: 600; color: #4a574a; overflow-wrap: anywhere; }
 .study-thai-breakdown small { flex-shrink: 0; font-size: 11px; color: #798575; }
 .study-thai-breakdown .study-thai-tone-reason { color: #5d725b; }
@@ -460,3 +460,42 @@
 .study-week-bars b { width: min(100%, 22px); min-height: 2px; border-radius: 4px 4px 0 0; background: #292c30; }
 .study-week-bars span { height: 17px; padding-top: 3px; color: #858a90; font-size: 10px; }
 @media (max-width: 360px) { .study-page { padding-left: 12px; padding-right: 12px; } .study-learning-nav { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } .study-foundation-grid { grid-template-columns: repeat(auto-fill, minmax(43px, 1fr)); } .study-week-bars { gap: 7px; } }
+
+/* Thai lessons reuse the book's compact disclosure, with no modal or new shell. */
+.study-thai-term { display: inline; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; text-align: inherit; overflow-wrap: anywhere; cursor: pointer; }
+.study-thai-term:focus-visible, .study-thai-letter:focus-visible { outline: 2px solid #858b95; outline-offset: 3px; }
+.study-thai-classroom { min-width: 0; color: #4c5259; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.study-thai-classroom p { margin: 9px 0; }
+.study-thai-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.study-thai-controls > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.study-thai-classroom .study-ghost, #study-thai-home .study-ghost { min-height: 38px; padding: 8px 12px; font-size: 13px; }
+.study-thai-controls [aria-pressed="true"] { color: #fff; background: #191c20; border-color: #191c20; }
+.study-thai-letters { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.study-thai-classroom .study-thai-breakdown > li > div:first-child b { font-size: 16px; }
+.study-thai-letter { min-width: 40px; min-height: 42px; padding: 4px 10px; border: 1px solid #e2e3e4; border-radius: 10px; background: #fff; color: #202329; font-size: 24px; cursor: pointer; }
+.study-thai-letter-info { padding: 10px 12px; border-left: 2px solid #b1b5b9; background: #f5f5f3; border-radius: 0 10px 10px 0; }
+.study-thai-steps { padding-left: 20px; }
+.study-thai-classroom .study-thai-steps li { padding: 6px 0; border: 0; }
+.study-thai-steps small { color: #7b8189; }
+.study-thai-steps p { margin: 4px 0; }
+.study-thai-audio { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.study-thai-notice:empty { display: none; }
+.study-thai-notice, .study-thai-unverified { color: #8a6025; }
+.study-thai-meaning, .study-thai-rule-table, .study-thai-review { margin: 14px 0; }
+.study-thai-classroom summary { cursor: pointer; }
+.study-thai-table-scroll { max-width: 100%; overflow-x: auto; }
+.study-thai-rule-table table { width: 100%; min-width: 300px; border-collapse: collapse; font-size: 13px; }
+.study-thai-rule-table td, .study-thai-rule-table th { padding: 8px 6px; border-bottom: 1px solid #e1e2e3; text-align: left; }
+.study-thai-rule-table a { color: #575f6b; }
+.study-thai-quiz { padding: 14px 0; }
+.study-thai-quiz h3 { margin: 12px 0; font-size: 32px; color: #202329; }
+.study-thai-answers { display: flex; gap: 8px; flex-wrap: wrap; }
+.study-thai-answer-feedback { padding: 10px 12px; background: #f3f4f1; border-radius: 10px; color: #365c45; }
+.study-thai-answer-feedback.is-wrong { color: #b33636; background: #fff2f1; }
+.study-thai-search { display: grid; gap: 12px; }
+.study-thai-search label { color: #202329; font-size: 20px; font-weight: 750; }
+.study-thai-search > div { display: flex; gap: 8px; }
+.study-thai-search input { flex: 1; width: 0; min-width: 0; padding: 10px 12px; border: 1px solid #e2e3e4; border-radius: 12px; background: #fff; font-size: 18px; }
+.study-thai-examples { display: flex; gap: 8px; margin: 16px 0; max-height: 94px; overflow-y: auto; flex-wrap: wrap; }
+.study-thai-review > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #ededee; }
+.study-thai-review span { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }

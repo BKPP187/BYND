@@ -1,0 +1,489 @@
+/* Settings: two-level layout (grouped list → detail page) and one visual language.
+   Loaded last so it wins over the per-feature sheets; every rule is scoped to the settings window. */
+html #app-settings-window.app-window {
+    --set-bg: #f2f2f4;
+    --set-card: #ffffff;
+    --set-line: rgba(20, 20, 24, 0.08);
+    --set-text: #18181b;
+    --set-sub: #6b6b73;
+    --set-faint: #a1a1aa;
+    --set-ink: #1c1c1f;
+    --set-tile: #f0f0f2;
+    --set-radius: 14px;
+    background: var(--set-bg) !important;
+    color: var(--set-text) !important;
+}
+
+/* ---------- Header ---------- */
+html #app-settings-window.app-window > .window-header {
+    position: relative;
+    background: rgba(242, 242, 244, 0.94) !important;
+    border-bottom: 1px solid var(--set-line) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+}
+html #app-settings-window.app-window > .window-header h3 {
+    color: var(--set-text) !important;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+html #app-settings-window.app-window > .window-header .close-btn { color: var(--set-sub) !important; font-size: 15px; }
+html #app-settings-window.app-window .bynd-settings-search { color: var(--set-text) !important; }
+#app-settings-window .set-back-btn {
+    display: none;
+    align-items: center;
+    gap: 0;
+    min-height: 44px;
+    margin-left: -8px;
+    padding: 0 8px 0 0;
+    border: 0;
+    background: none;
+    color: var(--set-text);
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+#app-settings-window .set-back-btn i { font-size: 24px; line-height: 1; }
+#app-settings-window.settings-detail .set-back-btn { display: inline-flex; }
+#app-settings-window.settings-detail > .window-header .close-btn { display: none !important; }
+
+/* ---------- Home: grouped list ---------- */
+html #app-settings-window.app-window .set-nav {
+    flex: 1 1 auto;
+    display: block;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    background: var(--set-bg) !important;
+    border: 0 !important;
+    white-space: normal;
+}
+html #app-settings-window.app-window .window-content { display: none; }
+#app-settings-window.settings-detail .set-nav { display: none !important; }
+html #app-settings-window.app-window.settings-detail .window-content { display: block; }
+
+#app-settings-window .set-home-label {
+    margin: 22px 4px 8px;
+    color: var(--set-sub);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+#app-settings-window .set-home-group:last-of-type { margin-top: 22px; }
+/* Rows are the white surface; the group only rounds its first and last row. */
+#app-settings-window .set-home-group > .set-nav-tab:first-of-type { border-top-left-radius: var(--set-radius) !important; border-top-right-radius: var(--set-radius) !important; }
+#app-settings-window .set-home-group > .set-nav-tab:last-of-type { border-bottom-left-radius: var(--set-radius) !important; border-bottom-right-radius: var(--set-radius) !important; }
+
+html #app-settings-window.app-window .set-nav-tab,
+html #app-settings-window.app-window .set-nav-tab.active {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    margin: 0;
+    padding: 0 12px 0 14px;
+    border: 0 !important;
+    border-radius: 0;
+    background: var(--set-card) !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    text-align: left;
+    transform: none;
+    cursor: pointer;
+}
+html #app-settings-window.app-window .set-nav-tab:active { background: #ececee !important; transform: none; }
+/* Hairline between rows, inset past the icon. */
+#app-settings-window .set-nav-tab + .set-nav-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 56px;
+    height: 1px;
+    background: var(--set-line);
+}
+html #app-settings-window.app-window .set-nav-tab > i:first-child {
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--set-tile);
+    color: var(--set-ink);
+    font-size: 17px;
+}
+#app-settings-window .set-row-title { flex: 0 0 auto; white-space: nowrap; }
+#app-settings-window .set-row-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--set-sub);
+    font-size: 14px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#app-settings-window .set-row-chevron { flex: 0 0 auto; margin-left: -4px; color: var(--set-faint); font-size: 20px; }
+html #app-settings-window.app-window .set-nav-tab:focus-visible { outline: 2px solid var(--set-ink); outline-offset: -2px; }
+
+#app-settings-window .set-version {
+    margin: 28px 0 0;
+    color: var(--set-faint);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+}
+#app-settings-window .set-display-check {
+    display: block;
+    margin: 10px auto 0;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--set-sub);
+    font: inherit;
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+/* ---------- Detail pages ---------- */
+html #app-settings-window.app-window .window-content {
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px)) !important;
+    background: var(--set-bg) !important;
+}
+/* The header now names the page; in-panel repeats of the title go. */
+#app-settings-window .set-nav-panel .set-section-title { display: none; }
+html #app-settings-window.app-window .set-nav-panel > div[style*="margin-top"] { margin-top: 0 !important; }
+#app-settings-window .set-nav-panel { color: var(--set-text); }
+
+/* One card style: white, hairline, no gradients, no glow. */
+html #app-settings-window.app-window :is(
+    .tripo-settings, .vivix-settings, .bynd-jev-card, .notify-card, .font-batch-box, .font-preview-box,
+    .set-diagnostics, .set-data-btn, .bynd-about-card, .api-route-grid, .api-image-options, .api-image-usage,
+    .call-voice-settings
+) {
+    background: var(--set-card) !important;
+    background-image: none !important;
+    border: 1px solid var(--set-line) !important;
+    border-radius: var(--set-radius) !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+}
+/* Voice: one grouped list of providers instead of cards nested three deep. */
+html #app-settings-window.app-window #api-voice-route-panel,
+html #app-settings-window.app-window #api-voice-route-panel :is(.api-route-grid, .api-route-card.voice) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-route-card.voice > :is(i, span) { display: none !important; }
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-choice-grid {
+    display: block !important;
+    overflow: hidden;
+    margin: 0 !important;
+    border-radius: var(--set-radius);
+    background: var(--set-card);
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route {
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    margin: 0 !important;
+    padding: 10px 14px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--set-card) !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route + .api-voice-route::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 14px;
+    height: 1px;
+    background: var(--set-line);
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main {
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    min-width: 0;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main strong {
+    color: var(--set-text) !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main b {
+    color: var(--set-sub) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route.ready .api-voice-route-main b { color: var(--set-text) !important; }
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-main em {
+    flex-basis: 100%;
+    color: var(--set-faint) !important;
+    font-size: 12.5px !important;
+    font-style: normal !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions {
+    display: flex !important;
+    flex: 0 0 auto;
+    gap: 6px;
+    margin: 0 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions button {
+    min-width: 52px;
+    min-height: 32px;
+    padding: 0 12px !important;
+    border: 1px solid rgba(20, 20, 24, 0.16) !important;
+    border-radius: 999px !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel .api-voice-route-actions button:disabled {
+    border-color: transparent !important;
+    background: var(--set-tile) !important;
+    color: var(--set-sub) !important;
+    opacity: 1 !important;
+}
+
+/* Notify card: neutral text and an ink switch. */
+html #app-settings-window.app-window .notify-card :is(span, small, label, p, em) { color: var(--set-sub) !important; }
+html #app-settings-window.app-window .notify-card strong { color: var(--set-text) !important; }
+html #app-settings-window.app-window .notify-card .notify-preset-trigger {
+    border: 1px solid rgba(20, 20, 24, 0.12) !important;
+    background: #f7f7f8 !important;
+    box-shadow: none !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window .notify-switch input:checked + span { background: var(--set-ink) !important; }
+
+/* Text: neutral greys instead of per-feature purple/pink. */
+html #app-settings-window.app-window .window-content :is(.bynd-jev-mark, .bynd-jev-route, .bynd-jev-route b, .bynd-jev-guide summary, .bynd-jev-guide i, .bynd-jev-card .ri-git-branch-line, .font-reset-btn) {
+    color: var(--set-sub) !important;
+}
+html #app-settings-window.app-window .window-content .bynd-jev-route {
+    background: var(--set-tile) !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window #api-voice-route-panel strong { color: var(--set-text) !important; }
+
+/* Buttons: one primary (ink), one secondary (outline). */
+html #app-settings-window.app-window .window-content :is(
+    .tripo-save, .vivix-actions button:last-child, #bynd-jev-settings button:not(#bynd-jev-test):not(.bynd-jev-guide button),
+    .set-diagnostics-export, .font-url-apply, #font-batch-import-btn, .set-usage-open, .bynd-history-replay,
+    .api-list-heading button
+) {
+    border: 1px solid var(--set-ink) !important;
+    background: var(--set-ink) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: #fff !important;
+}
+html #app-settings-window.app-window .window-content :is(#tripo-test, #vivix-test, #bynd-jev-test) {
+    border: 1px solid rgba(20, 20, 24, 0.16) !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+}
+html #app-settings-window.app-window .window-content :is(button, summary):focus-visible { outline: 2px solid var(--set-ink); outline-offset: 2px; }
+
+/* Fields share one height and fill. */
+html #app-settings-window.app-window .window-content :is(input[type="text"], input[type="url"], input[type="password"], input[type="number"], input:not([type]), select, textarea) {
+    border: 1px solid rgba(20, 20, 24, 0.12) !important;
+    border-radius: 10px !important;
+    background: #f7f7f8 !important;
+    color: var(--set-text) !important;
+    box-shadow: none !important;
+}
+html #app-settings-window.app-window .window-content :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--set-ink); }
+
+/* Font upload: plain tile instead of a dashed drop zone. */
+html #app-settings-window.app-window .font-upload-box {
+    border: 1px solid var(--set-line) !important;
+    background: var(--set-card) !important;
+    color: var(--set-text) !important;
+}
+
+/* Data: three equal actions in one card-like grid without grey header bars. */
+html #app-settings-window.app-window .set-data-btn i {
+    background: none !important;
+    color: var(--set-ink) !important;
+}
+html #app-settings-window.app-window .set-data-btn.set-data-btn-warn i,
+html #app-settings-window.app-window .set-data-btn.set-data-btn-warn :is(span, strong, b) { color: #a33c38 !important; }
+
+/* About: readable type instead of typewriter monospace. */
+html #app-settings-window.app-window .bynd-about-card :is(h2, h3, time, small, .bynd-release-number) {
+    font-family: inherit !important;
+}
+html #app-settings-window.app-window .bynd-about-card { border-radius: var(--set-radius) !important; }
+html #app-settings-window.app-window .bynd-about-card article { border-color: var(--set-line) !important; border-style: solid !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    html #app-settings-window.app-window .set-nav-tab { transition: none; }
+}
+
+html #app-settings-window.app-window .notify-switch input:not(:checked) + span { background: #e4e4e7 !important; }
+html #app-settings-window.app-window .font-del-icon { color: var(--set-faint) !important; }
+
+/* Call live-voice settings card (设置 → 语音). */
+#app-settings-window .call-voice-settings { margin-top: 14px; padding: 16px; }
+#app-settings-window .call-voice-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#app-settings-window .call-voice-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+#app-settings-window .call-voice-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--set-sub); }
+#app-settings-window .call-voice-settings > label,
+#app-settings-window .call-voice-grid label { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--set-sub); }
+#app-settings-window .call-voice-settings :is(select, input[type="text"], input[type="number"]) { box-sizing: border-box; width: 100%; min-width: 0; height: 42px; padding: 0 10px; font-size: 15px; }
+#app-settings-window .call-voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#app-settings-window .call-voice-note { margin: 8px 0 0; color: var(--set-sub); font-size: 12.5px; line-height: 1.6; }
+#app-settings-window .call-voice-note:empty { display: none; }
+#app-settings-window .call-voice-actions { margin-top: 14px; }
+#app-settings-window .call-voice-actions button { width: 100%; min-height: 44px; border: 1px solid var(--set-ink); border-radius: 10px; background: var(--set-ink); color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
+@media (max-width: 340px) { #app-settings-window .call-voice-grid { grid-template-columns: 1fr; } }
+
+/* Number with a unit: "8 秒". */
+#app-settings-window .call-voice-unit { position: relative; }
+#app-settings-window .call-voice-unit input { padding-right: 40px !important; }
+#app-settings-window .call-voice-unit span { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); color: var(--set-sub); font-size: 14px; pointer-events: none; }
+#app-settings-window .call-voice-unit input::-webkit-inner-spin-button,
+#app-settings-window .call-voice-unit input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#app-settings-window .call-voice-unit input { -moz-appearance: textfield; appearance: textfield; }
+
+/* Sheet pickers (apps/settings/select-sheet.js): the field button lives in settings,
+   the sheet layer is appended to .phone-container, so it carries its own palette. */
+.bynd-sheet-native { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; border: 0 !important; opacity: 0 !important; pointer-events: none !important; }
+#app-settings-window .bynd-sheet-trigger {
+    display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 0 12px 0 14px;
+    border: 1px solid rgba(20, 20, 24, 0.12); border-radius: 10px; background: #f7f7f8; color: var(--set-text);
+    font: inherit; font-size: 15px; text-align: left; cursor: pointer;
+}
+#app-settings-window .bynd-sheet-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+#app-settings-window .bynd-sheet-trigger[aria-expanded="true"] { border-color: var(--set-ink); }
+#app-settings-window .bynd-sheet-trigger:focus-visible { outline: 2px solid var(--set-ink); outline-offset: 2px; }
+#app-settings-window .bynd-sheet-trigger-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#app-settings-window .bynd-sheet-trigger > i { flex: none; color: var(--set-sub); font-size: 20px; }
+#app-settings-window .font-select-wrap .bynd-sheet-trigger { flex: 1; }
+
+.bynd-sheet-layer {
+    --sheet-text: #18181b; --sheet-sub: #6b6b73; --sheet-faint: #a1a1aa; --sheet-line: rgba(20, 20, 24, 0.08); --sheet-ink: #1c1c1f;
+    position: absolute; inset: 0; z-index: 20000; display: flex; flex-direction: column; justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.32); animation: bynd-sheet-fade 0.16s ease-out;
+}
+.bynd-sheet {
+    display: flex; flex-direction: column; max-height: 72%; min-height: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: 16px 16px 0 0; background: #fff; color: var(--sheet-text);
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12); animation: bynd-sheet-rise 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bynd-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 10px; border-bottom: 1px solid var(--sheet-line); }
+.bynd-sheet-head strong { font-size: 16px; font-weight: 600; }
+.bynd-sheet-close { border: 0; background: none; padding: 6px 2px; color: var(--sheet-ink); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.bynd-sheet-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 12px; }
+.bynd-sheet-group { padding: 14px 16px 6px; color: var(--sheet-faint); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+.bynd-sheet-option {
+    display: flex; align-items: center; gap: 12px; box-sizing: border-box; width: 100%; min-height: 50px; padding: 0 16px;
+    border: 0; background: none; color: var(--sheet-text); font: inherit; font-size: 16px; text-align: left; cursor: pointer;
+}
+.bynd-sheet-option { position: relative; }
+.bynd-sheet-option + .bynd-sheet-option::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; border-top: 1px solid var(--sheet-line); }
+.bynd-sheet-option > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bynd-sheet-option > i { flex: none; visibility: hidden; color: var(--sheet-ink); font-size: 20px; }
+.bynd-sheet-option[aria-selected="true"] { font-weight: 600; }
+.bynd-sheet-option[aria-selected="true"] > i { visibility: visible; }
+.bynd-sheet-option:active { background: #f2f2f4; }
+.bynd-sheet-option:focus-visible { outline: 2px solid var(--sheet-ink); outline-offset: -2px; }
+.bynd-sheet-option:disabled { color: var(--sheet-faint); cursor: not-allowed; }
+@keyframes bynd-sheet-fade { from { opacity: 0; } }
+@keyframes bynd-sheet-rise { from { transform: translateY(24px); opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .bynd-sheet-layer, .bynd-sheet { animation: none; } }
+
+/* Test result lines (settingsStatusHtml in api-test-modal.js): a line icon instead of emoji. */
+.set-status { display:inline-flex; align-items:flex-start; gap:7px; text-align:left; font-size:13px; line-height:1.55; color:#3f3f46; }
+.set-status > i { flex:none; font-size:16px; line-height:1.3; }
+.set-status.is-ok { color:#1f6f4a; }
+.set-status.is-error { color:#a33c38; }
+.set-status.is-note { color:#6b6b73; }
+.set-status-spinner { flex:none; width:13px; height:13px; margin-top:3px; border-radius:50%; border:2px solid rgba(20,20,24,.15); border-top-color:#3f3f46; animation:set-status-spin .8s linear infinite; }
+@keyframes set-status-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .set-status-spinner { animation-duration:2.4s; } }
+.set-status-hint { margin:8px 0 0; text-align:left; color:#6b6b73; font-size:12px; line-height:1.6; }
+
+/* API and voice editors open as full pages inside the phone, like other settings detail pages:
+   no grey mask around a floating card. Ids are the settings modals only. */
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal).wc-modal-overlay {
+    /* Start below the status bar so the time and battery stay visible above the page. */
+    top: calc(50px + var(--bynd-header-safe-top, 0px)) !important;
+    bottom: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    background: #f2f2f4 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card {
+    display: flex !important;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #f2f2f4 !important;
+    color: #18181b !important;
+    box-shadow: none !important;
+    animation: bynd-settings-page-in .22s ease-out;
+}
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card > .wc-card-header {
+    flex: none;
+    background: #f2f2f4;
+    color: #18181b !important;
+    border-bottom: 1px solid rgba(20, 20, 24, 0.08) !important;
+}
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card > .wc-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    align-items: stretch;
+}
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card > .wc-card-footer {
+    flex: none;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    background: #f2f2f4;
+}
+@keyframes bynd-settings-page-in { from { transform: translateY(14px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) {
+    :is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card { animation: none; }
+}

@@ -225,7 +225,8 @@ test('JEV gets the same story question in its turn request and only confident tr
                 return { status: { value: false, confident: true }, memory: { value: false, confident: true }, moment: { value: false, confident: true }, npcFriend: { value, confident } };
             }
         };
-        assert.equal(h.context.ByndDecider.replyInstructions(h.source), '');
+        // The reply still carries its own verdict so an unsure Jev answer has a fallback.
+        assert.match(h.context.ByndDecider.replyInstructions(h.source), /"npcFriend":true或false/);
         let work;
         const original = h.api.consider;
         h.api.consider = (...args) => (work = original(...args));

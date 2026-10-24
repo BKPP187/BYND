@@ -11,13 +11,14 @@
         const profileMode = document.getElementById('lw-profile-mode')?.value;
         const replyMode = document.querySelector('input[name="lw-reply-mode"]:checked')?.value || loadState().forumSettings.replyMode;
         const promotionsEnabled = (document.getElementById('lw-promotion-enabled')?.value || 'yes') === 'yes';
+        const worldPulse = document.getElementById('lw-world-pulse')?.value === 'off' ? 'off' : 'on', worldShare = document.getElementById('lw-world-share')?.value === 'off' ? 'off' : 'on';
         const promotionMinGap = Number(document.getElementById('lw-promotion-min')?.value ?? 8);
         const promotionMaxGap = Number(document.getElementById('lw-promotion-max')?.value ?? 15);
         if (!['manual','interval','smart'].includes(refreshMode) || ![3,6,12,24,48].includes(intervalHours) || !['economy','full'].includes(profileMode) || !['forum','app','off'].includes(replyMode) || !Number.isInteger(promotionMinGap) || !Number.isInteger(promotionMaxGap) || promotionMinGap < 4 || promotionMinGap > 30 || promotionMaxGap > 30 || promotionMinGap > promotionMaxGap) { showToast('设置项无效。'); return; }
         try {
             mutate(next => {
                 const old = next.forumSettings;
-                next.forumSettings = { ...old, refreshMode, intervalHours, profileMode, replyMode, replyReactionsEnabled:replyMode !== 'off', promotionsEnabled, promotionMinGap, promotionMaxGap, nextSmartAt: refreshMode === 'smart' && old.refreshMode !== 'smart' ? nextSmartTime(now()) : old.nextSmartAt };
+                next.forumSettings = { ...old, worldPulse, worldShare, refreshMode, intervalHours, profileMode, replyMode, replyReactionsEnabled:replyMode !== 'off', promotionsEnabled, promotionMinGap, promotionMaxGap, nextSmartAt: refreshMode === 'smart' && old.refreshMode !== 'smart' ? nextSmartTime(now()) : old.nextSmartAt };
                 if (replyMode === 'off') {
                     next.interactionHandled.push(...next.interactionQueue.map(item => item.commentId));
                     next.interactionHandled = next.interactionHandled.slice(-160);

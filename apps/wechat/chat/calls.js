@@ -972,6 +972,7 @@ function ensureWechatCallScreen() {
             <button id="wc-call-vivix-sound" class="wc-call-vivix-sound hidden" type="button" onclick="ByndVivix.resumeSound()">开启声音</button>
             <span id="wc-call-ai-portrait-status">正在生成 AI 画面...</span>
         </div>
+        <button type="button" class="wc-call-minimize" id="wc-call-minimize" onclick="minimizeWechatCall()" aria-label="最小化通话，回到小手机"><i class="ri-picture-in-picture-exit-line" aria-hidden="true"></i></button>
         <div class="wc-call-top">
             <div class="wc-call-avatars wc-call-top-avatars single" id="wc-call-avatar-stack"></div>
             <div class="wc-call-name" id="wc-call-name"></div>
@@ -984,6 +985,7 @@ function ensureWechatCallScreen() {
             <button type="button" onclick="sendWechatCallMessage()"><i class="ri-send-plane-2-fill"></i></button>
         </div>
         <div class="wc-call-typing hidden" id="wc-call-typing">对方正在输入中......</div>
+        <div class="wc-call-listen hidden" id="wc-call-listen" aria-live="polite"><span class="wc-call-listen-dot" aria-hidden="true"></span><span id="wc-call-listen-text">正在听…</span></div>
         <div class="wc-call-actions" id="wc-call-actions">
             <button type="button" class="wc-call-tool"><i class="ri-mic-line"></i><span>静音</span></button>
             <button type="button" class="wc-call-end" onclick="endWechatCall()"><i class="ri-phone-fill"></i></button>
@@ -1160,7 +1162,7 @@ function toggleWechatCallControl(kind) {
     const call = window._wechatActiveCall;
     if (!call || call.ended) return;
     if (call.videoProvider === 'vivix' && kind !== 'beauty') { void window.ByndVivix.toggleControl(call, kind); return; }
-    if (kind === 'mute') call.muted = !call.muted;
+    if (kind === 'mute') { call.muted = !call.muted; window.ByndCallVoice?.setMuted(call, call.muted); }
     if (kind === 'speaker') call.speakerOn = !call.speakerOn;
     if (kind === 'beauty' && call.type === 'videoCall') call.beautyOn = !call.beautyOn;
     refreshWechatCallControls();
@@ -1181,9 +1183,93 @@ function formatWechatCallClock(seconds) {
 function updateWechatCallTimer() {
     const call = window._wechatActiveCall;
     const timer = document.getElementById('wc-call-timer');
-    if (!call || !call.acceptedAt || !timer) return;
-    timer.textContent = formatWechatCallClock((Date.now() - call.acceptedAt) / 1000);
+    if (!call || !call.acceptedAt) return;
+    const clock = formatWechatCallClock((Date.now() - call.acceptedAt) / 1000);
+    if (timer) timer.textContent = clock;
+    const floatTimer = document.getElementById('wc-call-float-timer');
+    if (floatTimer) floatTimer.textContent = clock;
 }
+
+// --- Floating call pill: the call keeps going while the user uses the rest of the phone ---
+function ensureWechatCallFloat() {
+    let pill = document.getElementById('wc-call-float');
+    if (pill) return pill;
+    pill = document.createElement('button');
+    pill.type = 'button';
+    pill.id = 'wc-call-float';
+    pill.className = 'wc-call-float hidden';
+    pill.setAttribute('aria-label', '回到通话');
+    pill.innerHTML = '<img id="wc-call-float-avatar" alt=""><span class="wc-call-float-meta"><i id="wc-call-float-icon" class="ri-phone-fill" aria-hidden="true"></i><span id="wc-call-float-timer">00:00</span></span>';
+    let drag = null;
+    pill.addEventListener('pointerdown', event => {
+        drag = { x: event.clientX, y: event.clientY, left: pill.offsetLeft, top: pill.offsetTop, moved: false };
+        try { pill.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+    pill.addEventListener('pointermove', event => {
+        if (!drag) return;
+        const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+        if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+        drag.moved = true;
+        const parent = pill.offsetParent || document.body;
+        const maxLeft = Math.max(0, parent.clientWidth - pill.offsetWidth);
+        const maxTop = Math.max(0, parent.clientHeight - pill.offsetHeight);
+        pill.style.left = `${Math.min(maxLeft, Math.max(0, drag.left + dx))}px`;
+        pill.style.top = `${Math.min(maxTop, Math.max(0, drag.top + dy))}px`;
+        pill.style.right = 'auto';
+    });
+    const endDrag = () => {
+        if (!drag) return;
+        const moved = drag.moved;
+        drag = null;
+        if (moved) {
+            // Snap to the nearer side, like WeChat's floating call.
+            const parent = pill.offsetParent || document.body;
+            const toRight = pill.offsetLeft + pill.offsetWidth / 2 > parent.clientWidth / 2;
+            pill.style.left = toRight ? `${parent.clientWidth - pill.offsetWidth - 10}px` : '10px';
+            pill.dataset.dragged = '1';
+            setTimeout(() => { delete pill.dataset.dragged; }, 0);
+        }
+    };
+    pill.addEventListener('pointerup', endDrag);
+    pill.addEventListener('pointercancel', endDrag);
+    pill.addEventListener('click', event => {
+        if (pill.dataset.dragged) { event.preventDefault(); return; }
+        restoreWechatCall();
+    });
+    getWechatModalRoot().appendChild(pill);
+    return pill;
+}
+
+function minimizeWechatCall() {
+    const call = window._wechatActiveCall;
+    const char = getWechatActiveCallChar();
+    if (!call || call.ended || !char) return;
+    const pill = ensureWechatCallFloat();
+    document.getElementById('wc-call-float-avatar').src = char.avatar || DEFAULT_AVATAR;
+    document.getElementById('wc-call-float-icon').className = call.type === 'videoCall' ? 'ri-vidicon-fill' : 'ri-phone-fill';
+    document.getElementById('wc-call-float-timer').textContent = call.acceptedAt ? formatWechatCallClock((Date.now() - call.acceptedAt) / 1000) : '等待接听';
+    call.minimized = true;
+    pill.classList.remove('hidden');
+    document.getElementById('wc-call-screen')?.classList.add('hidden');
+    window.ByndCallVoice?.refreshUi(call);
+}
+
+function restoreWechatCall() {
+    const call = window._wechatActiveCall;
+    document.getElementById('wc-call-float')?.classList.add('hidden');
+    if (!call || call.ended) return;
+    call.minimized = false;
+    document.getElementById('wc-call-screen')?.classList.remove('hidden');
+    scrollWechatCallLogToBottom();
+}
+
+function setWechatCallFloatSpeaking(speaking) {
+    document.getElementById('wc-call-float')?.classList.toggle('is-speaking', !!speaking);
+}
+
+window.minimizeWechatCall = minimizeWechatCall;
+window.restoreWechatCall = restoreWechatCall;
+window.setWechatCallFloatSpeaking = setWechatCallFloatSpeaking;
 
 function addWechatCallLine(role, text) {
     const call = window._wechatActiveCall;
@@ -1411,8 +1497,10 @@ function acceptWechatCall(call, firstMessage) {
     call.timerId = setInterval(updateWechatCallTimer, 1000);
     if (firstMessage) addWechatCallLine('assistant', firstMessage);
     const input = document.getElementById('wc-call-input');
-    if (input) input.focus();
+    if (input && !window.ByndCallVoice?.wantsLiveVoice(call)) input.focus();
     if (call.type === 'videoCall') activateWechatVideoCallFeatures(call, firstMessage);
+    // Live voice (listening, barge-in, follow-ups) runs for ordinary calls; Vivix has its own microphone.
+    if (call.videoProvider !== 'vivix') void window.ByndCallVoice?.start(call);
 }
 
 async function activateWechatVideoCallFeatures(call, firstMessage = '') {
@@ -1560,17 +1648,23 @@ function appendWechatIncomingCallRejectedEvent(char, call) {
     saveCharactersToStorage();
 }
 
-async function sendWechatCallMessage(transcript) {
+// options.nudge: the user stayed silent; the character picks the conversation back up on its own.
+async function sendWechatCallMessage(transcript, options = {}) {
     const call = window._wechatActiveCall;
     const char = getWechatActiveCallChar();
     const input = document.getElementById('wc-call-input');
-    if (!call || !char || !input || call.ended || call.busy || !call.acceptedAt) return;
-    const text = typeof transcript === 'string' ? transcript.trim() : input.value.trim();
-    if (!text) return;
-    if (call.videoProvider === 'vivix' && (!call.vivix?.ready || call.vivix.stopped)) { showToast('AI 视频尚未连接，请稍后重试或重新拨打。'); return; }
-    if (typeof transcript !== 'string') input.value = '';
-    addWechatCallLine('user', text);
-    scrollWechatCallLogToBottom();
+    if (!call || !char || !input || call.ended || call.busy || !call.acceptedAt) return false;
+    const nudge = options.nudge === true;
+    const text = nudge ? '' : (typeof transcript === 'string' ? transcript.trim() : input.value.trim());
+    if (!text && !nudge) return false;
+    if (nudge && call.videoProvider === 'vivix') return false;
+    if (call.videoProvider === 'vivix' && (!call.vivix?.ready || call.vivix.stopped)) { showToast('AI 视频尚未连接，请稍后重试或重新拨打。'); return false; }
+    if (!nudge && typeof transcript !== 'string') input.value = '';
+    if (!nudge) {
+        addWechatCallLine('user', text);
+        scrollWechatCallLogToBottom();
+        emitWechatCallEvent('bynd:call-user-line', call);
+    }
 
     call.busy = true;
     input.disabled = true;
@@ -1591,9 +1685,18 @@ async function sendWechatCallMessage(transcript) {
                 messages.push({ role: line.role, content: line.content });
             }
         });
+        if (nudge) {
+            const seconds = Math.max(1, Math.round(Number(options.silentSeconds) || 8));
+            messages.push({
+                role: 'system',
+                content: `用户已经 ${seconds} 秒没有说话（这是你第 ${Math.max(1, Number(options.attempt) || 1)} 次主动开口）。按你的人设自然地接一句：可以追问刚才的话题、关心对方是不是在忙、或者说说你这边在做什么。只说一两句口语，不要重复你刚说过的话，不要提到“秒”或系统提示。`
+            });
+        }
         call.requestController = new AbortController();
         const result = await callChatApi(messages, { usageFeature: 'chat', usageChar: char, signal: call.requestController.signal });
         if (window._wechatActiveCall?.id !== call.id || call.ended) return;
+        // Cancelled because the user started talking: nothing to show.
+        if (result.cancelled) return;
         if (result.ok) {
             const reply = parseWechatCallEndReply(result.content, call);
             setWechatCallTyping(false);
@@ -1615,13 +1718,22 @@ async function sendWechatCallMessage(transcript) {
     } finally {
         if (window._wechatActiveCall?.id === call.id && !call.ended) {
             call.busy = false;
+            emitWechatCallEvent('bynd:call-reply-settled', call);
             input.disabled = false;
             setWechatCallTyping(false);
             setWechatCallStatus(call.videoProvider === 'vivix' ? (call.vivix?.failed ? 'AI 视频连接失败' : 'AI 实时视频通话中') : '通话中');
-            input.focus();
+            // In live voice the keyboard stays down; typing is still possible by tapping the field.
+            if (!call.minimized && !window.ByndCallVoice?.isListening(call)) input.focus();
             if (call.videoProvider === 'vivix') void window.ByndVivix.consumeTranscript(call);
         }
     }
+}
+
+// Live voice listens for these; minimal embedders without CustomEvent simply skip them.
+function emitWechatCallEvent(name, call) {
+    try {
+        if (typeof CustomEvent === 'function' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent(name, { detail: { callId: call.id } }));
+    } catch (_) {}
 }
 
 function addWechatCallRecord(call, status, reason = '') {
@@ -1707,6 +1819,8 @@ function closeWechatCallScreen(callId) {
     }
     const screen = document.getElementById('wc-call-screen');
     if (screen) screen.classList.add('hidden');
+    document.getElementById('wc-call-float')?.classList.add('hidden');
+    window.ByndCallVoice?.stop();
     setWechatCallTyping(false);
     stopWechatCallCameraStream();
     window._wechatActiveCall = null;

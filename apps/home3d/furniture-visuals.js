@@ -1,7 +1,7 @@
 (function (H) {
     'use strict';
     const detailedTypes = ['bed', 'sofa', 'chair', 'desk', 'table', 'cabinet', 'bookcase', 'lamp', 'plant', 'stove', 'sink', 'fridge', 'fireplace', 'wardrobe', 'television', 'computer'];
-    function handles(item) { return ['stove', 'television'].includes(item.type) || ['bear_01', 'gamepad_01', 'game_speaker_01', 'keyboard_01', 'kitchen_spice_shelf'].includes(item.id) || (['cream', 'european', 'modern', 'botanical', 'rose', 'pink', 'monochrome'].includes(item.style) || item.interiorPalette) && detailedTypes.includes(item.type); }
+    function handles(item) { return ['stove', 'television'].includes(item.type) || ['bear_01', 'gamepad_01', 'game_speaker_01', 'keyboard_01', 'kitchen_spice_shelf'].includes(item.id) || (['cream', 'european', 'modern', 'botanical', 'rose', 'pink', 'monochrome', 'chinese', 'retro', 'nordic'].includes(item.style) || item.interiorPalette) && detailedTypes.includes(item.type); }
     // Original geometry inspired by the supplied miniature interiors. Dimensions
     // and seat/support heights remain catalog-owned, including existing saves.
     function cozy(item, materials) {
@@ -72,7 +72,217 @@
             cylinder(.047, .047, .004, [x, y + .102, z], materials.get('soft_wood', '#80634d'));
             const handle = mesh(new T.TorusGeometry(.034, .008, 6, 12), [x + .058, y + .05, z], ivory); handle.rotation.y = 0;
         }
-        if (item.type === 'sofa' || item.type === 'chair') {
+        // Dollhouse-style decor: lush plants, woven baskets, floor cushions, a round side table.
+        function decor() {
+            const v = item.variant, leafDark = materials.get('sage', '#5f8452'), leaf = materials.get('sage', '#7ea06a'), leafLight = materials.get('sage', '#9dba84');
+            const weave = materials.woven('#d9c29d', 'knit'), soil = materials.get('soft_wood', '#6d5544'), white = materials.get('pastel_ceramic', '#f6f2ec');
+            const leafGeometry = new T.SphereGeometry(1, 6, 4);
+            const blade = (size, pos, mat) => { const node = mesh(leafGeometry.clone(), pos, mat); node.scale.set(...size); return node; };
+            if (v === 'palm') {
+                cylinder(.23, .19, .36, [0, .18, 0], weave, 24); cylinder(.215, .215, .02, [0, .355, 0], soil);
+                for (let f = 0; f < 11; f++) {
+                    const a = f * 2.39996, up = 1.0 + (f % 4) * .12, out = .26 + (f % 3) * .06, mat = [leafDark, leaf, leafLight][f % 3];
+                    const pts = [[0, .36, 0], [Math.cos(a) * out * .35, up * .8, Math.sin(a) * out * .35], [Math.cos(a) * out, up, Math.sin(a) * out], [Math.cos(a) * out * 1.35, up - .22, Math.sin(a) * out * 1.35]];
+                    curve(pts, .008, leafDark);
+                    const path = new T.CatmullRomCurve3(pts.map(p => new T.Vector3(...p)));
+                    for (let k = 3; k < 10; k++) {
+                        const t = k / 10, p = path.getPoint(t), len = .1 + Math.sin(t * Math.PI) * .07;
+                        for (const side of [-1, 1]) {
+                            const node = blade([len, .006, .024], [p.x + Math.cos(a + side * 1.57) * len * .7, p.y - .01, p.z + Math.sin(a + side * 1.57) * len * .7], mat);
+                            node.rotation.y = -(a + side * 1.2); node.rotation.z = -.35 * side;
+                        }
+                    }
+                }
+                return true;
+            }
+            if (v === 'monstera') {
+                cylinder(.21, .17, .34, [0, .17, 0], white, 24); cylinder(.2, .2, .02, [0, .335, 0], soil);
+                for (let i = 0; i < 9; i++) {
+                    const a = i * 2.39996, r = .14 + (i % 3) * .07, y = .62 + (i % 4) * .13;
+                    curve([[0, .34, 0], [Math.cos(a) * r * .4, y * .85, Math.sin(a) * r * .4], [Math.cos(a) * r, y, Math.sin(a) * r]], .007, leafDark);
+                    const node = blade([.17, .012, .14], [Math.cos(a) * (r + .1), y + .02, Math.sin(a) * (r + .1)], i % 2 ? leafDark : leaf);
+                    node.rotation.y = -a; node.rotation.z = .45; node.rotation.x = Math.sin(a) * .2;
+                }
+                return true;
+            }
+            if (v === 'basket') {
+                cylinder(.22, .19, .4, [0, .2, 0], weave, 24);
+                for (const y of [.12, .28]) cylinder(.222, .222, .018, [0, y, 0], materials.get('soft_wood', '#c8ad85'), 24);
+                const throwMat = materials.woven(palette.accent || '#b9c9b0', 'gingham');
+                box([.34, .07, .26], [0, .44, .02], throwMat, .035).rotation.z = .12;
+                ellipsoid([.08, .08, .2], [.06, .52, 0], fabric).rotation.y = .3;
+                return true;
+            }
+            if (v === 'cushions') {
+                const tones = [fabric, materials.get('cream_fabric', '#f1ebe1'), materials.woven(palette.accent || '#c9d6c0', 'stripe')];
+                for (let i = 0; i < 3; i++) box([.56 - i * .04, .11, .54 - i * .04], [Math.sin(i) * .02, .06 + i * .11, Math.cos(i) * .015], tones[i], .05).rotation.y = i * .2;
+                return true;
+            }
+            if (v === 'side') {
+                cylinder(.27, .27, .035, [0, .56, 0], wood, 32); cylinder(.03, .03, .52, [0, .29, 0], wood, 10); cylinder(.17, .2, .03, [0, .015, 0], wood, 24);
+                flower(-.06, .58, .02, .9); box([.16, .03, .12], [.12, .59, -.04], materials.get('cream_fabric', palette.accent || '#c9b99f'), .008);
+                cylinder(.04, .035, .07, [.1, .63, .1], white, 14);
+                return true;
+            }
+            return false;
+        }
+        // Full-home looks with their own silhouettes, not just new colours:
+        // Chinese classical rosewood, Nordic light ash, and 90s American retro.
+        function lookPiece() {
+            const chinese = item.style === 'chinese', retro = item.style === 'retro', nordic = item.style === 'nordic';
+            if (!chinese && !retro && !nordic) return false;
+            const type = item.type, seat = type === 'sofa' || type === 'chair';
+            const cushion = materials.get('cream_fabric', palette.fabric), accentFabric = materials.get('cream_fabric', palette.accent);
+            const ink = materials.get('cream_fabric', '#2f3337'), white = materials.get('cream_fabric', '#f2f0eb');
+            function feet(h, inset = .07, insetZ = inset) {
+                const x = w / 2 - inset, z = d / 2 - insetZ;
+                for (const px of [-x, x]) for (const pz of [-z, z]) {
+                    if (chinese) { box([.065, h, .065], [px, h / 2, pz], wood, .006); box([.085, .035, .085], [px + Math.sign(px) * .012, .018, pz + Math.sign(pz) * .012], wood, .006); }
+                    else if (nordic) { const leg = cylinder(.022, .014, h, [px, h / 2, pz], wood, 8); leg.rotation.z = Math.sign(px) * .08; leg.rotation.x = -Math.sign(pz) * .08; }
+                    else cylinder(.032, .016, h, [px, h / 2, pz], wood, 10);
+                }
+            }
+            function lattice(x, y, z, lw, lh, cols, rows, alongX = true) {
+                for (let i = 0; i <= cols; i++) { const o = -lw / 2 + i * lw / cols; box(alongX ? [.022, lh, .022] : [.022, lh, .022], alongX ? [x + o, y, z] : [x, y, z + o], wood, 0); }
+                for (let j = 0; j <= rows; j++) { const o = -lh / 2 + j * lh / rows; box(alongX ? [lw, .022, .022] : [.022, .022, lw], [x, y + o, z], wood, 0); }
+            }
+            if (seat) {
+                const sofa = type === 'sofa', top = H.Furniture.support(item).seatHeight;
+                if (chinese && sofa) {
+                    // Luohan bed: straight frame, hoof feet, fretwork back and arms, bolsters.
+                    feet(top - .15); box([w, .1, d], [0, top - .1, 0], wood, .01);
+                    box([w - .16, .05, d - .14], [0, top - .025, .02], accentFabric, .02);
+                    lattice(0, top + .26, -d / 2 + .05, w - .1, .46, 12, 3);
+                    box([w, .06, .07], [0, top + .5, -d / 2 + .05], wood, .01);
+                    for (const side of [-1, 1]) { lattice(side * (w / 2 - .04), top + .16, .02, d - .16, .28, 5, 2, false); box([.07, .05, d - .06], [side * (w / 2 - .04), top + .32, .02], wood, .01); }
+                    for (const side of [-1, 1]) { const b = cylinder(.09, .09, .34, [side * (w / 2 - .27), top + .09, -d * .12], accentFabric, 14); b.rotation.x = Math.PI / 2; }
+                    box([.55, .26, .08], [0, top + .14, -d / 2 + .13], cushion, .04);
+                } else if (chinese) {
+                    // Horseshoe "quan yi" armchair with a continuous curved rail.
+                    feet(top - .06, .08); box([w - .08, .06, d - .1], [0, top - .03, 0], wood, .008);
+                    box([w - .14, .03, d - .16], [0, top - .012, .01], accentFabric, .012);
+                    const r = Math.min(w, d) * .42, railY = top + .42;
+                    const rail = mesh(new T.TorusGeometry(r, .022, 6, 22, Math.PI), [0, railY, .02], wood); rail.rotation.x = -Math.PI / 2;
+                    for (const side of [-1, 1]) { cylinder(.016, .016, railY - top, [side * r, top + (railY - top) / 2, .02], wood, 6); curve([[side * r, railY, .02], [side * (r + .02), railY - .05, .12], [side * (r - .01), railY - .02, .18]], .018); }
+                    for (const side of [-1, 1]) cylinder(.02, .02, railY - top, [side * r * .72, top + (railY - top) / 2, -r * .7 + .02], wood, 6);
+                    const splat = box([.2, .4, .025], [0, top + .21, -r + .03], wood, .01); splat.rotation.x = .12;
+                    box([w - .12, .04, .03], [0, .1, d / 2 - .09], wood, 0);
+                } else if (retro) {
+                    // Chesterfield-ish sofa: rolled arms, buttoned back, tapered legs.
+                    feet(.12, .1); const arm = sofa ? .22 : .17;
+                    box([w, top - .2, d - .04], [0, .12 + (top - .2) / 2, .01], cushion, .06);
+                    const n = sofa ? 3 : 1, cw = (w - arm * 2) / n;
+                    for (let i = 0; i < n; i++) box([cw - .02, .1, d - .28], [-w / 2 + arm + cw * (i + .5), top - .05, .1], cushion, .045);
+                    box([w, .5, .2], [0, top + .2, -d / 2 + .12], cushion, .08); tuft(0, top + .24, -d / 2 + .225, w - arm * 2, .32);
+                    for (const side of [-1, 1]) { box([arm, .3, d - .06], [side * (w / 2 - arm / 2), top + .02, .01], cushion, .06); const roll = cylinder(arm * .6, arm * .6, d - .06, [side * (w / 2 - arm / 2), top + .16, .01], cushion, 16); roll.rotation.x = Math.PI / 2; }
+                    if (sofa) { pillow(-w * .26, top + .17, -d * .18, .34, palette.accent); pillow(w * .26, top + .17, -d * .18, .34, '#d4563c'); box([.26, .03, d - .2], [w / 2 - .36, top + .005, .12], accentFabric, .015); }
+                } else {
+                    // Nordic: slim low frame on splayed ash legs, crisp cushions.
+                    if (sofa) {
+                        feet(top - .2, .12); box([w, .1, d - .02], [0, top - .15, 0], cushion, .02);
+                        const n = 2, cw = (w - .2) / n;
+                        for (let i = 0; i < n; i++) box([cw - .02, .1, d - .22], [-w / 2 + .1 + cw * (i + .5), top - .05, .08], cushion, .03);
+                        box([w, .34, .14], [0, top + .1, -d / 2 + .08], cushion, .03);
+                        for (let i = 0; i < n; i++) box([cw - .06, .3, .1], [-w / 2 + .1 + cw * (i + .5), top + .12, -d / 2 + .19], cushion, .04).rotation.x = -.12;
+                        for (const side of [-1, 1]) box([.1, .22, d - .02], [side * (w / 2 - .05), top - .02, 0], cushion, .02);
+                        box([.36, .34, .1], [-w * .3, top + .16, -d * .22], white, .05).rotation.z = -.1;
+                        const p = box([.32, .3, .1], [w * .3, top + .15, -d * .22], ink, .05); p.rotation.z = .1;
+                        box([.5, .025, d - .1], [w * .1, top + .005, .05], materials.woven('#cfc6b8', 'stripe'), .01);
+                    } else {
+                        // Wishbone-like chair: woven seat, curved one-piece back rail.
+                        feet(top - .02, .08); box([w - .1, .05, d - .12], [0, top - .025, 0], wood, .01);
+                        box([w - .16, .025, d - .18], [0, top - .01, 0], materials.woven('#d8c8a6', 'stripe'), .006);
+                        curve([[-w / 2 + .1, top + .3, d * .05], [-w * .28, top + .37, -d / 2 + .12], [0, top + .38, -d / 2 + .08], [w * .28, top + .37, -d / 2 + .12], [w / 2 - .1, top + .3, d * .05]], .022);
+                        for (const side of [-1, 1]) cylinder(.016, .016, .3, [side * (w / 2 - .1), top + .15, d * .05], wood, 6);
+                        curve([[0, top + .37, -d / 2 + .09], [-.07, top + .2, -d / 2 + .1], [0, top + .02, -d / 2 + .12]], .014); curve([[0, top + .37, -d / 2 + .09], [.07, top + .2, -d / 2 + .1], [0, top + .02, -d / 2 + .12]], .014);
+                    }
+                }
+                // A flat head cushion where the character rests lying on the sofa.
+                if (sofa) box([.4, .06, .34], [-w / 2 + .45, top + .01, .2], chinese ? accentFabric : nordic ? white : cushion, .02);
+                return true;
+            }
+            if (type === 'bed') {
+                const h = H.Furniture.support(item).baseHeight;
+                if (chinese) {
+                    // Canopy bed: four tall posts, fretwork crown and red drapes.
+                    feet(h - .17, .05); box([w, .16, d], [0, h - .09, 0], wood, .01);
+                    box([w - .08, .36, d - .09], [0, h + .17, 0], fabric, .06);
+                    const ph = 2.05;
+                    for (const px of [-w / 2 + .04, w / 2 - .04]) for (const pz of [-d / 2 + .04, d / 2 - .04]) box([.06, ph - h, .06], [px, h + (ph - h) / 2, pz], wood, .006);
+                    for (const pz of [-d / 2 + .04, d / 2 - .04]) { box([w, .07, .07], [0, ph, pz], wood, .006); lattice(0, ph - .14, pz, w - .1, .2, 14, 1); }
+                    for (const px of [-w / 2 + .04, w / 2 - .04]) { box([.07, .07, d], [px, ph, 0], wood, .006); lattice(px, ph - .14, 0, d - .1, .2, 12, 1, false); }
+                    lattice(0, h + .5, -d / 2 + .05, w - .1, .6, 10, 4);
+                    const silk = materials.get('cream_fabric', palette.accent).clone(); silk.side = T.DoubleSide;
+                    for (const px of [-1, 1]) for (const pz of [-1, 1]) { const g = new T.PlaneGeometry(.34, ph - h - .3, 8, 1), pa = g.attributes.position; for (let i = 0; i < pa.count; i++) pa.setZ(i, Math.sin(pa.getX(i) * 40) * .02); g.computeVertexNormals(); const c = mesh(g, [px * (w / 2 - .22), h + (ph - h - .3) / 2 + .2, pz * (d / 2 - .06)], silk); c.userData.ownedMaterial = silk; }
+                    for (const x of [-w * .23, w * .23]) { const b = cylinder(.08, .08, w * .34, [x, h + .43, -d * .38], accentFabric, 14); b.rotation.z = Math.PI / 2; }
+                } else if (retro) {
+                    // Tall buttoned headboard with a scalloped crown, dark wood frame.
+                    feet(h - .22, .08); box([w, .2, d], [0, h - .14, 0], wood, .03);
+                    box([w - .08, .36, d - .09], [0, h + .17, 0], fabric, .08);
+                    box([w, .95, .14], [0, h + .38, -d / 2 + .06], cushion, .06); tuft(0, h + .5, -d / 2 + .135, w - .3, .6);
+                    const crown = cylinder(w * .32, w * .32, .14, [0, h + .78, -d / 2 + .06], cushion, 28); crown.rotation.x = Math.PI / 2; crown.scale.set(1, 1, .5);
+                    box([w + .02, .06, .05], [0, h - .22, d / 2], wood, .02);
+                    for (const x of [-w * .24, w * .24]) { const p = box([w * .38, .14, d * .2], [x, h + .32, -d * .34], white, .06); p.rotation.x = -.1; }
+                    pillow(0, h + .42, -d * .4, .32, palette.accent);
+                } else {
+                    // Low platform with a slatted ash headboard.
+                    box([w, .2, d], [0, h - .27, 0], wood, .02); feet(.12, .2);
+                    box([w - .06, .36, d - .07], [0, h + .17, 0], fabric, .05);
+                    for (let i = 0; i < 15; i++) box([w / 15 - .03, .7, .04], [-w / 2 + w / 15 * (i + .5), h + .25, -d / 2 + .03], wood, .008);
+                    box([w, .04, .06], [0, h + .62, -d / 2 + .03], wood, .01);
+                    for (const x of [-w * .24, w * .24]) { const p = box([w * .38, .13, d * .2], [x, h + .32, -d * .34], white, .06); p.rotation.x = -.1; }
+                    box([w * .3, .2, .1], [w * .1, h + .42, -d * .38], ink, .05).rotation.z = .08;
+                }
+                return true;
+            }
+            if (type === 'table' && !item.variant) {
+                const h = item.height || .46;
+                if (chinese) {
+                    feet(h - .05, .06); box([w, .05, d], [0, h - .025, 0], wood, .006);
+                    box([w - .1, .08, d - .1], [0, h - .09, 0], wood, .005);
+                    for (const s of [-1, 1]) curve([[s * (w / 2 - .07), h - .14, d / 2 - .055], [s * (w / 2 - .2), h - .2, d / 2 - .055], [s * (w / 2 - .32), h - .14, d / 2 - .055]], .012);
+                    // Tea set: teapot with spout and four cups on a tray.
+                    box([.44, .02, .26], [0, h + .01, 0], materials.get('soft_wood', '#3d271c'), .008);
+                    ellipsoid([.075, .06, .075], [-.08, h + .08, 0], materials.get('pastel_ceramic', '#f0ece2'));
+                    curve([[-.02, h + .07, 0], [.02, h + .1, 0], [.04, h + .12, 0]], .01, materials.get('pastel_ceramic', '#f0ece2'));
+                    for (let i = 0; i < 4; i++) cylinder(.022, .016, .03, [.06 + (i % 2) * .07, h + .035, -.05 + Math.floor(i / 2) * .1], materials.get('pastel_ceramic', '#2f5a7a'), 10);
+                } else if (retro) {
+                    const top = cylinder(.5, .5, .05, [0, h - .025, 0], wood, 40); top.scale.set(w, 1, d);
+                    feet(h - .05, .18); box([w * .7, .02, d * .55], [0, .14, 0], wood, .01);
+                    box([.3, .02, .22], [-w * .2, h + .01, 0], materials.get('cream_fabric', '#d4563c'), .004); box([.28, .02, .2], [-w * .19, h + .03, .02], materials.get('cream_fabric', '#e7b24a'), .004);
+                    cylinder(.05, .07, .22, [w * .22, h + .11, 0], accentFabric, 14); cup(w * .05, h, .1);
+                } else {
+                    const top = cylinder(.5, .5, .035, [0, h - .018, 0], wood, 40); top.scale.set(Math.min(w, d) + .1, 1, d);
+                    feet(h - .035, w / 2 - (Math.min(w, d) + .1) * .32, d * .2);
+                    cylinder(.045, .06, .2, [w * .15, h + .1, 0], materials.get('pastel_ceramic', '#f2efe9'), 14);
+                    curve([[w * .15, h + .2, 0], [w * .17, h + .38, .02], [w * .12, h + .52, .04]], .006, materials.get('soft_wood', '#7a6a55'));
+                    box([.24, .025, .17], [-w * .18, h + .012, 0], ink, .004);
+                }
+                return true;
+            }
+            if (chinese && (type === 'wardrobe' || type === 'cabinet' && (!item.variant || item.id === 'nightstand_01'))) {
+                const h = item.height || (type === 'wardrobe' ? 2.12 : 1.16), gold = materials.get('warm_metal', '#c9a256');
+                feet(.14, .05); box([w, h - .14, d], [0, .14 + (h - .14) / 2, 0], wood, .008);
+                box([w + .04, .04, d + .03], [0, h - .02, 0], wood, .006);
+                for (const s of [-1, 1]) { panel(s * w / 4, .14 + (h - .14) / 2, d / 2 + .005, w / 2 - .06, h - .3, wood); const plate = cylinder(.06, .06, .01, [s * .04, .14 + (h - .14) * .55, d / 2 + .04], gold, 20); plate.rotation.x = Math.PI / 2; box([.008, .07, .008], [s * .04, .14 + (h - .14) * .47, d / 2 + .05], gold, 0); }
+                return true;
+            }
+            if (chinese && type === 'bookcase') {
+                // Bogu display shelf with staggered compartments.
+                const h = item.height || 1.85;
+                feet(.1, .05); box([w, .04, d], [0, .12, 0], wood, .005); box([w, .04, d], [0, h - .02, 0], wood, .005);
+                for (const s of [-1, 1]) box([.04, h - .1, d], [s * (w / 2 - .02), h / 2 + .03, 0], wood, .005);
+                box([w, h - .14, .02], [0, h / 2 + .03, -d / 2 + .01], wood, 0);
+                const rows = [.5, .9, 1.3];
+                rows.forEach((y, i) => { box([w - .06, .03, d - .02], [i % 2 ? .12 : -.12, y * h / 1.85, 0], wood, .004); box([.03, .4 * h / 1.85, d - .02], [(i % 2 ? -1 : 1) * w * .15, (y + .2) * h / 1.85, 0], wood, 0); });
+                ellipsoid([.07, .1, .07], [-w * .3, .62 * h / 1.85, 0], materials.get('pastel_ceramic', '#2f5a7a'));
+                cylinder(.05, .07, .16, [w * .3, 1.0 * h / 1.85, 0], materials.get('pastel_ceramic', '#f0ece2'), 14);
+                books(-w * .38, 1.32 * h / 1.85, 0, 3, .8);
+                return true;
+            }
+            return false;
+        }
+        if (decor()) { /* decorative piece built above */ } else if (lookPiece()) { /* style-specific piece */ } else if (item.type === 'sofa' || item.type === 'chair') {
             const sofa = item.type === 'sofa', lounge = sofa || w > .8 || classic, top = H.Furniture.support(item).seatHeight;
             legs(top - .26); box([w - .06, modern ? .10 : .18, d - .06], [0, top - (modern ? .21 : .19), 0]);
             const seatMat = !sofa && !classic ? materials.get('cream_fabric', palette.accent || '#b8c7b6') : fabric;

@@ -10,10 +10,10 @@ test('complete interior sets save per room and per character without moving furn
     const { H } = setup(), before = JSON.stringify(H.Rooms.placements(H.Rooms.get('living_room'), H.State.home()));
     H.Interiors.apply('living_room', { preset: 'palace' }, true);
     assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'), H.State.home()).floor, 'ivory_marble');
-    assert.equal(H.Interiors.resolve(H.Rooms.get('bedroom'), H.State.home()).id, 'garden');
+    assert.equal(H.Interiors.resolve(H.Rooms.get('bedroom'), H.State.home()).id, 'cottage');
     assert.equal(H.State.home().theme, 'auto');
     assert.equal(JSON.stringify(H.Rooms.placements(H.Rooms.get('living_room'), H.State.home())), before);
-    H.State.bind('b'); assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'), H.State.home()).id, 'garden');
+    H.State.bind('b'); assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'), H.State.home()).id, 'cottage');
     H.State.bind('a'); assert.equal(H.Interiors.resolve(H.Rooms.get('living_room'), H.State.home()).id, 'palace');
 });
 

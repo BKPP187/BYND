@@ -16,7 +16,11 @@
         try { return !!char && !!apiForChar(char); } catch (_) { return false; }
     }
     function setSpeaking(state, speaking) {
+        const changed = state.speaking !== speaking;
         state.speaking = speaking;
+        if (!speaking) state.currentText = '';
+        // Live voice listens for this to time barge-in and silence.
+        if (changed) try { window.dispatchEvent(new CustomEvent('bynd:call-speaking', { detail: { callId: state.call?.id, speaking } })); } catch (_) {}
         if (window._wechatActiveCall !== state.call || typeof setWechatCallTyping !== 'function') return;
         const pending = document.getElementById('wc-call-typing')?.dataset.replyPending === 'true';
         setWechatCallTyping(pending && !state.call.ended);
@@ -26,7 +30,7 @@
         if (active && active.call !== call) stop(active.call);
         let state = states.get(call);
         if (!state) {
-            state = { call, audio: new Audio(), tail: Promise.resolve(), stopped: false, speaking: false, controller: null, finish: null, jobs: new WeakMap() };
+            state = { call, audio: new Audio(), tail: Promise.resolve(), stopped: false, speaking: false, controller: null, finish: null, jobs: new WeakMap(), generation: 0, currentText: '', queued: 0 };
             states.set(call, state);
         }
         active = state;
@@ -73,13 +77,14 @@
             try {
                 Promise.resolve(audio.play()).then(() => {
                     if (!live(job.call) || state.stopped) { state.finish?.(); return; }
-                    if (!settled) { setSpeaking(state, true); job.item?.setAttribute('data-voice-state', 'playing'); notice(job, '正在说话…'); }
+                    if (!settled) { state.currentText = job.text; setSpeaking(state, true); job.item?.setAttribute('data-voice-state', 'playing'); notice(job, '正在说话…'); }
                 }, finish);
             } catch (error) { finish(error); }
         });
     }
+    const stale = (state, job) => !live(job.call) || state.stopped || job.generation !== state.generation;
     async function run(state, job) {
-        if (!live(job.call) || state.stopped) { job.pending = false; return; }
+        if (stale(state, job)) { job.pending = false; if (job.generation !== state.generation) { job.item?.setAttribute('data-voice-state', 'interrupted'); job.notice?.remove(); } return; }
         try {
             if (job.configurationError) throw job.configurationError;
             if (!job.audioUrl) {
@@ -89,16 +94,16 @@
                 let result;
                 try { result = await requestVoiceAudioWithConfig(job.text, job.api, job.char, { signal: controller.signal }); }
                 finally { clearTimeout(timer); if (state.controller === controller) state.controller = null; }
-                if (!live(job.call) || state.stopped) return;
+                if (stale(state, job)) return;
                 if (!result?.audioUrl) throw new Error('语音服务没有返回音频');
                 job.audioUrl = result.audioUrl; job.duration = result.duration;
             }
-            if (!live(job.call) || state.stopped) return;
+            if (stale(state, job)) return;
             await play(state, job);
-            if (!live(job.call) || state.stopped) return;
+            if (stale(state, job)) return;
             job.item?.setAttribute('data-voice-state', 'played'); job.notice?.remove(); job.notice = null;
         } catch (error) {
-            if (!live(job.call) || state.stopped) return;
+            if (stale(state, job)) return;
             job.item?.setAttribute('data-voice-state', 'failed');
             notice(job, error.name === 'NotAllowedError' ? '浏览器需要点击才能播放，声音已生成。' : `声音播放失败：${error.name === 'AbortError' ? '生成超时，请重试' : reason(error, job.api)}`, job.configurationError ? '' : job.audioUrl ? '点击播放声音' : '重试生成声音（计费）');
         } finally { job.pending = false; }
@@ -107,7 +112,11 @@
         const state = states.get(job.call);
         if (!state || state.stopped || job.pending || !live(job.call)) return Promise.resolve();
         job.pending = true; job.item?.setAttribute('data-voice-state', 'queued'); notice(job, '等待声音…');
-        state.tail = state.tail.then(() => run(state, job));
+        state.queued += 1;
+        state.tail = state.tail.then(() => run(state, job)).finally(() => {
+            if (job.generation === state.generation) state.queued = Math.max(0, state.queued - 1);
+            if (!state.queued && !state.speaking) try { window.dispatchEvent(new CustomEvent('bynd:call-audio-idle', { detail: { callId: state.call?.id } })); } catch (_) {}
+        });
         return state.tail;
     }
     function enqueue(call, text, item) {
@@ -120,7 +129,7 @@
         let api = null, configurationError = null;
         try { api = apiForChar(char); } catch (error) { configurationError = error; }
         if (!api && !configurationError) return Promise.resolve();
-        const job = { call, char, api: api ? { ...api } : null, text: String(text).trim(), item, configurationError, audioUrl: '', pending: false, notice: null };
+        const job = { call, char, api: api ? { ...api } : null, text: String(text).trim(), item, configurationError, audioUrl: '', pending: false, notice: null, generation: state.generation };
         job.promise = schedule(job); if (item) state.jobs.set(item, job);
         return job.promise;
     }
@@ -131,8 +140,22 @@
         state.finish?.(); state.audio.pause(); state.audio.removeAttribute('src'); state.audio.load();
         if (active === state) active = null;
     }
-    window.ByndWechatCallAudio = { prepare, unlock, enqueue, stop, apiForChar, isEnabled,
+    // Barge-in: cut the current sentence and drop queued ones, but keep the call's audio usable.
+    function interrupt(call) {
+        const state = states.get(call); if (!state || state.stopped) return false;
+        const wasActive = state.speaking || !!state.controller;
+        state.generation += 1;
+        state.controller?.abort(); state.controller = null;
+        state.finish?.();
+        setSpeaking(state, false);
+        state.tail = Promise.resolve();
+        state.queued = 0;
+        return wasActive;
+    }
+    window.ByndWechatCallAudio = { prepare, unlock, enqueue, stop, interrupt, apiForChar, isEnabled,
         isSpeaking: call => !!call && !!live(call) && !!states.get(call)?.speaking,
+        currentText: call => (call && states.get(call)?.currentText) || '',
+        isBusy: call => { const state = call && states.get(call); return !!state && !state.stopped && (state.speaking || !!state.controller || state.queued > 0); },
         drain: call => states.get(call)?.tail || Promise.resolve() };
 })();
 

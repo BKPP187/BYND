@@ -134,6 +134,26 @@
             -0.42
           ],
           "rotation": 1.5708
+        },
+        {
+          "id": "palm",
+          "furnitureId": "cottage_palm",
+          "position": [
+            -2.7,
+            0,
+            1.6
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "basket",
+          "furnitureId": "cottage_basket",
+          "position": [
+            -1.95,
+            0,
+            2.4
+          ],
+          "rotation": 0
         }
       ]
     },
@@ -284,6 +304,26 @@
             -2.65
           ],
           "rotation": 0
+        },
+        {
+          "id": "monstera",
+          "furnitureId": "cottage_monstera",
+          "position": [
+            2.75,
+            0,
+            -2.3
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "cushions",
+          "furnitureId": "cottage_cushions",
+          "position": [
+            -2.6,
+            0,
+            2.4
+          ],
+          "rotation": 0
         }
       ]
     },
@@ -427,6 +467,26 @@
             0.73,
             0.82,
             -1.3
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "palm",
+          "furnitureId": "cottage_palm",
+          "position": [
+            -2.65,
+            0,
+            1.25
+          ],
+          "rotation": 0
+        },
+        {
+          "id": "side-table",
+          "furnitureId": "cottage_side_table",
+          "position": [
+            -1.75,
+            0,
+            1.9
           ],
           "rotation": 0
         }

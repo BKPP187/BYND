@@ -4,5 +4,8 @@ compatibility_date = "2025-05-01"
 
 # Secrets/vars to set in Cloudflare:
 # wrangler secret put IMAGE_API_KEY
+# Required whenever IMAGE_API_KEY is set (at least 32 random characters). Clients send
+# "Authorization: Bearer <IMAGE_PROXY_TOKEN>"; without it the Worker refuses to spend the key.
+# wrangler secret put IMAGE_PROXY_TOKEN
 # wrangler secret put IMAGE_API_BASE_URL
 # Optional: wrangler secret put IMAGE_API_MODEL

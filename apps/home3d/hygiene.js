@@ -20,9 +20,9 @@
         for(let i=0;i<32;i++)drops.setMatrixAt(i,new T.Matrix4().makeScale(.007,.014,.007));
         drops.computeBoundingBox();group.add(drops);
         if(item.type==='tub'){
-            const bubbles=new T.InstancedMesh(new T.SphereGeometry(1,10,6),foam,18),matrix=new T.Matrix4(),q=new T.Quaternion();
+            const bubbles=new T.InstancedMesh(new T.SphereGeometry(1,8,6),foam,42),matrix=new T.Matrix4(),q=new T.Quaternion();
             bubbles.name='bath-foam';bubbles.raycast=()=>{};
-            for(let i=0;i<18;i++){const angle=i*2.4,r=Math.sqrt((i+.5)/18);matrix.compose(new T.Vector3(Math.cos(angle)*r*(w/2-.16),.60,Math.sin(angle)*r*(d/2-.16)),q,new T.Vector3(.16,.028,.12));bubbles.setMatrixAt(i,matrix);}group.add(bubbles);
+            for(let i=0;i<42;i++){const a=i*1.47+Math.sin(i*3.7)*.8,r=Math.sqrt((i+.5)/42)*.88,px=Math.cos(a)*r*(w/2-.10),pz=Math.sin(a)*r*(d/2-.10),c=1-r,s=.045+Math.abs(Math.sin(i*2.3))*.055;matrix.compose(new T.Vector3(px,.58+c*.07+Math.abs(Math.sin(i*5.1))*.025,pz),q,new T.Vector3(s,s*.65+Math.abs(Math.cos(i*1.7))*.02,s));bubbles.setMatrixAt(i,matrix);}group.add(bubbles);
             // An overhead shower is mounted to the bath fixture, not the avatar.
             const pipe=new T.Group();pipe.name='bath-shower-fixture';
             H.Shapes.rounded(pipe,[.035,1.45,.035],[0,1.22,-d/2+.06],materials.get('warm_metal','#a59577'),.015);
@@ -92,12 +92,12 @@
         actor.expressions?.forEach(e=>{if(e.bath)e.bath.value=isBath?1:0;});
         let garment=actor.body.getObjectByName('bath-robe');
         if(isBath&&!garment)garment=robe(actor);
-        if(garment){garment.visible=isBath;garment.userData.sleeves.forEach(s=>{s.visible=isBath;});}
+        if(garment){const showRobe=actor.action==='Shower';garment.visible=showRobe;garment.userData.sleeves.forEach(s=>{s.visible=showRobe;});}
         if(!actor.anchor?.hygiene)return;
         if(actor.action==='Bathe'){
             actor.body.position.y=-actor.modelHeight*.5;
             actor.legs.forEach(b=>{b.rotation.x=-1.15;});actor.knees.forEach(b=>{b.rotation.x=1.35;});
-            actor.arms.forEach((b,i)=>{b.rotation.x=-.3;b.rotation.z=i?-.2:.2;});
+            actor.arms.forEach((b,i)=>{b.rotation.x=-.55;b.rotation.z=i?-.35:.35;});
             H.Expressions.meal(actor,0,.15,.8);
         }
         if(actor.action==='Shower'){showerMotion(actor);H.Expressions.meal(actor,0,.10,.85);}

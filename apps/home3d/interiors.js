@@ -4,7 +4,7 @@
     function resolve(room, home = {}) {
         const saved = home.interiors?.[room.id] || {}, id = saved.preset || data().defaultPreset || data().defaults[room.id] || 'garden';
         const preset = data().presets[id];
-        return { ...preset, id, wall: saved.wall || preset.wall, floor: saved.floor || preset.floor, furniture: saved.furniture };
+        return { ...preset, id, wall: saved.wall || preset.wall, leftWall: saved.wall ? null : preset.leftWall, floor: saved.floor || preset.floor, furniture: saved.furniture };
     }
     function valid(config) {
         return config && typeof config === 'object' && !Array.isArray(config) && Object.hasOwn(data().presets, config.preset) &&
@@ -82,6 +82,56 @@
                     for (const side of [-1, 1]) stroke(ink, 2.5, () => { c.moveTo(x, y + 40); c.bezierCurveTo(x + side * 65, y + 15, x + side * 53, y - 37, x + side * 14, y - 25); c.bezierCurveTo(x + side * 3, y - 20, x + side * 7, y - 4, x + side * 18, y - 9); });
                     sprig(x, y + 10, .68, ink);
                 }
+            }
+        } else if (p === 'lattice') {
+            // Chinese fretwork panels: dark wood frames with key-pattern (回纹) grilles over paper.
+            for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
+                const x = col * 512, y = row * 512;
+                c.fillStyle = ink; c.fillRect(x, y, 512, 512); c.fillStyle = light; c.fillRect(x + 34, y + 34, 444, 444);
+                c.strokeStyle = ink; c.lineWidth = 11;
+                for (let i = 0; i < 4; i++) { const m = 70 + i * 52; c.strokeRect(x + m, y + m, 512 - m * 2, 512 - m * 2); }
+                c.lineWidth = 9; c.beginPath(); c.moveTo(x + 256, y + 34); c.lineTo(x + 256, y + 70); c.moveTo(x + 256, y + 442); c.lineTo(x + 256, y + 478); c.moveTo(x + 34, y + 256); c.lineTo(x + 70, y + 256); c.moveTo(x + 442, y + 256); c.lineTo(x + 478, y + 256); c.stroke();
+            }
+        } else if (p === 'scroll') {
+            // Ink-wash landscape for hanging scrolls.
+            c.fillStyle = '#f3ead6'; c.fillRect(0, 0, 1024, 1024);
+            for (let layer = 0; layer < 3; layer++) {
+                c.fillStyle = ['rgba(60,60,58,.18)', 'rgba(50,52,50,.32)', 'rgba(40,40,38,.55)'][layer]; c.beginPath(); c.moveTo(0, 1024);
+                for (let x = 0; x <= 1024; x += 32) c.lineTo(x, 380 + layer * 170 - Math.abs(Math.sin(x * .006 + layer * 2)) * (260 - layer * 50) - Math.sin(x * .03) * 18);
+                c.lineTo(1024, 1024); c.fill();
+            }
+            c.fillStyle = 'rgba(168,67,58,.85)'; c.fillRect(800, 120, 70, 70); c.fillStyle = 'rgba(40,40,38,.7)'; for (let i = 0; i < 6; i++) c.fillRect(905, 110 + i * 46, 14, 30);
+            c.fillStyle = 'rgba(200,90,70,.55)'; c.beginPath(); c.arc(260, 210, 52, 0, Math.PI * 2); c.fill();
+        } else if (p === 'abstract') {
+            c.fillStyle = '#f6f3ee'; c.fillRect(0, 0, 1024, 1024);
+            c.fillStyle = ink; c.beginPath(); c.arc(420, 430, 230, 0, Math.PI * 2); c.fill();
+            c.fillStyle = light; c.fillRect(470, 520, 330, 330);
+            c.fillStyle = '#c9b49a'; c.beginPath(); c.moveTo(180, 880); c.quadraticCurveTo(520, 600, 860, 880); c.fill();
+        } else if (p === 'poster') {
+            c.fillStyle = finish.base; c.fillRect(0, 0, 1024, 1024);
+            c.fillStyle = ink; c.beginPath(); c.arc(512, 400, 260, 0, Math.PI * 2); c.fill();
+            c.fillStyle = light; for (let i = 0; i < 5; i++) c.fillRect(120, 720 + i * 46, 784, 24);
+            c.fillStyle = '#f4ead8'; c.font = 'bold 120px sans-serif'; c.textAlign = 'center'; c.fillText('★', 512, 450);
+        } else if (p === 'shiplap') {
+            // Vertical painted boards with soft grooves, as in cottage dollhouse builds.
+            for (let x = 0; x < 1024; x += 128) {
+                c.fillStyle = (x / 128) % 2 ? light : finish.base; c.fillRect(x, 0, 128, 1024);
+                c.fillStyle = ink; c.fillRect(x, 0, 4, 1024); c.fillStyle = '#ffffff55'; c.fillRect(x + 4, 0, 3, 1024);
+            }
+            c.globalAlpha = .06; for (let y = 0; y < 1024; y += 6) stroke(ink, 1, () => { c.moveTo(0, y); c.lineTo(1024, y + 2); }); c.globalAlpha = 1;
+        } else if (p === 'paint') {
+            c.globalAlpha = .1; for (let i = 0; i < 60; i++) { c.fillStyle = i % 2 ? light : ink; c.beginPath(); c.ellipse((i * 173) % 1024, (i * 311) % 1024, 160, 90, i, 0, Math.PI * 2); c.fill(); } c.globalAlpha = 1;
+        } else if (p === 'planks') {
+            // Wide light boards with staggered end joints and a gentle grain.
+            for (let row = 0; row < 8; row++) {
+                const y = row * 128, offset = (row * 389) % 1024;
+                for (let k = -1; k < 2; k++) {
+                    const x = offset + k * 1024 - 512, variant = (row * 7 + k * 3 + 30) % 4;
+                    c.fillStyle = [finish.base, light, finish.base, ink][variant]; c.fillRect(x + 2, y + 2, 1020, 124);
+                }
+                c.fillStyle = '#00000014'; c.fillRect(0, y, 1024, 2);
+                c.globalAlpha = .16; for (let i = 10; i < 124; i += 9) stroke(ink, .8, () => { c.moveTo(0, y + i); c.bezierCurveTo(300, y + i - 4, 700, y + i + 5, 1024, y + i); }); c.globalAlpha = 1;
+                c.fillStyle = '#0000001c'; c.fillRect(((row * 389) % 1024 + 512) % 1024, y, 3, 128);
             }
         } else if (p === 'stripe') {
             c.fillStyle = ink; for (let x = 0; x < 1024; x += 128) { c.fillRect(x, 0, 7, 1024); c.fillRect(x + 14, 0, 2, 1024); }
@@ -162,7 +212,7 @@
         const floor = add(new T.PlaneGeometry(w - .03, d - .03), floorMat, [0, .056, 0]); floor.rotation.x = -Math.PI / 2; floor.castShadow = false; floor.userData.finish = config.floor;floor.userData.floor=true;
         box([w + .13, 2.8, .13], [0, 1.4, -d / 2], trim); box([.13, 2.8, d], [-w / 2, 1.4, 0], trim);
         const back = add(new T.PlaneGeometry(w, 2.7), materials.surface(data().walls[config.wall], w, 2.7), [0, 1.4, -d / 2 + .071]); back.castShadow = false; back.userData.finish = config.wall;
-        const left = add(new T.PlaneGeometry(d, 2.7), materials.surface(data().walls[config.wall], d, 2.7), [-w / 2 + .071, 1.4, 0]); left.rotation.y = Math.PI / 2; left.castShadow = false; left.userData.finish = config.wall;
+        const left = add(new T.PlaneGeometry(d, 2.7), materials.surface(data().walls[config.leftWall || config.wall], d, 2.7), [-w / 2 + .071, 1.4, 0]); left.rotation.y = Math.PI / 2; left.castShadow = false; left.userData.finish = config.wall;
         // Fine moldings and inset wainscot are actual geometry on both walls.
         for (const height of modern ? [.14, 2.79] : [.14, .82, 2.73, 2.79]) {
             const thickness = height < .2 ? .12 : .045;
@@ -221,11 +271,11 @@
         }
         // A coordinated rug under the usable floor area, with woven border detail.
         const rw = room.id === 'kitchen' ? 2.75 : 3.75, rd = room.id === 'bedroom' ? 2.85 : room.id==='dining_room'?3.45:2.45;
-        const rugGeometry = config.id === 'rose' ? new T.CircleGeometry(.5, 64) : new T.PlaneGeometry(rw, rd);
+        const roundRug = config.id === 'rose' || config.roundRug, rugGeometry = roundRug ? new T.CircleGeometry(.5, 64) : new T.PlaneGeometry(rw, rd);
         const rug = add(rugGeometry, materials.surface({ pattern: config.rug, base: config.trim, ink: config.accent, secondary: config.fabric }, rw, rd, 'rug'), [0, .073, .55]); rug.rotation.x = -Math.PI / 2; rug.castShadow = false;
-        if (config.id === 'rose') rug.scale.set(rw, rd, 1);
+        if (config.id === 'rose') rug.scale.set(rw, rd, 1); else if (roundRug) { const size = Math.min(rw, rd) + .35; rug.scale.set(size, size, 1); }
         const fringe = new T.InstancedMesh(new T.BoxGeometry(.017, .009, .075), materials.get('cream_fabric', config.trim), 64);
-        for (let i = 0; i < 64; i++) { matrix.position.set(-rw / 2 + .04 + i % 32 * (rw - .08) / 31, .074, .55 + (i < 32 ? -1 : 1) * (rd / 2 + .02)); matrix.scale.set(1, 1, 1); matrix.updateMatrix(); fringe.setMatrixAt(i, matrix.matrix); } if (!modern && config.id !== 'rose') root.add(fringe); else fringe.geometry.dispose();
+        for (let i = 0; i < 64; i++) { matrix.position.set(-rw / 2 + .04 + i % 32 * (rw - .08) / 31, .074, .55 + (i < 32 ? -1 : 1) * (rd / 2 + .02)); matrix.scale.set(1, 1, 1); matrix.updateMatrix(); fringe.setMatrixAt(i, matrix.matrix); } if (!modern && !roundRug) root.add(fringe); else fringe.geometry.dispose();
         // Botanical prints and narrow picture shelves create a lived-in wall rhythm.
         if (room.id !== 'kitchen') {
         const printMat = materials.surface({ pattern: 'art', base: '#f0eadd', ink: config.accent, secondary: '#ac9577' }, 1, 1, 'art');
@@ -243,12 +293,30 @@
             for (const side of [-1, 1]) { const jewel = new T.Mesh(new T.SphereGeometry(.04, 12, 8), config.id === 'palace' ? metal : trim); jewel.position.set(0, side * .52, 0); jewel.scale.set(1, 1.7, .5); mirror.add(jewel); }
             box([.34, .04, 1.02], [-w / 2 + .22, 1.27, -.45], config.id === 'palace' ? wood : trim);
         }
-        if (config.vines || config.id === 'garden') {
-            const green = materials.get('sage', config.id === 'botanical' ? '#73865d' : '#9aab87');
+        // Hanging planters near the window: above head height, so they never block a path.
+        if (config.greenery) {
+            const leaf = materials.get('sage', '#86a874'), leafLight = materials.get('sage', '#a3bf8f'), rope = materials.get('cream_fabric', '#efe4d0'), potMat = materials.get('pastel_ceramic', config.greenery === 'lush' ? '#f4efe6' : '#e9c9b4');
+            const spots = config.greenery === 'lush' ? [[.25, -d / 2 + .42], [2.95, -d / 2 + .42], [-w / 2 + .42, -.9]] : [[2.95, -d / 2 + .42]];
+            const foliage = new T.InstancedMesh(new T.SphereGeometry(1, 8, 6), leaf, 160), foliage2 = new T.InstancedMesh(new T.SphereGeometry(1, 8, 6), leafLight, 160); let fa = 0, fb = 0;
+            for (const [x, z] of spots) {
+                if (Math.abs(x) > w / 2 - .2) continue;
+                const potY = 1.9;
+                for (const a of [0, 2.1, 4.2]) { const r = new T.Mesh(new T.CylinderGeometry(.004, .004, 2.72 - potY - .1, 4), rope); r.position.set(x + Math.cos(a) * .1, (2.72 + potY + .1) / 2, z + Math.sin(a) * .1); r.rotation.set(Math.sin(a) * .06, 0, -Math.cos(a) * .06); root.add(r); }
+                const pot = new T.Mesh(new T.CylinderGeometry(.13, .1, .17, 20), potMat); pot.position.set(x, potY, z); pot.castShadow = true; root.add(pot);
+                for (let i = 0; i < 26; i++) {
+                    const ang = i * 2.4, rad = .08 + (i % 3) * .035, drop = i < 9 ? -.02 * i : .06 + (i - 9) * .045;
+                    matrix.position.set(x + Math.cos(ang) * rad, potY + .1 - drop, z + Math.sin(ang) * rad); matrix.scale.set(.045, .03, .045); matrix.rotation.set(ang, ang * .7, 0); matrix.updateMatrix();
+                    if (i % 2) foliage.setMatrixAt(fa++, matrix.matrix); else foliage2.setMatrixAt(fb++, matrix.matrix);
+                }
+            }
+            foliage.count = fa; foliage2.count = fb; foliage.castShadow = foliage2.castShadow = true; root.add(foliage, foliage2); matrix.rotation.set(0, 0, 0);
+        }
+        if (config.vines || config.id === 'garden' || config.greenery === 'lush') {
+            const green = materials.get('sage', config.id === 'botanical' ? '#73865d' : config.greenery ? '#8fae7c' : '#9aab87');
             const leaves = new T.InstancedMesh(new T.SphereGeometry(1, 10, 6), green, config.vines ? 240 : 48);
             const stems = new T.InstancedMesh(new T.CylinderGeometry(.003, .003, 1, 6), green, config.vines ? 240 : 48), segment = new T.Object3D(), up = new T.Vector3(0, 1, 0); let stemCount = 0;
             let k = 0;
-            for (let chain = 0; chain < (config.vines ? 12 : 3); chain++) {
+            for (let chain = 0; chain < (config.vines ? 12 : config.greenery === 'lush' ? 4 : 3); chain++) {
                 const x = config.vines ? -w / 2 + .25 + chain * (w - .45) / 11 : .80 + chain * .85, length = config.vines ? 10 + chain % 5 * 2 : 8;
                 for (let i = 0; i < length; i++) {
                     const point = new T.Vector3(x + Math.sin(i * 1.7 + chain) * .065, 2.66 - i * .085, -d / 2 + .20), previous = new T.Vector3(x + Math.sin((i - 1) * 1.7 + chain) * .065, 2.66 - (i - 1) * .085, -d / 2 + .20), direction = point.clone().sub(previous);

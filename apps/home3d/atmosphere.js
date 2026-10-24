@@ -34,11 +34,12 @@
         box([windowWidth, .025, .055], [x, 1.86, z + .04]);
         box([windowWidth + .24, .055, .29], [x, bottom - .09, z + .09], wood);
         // Raised slats leave the green view visible below, with a fine pull cord.
-        for (let i = 0; i < 7; i++) box([windowWidth + .06, .037, .08], [x, top - i * .045, z + .09]);
+        const look = config.look || '';
+        if (!look) for (let i = 0; i < 7; i++) box([windowWidth + .06, .037, .08], [x, top - i * .045, z + .09]);
         box([.008, .60, .008], [x + windowWidth / 2 - .08, top - .48, z + .11], wood);
         // Pleated linen uses one static mesh per side, with no cloth simulation.
-        const cloth = materials.get('cream_fabric', config.trim).clone(); cloth.side = T.DoubleSide;
-        for (const side of [-1, 1]) {
+        const cloth = materials.get('cream_fabric', look === 'retro' ? config.accent : config.trim).clone(); cloth.side = T.DoubleSide;
+        for (const side of (look === 'guofeng' || look === 'nordic') ? [] : [-1, 1]) {
             const g = new T.PlaneGeometry(.28, 1.48, 12, 1), p = g.attributes.position;
             for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) + .14) / .28 * Math.PI * 7) * .025);
             g.computeVertexNormals(); const curtain = add(g, cloth, [x + side * (windowWidth / 2 + .18), 1.88, z + .14]); curtain.userData.ownedMaterial = cloth;
@@ -67,6 +68,78 @@
         for (let i = 0; i < 7; i++) box([.065, .16 + i % 3 * .035, .13], [shelfX - shelfWidth * .25 + i * .075, 2.58 + i % 3 * .0175, z + .09], i % 3 ? ivory : paleMat);
         plant(shelfX - shelfWidth * .38, 2.51, z + .11, 1.05, true); plant(shelfX + shelfWidth * .35, 2.51, z + .11, 1.2, true);
         for (let side = 0; side < 2; side++) { const mesh = leaves[side]; mesh.count = counts[side]; mesh.castShadow = true; mesh.receiveShadow = true; mesh.computeBoundingSphere(); root.add(mesh); }
+        // Style-specific dressing that makes each look recognisable at a glance.
+        const glowParts = [];
+        const art = (pattern, base, ink, secondary, pw, ph, px, py, frameMat, depth = .03) => {
+            box([pw + .06, ph + .06, depth], [px, py, z + .02], frameMat);
+            const m = materials.surface({ pattern, base, ink, secondary }, 1, 1, 'art');
+            const pic = add(new T.PlaneGeometry(pw, ph), m, [px, py, z + .02 + depth / 2 + .002]); pic.castShadow = false;
+        };
+        if (look === 'guofeng') {
+            const dark = materials.get('soft_wood', config.trim), red = materials.get('cream_fabric', '#a8433a');
+            // Moon window: a dark wood board with a round opening and a fret grille.
+            const board = new T.Shape(); board.moveTo(-windowWidth / 2 - .1, 0); board.lineTo(windowWidth / 2 + .1, 0); board.lineTo(windowWidth / 2 + .1, top - bottom + .16); board.lineTo(-windowWidth / 2 - .1, top - bottom + .16); board.closePath();
+            const r = Math.min(windowWidth, top - bottom) / 2 - .02, hole = new T.Path(); hole.absarc(0, (top - bottom + .16) / 2, r, 0, Math.PI * 2, true); board.holes.push(hole);
+            add(new T.ExtrudeGeometry(board, { depth: .05, bevelEnabled: false, curveSegments: 40 }), dark, [x, bottom - .08, z + .06]);
+            const ring = add(new T.TorusGeometry(r, .03, 8, 48), dark, [x, bottom - .08 + (top - bottom + .16) / 2, z + .12]);
+            const cy = bottom - .08 + (top - bottom + .16) / 2;
+            for (let i = -3; i <= 3; i++) { const o = i * r / 3.6, half = Math.sqrt(Math.max(0, r * r - o * o)); box([.022, half * 2, .022], [x + o, cy, z + .11], dark); box([half * 2, .022, .022], [x, cy + o, z + .11], dark); }
+            // Hanging scrolls with ink landscapes.
+            for (const [px, ph] of [[-1.95, 1.05], [-1.3, .9]]) {
+                const py = 1.75; art('scroll', '#f3ead6', '#333', '#999', .42, ph, px, py, materials.get('cream_fabric', '#d8c7a6'), .012);
+                for (const yy of [py + ph / 2 + .05, py - ph / 2 - .05]) { const rod = add(new T.CylinderGeometry(.018, .018, .56, 10), dark, [px, yy, z + .05]); rod.rotation.z = Math.PI / 2; }
+            }
+            // Bamboo by the window.
+            add(new T.CylinderGeometry(.13, .1, .3, 14), materials.get('pastel_ceramic', '#3f5f73'), [x + windowWidth / 2 + .45, .2, z + .3]);
+            for (let i = 0; i < 5; i++) {
+                const bx = x + windowWidth / 2 + .38 + (i % 3) * .06, bz = z + .26 + (i % 2) * .07, hh = 1.4 + i * .18;
+                add(new T.CylinderGeometry(.014, .016, hh, 6), materials.get('sage', '#7d9a5a'), [bx, .3 + hh / 2, bz]);
+                for (let k = 0; k < 6; k++) leaf(bx + Math.sin(k * 2.1 + i) * .09, .7 + hh * (k / 6), bz + Math.cos(k * 2.1 + i) * .06, .09, k * 1.3 + i, k + i);
+            }
+            // Red silk lanterns: they glow at night.
+            for (const lx of [x - windowWidth / 2 - .55, -w / 2 + .9]) {
+                const lantern = new T.Group(); lantern.position.set(lx, 2.12, z + .55); lantern.userData.lampHeight = 0;
+                const glowMat = materials.glow('#d8473a', .35), gold = materials.get('warm_metal', '#c9a256');
+                const body = new T.Mesh(new T.SphereGeometry(.17, 20, 14), glowMat); body.scale.y = .82; lantern.add(body);
+                for (const yy of [.15, -.15]) { const cap = new T.Mesh(new T.CylinderGeometry(.07, .07, .04, 16), gold); cap.position.y = yy; lantern.add(cap); }
+                const cord = new T.Mesh(new T.CylinderGeometry(.005, .005, .5, 4), gold); cord.position.y = .42; lantern.add(cord);
+                const tassel = new T.Mesh(new T.CylinderGeometry(.012, .03, .16, 8), red); tassel.position.y = -.26; lantern.add(tassel);
+                lantern.userData.luminousMaterial = glowMat; lantern.traverse(n => { if (n.isMesh) n.castShadow = true; });
+                glowParts.push(lantern);
+            }
+        } else if (look === 'nordic') {
+            const black = materials.get('warm_metal', '#2f3337');
+            for (const side of [-1, 1]) box([.03, top - bottom + .1, .05], [x + side * (windowWidth / 2 + .02), (top + bottom) / 2, z + .07], black);
+            for (const y of [bottom - .03, top + .03, (top + bottom) / 2]) box([windowWidth + .06, .03, .05], [x, y, z + .07], black);
+            box([.02, top - bottom, .04], [x, (top + bottom) / 2, z + .07], black);
+            art('abstract', '#f6f3ee', '#d9a68b', '#9fb0a6', .5, .66, -1.95, 1.7, black, .02);
+            art('abstract', '#f6f3ee', '#2f3337', '#e3d3bd', .38, .5, -1.3, 1.55, black, .02);
+            // Pegboard-style shelf with ceramics.
+            box([.9, .025, .18], [-.6, 1.35, z + .1], wood);
+            for (let i = 0; i < 4; i++) add(new T.CylinderGeometry(.04 + (i % 2) * .02, .05, .1 + i * .03, 12), materials.get('pastel_ceramic', ['#f2efe9', '#2f3337', '#d8c7b0', '#a9b5ac'][i]), [-.9 + i * .2, 1.36 + (.1 + i * .03) / 2, z + .1]);
+        } else if (look === 'retro') {
+            // Colourful poster wall.
+            const frames = materials.get('soft_wood', '#3a2a22');
+            art('poster', '#e7b24a', '#d4563c', '#2f7d78', .44, .6, -2.05, 1.85, frames, .025);
+            art('poster', '#2f7d78', '#f1d9a8', '#e7b24a', .36, .46, -1.48, 1.95, frames, .025);
+            art('poster', '#d4563c', '#f4e3c2', '#7a5236', .32, .32, -1.48, 1.45, frames, .025);
+            // A yellow-framed little mirror and a record shelf.
+            const yellow = materials.get('cream_fabric', '#e3b23c');
+            add(new T.TorusGeometry(.16, .035, 8, 24), yellow, [-.75, 1.75, z + .05]);
+            box([.8, .03, .2], [-.6, 1.2, z + .1], wood);
+            for (let i = 0; i < 9; i++) box([.012, .22, .2], [-.95 + i * .045, 1.33, z + .1], materials.get('cream_fabric', ['#2f2b2b', '#d4563c', '#e7b24a', '#2f7d78'][i % 4]));
+            // String lights along the top of the back wall.
+            const bulbMat = materials.glow('#ffd88a', .6), wire = materials.get('warm_metal', '#3a3a36');
+            const string = new T.Group(); string.userData.luminousMaterial = bulbMat;
+            const span = w - .6, n = 18;
+            for (let i = 0; i <= n; i++) {
+                const t = i / n, bx = -w / 2 + .3 + t * span, by = 2.55 - Math.sin(t * Math.PI * 3) ** 2 * .16;
+                const bulb = new T.Mesh(new T.SphereGeometry(.025, 8, 6), bulbMat); bulb.position.set(bx, by - .03, z + .1); string.add(bulb);
+                if (i < n) { const t2 = (i + 1) / n, bx2 = -w / 2 + .3 + t2 * span, by2 = 2.55 - Math.sin(t2 * Math.PI * 3) ** 2 * .16, len = Math.hypot(bx2 - bx, by2 - by); const seg = new T.Mesh(new T.CylinderGeometry(.003, .003, len, 3), wire); seg.position.set((bx + bx2) / 2, (by + by2) / 2, z + .1); seg.rotation.z = Math.atan2(by2 - by, bx2 - bx) - Math.PI / 2; string.add(seg); }
+            }
+            const lampNode = new T.Group(); lampNode.position.set(0, 2.45, z + .3); lampNode.userData.lampHeight = 0; string.add(lampNode);
+            glowParts.push(string);
+        }
         // Static decoration is merged by material: details add vertices rather
         // than a draw call each. Interactive furniture remains independent.
         root.updateMatrixWorld(true); const batches = new Map();
@@ -99,6 +172,33 @@
         const lightMaterial = new T.MeshBasicMaterial({ map: lightMap, transparent: true, opacity: .38, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
         const wash = new T.Mesh(new T.PlaneGeometry(Math.min(w - .4, windowWidth * 1.8), 3.5), lightMaterial); wash.rotation.x = -Math.PI / 2; wash.rotation.z = -.28;
         wash.position.set(x - .4, .078, -.45); wash.userData.ownedTexture = lightMap; wash.userData.ownedMaterial = lightMaterial; wash.raycast = () => {}; root.add(wash); root.userData.atmosphere.daylight = wash;
+        // Sun shafts: soft additive sheets falling from the window to the floor,
+        // with a few slow dust motes inside. Cheap on phones, no post-processing.
+        const rayCanvas = document.createElement('canvas'); rayCanvas.width = 256; rayCanvas.height = 64;
+        const rc = rayCanvas.getContext('2d'), along = rc.createLinearGradient(0, 0, 256, 0);
+        along.addColorStop(0, 'rgba(255,236,196,.0)'); along.addColorStop(.08, 'rgba(255,236,196,.85)'); along.addColorStop(.55, 'rgba(255,228,180,.45)'); along.addColorStop(1, 'rgba(255,228,180,0)');
+        rc.fillStyle = along; rc.fillRect(0, 0, 256, 64);
+        rc.globalCompositeOperation = 'destination-in'; const across = rc.createLinearGradient(0, 0, 0, 64);
+        across.addColorStop(0, 'rgba(0,0,0,0)'); across.addColorStop(.25, 'rgba(0,0,0,1)'); across.addColorStop(.75, 'rgba(0,0,0,1)'); across.addColorStop(1, 'rgba(0,0,0,0)'); rc.fillStyle = across; rc.fillRect(0, 0, 256, 64);
+        const rayMap = new T.CanvasTexture(rayCanvas); rayMap.colorSpace = T.SRGBColorSpace;
+        const rayMaterial = new T.MeshBasicMaterial({ map: rayMap, transparent: true, opacity: .3, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, toneMapped: false });
+        const rays = new T.Group(); rays.name = 'sun-shafts'; rays.userData.ownedMaterial = rayMaterial; rays.userData.ownedTexture = rayMap;
+        const dir = new T.Vector3(-.18, -.6, .78).normalize(), wallZ = z + .02;
+        const sheet = (xk, width) => {
+            // A ribbon from the window opening down along the light direction.
+            const g = new T.BufferGeometry(), y0 = bottom + .05, y1 = top - .05, t0 = y0 / -dir.y, t1 = y1 / -dir.y;
+            const v = [xk, y1, wallZ, xk, y0, wallZ, xk + dir.x * t0 + width, .09, wallZ + dir.z * t0, xk + dir.x * t1 + width, .09, wallZ + dir.z * t1];
+            g.setAttribute('position', new T.Float32BufferAttribute(v, 3)); g.setAttribute('uv', new T.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 1, 1], 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
+            const m = new T.Mesh(g, rayMaterial); m.raycast = () => {}; m.renderOrder = 3; rays.add(m);
+        };
+        for (let k = 0; k < 5; k++) sheet(x - windowWidth / 2 + .12 + k * (windowWidth - .24) / 4, (k % 2 ? .05 : -.04));
+        const moteGeometry = new T.BufferGeometry(), motes = new Float32Array(36 * 3);
+        for (let i = 0; i < 36; i++) { const t = .3 + (i * .618) % 1 * 2.2; motes[i * 3] = x - windowWidth / 2 + ((i * .37) % 1) * windowWidth + dir.x * t; motes[i * 3 + 1] = Math.max(.25, top - .2 - (i * .29 % 1) * 1.1 + dir.y * t * .4); motes[i * 3 + 2] = wallZ + dir.z * t * .8; }
+        moteGeometry.setAttribute('position', new T.BufferAttribute(motes, 3));
+        const moteMaterial = new T.PointsMaterial({ color: '#fff1d2', size: .028, transparent: true, opacity: .55, depthWrite: false, blending: T.AdditiveBlending });
+        const dust = new T.Points(moteGeometry, moteMaterial); dust.userData.ownedMaterial = moteMaterial; dust.raycast = () => {}; rays.add(dust);
+        root.add(rays); root.userData.atmosphere.rays = rays; root.userData.atmosphere.rayMaterial = rayMaterial; root.userData.atmosphere.dust = dust;
+        for (const part of glowParts) root.add(part);
         root.userData.atmosphere.batches = root.children.length;
         return root;
     }
@@ -107,7 +207,13 @@
             const a = group.userData.atmosphere; if (!a) continue;
             group.visible = walls !== 'hidden' || mode === 'first';
             a.glass.color.set(lighting.night ? '#5a6c80' : '#ffffff'); a.glass.emissiveIntensity = lighting.night ? .035 : .28;
-            a.daylight.visible = lighting.daylight > .05; a.daylight.material.opacity = lighting.daylight * .40;
+            a.daylight.visible = lighting.daylight > .05; a.daylight.material.opacity = lighting.daylight * .55;
+            if (a.rays) {
+                const warm = lighting.twilight > .5;
+                a.rays.visible = lighting.daylight > .05 && mode !== 'exterior';
+                a.rayMaterial.opacity = lighting.daylight * (warm ? .42 : .3); a.rayMaterial.color.set(warm ? '#ffc98a' : '#fff3dc');
+                a.dust.material.opacity = lighting.daylight * .5;
+            }
             a.ceiling.visible = ['interior', 'first', 'third'].includes(mode);
             a.ceiling.material.color.set(lighting.night ? '#9c8c75' : a.trim);
         }

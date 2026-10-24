@@ -73,9 +73,36 @@
         if (!at || at > now || now - at > 10 * 60000) return null;
         return { stamp: at + ':' + JSON.stringify(row), gaming: /game|游戏|电竞/i.test(JSON.stringify(row)) };
     }
+    // While you are doing something at home, Ta keeps you company instead of wandering off on a timer.
+    function companion(home, now) {
+        const rec = home.executions?.user;
+        if (rec?.phase !== 'acting' || !rec.target || now - (rec.startedAt || rec.at || 0) > 3 * 3600000) return null;
+        const rows = facilities(home).filter(f => f.room.id === rec.room), mine = rows.find(f => f.placement.id === rec.target);
+        if (!mine) return null;
+        const wanted = { Sleep: ['Sleep'], Lie: ['Lie', 'Sit'], Sit: ['Sit', 'Read'], Read: ['Read', 'Sit'], Watch: ['Watch', 'Sit'], 'Use Phone': ['Use Phone', 'Sit'], Work: ['Watch', 'Read', 'Sit'], 'Use Computer': ['Watch', 'Read', 'Sit'], Game: ['Watch', 'Sit'], Drink: ['Drink', 'Sit'], Cook: ['Drink', 'Sit'], Eat: ['Eat', 'Drink', 'Sit'] }[rec.action];
+        if (!wanted) return null;
+        for (const action of wanted) {
+            const same = mine.item.actions.includes(action) && ['sofa', 'bed'].includes(mine.item.type) ? mine : rows.find(f => f.placement.id !== rec.target && f.item.actions.includes(action) && ['sofa', 'bed', 'chair'].includes(f.item.type));
+            if (same) return { action, room: rec.room, target: same.placement.id, reason: action === 'Sleep' ? '陪你一起睡' : '在你旁边待着，陪你' };
+        }
+        return null;
+    }
+    // With you at home, Ta stays in the room you are in, doing quiet things beside you.
+    function company(home, now) {
+        const rows = facilities(home).filter(f => f.room.id === home.room);
+        const slot = Math.floor(now / 360000), order = ['Read', 'Sit', 'Use Phone', 'Watch', 'Drink'];
+        for (let i = 0; i < order.length; i++) {
+            const action = order[(slot + i) % order.length], row = rows.find(f => ['sofa', 'chair', 'bed'].includes(f.item.type) && f.item.actions.includes(action));
+            if (row) return { action, room: home.room, target: row.placement.id, reason: '在你旁边安静地待着' };
+        }
+        return null;
+    }
     function plan(home, ctx, now = Date.now()) {
         const signal = phoneSignal(ctx, now);
-        if (home.activity && home.activity.until > now && usable(home, home.activity) && (!signal || home.activity.phoneStamp === signal.stamp)) return home.activity;
+        const nearby = home.activity?.source === 'interaction' || home.needs?.energy < 25 ? null : companion(home, now);
+        const stays = !(H.Living.present && home.activity && home.activity.source === 'local' && home.activity.room !== home.room && !['Sleep', 'Eat', 'Bathe', 'Cook'].includes(home.activity.action) && new Date(now).getHours() >= 7);
+        const following = stays && (!nearby || (home.activity?.action === nearby.action && home.activity?.target === nearby.target));
+        if (home.activity && home.activity.until > now && usable(home, home.activity) && following && (!signal || home.activity.phoneStamp === signal.stamp)) return home.activity;
         const hour = new Date(now).getHours();
         const recentUser = (ctx.history || []).filter(msg => msg.isMe && msg.at <= now && now - msg.at < 3 * 86400000).map(msg => msg.text).join(' ');
         const world = JSON.stringify(ctx.events).slice(0, 5000);
@@ -112,8 +139,11 @@
             const preferred = H.LifeContext?.choose(home, action, now);
             if (preferred && ['Read', 'Game', 'Play Music', 'Care'].includes(preferred.action)) ({ action, room, target, reason } = preferred);
         }
-        const desired = { action, room, target, reason, since: now, until: now + (action === 'Sleep' ? 900000 : need ? 600000 : 90000), phoneStamp: signal?.stamp || '', source: 'local', wanderSeed: beat };
-        if (action === 'Walk') return { ...desired, intent: 'wander' };
+        const present = H.Living.present && hour >= 7 && hour < 23 && home.activity?.source !== 'interaction';
+        const mate = need ? null : companion(home, now) || (present && action !== 'Sleep' ? company(home, now) : null);
+        if (mate) ({ action, room, target, reason } = mate);
+        const desired = { action, room, target, reason, since: now, until: now + (mate ? 120000 : action === 'Sleep' ? 900000 : need ? 600000 : 360000), phoneStamp: signal?.stamp || '', source: 'local', wanderSeed: beat };
+        if (action === 'Walk' && !mate) return { ...desired, intent: 'wander' };
         return resolve(home, desired, now);
     }
     function validateDecision(raw, home = H.State.home()) {
@@ -215,6 +245,6 @@
             return '【小屋生活】以下是私密小屋的本地生活状态，不是公开消息，不得让其他角色自动知道。activity只是计划；execution才是最近的执行回执，只有acting代表实际开始，blocked/cancelled不能说成已完成。simulation为离线或未显示楼层的本地推演，不是已执行或现实行为。' + JSON.stringify({ relationship: home.relationship, activity: usable(home, home.activity) ? home.activity : null, execution: home.executions?.char || null, preferences: H.LifeContext?.preferences(home), contextEvents: home.lifeInbox?.entries?.slice(-4), facilities: facilities(home).map(row => ({ name: row.item.name, actions: row.item.actions })), recent: home.moments.filter(row => ['autonomous', 'simulation', 'interaction'].includes(row.source)).slice(-5), needs: home.needs });
         } catch (_) { return ''; }
     }
-    H.Living = { labels: LABELS, plan, decide, validateDecision, phoneSignal, advance, facilities, usable, prompt, normalizeNeeds, evolveNeeds, needIntent };
+    H.Living = { present: false, labels: LABELS, plan, decide, validateDecision, phoneSignal, advance, facilities, usable, prompt, normalizeNeeds, evolveNeeds, needIntent };
     window.getByndHomeLifePrompt = prompt;
 })(window.ByndHome3D);

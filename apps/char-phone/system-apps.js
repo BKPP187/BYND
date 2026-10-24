@@ -1,5 +1,9 @@
 function charPhoneSystemRecords(key, rows, icon) {
-    return rows.map((row,index)=>`<details class="cp-system-record"><summary><i class="${icon}"></i><div><b>${wcEscapeHtml(row.title)}</b><small>${wcEscapeHtml(row.meta||row.time||'')}</small></div><i class="ri-arrow-right-s-line"></i></summary><p>${wcEscapeHtml(row.detail||row.content||'')}</p></details>`).join('');
+    return rows.map((row,index)=>`<button type="button" class="cp-system-record" onclick="openCharPhoneRecord('${key}',${index})"><i class="${icon}"></i><div><b>${wcEscapeHtml(row.title)}</b><small>${wcEscapeHtml(row.meta||row.time||'')}</small>${row.detail||row.content?`<span>${wcEscapeHtml(row.detail||row.content)}</span>`:''}</div><i class="ri-arrow-right-s-line"></i></button>`).join('');
+}
+// Second-level tabs: a generated page when one exists for this view, otherwise the default body.
+function charPhoneLazyBody(key,view,snapshot,char,fallback) {
+    return view!=='home' && typeof charPhoneHasLazyPage==='function' && charPhoneHasLazyPage(key,view) ? renderCharPhoneLazyPage(key,view,snapshot,char) : fallback;
 }
 function renderCharPhoneWechatDiscover(view,snapshot,char) {
     const e=wcEscapeHtml,data=snapshot.appData?.chat||{},rows=data[view]||[],isMoments=view==='moments';
@@ -19,6 +23,8 @@ function renderCharPhoneSystemApp(key,snapshot,char,isLoading) {
     const empty=label=>charPhoneBrandEmpty(snapshot,label);
     const avatar=`<img src="${wcEscapeAttr(getWechatAiPhoneHomeAvatar(char))}" alt="">`;
     let header='',body='',bottom='';
+    const record=typeof renderCharPhoneRecordDetail==='function'?renderCharPhoneRecordDetail(key,snapshot,char):null;
+    if(record)return record;
     if(key==='chat') {
         if(['moments','channels'].includes(view))return renderCharPhoneWechatDiscover(view,snapshot,char);
         header=`<div class="cp-wc-header"><b>${view==='contacts'?'通讯录':view==='discover'?'发现':view==='profile'?'我':'微信'}</b><i class="ri-add-circle-line"></i></div><div class="cp-wc-search"><i class="ri-search-line"></i><input aria-label="搜索聊天" placeholder="搜索" oninput="filterCharPhoneSystemRows(this.value,'.wc-ai-phone-chat-row')"></div>`;
@@ -35,20 +41,22 @@ function renderCharPhoneSystemApp(key,snapshot,char,isLoading) {
         const now=new Date();const month=now.getMonth();const start=new Date(now.getFullYear(),month,1).getDay();const days=new Date(now.getFullYear(),month+1,0).getDate();
         const rows=getWechatAiPhoneScheduleRows(snapshot,char);
         header=`<div class="cp-calendar-toolbar"><span>‹ ${now.getFullYear()}</span><i class="ri-list-check"></i><i class="ri-search-line"></i><i class="ri-add-line"></i></div><h2 class="cp-system-large-title">${month+1}月</h2>`;
-        body=`<div class="cp-calendar-weekdays">${Array.from('日一二三四五六').map(x=>`<span>${x}</span>`).join('')}</div><div class="cp-calendar-month">${Array.from({length:start},()=>'<span></span>').join('')}${Array.from({length:days},(_,n)=>`<span class="${n+1===now.getDate()?'today':''}">${n+1}</span>`).join('')}</div><div class="cp-calendar-agenda-heading">${e(now.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}))}</div>${rows.map(i=>`<details class="cp-calendar-event"><summary><time>${e(i.time||i.meta)}</time><div><b>${e(i.title)}</b><small>${e(i.detail||i.meta)}</small></div></summary><p>${e(i.detail)}</p></details>`).join('')||empty('今天暂无日程')}`;
+        body=`<div class="cp-calendar-weekdays">${Array.from('日一二三四五六').map(x=>`<span>${x}</span>`).join('')}</div><div class="cp-calendar-month">${Array.from({length:start},()=>'<span></span>').join('')}${Array.from({length:days},(_,n)=>`<span class="${n+1===now.getDate()?'today':''}">${n+1}</span>`).join('')}</div><div class="cp-calendar-agenda-heading">${e(now.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}))}</div>${rows.map((i,n)=>`<button type="button" class="cp-calendar-event" onclick="openCharPhoneRecord('schedule',${n})"><time>${e(i.time||i.meta)}</time><div><b>${e(i.title)}</b><small>${e(i.detail||i.meta)}</small></div><i class="ri-arrow-right-s-line"></i></button>`).join('')||empty('今天暂无日程')}`;
         bottom='<div class="cp-calendar-bottom"><span>今天</span><span>日历</span><span>收件箱</span></div>';
     } else if(key==='shopping'||key==='takeout') {
         const shopping=key==='shopping';const all=shopping?getWechatAiPhoneShoppingRows(snapshot,char):getWechatAiPhoneTakeoutRows(snapshot,char);
         const labels=shopping?['全部','待付款','待发货','待收货','待评价']:['全部','进行中','已完成'];
         const active=window._charPhoneSections?.[key]||0;
-        const rows=active===0?all:all.filter(i=>[i.meta,i.detail,i.title].join(' ').includes(labels[active]));
+        const rows=(active===0?all:all.filter(i=>[i.meta,i.detail,i.title].join(' ').includes(labels[active]))).map(i=>({...i,_index:all.indexOf(i)}));
         header=`<div class="cp-commerce-header"><strong>${shopping?'我的淘宝':'美团外卖'}</strong><i class="ri-customer-service-line"></i><i class="ri-settings-line"></i></div><div class="cp-commerce-profile">${avatar}<b>${e(getWechatCharDisplayName(char))}</b><i class="ri-arrow-right-s-line"></i></div><div class="cp-commerce-title">我的订单</div>${charPhoneNativeTabs(key,labels,active)}`;
-        body=rows.map(i=>`<details class="cp-commerce-order"><summary><div class="cp-commerce-order-head"><span><i class="ri-store-2-line"></i> ${e(i.title)}</span><em>${e(i.meta)}</em></div><div class="cp-commerce-product"><div class="cp-commerce-placeholder"><i class="${shopping?'ri-shopping-bag-line':'ri-restaurant-line'}"></i></div><div><h3>${e(i.title)}</h3><p>${e(i.detail)}</p></div></div><div class="cp-commerce-order-foot"><span>订单详情</span><i class="ri-arrow-right-s-line"></i></div></summary><p>${e(i.detail)}</p><small>${e(i.meta)}</small></details>`).join('')||empty('暂无订单');
+        body=charPhoneLazyBody(key,view,snapshot,char,rows.map(i=>`<button type="button" class="cp-commerce-order" onclick="openCharPhoneRecord('${key}',${i._index})"><div class="cp-commerce-order-head"><span><i class="ri-store-2-line"></i> ${e(i.title)}</span><em>${e(i.meta)}</em></div><div class="cp-commerce-product"><div class="cp-commerce-placeholder"><i class="${shopping?'ri-shopping-bag-line':'ri-restaurant-line'}"></i></div><div><h3>${e(i.title)}</h3><p>${e(i.detail)}</p></div></div><div class="cp-commerce-order-foot"><span>订单详情</span><i class="ri-arrow-right-s-line"></i></div></button>`).join('')||empty('暂无订单'));
+        if(view!=='home'){const titles={discover:shopping?'猜你喜欢':'附近商家',video:'逛逛',messages:'消息',orders:'购物车',saved:'红包卡券',profile:'我的'};header=`<div class="cp-commerce-header"><strong>${titles[view]||''}</strong><i class="ri-search-line"></i></div>`;}
         bottom=shopping?charPhoneNativeNav(key,[['discover','首页','ri-home-5-line'],['video','逛逛','ri-video-line'],['messages','消息','ri-chat-3-line'],['orders','购物车','ri-shopping-cart-line'],['home','我的淘宝','ri-user-3-line']],view):charPhoneNativeNav(key,[['discover','首页','ri-home-5-line'],['saved','神券','ri-coupon-line'],['home','订单','ri-file-list-line'],['profile','我的','ri-user-line']],view);
     } else if(key==='games') {
         const rows=getWechatAiPhoneGameRows(snapshot,char);
         header=`<div class="cp-games-header"><h2>Games</h2>${avatar}</div>`;
-        body=`<div class="cp-games-banner"><i class="ri-gamepad-line"></i><div><small>GAME CENTER</small><h2>${e(getWechatCharDisplayName(char))}</h2></div></div><h3 class="cp-games-heading">最近游玩</h3>${rows.map(i=>`<details class="cp-games-item"><summary><div><i class="ri-gamepad-fill"></i></div><span><b>${e(i.title)}</b><small>${e(i.meta)}</small></span><i class="ri-arrow-right-s-line"></i></summary><p>${e(i.detail)}</p></details>`).join('')||empty('暂无游戏记录')}`;
+        body=charPhoneLazyBody(key,view,snapshot,char,`<div class="cp-games-banner"><i class="ri-gamepad-line"></i><div><small>GAME CENTER</small><h2>${e(getWechatCharDisplayName(char))}</h2></div></div><h3 class="cp-games-heading">最近游玩</h3>${rows.map((i,n)=>`<button type="button" class="cp-games-item" onclick="openCharPhoneRecord('games',${n})"><div><i class="ri-gamepad-fill"></i></div><span><b>${e(i.title)}</b><small>${e(i.meta)}</small>${i.detail?`<em>${e(i.detail)}</em>`:''}</span><i class="ri-arrow-right-s-line"></i></button>`).join('')||empty('暂无游戏记录')}`);
+        if(view!=='home')header=`<div class="cp-games-header"><h2>${view==='library'?'资料库':'玩家'}</h2>${avatar}</div>`;
         bottom=charPhoneNativeNav(key,[['home','首页','ri-gamepad-line'],['library','资料库','ri-apps-line'],['profile','玩家','ri-user-line']],view);
     } else if(key==='browser') {
         const rows=getWechatAiPhoneBrowserRows(snapshot,char);const index=Number(window._wechatAiPhoneBrowserIndex);
@@ -58,15 +66,17 @@ function renderCharPhoneSystemApp(key,snapshot,char,isLoading) {
         bottom=`<div class="cp-safari-bottom"><div><i class="ri-font-size"></i><span><i class="ri-lock-line"></i> 搜索或输入网站名称</span><i class="ri-mic-line"></i></div><div><i class="ri-arrow-left-s-line"></i><i class="ri-arrow-right-s-line"></i><i class="ri-share-line"></i><i class="ri-book-open-line"></i><i class="ri-checkbox-multiple-blank-line"></i></div></div>`;
     } else if(key==='wallet') {
         const info=getWechatAiPhoneWalletPassInfo(snapshot,char),rows=getWechatAiPhoneWalletRows(snapshot,char);
-        header=`<div class="cp-wallet-title"><h2>钱包</h2><i class="ri-add-circle-fill"></i></div>`;
-        body=`<div class="cp-wallet-stack"><div></div><section><b>Card</b><small>${e(info.owner)}</small><strong>${e(info.amount)}</strong><span>${e(info.detail)}</span><i class="ri-bank-card-fill"></i></section></div><h3 class="cp-wallet-history-title">最新交易</h3>${charPhoneSystemRecords(key,rows,'ri-bank-card-line')||empty('暂无交易记录')}`;
+        header=`<div class="cp-wallet-title"><h2>${view==='bills'?'账单':'钱包'}</h2><i class="${view==='bills'?'ri-filter-3-line':'ri-add-circle-fill'}"></i></div>`;
+        body=charPhoneLazyBody(key,view,snapshot,char,`<div class="cp-wallet-stack"><div></div><section><b>Card</b><small>${e(info.owner)}</small><strong>${e(info.amount)}</strong><span>${e(info.detail)}</span><i class="ri-bank-card-fill"></i></section></div><div class="cp-wallet-history-head"><h3 class="cp-wallet-history-title">最新交易</h3><button type="button" onclick="setCharPhoneNativeView('wallet','bills')">全部账单 <i class="ri-arrow-right-s-line"></i></button></div>${charPhoneSystemRecords(key,rows,'ri-bank-card-line')||empty('暂无交易记录')}`);
+        bottom=charPhoneNativeNav(key,[['home','卡片','ri-bank-card-line'],['bills','账单','ri-file-list-3-line']],view);
     } else if(key==='diary') {
         header=`<div class="cp-journal-header"><h2>手记</h2><i class="ri-more-line"></i></div>`;
         body=renderWechatAiPhoneDiaryMailbox(snapshot,char,!!window._wechatAiPhoneDiaryGenerating?.has(char.id),isLoading);
     } else if(key==='footprints') {
         const rows=getWechatAiPhoneFootprintRows(snapshot,char);
         header=`<div class="cp-map-search"><i class="ri-map-pin-fill"></i><span>搜索地点、公交、地铁</span><i class="ri-mic-line"></i></div>`;
-        body=`<div class="cp-map-canvas"><div class="cp-map-river"></div><div class="cp-map-road road-a"></div><div class="cp-map-road road-b"></div><div class="cp-map-road road-c"></div>${rows.slice(0,4).map((i,n)=>`<span class="cp-map-marker marker-${n}"><i class="ri-map-pin-fill"></i><b>${e(i.title)}</b></span>`).join('')}<small>足迹示意</small></div><div class="cp-map-sheet"><div class="cp-map-sheet-handle"></div><h3>我的足迹</h3>${charPhoneSystemRecords(key,rows,'ri-map-pin-line')||empty('暂无地点记录')}</div>`;
+        body=view!=='home'?charPhoneLazyBody(key,view,snapshot,char,''):`<div class="cp-map-canvas"><div class="cp-map-river"></div><div class="cp-map-road road-a"></div><div class="cp-map-road road-b"></div><div class="cp-map-road road-c"></div>${rows.slice(0,4).map((i,n)=>`<span class="cp-map-marker marker-${n}"><i class="ri-map-pin-fill"></i><b>${e(i.title)}</b></span>`).join('')}<small>足迹示意</small></div><div class="cp-map-sheet"><div class="cp-map-sheet-handle"></div><h3>我的足迹</h3>${charPhoneSystemRecords(key,rows,'ri-map-pin-line')||empty('暂无地点记录')}</div>`;
+        if(view!=='home')header=`<h2 class="cp-system-large-title">${view==='saved'?'收藏':'我的足迹'}</h2>`;
         bottom=charPhoneNativeNav(key,[['home','足迹','ri-map-pin-line'],['saved','收藏','ri-star-line'],['profile','我的','ri-user-line']],view);
     } else if(key==='usage') {
         const rows=getWechatAiPhoneUsageRows(snapshot,char);const minutes=rows.map(i=>Number(String(i.meta||'').match(/\d+/)?.[0]||0));const total=minutes.reduce((a,b)=>a+b,0),max=Math.max(...minutes,1);

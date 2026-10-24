@@ -11,10 +11,10 @@ const root=path.resolve(__dirname,'..'),output=path.join(root,'artifacts/study-l
   await page.evaluate(async()=>{await byndStylesReady;unlockPhone();document.documentElement.classList.add('mobile-runtime');openApp('study');localStorage.setItem('bynd_study_cards_v1',JSON.stringify([{id:'disease',lines:{th:'โรคติดต่อ',cn:'传染病'},pronunciations:{th:{text:'rok tit to',forText:'โรคติดต่อ'}}}]));ByndStudy.openBook('collection');window.__voiceCalls=[];window.ByndAndroid={stopTts(){},speakText(text,code){window.__voiceCalls.push({text,code});return {status:'queued'};}};});
   const original=await page.evaluate(()=>localStorage.getItem('bynd_study_cards_v1'));
   assert.match(await page.locator('.study-entry-reading').innerText(),/rôok dtìt dtɔ̀ɔ/);
-  assert.match(await page.locator('.study-thai-pronunciation summary').innerText(),/3降 \/ 2低 \/ 2低/);
+  assert.match(await page.locator('.study-thai-pronunciation > summary').innerText(),/3降 \/ 2低 \/ 2低/);
   for(const width of [320,375]){await page.setViewportSize({width,height:844});await page.screenshot({path:path.join(output,`thai-${width}.png`),animations:'disabled'});}
-  await page.locator('.study-thai-pronunciation summary').click();assert.doesNotMatch(await page.locator('.study-thai-pronunciation').innerText(),/แม่|ม้า|标二读三/);assert.match(await page.locator('.study-thai-ipa').innerText(),/tɔː˨˩/);
-  assert.equal(await page.locator('.study-thai-breakdown li').count(),3);assert.match(await page.locator('.study-thai-tone-reason').first().innerText(),/ร.*低辅音.*长元音/);
+  await page.locator('.study-thai-pronunciation > summary').click();assert.doesNotMatch(await page.locator('.study-thai-pronunciation').innerText(),/แม่ →|ม้า →/);assert.match(await page.locator('.study-thai-ipa').innerText(),/tɔː˨˩/);
+  assert.equal(await page.locator('.study-thai-breakdown > li').count(),3);assert.match(await page.locator('.study-thai-tone-reason').first().innerText(),/ร.*低辅音.*长元音/);
   await page.locator('.study-line-speak').first().click();assert.deepEqual(await page.evaluate(()=>window.__voiceCalls.at(-1)),{text:'โรคติดต่อ',code:'th-TH'});
   await page.locator('.study-thai-pronunciation').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'thai-tone-details.png'),animations:'disabled'});
   assert.equal(await page.evaluate(()=>localStorage.getItem('bynd_study_cards_v1')),original);
@@ -22,9 +22,9 @@ const root=path.resolve(__dirname,'..'),output=path.join(root,'artifacts/study-l
   await page.evaluate(()=>{saveStudyCards([{id:'disease',lines:{th:'โรคติดต่อ',cn:'传染病'}},{id:'thanks',lines:{th:'ขอบคุณ',cn:'谢谢'}},{id:'danger',lines:{th:'โรคติดต่ออันตราย',cn:'危险传染病'}},{id:'typo',lines:{th:'โรคติตต่ออันตราย',cn:'待校对'},source:'pdf'}]);ByndStudy.openBook('collection');});
   assert.equal(await page.locator('.study-thai-reference').count(),1,'general help appears once instead of per word');
   for(const id of ['disease','thanks','danger','typo']){
-   const panel=page.locator(`[data-book-card="${id}"] .study-thai-pronunciation`);await panel.locator('summary').click();const text=await panel.innerText();assert.doesNotMatch(text,/แม่|ม้า|标二读三/);
-   if(id==='thanks')assert.match(text,/送气.*双唇闭住/s);
-   if(id==='danger')assert.equal(await panel.locator('.study-thai-breakdown li').count(),6);
+   const panel=page.locator(`[data-book-card="${id}"] .study-thai-pronunciation`);await panel.locator(':scope > summary').click();const text=await panel.innerText();assert.doesNotMatch(text,/แม่ →|ม้า →/);
+   if(id==='thanks'){await panel.getByText('发音动作',{exact:true}).first().click();assert.match(await panel.innerText(),/送气.*双唇闭住/s);}
+   if(id==='danger')assert.equal(await panel.locator('.study-thai-breakdown > li').count(),6);
    if(id==='typo'){assert.match(text,/โรคติตต่ออันตราย.*暂缺.*完整读音/s);assert.equal(await panel.locator('.study-thai-ipa').count(),0);assert.equal(await panel.locator('.study-thai-breakdown').count(),0);}
    await panel.evaluate(el=>el.scrollIntoView({block:'start'}));await page.screenshot({path:path.join(output,`word-${id}-375.png`),animations:'disabled'});
   }

@@ -2703,6 +2703,348 @@
       }
     },
     {
+      "id": "retro_bed",
+      "name": "复古美式 · 拉扣大床",
+      "type": "bed",
+      "style": "retro",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
+    },
+    {
+      "id": "retro_sofa",
+      "name": "复古美式 · 切斯特沙发",
+      "type": "sofa",
+      "style": "retro",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "retro_chair",
+      "name": "复古美式 · 单人扶手椅",
+      "type": "chair",
+      "style": "retro",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "retro_table",
+      "name": "复古美式 · 椭圆茶几",
+      "type": "table",
+      "style": "retro",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "retro_bookcase",
+      "name": "复古美式 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "retro",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "retro_cabinet",
+      "name": "复古美式 · 矮柜",
+      "type": "cabinet",
+      "style": "retro",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "nordic_bed",
+      "name": "北欧简约 · 低床",
+      "type": "bed",
+      "style": "nordic",
+      "category": "床",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.15,
+      "footprint": [
+        2.15,
+        2.25
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.65,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "actions": [
+        "Sit",
+        "Lie",
+        "Sleep",
+        "Read",
+        "Use Phone",
+        "Hug"
+      ]
+    },
+    {
+      "id": "nordic_sofa",
+      "name": "北欧简约 · 布艺沙发",
+      "type": "sofa",
+      "style": "nordic",
+      "category": "沙发",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 2.5,
+      "footprint": [
+        2.5,
+        1.15
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "nordic_chair",
+      "name": "北欧简约 · 叉骨椅",
+      "type": "chair",
+      "style": "nordic",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 0.7,
+      "footprint": [
+        0.7,
+        0.7
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "nordic_table",
+      "name": "北欧简约 · 圆茶几",
+      "type": "table",
+      "style": "nordic",
+      "category": "桌椅",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.15,
+      "footprint": [
+        1.15,
+        0.65
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
+      "id": "nordic_bookcase",
+      "name": "北欧简约 · 书架",
+      "type": "bookcase",
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.48
+      ],
+      "materials": [
+        "soft_wood",
+        "sage",
+        "rose",
+        "paper"
+      ],
+      "actions": [
+        "Read",
+        "Look At"
+      ],
+      "positions": [
+        [
+          0,
+          0,
+          0.85
+        ]
+      ],
+      "conditions": {
+        "user": true,
+        "char": true
+      },
+      "animation": "reading",
+      "state": {},
+      "style": "nordic",
+      "category": "装饰",
+      "procedural": true
+    },
+    {
+      "id": "nordic_cabinet",
+      "name": "北欧简约 · 矮柜",
+      "type": "cabinet",
+      "style": "nordic",
+      "category": "收纳",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        0.5
+      ],
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "seatHeight": 0.5,
+      "state": {},
+      "conditions": {
+        "user": true,
+        "char": true
+      }
+    },
+    {
       "id": "rose_bed",
       "name": "玫瑰阁楼 · 双人床",
       "type": "bed",
@@ -3609,6 +3951,111 @@
       "actions": [
         "Groom"
       ]
+    },
+    {
+      "style": "cream",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "id": "cottage_palm",
+      "name": "奶白原木 · 大叶棕榈",
+      "type": "plant",
+      "variant": "palm",
+      "category": "装饰",
+      "width": 1.1,
+      "footprint": [
+        1.1,
+        1.1
+      ],
+      "height": 1.45
+    },
+    {
+      "style": "cream",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "id": "cottage_monstera",
+      "name": "奶白原木 · 龟背竹",
+      "type": "plant",
+      "variant": "monstera",
+      "category": "装饰",
+      "width": 1.0,
+      "footprint": [
+        1.0,
+        1.0
+      ],
+      "height": 1.05
+    },
+    {
+      "style": "cream",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "id": "cottage_basket",
+      "name": "奶白原木 · 编织收纳篮",
+      "type": "cabinet",
+      "variant": "basket",
+      "category": "收纳",
+      "width": 0.5,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "height": 0.5
+    },
+    {
+      "style": "cream",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "id": "cottage_cushions",
+      "name": "奶白原木 · 叠叠坐垫",
+      "type": "cabinet",
+      "variant": "cushions",
+      "category": "装饰",
+      "width": 0.6,
+      "footprint": [
+        0.6,
+        0.6
+      ],
+      "height": 0.34
+    },
+    {
+      "style": "cream",
+      "procedural": true,
+      "model": null,
+      "source": "bynd",
+      "materials": [
+        "soft_wood",
+        "cream_fabric"
+      ],
+      "id": "cottage_side_table",
+      "name": "奶白原木 · 圆边几",
+      "type": "table",
+      "variant": "side",
+      "category": "桌椅",
+      "width": 0.56,
+      "footprint": [
+        0.56,
+        0.56
+      ],
+      "height": 0.58
     }
   ],
   "styles": {
@@ -3667,6 +4114,20 @@
       "fabric": "#f1f0ed",
       "accent": "#737881",
       "trim": "#f3f3ee"
+    },
+    "retro": {
+      "name": "复古美式",
+      "wood": "#7a5236",
+      "fabric": "#c98d3b",
+      "accent": "#2f7d78",
+      "trim": "#f3eee4"
+    },
+    "nordic": {
+      "name": "北欧简约",
+      "wood": "#d9c3a0",
+      "fabric": "#d6dade",
+      "accent": "#2f3337",
+      "trim": "#ffffff"
     }
   },
   "types": {

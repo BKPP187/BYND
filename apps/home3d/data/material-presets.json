@@ -177,6 +177,69 @@
         "base": "#eae9e4",
         "ink": "#deded9",
         "secondary": "#f9f8f3"
+      },
+      "white_shiplap": {
+        "name": "奶白护墙板",
+        "pattern": "shiplap",
+        "base": "#f6f3ec",
+        "ink": "#ddd6ca",
+        "secondary": "#f2eee6"
+      },
+      "blush_paint": {
+        "name": "焦糖奶茶墙",
+        "pattern": "paint",
+        "base": "#f0dfd4",
+        "ink": "#e2cbbd",
+        "secondary": "#f7ebe2"
+      },
+      "sky_paint": {
+        "name": "晴光淡紫墙",
+        "pattern": "paint",
+        "base": "#e7e8f4",
+        "ink": "#d6d8ec",
+        "secondary": "#f2f2fa"
+      },
+      "mint_shiplap": {
+        "name": "薄荷护墙板",
+        "pattern": "shiplap",
+        "base": "#eef5f0",
+        "ink": "#d3e2d8",
+        "secondary": "#f6faf7"
+      },
+      "rice_paper": {
+        "name": "宣纸白墙",
+        "pattern": "paint",
+        "base": "#f1e8d8",
+        "ink": "#e2d5bf",
+        "secondary": "#f7f0e4"
+      },
+      "lattice_panel": {
+        "name": "回纹木格墙",
+        "pattern": "lattice",
+        "base": "#efe3cf",
+        "ink": "#5a3a2a",
+        "secondary": "#e5d6bd"
+      },
+      "nordic_white": {
+        "name": "北欧暖白墙",
+        "pattern": "paint",
+        "base": "#f5f4f1",
+        "ink": "#ebe9e4",
+        "secondary": "#fbfaf8"
+      },
+      "lilac_paint": {
+        "name": "复古薰衣草墙",
+        "pattern": "paint",
+        "base": "#a998c6",
+        "ink": "#9988b8",
+        "secondary": "#b7a8d2"
+      },
+      "red_brick": {
+        "name": "复古红砖墙",
+        "pattern": "brick",
+        "base": "#b2654c",
+        "ink": "#9a5240",
+        "secondary": "#d8c3b2"
       }
     },
     "floors": {
@@ -235,9 +298,154 @@
         "base": "#f1efea",
         "ink": "#61646c",
         "secondary": "#fffdf8"
+      },
+      "light_oak": {
+        "name": "浅橡木宽板",
+        "pattern": "planks",
+        "base": "#e3cba8",
+        "ink": "#cdb18b",
+        "secondary": "#ead6b8"
+      },
+      "honey_oak": {
+        "name": "蜂蜜木宽板",
+        "pattern": "planks",
+        "base": "#d1a57c",
+        "ink": "#b88a62",
+        "secondary": "#ddb58f"
+      },
+      "natural_oak": {
+        "name": "原木宽板",
+        "pattern": "planks",
+        "base": "#ddbf96",
+        "ink": "#c6a47a",
+        "secondary": "#e7cfac"
+      },
+      "dark_walnut": {
+        "name": "深胡桃木地板",
+        "pattern": "planks",
+        "base": "#6e4b37",
+        "ink": "#5a3b2b",
+        "secondary": "#7d5741"
+      },
+      "ash_planks": {
+        "name": "白蜡木地板",
+        "pattern": "planks",
+        "base": "#e7dccb",
+        "ink": "#d6c8b2",
+        "secondary": "#efe6d8"
+      },
+      "honey_herringbone": {
+        "name": "蜂蜜人字拼",
+        "pattern": "herringbone",
+        "base": "#b9814f",
+        "ink": "#9e6a3f",
+        "secondary": "#c8935f"
       }
     },
     "presets": {
+      "guofeng": {
+        "name": "雅韵古风",
+        "description": "宣纸白墙 · 回纹木格 · 红灯笼",
+        "wall": "rice_paper",
+        "leftWall": "lattice_panel",
+        "floor": "dark_walnut",
+        "rug": "ornate",
+        "trim": "#4c3124",
+        "wood": "#5b3a29",
+        "fabric": "#ead9b8",
+        "accent": "#a8433a",
+        "background": "#e6ddd1",
+        "furnitureStyle": "chinese",
+        "look": "guofeng"
+      },
+      "nordic": {
+        "name": "北欧森林",
+        "description": "暖白墙 · 白蜡木 · 黑色点缀",
+        "wall": "nordic_white",
+        "floor": "ash_planks",
+        "rug": "graphic",
+        "trim": "#ffffff",
+        "wood": "#d9c3a0",
+        "fabric": "#d6dade",
+        "accent": "#2f3337",
+        "background": "#e9ecee",
+        "furnitureStyle": "nordic",
+        "look": "nordic",
+        "greenery": "some"
+      },
+      "retro": {
+        "name": "复古美式公寓",
+        "description": "薰衣草紫墙 · 红砖 · 芥末黄沙发",
+        "wall": "lilac_paint",
+        "leftWall": "red_brick",
+        "floor": "honey_herringbone",
+        "rug": "diamond",
+        "trim": "#f3eee4",
+        "wood": "#7a5236",
+        "fabric": "#c98d3b",
+        "accent": "#2f7d78",
+        "background": "#efe4d8",
+        "furnitureStyle": "retro",
+        "look": "retro"
+      },
+      "cottage": {
+        "name": "奶白原木",
+        "description": "白色护墙板 · 浅橡木地板 · 满屋绿植",
+        "wall": "white_shiplap",
+        "floor": "light_oak",
+        "rug": "botanical",
+        "trim": "#fbf9f4",
+        "wood": "#e2c7a1",
+        "fabric": "#f7f3ec",
+        "accent": "#9db68c",
+        "background": "#eceae6",
+        "furnitureStyle": "cream",
+        "greenery": "lush",
+        "roundRug": true
+      },
+      "caramel": {
+        "name": "焦糖公寓",
+        "description": "奶茶墙 · 蜂蜜木地板 · 奶白家具",
+        "wall": "blush_paint",
+        "floor": "honey_oak",
+        "rug": "woven",
+        "trim": "#fdf8f3",
+        "wood": "#f1e6da",
+        "fabric": "#f8f2ec",
+        "accent": "#c99a86",
+        "background": "#f1e4dc",
+        "furnitureStyle": "cream",
+        "greenery": "some"
+      },
+      "skylight": {
+        "name": "晴光玻璃屋",
+        "description": "淡紫白墙 · 原木地板 · 明亮窗光",
+        "wall": "sky_paint",
+        "floor": "natural_oak",
+        "rug": "diamond",
+        "trim": "#ffffff",
+        "wood": "#dcbc93",
+        "fabric": "#f5f5f8",
+        "accent": "#a5b3d6",
+        "background": "#e9ebf4",
+        "furnitureStyle": "modern",
+        "greenery": "some"
+      },
+      "mint": {
+        "name": "薄荷小屋",
+        "description": "薄荷护墙板 · 浅橡木 · 粉绿点缀",
+        "wall": "mint_shiplap",
+        "floor": "light_oak",
+        "rug": "rose_garden",
+        "trim": "#fdfcf8",
+        "wood": "#e5cca8",
+        "fabric": "#f9f4ef",
+        "accent": "#8fc2ae",
+        "background": "#e6eee9",
+        "furnitureStyle": "pink",
+        "greenery": "lush",
+        "roundRug": true
+      },
       "garden": {
         "name": "奶油花园",
         "description": "亚麻白墙 · 浅木窗光",
@@ -331,6 +539,6 @@
         "furnitureStyle": "monochrome"
       }
     },
-    "defaultPreset": "garden"
+    "defaultPreset": "cottage"
   }
 }

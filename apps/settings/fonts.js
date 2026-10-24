@@ -299,6 +299,18 @@ function renderFontDropdown() {
 
     select.innerHTML = html;
     select.value = store.activeId || '';
+    window.ByndSheetSelect?.enhance(select, { title: '选择字体', optionStyle: fontPreviewStyle });
+    window.ByndSheetSelect?.sync(select);
+}
+
+// Each built-in font previews in its own face; an uploaded font only once it is loaded (the active one).
+function fontPreviewStyle(value) {
+    if (!value) return { fontFamily: DEFAULT_FONT_FAMILY };
+    if (value.startsWith('preset_')) {
+        const preset = FONT_PRESETS.find(p => p.id === value.slice(7));
+        return preset ? { fontFamily: preset.family } : null;
+    }
+    return value === getFontStore().activeId ? { fontFamily: getUserFontFamily(value) } : null;
 }
 
 // 下拉选择字体

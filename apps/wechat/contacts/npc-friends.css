@@ -3,7 +3,7 @@
     --npc-avatar-radius: var(--wci-control-radius, 8px);
     position: absolute; inset: 0; z-index: 6200;
     background: var(--wci-content, #fff); color: var(--wci-text, #191919);
-    font-family: inherit; font-size: 15px; line-height: 1.5;
+    font-family: var(--wci-font-family, inherit); font-size: 15px; line-height: 1.5;
 }
 #bynd-npc-friends * { box-sizing: border-box; }
 .wc-npc-panel { position: relative; display: flex; flex-direction: column; height: 100%; }
@@ -50,6 +50,33 @@
 .wc-npc-entry > i { font-size: 22px; color: var(--wc-theme-accent, #333); }
 .wc-npc-entry > span:first-of-type { flex: 1; text-align: left; }
 .wc-npc-entry > b { border-radius: var(--wci-control-radius, 12px); padding: 1px 7px; background: var(--wc-theme-accent, #333); color: var(--wci-on-accent, #fff); font-size: 12px; }
+.wc-npc-entry { box-sizing: border-box; text-align: left; transition: background .15s, box-shadow .15s; }
+.wc-npc-entry > i { flex: none; width: 28px; text-align: center; }
+.wc-npc-entry > span:last-child { color: var(--wc-theme-muted, #888); }
+.wc-npc-entry > b { flex: none; min-width: 20px; text-align: center; }
+.wc-npc-entry:focus-visible { outline: 2px solid var(--wc-theme-accent); outline-offset: -3px; }
+.wc-npc-entry:active { background: var(--wc-theme-search, #f5f5f5); }
+
+/* Contacts shortcuts use the same geometry as each theme's neighbouring rows. */
+#app-wechat-window.wc-ui-theme-qq .wc-npc-entry { width: calc(100% - 26px); margin: 5px 13px 12px; padding: 12px 13px; border: 0; border-radius: 16px; min-height: 58px; font-size: 14px; font-weight: 740; }
+#app-wechat-window.wc-ui-theme-telegram .wc-npc-entry { width: 100%; margin: 0 0 12px; border: 0; border-radius: 19px; padding: 14px; min-height: 60px; font-weight: 650; box-shadow: 0 1px 0 rgba(15,23,42,.035); }
+#app-wechat-window.wc-ui-theme-telegram .wc-npc-entry > i { width: 34px; height: 34px; line-height: 34px; background: color-mix(in srgb, var(--wc-theme-accent) 10%, var(--wc-theme-card)); border-radius: 12px; }
+#app-wechat-window.wc-ui-theme-rednote .wc-npc-entry { width: calc(100% - 24px); margin: 10px 12px; border: 1px solid var(--wc-theme-border); border-radius: 18px; font-weight: 600; }
+#app-wechat-window.wc-ui-theme-claude .wc-npc-entry { width: calc(100% - 32px); margin: 12px 16px 4px; border: 1px solid var(--wc-theme-border); border-radius: 12px; background: var(--wc-theme-content); }
+#app-wechat-window.wc-ui-theme-pixel .wc-npc-entry { width: calc(100% - 20px); min-height: 46px; margin: 10px; padding: 10px 12px; border: 1px solid var(--wc-theme-border); border-radius: 1px; background: var(--wc-theme-bg); box-shadow: var(--wci-control-shadow); }
+#app-wechat-window.wc-ui-theme-pixel .wc-npc-entry:active { box-shadow: var(--pixel-sunken); }
+#app-wechat-window.wc-ui-theme-couple .wc-npc-entry { width: calc(100% - 28px); margin: 12px 14px 0; padding: 16px 20px; min-height: 66px; font-size: 16px; font-weight: 680; }
+#app-wechat-window.wc-ui-theme-couple .wc-npc-entry > i { font-size: 28px; }
+#app-wechat-window.wc-ui-theme-couple .wc-npc-entry > b { border-radius: 999px; }
+#app-wechat-window.wc-ui-theme-couple .wc-npc-entry,
+[data-wechat-ui-theme="couple"] #bynd-npc-friends :is(.wc-npc-row, .wc-npc-detail-person, .wc-npc-verification, .wc-npc-menu, .wc-npc-error) {
+    border: 1px solid var(--wci-glass-border);
+    border-radius: var(--wci-glass-radius);
+    background: var(--wci-glass-background);
+    box-shadow: var(--wci-glass-shadow);
+    backdrop-filter: var(--wci-glass-blur); -webkit-backdrop-filter: var(--wci-glass-blur);
+}
+#app-wechat-window.wc-ui-theme-couple .wc-npc-entry:active { background: rgba(255,255,255,.38); }
 
 /* Theme geometry reuses the interaction system; only structural differences live here. */
 [data-wechat-ui-theme="wechat"] #bynd-npc-friends { --npc-avatar-radius: 6px; }
@@ -64,15 +91,25 @@
 [data-wechat-ui-theme="douyin"] #bynd-npc-friends,
 [data-wechat-ui-theme="rednote"] #bynd-npc-friends { --npc-avatar-radius: 50%; }
 [data-wechat-ui-theme="telegram"] #bynd-npc-friends .wc-npc-header button { color: var(--wci-accent); }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends { background: #eef1f5; }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends .wc-npc-body { border: 0; }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends .wc-npc-group > h3 { border: 0; background: transparent; }
+[data-wechat-ui-theme="telegram"] #bynd-npc-friends .wc-npc-row { margin: 8px 14px; border: 0; border-radius: 19px; box-shadow: 0 1px 0 rgba(15,23,42,.035); }
 [data-wechat-ui-theme="hallowrok"] #bynd-npc-friends .wc-npc-search input,
 [data-wechat-ui-theme="hallowrok"] #bynd-npc-friends .wc-npc-accept { border-radius: 24px; }
 [data-wechat-ui-theme="rednote"] #bynd-npc-friends .wc-npc-row { margin: 8px 12px; border: 1px solid var(--wci-border); border-radius: var(--wci-radius); }
 [data-wechat-ui-theme="claude"] #bynd-npc-friends .wc-npc-row { background: transparent; }
 [data-wechat-ui-theme="couple"] #bynd-npc-friends { background-color: var(--wci-content); background-image: linear-gradient(160deg, var(--wci-content), var(--wci-tint)); }
 [data-wechat-ui-theme="couple"] #bynd-npc-friends :is(.wc-npc-avatar, .wc-npc-row > .wc-npc-accept) { color: color-mix(in srgb, var(--wci-accent) 55%, var(--wci-text)); }
-[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-header,
-[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-row { backdrop-filter: var(--wci-blur); -webkit-backdrop-filter: var(--wci-blur); }
-[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-row { margin: 10px 12px; border: 1px solid var(--wci-border); border-radius: var(--wci-radius); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-header { backdrop-filter: var(--wci-glass-blur); -webkit-backdrop-filter: var(--wci-glass-blur); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-body { border: 0; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-group > h3 { padding: 6px 18px; border: 0; background: transparent; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-row { margin: 10px 14px; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-search { margin: 12px 14px; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-search input { border-radius: 999px; background: rgba(255,255,255,.34); box-shadow: 0 10px 24px rgba(72,50,45,.08), inset 0 1px 0 rgba(255,255,255,.38); backdrop-filter: var(--wci-glass-blur); -webkit-backdrop-filter: var(--wci-glass-blur); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-detail { padding: 18px 14px calc(24px + env(safe-area-inset-bottom, 0px)); }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-detail-person { padding: 18px; margin-bottom: 12px; }
+[data-wechat-ui-theme="couple"] #bynd-npc-friends .wc-npc-verification { padding: 18px; }
 [data-wechat-ui-theme="pixel"] #bynd-npc-friends,
 [data-wechat-ui-theme="pixel"] .wc-npc-entry { font-family: 'Courier New', 'Microsoft YaHei', monospace; }
 [data-wechat-ui-theme="pixel"] #bynd-npc-friends .wc-npc-header { color: var(--wci-accent); box-shadow: inset 0 -2px var(--wci-accent); }

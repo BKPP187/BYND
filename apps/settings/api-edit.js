@@ -124,7 +124,13 @@ function saveApi() {
         if (newApi.imageModel && !data.imageDefaultId) data.imageDefaultId = newApi.id;
     }
 
-    saveApiData(data);
+    try {
+        saveApiData(data);
+    } catch (error) {
+        const result = document.getElementById('api-test-result');
+        if (result) result.innerHTML = `<span style="color:#b54747;">保存失败：${escapeHtml(error.message || '存储空间不足，请清理后重试')}</span>`;
+        return false;
+    }
     closeApiModal();
     renderApiList();
 }

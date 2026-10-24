@@ -37,3 +37,7 @@
 .bynd-jev-log li span{color:#8a8292}.bynd-jev-log li b{color:#3f3749;font-size:12px}.bynd-jev-log li small{color:#a39aab}
 .bynd-jev-log li.is-applied{border-color:#cfe9d8;background:#f5fbf7}.bynd-jev-log li.is-applied small{color:#3f9a62}
 .bynd-jev-log li.is-empty{color:#8a8292;text-align:center}
+
+.bynd-jev-log-title{display:flex;align-items:baseline;gap:6px}.bynd-jev-log-title small{margin-left:0}
+.bynd-jev-log-clear{margin-left:auto;padding:4px 2px;border:0;background:none;color:#8a8292;font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.bynd-jev-log-summary{margin:6px 0 0;color:#8a8292;font-size:12px}.bynd-jev-log-summary:empty{display:none}

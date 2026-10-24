@@ -124,7 +124,7 @@ export default {
       if (getPinnedApiProxy(url)) {
         return wisartJsonResponse(url, request.headers.get('Origin'), 500, 'proxy request failed');
       }
-      return corsResponse({ ok: false, error: error.message || String(error) }, error.status || 500);
+      return corsResponse({ ok: false, error: error.message || String(error), ...(error.code ? { code: error.code } : {}) }, error.status || 500);
     }
   },
 
@@ -527,9 +527,40 @@ async function handleSubscribe(request, env) {
     throw Object.assign(new Error('push endpoint not allowed'), { status: 400 });
   }
   const clientId = normalizeClientId(payload.clientId);
-  const record = normalizeRecord(payload);
+  const existing = await getRecord(env, clientId);
+  // A device owns its record through a secret issued on first subscribe. Only the hash is
+  // stored. Records created before secrets existed are claimed by their next subscribe.
+  let issuedSecret = null;
+  let secretHash = existing?.secretHash || null;
+  if (secretHash) {
+    await requireClientSecret(payload.clientSecret, secretHash);
+  } else {
+    issuedSecret = randomClientSecret();
+    secretHash = await hashClientSecret(issuedSecret);
+  }
+  const record = { ...normalizeRecord(payload), secretHash };
   await putRecord(env, clientId, record);
-  return { ok: true, clientId };
+  return issuedSecret ? { ok: true, clientId, clientSecret: issuedSecret } : { ok: true, clientId };
+}
+
+const CLIENT_SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+function randomClientSecret() {
+  return base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+async function hashClientSecret(secret) {
+  return base64UrlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('bynd-push-client:' + secret))));
+}
+
+async function requireClientSecret(supplied, secretHash) {
+  const actual = CLIENT_SECRET_PATTERN.test(String(supplied || '')) ? await hashClientSecret(supplied) : '';
+  // Compare fixed-length digests without an early exit.
+  const a = new TextEncoder().encode(actual.padEnd(secretHash.length, '\0'));
+  const b = new TextEncoder().encode(secretHash);
+  let mismatch = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) mismatch |= a[i] ^ b[i];
+  if (mismatch !== 0) throw Object.assign(new Error('client secret mismatch'), { status: 403, code: 'client_secret_mismatch' });
 }
 
 async function proxyCodexPets(request, url) {
@@ -625,10 +656,12 @@ function getFontContentType(pathname) {
 }
 
 async function handleContact(request, env) {
-  const payload = await request.json();
+  // Same size limit as /subscribe; request.json() would buffer any body size.
+  const payload = JSON.parse(new TextDecoder().decode(await readMcpRequestBody(request, SUBSCRIBE_MAX_BYTES)));
   const clientId = normalizeClientId(payload.clientId);
   const record = await getRecord(env, clientId);
   if (!record) return { ok: false, error: 'subscription not found' };
+  if (record.secretHash) await requireClientSecret(payload.clientSecret, record.secretHash);
 
   const charId = String(payload.charId || '').trim();
   if (!charId) return { ok: false, error: 'missing charId' };

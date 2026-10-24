@@ -118,9 +118,13 @@ function renderBubblePresetDropdown(selectedCss) {
     const sel = document.getElementById('wcs-bubble-preset');
     if (!sel) return;
     const all = getAllBubblePresets();
-    sel.innerHTML = all.map(p =>
-        `<option value="${p.id}">${p.name}</option>`
-    ).join('');
+    // User and imported preset names are untrusted text; never parse them as HTML.
+    sel.replaceChildren(...all.map(p => {
+        const option = document.createElement('option');
+        option.value = String(p.id ?? '');
+        option.textContent = String(p.name ?? '');
+        return option;
+    }));
     // 找到匹配当前CSS的预设
     const match = all.find(p => p.css.replace(/\s+/g, '') === (selectedCss || '').replace(/\s+/g, ''));
     sel.value = match ? match.id : 'default';

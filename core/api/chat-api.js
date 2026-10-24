@@ -1346,6 +1346,8 @@ function buildSystemPrompt(char) {
     // Only authorized, fresh life summaries; never attach the raw device records.
     const lifeState = !isGroupChat && typeof window !== 'undefined' ? window.ByndLifeState?.prompt?.(char) : '';
     if (lifeState) prompt += `- ${lifeState}\n`;
+    const channelContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndDiscoverStory?.chatPrompt?.(char) : '';
+    if (channelContext) prompt += channelContext;
     const cycleContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndMoon?.prompt?.(char) : '';
     if (cycleContext) prompt += `- ${cycleContext}\n`;
     if (typeof window !== 'undefined' && typeof window.buildProactiveNotifyPromptContext === 'function') {
@@ -1654,7 +1656,7 @@ function getChatApiStreamChunkText(value) {
     return '';
 }
 
-async function readChatApiEventStream(response, onDelta) {
+async function readChatApiEventStream(response, onDelta, onChunk) {
     if (!response?.body || typeof response.body.getReader !== 'function') throw new Error('接口没有返回可读取的流');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -1699,6 +1701,8 @@ async function readChatApiEventStream(response, onDelta) {
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        // Any received bytes prove the connection is alive; the caller resets its idle timer.
+        try { onChunk?.(); } catch (_) {}
         buffer += decoder.decode(value, { stream: true });
         consumeCompleteEvents();
     }
@@ -1835,7 +1839,7 @@ async function callChatApi(messages, options = {}) {
     let responseContent = '';
     let requestSettled = false;
     const requestStartedAt = Date.now();
-    const finishUsage = (error = '') => {
+    const finishUsage = (error = '', { skipLedger = false } = {}) => {
         const firstSettle = !requestSettled;
         if (!requestSettled) {
             requestSettled = true;
@@ -1843,32 +1847,43 @@ async function callChatApi(messages, options = {}) {
             chatApiRequestActivity.lastAt = Date.now();
         }
         if (usageRecord) window.ByndApiTicket.finishRequest(usageRecord, responseUsage, responseContent, error);
-        if (firstSettle) recordChatApiLedgerEntry({ api, configuredBaseUrl, model: params.model, options, usageRecord, responseUsage, responseContent, error, startedAt: requestStartedAt });
+        if (firstSettle && !skipLedger) recordChatApiLedgerEntry({ api, configuredBaseUrl, model: params.model, options, usageRecord, responseUsage, responseContent, error, startedAt: requestStartedAt });
     };
     chatApiRequestActivity.inFlight += 1;
     chatApiRequestActivity.lastAt = Date.now();
+    // The timeout is an inactivity limit, not a cap on the whole reply: it covers the wait
+    // for response headers, then restarts whenever streamed bytes arrive. A long streamed
+    // answer that keeps producing text is never cut off at 90 seconds.
     const timeoutMs = 90000;
-    let timeoutSignal;
-    let requestController;
+    // Minimal embedders (tests, very old WebViews) may lack these; requests still run without a timer.
+    const requestController = typeof AbortController === 'function' ? new AbortController() : null;
+    const canTime = !!requestController && typeof setTimeout === 'function' && typeof clearTimeout === 'function';
+    let timeoutId = null;
+    let timedOut = false;
     let diagnosticStage = 'request';
     let diagnosticHttpStatus = null;
     const abortRequest = () => requestController?.abort();
+    const clearRequestTimeout = () => { if (canTime && timeoutId !== null) clearTimeout(timeoutId); timeoutId = null; };
+    const armTimeout = () => {
+        if (!canTime) return;
+        clearRequestTimeout();
+        timeoutId = setTimeout(() => { timedOut = true; requestController.abort(); }, timeoutMs);
+    };
     try {
-        timeoutSignal = AbortSignal.timeout(timeoutMs);
         if (options.signal) {
-            requestController = new AbortController();
             options.signal.addEventListener('abort', abortRequest, { once: true });
-            timeoutSignal?.addEventListener('abort', abortRequest, { once: true });
             if (options.signal.aborted) abortRequest();
         }
+        armTimeout();
         const resp = await fetch(baseUrl + '/chat/completions', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(params),
-            signal: requestController?.signal || timeoutSignal
+            signal: requestController?.signal
         });
         diagnosticHttpStatus = resp.status;
         diagnosticStage = 'response';
+        armTimeout();
 
         if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
@@ -1891,8 +1906,11 @@ async function callChatApi(messages, options = {}) {
                 ? '。当前聊天模型可能不支持图片识别，请在设置里换成支持视觉输入的聊天模型，或给这个站点选择支持图片的模型。'
                 : '';
             const rateLimitHint = retryAfterMs > 0 ? `；接口要求等待约 ${formatChatApiRateLimitPause(retryAfterMs)}` : '';
-            finishUsage(`HTTP ${resp.status}: ${detailText.slice(0, 120)}`);
-            if (useStream && params.stream_options && resp.status === 400 && /stream_options|include_usage/i.test(detailText)) {
+            const retryWithoutStreamUsage = useStream && params.stream_options && resp.status === 400 && /stream_options|include_usage/i.test(detailText);
+            // The compatibility retry records its own ledger entry; do not bill this attempt twice.
+            finishUsage(`HTTP ${resp.status}: ${detailText.slice(0, 120)}`, { skipLedger: retryWithoutStreamUsage });
+            if (retryWithoutStreamUsage) {
+                clearRequestTimeout();
                 return callChatApi(messages, { ...options, skipStreamUsageOption: true });
             }
             return {
@@ -1914,7 +1932,7 @@ async function callChatApi(messages, options = {}) {
         let finishReason = '';
         if (streamResponse) {
             diagnosticStage = 'stream';
-            const streamed = await readChatApiEventStream(resp, options.onStreamDelta);
+            const streamed = await readChatApiEventStream(resp, options.onStreamDelta, armTimeout);
             rawContent = streamed.content;
             finishReason = streamed.finishReason;
             responseUsage = streamed.usage;
@@ -1930,6 +1948,7 @@ async function callChatApi(messages, options = {}) {
                 try { options.onStreamDelta(rawContent, rawContent); } catch (error) { console.warn('流式界面更新已忽略', error); }
             }
         }
+        clearRequestTimeout();
         responseContent = rawContent;
         finishUsage();
         let content = cleanChatApiVisibleContent(rawContent);
@@ -1940,6 +1959,8 @@ async function callChatApi(messages, options = {}) {
                 stream: false,
                 onStreamDelta: null,
                 skipEmptyLengthRetry: true,
+                skipLengthContinuation: true,
+                skipStatusValidationRetry: true,
                 max_tokens: getChatApiEmptyLengthRetryTokens(params.max_tokens)
             });
             if (retryResult && retryResult.ok) return retryResult;
@@ -1975,6 +1996,7 @@ async function callChatApi(messages, options = {}) {
                 ...options,
                 stream: false,
                 onStreamDelta: null,
+                skipEmptyLengthRetry: true,
                 skipLengthContinuation: true,
                 skipStatusValidationRetry: true,
                 max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_LENGTH_CONTINUATION_MIN_TOKENS)
@@ -1998,6 +2020,8 @@ async function callChatApi(messages, options = {}) {
                 ...options,
                 stream: false,
                 onStreamDelta: null,
+                skipEmptyLengthRetry: true,
+                skipLengthContinuation: true,
                 skipStatusValidationRetry: true,
                 max_tokens: Math.max(Number(params.max_tokens) || 0, CHAT_API_STATUS_MIN_COMPLETION_TOKENS)
             });
@@ -2021,12 +2045,12 @@ async function callChatApi(messages, options = {}) {
         if (options.signal?.aborted) {
             return { ok: false, cancelled: true, errorSource: 'client', error: '本次请求已取消。' };
         }
-        const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
-        const msg = isTimeout ? '请求超时（90秒），未收到完整回复。请重试；如果仍超时，请检查接口或换更快的模型。' : (e.message || '网络错误');
+        const isTimeout = timedOut || e.name === 'AbortError' || e.name === 'TimeoutError' || /timed out|timeout/i.test(e.message || '');
+        const msg = isTimeout ? '请求超时（90秒内没有收到新内容），未收到完整回复。请重试；如果仍超时，请检查接口或换更快的模型。' : (e.message || '网络错误');
         return { ok: false, timedOut: isTimeout, errorSource: 'client', error: msg + getChatApiNetworkHint(baseUrl, msg) };
     } finally {
+        clearRequestTimeout();
         options.signal?.removeEventListener('abort', abortRequest);
-        timeoutSignal?.removeEventListener('abort', abortRequest);
     }
 }
 

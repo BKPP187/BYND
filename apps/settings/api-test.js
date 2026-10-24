@@ -65,6 +65,21 @@ async function doTestApi(baseUrl, apiKey) {
     return { ...bestFailure, attempts, error: `${bestFailure.error}${candidates.length > 1 ? '（已检查常见接口路径）' : ''}` };
 }
 
+// Pull a short human reason out of an error response ({error:{message}}, {message}, {detail} or plain text).
+async function readSettingsApiErrorReason(resp) {
+    let text = '';
+    try { text = await resp.text(); } catch (_) { return ''; }
+    let reason = '';
+    try {
+        const json = JSON.parse(text);
+        const error = json && json.error;
+        reason = (error && typeof error === 'object' ? error.message : error) || json.message || json.detail || json.msg || '';
+    } catch (_) {
+        reason = /<\s*html|<!doctype/i.test(text) ? '' : text;
+    }
+    return String(reason || '').replace(/\s*\(request id:[^)]*\)\s*/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+}
+
 async function testApiModelsAtBaseUrl(baseUrl, apiKey) {
     baseUrl = baseUrl.replace(/\/+$/, '');
     const requestBaseUrl = resolveByndApiBaseUrl(baseUrl);
@@ -95,8 +110,16 @@ async function testApiModelsAtBaseUrl(baseUrl, apiKey) {
             // Model IDs are choices, not evidence of chat or image capability.
             return { ok: true, detail: `已获取 ${models.length} 个模型；聊天和生图尚未实测。`, models, chatModel: '', chatVerified: false };
         }
-        if (resp.status === 401) return { ok: false, status: 401, error: '接口要求身份验证或 API Key 无效 (401)', models: [] };
-        if (resp.status === 403) return { ok: false, status: 403, error: '没有权限或访问受限 (403)', models: [] };
+        if (resp.status === 401 || resp.status === 403) {
+            // Relays explain the rejection (expired, disabled, out of quota, IP not allowed); show it.
+            const reason = await readSettingsApiErrorReason(resp);
+            const label = resp.status === 401 ? '接口拒绝了这个 API Key (401)' : '没有权限或访问受限 (403)';
+            return {
+                ok: false, status: resp.status, models: [],
+                error: reason ? `${label}：${reason}` : label,
+                hint: resp.status === 401 ? '中转站要用「令牌 / API Keys」页面创建的 Key（通常 sk- 开头），不是登录密码或个人设置里的系统访问令牌；也请确认令牌没有过期、停用或用完额度，复制时没有多带空格。' : ''
+            };
+        }
         return { ok: false, status: resp.status, error: `HTTP ${resp.status}`, models: [] };
     } catch (e) {
         const msg = (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message === 'The operation was aborted') ? '连接超时' : (e.message || '无法连接');

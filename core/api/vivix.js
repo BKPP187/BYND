@@ -8,6 +8,31 @@
     const el = id => document.getElementById('vivix-' + id);
     const active = call => window._wechatActiveCall === call && !call.ended;
     let revision = 0, testing = false, sdkPromise;
+    let voices = [], voiceAccount = null;
+    // Official Qwen Audio built-ins are usable directly but are not necessarily
+    // returned by /v1/voices. Keep provider/model defaults for these IDs.
+    // https://docs.vivix.ai/streaming-avatar/character/voice
+    const builtinVoices = [
+        ['longanfengyue', '龙安风悦', '女声', '自然亲切'],
+        ['longanyuanfei', '龙安元妃', '女声', '端庄有气场'],
+        ['longanlingxi', '龙安灵希', '女声', '甜美明亮'],
+        ['longanxiaoxin', '龙安小昕', '女声', '亲切活泼'],
+        ['longanhuan_v3.6', '龙安欢', '女声', '活泼俏皮'],
+        ['longjielidou_v3.6', '龙杰力豆', '男声', '男童声线'],
+        ['longpaopao_v3.6', '龙泡泡', '女声', '柔软女童声线'],
+        ['longhuohuo_v3.6', '龙火火', '男声', '活泼少年声线'],
+        ['longchuanshu_v3.6', '龙川叔', '男声', '成熟四川口音'],
+        ['loongmary', 'Mary', '女声', '温暖英式英语'],
+        ['loongeva_v3.6', 'Eva', '女声', '沉稳美式英语'],
+        ['loongjohn', 'John', '男声', '温和美式英语']
+    ].map(([voice_id, name, gender, style]) => ({ voice_id, name, gender, style }));
+    const accountVoices = () => voices.filter(voice => !builtinVoices.some(item => item.voice_id === voice.voice_id));
+    const voiceChoices = () => voiceAccount ? builtinVoices.concat(accountVoices()) : [];
+    function voiceGender(value) {
+        const gender = String(value || '').trim().toLowerCase();
+        return ['male', '男', '男声'].includes(gender) ? '男声'
+            : ['female', '女', '女声'].includes(gender) ? '女声' : '性别未提供';
+    }
     const pendingClosures = new Set();
 
     function normalize(value = {}) {
@@ -58,6 +83,7 @@
             if (el('provider')) el('provider').value = config.defaultProvider;
             if (el('sound')) el('sound').value = config.soundSource;
             soundSettingsChanged(false);
+            renderVoices();
             el('key').type = 'password';
             status(config.apiKey ? (config.defaultProvider === 'vivix' ? '已保存 · 跟随全局设置的角色使用 Vivix。' : '已保存 · 默认使用普通视频电话。') : '填写自己的 Vivix API Key，再测试并保存。');
             if (pendingClosures.size) status('仍有会话关闭未确认，请重试关闭或到平台检查。', true);
@@ -73,7 +99,37 @@
         try { localStorage.removeItem(storageKey); renderSettings(); status('已清除本机 Vivix 密钥。'); }
         catch (_) { status('清除失败，请重试。', true); }
     }
-    function changed() { revision++; status('已修改，保存后生效。'); }
+    function changed() { revision++; renderVoices(); status('已修改，保存后生效。'); }
+    function renderVoices() {
+        const list = el('voices');
+        if (!list) return;
+        let config;
+        try { config = normalize(draft()); } catch (_) { /* Incomplete address while editing. */ }
+        if (!config || config.baseUrl !== voiceAccount?.baseUrl || config.apiKey !== voiceAccount?.apiKey) {
+            voices = []; voiceAccount = null;
+        }
+        list.replaceChildren();
+        const choices = voiceChoices();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = testing ? '正在查询音色…' : choices.length ? '选择音色' : '测试连接后选择音色';
+        list.appendChild(placeholder);
+        choices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.voice_id;
+            const name = voice.name || '未命名账号音色';
+            option.textContent = `${name.length > 24 ? name.slice(0, 23) + '…' : name} · ${voice.gender}${voice.style ? ' · ' + voice.style : ''}`;
+            list.appendChild(option);
+        });
+        list.disabled = testing || !choices.length;
+        list.value = choices.some(voice => voice.voice_id === el('voice')?.value) ? el('voice').value : '';
+    }
+    function selectVoice() {
+        const list = el('voices');
+        if (list?.disabled || !voiceChoices().some(voice => voice.voice_id === list?.value)) return;
+        el('voice').value = list.value;
+        changed();
+    }
     function soundSettingsChanged(mark = true) {
         const source = el('sound')?.value || 'vivix';
         el('voice-field')?.classList.toggle('hidden', source !== 'vivix');
@@ -91,6 +147,26 @@
         let text = String(error?.message || error || 'Vivix 连接失败。');
         if (config?.apiKey) text = text.split(config.apiKey).join('[密钥已隐藏]');
         return text.replace(/(?:ctl_|Bearer\s+)\S+/gi, '[凭据已隐藏]').slice(0, 200);
+    }
+    async function sceneImage(prompt, options, opening = false) {
+        let result;
+        try { result = await callWechatImageGenerationApi(prompt, options); }
+        catch (error) { result = { ok: false, error: error?.message || String(error) }; }
+        if (result?.ok && typeof result.url === 'string' && result.url.trim()) return result.url;
+        let reason = String(result?.error || '生图接口未返回可用图片。');
+        // The image and chat APIs may use different keys from Vivix. Redact all
+        // known keys before shortening the provider's reason for the call UI.
+        for (const readConfig of [typeof getDefaultImageApi === 'function' ? getDefaultImageApi : null,
+            typeof getDefaultApi === 'function' ? getDefaultApi : null, read]) {
+            try { const key = readConfig?.()?.apiKey; if (key) reason = reason.split(key).join('[密钥已隐藏]'); }
+            catch (_) { /* Configuration may have changed while the image was pending. */ }
+        }
+        if (typeof getWechatImageApiErrorDetails === 'function') reason = getWechatImageApiErrorDetails(reason).message;
+        reason = errorText(reason).slice(0, 100);
+        const code = Number(result?.status);
+        if (code >= 400 && code <= 599 && !reason.includes(String(code))) reason = `HTTP ${code}：` + reason;
+        throw new Error(opening ? '开场场景生成失败：' + reason + '；未创建 Vivix 会话。可关闭“按当前剧情生成开场场景”，用原参考图重拨。'
+            : '新场景生成失败：' + reason + '；当前画面保持不变。');
     }
     async function request(config, path, body, signal) {
         const controller = new AbortController();
@@ -133,18 +209,22 @@
     async function testSettings() {
         if (testing) return;
         testing = true; el('test').disabled = true;
+        voices = []; voiceAccount = null; renderVoices();
         const rev = ++revision;
         status('正在查询可用音色…');
         try {
             const config = normalize(draft());
             if (!config.apiKey) throw new Error('请先填写 Vivix API Key。');
             const data = await request(config, '/v1/voices');
-            if (!Array.isArray(data.voices)) throw new Error('接口未返回有效音色列表。');
-            const list = el('voices'); list.replaceChildren();
-            data.voices.forEach(voice => { const opt = document.createElement('option'); opt.value = voice.voice_id; opt.label = voice.name || voice.voice_id; list.appendChild(opt); });
-            if (rev === revision) status('连接成功 · ' + data.voices.length + ' 个音色。测试未创建付费会话。');
+            if (!Array.isArray(data.voices) || data.voices.some(voice => !voice || typeof voice.voice_id !== 'string' || !voice.voice_id.trim())) throw new Error('接口未返回有效音色列表。');
+            if (rev === revision) {
+                voices = data.voices.map(voice => ({ voice_id: voice.voice_id.trim(), name: typeof voice.name === 'string' ? voice.name.trim() : '',
+                    gender: voiceGender(voice.gender) }));
+                voiceAccount = { baseUrl: config.baseUrl, apiKey: config.apiKey };
+                status(`连接成功 · ${builtinVoices.length} 个内置音色，${accountVoices().length} 个账号音色。测试未创建付费会话。`);
+            }
         } catch (error) { if (rev === revision) status(errorText(error, draft()), true); }
-        finally { testing = false; el('test').disabled = false; }
+        finally { testing = false; el('test').disabled = false; renderVoices(); }
     }
     function selected(char) {
         const provider = char?.chatConfig?.videoCallProvider;
@@ -185,7 +265,13 @@
         const source = String(text || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
         let value;
         try { value = JSON.parse(source); }
-        catch (_) { throw new Error('聊天模型没有返回有效 JSON，请重试或换用支持结构化输出的模型。'); }
+        catch (_) {
+            // Accept a single complete object wrapped in prose, a code fence or
+            // <content>. Never guess truncated JSON or choose between objects.
+            const wrapped = source.match(/^[^\[{]*(\{[\s\S]*\})[^\]}]*$/);
+            try { value = JSON.parse(wrapped ? wrapped[1] : ''); }
+            catch (_) { throw new Error('聊天模型没有返回有效 JSON，请重试或换用支持结构化输出的模型。'); }
+        }
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('角色未返回有效的场景或动作，请重试。');
         return value;
     }
@@ -200,15 +286,23 @@
     }
     async function scriptChat(messages, call, char, stage, scene = false) {
         const api = typeof getDefaultApi === 'function' ? getDefaultApi() : null;
-        const result = await callChatApi(messages, { ...(api ? { apiOverride: api } : {}),
+        const options = { ...(api ? { apiOverride: api } : {}), presetOverride: null,
             usageFeature: 'chat', usageChar: char, signal: scene ? call.vivix.controller.signal : call.requestController.signal,
             stream: false, skipStatusValidationRetry: true, skipLengthContinuation: true,
-            ...(scene ? { presetOverride: null, temperature: 0.2, max_tokens: 2048 } : {}) });
-        if (!active(call)) return null;
-        if (!result?.ok) throw new Error(stage + '：' + errorText(result?.error || '聊天接口未返回结果，请重试。', api));
-        if (/length|max_(?:output_)?tokens/i.test(result.finishReason || '')) throw new Error(stage + '：聊天模型输出被截断，请增加输出额度或换用模型。');
-        try { return parseJson(result.content); }
-        catch (error) { throw new Error(stage + '：' + error.message); }
+            ...(scene ? { temperature: 0.2, max_tokens: 2048 } : {}) };
+        let requestMessages = messages;
+        for (let attempt = 0; attempt < (scene ? 1 : 2); attempt++) {
+            const result = await callChatApi(requestMessages, options);
+            if (!active(call)) return null;
+            if (!result?.ok) throw new Error(stage + '：' + errorText(result?.error || '聊天接口未返回结果，请重试。', api));
+            if (/length|max_(?:output_)?tokens/i.test(result.finishReason || '')) throw new Error(stage + '：聊天模型输出被截断，请增加输出额度或换用模型。');
+            try { return parseJson(result.content); }
+            catch (error) {
+                if (scene || attempt || options.signal?.aborted) throw new Error(stage + '：' + error.message);
+                requestMessages = messages.concat({ role: 'assistant', content: result.content }, { role: 'system',
+                    content: '上一次回复格式不正确。保持刚才的角色台词含义，按本轮视频电话要求重新输出一个完整 JSON 对象，包含 speech、action、scene、endCall。不要解释，不输出微信指令、状态栏、HTML 或 JSON 外的正文。' });
+            }
+        }
     }
     async function imageUrl(config, source, signal) {
         if (/^https:\/\//i.test(source)) return source;
@@ -352,11 +446,10 @@
             state.scene = scene;
             let image = char.chatConfig.imageReference;
             if (config.prepareScene) {
-                const generated = await callWechatImageGenerationApi('依据参考图保持角色身份，生成当前视频电话的开场画面，竖屏中全景，包含当前服装和环境。禁止任何手机界面、文字或水印。当前剧情：' + scene,
-                    { referenceImage: image, requireReference: true, referenceStyle: 'identity', size: '1024x1536', signal: state.controller.signal });
+                const generated = await sceneImage('依据参考图保持角色身份，生成当前视频电话的开场画面，竖屏中全景，包含当前服装和环境。禁止任何手机界面、文字或水印。当前剧情：' + scene,
+                    { referenceImage: image, requireReference: true, referenceStyle: 'identity', size: '1024x1536', signal: state.controller.signal }, true);
                 if (!active(call)) return;
-                if (!generated.ok || !generated.url) throw new Error('开场场景生成失败，请检查聊天生图接口；未创建 Vivix 会话。');
-                image = generated.url;
+                image = generated;
             }
             const mediaType = imageType(image);
             image = await imageUrl(config, image, state.controller.signal);
@@ -455,12 +548,11 @@
         const state = call.vivix;
         if (!state.config.prepareScene) throw new Error('当前未启用场景生图，无法更换新地点或服装；可在视频电话设置中开启。');
         portraitStatus('正在准备新的场景…');
-        const result = await callWechatImageGenerationApi('保持参考图中的角色身份，生成同一角色在以下新地点/服装中的竖屏中全景，禁止界面、文字、水印：' + scene,
+        const result = await sceneImage('保持参考图中的角色身份，生成同一角色在以下新地点/服装中的竖屏中全景，禁止界面、文字、水印：' + scene,
             { referenceImage: char.chatConfig.imageReference, requireReference: true, referenceStyle: 'identity', size: '1024x1536', signal: state.controller.signal });
         if (!active(call) || state.stopped) throw new Error('通话已结束。');
-        if (!result.ok || !result.url) throw new Error('新场景生成失败，当前画面保持不变，请重试。');
-        const mediaType = imageType(result.url);
-        const image = await imageUrl(state.config, result.url, state.controller.signal);
+        const mediaType = imageType(result);
+        const image = await imageUrl(state.config, result, state.controller.signal);
         const avatarId = 'look-' + crypto.randomUUID();
         await state.queue;
         await changeEvent(call, 'avatar.add', { avatars: [{ avatar_id: avatarId, instructions: String(char.description || '').slice(0, 6000),
@@ -476,8 +568,10 @@
         const state = call.vivix;
         if (!state?.ready || state.stopped) throw new Error('AI 视频尚未就绪，请稍后重试。');
         const messages = buildMessages(char, char.history || []);
-        messages.push({ role: 'system', content: '你正在和用户进行实时视频电话。你继续决定剧情和台词，视频服务仅执行。只返回 JSON {"speech":"要说的口语台词","action":"可见动作，如走到窗边、转头或拿起杯子；可为空","scene":"仅当剧情实际换地点或换服装时填写完整的新画面描述，其他时候留空","endCall":false}。不读出动作，不发送微信工具指令。动作承接上一次位置，普通走动转头拿东西只填 action，不填 scene；要挂断时 endCall=true。\n当前画面：' + state.scene });
         (call.lines || []).filter(line => ['user','assistant'].includes(line.role)).forEach(line => messages.push({ role: line.role, content: line.content }));
+        // Keep identity/memory/history, but give this turn one final output
+        // contract instead of leaving ordinary WeChat formatting in charge.
+        messages.push({ role: 'system', content: '你正在和用户进行实时视频电话。保留前文的人设、记忆、关系与剧情；本轮输出格式以此条为准，替代普通微信的分段、工具、状态栏、正则与 HTML 格式要求。你继续决定剧情和台词，视频服务仅执行。只返回一个完整 JSON 对象 {"speech":"要说的口语台词","action":"可见动作，如走到窗边、转头或拿起杯子；可为空","scene":"仅当剧情实际换地点或换服装时填写完整的新画面描述，其他时候留空","endCall":false}。JSON 外不要输出说明或正文。不读出动作，不发送微信工具指令。动作承接上一次位置，普通走动转头拿东西只填 action，不填 scene；要挂断时 endCall=true。\n当前画面：' + state.scene });
         call.requestController = new AbortController();
         const raw = await scriptChat(messages, call, char, '角色回复失败');
         if (!active(call)) return;
@@ -551,7 +645,111 @@
         if (rtc) { try { await rtc.exitRoom(); } catch (_) {} finally { try { rtc.destroy(); } catch (_) {} } }
         await remoteClose;
     }
+    // Viewer-only broadcast transport. It never takes over the phone-call singleton
+    // and never starts the viewer's microphone or camera.
+    async function openBroadcast(char, options) {
+        const config = read();
+        if (!config.apiKey) throw new Error('未配置实时视频。');
+        config.voiceId = String(char?.chatConfig?.vivixVoiceId || config.voiceId).trim();
+        config.soundSource = soundSource(char, config) === 'vivix' ? 'vivix' : 'silent';
+        if (config.soundSource === 'vivix' && !config.voiceId) throw new Error('视频音色未配置。');
+        let source = String(char?.chatConfig?.imageReference || char?.avatar || '');
+        if (!/^https:\/\//i.test(source) && !/^data:image\/(?:png|jpeg|webp);base64,/i.test(source) && typeof loadWechatAvatarForVision === 'function') source = await loadWechatAvatarForVision(source, 1024);
+        if (!/^https:\/\//i.test(source) && !/^data:image\/(?:png|jpeg|webp);base64,/i.test(source)) throw new Error('视频需要角色参考图，正在改用其他画面。');
+        const state = { config, stopped: false, controller: new AbortController(), queue: Promise.resolve() };
+        let readyResolve, readyReject, readyDone = false, closePromise;
+        const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
+        // The REST create may finish after cancellation; always consume and close its ID.
+        const close = () => {
+            if (closePromise) return closePromise;
+            state.stopped = true; state.controller.abort(); clearTimeout(state.frameTimer);
+            options.signal?.removeEventListener('abort', close);
+            if (!readyDone) { readyDone = true; readyReject(new Error('已离开直播间。')); }
+            state.waiter?.reject(new Error('直播画面已关闭。')); state.ws?.close();
+            const rtc = state.rtc; state.rtc = null;
+            closePromise = Promise.all([closeRemote(state), (async () => { if (rtc) { try { await rtc.exitRoom(); } catch (_) {} finally { try { rtc.destroy(); } catch (_) {} } } })()]);
+            return closePromise;
+        };
+        const fail = error => {
+            if (state.stopped) return;
+            const notify = readyDone;
+            if (!readyDone) { readyDone = true; readyReject(new Error(errorText(error, config))); }
+            void close();
+            if (notify) { try { options.onFailure?.(new Error(errorText(error, config))); } catch (_) { /* Transport cleanup must survive a view-render failure. */ } }
+        };
+        const send = (script) => {
+            const work = state.queue.then(() => new Promise((resolve, reject) => {
+                if (state.stopped || state.ws?.readyState !== 1) return reject(new Error('直播视频连接已断开。'));
+                const timer = setTimeout(() => state.waiter?.reject(new Error('视频画面更新超时。')), 90000);
+                const finish = callback => value => { clearTimeout(timer); state.waiter = null; callback(value); };
+                const eventId = crypto.randomUUID();
+                state.waiter = { eventId, resolve: finish(resolve), reject: finish(reject) };
+                const render = { visual: { prompt: String(script.action || '面向镜头，自然呼吸和回应。').slice(0, 1800) } };
+                if (config.soundSource === 'vivix' && script.speech) render.vocal = { type: 'speech', text: String(script.speech).slice(0, 1400) };
+                try { state.ws.send(JSON.stringify({ event_id: eventId, type: 'response.create', response: { scheduling_policy: 'after_current_response', script: render } })); }
+                catch (error) { state.waiter.reject(error); }
+            }));
+            state.queue = work.catch(error => { fail(error); });
+            return work;
+        };
+        options.signal?.addEventListener('abort', close, { once: true });
+        if (options.signal?.aborted) void close();
+        const start = async () => {
+            try {
+                const SDK = await loadSdk(); if (state.stopped) return;
+                const image = await imageUrl(config, source, state.controller.signal); if (state.stopped) return;
+                const body = sessionBody(char, config, image, String(options.scene || '').slice(0, 1800), imageType(source));
+                body.conversation.input_audio_transcription.enabled = false;
+                const data = await request(config, '/v1/realtime-avatar/sessions', body);
+                state.sessionId = data.session_id;
+                if (!state.sessionId) throw new Error('实时视频没有返回会话。');
+                if (state.stopped) { await closeRemote(state); return; }
+                const controlUrl = new URL(data.control?.url);
+                if (controlUrl.protocol !== 'wss:') throw new Error('视频控制地址无效。');
+                controlUrl.searchParams.set('token', data.control.client_secret);
+                const ws = state.ws = new WebSocket(controlUrl.href);
+                await new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => { ws.close(); reject(new Error('视频连接超时。')); }, 15000);
+                    ws.onopen = () => { clearTimeout(timer); resolve(); };
+                    ws.onerror = ws.onclose = () => { clearTimeout(timer); reject(new Error('视频连接失败。')); };
+                });
+                if (state.stopped) return;
+                ws.onclose = ws.onerror = () => fail(new Error('直播视频连接中断。'));
+                ws.onmessage = event => {
+                    let data; try { data = JSON.parse(event.data); } catch (_) { fail(new Error('视频服务返回格式无效。')); return; }
+                    if (data.type === 'error' || data.type === 'session.closed') { fail(new Error('实时视频服务已停止。')); return; }
+                    if (data.type === 'response.created' && data.request_event_id === state.waiter?.eventId) state.waiter.responseId = data.response?.id;
+                    if (data.type === 'response.done' && state.waiter && (data.request_event_id === state.waiter.eventId || data.response?.id === state.waiter.responseId)) {
+                        if (data.response?.status === 'completed') state.waiter.resolve(); else state.waiter.reject(new Error('视频动作没有完成。'));
+                    }
+                };
+                const media = data.delivery?.media?.trtc;
+                if (!media) throw new Error('视频服务没有返回播放信息。');
+                const rtc = state.rtc = SDK.create();
+                rtc.on(SDK.EVENT.ERROR, () => fail(new Error('视频播放失败。')));
+                rtc.on(SDK.EVENT.AUTOPLAY_FAILED, event => { state.resume = event.resume; options.onBlocked?.(); });
+                rtc.on(SDK.EVENT.REMOTE_VIDEO_AVAILABLE, ({ userId, streamType }) => {
+                    if (state.stopped || userId !== media.publisher_user_id) return;
+                    rtc.startRemoteVideo({ userId, streamType, view: options.view }).catch(fail);
+                });
+                rtc.on(SDK.EVENT.FIRST_VIDEO_FRAME, ({ userId }) => {
+                    if (state.stopped || userId !== media.publisher_user_id || readyDone) return;
+                    readyDone = true; clearTimeout(state.frameTimer);
+                    readyResolve({ close, perform: send, hasSound: config.soundSource === 'vivix',
+                        resume: async () => { await state.resume?.(); state.resume = null; },
+                        sound: enabled => rtc.muteRemoteAudio('*', !enabled) });
+                });
+                state.frameTimer = setTimeout(() => fail(new Error('未收到视频画面。')), 45000);
+                await rtc.muteRemoteAudio('*', true);
+                await rtc.enterRoom({ sdkAppId: Number(media.sdk_app_id), userId: media.user_id, userSig: media.user_sig, strRoomId: media.room_id,
+                    scene: SDK.TYPE.SCENE_RTC, autoReceiveVideo: false, autoReceiveAudio: config.soundSource === 'vivix' });
+                if (state.stopped) { try { await rtc.exitRoom(); } finally { rtc.destroy(); } }
+            } catch (error) { fail(error); }
+        };
+        void start();
+        return ready;
+    }
     window.ByndVivix = { storageKey, defaultUrl, relay, normalize, read, write, renderSettings, saveSettings, clearSettings,
-        changed, soundSettingsChanged, soundSource, testSettings, request, selected, preflight, context, sceneMessages, parseJson, sessionBody, imageUrl, start, perform, reply,
-        stop, toggleControl, resumeSound, retryClose, consumeTranscript, changeScene };
+        changed, selectVoice, soundSettingsChanged, soundSource, testSettings, request, selected, preflight, context, sceneMessages, parseJson, sessionBody, imageUrl, start, perform, reply,
+        stop, toggleControl, resumeSound, retryClose, consumeTranscript, changeScene, openBroadcast };
 })();

@@ -153,3 +153,27 @@ Beds distinguish closed-eye sleep with bedding from awake rest, plus sitting, re
 
 
 Shared furniture menus offer separate solo and together choices for sofas, televisions, dining tables and beds. Both actors require distinct usable anchors and routes; they wait for each other before posing and recording a shared start. Stairs support accompanying a present partner or fetching a partner from another floor. Shared receipts save atomically and suppress autonomous replacement until stopped. Existing close-range feeding and sleep cuddling remain permission- and reach-gated. Shower hands follow measured shoulder/hand IK cycles; a skinned, fitted cloth silhouette with lapels, waistband and articulated sleeves replaces the rigid cover. Whole-home presets now recolor garden structures, cushions, paving, foliage and flowers in normal, surveyed and exterior views. The five bottom actions have equal columns. `check-home3d-shared-browser.cjs` covers these flows and failure paths.
+
+## Dollhouse look and light (1.1.1005)
+
+The default interior preset is `cottage` (奶白原木: white shiplap, wide light-oak planks, round rug, lush greenery); `caramel`, `skylight` and `mint` follow the same bright dollhouse direction. Finish patterns `shiplap`, `paint` and `planks` are painted in `interiors.js`; presets can set `greenery` (`some`/`lush`: hanging planters above head height plus trailing vines) and `roundRug`. Decor variants `palm`, `monstera`, `basket`, `cushions` and `side` are built in `furniture-visuals.js` within the polygon and footprint budgets.
+
+Light: a lower, stronger warm sun with a cool fill and less ambient gives long soft shadows; `atmosphere.js` adds additive sun-shaft ribbons from the window and dust motes that follow daylight (amber at golden hour, hidden at night). Nights use a deep blue backdrop, dimmer cool ambient and stronger lamp point lights, plus additive halo sprites at lamp shades (moved slightly toward the camera so the shade does not hide them). No post-processing pass is used.
+
+## Distinct full-home looks (1.1.1006)
+
+Presets `guofeng`, `nordic` and `retro` carry a `look` key. Furniture in the
+`chinese`, `nordic` and `retro` styles gets its own silhouettes in
+`furniture-visuals.js` (`lookPiece`), keeping catalog seat, mattress and
+pillow heights. `atmosphere.js` adds look-specific wall dressing (moon window,
+scrolls, lanterns / black frames, posters / poster wall, string lights), and
+`Daylight.fixture(materials, small, look)` swaps the ceiling light. Presets may
+set `leftWall` for a second wall finish (red brick, lattice).
+
+## Garden looks, smooth camera and glass UI (1.1.1007)
+
+`Garden.dress()` adds look-specific landscaping (guofeng, nordic, retro) and
+`Garden.palette` has tones for every preset. `RoomCamera` damps first/third
+person look, coasts after release and blends perspective poses for 0.55s;
+orthographic/perspective switches use a zoom-fade on the canvas. The room view
+uses floating glass controls (CSS block at the end of `home3d.css`).

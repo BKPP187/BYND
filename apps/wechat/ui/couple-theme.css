@@ -756,12 +756,12 @@
 #app-wechat-window.wc-ui-theme-couple .wc-me-menu-item,
 #app-wechat-window.wc-ui-theme-couple .wc-me-settings-card,
 #app-wechat-window.wc-ui-theme-couple .wc-me-field-editor-page {
-    border: 1px solid rgba(255,255,255,0.46) !important;
-    border-radius: 22px;
-    background: rgba(255,255,255,0.26) !important;
-    box-shadow: 0 12px 28px rgba(72,50,45,0.09), inset 0 1px 0 rgba(255,255,255,0.36);
-    backdrop-filter: blur(16px) saturate(1.12);
-    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    border: 1px solid var(--wci-glass-border, rgba(255,255,255,0.46)) !important;
+    border-radius: var(--wci-glass-radius, 22px);
+    background: var(--wci-glass-background, rgba(255,255,255,0.26)) !important;
+    box-shadow: var(--wci-glass-shadow, 0 12px 28px rgba(72,50,45,0.09), inset 0 1px 0 rgba(255,255,255,0.36));
+    backdrop-filter: var(--wci-glass-blur, blur(16px) saturate(1.12));
+    -webkit-backdrop-filter: var(--wci-glass-blur, blur(16px) saturate(1.12));
 }
 
 #app-wechat-window.wc-ui-theme-couple .wc-chat-item {

@@ -38,7 +38,7 @@ function element(id) {
     return el;
 }
 
-function harness({ characters, entries = {}, storageFailKey = '', readings = false } = {}) {
+function harness({ characters, entries = {}, storageFailKey = '', readings = false, classroom = false } = {}) {
     const storage = memoryStorage(entries);
     const rawSet = storage.setItem.bind(storage);
     storage.setItem = (key, value) => { if (key === storageFailKey) { const error = new Error('QuotaExceededError'); error.name = 'QuotaExceededError'; throw error; } rawSet(key, value); };
@@ -77,10 +77,27 @@ function harness({ characters, entries = {}, storageFailKey = '', readings = fal
     });
     vm.runInContext(fs.readFileSync(path.join(root,'apps/study/study-language-guides.js'),'utf8'),context);
     if(readings) for(const file of ['assets/vendor/study-thai/readings.js','apps/study/study-reading.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
+    if(classroom) for(const file of ['apps/study/study-thai-rules.js','apps/study/study-thai-classroom.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
     vm.runInContext(source, context);
     ['getStudyCards', 'saveStudyCards', 'getStudyLanguages', 'initStudyApp'].forEach(name => { context[name] = context.window[name]; });
     return { context, S: context.window.ByndStudy, storage, elements, chars, state, inputs, content: () => elements.get('study-content').innerHTML };
 }
+
+test('Thai classroom integrates books, cards and the existing guide without changing other languages',()=>{
+ const h=harness({readings:true,classroom:true,entries:{[KEYS.cards]:JSON.stringify([{id:'miss',lines:{th:'คิดถึง',ja:'会いたい',cn:'想念'}}])}});h.S.init();h.S.openBook('collection');
+ assert.match(h.content(),/ByndStudy.toggleThaiWord/);assert.match(h.content(),/逐字课堂/);assert.match(h.content(),/低辅音.*短元音.*第 4 调/);
+ h.S.setLearningView('thai');assert.match(h.content(),/study-thai-word-input/);assert.match(h.content(),/自己判断拼读/);
+ h.S.setFoundationLang('ja');h.S.setLearningView('guide');assert.doesNotMatch(h.content(),/data-thai-classroom/);assert.match(h.content(),/あ/);
+ h.S.setFoundationLang('th');h.S.setLearningView('cards');assert.match(h.content(),/study-thai-term/);assert.match(h.content(),/详细课堂模式/);
+ h.S.saveSettings({targetIds:['th']});let prompt=h.S.buildTurnMessages(h.chars[0],h.S.getSettings(),{messages:[]},'解释拼读').map(x=>x.content).join('\n');assert.match(prompt,/起始辅音名称.*活死音节/);assert.match(prompt,/模型输出不作为规则引擎/);
+ h.S.saveSettings({targetIds:['ja']});prompt=h.S.buildTurnMessages(h.chars[0],h.S.getSettings(),{messages:[]},'こんにちは').map(x=>x.content).join('\n');assert.doesNotMatch(prompt,/【泰语课堂】/);
+});
+test('Thai lesson audio preserves Thai originals and supplies a slower native rate, with explicit missing-voice failure',()=>{
+ const h=harness(),calls=[];h.S.init();h.context.window.ByndAndroid={stopTts(){},speakText:(text,code,rate)=>{calls.push({text,code,rate});return{status:'queued'};}};
+ assert.equal(h.S.speakThaiLesson('คิดถึง'),true);assert.equal(h.S.speakThaiLesson('คิด',true),true);assert.deepEqual(calls,[{text:'คิดถึง',code:'th-TH',rate:.92},{text:'คิด',code:'th-TH',rate:.65}]);
+ h.context.window.ByndAndroid.speakText=()=>({status:'missing-data'});assert.equal(h.S.speakThaiLesson('คิดถึง'),false);assert.match(h.content(),/还没有安装.*语音/);
+ delete h.context.window.ByndAndroid;h.context.speechSynthesis.getVoices=()=>[];assert.equal(h.S.speakThaiLesson('คิดถึง'),false);assert.match(h.content(),/没有.*系统语音/);assert.equal(h.state.spoken.length,0,'empty voice enumeration must not fall back to another language in a Thai lesson');
+});
 
 async function importPreview(h, fileName = '泰语资料.doc') {
     h.S.init(); h.S.openPdfImport(); h.S.setPdfOption('targetId', 'th');

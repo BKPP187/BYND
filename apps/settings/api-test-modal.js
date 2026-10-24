@@ -1,3 +1,10 @@
+// Status line under API / voice tests: one line icon, no emoji. html must already be escaped.
+function settingsStatusHtml(kind, html) {
+    const icon = kind === 'loading' ? '<span class="set-status-spinner" aria-hidden="true"></span>'
+        : `<i class="${kind === 'ok' ? 'ri-checkbox-circle-line' : kind === 'note' ? 'ri-information-line' : 'ri-error-warning-line'}" aria-hidden="true"></i>`;
+    return `<span class="set-status is-${kind}"${kind === 'error' ? ' role="alert"' : ''}>${icon}<span>${html}</span></span>`;
+}
+
 // 9. 测试 API（从弹窗）— 一次请求同时拿模型列表
 let settingsApiTestRevision = 0;
 
@@ -15,11 +22,11 @@ async function testApiFromModal() {
     const savedImageModel = imageSelectEl.value || '';
 
     if (!baseUrl) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Base URL</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 Base URL');
         return;
     }
 
-    resultEl.innerHTML = '<span style="color:#b7791f;">⏳ 正在识别接口地址和模型...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在识别接口地址和模型...');
     restoreModelSelect();
     restoreImageModelSelect();
     selectEl = document.getElementById('api-edit-model');
@@ -46,7 +53,7 @@ async function testApiFromModal() {
     if (result.baseUrl && (result.ok || result.detected)) document.getElementById('api-edit-url').value = result.baseUrl;
 
     if (result.detected && result.imageOnly) {
-        resultEl.innerHTML = `<span style="color:#b7791f;">${corrected ? '已自动补全接口地址。' : ''}${escapeHtml(result.error)}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('note', `${corrected ? '已自动补全接口地址。' : ''}${escapeHtml(result.error)}`);
         selectEl.innerHTML = '<option value="">不在这个 API 使用聊天</option>';
         selectEl.value = '';
         selectEl.disabled = false;
@@ -61,7 +68,7 @@ async function testApiFromModal() {
     }
 
     if (result.ok) {
-        resultEl.innerHTML = `<span style="color:#66d9a0;">✅ ${corrected ? '已自动补全接口地址，' : ''}连接成功！${escapeHtml(result.detail || '')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('ok', `${corrected ? '已自动补全接口地址，' : ''}连接成功！${escapeHtml(result.detail || '')}`);
 
         const models = result.models || [];
         if (models.length > 0) {
@@ -89,7 +96,7 @@ async function testApiFromModal() {
     } else {
         const attempts = Array.isArray(result.attempts) ? result.attempts : [];
         const probeDetails = attempts.length ? `<details class="api-discovery-details"><summary>查看已检查的地址</summary><ul>${attempts.map(attempt => `<li>${escapeHtml(attempt.baseUrl + '/models')}：${escapeHtml(attempt.status ? `HTTP ${attempt.status}` : attempt.error || '请求失败')}</li>`).join('')}</ul></details>` : '';
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(result.error || '连接失败')}</span>${probeDetails}`;
+        resultEl.innerHTML = `${settingsStatusHtml('error', escapeHtml(result.error || '连接失败'))}${result.hint ? `<p class="set-status-hint">${escapeHtml(result.hint)}</p>` : ''}${probeDetails}`;
         convertModelToInput();
         convertImageModelToInput();
         if (hintEl) hintEl.textContent = '连接失败，可核对文档后手动填写模型';
@@ -857,22 +864,22 @@ async function testVoiceApiFromModal() {
     const api = getApiVoiceConfigFromModal();
     if (!resultEl) return;
     if (!api.baseUrl) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Base URL</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 Base URL');
         return;
     }
     const testApi = { ...api, enabled: true };
     if (!isApiVoiceEnabled(testApi)) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写模型和音色 ID</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写模型和音色 ID');
         return;
     }
-    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 MiniMax 语音...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在请求 MiniMax 语音...');
     try {
         const result = await requestMiniMaxVoiceAudio('你好，这是 MiniMax 语音测试。', testApi);
-        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ MiniMax 语音可用，已试听测试音频</span>';
+        resultEl.innerHTML = settingsStatusHtml('ok', 'MiniMax 语音可用，已试听测试音频');
         const audio = new Audio(result.audioUrl);
         audio.play().catch(() => {});
     } catch (e) {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'MiniMax 语音测试失败')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('error', `${escapeHtml(e.message || 'MiniMax 语音测试失败')}`);
     }
 }
 
@@ -881,22 +888,22 @@ async function testOpenAiVoiceApiFromModal() {
     const api = getApiOpenAiVoiceConfigFromModal();
     if (!resultEl) return;
     if (!api.baseUrl && !api.voiceEndpoint) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 OpenAI Base URL</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 OpenAI Base URL');
         return;
     }
     const testApi = { ...api, enabled: true };
     if (!isOpenAiVoiceEnabled(testApi)) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key、模型和音色</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 API Key、模型和音色');
         return;
     }
-    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 OpenAI TTS...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在请求 OpenAI TTS...');
     try {
         const result = await requestOpenAiVoiceAudio('你好，这是 OpenAI 语音测试。', testApi);
-        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ OpenAI TTS 可用，已试听测试音频</span>';
+        resultEl.innerHTML = settingsStatusHtml('ok', 'OpenAI TTS 可用，已试听测试音频');
         const audio = new Audio(result.audioUrl);
         audio.play().catch(() => {});
     } catch (e) {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'OpenAI TTS 测试失败')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('error', `${escapeHtml(e.message || 'OpenAI TTS 测试失败')}`);
     }
 }
 
@@ -905,22 +912,22 @@ async function testFishAudioVoiceApiFromModal() {
     const api = getApiFishAudioVoiceConfigFromModal();
     if (!resultEl) return;
     if (!api.baseUrl && !api.voiceEndpoint) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 Fish Audio Base URL</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 Fish Audio Base URL');
         return;
     }
     const testApi = { ...api, enabled: true };
     if (!isFishAudioVoiceEnabled(testApi)) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key 和模型</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 API Key 和模型');
         return;
     }
-    resultEl.innerHTML = '<span style="color:#fbbf24;">正在请求 Fish Audio...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在请求 Fish Audio...');
     try {
         const result = await requestFishAudioVoiceAudio('你好，这是 Fish Audio 语音测试。', testApi);
-        resultEl.innerHTML = '<span style="color:#66d9a0;">Fish Audio 可用，已试听测试音频</span>';
+        resultEl.innerHTML = settingsStatusHtml('ok', 'Fish Audio 可用，已试听测试音频');
         const audio = new Audio(result.audioUrl);
         audio.play().catch(() => {});
     } catch (e) {
-        resultEl.innerHTML = `<span style="color:#f87171;">${escapeHtml(e.message || 'Fish Audio 测试失败')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('error', `${escapeHtml(e.message || 'Fish Audio 测试失败')}`);
     }
 }
 
@@ -929,22 +936,22 @@ async function testElevenLabsVoiceApiFromModal() {
     const api = getApiElevenLabsVoiceConfigFromModal();
     if (!resultEl) return;
     if (!api.baseUrl && !api.voiceEndpoint) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 ElevenLabs Base URL</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 ElevenLabs Base URL');
         return;
     }
     const testApi = { ...api, enabled: true };
     if (!isElevenLabsVoiceEnabled(testApi)) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写 API Key 和 Voice ID</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写 API Key 和 Voice ID');
         return;
     }
-    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求 ElevenLabs...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在请求 ElevenLabs...');
     try {
         const result = await requestElevenLabsVoiceAudio('你好，这是 ElevenLabs 语音测试。', testApi);
         const audio = new Audio(result.audioUrl);
         await audio.play();
-        resultEl.innerHTML = '<span style="color:#66d9a0;">ElevenLabs 可用，正在播放测试音频</span>';
+        resultEl.innerHTML = settingsStatusHtml('ok', 'ElevenLabs 可用，正在播放测试音频');
     } catch (e) {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || 'ElevenLabs 测试失败')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('error', `${escapeHtml(e.message || 'ElevenLabs 测试失败')}`);
     }
 }
 
@@ -953,18 +960,18 @@ async function testLocalVoiceApiFromModal() {
     const api = getApiLocalVoiceConfigFromModal();
     if (!resultEl) return;
     if (!api.endpoint) {
-        resultEl.innerHTML = '<span style="color:#f87171;">请先填写本地 HTTP Endpoint</span>';
+        resultEl.innerHTML = settingsStatusHtml('error', '请先填写本地 HTTP Endpoint');
         return;
     }
     const testApi = { ...api, enabled: true };
-    resultEl.innerHTML = '<span style="color:#fbbf24;">⏳ 正在请求本地 TTS...</span>';
+    resultEl.innerHTML = settingsStatusHtml('loading', '正在请求本地 TTS...');
     try {
         const result = await requestLocalVoiceAudio('你好，这是本地语音测试。', testApi);
-        resultEl.innerHTML = '<span style="color:#66d9a0;">✅ 本地 TTS 可用，已试听测试音频</span>';
+        resultEl.innerHTML = settingsStatusHtml('ok', '本地 TTS 可用，已试听测试音频');
         const audio = new Audio(result.audioUrl);
         audio.play().catch(() => {});
     } catch (e) {
-        resultEl.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(e.message || '本地 TTS 测试失败')}</span>`;
+        resultEl.innerHTML = settingsStatusHtml('error', `${escapeHtml(e.message || '本地 TTS 测试失败')}`);
     }
 }
 
@@ -973,15 +980,15 @@ function saveApiVoiceSettings() {
     const voiceApi = normalizeVoiceApiData(getApiVoiceConfigFromModal());
     if (voiceApi.enabled) {
         if (!voiceApi.baseUrl) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 MiniMax 官方 Base URL</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 MiniMax 官方 Base URL');
             return;
         }
         if (!voiceApi.apiKey) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 MiniMax API Key</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 MiniMax API Key');
             return;
         }
         if (!voiceApi.voiceModel || !voiceApi.voiceId) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请从列表选择语音模型和声音</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请从列表选择语音模型和声音');
             return;
         }
     }
@@ -991,7 +998,7 @@ function saveApiVoiceSettings() {
     try {
         if (saveApiData(data) === false) throw new Error('设置未能保存');
     } catch (_) {
-        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">语音设置保存失败，请重试；当前填写内容已保留。</span>';
+        if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '语音设置保存失败，请重试；当前填写内容已保留。');
         return false;
     }
     closeApiVoiceModal();
@@ -1004,15 +1011,15 @@ function saveApiOpenAiVoiceSettings() {
     const openAiVoiceApi = normalizeOpenAiVoiceApiData(getApiOpenAiVoiceConfigFromModal());
     if (openAiVoiceApi.enabled) {
         if (!openAiVoiceApi.baseUrl && !openAiVoiceApi.voiceEndpoint) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 OpenAI Base URL</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 OpenAI Base URL');
             return;
         }
         if (!openAiVoiceApi.apiKey) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 OpenAI API Key</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 OpenAI API Key');
             return;
         }
         if (!openAiVoiceApi.voiceModel || !openAiVoiceApi.voiceId) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写模型和音色</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写模型和音色');
             return;
         }
     }
@@ -1029,15 +1036,15 @@ function saveApiFishAudioVoiceSettings() {
     const fishAudioVoiceApi = normalizeFishAudioVoiceApiData(getApiFishAudioVoiceConfigFromModal());
     if (fishAudioVoiceApi.enabled) {
         if (!fishAudioVoiceApi.baseUrl && !fishAudioVoiceApi.voiceEndpoint) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio Base URL</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 Fish Audio Base URL');
             return;
         }
         if (!fishAudioVoiceApi.apiKey) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio API Key</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 Fish Audio API Key');
             return;
         }
         if (!fishAudioVoiceApi.voiceModel) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 Fish Audio 模型</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 Fish Audio 模型');
             return;
         }
     }
@@ -1047,7 +1054,7 @@ function saveApiFishAudioVoiceSettings() {
     try {
         if (saveApiData(data) === false) throw new Error('storage');
     } catch (_) {
-        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">保存失败，当前填写已保留，请检查设备存储空间后重试</span>';
+        if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '保存失败，当前填写已保留，请检查设备存储空间后重试');
         return false;
     }
     closeApiFishAudioVoiceModal();
@@ -1060,15 +1067,15 @@ function saveApiElevenLabsVoiceSettings() {
     const elevenLabsVoiceApi = normalizeElevenLabsVoiceApiData(getApiElevenLabsVoiceConfigFromModal());
     if (elevenLabsVoiceApi.enabled) {
         if (!elevenLabsVoiceApi.baseUrl && !elevenLabsVoiceApi.voiceEndpoint) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 ElevenLabs Base URL</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 ElevenLabs Base URL');
             return;
         }
         if (!elevenLabsVoiceApi.apiKey) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写 ElevenLabs API Key</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写 ElevenLabs API Key');
             return;
         }
         if (!elevenLabsVoiceApi.voiceId) {
-            if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请先选用音色，或在高级设置填写 Voice ID</span>';
+            if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请先选用音色，或在高级设置填写 Voice ID');
             return;
         }
     }
@@ -1087,7 +1094,7 @@ function saveApiLocalVoiceSettings() {
     const resultEl = document.getElementById('api-local-voice-test-result');
     const localVoiceApi = normalizeLocalVoiceApiData(getApiLocalVoiceConfigFromModal());
     if (localVoiceApi.enabled && !localVoiceApi.endpoint) {
-        if (resultEl) resultEl.innerHTML = '<span style="color:#f87171;">请填写本地 HTTP Endpoint</span>';
+        if (resultEl) resultEl.innerHTML = settingsStatusHtml('error', '请填写本地 HTTP Endpoint');
         return;
     }
     const data = getApiData();

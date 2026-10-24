@@ -61,6 +61,7 @@ function renderCharPhoneAlipay(snapshot, char) {
         const matches=items.filter(i=>new RegExp(terms[view]||'$^').test([i.title,i.body,i.meta].join(' ')));
         content=`<section class="cp-pay-card">${records(matches,'暂无对应记录')}</section>`;
     }
+    if(view!=='home'&&typeof charPhoneHasLazyPage==='function'&&charPhoneHasLazyPage('alipay',view)) content=renderCharPhoneLazyPage('alipay',view,snapshot,char);
     const titles={wealth:'财富',life:'生活',messages:'消息',my:'我的',bills:'账单',scan:'扫一扫',pay:'收付款',travel:'出行',cards:'卡包',transfer:'转账',utilities:'生活缴费',repay:'信用卡还款',forest:'蚂蚁森林',citizen:'市民中心',more:'全部服务'};
     return `<section class="cp-native cp-alipay cp-brand-screen">
         ${view==='home'?`<div class="cp-pay-blue"><div class="cp-pay-search"><span>支付宝</span><button type="button" onclick="setCharPhoneBrandView('alipay','more')"><i class="ri-search-line"></i> 搜索服务</button><button aria-label="全部服务" onclick="setCharPhoneBrandView('alipay','more')"><i class="ri-add-line"></i></button></div><div class="cp-pay-primary">${[['扫一扫','ri-scan-line','scan'],['收付款','ri-qr-code-line','pay'],['出行','ri-bus-line','travel'],['卡包','ri-bank-card-line','cards']].map(a=>action(...a)).join('')}</div></div>`:`<div class="cp-pay-page-title"><button aria-label="返回支付宝首页" onclick="setCharPhoneBrandView('alipay','home')"><i class="ri-arrow-left-s-line"></i></button><strong>${titles[view]||'支付宝'}</strong><i class="ri-more-line"></i></div>`}

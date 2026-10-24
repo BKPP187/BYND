@@ -52,7 +52,7 @@
         if (busy) return;
         const id = root.querySelector('#home3d-bind-char')?.value;
         const data = H.State.bind(id, { reference: referenceDraft, avatar: userProfileDraft || H.Characters.defaultProfile('user') });
-        H.State.visit(); H.Living.advance(H.Bridge.context()); shell(); startLife(); await loadRoom(H.State.home(data).room);
+        H.State.visit(); H.Living.present = true; H.Living.advance(H.Bridge.context()); shell(); startLife(); await loadRoom(H.State.home(data).room);
         await syncAppearances();
     }
     async function open(element) {
@@ -90,7 +90,7 @@
         clearInterval(timer); clearInterval(apiTimer); apiTimer = setInterval(refreshApiControls, 1000);
         timer = setInterval(() => { if (!document.hidden && root?.closest('.app-window')?.classList.contains('active')) refreshLife(); }, 10000);
     }
-    function close() { try { H.Interactions?.cancel(); } catch (error) { notice(error.message, true); } H.BuildUI?.close(); clearInterval(timer); clearInterval(apiTimer); clearTimeout(noticeTimer); timer = 0; apiTimer = 0; noticeTimer = 0; loadToken++; H.runtime?.dispose(); H.runtime = null; }
+    function close() { H.Living.present = false; try { H.runtime?.rememberPose?.(); H.Interactions?.cancel(); } catch (error) { notice(error.message, true); } H.BuildUI?.close(); clearInterval(timer); clearInterval(apiTimer); clearTimeout(noticeTimer); timer = 0; apiTimer = 0; noticeTimer = 0; loadToken++; H.runtime?.dispose(); H.runtime = null; }
     function roomNavigation(id, home = H.State.home()) {
         const room = H.Rooms.get(id), level = !window.__byndSingleRoom ? (H.Villa?.floorOf(id) ?? -1) : -1;
         root.querySelector('#home3d-room-label').innerHTML = button('room-menu', (level >= 0 ? (level + 1) + 'F · ' : '') + esc(room.name), room.icon, 'class="home3d-room-chip" aria-label="选择房间，当前' + esc(room.name) + '"');
@@ -372,7 +372,8 @@
                     const home = H.State.home(), current = home.activity || activity;
                     if (current.room !== home.room) { await loadRoom(current.room); }
                     const row = H.runtime?.furniture().find(item => item.placement.id === current.target);
-                    if (current.action === 'Sleep') { notice('Ta在睡觉，轻轻陪在旁边就好。'); H.runtime?.emote('Idle'); }
+                    if (['Sleep', 'Lie'].includes(current.action) && row?.item.actions.includes(current.action)) { try { await H.Interactions.perform(row.placement.id, current.action); } catch (error) { notice(error.message, true); } }
+                    else if (current.action === 'Sleep') { notice('Ta睡着了，没有找到能躺到旁边的位置。'); H.runtime?.emote('Idle'); }
                     else if (row?.item.actions.includes('Sit')) H.Interactions.perform(row.placement.id, 'Sit');
                     else { H.runtime?.emote('Wave'); H.State.moment('Wave', '回家时，朝对方轻轻挥了挥手'); notice('我回家啦。'); }
                     break;

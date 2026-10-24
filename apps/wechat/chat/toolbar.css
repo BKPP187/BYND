@@ -894,6 +894,16 @@
     background: #f1f5f9;
     color: #0f172a;
 }
+/* .msg-link-main wraps icon + text; give it the whole row so the text is not squeezed into the icon column. */
+.msg-link-card .msg-link-main {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.msg-link-card .msg-link-info { flex: 1 1 auto; }
+.msg-link-card .msg-link-info span { text-transform: none; letter-spacing: 0; font-weight: 600; }
 
 .msg-gift-bubble {
     width: min(100%, 276px);

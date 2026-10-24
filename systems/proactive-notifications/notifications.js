@@ -2,6 +2,9 @@
 const BYND_NOTIFY_SETTINGS_KEY = 'bynd_proactive_notify_settings_v1';
 const BYND_NOTIFY_STATE_KEY = 'bynd_proactive_notify_state_v1';
 const BYND_NOTIFY_CLIENT_ID_KEY = 'bynd_proactive_notify_client_id_v1';
+// Issued by the push Worker on first subscribe; proves this device owns its clientId.
+// Device-local: backups exclude it, so a restored clientId on another device gets its own record.
+const BYND_NOTIFY_CLIENT_SECRET_KEY = 'bynd_proactive_notify_client_secret_v1';
 const BYND_DEFAULT_PUSH_WORKER_ENDPOINT = '';
 const BYND_DEFAULT_VAPID_PUBLIC_KEY = 'BIbjVk-agaHTFm60-tWEQVguyL40QGfEPf1PQrgonF_zN--LvkVpLED90WOl-WP3D5u9ptu3L4RxuGLn_2mu31U';
 const BYND_NOTIFY_MIN_INTERVAL_HOURS = 0.1;
@@ -16,6 +19,16 @@ function getProactiveNotifyClientId() {
         localStorage.setItem(BYND_NOTIFY_CLIENT_ID_KEY, id);
     }
     return id;
+}
+
+function getProactiveNotifyClientSecret() {
+    try { return localStorage.getItem(BYND_NOTIFY_CLIENT_SECRET_KEY) || ''; } catch (_) { return ''; }
+}
+
+function resetProactiveNotifyClientIdentity() {
+    localStorage.removeItem(BYND_NOTIFY_CLIENT_SECRET_KEY);
+    localStorage.removeItem(BYND_NOTIFY_CLIENT_ID_KEY);
+    return getProactiveNotifyClientId();
 }
 
 function clampProactiveNotifyIntervalHours(value, fallback = 24) {
@@ -156,7 +169,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.984').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.1013').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {
@@ -290,6 +303,7 @@ function syncProactiveContactToWorker(charId, contactedAt) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             clientId: getProactiveNotifyClientId(),
+            clientSecret: getProactiveNotifyClientSecret(),
             charId,
             charName: char ? getProactiveCharName(char) : '',
             contactedAt,
@@ -656,21 +670,40 @@ async function syncProactivePushSubscription() {
             applicationServerKey: urlBase64ToUint8Array(settings.vapidPublicKey)
         });
     }
-    const payload = {
-        clientId: getProactiveNotifyClientId(),
-        subscription,
-        settings,
-        state: getProactiveNotifyState(),
-        chars: buildProactiveNotifySyncPayload(settings).chars,
-        origin: location.origin,
-        url: location.origin + location.pathname + '?open=wechat',
-        updatedAt: Date.now()
+    const send = async () => {
+        const payload = {
+            clientId: getProactiveNotifyClientId(),
+            clientSecret: getProactiveNotifyClientSecret(),
+            subscription,
+            settings,
+            state: getProactiveNotifyState(),
+            chars: buildProactiveNotifySyncPayload(settings).chars,
+            origin: location.origin,
+            url: location.origin + location.pathname + '?open=wechat',
+            updatedAt: Date.now()
+        };
+        const response = await fetch(settings.workerEndpoint.replace(/\/+$/, '') + '/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        let result = null;
+        try { result = await response.json(); } catch (_) {}
+        return { response, result };
     };
-    await fetch(settings.workerEndpoint.replace(/\/+$/, '') + '/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
+    let { response, result } = await send();
+    if (response.status === 403 && result?.code === 'client_secret_mismatch') {
+        // This clientId belongs to another device (for example it arrived through a backup).
+        // Start a separate identity instead of overwriting that device's subscription.
+        resetProactiveNotifyClientIdentity();
+        ({ response, result } = await send());
+    }
+    if (!response.ok || !result?.ok) {
+        throw new Error(result?.error ? `云端订阅失败（${response.status}）：${result.error}` : `云端订阅失败（${response.status}）`);
+    }
+    if (typeof result.clientSecret === 'string' && /^[A-Za-z0-9_-]{43}$/.test(result.clientSecret)) {
+        localStorage.setItem(BYND_NOTIFY_CLIENT_SECRET_KEY, result.clientSecret);
+    }
     updateProactiveNotifyStatus('云端推送订阅已同步。');
 }
 

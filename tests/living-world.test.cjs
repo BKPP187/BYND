@@ -1055,3 +1055,34 @@ test('actor may remember a private chat but cannot quote it into a public post',
     assert.equal(h.saved().posts.length, 1);
     assert.equal(h.saved().agentDecisions.length, 0);
 });
+
+async function settlePulse(h) { for (let i = 0; i < 40; i++) { await new Promise(resolve => setTimeout(resolve, 5)); } await h.api.runPulse(); }
+
+function pulseSeed() {
+    const day = 86400000, npcs = Array.from({ length: 6 }, (_, i) => ({ id: `npc_${i}`, name: `路人${i}`, interests: ['lounge'], type: 'npc' }));
+    return { npcs, worldPulse: { lastAt: Date.now() - 3 * day }, posts: [{ id: 'p_a', authorId: 'user', communityId: 'lounge', title: '早', body: '内容', createdAt: Date.now() - 2 * day }, { id: 'p_b', authorId: 'npc_0', communityId: 'lounge', title: '晚', body: '内容', createdAt: Date.now() - 1.5 * day }] };
+}
+
+test('小世界心跳: 做什么、点赞、关注都由 Jev 判断，状态存入角色', async () => {
+    const h = forumHarness(pulseSeed()); const asked = [];
+    h.window.ByndJev = { available: () => true, ask: async (scope, state, questions) => { asked.push({ scope, state, questions }); return { doing: { value: 'free', confident: true }, like: { value: true, confident: true }, follow: { value: false, confident: true } }; } };
+    await h.api.init(); await settlePulse(h);
+    assert.ok(asked.length > 0 && asked.every(item => item.scope === 'forumAction' && item.state.actor.name && item.questions.doing.type === 'choice'));
+    const saved = h.saved();
+    assert.ok(saved.posts.some(post => Object.keys(post.votes || {}).length));
+    assert.ok(saved.events.some(event => event.type === 'forum_like' && event.metadata?.pulse === 'jev'));
+    assert.ok(Object.values(saved.agentStates).some(row => row.life?.label === '有空闲'));
+});
+
+test('小世界心跳: Jev 不可用时由角色 agent 决定，两者都没有则什么也不演', async () => {
+    const none = forumHarness(pulseSeed());
+    await none.api.init(); await settlePulse(none);
+    assert.ok(!none.saved().events.some(event => event.metadata?.pulse));
+    assert.ok(!none.saved().posts.some(post => Object.keys(post.votes || {}).length));
+    const h = forumHarness(pulseSeed()); let calls = 0;
+    h.window.callChatApi = async () => { calls++; return { ok: true, content: '{"doing":"在地铁上","browsing":true,"like":true,"follow":false}' }; };
+    await h.api.init(); await settlePulse(h);
+    assert.ok(calls > 0);
+    assert.ok(h.saved().events.some(event => event.type === 'forum_like' && event.metadata?.pulse === 'agent'));
+    assert.ok(Object.values(h.saved().agentStates).some(row => row.life?.label === '在地铁上'));
+});

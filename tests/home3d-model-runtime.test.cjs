@@ -39,7 +39,7 @@ test('bathwear preserves both rigs bind matrices and restores the authored outfi
             const anchor=H.Rooms.anchor({id:'bath',furnitureId,position:[1,3.2,2],floorY:3.2,rotation:Math.PI/2},action,'user');
             H.CharacterModels.pose(actor,action,anchor);
             assert.deepEqual(actor.skeleton.boneInverses.map(m=>m.elements.slice()),inverses,'adding the robe cannot rebind an already posed skeleton');
-            assert.equal(actor.body.getObjectByName('bath-robe').visible,true);assert.ok(actor.expressions.every(e=>e.bath.value===1));assert.ok(actor.boots.every(b=>!b.visible));assert.equal(actor.bootPile.visible,false);
+            assert.equal(actor.body.getObjectByName('bath-robe').visible,action==='Shower');assert.ok(actor.expressions.every(e=>e.bath.value===1));assert.ok(actor.boots.every(b=>!b.visible));assert.equal(actor.bootPile.visible,false);
             H.CharacterModels.pose(actor,'Idle');assert.equal(actor.body.getObjectByName('bath-robe').visible,false);assert.ok(actor.expressions.every(e=>e.bath.value===0));assert.ok(actor.boots.every(b=>b.visible));
         }
         H.Shapes.disposeGeometry(actor.root);

@@ -99,7 +99,7 @@ function renderCharPhoneNativeApp(key,snapshot,char) {
     if(!['home','profile','search'].includes(view)) {
         const section=['saved','holding','bookings','notes','trade'].includes(view)?1:2;
         const subset=items.filter(i=>i.section===section);
-        body=list(subset);
+        body=typeof charPhoneHasLazyPage==='function'&&charPhoneHasLazyPage(key,view)?renderCharPhoneLazyPage(key,view,snapshot,char):list(subset);
     }
     return `<section class="cp-native cp-${key} cp-native-designed" data-app-layout="${key}">${header}<div class="cp-scroll">${body}</div>${extras}${bottom}</section>`;
 }

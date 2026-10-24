@@ -74,6 +74,11 @@ test('stream preview segments hide control blocks, unfinished directives and met
     assert.deepEqual(segments('笑一个 [[WECHAT_EMOJI:微笑]]'), ['笑一个 [[WECHAT_EMOJI:微笑]]']);
     assert.deepEqual(segments('[状态栏]：开心'), []);
     assert.deepEqual(segments('|||'), []);
+    // A tag still arriving letter by letter never flashes into the bubble.
+    assert.deepEqual(segments('挺好。\n<bynd_dec'), ['挺好。']);
+    assert.deepEqual(segments('挺好。<'), ['挺好。<']);
+    assert.deepEqual(segments('挺好。<thin'), ['挺好。']);
+    assert.deepEqual(segments('1<2 也对'), ['1<2 也对']);
 });
 
 test('the preview paints one bubble per segment, updates in place, and disappears once the reply is appended', () => {

@@ -97,3 +97,80 @@
 .home3d-life-records article { padding: 12px 0; border-bottom: 1px solid var(--home3d-border, #ddd4c5); overflow-wrap: anywhere; }
 .home3d-life-records article p { margin: 6px 0; }
 .home3d-life-records article small { line-height: 1.5; opacity: .8; }
+/* Soft studio vignette around the dollhouse, like a diorama photo. */
+.home3d-scene::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 85% 70% at 50% 48%,transparent 58%,#5d50461a 100%)}
+
+/* Glass dollhouse UI (1.1.1007): floating glass controls over the scene, one warm rose accent. */
+#home3d-root{--h3-glass:#fffaf2b8;--h3-glass-strong:#fffaf2e6;--h3-line:#ffffffb3;--h3-ink:#5f5147;--h3-soft:#9a8a7a;--h3-rose:#f0b8c2;--h3-rose-deep:#d98d9d;--h3-sage:#8fa77f;--h3-shadow:0 6px 22px #6b4f3a26,0 1px 0 #fff9 inset}
+#home3d-root.is-room{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif}
+#home3d-root.is-room .home3d-header{position:absolute;top:0;left:0;right:0;z-index:5;background:linear-gradient(#fff6e8cc,#fff6e800);border:0;padding:calc(8px + var(--bynd-header-safe-top,env(safe-area-inset-top,0px))) 12px 10px;min-height:0;pointer-events:none}
+#home3d-root.is-room .home3d-header>*{pointer-events:auto}
+#home3d-root.is-room .home3d-header>button{width:40px;height:40px;background:var(--h3-glass)!important;border:1px solid var(--h3-line)!important;box-shadow:var(--h3-shadow);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);color:var(--h3-ink)}
+#home3d-root.is-room .home3d-header>div{flex:0 1 auto;margin:0 auto;padding:5px 16px 4px;border-radius:20px;background:var(--h3-glass);border:1px solid var(--h3-line);box-shadow:var(--h3-shadow);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4)}
+#home3d-root.is-room .home3d-header strong{font-size:16px;letter-spacing:5px;color:var(--h3-ink);font-weight:700}
+#home3d-root.is-room .home3d-header .home3d-clock{color:var(--h3-soft);margin-top:0}
+#home3d-root.is-room .home3d-world{flex:1 1 auto}
+#home3d-root.is-room .home3d-view-tools{top:calc(62px + var(--bynd-header-safe-top,env(safe-area-inset-top,0px)));gap:9px}
+#home3d-root.is-room .home3d-view-tools button{background:var(--h3-glass)!important;border:1px solid var(--h3-line)!important;box-shadow:var(--h3-shadow);backdrop-filter:blur(12px) saturate(1.4);-webkit-backdrop-filter:blur(12px) saturate(1.4);color:var(--h3-ink);transition:transform .18s cubic-bezier(.2,.8,.2,1),background .18s}
+#home3d-root.is-room .home3d-view-tools button:active{transform:scale(.9);background:var(--h3-rose)!important}
+#home3d-root.is-room .home3d-presence{left:12px;bottom:36px;height:48px;padding:5px 12px 5px 5px;border-radius:26px;background:var(--h3-glass-strong);border:1px solid var(--h3-line);box-shadow:var(--h3-shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#home3d-root.is-room .home3d-presence-avatar{width:38px;height:38px;box-shadow:0 0 0 2px #fff,0 2px 6px #6b4f3a2e}
+#home3d-root.is-room .home3d-presence-status strong{font-size:13px;color:var(--h3-ink)}
+#home3d-root.is-room .home3d-presence-status span{color:var(--h3-soft)}
+#home3d-root.is-room .home3d-presence>button:last-child{color:var(--h3-rose-deep);font-weight:600}
+#home3d-root.is-room .home3d-footer{margin-top:-22px;border-radius:26px 26px 0 0;background:linear-gradient(#fffaf2,#fff4e6);border:0;box-shadow:0 -10px 30px #6b4f3a1f,0 -1px 0 #ffffffcc inset;padding:10px 12px calc(8px + env(safe-area-inset-bottom,0px))}
+#home3d-root.is-room .home3d-footer::before{content:'';position:absolute;top:6px;left:50%;width:34px;height:4px;margin-left:-17px;border-radius:2px;background:#d9c9b4}
+#home3d-root.is-room .home3d-room-tabs{background:transparent;padding:6px 0 2px;gap:8px;margin-top:2px}
+#home3d-root.is-room .home3d-room-tabs button{flex:0 0 auto;min-width:76px;padding:7px 14px;min-height:34px;border-radius:17px;background:#f3ebdd!important;color:var(--h3-soft)!important;font-size:12px;border:1px solid #ffffff99;transition:background .2s,color .2s,transform .2s}
+#home3d-root.is-room .home3d-room-tabs button.is-current{background:linear-gradient(135deg,#f7cdd5,#efb2bf)!important;color:#7a4a56!important;border:1px solid #fff!important;box-shadow:0 4px 12px #d98d9d55;font-weight:600}
+#home3d-root.is-room .home3d-quick-actions{margin-top:6px;padding-top:4px}
+#home3d-root.is-room .home3d-quick-actions button{color:var(--h3-soft)!important;font-weight:500;gap:3px;border-radius:16px;transition:transform .15s,color .15s}
+#home3d-root.is-room .home3d-quick-actions button:active{transform:scale(.92);color:var(--h3-rose-deep)!important}
+#home3d-root.is-room .home3d-quick-actions svg{width:30px!important;height:30px!important;padding:7px;border-radius:50%;background:#f6ecdd;color:#a98a73;font-size:16px}
+#home3d-root.is-room .home3d-quick-actions button:first-child svg{background:#f9dfe4;color:#cf7f90}
+@media(max-height:740px){#home3d-root.is-room .home3d-welcome{top:calc(58px + var(--bynd-header-safe-top,env(safe-area-inset-top,0px)));left:12px}#home3d-root.is-room .home3d-room-chip{background:var(--h3-glass-strong);border:1px solid var(--h3-line);box-shadow:var(--h3-shadow);backdrop-filter:blur(12px)}}
+.home3d-sheet{border-radius:30px 30px 0 0;background:linear-gradient(#fffaf2,#fff5e8);box-shadow:0 -14px 50px #6b4f3a2e}
+.home3d-modal{background:#5b45384d;backdrop-filter:blur(6px)}
+.home3d-sheet-head{border-bottom:0}
+.home3d-notice{border-radius:20px;background:#6e5a52ee;backdrop-filter:blur(10px)}
+@media(prefers-reduced-motion:reduce){#home3d-root.is-room *{transition:none!important}}
+
+/* Game-style pages (1.1.1008): every pop-up shares the glass dollhouse look of the room view. */
+.home3d-modal{background:linear-gradient(#5b45382e,#5b453866);backdrop-filter:blur(8px) saturate(1.2);-webkit-backdrop-filter:blur(8px) saturate(1.2);animation:h3-fade .22s ease-out}
+.home3d-sheet{background:linear-gradient(#fffbf4f2,#fff4e8f5);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid #ffffffcc;border-bottom:0;box-shadow:0 -16px 60px #5b45383a;animation:h3-rise .32s cubic-bezier(.2,.9,.25,1)}
+.home3d-sheet::before{content:'';flex:none;width:38px;height:4px;border-radius:2px;background:#dccbb6;margin:9px auto 0}
+.home3d-sheet-head{padding:12px 20px 10px;border:0}
+.home3d-sheet-head span{display:inline-block;font-size:11px!important;letter-spacing:1.5px;color:#b88a95;background:#f9e4e8;padding:3px 10px;border-radius:10px}
+.home3d-sheet-head h2,.home3d-sheet-head strong{font-size:22px;letter-spacing:2px;color:#5f4a40;font-weight:700;margin-top:6px}
+.home3d-sheet-head>button{width:38px;height:38px;border-radius:50%;background:#fffaf2!important;border:1px solid #fff!important;box-shadow:0 3px 10px #6b4f3a26;color:#8a6f60}
+.home3d-sheet-body{padding:6px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+.home3d-sheet-body .home3d-list-title{display:flex;align-items:center;gap:8px;font-size:14px;color:#5f4a40;letter-spacing:1px;margin:24px 0 12px}
+.home3d-sheet-body .home3d-list-title::before{content:'';width:5px;height:16px;border-radius:3px;background:linear-gradient(#f3bcc7,#e39aaa)}
+.home3d-fineprint{color:#9a8473;line-height:1.75;background:#fff7ec;border-radius:16px;padding:12px 14px}
+.home3d-field{color:#8d7867;font-size:13px;font-weight:600}
+.home3d-field select,.home3d-sheet select{appearance:none;-webkit-appearance:none;background:#fffaf2 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23b99a86' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center;border:1.5px solid #f0e2d0;border-radius:18px;padding:13px 40px 13px 16px;color:#5f4a40;box-shadow:0 2px 8px #6b4f3a12 inset;font-size:14px}
+.home3d-primary{background:linear-gradient(135deg,#f7c6d0,#eaa0b1)!important;color:#fff!important;border:1px solid #fff!important;border-radius:22px;box-shadow:0 8px 20px #d98d9d55;font-weight:700;letter-spacing:2px;transition:transform .15s}
+.home3d-primary:active{transform:scale(.97)}
+.home3d-sheet details{background:#fff7ec;border-radius:16px;padding:2px 14px;margin:10px 0}
+.home3d-sheet summary{color:#8d7867;font-size:13px;min-height:42px;display:flex;align-items:center;list-style:none}
+.home3d-sheet summary::-webkit-details-marker{display:none}
+.home3d-sheet summary::after{content:'›';margin-left:auto;transform:rotate(90deg);color:#c3a995;font-size:18px}
+.home3d-sheet details[open] summary::after{transform:rotate(-90deg)}
+.home3d-reference,.home3d-memory-list article,.home3d-action-grid button,.home3d-view-choices button,.home3d-expansion button{background:#fffaf2!important;border:1px solid #fff!important;border-radius:20px;box-shadow:0 5px 16px #6b4f3a14}
+.home3d-memory-list article{padding:14px 16px}
+.home3d-empty{border:1.5px dashed #e6d3bd;border-radius:20px;padding:22px 14px;color:#b39d89;background:#fff9f0}
+.home3d-interior-options{gap:12px}
+.home3d-interior-options>button{border:1.5px solid #fff!important;background:#fffaf2!important;border-radius:22px;padding:8px 8px 12px!important;box-shadow:0 6px 18px #6b4f3a14;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s;position:relative}
+.home3d-interior-options>button:active{transform:scale(.96)}
+.home3d-interior-options>button[aria-pressed=true]{border-color:#eba3b2!important;box-shadow:0 0 0 2px #f6cdd5,0 8px 22px #d98d9d44}
+.home3d-interior-options>button[aria-pressed=true]::after{content:'✓';position:absolute;top:14px;right:14px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#f3b4c1,#e48ea2);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;box-shadow:0 3px 8px #d98d9d66}
+.home3d-interior-swatch{height:78px;border-radius:16px}
+.home3d-interior-options strong{font-size:15px;color:#5f4a40;padding:2px 4px 0}
+.home3d-interior-options small{color:#a08d7d;padding:0 4px}
+.home3d-view-choices button[aria-pressed=true]{background:linear-gradient(135deg,#f7cdd5,#efb2bf)!important;color:#7a4a56!important}
+@keyframes h3-rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes h3-fade{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.home3d-sheet,.home3d-modal{animation:none}}
+.home3d-sheet .home3d-sheet-head>button{border:1px solid #fff!important;outline:0;box-shadow:0 3px 10px #6b4f3a26;background:#fffaf2!important}
+.home3d-sheet [data-action="interior-scope"]{border:1.5px solid #fff!important;background:#fffaf2!important;color:#9a8473;border-radius:20px;box-shadow:0 4px 12px #6b4f3a12;font-weight:600}
+.home3d-sheet [data-action="interior-scope"].is-current,.home3d-sheet [data-action="interior-scope"][aria-pressed="true"]{background:linear-gradient(135deg,#f7cdd5,#efb2bf)!important;color:#7a4a56!important;box-shadow:0 6px 16px #d98d9d44}

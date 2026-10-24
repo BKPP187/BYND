@@ -342,6 +342,8 @@ function switchWechatAiPhoneTab(tabName) {
     if(window._wechatAiPhoneTab==='clock')resetCharPhoneClock();
     const validTabs = [...CHAR_PHONE_EXTRA_APPS.map(a=>a.key), 'lock', 'home', 'chat', 'wechatChat', 'memo', 'browser', 'wallet', 'diary', 'footprints', 'usage', 'clock', 'schedule', 'shopping', 'takeout', 'games', 'settings'];
     window._charPhoneDetail = null;
+    window._charPhoneRecord = null;
+    window._charPhoneInvoiceOpen = false;
     window._wechatAiPhoneTab = validTabs.includes(tabName) ? tabName : 'home';
     if (window._wechatAiPhoneTab !== 'diary') window._wechatAiPhoneDiaryOpen = -1;
     if (window._wechatAiPhoneTab !== 'memo') window._wechatAiPhoneMemoIndex = -1;

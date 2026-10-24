@@ -487,7 +487,7 @@
         if (profileTab === 'media') rows = posts.filter(post => post.imageUrl);
         if (profileTab === 'saved') rows = loadState().posts.filter(post => safeList(post.bookmarkedBy).includes(id) && isVisible(post, viewer().id));
         const replies = loadState().comments.filter(item => item.authorId === id && loadState().posts.some(post => post.id === item.postId && isVisible(post, viewer().id))).slice().reverse();
-        return `<section class="lw-profile-identity"><div class="lw-profile-controls">${controls}</div>${avatarMarkup(who,'lw-profile-avatar')}<h1>${escapeHtml(who.name)}</h1><p>${escapeHtml(who.username || '@member')} · ${metrics.followers} 位粉丝</p>${publicSummary ? `<p class="lw-profile-summary">${escapeHtml(publicSummary)}</p>` : ''}${id !== 'user' ? `<button class="lw-profile-ai-refresh" type="button" onclick="LivingWorld.refreshProfile('${escapeAttr(id)}')">更新公开资料</button>` : ''}${contactControl}${editForm}</section><div class="lw-profile-stats"><span><b>${metrics.posts}</b><small>发帖数量</small></span><span><b>${metrics.following}</b><small>关注</small></span><span><b>${metrics.followers}</b><small>粉丝</small></span></div><section class="lw-profile-section lw-profile-posts"><nav class="lw-profile-tabs" aria-label="主页内容">${[['posts','帖子'],['replies','评论'],['media','媒体'],['saved','收藏']].map(([key,label]) => `<button type="button" class="${profileTab === key ? 'active' : ''}" onclick="LivingWorld.setProfileTab('${key}')">${label}</button>`).join('')}</nav><div class="lw-feed lw-profile-feed">${profileTab === 'replies' ? replies.map(item => `<button class="lw-profile-reply" type="button" onclick="LivingWorld.openPost('${escapeAttr(item.postId)}')"><b>${escapeHtml(loadState().posts.find(post => post.id === item.postId)?.deletedAt ? '该贴已删' : loadState().posts.find(post => post.id === item.postId)?.title || '帖子')}</b><p>${escapeHtml(item.body)}</p><small>${timeAgo(item.createdAt)}</small></button>`).join('') || '<div class="lw-empty">还没有评论。</div>' : rows.map(post => postCard(post)).join('') || `<div class="lw-empty lw-profile-empty"><i class="ri-chat-smile-2-line"></i><h2>${profileTab === 'saved' ? '还没有收藏的帖子' : profileTab === 'media' ? '还没有媒体帖子' : profileTab === 'replies' ? '还没有评论' : mine ? '你还没有任何帖子' : '这里还没有帖子'}</h2><p>${mine ? '在社区中发帖后，内容会显示在这里。' : '等 TA 发帖后再来看看。'}</p>${mine && profileTab === 'posts' ? `<button type="button" class="lw-empty-action" onclick="LivingWorld.setTab('create')">创建帖子</button>` : ''}</div>`}</div></section>`;
+        return `<section class="lw-profile-identity"><div class="lw-profile-controls">${controls}</div>${avatarMarkup(who,'lw-profile-avatar')}<h1>${escapeHtml(who.name)}</h1><p>${escapeHtml(who.username || '@member')} · ${metrics.followers} 位粉丝</p>${lifeChip(id)}${publicSummary ? `<p class="lw-profile-summary">${escapeHtml(publicSummary)}</p>` : ''}${id !== 'user' ? `<button class="lw-profile-ai-refresh" type="button" onclick="LivingWorld.refreshProfile('${escapeAttr(id)}')">更新公开资料</button>` : ''}${contactControl}${editForm}</section><div class="lw-profile-stats"><span><b>${metrics.posts}</b><small>发帖数量</small></span><span><b>${metrics.following}</b><small>关注</small></span><span><b>${metrics.followers}</b><small>粉丝</small></span></div><section class="lw-profile-section lw-profile-posts"><nav class="lw-profile-tabs" aria-label="主页内容">${[['posts','帖子'],['replies','评论'],['media','媒体'],['saved','收藏']].map(([key,label]) => `<button type="button" class="${profileTab === key ? 'active' : ''}" onclick="LivingWorld.setProfileTab('${key}')">${label}</button>`).join('')}</nav><div class="lw-feed lw-profile-feed">${profileTab === 'replies' ? replies.map(item => `<button class="lw-profile-reply" type="button" onclick="LivingWorld.openPost('${escapeAttr(item.postId)}')"><b>${escapeHtml(loadState().posts.find(post => post.id === item.postId)?.deletedAt ? '该贴已删' : loadState().posts.find(post => post.id === item.postId)?.title || '帖子')}</b><p>${escapeHtml(item.body)}</p><small>${timeAgo(item.createdAt)}</small></button>`).join('') || '<div class="lw-empty">还没有评论。</div>' : rows.map(post => postCard(post)).join('') || `<div class="lw-empty lw-profile-empty"><i class="ri-chat-smile-2-line"></i><h2>${profileTab === 'saved' ? '还没有收藏的帖子' : profileTab === 'media' ? '还没有媒体帖子' : profileTab === 'replies' ? '还没有评论' : mine ? '你还没有任何帖子' : '这里还没有帖子'}</h2><p>${mine ? '在社区中发帖后，内容会显示在这里。' : '等 TA 发帖后再来看看。'}</p>${mine && profileTab === 'posts' ? `<button type="button" class="lw-empty-action" onclick="LivingWorld.setTab('create')">创建帖子</button>` : ''}</div>`}</div></section>`;
     }
     function renderNav() { const items = [['home','主页','ri-home-5-line'],['create','创建','ri-add-line'],['notifications','收件箱','ri-notification-3-line'],['profile','你','ri-user-3-line']]; return `<nav class="lw-nav" aria-label="论坛导航">${items.map(([id,label,icon]) => `<button type="button" aria-label="${label}" title="${label}" class="${activeTab === id || (id === 'notifications' && activeTab === 'chat') ? 'active ' : ''}" onclick="LivingWorld.setTab('${id}')"><i class="${icon}" aria-hidden="true"></i>${id === 'notifications' && unreadMessages() + unreadNotifications() ? '<em class="lw-nav-dot"></em>' : ''}</button>`).join('')}</nav>`; }
     function renderMenu() { return menuOpen ? `<div class="lw-menu-shade" onclick="if(event.target===this)LivingWorld.toggleMenu(false)"><section class="lw-menu-panel" role="dialog" aria-label="论坛菜单"><h2>论坛</h2><button onclick="LivingWorld.menuGo('home')"><i class="ri-home-5-line"></i> 首页</button><button onclick="LivingWorld.menuGo('communities')"><i class="ri-group-line"></i> 社区</button><button onclick="LivingWorld.menuGo('media')"><i class="ri-newspaper-line"></i> 媒体与新闻</button><button onclick="LivingWorld.menuGo('relationships')"><i class="ri-node-tree"></i> 关系图</button><button onclick="LivingWorld.menuGo('settings')"><i class="ri-settings-3-line"></i> 论坛设置</button><button onclick="LivingWorld.returnToDesktop()"><i class="ri-apps-line"></i> 返回桌面</button></section></div>` : ''; }
@@ -509,6 +509,7 @@
             <h1>动态刷新</h1><p>只有在打开论坛时才检查到期任务。每次推进只让一位角色根据自己的已知经历选择行动或沉默；启用 Jev 时可能先增加一次决策调用，实际写作最多调用一次文本 API。手动模式不会自动推进。首次打开角色主页仍可能调用 API 生成资料。</p>
             <label>刷新方式<select id="lw-refresh-mode"><option value="manual" ${choice('manual',settings.refreshMode)}>手动</option><option value="interval" ${choice('interval',settings.refreshMode)}>固定间隔</option><option value="smart" ${choice('smart',settings.refreshMode)}>智能时段（随机）</option></select></label>
             <label>固定间隔<select id="lw-refresh-hours">${[3,6,12,24,48].map(hour => `<option value="${hour}" ${choice(hour,Number(settings.intervalHours))}>${hour} 小时</option>`).join('')}</select></label>
+            <section class="lw-pulse-settings"><h2>小世界心跳</h2><p>每隔一阵，由 Jev 判断某位成员此刻在做什么、会不会刷到帖子、点不点赞、关不关注；没配置 Jev 时由该角色自己的 agent 通过你的 API 判断，两者都没有就不会演。离开一阵再回来，这段时间的小事会补上（最多 3 轮）。</p><label>自运行<select id="lw-world-pulse"><option value="on" ${choice('on',settings.worldPulse || 'on')}>开启</option><option value="off" ${choice('off',settings.worldPulse || 'on')}>关闭</option></select></label><label>角色主动分享<select id="lw-world-share"><option value="on" ${choice('on',settings.worldShare || 'on')}>开启：角色会私信分享自己的帖子</option><option value="off" ${choice('off',settings.worldShare || 'on')}>关闭</option></select></label><p>分享由 Jev / 角色自己决定要不要发，每个角色至少间隔 10 小时、每天不超过 2 条。刷新方式不是“手动”时，论坛关着也会按设定推进。</p></section>
             <p>智能时段参考 08:00、12:30、03:00，每次在附近随机浮动；离线期间不会补扣多次 API。下次进入论坛时最多补一次。</p>
             <section class="lw-reaction-settings"><div class="lw-reaction-heading"><span class="lw-reaction-icon"><i class="ri-chat-smile-3-line"></i></span><div><h2>角色回复</h2><p>你在角色的帖子下留言后，由角色决定是否接话。</p></div></div><div class="lw-reaction-options" role="radiogroup" aria-label="角色回复调用方式">${[['forum','打开论坛时','只有进入论坛后才调用 AI 判断，不打断聊天。','ri-discuss-line'],['app','应用运行时自动','即使正在聊天或使用其他页面，也会在应用可见时判断。','ri-smartphone-line'],['off','关闭','不自动调用 AI；你的评论仍会正常保存。','ri-moon-line']].map(([mode,title,description,icon]) => `<label class="lw-reaction-option"><input type="radio" name="lw-reply-mode" value="${mode}" ${settings.replyMode === mode ? 'checked' : ''}><span class="lw-reaction-option-face"><i class="${icon}" aria-hidden="true"></i><span><strong>${title}</strong><small>${description}</small></span><i class="ri-check-line lw-reaction-check" aria-hidden="true"></i></span></label>`).join('')}</div><p class="lw-reaction-note">两种自动方式都会先等待 2–12 分钟；同一角色至少间隔 4 小时，全局至少间隔 10 分钟。未启用 Jev 时由文本模型判断；启用后先尝试 Jev，确需回复才由文本模型写内容。退出应用后不会后台调用，下次打开再检查。</p></section>
             <h2>角色主页</h2><label>头像与资料<select id="lw-profile-mode"><option value="economy" ${choice('economy',settings.profileMode)}>省生图：NPC 姓名头像 + AI 资料</option><option value="full" ${choice('full',settings.profileMode)}>完整：角色资料 + 生图头像</option></select></label>
@@ -791,13 +792,14 @@
         const profileMode = document.getElementById('lw-profile-mode')?.value;
         const replyMode = document.querySelector('input[name="lw-reply-mode"]:checked')?.value || loadState().forumSettings.replyMode;
         const promotionsEnabled = (document.getElementById('lw-promotion-enabled')?.value || 'yes') === 'yes';
+        const worldPulse = document.getElementById('lw-world-pulse')?.value === 'off' ? 'off' : 'on', worldShare = document.getElementById('lw-world-share')?.value === 'off' ? 'off' : 'on';
         const promotionMinGap = Number(document.getElementById('lw-promotion-min')?.value ?? 8);
         const promotionMaxGap = Number(document.getElementById('lw-promotion-max')?.value ?? 15);
         if (!['manual','interval','smart'].includes(refreshMode) || ![3,6,12,24,48].includes(intervalHours) || !['economy','full'].includes(profileMode) || !['forum','app','off'].includes(replyMode) || !Number.isInteger(promotionMinGap) || !Number.isInteger(promotionMaxGap) || promotionMinGap < 4 || promotionMinGap > 30 || promotionMaxGap > 30 || promotionMinGap > promotionMaxGap) { showToast('设置项无效。'); return; }
         try {
             mutate(next => {
                 const old = next.forumSettings;
-                next.forumSettings = { ...old, refreshMode, intervalHours, profileMode, replyMode, replyReactionsEnabled:replyMode !== 'off', promotionsEnabled, promotionMinGap, promotionMaxGap, nextSmartAt: refreshMode === 'smart' && old.refreshMode !== 'smart' ? nextSmartTime(now()) : old.nextSmartAt };
+                next.forumSettings = { ...old, worldPulse, worldShare, refreshMode, intervalHours, profileMode, replyMode, replyReactionsEnabled:replyMode !== 'off', promotionsEnabled, promotionMinGap, promotionMaxGap, nextSmartAt: refreshMode === 'smart' && old.refreshMode !== 'smart' ? nextSmartTime(now()) : old.nextSmartAt };
                 if (replyMode === 'off') {
                     next.interactionHandled.push(...next.interactionQueue.map(item => item.commentId));
                     next.interactionHandled = next.interactionHandled.slice(-160);
@@ -1490,10 +1492,150 @@
         } catch (error) { console.warn('Living World AI batch rejected', error); outcome = error?.message || '生成失败，世界状态未改动。'; }
         finally { isGenerating = false; processPlannedDeletes(); render(); showToast(outcome); }
     }
+    // ── 小世界心跳 (1.1.1011) ───────────────────────────────────────────────
+    // 论坛不只在你点开时才“动”：每个 NPC 有自己的作息，按自己的时间刷帖、点赞、关注别人；
+    // 离开几个小时再回来，这段时间里发生过的事会被补上（有上限）。这一层完全在本地运行，不调用 API。
+    // char 发出的帖子，过一阵会像朋友一样私信你分享（需要你自己的 API，且有冷却与每日上限）。
+    // 小世界心跳：谁在做什么、刷不刷论坛、点不点赞、关不关注，全部交给 Jev 判断（Jev 未配置或不确定时，由该角色自己的 agent 通过你的 API 判断）。
+    // 两者都不可用时什么也不演——不用写死的作息表或随机数造一个假的热闹。
+    const PULSE_STEP = 40 * 60000, PULSE_MAX_ROUNDS = 3, PULSE_ACTORS_PER_ROUND = 2, LIFE_FRESH = 8 * 3600000;
+    const SHARE_COOLDOWN = 10 * 3600000, SHARE_DAILY_LIMIT = 2, SHARE_MIN_AGE = 25 * 60000, SHARE_MAX_AGE = 36 * 3600000;
+    let sharingBusy = false, lastShareCheck = 0, pulseBusy = false;
+    const LIFE_LABELS = { sleeping:'睡着了', working:'忙着正事', commuting:'在路上', eating:'在吃饭', free:'有空闲', browsing:'在刷论坛' };
+
+    function lifeChip(id) {
+        const world = loadState(); if (!id || id === 'user' || world.forumSettings.worldPulse === 'off') return '';
+        const life = world.agentStates[id]?.life; if (!life?.label || now() - Number(life.at || 0) > LIFE_FRESH) return '';
+        return `<p class="lw-life ${life.key === 'sleeping' ? 'asleep' : 'awake'}"><i></i>${escapeHtml(String(life.label).slice(0, 24))}</p>`;
+    }
+    function actorProfile(world, actor) {
+        const char = safeList(window.myCharacters).find(item => item.id === actor.charId || item.id === actor.originCharId || `char:${item.id}` === actor.id);
+        return { name:actor.name || '', summary:String(actor.summary || '').slice(0, 160), mood:actor.mood || '', style:actor.style || '', occupation:actor.occupation || '', interests:safeList(actor.interests).slice(0, 6), persona:char ? String(char.description || char.personality || '').slice(0, 300) : '' };
+    }
+    function pulsePickPost(next, actor, at) {
+        const habits = next.agentStates[actor.id]?.communityCounts || {}, following = new Set(safeList(next.follows[actor.id]));
+        const rows = next.posts.filter(post => post.authorId !== actor.id && !post.deletedAt && post.visibility !== 'private' && Number(post.createdAt) <= at && at - Number(post.createdAt) < 3 * DAY && (!post.amaStartsAt || post.amaStartsAt <= at) && !(post.votes && post.votes[actor.id]) && isVisible(post, actor.id));
+        if (!rows.length) return null;
+        return rows.map(post => ({ post, score:(safeList(actor.interests).includes(post.communityId) ? 4 : 0) + Math.min(3, Number(habits[post.communityId] || 0)) + (following.has(post.authorId) ? 4 : 0) + Math.max(0, 3 - (at - Number(post.createdAt)) / DAY) })).sort((a, b) => b.score - a.score)[0].post;
+    }
+    // 这一步轮到谁只是排班（最久没动的、到点的先来）；做什么由 Jev / agent 决定。
+    function pulseSchedule(world, at) {
+        const people = [...world.npcs, ...Object.values(world.accounts).filter(item => item?.id && item.id !== 'user' && item.type !== 'user')];
+        return [...new Map(people.filter(item => item?.id).map(item => [item.id, item])).values()]
+            .filter(item => Number(world.agentStates[item.id]?.nextEligibleAt || 0) <= at)
+            .sort((a, b) => Number(world.agentStates[a.id]?.lastPulseAt || 0) - Number(world.agentStates[b.id]?.lastPulseAt || 0)).slice(0, PULSE_ACTORS_PER_ROUND);
+    }
+    async function decidePulse(world, actor, post, at) {
+        const author = account(post.authorId), relation = relationshipScore(actor.id, post.authorId);
+        const state = { actor:actorProfile(world, actor), localTime:new Date(at).toLocaleString('zh-CN'), post:{ title:String(post.title || '').slice(0, 80), body:String(post.body || '').slice(0, 220), community:community(post.communityId).name, author:author.name || '' }, alreadyFollowsAuthor:safeList(world.follows[actor.id]).includes(post.authorId), relationToAuthor:relation };
+        const criteria = { sleeping:'The character is asleep or about to sleep and cannot browse.', working:'The character is busy with work, study or chores and cannot browse.', commuting:'The character is out and about, could glance at a phone briefly.', eating:'The character is eating or taking a break.', free:'The character has free time and may browse the forum.', browsing:'The character is already scrolling the forum.' };
+        const instructions = { doing:'Given who this character is and the local time, what are they most plausibly doing right now? Stay in character; do not default to browsing.', like:'If the character is able to see this post, would they naturally react with a like?', follow:'Would this character naturally follow the post author because of this post?' };
+        const jev = window.ByndJev;
+        if (jev?.available?.('forumAction')) {
+            const answers = await jev.ask('forumAction', state, { doing:{ type:'choice', instructions:instructions.doing, criteria }, like:{ type:'noul', instructions:instructions.like }, follow:{ type:'noul', instructions:instructions.follow } }, { charName:actor.name, labels:{ doing:'论坛心跳：此刻在做什么', like:'论坛心跳：是否点赞', follow:'论坛心跳：是否关注' } });
+            if (answers?.doing?.confident) { const key = answers.doing.value; const can = ['free', 'browsing', 'commuting', 'eating'].includes(key); return { key, label:LIFE_LABELS[key] || '', browse:can, like:can && answers.like?.value === true, follow:can && answers.follow?.value === true, source:'jev' }; }
+        }
+        if (typeof window.callChatApi !== 'function') return null;
+        const result = await window.callChatApi([{ role:'system', content:'你只扮演论坛里的一个人，按他/她的身份、性格和此刻的时间，判断此刻在做什么，以及是否会刷到并回应这条帖子。只返回严格 JSON。' }, { role:'user', content:`${JSON.stringify(state)}\n返回：{"doing":"不超过 12 个字，此刻在做什么（如“在地铁上”“夜班理货中”）","browsing":true|false,"like":true|false,"follow":true|false}。不方便看手机、已睡着、与这条帖子无关时 browsing/like/follow 为 false；不要为了热闹而点赞或关注。` }], { background:true, backgroundPriority:-1, stream:false, temperature:.7, max_tokens:160, usageFeature:'forum' });
+        if (!result?.ok) return null;
+        try { const row = parseJsonBatch(result.content), browse = row.browsing === true; const label = String(row.doing || '').trim().slice(0, 24); if (!label) return null; return { key:browse ? 'browsing' : 'working', label, browse, like:browse && row.like === true, follow:browse && row.follow === true, source:'agent' }; } catch (_) { return null; }
+    }
+    function applyPulse(next, actor, post, decision, at) {
+        const record = next.agentStates[actor.id] && typeof next.agentStates[actor.id] === 'object' ? next.agentStates[actor.id] : {};
+        record.life = { key:decision.key, label:decision.label, at }; record.lastPulseAt = at; record.nextEligibleAt = at + (30 + Math.floor(Math.random() * 60)) * 60000;
+        if (decision.browse) { record.lastBrowseAt = at; record.communityCounts = { ...(record.communityCounts || {}), [post.communityId]:Math.min(999, Number(record.communityCounts?.[post.communityId] || 0) + 1) }; }
+        next.agentStates[actor.id] = record;
+        if (!decision.browse) return;
+        if (decision.like) {
+            const target = next.posts.find(item => item.id === post.id); if (!target || target.deletedAt) return;
+            target.votes = target.votes && typeof target.votes === 'object' ? target.votes : {}; target.votes[actor.id] = 1;
+            const event = addEvent(next, 'forum_like', actor.id, post.id, { generated:true, pulse:decision.source }, 'public'); event.createdAt = at;
+            grantKnowledge(next, actor.id, event, actor.id, 'authored', 1);
+            if (post.authorId !== actor.id) {
+                grantKnowledge(next, post.authorId, event, actor.id, 'notification', 1);
+                applyRelationshipDelta(next, actor.id, post.authorId, { familiarity:1 }, event.id);
+                if (post.authorId === 'user' || next.accounts[post.authorId]) notify(next, post.authorId, '有人赞同了你的帖子', `${actor.name || account(actor.id).name} 赞同了帖子`, post.id);
+            }
+        }
+        const following = safeList(next.follows[actor.id]);
+        if (decision.follow && post.authorId !== actor.id && post.authorId !== 'user' && !following.includes(post.authorId)) {
+            next.follows[actor.id] = [...following, post.authorId];
+            const event = addEvent(next, 'forum_follow', actor.id, post.authorId, { generated:true, pulse:decision.source }, 'public'); event.createdAt = at;
+            grantKnowledge(next, actor.id, event, actor.id, 'authored', 1); grantKnowledge(next, post.authorId, event, actor.id, 'notification', 1);
+            applyRelationshipDelta(next, actor.id, post.authorId, { familiarity:2, trust:1 }, event.id);
+        }
+    }
+    async function runPulse() {
+        if (pulseBusy || isGenerating) return 0;
+        const world = loadState(); if (world.forumSettings.worldPulse === 'off' || !world.posts.length) return 0;
+        const jev = window.ByndJev?.available?.('forumAction'); if (!jev && typeof window.callChatApi !== 'function') return 0;
+        const state = world.worldPulse && typeof world.worldPulse === 'object' ? world.worldPulse : {}, current = now();
+        if (!Number(state.lastAt)) { try { mutate(next => { next.worldPulse = { lastAt:current }; }); } catch (_) {} return 0; }
+        const elapsed = current - Number(state.lastAt), rounds = Math.min(PULSE_MAX_ROUNDS, Math.floor(elapsed / PULSE_STEP));
+        if (rounds < 1) return 0;
+        pulseBusy = true; let acted = 0;
+        try {
+            try { mutate(next => { next.worldPulse = { lastAt:current }; }); } catch (_) { return 0; }
+            for (let index = 1; index <= rounds; index++) {
+                const at = current - Math.round((rounds - index) * Math.min(elapsed, 3 * DAY) / rounds);
+                for (const actor of pulseSchedule(loadState(), Math.min(at, current))) {
+                    const post = pulsePickPost(loadState(), actor, Math.min(at, current)); if (!post) continue;
+                    const decision = await decidePulse(loadState(), actor, post, Math.min(at, current)); if (!decision) continue;
+                    try { mutate(next => applyPulse(next, actor, post, decision, Math.min(at, current))); acted++; } catch (error) { console.warn('小世界心跳未保存', error); }
+                }
+            }
+        } finally { pulseBusy = false; }
+        if (acted) { const forum = document.getElementById('app-living-world-window'); if (forum && !forum.classList.contains('hidden') && activeTab !== 'create' && !replyComposerOpen) render(); }
+        return acted;
+    }
+
+    // ── char 主动分享 ───────────────────────────────────────────────────────
+    function shareCandidate(world) {
+        const current = now(), day = current - DAY;
+        const chars = Object.values(world.accounts).filter(item => item?.type === 'char' && item.id);
+        for (const actor of chars.sort(() => Math.random() - .5)) {
+            const record = world.agentStates[actor.id] || {};
+            if (current - Number(record.lastShareAt || 0) < SHARE_COOLDOWN || current - Number(record.lastShareAttemptAt || 0) < 3600000) continue;
+            if (safeList(record.shareLog).filter(at => Number(at) > day).length >= SHARE_DAILY_LIMIT) continue;
+            const post = world.posts.find(item => item.authorId === actor.id && !item.deletedAt && item.generated && !item.sharedToUser && item.visibility !== 'private' && current - Number(item.createdAt) >= SHARE_MIN_AGE && current - Number(item.createdAt) <= SHARE_MAX_AGE && !world.comments.some(row => row.postId === item.id && row.authorId === 'user') && !(item.votes && item.votes.user));
+            if (post) return { actor, post };
+        }
+        return null;
+    }
+    async function maybeShareToUser() {
+        if (sharingBusy || isGenerating || document.hidden || typeof window.callChatApi !== 'function') return;
+        if (now() - lastShareCheck < 60000) return; lastShareCheck = now();
+        const world = loadState(); if (world.forumSettings.worldShare === 'off' || world.viewerId !== 'user') return;
+        const picked = shareCandidate(world); if (!picked) return;
+        const { actor, post } = picked; sharingBusy = true;
+        const hold = window.ByndJev?.available?.('forumAction') ? await window.ByndJev.choose('forumAction', { actor:actorProfile(world, actor), localTime:new Date().toLocaleString('zh-CN'), ownPost:{ title:String(post.title || '').slice(0, 80), body:String(post.body || '').slice(0, 200) }, minutesSincePosted:Math.round((now() - Number(post.createdAt)) / 60000) }, 'Would this character naturally message the user to share their own forum post right now? Prefer hold when it would feel pushy, out of character, or the timing is wrong.', { share:'The character sends the user a short private message sharing the post.', hold:'The character does not message the user about it now.' }) : '';
+        if (hold === 'hold') { try { mutate(next => { next.agentStates[actor.id] ||= {}; next.agentStates[actor.id].lastShareAttemptAt = now(); }); } catch (_) {} sharingBusy = false; return; }
+        try { mutate(next => { next.agentStates[actor.id] ||= {}; next.agentStates[actor.id].lastShareAttemptAt = now(); }); } catch (_) { sharingBusy = false; return; }
+        try {
+            const char = safeList(window.myCharacters).find(item => item.id === actor.charId || `char:${item.id}` === actor.id);
+            const persona = String(char?.description || char?.personality || actor.summary || '').slice(0, 1500);
+            const known = typeof getRelevantEventsForChar === 'function' ? getRelevantEventsForChar(char || actor.id, 3) : '';
+            const result = await window.callChatApi([{ role:'system', content:`你是「${actor.name}」。你刚在论坛发了一条帖子，想顺手发条私信把它分享给对方（User）。只输出你发给对方的那一两句自然的话，口吻符合人设，不要 JSON、旁白、系统说明，不要复述整篇帖子，不要替对方说话，也不要写链接（链接会自动附上）。\n人设：${persona}\n${known}` }, { role:'user', content:`现在是 ${new Date().toLocaleString('zh-CN')}。你的帖子《${String(post.title || '').slice(0, 60)}》：${String(post.body || '').slice(0, 300)}\n写出分享时说的话；如果此刻你并不想分享，只输出 SKIP。` }], { background:true, backgroundPriority:-1, stream:false, temperature:.8, max_tokens:220, usageFeature:'forum', usageChar:char });
+            if (!result?.ok) throw new Error(result?.error || '分享失败');
+            const text = String(result.content || '').trim().replace(/^["“「]|["”」]$/g, '').slice(0, 400); if (!text) throw new Error('空分享'); if (/^SKIP$/i.test(text)) return;
+            mutate(next => {
+                const target = next.posts.find(item => item.id === post.id); if (!target || target.deletedAt || target.sharedToUser) return;
+                target.sharedToUser = now();
+                const message = { id:uid('dm'), fromId:actor.id, toId:'user', body:`${text}\n${postLink(post.id)}`, createdAt:now(), readAt:0, shared:true };
+                next.messages.push(message);
+                const event = addEvent(next, 'forum_dm', actor.id, 'user', { messageId:message.id, sharedPostId:post.id }, 'private');
+                grantKnowledge(next, 'user', event, actor.id, 'direct', 1); grantKnowledge(next, actor.id, event, actor.id, 'authored', 1);
+                const record = next.agentStates[actor.id] ||= {}; record.lastShareAt = now(); record.shareLog = [...safeList(record.shareLog).filter(at => Number(at) > now() - 3 * DAY), now()];
+            });
+            setForumUnread(true);
+            if ((activeTab === 'chat' && activeThreadId === actor.id) || activeTab === 'notifications') render();
+        } catch (error) { console.warn('char 分享帖子未完成', error); }
+        finally { sharingBusy = false; }
+    }
     function processPlannedDeletes() { const due = loadState().posts.filter(post => post.plannedDeleteAt && !post.deletedAt && post.plannedDeleteAt <= now()); if (!due.length) return; try { mutate(next => { next.posts.filter(post => post.plannedDeleteAt && !post.deletedAt && post.plannedDeleteAt <= now()).forEach(post => tombstonePost(next,post,post.authorId,true,post.plannedDeleteAt)); }); render(); } catch (error) { showToast(error.message); } }
     function maybeLazySimulate() { if (now() - lastScheduleCheck < 30000) return; lastScheduleCheck = now(); const world = loadState(); if (!world.migration?.apiGenerated || isGenerating) return; const settings = world.forumSettings; const elapsed = now() - Number(world.lastSimulatedAt || now()); const lastAttempt = Number(settings.lastAttemptAt || 0); const retryAt = Number(settings.autoRetryAt || 0); let due = false; if (settings.refreshMode === 'interval') due = retryAt ? now() >= retryAt : now() - Math.max(Number(world.lastSimulatedAt || 0),lastAttempt) >= Number(settings.intervalHours || 12) * 3600000; if (settings.refreshMode === 'smart') { if (!settings.nextSmartAt) { try { mutate(next => { next.forumSettings.nextSmartAt = nextSmartTime(now()); }); } catch (error) { showToast(error.message); } return; } due = retryAt ? now() >= retryAt : now() >= Number(settings.nextSmartAt) && now() - lastAttempt >= 30 * 60000; } if (!due) return; try { mutate(next => { next.forumSettings.lastAttemptAt = now(); next.forumSettings.autoRetryAt = 0; if (settings.refreshMode === 'smart' && !retryAt) next.forumSettings.nextSmartAt = nextSmartTime(now()); }); void advanceWorld({ offline: true, elapsed }); } catch (error) { showToast(error.message); } }
-    async function init() { setForumUnread(false); if (window._wechatCharactersLoadPromise) { try { await window._wechatCharactersLoadPromise; } catch (_) {} } let saveError = null; try { syncAccounts(); queueRecentInteractions(); } catch (error) { saveError = error; } activeTab = activeTab || 'home'; render(); if (saveError) showToast(saveError.message); else { processPlannedDeletes(); maybeLazySimulate(); void maybeRunInteraction(); } }
-    if (typeof window.setInterval === 'function') window.setInterval(() => { if (document.hidden) return; void maybeRunInteraction(); const forum = document.getElementById('app-living-world-window'); if (!forum || forum.classList.contains('hidden')) return; processPlannedDeletes(); maybeLazySimulate(); const current = now(); const boundary = loadState().posts.some(post => post.ama && ((Number(post.amaStartsAt) > lastAmaCheckAt && Number(post.amaStartsAt) <= current) || (Number(post.expiresAt) > lastAmaCheckAt && Number(post.expiresAt) <= current))); lastAmaCheckAt = current; if (boundary) { if (activeTab === 'detail' && !isVisible(loadState().posts.find(post => post.id === activePostId),viewer().id)) { activeTab = 'home'; activePostId = ''; replyComposerOpen = false; } render(); } }, 30000);
+    async function init() { setForumUnread(false); if (window._wechatCharactersLoadPromise) { try { await window._wechatCharactersLoadPromise; } catch (_) {} } let saveError = null; try { syncAccounts(); queueRecentInteractions(); } catch (error) { saveError = error; } activeTab = activeTab || 'home'; render(); if (saveError) showToast(saveError.message); else { processPlannedDeletes(); void runPulse(); maybeLazySimulate(); void maybeRunInteraction(); void maybeShareToUser(); } }
+    if (typeof window.setInterval === 'function') window.setInterval(() => { if (document.hidden) return; void runPulse(); void maybeShareToUser(); void maybeRunInteraction(); const forum = document.getElementById('app-living-world-window'); if (!forum || forum.classList.contains('hidden')) { if (loadState().forumSettings.worldPulse !== 'off') { processPlannedDeletes(); maybeLazySimulate(); } return; } processPlannedDeletes(); maybeLazySimulate(); const current = now(); const boundary = loadState().posts.some(post => post.ama && ((Number(post.amaStartsAt) > lastAmaCheckAt && Number(post.amaStartsAt) <= current) || (Number(post.expiresAt) > lastAmaCheckAt && Number(post.expiresAt) <= current))); lastAmaCheckAt = current; if (boundary) { if (activeTab === 'detail' && !isVisible(loadState().posts.find(post => post.id === activePostId),viewer().id)) { activeTab = 'home'; activePostId = ''; replyComposerOpen = false; } render(); } }, 30000);
     // Background replies (「应用运行时自动」) land while the forum is closed; flag the desktop entry until the forum opens.
     function setForumUnread(value) { try { if (value) localStorage.setItem(UNREAD_KEY, '1'); else localStorage.removeItem(UNREAD_KEY); } catch (_) {} document.documentElement?.classList?.toggle('lw-forum-unread', !!value); }
     if (typeof window.addEventListener === 'function') window.addEventListener('bynd:world-event', event => {
@@ -1564,6 +1706,8 @@
         });
     };
     window.LivingWorld.removePrivateChatState = saved => { const ids = new Set(saved?.events?.map(item => item.id) || []); if (ids.size) mutate(next => { next.events = next.events.filter(item => !ids.has(item.id)); }); };
+    window.LivingWorld.runPulse = runPulse;
+    window.LivingWorld.maybeShareToUser = () => { lastShareCheck = 0; return maybeShareToUser(); };
     window.LivingWorld.openRelation = openRelation;
     window.LivingWorld.retryRelationImpression = retryRelationImpression;
     window.LivingWorld.closeRelation = closeRelation;

@@ -83,6 +83,7 @@ const wechatParts = [
     'apps/wechat/ui/toolbar.js',
     'apps/wechat/chat/calls.js',
     'apps/wechat/chat/call-audio.js',
+    'apps/wechat/chat/call-voice.js',
     'core/character/card-parser.js',
     'apps/wechat/character/import.js',
     'apps/wechat/character/delete.js',
@@ -93,7 +94,9 @@ const wechatParts = [
     'apps/wechat/chat/sticker-store.js',
     'apps/wechat/ui/me-settings.js',
     'apps/wechat/moments/moments.js',
+    'apps/wechat/moments/discover-story.js',
     'apps/wechat/moments/channels.js',
+    'apps/wechat/moments/live-media.js',
     'apps/wechat/moments/live.js',
     'apps/wechat/shop/shop.js',
     'core/api/novelai.js',
@@ -112,6 +115,8 @@ const wechatParts = [
     'apps/char-phone/mail.js',
     'apps/char-phone/native-apps.js',
     'apps/char-phone/system-apps.js',
+    'apps/char-phone/details.js',
+    'apps/char-phone/details-native.js',
     'apps/char-phone/desktop.js',
     'apps/char-phone/snapshot-data.js',
     'apps/char-phone/sync.js',
@@ -161,6 +166,7 @@ const styleParts = [
     'apps/wechat/chat/tools.css',
     'apps/char-phone/phone.css',
     'apps/char-phone/music.css',
+    'apps/char-phone/details.css',
     'apps/outing/outing.css',
     'apps/coreading/coreading.css',
     'apps/music/netease.css',
@@ -182,7 +188,12 @@ const styleParts = [
     'ui/components/experience.css',
     'systems/character-events/events.css',
     'apps/wechat/ui/interaction-theme.css',
-    'apps/settings/vivix.css'
+    'apps/wechat/chat/call-voice.css',
+    'apps/wechat/moments/discover-story.css',
+    'apps/wechat/moments/live-room.css',
+    'apps/settings/vivix.css',
+    'apps/settings/settings-layout.css',
+    'apps/wechat/ui/pay-cards.css'
 ];
 
 // These two apps intentionally keep their private IIFE scope. Their feature
@@ -202,6 +213,7 @@ const forumParts = [
     'apps/forum/npc/generation-context.part.js',
     'systems/agent-runtime/forum-agent.part.js',
     'systems/living-world/generation.part.js',
+    'systems/living-world/pulse.part.js',
     'systems/living-world/lifecycle.part.js'
 ];
 
@@ -224,6 +236,7 @@ const settingsParts = [
     'core/storage/backup.js',
     'apps/settings/releases.js',
     'apps/settings/version-letter.js',
+    'apps/settings/select-sheet.js',
     'apps/settings/fonts.js'
 ];
 

@@ -19,7 +19,7 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         const body = request.postDataJSON(); requests.push({ path: url.pathname, method: request.method(), body });
         if (bad) return route.fulfill({ status: 401, contentType: 'application/json', body: '{"code":1}' });
         let data;
-        if (url.pathname.endsWith('/v1/voices')) data = { voices: [{ voice_id: 'voice-a', name: '音色 A' }] };
+        if (url.pathname.endsWith('/v1/voices')) data = { voices: [{ voice_id: 'voice-a', name: '音色 A' }, { voice_id: 'voice-b', name: '音色 B' }] };
         else if (url.pathname.endsWith('/images')) data = { url: 'https://bynd.ccwu.cc/mcp/relay/vivix/images/' + 'a'.repeat(64) };
         else if (url.pathname.endsWith('/close')) {
             if (failClose) return route.fulfill({ status: 500, contentType: 'application/json', body: '{"code":5}' });
@@ -71,9 +71,28 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         assert.equal(await page.evaluate(() => ByndVivix.selected(myCharacters[0])), true, 'saved global Vivix settings apply without a second per-role switch');
         await page.locator('#vivix-test').click(); await page.waitForFunction(() => document.getElementById('vivix-status').textContent.includes('连接成功'));
         assert.equal(requests.length, 1); assert.equal(requests[0].method, 'GET');
+        assert.equal(await page.locator('#vivix-voices').evaluate(node => node.tagName), 'SELECT');
+        assert.equal(await page.locator('#vivix-voices option').count(), 15, 'official built-ins and both account voices remain available');
+        assert.match(await page.locator('#vivix-voices option[value="longanhuan_v3.6"]').innerText(), /女声.*活泼/);
+        assert.match(await page.locator('#vivix-voices option[value="longchuanshu_v3.6"]').innerText(), /男声.*四川/);
+        assert.match(await page.locator('#vivix-voices option[value="voice-b"]').innerText(), /性别未提供/);
+        assert.equal(await page.locator('#vivix-voices').isEnabled(), true);
+        await page.locator('#vivix-voices').click(); await page.keyboard.press('Escape');
+        await page.locator('#vivix-voices').selectOption('voice-b');
+        assert.equal(await page.locator('#vivix-voice').inputValue(), 'voice-b');
+        await page.locator('.vivix-actions button').last().click(); await page.evaluate(() => ByndVivix.renderSettings());
+        assert.equal(await page.locator('#vivix-voices').inputValue(), 'voice-b');
+        assert.equal(await page.evaluate(() => ByndVivix.read().voiceId), 'voice-b');
+        await page.locator('#vivix-voice').fill('manual-voice');
+        assert.equal(await page.locator('#vivix-voices option').count(), 15);
+        assert.equal(await page.locator('#vivix-voices').inputValue(), '');
+        await page.locator('#vivix-voices').selectOption('voice-b'); await page.locator('.vivix-actions button').last().click();
         assert.equal(await page.evaluate(() => getBackupLocalStorageKeys().includes(ByndVivix.storageKey)), false);
         bad = true; await page.locator('#vivix-test').click(); await page.waitForFunction(() => document.getElementById('vivix-status').dataset.error === 'true');
         assert.doesNotMatch(await page.locator('#vivix-status').innerText(), /browser-test-key/); bad = false;
+        assert.equal(await page.locator('#vivix-voices').isDisabled(), true);
+        assert.equal(await page.locator('#vivix-voice').inputValue(), 'voice-b');
+        await page.locator('#vivix-test').click(); await page.waitForFunction(() => document.getElementById('vivix-status').textContent.includes('连接成功'));
         await page.evaluate(() => ByndVivix.renderSettings());
         for (const width of [320,375]) for (const safe of [47,59]) for (const owner of ['parent','header']) {
             await page.setViewportSize({ width, height: 844 });
@@ -92,6 +111,19 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
             });
             assert.ok(geometry.top >= safe && geometry.left >= 0 && geometry.right <= width && geometry.overflow <= 1, JSON.stringify({ width,safe,owner,geometry }));
             await page.screenshot({ path: path.join(output, `settings-${width}-${safe}-${owner}.png`) });
+            await page.locator('#vivix-voices').scrollIntoViewIfNeeded();
+            await page.locator('#vivix-voice').scrollIntoViewIfNeeded();
+            const voiceBounds = await page.locator('#vivix-voices').boundingBox();
+            assert.ok(voiceBounds.x >= 0 && voiceBounds.x + voiceBounds.width <= width + 1 && voiceBounds.height >= 44);
+            await page.screenshot({ path: path.join(output, `voice-picker-${width}-${safe}-${owner}.png`) });
+            if (safe === 59 && owner === 'header') {
+                for (const [gender, voice] of [['female', 'longanhuan_v3.6'], ['male', 'longchuanshu_v3.6']]) {
+                    await page.locator('#vivix-voices').selectOption(voice);
+                    assert.equal(await page.locator('#vivix-voice').inputValue(), voice);
+                    await page.screenshot({ path: path.join(output, `voice-${gender}-${width}.png`) });
+                }
+                await page.locator('#vivix-voices').selectOption('voice-b');
+            }
         }
         await page.evaluate(png => {
             openApp('wechat'); openChat('vivix-a'); queueWechatAutoReplyToChar = () => {};
@@ -103,14 +135,17 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
                 if (window._qaChatFailure && messages.at(-1).content.includes('提取角色当前')) return { ok: false, error: window._qaChatFailure };
                 if (messages.at(-1).content.includes('提取角色当前')) return { ok: true, content: JSON.stringify({ scene: '医院值班室，夜晚，白大褂，疲惫' }) };
                 if (messages.at(-1).content.includes('你接吗')) return { ok: true, content: '[接听]刚下夜班，你还醒着？' };
+                window._qaReplyRequests = (window._qaReplyRequests || 0) + 1;
+                if (window._qaPlainReplies > 0) { window._qaPlainReplies--; return { ok: true, content: '我就在窗边。' }; }
                 return { ok: true, content: JSON.stringify({ speech: '我去窗边看看。', action: '走到窗边，转头拿起杯子', scene: _qaSceneChange ? '医院走廊，夜晚，白大褂' : '', endCall: false }) };
             };
-            callWechatImageGenerationApi = async (prompt, options) => { _qaImageCount++; window._qaImageOptions = options; return _qaImageFailure ? { ok: false, error: 'mock image failure' } : { ok: true, url: png }; };
+            callWechatImageGenerationApi = async (prompt, options) => { _qaImageCount++; window._qaImageOptions = options; return _qaImageFailure ? { ok: false, error: typeof _qaImageFailure === 'string' ? _qaImageFailure : 'mock image failure' } : { ok: true, url: png }; };
         }, png);
         const start = () => page.evaluate(() => startWechatCall('videoCall'));
         const ready = () => page.waitForFunction(() => _wechatActiveCall?.vivix?.ready && _wechatActiveCall.vivix.firstFrame && !document.getElementById('wc-call-ai-portrait-status').textContent);
         await start(); await ready();
         assert.equal(requests.filter(r => r.path.endsWith('/sessions')).length, 1);
+        assert.equal(requests.find(r => r.path.endsWith('/sessions')).body.pipeline_config.tts_config.tts_voice_id, 'voice-b', 'the saved selection reaches the actual session request');
         assert.equal(await page.evaluate(() => _qaImageOptions.requireReference), true);
         assert.match(requests.find(r => r.path.endsWith('/sessions')).body.avatars[0].visual.source_images[0].description, /医院值班室.*白大褂/);
         await page.evaluate(() => sendWechatCallMessage('看看窗外')); assert.equal(requests.filter(r => r.path.endsWith('/sessions')).length, 1);
@@ -133,6 +168,24 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         await page.evaluate(() => { _qaSceneChange = true; }); await page.evaluate(() => sendWechatCallMessage('去走廊')); await page.evaluate(() => _qaSceneChange = false);
         assert.equal(await page.evaluate(() => _qaEvents.filter(e => e.type === 'session.update').length), 1);
         assert.equal(requests.filter(r => r.path.endsWith('/sessions')).length, 1);
+        // Exercise the reported JSON failure through the real call UI on every theme.
+        const themes = await page.evaluate(() => WECHAT_UI_THEMES.map(theme => theme.id));
+        await page.setViewportSize({ width: 375, height: 844 });
+        for (const theme of themes) {
+            await page.evaluate(theme => { applyWechatUiTheme(theme, { update: false }); _qaPlainReplies = 2; }, theme);
+            const before = await page.evaluate(() => ({ sent: _qaEvents.length, requests: _qaReplyRequests || 0 }));
+            await page.evaluate(() => sendWechatCallMessage('啥地方呀'));
+            assert.match(await page.locator('#wc-call-log').innerText(), /角色回复失败.*JSON/);
+            assert.equal(await page.evaluate(() => _qaEvents.length), before.sent);
+            assert.equal(await page.evaluate(() => _qaReplyRequests), before.requests + 2);
+            await page.screenshot({ path: path.join(output, `json-error-${theme}-375.png`) });
+            await page.evaluate(() => _qaPlainReplies = 1);
+            await page.evaluate(() => sendWechatCallMessage('再说一次'));
+            assert.equal(await page.evaluate(() => _qaEvents.length), before.sent + 1);
+            assert.equal(await page.evaluate(() => _qaChatRequest.options.presetOverride), null);
+            await page.screenshot({ path: path.join(output, `json-recovered-${theme}-375.png`) });
+        }
+        await page.evaluate(() => applyWechatUiTheme('default', { update: false }));
         for (const width of [320,375]) for (const safe of [47,59]) for (const owner of ['parent','header']) {
             await page.setViewportSize({ width, height: 844 });
             await page.evaluate(({ safe, owner }) => {
@@ -161,9 +214,17 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         assert.equal(await page.evaluate(() => _qaRtc.length), rtcCount); assert.ok(requests.at(-1).path.endsWith('/close')); delayedCreate = false;
         // Scene preparation failure must not create a billable session.
         const beforeFailure = requests.filter(r => r.path.endsWith('/sessions')).length;
-        await page.evaluate(() => _qaImageFailure = true); await start();
+        await page.evaluate(() => _qaImageFailure = '生图服务不支持参考图编辑（HTTP 404）'); await start();
         await page.waitForFunction(() => _wechatActiveCall?.vivix?.failed);
         assert.match(await page.locator('#wc-call-log').innerText(), /开场场景生成失败/);
+        assert.match(await page.locator('#wc-call-log').innerText(), /不支持参考图编辑.*404/);
+        assert.match(await page.locator('#wc-call-log').innerText(), /原参考图重拨/);
+        for (const width of [320,375]) for (const theme of themes) {
+            await page.setViewportSize({ width, height:844 });
+            await page.evaluate(theme => applyWechatUiTheme(theme, { update:false }), theme);
+            await page.screenshot({ path:path.join(output, `image-error-${theme}-${width}.png`) });
+        }
+        await page.evaluate(() => applyWechatUiTheme('bynd', { update:false }));
         assert.equal(requests.filter(r => r.path.endsWith('/sessions')).length, beforeFailure); await page.evaluate(() => endWechatCall());
         // The reported black-screen scene error must retain the upstream reason
         // once and must not present a usable microphone before RTC connects.
@@ -188,6 +249,14 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         });
         assert.ok((await page.locator('.msg-call-desc').allTextContents()).some(text => text.includes('1分37秒') && text.includes('大小姐挂断了电话')));
         await page.screenshot({ path:path.join(output,'hangup-remark-375.png') });
+        // Disabling scene generation uses the reference and bypasses the failing
+        // image API; it never silently changes the user's saved preference.
+        const imageCount = await page.evaluate(() => _qaImageCount);
+        await page.evaluate(() => { ByndVivix.write({ ...ByndVivix.read(), prepareScene:false }); _qaImageFailure = true; });
+        await start(); await ready();
+        assert.equal(await page.evaluate(() => _qaImageCount), imageCount);
+        assert.equal(requests.filter(r => r.path.endsWith('/sessions')).length, beforeFailure + 1);
+        await page.evaluate(() => { endWechatCall(); ByndVivix.write({ ...ByndVivix.read(), prepareScene:true }); _qaImageFailure = false; });
         // Character-originated video calls use the same selected provider.
         const ttsBeforeIncoming = await page.evaluate(() => _qaTtsEnqueues);
         await page.evaluate(() => { _qaImageFailure = false; const char = myCharacters.find(c => c.id === 'vivix-a'); char.chatConfig.videoCallProvider = 'inherit'; handleWechatIncomingCall(char, { type: 'videoCall', isMe: false, status: '来电', reason: '下夜班了，你在吗？', timestamp: Date.now() }); });
@@ -315,8 +384,8 @@ const ttsAudio = 'data:audio/wav;base64,' + audioBytes.toString('base64');
         assert.equal(await page.evaluate(() => typeof TRTC.create), 'function');
         assert.equal(await page.evaluate(() => { const rtc = TRTC.create(); const type = typeof rtc.muteRemoteAudio; rtc.destroy(); return type; }), 'function');
         assert.deepEqual(errors, []);
-        fs.writeFileSync(path.join(output,'checks.json'), JSON.stringify({ requests, errors, sdkLoaded:true, screenshots:39 }, null, 2));
-        console.log('Vivix: provider/sound selection, external TTS/silent calls, incoming routing/ringtone, redacted scene errors without billing, microphone and voice transcript routing, nickname hangup cards, SDK load and 39 narrow safe-area screenshots passed (mock Vivix/RTC/TTS).');
+        fs.writeFileSync(path.join(output,'checks.json'), JSON.stringify({ requests, errors, sdkLoaded:true, screenshots:51 + themes.length * 4, jsonReplyThemes:themes }, null, 2));
+        console.log(`Vivix: opening image errors retain provider reasons on ${themes.length} themes; explicit reference-only calls bypass image failures; voice selection/save/session payload, JSON recovery, provider/sound selection, TTS/silent calls, incoming routing, microphone/transcripts, SDK and ${51 + themes.length * 4} narrow safe-area screenshots passed (mock Vivix/RTC/TTS).`);
     } catch (error) { await page.screenshot({ path: path.join(output,'failure.png') }); throw error; }
     finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

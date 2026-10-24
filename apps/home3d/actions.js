@@ -64,7 +64,7 @@
             const now = Date.now(); home.executions ||= {};
             tokens.forEach((token, i) => {
                 const intent = intents[i], actor = token.actor, old = home.executions[actor];
-                const resumed = !!options.restore && old?.phase === 'acting' && old.action === intent.action && old.room === intent.room && old.target === intent.target;
+                const resumed = !!options.resume || !!options.restore && old?.phase === 'acting' && old.action === intent.action && old.room === intent.room && old.target === intent.target;
                 if (actor === 'char' && active.has(actor)) settle(home, now);
                 if (old && !terminal.has(old.phase)) home.actionReceipts = [...(home.actionReceipts || []), { ...old, phase: old.phase === 'acting' ? 'finished' : 'cancelled', at: now, reason: '已切换安排' }].slice(-80);
                 const record = { ...token, action: intent.action, room: intent.room, target: intent.target || '', source: intent.source || (actor === 'char' ? 'local' : 'interaction'), mode: options.simulated ? 'simulation' : 'scene', phase: 'queued', at: now, createdAt: now, resumed };

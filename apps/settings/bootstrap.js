@@ -23,7 +23,9 @@ function initSettings() {
     renderPresetList();
     initFontSettings();
     if (typeof renderProactiveNotifySettings === 'function') renderProactiveNotifySettings();
-    openSettingsTab(readSettingsTab(), { persist: false, smooth: false });
+    // Settings opens on the grouped list. Links that need a page (for example
+    // the video call shortcut) open their page right after this.
+    openSettingsHome();
 }
 
 // --- Settings tab navigation ---
@@ -41,27 +43,88 @@ function openSettingsTab(name, options = {}) {
     if (!panels.length) return null;
     const target = panels.some(panel => panel.dataset.settingsPanel === name) ? name : SETTINGS_DEFAULT_TAB;
     panels.forEach(panel => { panel.hidden = panel.dataset.settingsPanel !== target; });
-    const nav = win.querySelector('.set-nav');
+    let title = '';
     win.querySelectorAll('[data-settings-tab]').forEach(tab => {
         const active = tab.dataset.settingsTab === target;
         tab.classList.toggle('active', active);
         tab.setAttribute('aria-selected', String(active));
         tab.tabIndex = active ? 0 : -1;
-        if (active && nav) {
-            nav.scrollTo?.({ left: Math.max(0, tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2), behavior: options.smooth === false ? 'auto' : 'smooth' });
-        }
+        if (active) title = tab.querySelector?.('.set-row-title')?.textContent || '';
     });
+    // Two-level layout: the list (.set-nav) is the home page, a panel is a detail page.
+    win.classList?.add('settings-detail');
+    const heading = win.querySelector('#settings-title');
+    if (heading) heading.textContent = title || '设置';
     const content = win.querySelector('.window-content');
     if (content) content.scrollTop = 0;
     if (options.persist !== false) {
         try { localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, target); } catch (e) {}
     }
+    if (target === 'voice') window.ByndCallVoice?.renderSettings();
     if (target === 'usage') void renderSettingsUsageDashboard();
     if (target === 'lab') window.ByndPromptLab?.render();
     if (target === 'about') window.ByndVersionLetter?.renderAbout();
     return target;
 }
 window.openSettingsTab = openSettingsTab;
+
+function openSettingsHome() {
+    const win = document.getElementById('app-settings-window');
+    if (!win) return;
+    win.classList.remove('settings-detail');
+    const heading = win.querySelector('#settings-title');
+    if (heading) heading.textContent = '设置';
+    const nav = win.querySelector('.set-nav');
+    if (nav) nav.scrollTop = 0;
+    renderSettingsSummaries();
+}
+window.openSettingsHome = openSettingsHome;
+
+// One short status per row, so the list answers "what is set up" without opening pages.
+function getSettingsSummaries() {
+    const safe = read => { try { return read() || ''; } catch (_) { return ''; } };
+    return {
+        api: safe(() => {
+            const data = getApiData();
+            const chat = data.apis.find(api => api.id === data.defaultId && api.model);
+            return chat ? `${chat.name || '聊天接口'} · ${chat.model}` : (data.apis.length ? '未选默认' : '未添加');
+        }),
+        voice: safe(() => {
+            const data = getApiData();
+            const ready = [
+                isApiVoiceEnabled(normalizeVoiceApiData(data.voiceApi)),
+                isOpenAiVoiceEnabled(normalizeOpenAiVoiceApiData(data.openAiVoiceApi)),
+                isFishAudioVoiceEnabled(normalizeFishAudioVoiceApiData(data.fishAudioVoiceApi)),
+                isElevenLabsVoiceEnabled(normalizeElevenLabsVoiceApiData(data.elevenLabsVoiceApi)),
+                isLocalVoiceEnabled(normalizeLocalVoiceApiData(data.localVoiceApi))
+            ].filter(Boolean).length;
+            return ready ? `${ready} 个已启用` : '未启用';
+        }),
+        video: safe(() => (window.ByndVivix?.read()?.apiKey ? '已配置' : '未配置')),
+        '3d': safe(() => (window.ByndTripo?.read()?.apiKey ? '已连接' : '未连接')),
+        decision: safe(() => (window.ByndJev?.read()?.enabled ? 'Jev 辅助' : 'BYND 内置')),
+        notify: safe(() => {
+            if (typeof resolveProactiveNotifySettings !== 'function') return '';
+            const settings = resolveProactiveNotifySettings();
+            return settings.enabled ? formatProactiveNotifyInterval(settings.intervalHours) : '已关闭';
+        }),
+        font: safe(() => {
+            const store = getFontStore();
+            const custom = store.fonts.find(font => font.id === store.activeId);
+            if (custom) return custom.name || '自定义字体';
+            const preset = FONT_PRESETS.find(item => item.id === store.activeId);
+            return preset ? preset.name : '系统默认';
+        }),
+        about: safe(() => (typeof APP_VERSION === 'string' ? APP_VERSION : ''))
+    };
+}
+
+function renderSettingsSummaries() {
+    const summaries = getSettingsSummaries();
+    document.querySelectorAll('#app-settings-window [data-settings-summary]').forEach(el => {
+        el.textContent = summaries[el.dataset.settingsSummary] || '';
+    });
+}
 
 async function renderSettingsUsageDashboard() {
     const root = document.getElementById('bynd-usage-dashboard');

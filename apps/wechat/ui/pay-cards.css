@@ -1,0 +1,88 @@
+/* Money cards (transfer, red packet, 亲密付) — one rule set every WeChat theme follows.
+   Loaded after all theme sheets. Themes change the look through variables, not by
+   restyling card states, so a state can never end up as white text on a light card.
+
+   Pending transfer / red packet: brand gradient with white text (both sides).
+   Received / returned / 亲密付: the theme's own surface, text, muted and border colours
+   (--wci-* are copied from the active theme by ui-theme.js), lightly tinted per kind.
+
+   Pixel and couple keep their hand-made card designs; they only take the 亲密付 fix. */
+
+[data-wechat-ui-theme] {
+    --pay-transfer-bg: linear-gradient(135deg, #e98a1f, #db7410);
+    --pay-quiet-text: color-mix(in srgb, var(--wci-text, #1f1f1f) 64%, var(--wci-surface, #fff));
+    --pay-redpacket-bg: linear-gradient(135deg, #e5533a, #f08a3c);
+    --pay-transfer-ink: #e0861f;
+    --pay-redpacket-ink: #df5236;
+    --pay-intimate-ink: var(--wci-accent, #e0861f);
+    --pay-footer-bg: rgba(255, 255, 255, 0.96);
+    --pay-footer-text: #8a8a8a;
+}
+/* Claude: warmer clay tones that sit with its cream palette. */
+[data-wechat-ui-theme="claude"] {
+    --pay-transfer-bg: linear-gradient(135deg, #db8a2c, #c97320);
+    --pay-redpacket-bg: linear-gradient(135deg, #cf5a3d, #e0834a);
+    --pay-transfer-ink: #c9761f;
+    --pay-redpacket-ink: #c4553a;
+    --pay-footer-text: #8a847c;
+}
+
+/* ---------- pending: brand gradient, white text ---------- */
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-pay-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble):not(.msg-pay-receipt):not(.msg-pay-returned) {
+    padding: 0 !important;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: var(--wci-radius, 14px) !important;
+    color: #fff !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-transfer-bubble:not(.msg-pay-receipt):not(.msg-pay-returned) { background: var(--pay-transfer-bg) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-redpacket-bubble:not(.msg-pay-receipt):not(.msg-pay-returned) { background: var(--pay-redpacket-bg) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble):not(.msg-pay-receipt):not(.msg-pay-returned) :is(.msg-pay-title, .msg-pay-amount, .msg-rp-amount, .msg-pay-note) { color: #fff !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble):not(.msg-pay-receipt):not(.msg-pay-returned) .msg-pay-note { opacity: .85; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble):not(.msg-pay-receipt):not(.msg-pay-returned) .msg-pay-icon { background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble:is(.msg-transfer-bubble, .msg-redpacket-bubble):not(.msg-pay-receipt):not(.msg-pay-returned) .msg-card-footer {
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--pay-footer-bg) !important;
+    color: var(--pay-footer-text) !important;
+}
+
+/* ---------- received / returned / 亲密付: theme surface ---------- */
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble:is(.msg-pay-bubble.msg-pay-receipt, .msg-pay-bubble.msg-pay-returned, .msg-intimate-pay-bubble) {
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid var(--wci-border, rgba(0, 0, 0, 0.08)) !important;
+    border-radius: var(--wci-radius, 14px) !important;
+    background: var(--wci-surface, #fff) !important;
+    color: var(--wci-text, #1f1f1f) !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-transfer-bubble.msg-pay-receipt { background: color-mix(in srgb, var(--wci-surface, #fff) 92%, var(--pay-transfer-ink) 8%) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-redpacket-bubble.msg-pay-receipt { background: color-mix(in srgb, var(--wci-surface, #fff) 92%, var(--pay-redpacket-ink) 8%) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-bubble.msg-intimate-pay-bubble { background: color-mix(in srgb, var(--wci-surface, #fff) 93%, var(--pay-intimate-ink) 7%) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row :is(.msg-pay-bubble.msg-pay-receipt, .msg-pay-bubble.msg-pay-returned, .msg-intimate-pay-bubble) :is(.msg-pay-title, .msg-pay-amount, .msg-rp-amount) { color: var(--wci-text, #1f1f1f) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row :is(.msg-pay-bubble.msg-pay-receipt, .msg-pay-bubble.msg-pay-returned, .msg-intimate-pay-bubble) .msg-pay-note { color: var(--pay-quiet-text) !important; opacity: 1 !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row :is(.msg-pay-bubble.msg-pay-receipt, .msg-pay-bubble.msg-pay-returned, .msg-intimate-pay-bubble) .msg-card-footer {
+    margin: 0 !important;
+    border: 0 !important;
+    border-top: 1px solid var(--wci-border, rgba(0, 0, 0, 0.08)) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--pay-quiet-text) !important;
+}
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row :is(.msg-pay-bubble.msg-pay-receipt, .msg-pay-bubble.msg-pay-returned, .msg-intimate-pay-bubble) .msg-pay-icon { background: color-mix(in srgb, var(--wci-surface, #fff) 82%, var(--pay-transfer-ink) 18%) !important; color: var(--pay-transfer-ink) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-redpacket-bubble.msg-pay-receipt .msg-pay-icon { background: color-mix(in srgb, var(--wci-surface, #fff) 82%, var(--pay-redpacket-ink) 18%) !important; color: var(--pay-redpacket-ink) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-intimate-pay-bubble .msg-pay-icon { background: color-mix(in srgb, var(--wci-surface, #fff) 82%, var(--pay-intimate-ink) 18%) !important; color: var(--pay-intimate-ink) !important; }
+/* Returned money is done with: muted icon, struck-through amount. */
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble.msg-pay-returned .msg-pay-icon { background: var(--wci-well, #f1f1f1) !important; color: var(--pay-quiet-text) !important; }
+[data-wechat-ui-theme]:not([data-wechat-ui-theme="pixel"]):not([data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-pay-bubble.msg-pay-returned :is(.msg-pay-amount, .msg-rp-amount) { color: var(--pay-quiet-text) !important; text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* ---------- pixel and couple: only the 亲密付 note, which was invisible ---------- */
+[data-wechat-ui-theme]:is([data-wechat-ui-theme="pixel"], [data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-intimate-pay-bubble .msg-pay-note { color: color-mix(in srgb, var(--wci-text, #292929) 64%, var(--wci-surface, #fff)) !important; opacity: 1 !important; }
+[data-wechat-ui-theme]:is([data-wechat-ui-theme="pixel"], [data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-intimate-pay-bubble :is(.msg-pay-title, .msg-pay-amount) { color: var(--wci-text, #292929) !important; }
+[data-wechat-ui-theme]:is([data-wechat-ui-theme="pixel"], [data-wechat-ui-theme="couple"]) #app-wechat-window #wechat-chat-room .msg-row .msg-intimate-pay-bubble:not(.msg-pay-receipt) .msg-pay-icon { color: var(--wci-text, #292929) !important; }

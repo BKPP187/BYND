@@ -15,7 +15,11 @@ export function base64url(bytes) {
 }
 export function unbase64url(value) {
     requireValue(typeof value === 'string' && value.length <= 8192 && /^[A-Za-z0-9_-]+$/.test(value), 400, 'invalid_encoding', '编码无效。');
-    return Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    let binary;
+    // atob rejects impossible lengths; report that as bad input, not a service failure.
+    try { binary = atob(value.replace(/-/g, '+').replace(/_/g, '/')); }
+    catch { throw new HttpError(400, 'invalid_encoding', '编码无效。'); }
+    return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 export async function digest(bytes) { return base64url(await crypto.subtle.digest('SHA-256', bytes)); }
 async function hmac(secret, value) {

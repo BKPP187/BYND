@@ -57,6 +57,11 @@
         const sun = new T.DirectionalLight(options.theme === 'night' ? '#c5d6ef' : theme.light, options.theme === 'night' ? .8 : 2.3); sun.position.set(-3, 8, 6); sun.castShadow = true;
         sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = -6; sun.shadow.camera.right = 6; sun.shadow.camera.top = 6; sun.shadow.camera.bottom = -6; sun.shadow.normalBias = 0.035; sun.shadow.bias = -0.0002; sun.shadow.radius = 3; scene.add(sun);
         const fill = new T.DirectionalLight('#f4ded6', options.theme === 'night' ? .35 : .65); fill.position.set(6, 4, -2); scene.add(fill);
+        // Warm halos around lamp shades: a soft glow that reads as bloom, without a post pass.
+        const haloCanvas = document.createElement('canvas'); haloCanvas.width = haloCanvas.height = 128;
+        { const hc = haloCanvas.getContext('2d'), g = hc.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,226,170,.9)'); g.addColorStop(.3, 'rgba(255,214,150,.38)'); g.addColorStop(1, 'rgba(255,210,140,0)'); hc.fillStyle = g; hc.fillRect(0, 0, 128, 128); }
+        const haloMap = new T.CanvasTexture(haloCanvas); haloMap.colorSpace = T.SRGBColorSpace;
+        const halos = Array.from({ length: 6 }, () => { const sprite = new T.Sprite(new T.SpriteMaterial({ map: haloMap, transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0, toneMapped: false })); sprite.scale.set(.95, .95, 1); sprite.visible = false; sprite.raycast = () => {}; sprite.renderOrder = 4; scene.add(sprite); return sprite; });
         const dustPositions = new Float32Array(12 * 3), dustGeometry = new T.BufferGeometry();
         for (let i = 0; i < 12; i++) { dustPositions[i * 3] = Math.sin(i * 2.4) * 2.4; dustPositions[i * 3 + 1] = .5 + (i % 5) * .37; dustPositions[i * 3 + 2] = Math.cos(i * 2.4) * 2; }
         dustGeometry.setAttribute('position', new T.BufferAttribute(dustPositions, 3));
@@ -108,7 +113,7 @@
             if (pointer.dragged) { if (pointer.rotate) view.rotate(dx, dy); else view.pan(dx, dy); }
         }
         function up(event) {
-            const current = pointers.get(event.pointerId); pointers.delete(event.pointerId); pinchDistance = null;
+            const current = pointers.get(event.pointerId); pointers.delete(event.pointerId); pinchDistance = null; view.release?.();
             if (!current || current.dragged || disposed) return;
             if(view.stats().mode === 'exterior') { options.onNotice('这是整栋外观，切到整栋剖面或房间视角后点家具互动。'); return; }
             if(inspecting)return;
@@ -148,7 +153,8 @@
             sun.position.set(c.x+lighting.sun[0],base+lighting.sun[1],c.z+lighting.sun[2]);sun.target.position.set(c.x,base,c.z);sun.target.updateMatrixWorld();
             const extent=overview()?12:6;sun.shadow.camera.left=-extent;sun.shadow.camera.right=extent;sun.shadow.camera.top=extent;sun.shadow.camera.bottom=-extent;sun.shadow.camera.updateProjectionMatrix();
             sources.sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z));
-            lampLights.forEach((light,i)=>{light.visible=i<profile.lights&&!!sources[i];if(sources[i])light.position.copy(sources[i]);light.intensity=.35+lighting.lamps*4.1;});
+            lampLights.forEach((light,i)=>{light.visible=i<profile.lights&&!!sources[i];if(sources[i])light.position.copy(sources[i]);light.intensity=.35+lighting.lamps*5.2;});
+            halos.forEach((halo,i)=>{const source=sources[i];halo.visible=!!source&&lighting.lamps>.04;if(source){halo.position.copy(source);const toward=camera.position.clone().sub(source).normalize();halo.position.addScaledVector(toward,.32);}halo.material.opacity=Math.min(1,lighting.lamps*.95);const size=.9+lighting.lamps*.9;halo.scale.set(size,size,1);});
             renderer.shadowMap.needsUpdate=true;options.onLighting?.(lighting);
         }
         function tick(time) {
@@ -214,7 +220,7 @@
             }).concat(villa ? H.Villa.blocks(villa) : []);
         }
         async function load(roomId, home, userProfile, activity, stairEntry = false) {
-            if(!stairEntry)H.Interactions?.cancel();
+            if(!stairEntry){rememberPose();H.Interactions?.cancel();}
             viewToken++;
             clearInspection();
             if(overview())setViewpoint('isometric');
@@ -302,6 +308,7 @@
                 characterResults.forEach(result => { if (result.status === 'fulfilled') { result.value.released = true; H.Shapes.disposeGeometry(result.value.root); } }); actors = []; throw error;
             }
             setCharActivity(activity, true);
+            restoreUserPose();
             const count = Math.min(home.keepsakes.length, 6);
             for (let i = 0; i < count; i++) {
                 const star = await H.Furniture.load(H.Furniture.get('memory_01'), materials);
@@ -314,6 +321,33 @@
             roomReady = true; applyQuality(); quality.reset(); options.onView?.();
             if (failures.length) throw new Error('部分家具没能加载：' + failures.join('、') + '。可以重试进入。');
             return true;
+        }
+        function rememberPose() {
+            // Remember a long rest (sleeping, sitting, reading...) so coming back resumes it.
+            try {
+                const rec = H.State.home()?.executions?.user, me = actors.find(a => a.who === 'user');
+                if (rec?.phase === 'acting' && rec.target && me?.root.visible && me.action === rec.action && !me.onStairs && ['Sleep', 'Lie', 'Sit', 'Read', 'Watch', 'Use Phone', 'Work', 'Use Computer', 'Game', 'Drink'].includes(rec.action))
+                    H.State.withHome(h => { h.userPose = { room: rec.room, target: rec.target, action: rec.action, at: Date.now() }; });
+            } catch (_) { /* Resuming a pose is a convenience only. */ }
+        }
+        function restoreUserPose() {
+            const pose = H.State.home()?.userPose; if (!pose) return;
+            try {
+                const user = actors.find(a => a.who === 'user'), char = actors.find(a => a.who === 'char');
+                const limit = pose.action === 'Sleep' ? 12 * 3600000 : 3 * 3600000;
+                if (user && Date.now() - pose.at < limit && !H.Interactions?.paired()) {
+                    const requested = furniture.find(r => r.area === pose.room && r.local.id === pose.target);
+                    const row = requested && requested.item.actions.includes(pose.action) && H.Rooms.useRow(furniture, requested, pose.action);
+                    const anchor = row && H.Rooms.anchorInRoom(furniture, row, pose.action, 'user', reservations(user));
+                    if (anchor && !seatTaken(anchor, char) && !occupied(row, pose.action, char)) {
+                        user.area = row.area; user.path = []; user.destination = null;
+                        H.Characters.pose(user, pose.action, anchor);
+                        const receipt = H.Actions.begin('user', { room: row.area, target: row.local.id, action: pose.action }, { restore: true, resume: true });
+                        H.Actions.transition(receipt, 'acting');
+                    }
+                }
+            } catch (error) { options.onNotice(error.message, true); }
+            try { H.State.withHome(h => { delete h.userPose; }); } catch (_) { /* Keep the saved pose if storage is unavailable. */ }
         }
         function setCharActivity(activity, immediate = false) {
             const actor = actors.find(a => a.who === 'char'); if (!actor) return;
@@ -569,7 +603,7 @@
         async function setViewpoint(mode) {
             if(changingFloor||buildMode)throw Error('先完成楼梯行走或结束装修，再切换视角。');
             if(!['interior','isometric','first','third','exterior','dollhouse'].includes(mode))throw Error('未知视角。');
-            const modeToken=++viewToken;
+            const modeToken=++viewToken,wasPerspective=camera.isPerspectiveCamera===true;
             clearInspection();
             const user=actors.find(a=>a.who==='user');if(user)view.follow({eye:H.Characters.geometry(user).head,yaw:user.root.rotation.y,lookAt:offset(room.id)});
             if(mode==='exterior'){
@@ -590,7 +624,10 @@
                 const bounds=new T.Box3().setFromObject(cutawayGroup);bounds.union(new T.Box3().setFromObject(current.group));bounds.union(new T.Box3().setFromObject(staged.group));
                 camera=view.viewpoint(mode,bounds);
             }else{camera=view.viewpoint(mode);if(roomGroup)roomGroup.visible=true;if(exteriorGroup)exteriorGroup.visible=false;}
-            lastLighting=-Infinity;renderer.shadowMap.needsUpdate=true;applyQuality();options.onView?.();return mode;
+            lastLighting=-Infinity;renderer.shadowMap.needsUpdate=true;applyQuality();options.onView?.();
+            // Orthographic and perspective cameras cannot share a pose, so ease the cut with a short zoom-fade.
+            if(!reduced&&wasPerspective!==camera.isPerspectiveCamera&&renderer.domElement.animate)renderer.domElement.animate([{opacity:.2,transform:'scale(1.06)',filter:'blur(3px)'},{opacity:1,transform:'scale(1)',filter:'blur(0)'}],{duration:480,easing:'cubic-bezier(.2,.7,.2,1)'});
+            return mode;
         }
         function clearDraft() {
             draftToken++; H.Shapes.disposeGeometry(preview); H.Shapes.disposeGeometry(marker); preview = null; marker = null; draft = null;
@@ -631,13 +668,14 @@
         function rotateDraft() { if (draft) { draft.rotation = (draft.rotation + Math.PI / 2) % (Math.PI * 2); refreshDraft(); } }
         function setBuild(value) { if(value && (view.stats().mode!=='isometric'||surveying()))setViewpoint('isometric');clearDraft(); buildMode = !!value; renderer.domElement.setAttribute('aria-label', buildMode ? '装修房间，拖动家具移动，双指缩放，使用底部按钮旋转和确认' : '实时3D小屋，拖动探索，双指缩放，点击家具互动'); }
         function dispose() {
+            rememberPose();
             try { H.Interactions?.cancel(); H.Actions?.end('char', 'cancelled', '已离开当前画面'); }
             catch (error) { options.onNotice(error.message, true); }
             if (disposed) return; disposed = true; generation++; viewToken++;cancelAnimationFrame(raf); observer.disconnect();
             clearInspection(false);H.Shapes.disposeGeometry(cutawayGroup);lampLights.forEach(l=>l.removeFromParent());
             clearDraft();
             actors.forEach(actor => { actor.released = true; }); gpuTimer.dispose(); assetQuality.dispose(); H.Shapes.disposeGeometry(roomGroup); H.Shapes.disposeGeometry(exteriorGroup); H.Shapes.disposeGeometry(ground); materials.dispose(); sun.shadow.dispose(); dustGeometry.dispose(); dust.material.dispose();
-            renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); scene.clear(); roomGroup = null; actors = []; furniture = []; lampLights = []; pointers.clear();
+            halos.forEach(halo=>halo.material.dispose()); haloMap.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); scene.clear(); roomGroup = null; actors = []; furniture = []; lampLights = []; pointers.clear();
         }
         const contextLost = event => { if (disposed) return; event.preventDefault(); contextUnavailable = true; cancel(); options.onNotice('3D 显示暂时中断，点重试重新进入小屋。'); H.UI?.showSceneError('设备暂时释放了3D画面，请重试。'); };
         renderer.domElement.addEventListener('webglcontextlost', contextLost);
@@ -654,7 +692,7 @@
             applyQuality(); return true;
         }
         function setQuality(mode) { H.RenderQuality.save(mode); quality.setMode(mode); applyQuality(); }
-        return { load, dispose, navigate, getFurniture, cancelInteraction: () => { const user = actors.find(a => a.who === 'user'); if (user && !user.onStairs) { if (user.path.length && user.action === 'Walk') H.Characters.pose(user, 'Idle'); user.path = []; user.destination = null; } }, stopAction: () => { if(changingFloor)return false; const user=actors.find(a=>a.who==='user'); if(!user)return false; user.path=[];user.destination=null; const stood = standUp(user); H.Interactions?.cancel(stood ? 'finished' : 'blocked', stood ? '已主动结束动作' : '家具旁没有起身空间'); return stood; }, browseFloor, setWalls, setViewpoint, walkTo: walkUser, canNavigate: id => !!villa?.nodes.some(n => n.id === id), interact, interactPair, cancelShared, emote, resetCamera, setCharActivity, setBuild, beginDraft, moveDraft, nudgeDraft, rotateDraft, clearDraft, setQuality, chooseMeal, camera: view, draft: () => draft ? JSON.parse(JSON.stringify(draft)) : null, project: (x, z, world = false) => { const p = new T.Vector3(...(world ? [x, floorY(), z] : worldPosition([x, 0, z]))).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (p.x + 1) * r.width / 2, y: r.top + (1 - p.y) * r.height / 2 }; }, furniture: () => furniture.filter(r => !villa || r.area === room.id).map(r => villa ? { ...r, placement: r.local } : r), worldFurniture: () => furniture, zoom: delta => view.zoom(Math.exp(delta)), stats: () => ({ ...renderer.info.memory, renderedView, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, quality: quality.current(), texturesBudget: assetQuality.stats(), resolution: { cssWidth: host.clientWidth, cssHeight: host.clientHeight, width: renderer.domElement.width, height: renderer.domElement.height, pixelRatio: renderer.getPixelRatio(), antialias: !!renderer.getContext().getContextAttributes()?.antialias }, camera: view.stats(), lighting: { ...lighting, pointLights: lampLights.filter(l=>l.visible).length }, buildMode, actors: actors.map(a => ({ who: a.who, action: a.action, visible: a.root.visible, visual: a.visual, position: { x: a.root.position.x, y: a.root.position.y, z: a.root.position.z }, pose: H.Characters.geometry(a), path: a.path.length })), room: room?.id, villa: villa ? { level: villa.level, viewedLevel: viewedLevel ?? villa.level, levels: H.Villa.levelCount, browsing: surveying(), inspecting, surveyFurniture: inspection?.rows.length || 0, architecture: exteriorGroup?.userData.architecture || null, areas: villa.nodes.map(n => n.id), transitioning: changingFloor, generation, walls:wallMode, wallMeshes:wallFinishes.filter(m=>m.visible).length, doors:doors.map(d=>({name:d.name,angle:d.userData.door.angle})), exterior:view.stats().mode==='exterior' } : null }) };
+        return { load, dispose, rememberPose, navigate, getFurniture, cancelInteraction: () => { const user = actors.find(a => a.who === 'user'); if (user && !user.onStairs) { if (user.path.length && user.action === 'Walk') H.Characters.pose(user, 'Idle'); user.path = []; user.destination = null; } }, stopAction: () => { if(changingFloor)return false; const user=actors.find(a=>a.who==='user'); if(!user)return false; user.path=[];user.destination=null; const stood = standUp(user); H.Interactions?.cancel(stood ? 'finished' : 'blocked', stood ? '已主动结束动作' : '家具旁没有起身空间'); return stood; }, browseFloor, setWalls, setViewpoint, walkTo: walkUser, canNavigate: id => !!villa?.nodes.some(n => n.id === id), interact, interactPair, cancelShared, emote, resetCamera, setCharActivity, setBuild, beginDraft, moveDraft, nudgeDraft, rotateDraft, clearDraft, setQuality, chooseMeal, camera: view, draft: () => draft ? JSON.parse(JSON.stringify(draft)) : null, project: (x, z, world = false) => { const p = new T.Vector3(...(world ? [x, floorY(), z] : worldPosition([x, 0, z]))).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (p.x + 1) * r.width / 2, y: r.top + (1 - p.y) * r.height / 2 }; }, furniture: () => furniture.filter(r => !villa || r.area === room.id).map(r => villa ? { ...r, placement: r.local } : r), worldFurniture: () => furniture, zoom: delta => view.zoom(Math.exp(delta)), stats: () => ({ ...renderer.info.memory, renderedView, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, quality: quality.current(), texturesBudget: assetQuality.stats(), resolution: { cssWidth: host.clientWidth, cssHeight: host.clientHeight, width: renderer.domElement.width, height: renderer.domElement.height, pixelRatio: renderer.getPixelRatio(), antialias: !!renderer.getContext().getContextAttributes()?.antialias }, camera: view.stats(), lighting: { ...lighting, pointLights: lampLights.filter(l=>l.visible).length }, buildMode, actors: actors.map(a => ({ who: a.who, action: a.action, visible: a.root.visible, visual: a.visual, position: { x: a.root.position.x, y: a.root.position.y, z: a.root.position.z }, pose: H.Characters.geometry(a), path: a.path.length })), room: room?.id, villa: villa ? { level: villa.level, viewedLevel: viewedLevel ?? villa.level, levels: H.Villa.levelCount, browsing: surveying(), inspecting, surveyFurniture: inspection?.rows.length || 0, architecture: exteriorGroup?.userData.architecture || null, areas: villa.nodes.map(n => n.id), transitioning: changingFloor, generation, walls:wallMode, wallMeshes:wallFinishes.filter(m=>m.visible).length, doors:doors.map(d=>({name:d.name,angle:d.userData.door.angle})), exterior:view.stats().mode==='exterior' } : null }) };
     }
     H.Scene = { create };
 })(window.ByndHome3D);

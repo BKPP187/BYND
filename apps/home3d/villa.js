@@ -127,7 +127,7 @@
             }
             if (height > 1) {
                 wall.userData.villaWall = { axis: w.axis, x: w.x, z: w.z, cutaway: outside || w.side === 'back' && !node.id.includes('hall') && node.id !== 'landing' };
-                const plane = new T.Mesh(new T.PlaneGeometry(w.axis === 'x' ? w.depth : w.width, height - .12), materials.surface(H.Interiors.data().walls[config.wall], w.axis === 'x' ? w.depth : w.width, height - .12));
+                const plane = new T.Mesh(new T.PlaneGeometry(w.axis === 'x' ? w.depth : w.width, height - .12), materials.surface(H.Interiors.data().walls[w.side === 'left' && config.leftWall ? config.leftWall : config.wall], w.axis === 'x' ? w.depth : w.width, height - .12));
                 plane.position.set(w.x + (w.axis === 'x' ? .051 * inward : 0), plan.y + height / 2 + .06, w.z + (w.axis === 'z' ? .051 * inward : 0)); plane.rotation.y = w.axis === 'x' ? inward * Math.PI / 2 : inward < 0 ? Math.PI : 0; plane.userData.villaWall = wall.userData.villaWall; finish(plane); root.add(plane);
                 // Shared cream wainscoting gives every connected room the same
                 // finish, with the wallpaper above the protective lower panels.
@@ -155,7 +155,7 @@
             rug.rotation.x = -Math.PI / 2; rug.position.set(node.x, plan.y + .071, node.z + .5); rug.receiveShadow = true; root.add(rug);
         }
         if (['garden', 'greenhouse', 'terrace', 'balcony'].includes(node.id)) outdoors(root, node, plan, materials, config);
-        if (!outdoor && H.Daylight) { const fixture=H.Daylight.fixture(materials,node.id.includes('hall')||node.id==='landing'); fixture.position.set(node.x,plan.y+2.78,node.z);root.add(fixture); }
+        if (!outdoor && H.Daylight) { const fixture=H.Daylight.fixture(materials,node.id.includes('hall')||node.id==='landing',config.look); fixture.position.set(node.x,plan.y+2.78,node.z);root.add(fixture); }
         instanceStatic(root);
         return root;
     }
@@ -181,6 +181,7 @@
                 const lantern=box([.15,.18,.15],[x,.79,z],materials.glow('#ffedc6',.25));lantern.userData.luminousMaterial=lantern.material;
                 box([.22,.045,.22],[x,.91,z]);
             }
+            H.Garden?.dress(root, materials, palette, plan);
             const swing = new T.Group(); swing.name = 'garden-swing'; swing.position.set(3.3, .056, 6.25); swing.userData.gardenSwing = true; root.add(swing);
             for (const x of [-1.05, 1.05]) for (const z of [-.45, .45]) { const leg = H.Shapes.rounded(swing, [.12, 2.28, .12], [x, 1.08, z], wood, .02); leg.rotation.x = z < 0 ? .4 : -.4; leg.name = 'swing-a-frame-leg'; }
             H.Shapes.rounded(swing, [2.45, .14, .16], [0, 2.16, 0], wood, .03);
