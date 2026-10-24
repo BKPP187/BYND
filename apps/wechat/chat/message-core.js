@@ -870,6 +870,90 @@ function getWechatCssUrl(value) {
     return `url('${wcEscapeHtml(safe)}')`;
 }
 
+// --- 撤回 ---
+// A recalled message keeps its content so the character remembers what it took back,
+// but the chat only shows the grey "撤回了一条消息" line.
+const WECHAT_CHAR_RECALL_WINDOW_MS = 2 * 60 * 1000;
+const WECHAT_UNRECALLABLE_TYPES = ['system_notice', 'offline_narration', 'user_event', 'tool_result', 'poke', 'screen_shake', 'voiceCall', 'videoCall', 'wechat_recall_action'];
+
+function isWechatRecallableMessage(msg) {
+    return !!(msg && !msg.recalled && !msg.hiddenFromChat && !msg.internalEvent && !msg.monitorEvent && !WECHAT_UNRECALLABLE_TYPES.includes(msg.type || 'text'));
+}
+
+function findWechatCharRecallTarget(char, query = '', now = Date.now()) {
+    const history = Array.isArray(char?.history) ? char.history : [];
+    const wanted = String(query || '').trim().replace(/^(?:最近|刚才|上一条|最新)$/, '');
+    for (let i = history.length - 1, seen = 0; i >= 0 && seen < 12; i -= 1) {
+        const msg = history[i];
+        if (!msg) continue;
+        seen += 1;
+        const time = Number(new Date(msg.timestamp || 0));
+        if (Number.isFinite(time) && time > 0 && now - time > WECHAT_CHAR_RECALL_WINDOW_MS) break;
+        if (msg.isMe || !isWechatRecallableMessage(msg)) continue;
+        if (!wanted || getWechatMessageSummary(msg).includes(wanted)) return msg;
+    }
+    return null;
+}
+
+function markWechatMessageRecalled(msg) {
+    msg.recalled = true;
+    msg.recalledAt = Date.now();
+    return msg;
+}
+
+function applyWechatCharRecallAction(char, action) {
+    const target = findWechatCharRecallTarget(char, action?.query || '');
+    if (!target) return false;
+    markWechatMessageRecalled(target);
+    return true;
+}
+
+function getWechatRecallNoticeText(msg, charObj = null) {
+    if (msg.isMe) return '你撤回了一条消息';
+    const member = charObj?.isGroupChat && typeof findWechatGroupMember === 'function'
+        ? findWechatGroupMember(charObj, msg.senderId || msg.speakerId || msg.senderName || msg.speakerName)
+        : null;
+    const name = member ? getWechatGroupMemberName(member) : getWechatCharDisplayName(charObj);
+    return `${name ? `“${name}”` : '对方'}撤回了一条消息`;
+}
+
+function renderWechatRecallNotice(msg, charObj = null, msgIndex = -1) {
+    const editable = msg.isMe && (msg.type || 'text') === 'text' && Number.isInteger(msgIndex) && msgIndex >= 0;
+    const edit = editable ? ` <button type="button" class="msg-recall-reedit" onclick="event.stopPropagation();reeditWechatRecalledMessage(${msgIndex})">重新编辑</button>` : '';
+    return `<div class="msg-time-divider msg-poke-notice msg-recall-notice">${wcEscapeHtml(getWechatRecallNoticeText(msg, charObj))}${edit}</div>`;
+}
+
+async function recallWechatUserMessage(msgIdx) {
+    if (typeof closeMsgActionMenu === 'function') closeMsgActionMenu();
+    const char = getCurrentChatChar();
+    const msg = char?.history?.[msgIdx];
+    if (!msg || !msg.isMe || !isWechatRecallableMessage(msg)) return false;
+    markWechatMessageRecalled(msg);
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('撤回未能保存');
+    } catch (error) {
+        delete msg.recalled;
+        delete msg.recalledAt;
+        showWechatToast('撤回失败，请重试');
+        refreshChatView(char);
+        return false;
+    }
+    refreshChatView(char);
+    if (typeof renderChatList === 'function') renderChatList();
+    return true;
+}
+
+function reeditWechatRecalledMessage(msgIdx) {
+    const char = getCurrentChatChar();
+    const msg = char?.history?.[msgIdx];
+    const input = document.getElementById('wc-msg-input');
+    if (!msg || !msg.recalled || !msg.isMe || !input) return false;
+    input.value = String(msg.content || '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus?.();
+    return true;
+}
+
 function isWechatSpecialMessage(type) {
     return ['voice', 'transfer', 'redpacket', 'voiceCall', 'videoCall', 'share_card', 'gift', 'intimatePay', 'poke', 'screen_shake', 'music_card', 'link_card', 'tool_result'].includes(type);
 }
@@ -1005,6 +1089,7 @@ function getWechatCallDescription(msg, char = null) {
 
 function getWechatMessageSummary(msg) {
     if (!msg) return '[消息]';
+    if (msg.recalled) return msg.isMe ? '你撤回了一条消息' : '对方撤回了一条消息';
     if (isWechatRegexPayloadMessage(msg)) return '[状态更新]';
     if (msg.description && msg.type !== 'voiceCall' && msg.type !== 'videoCall') return msg.description;
     if (msg.type === 'sticker') {
@@ -1455,6 +1540,15 @@ function buildWechatUserTextMessage(text) {
         note,
         timestamp: createMessageTimestamp()
     });
+}
+
+// A poke from the character buzzes the phone briefly (Android WebView needs the VIBRATE permission;
+// iOS WebKit has no vibration API, so there it stays a visual nudge).
+function vibrateWechatPoke() {
+    try {
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') return navigator.vibrate([36, 60, 36]) !== false;
+    } catch (_) {}
+    return false;
 }
 
 function triggerWechatScreenFeedback(kind = 'shake', msg = null) {

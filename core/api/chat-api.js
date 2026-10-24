@@ -1435,7 +1435,8 @@ function buildSystemPrompt(char) {
     prompt += `  [微信拉黑:原因] 例如 [微信拉黑:我现在不想继续这段对话]，只在角色按人设真的要拉黑用户时使用\n`;
     prompt += `  [微信语音:转文字内容] 例如 [微信语音:我刚刚在想你]，系统会按文字长度自动估算语音秒数\n`;
     prompt += `  [微信表情:贴纸名或情绪] 例如 [微信表情:小狗能有什么坏心思]；如世界书提供了链接，也可用 [微信表情:贴纸名|图片URL]\n`;
-    prompt += `  [微信拍一拍:内容] 例如 [微信拍一拍:轻轻拍了拍你的头像]，用于很轻的互动提醒\n`;
+    prompt += `  [微信拍一拍:内容] 例如 [微信拍一拍:轻轻拍了拍你的头像]，用于很轻的互动提醒，用户手机会轻震一下；也可以只写 [微信拍一拍]，不要连续拍\n`;
+    prompt += `  [微信撤回] 或 [微信撤回:那句话里的关键词]，撤回你自己 2 分钟内刚发出的一条消息（说漏嘴、发错、害羞时），用户只会看到“对方撤回了一条消息”；必须作为独立一段放在要撤回的那条之后，例如：其实我有点想你|||[微信撤回]。很少使用\n`;
     prompt += `  [微信震动:内容] 例如 [微信震动:别装没看见我]，用于角色确实想让用户注意到时，必须少用\n`;
     prompt += `  [微信音乐:歌名|歌手|URL] 例如 [微信音乐:晴天|周杰伦|https://example.com/song]。未一起听歌时用于主动邀请用户；已经一起听歌时代表在当前音乐列表里切到这首歌，不是重新发邀请卡片。没有 URL 可以留空，系统会搜索可播放音源\n`;
     prompt += `- 你也可以主动给用户发音乐邀请卡片，用户点同意后才会一起播放；如果用户给你发了音乐卡片，你要按人设评价，若不喜欢可以先说明理由再用 [微信音乐:歌名|歌手|] 切歌。切歌时只输出一次切歌指令，不要连续发多张音乐卡片，不要编造不存在的 URL\n`;
@@ -1464,7 +1465,7 @@ function isChatApiInternalHistoryMessage(msg) {
 }
 
 function isChatApiVisibleUserHistoryMessage(msg) {
-    return !!(msg && msg.isMe && !isChatApiInternalHistoryMessage(msg) && msg.type !== 'user_event');
+    return !!(msg && msg.isMe && !msg.recalled && !isChatApiInternalHistoryMessage(msg) && msg.type !== 'user_event');
 }
 
 function buildMessages(char, history, maxMessages) {
@@ -1547,7 +1548,7 @@ function buildMessages(char, history, maxMessages) {
     }
     // 历史消息（取最近的 N 条）
     const recentHistory = history.slice(-maxMessages);
-    const ownImages = new Set(recentHistory.filter(msg => msg && !msg.isMe &&
+    const ownImages = new Set(recentHistory.filter(msg => msg && !msg.isMe && !msg.recalled &&
         (msg.type === 'image' || msg.type === 'image_stack') && !msg.imagePending && !msg.imageError && getChatApiImageUrls(msg).length).slice(-2));
     let latestUserMsg = null;
     for (let i = recentHistory.length - 1; i >= 0; i--) {
@@ -1563,6 +1564,15 @@ function buildMessages(char, history, maxMessages) {
         if (isInternalContext && !msg.content && !msg.description && !msg.dialogue) return;
         // 获取消息内容（处理不同消息类型）
         let content = msg.content || '';
+        if (msg.recalled) {
+            // The user never shows what they took back; the character remembers its own recalled words.
+            const recalledText = msg.isMe ? '' : truncateChatAnchorText(cleanChatApiVisibleContent(typeof getWechatMessageSummary === 'function' ? getWechatMessageSummary({ ...msg, recalled: false }) : String(msg.content || '')).replace(/<[^>]+>/g, '').trim(), 200);
+            messages.push({
+                role: 'system',
+                content: prependChatApiQuoteToContent(msg.isMe ? '[用户撤回了一条消息，你看不到内容]' : `[你撤回了自己的一条消息，用户只看到“已撤回”。原内容：${recalledText || '（无文字）'}]`, buildChatApiHistoryTimeLabel(msg, timeContext))
+            });
+            return;
+        }
         if ((msg.type === 'image' || msg.type === 'image_stack') && msg.isMe) {
             content = buildChatApiImageContent(msg);
         } else if (msg.type === 'image' || msg.type === 'image_stack') {

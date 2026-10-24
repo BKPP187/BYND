@@ -251,6 +251,9 @@ function parseWechatAiMessageParts(text, char) {
 
     const after = source.slice(lastIndex).trim();
     if (after) appendWechatPlainAiTextParts(parts, after, char);
+    // Directives that changed nothing (a duplicate sticker save, an unchanged title) must not
+    // fall back to showing their raw "[微信…:…]" source as a bubble.
+    if (!parts.length && events.some(event => event.type === 'directive')) return [];
     return parts.length ? parts : splitWechatOfflinePlainText(source, char);
 }
 

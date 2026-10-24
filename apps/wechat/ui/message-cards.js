@@ -434,6 +434,7 @@ function isWechatStackableImageMessage(msg) {
     return !!(msg
         && msg.type === 'image'
         && msg.content
+        && !msg.recalled
         && !msg.imagePending
         && !msg.imageError
         && !msg.replyTo

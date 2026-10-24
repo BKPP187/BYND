@@ -21,6 +21,7 @@ function showMsgActionMenu(msgIdx, isMe, rowEl) {
     let html = `<div class="msg-action-item" onclick="editSingleMsg(${msgIdx})"><i class="ri-edit-line"></i> 编辑</div>`;
     if (!isNarration) html += `<div class="msg-action-item" onclick="quoteWechatMessage(${msgIdx})"><i class="ri-reply-line"></i> 引用</div>`;
     if (isNarration) html += `<div class="msg-action-item" onclick="convertWechatNarrationToText(${msgIdx})"><i class="ri-chat-1-line"></i> 转为普通消息</div>`;
+    if (isMe && isWechatRecallableMessage(msg)) html += `<div class="msg-action-item" onclick="recallWechatUserMessage(${msgIdx})"><i class="ri-arrow-go-back-line"></i> 撤回</div>`;
     html += `<div class="msg-action-item" onclick="deleteSingleMsg(${msgIdx})"><i class="ri-delete-bin-line"></i> 删除</div>`;
     if (!isMe && !isNarration) {
         html += `<div class="msg-action-item" onclick="collectWechatMessage(${msgIdx})"><i class="ri-star-line"></i> 收藏</div>`;
@@ -655,6 +656,13 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
             : (part.kind === 'narration'
                 ? { type: 'offline_narration', isMe: false, content: normalizeWechatOfflineNarrationText(part.content), description: '', timestamp: createMessageTimestamp() }
                 : (implicitCallMsg || stickerDirectiveMsg || autoImageMsg || { type: 'text', isMe: false, content: cleanWechatVisibleContent(part.content), timestamp: createMessageTimestamp() }));
+        if (aiMsg && aiMsg.type === 'wechat_recall_action') {
+            if (applyWechatCharRecallAction(char, aiMsg)) {
+                appendedCount += 1;
+                if (shouldRefreshActiveChat) refreshChatView(char);
+            }
+            return;
+        }
         if (aiMsg && !aiMsg.isMe && !isWechatRenderableMessage(aiMsg, char)) return;
         if (aiMsg && char?.isGroupChat && !aiMsg.isMe) {
             const fallbackStart = Number(options.groupFallbackStartIndex) || 0;
@@ -699,6 +707,7 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         if (aiMsg.type === 'voice' && !aiMsg.isMe) {
             queueWechatCharacterVoiceAudio(char, aiMsg);
         }
+        if (aiMsg.type === 'poke' && !aiMsg.isMe) vibrateWechatPoke();
         if (shouldRefreshActiveChat && aiMsg.type === 'poke') {
             triggerWechatScreenFeedback('poke', aiMsg);
         } else if (shouldRefreshActiveChat && aiMsg.type === 'screen_shake') {

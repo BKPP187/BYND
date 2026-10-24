@@ -662,6 +662,7 @@ function openChatSettings() {
     // 头像集
     renderWechatCharacterVoiceSettings(char);
     renderAvatarGallery(char);
+    if (typeof renderWechatCharStickerLibrary === 'function') renderWechatCharStickerLibrary(char);
     renderWechatMomentCoverGallery(char);
     renderWechatAiMomentsEditor(char);
 

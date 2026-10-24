@@ -511,6 +511,7 @@
         if (!kind) return { ok: false, message: '不支持这个工具，未执行操作' };
         const action = describe(call);
         event.title = clip(action.title, 60);
+        if (call.name === 'mcp.call' && clip(call.tool, 60)) event.tool = clip(call.tool, 60);
         event.input = clip(action.input, 500);
         const access = permission(char, kind, call);
         if (!access.ok) return { ok: false, message: access.reason };

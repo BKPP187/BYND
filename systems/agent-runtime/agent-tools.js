@@ -381,8 +381,13 @@
             const state = running ? 'running' : ['success', 'error'].includes(event.state) ? event.state : 'interrupted';
             const label = { running: '执行中', success: '已完成', error: '未完成', interrupted: '已中断' }[state] || '已记录';
             const duration = event.finishedAt ? ` · ${Math.max(0.1, (event.finishedAt - event.startedAt) / 1000).toFixed(1)} 秒` : '';
-            detail(char.id + ':' + event.id, `<span class="bynd-agent-state ${state}"></span><strong>${escape(event.title)}</strong><small>${label}${duration}</small>`, `${event.input ? `<p>${escape(event.input)}</p>` : ''}${event.result ? `<p>${escape(event.result)}</p>` : ''}${state === 'interrupted' ? '<p>上次操作没有返回完成结果。</p>' : ''}${event.unsaved ? '<p>本次记录尚未保存。</p>' : ''}`, 'bynd-agent-tool');
+            detail(char.id + ':' + event.id, `<span class="bynd-agent-state ${state}"></span><strong>${escape(window.getWechatToolActivityHeadline(event, state))}</strong><small>${label}${duration}</small>`, `${event.input ? `<p>${escape(event.input)}</p>` : ''}${event.result ? `<p>${escape(event.result)}</p>` : ''}${state === 'interrupted' ? '<p>上次操作没有返回完成结果。</p>' : ''}${event.unsaved ? '<p>本次记录尚未保存。</p>' : ''}`, 'bynd-agent-tool');
         }
+    };
+    // The visible line in the chat stream: "调用了 get-app-usage 工具" (MCP tools show their real name).
+    window.getWechatToolActivityHeadline = (event, state = event?.state) => {
+        const name = String(event?.tool || event?.title || '').trim().slice(0, 60) || '工具';
+        return `${state === 'running' ? '正在调用' : '调用了'} ${name} 工具`;
     };
     window.buildWechatAgentInstructions = char => {
         const config = preferences(char);

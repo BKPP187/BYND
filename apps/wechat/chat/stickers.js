@@ -786,9 +786,156 @@ function getWechatKnownStickerAliases() {
     ];
 }
 
+// A character's own sticker library: stickers and photos the user sent that the character chose to keep.
+const WECHAT_CHAR_SAVED_STICKER_LIMIT = 80;
+const WECHAT_CHAR_SAVED_STICKER_MAX_DATA_URL = 1500000;
+
+function isWechatCharSavableStickerUrl(url) {
+    const value = String(url || '').trim();
+    if (!value) return false;
+    if (/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(value)) return value.length <= WECHAT_CHAR_SAVED_STICKER_MAX_DATA_URL;
+    if (/^https?:\/\//i.test(value)) return true;
+    return /^[^\s<>"':]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s<>"']*)?$/i.test(value);
+}
+
+function getWechatCharSavedStickers(char) {
+    const list = char?.chatConfig?.savedStickers;
+    return Array.isArray(list) ? list.filter(item => item && isWechatCharSavableStickerUrl(item.url)) : [];
+}
+
+function getWechatCharSavedStickerEntries(char) {
+    if (!char || char.isGroupChat) return [];
+    return getWechatCharSavedStickers(char).map(item => ({
+        id: item.id || '',
+        name: item.name || '表情',
+        aliases: Array.isArray(item.aliases) ? item.aliases : [],
+        url: item.url,
+        packName: '自己收藏的表情',
+        source: 'charSaved'
+    }));
+}
+
+function isWechatUserSavableStickerMessage(msg) {
+    if (!msg || !msg.isMe || msg.recalled) return false;
+    if (msg.type === 'sticker') {
+        const emoji = msg.emoji || msg.stickerKind === 'wechatEmoji' || msg.stickerKind === 'qqEmoji' || isWechatBuiltinEmojiUrl(msg.content);
+        return !emoji && isWechatCharSavableStickerUrl(msg.content);
+    }
+    return msg.type === 'image' && isWechatCharSavableStickerUrl(msg.imageUrl || msg.content);
+}
+
+function findWechatUserStickerForCharSave(char, query = '') {
+    const history = Array.isArray(char?.history) ? char.history : [];
+    const wanted = normalizeWechatStickerLookupName(query);
+    const candidates = [];
+    for (let i = history.length - 1; i >= 0 && candidates.length < 12; i -= 1) {
+        if (isWechatUserSavableStickerMessage(history[i])) candidates.push(history[i]);
+    }
+    if (!candidates.length) return null;
+    if (!wanted || ['最近', '刚才', '这个', '这张', '上一张', '最新'].includes(wanted)) return candidates[0];
+    return candidates.find(msg => {
+        const label = normalizeWechatStickerLookupName(msg.stickerName || msg.description || '');
+        return label && (label === wanted || label.includes(wanted) || wanted.includes(label));
+    }) || null;
+}
+
+// [微信收藏表情:给它起的名字|可选：原表情名/最近] — the character keeps a sticker the user sent.
+function applyWechatCharStickerSaveDirective(rawArgs, char) {
+    if (!char || char.isGroupChat) return null;
+    const args = splitWechatDirectiveArgs(rawArgs);
+    const source = findWechatUserStickerForCharSave(char, args[1] || '');
+    if (!source) return null;
+    const url = source.type === 'image' ? (source.imageUrl || source.content) : source.content;
+    const original = String(source.stickerName || '').trim();
+    const name = String(args[0] || original || '表情').replace(/[\[\]【】|]/g, '').trim().slice(0, 24) || '表情';
+    char.chatConfig = char.chatConfig || {};
+    const saved = getWechatCharSavedStickers(char);
+    const existing = saved.find(item => item.url === url);
+    if (existing) {
+        if (existing.name === name) return null;
+        existing.aliases = Array.from(new Set([...(existing.aliases || []), existing.name].filter(Boolean))).slice(0, 6);
+        existing.name = name;
+    } else {
+        saved.push({
+            id: `char_sticker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name,
+            aliases: original && original !== name ? [original] : [],
+            url,
+            savedAt: Date.now()
+        });
+    }
+    char.chatConfig.savedStickers = saved.slice(-WECHAT_CHAR_SAVED_STICKER_LIMIT);
+    return {
+        type: 'system_notice',
+        isMe: false,
+        stickerSaved: true,
+        content: `${getWechatCharDisplayName(char)}把你发的${source.type === 'image' ? '图片' : '表情'}存进了自己的表情包「${name}」`,
+        timestamp: createMessageTimestamp()
+    };
+}
+
+function buildWechatCharStickerCollectPrompt(char) {
+    if (!char || char.isGroupChat) return '';
+    const recent = findWechatUserStickerForCharSave(char);
+    const saved = getWechatCharSavedStickers(char);
+    if (!recent && !saved.length) return '';
+    const recentSaved = recent && saved.some(item => item.url === (recent.type === 'image' ? (recent.imageUrl || recent.content) : recent.content));
+    const recentLabel = recent ? (recent.type === 'image' ? '一张图片' : `表情「${recent.stickerName || '表情'}」`) : '';
+    return `【你的表情包】${saved.length ? `你已经收藏了 ${saved.length} 张用户发过的表情，列表里标「自己收藏的表情」的就是，可以用 [微信表情:名字] 发回去。` : '你还没有收藏用户的表情。'}`
+        + `${recent && !recentSaved ? `用户最近发过${recentLabel}，还没被你收藏。` : ''}`
+        + '如果按人设你觉得用户发的某张表情或图片有趣、可爱、想以后拿来回敬对方，可以单独输出 [微信收藏表情:你给它起的名字] 把用户最近发的那张存进自己的表情包；想收藏更早的一张，用 [微信收藏表情:新名字|原表情名]。不要每张都收，不要收藏你自己发的，收藏后不必特意说明。';
+}
+
+function removeWechatCharSavedSticker(char, stickerId) {
+    const saved = getWechatCharSavedStickers(char);
+    const next = saved.filter(item => item.id !== stickerId);
+    if (next.length === saved.length) return false;
+    char.chatConfig.savedStickers = next;
+    return true;
+}
+
+function renderWechatCharStickerLibrary(char) {
+    const library = document.getElementById('wcs-char-sticker-library');
+    const section = document.getElementById('wcs-char-sticker-section');
+    if (!library) return;
+    const hidden = !char || !!char.isGroupChat;
+    section?.classList.toggle('hidden', hidden);
+    section?.previousElementSibling?.classList.toggle('hidden', hidden);
+    if (hidden) { library.innerHTML = ''; return; }
+    const saved = getWechatCharSavedStickers(char).slice().reverse();
+    library.innerHTML = saved.map(item => `
+        <div class="wcs-avatar-gallery-cell">
+            <div class="wcs-avatar-gallery-tile" role="button" tabindex="0" aria-label="删除表情 ${wcEscapeAttr(item.name)}"
+                 onclick="deleteWechatCharSavedSticker(${quoteWechatJsString(item.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();deleteWechatCharSavedSticker(${quoteWechatJsString(item.id)})}">
+                <img class="wcs-avatar-gallery-item" src="${wcEscapeAttr(item.url)}" alt="${wcEscapeAttr(item.name)}" loading="lazy">
+            </div>
+            <span class="wcs-avatar-mood">${wcEscapeHtml(item.name)}</span>
+        </div>
+    `).join('') || '<span class="wcs-char-sticker-empty">还没有收藏表情</span>';
+}
+
+async function deleteWechatCharSavedSticker(stickerId) {
+    const char = getCurrentChatChar();
+    const target = getWechatCharSavedStickers(char).find(item => item.id === stickerId);
+    if (!char || !target) return false;
+    if (!confirm(`从 ${getWechatCharDisplayName(char)} 的表情包里删除「${target.name}」吗？`)) return false;
+    const before = char.chatConfig.savedStickers;
+    removeWechatCharSavedSticker(char, stickerId);
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('删除未能保存');
+    } catch (error) {
+        char.chatConfig.savedStickers = before;
+        showWechatToast('删除失败，请重试');
+        renderWechatCharStickerLibrary(char);
+        return false;
+    }
+    renderWechatCharStickerLibrary(char);
+    return true;
+}
+
 function getWechatAvailableStickers(char) {
     const seen = new Set();
-    return [...getAllWechatStickers(), ...getWechatWorldBookStickerEntries(char), ...getWechatKnownStickerAliases(), ...getActiveWechatBuiltinEmojiStickers()].filter(item => {
+    return [...getWechatCharSavedStickerEntries(char), ...getAllWechatStickers(), ...getWechatWorldBookStickerEntries(char), ...getWechatKnownStickerAliases(), ...getActiveWechatBuiltinEmojiStickers()].filter(item => {
         const key = item.url || `${item.packName}:${item.name}`;
         if (!item.url || seen.has(key)) return false;
         seen.add(key);
@@ -914,6 +1061,7 @@ function buildWechatStickerPrompt(char) {
         .sort((a, b) => b.score - a.score || a.index - b.index);
     const stickers = [];
     const add = item => { if (item && stickers.length < 40 && !stickers.includes(item)) stickers.push(item); };
+    all.filter(item => item.source === 'charSaved').slice(-12).forEach(add);
     ranked.filter(entry => entry.score >= 14).slice(0, 16).forEach(entry => add(entry.item));
     const packs = new Map();
     all.forEach(item => { const key = item.packName || item.source || '贴纸'; if (!packs.has(key)) packs.set(key, []); packs.get(key).push(item); });
@@ -921,13 +1069,14 @@ function buildWechatStickerPrompt(char) {
     for (let round = 0; round < 40 && stickers.length < Math.min(40, all.length); round++) {
         packs.forEach(items => { if (round < items.length) add(items[(offset + round) % items.length]); });
     }
-    if (!stickers.length) return '';
+    const collectHint = typeof buildWechatCharStickerCollectPrompt === 'function' ? buildWechatCharStickerCollectPrompt(char) : '';
+    if (!stickers.length) return collectHint;
     const lines = stickers.map(item => {
         const source = item.source === 'worldBook' ? '世界书' : item.packName;
         return `- ${item.name}${item.aliases?.length ? ' / ' + item.aliases.slice(0, 3).join('、') : ''}（${source}）`;
     });
     const omitted = all.length > stickers.length ? `\n- 另有更多贴纸未展开，可以按情绪选择。` : '';
-    return `【微信贴纸上下文】以下是可实际发送的内置、用户贴纸包和世界书贴纸。请按自己的人设和当前心情主动使用：接梗、撒娇、吃醋、安慰、回应用户表情时，可以配一张贴切的表情，不必等用户要求；严肃对话以文字为主，不强制每轮发送或连续刷同一张。发贴纸时作为独立消息段输出，例如：好，抱一下。|||[微信表情:抱抱]。使用格式 [微信表情:贴纸名或情绪]；不要只用文字描述“发了一个表情包”。如果世界书给了 postimg 链接，也可以输出 [微信表情:贴纸名|图片URL]。\n${lines.join('\n')}${omitted}`;
+    return `${collectHint ? `${collectHint}\n` : ''}【微信贴纸上下文】以下是可实际发送的内置、用户贴纸包和世界书贴纸。请按自己的人设和当前心情主动使用：接梗、撒娇、吃醋、安慰、回应用户表情时，可以配一张贴切的表情，不必等用户要求；严肃对话以文字为主，不强制每轮发送或连续刷同一张。发贴纸时作为独立消息段输出，例如：好，抱一下。|||[微信表情:抱抱]。使用格式 [微信表情:贴纸名或情绪]；不要只用文字描述“发了一个表情包”。如果世界书给了 postimg 链接，也可以输出 [微信表情:贴纸名|图片URL]。\n${lines.join('\n')}${omitted}`;
 }
 
 function buildBoltpStickerList() {

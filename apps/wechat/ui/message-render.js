@@ -21,6 +21,13 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         return;
     }
 
+    if (msg.recalled) {
+        row.className = 'msg-row time msg-poke-row msg-recall-row';
+        row.innerHTML = renderWechatRecallNotice(msg, charObj, msgIndex);
+        container.appendChild(row);
+        return;
+    }
+
     if (msg.type === 'poke' || msg.type === 'screen_shake') {
         row.className = `msg-row time msg-poke-row${msg.type === 'screen_shake' ? ' msg-shake-row' : ''}`;
         row.innerHTML = msg.type === 'poke' ? renderWechatPokeNotice(msg, charObj) : renderWechatScreenShakeNotice(msg, charObj);

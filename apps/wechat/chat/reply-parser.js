@@ -231,7 +231,7 @@ function hasWechatAiDirectiveSource(text) {
 const WECHAT_AI_DIRECTIVE_COMMANDS = [
     '微信语音电话', '微信视频电话', '微信送礼物', '微信改用户备注', '微信删除联系人',
     '微信后台消息时间', '微信后台时间',
-    '微信亲密付', '微信拍一拍', '微信朋友圈', '微信转账', '微信红包', '微信礼物',
+    '微信亲密付', '微信拍一拍', '微信朋友圈', '微信转账', '微信红包', '微信礼物', '微信收藏表情', '微信撤回',
     '微信表情', '微信图片', '微信照片', '微信语音', '微信引用', '微信记忆', '微信改备注', '微信拉黑',
     '微信监控', '微信震动', '微信音乐', '微信链接', '微信旁白', '微信改群头衔', '微信改群昵称', '微信改群名',
     '音乐卡片', '链接卡片', 'QQ群头衔', '群头衔', 'QQ群昵称', '微信群昵称', '群昵称',
@@ -239,8 +239,11 @@ const WECHAT_AI_DIRECTIVE_COMMANDS = [
     '群邀请', '群拉人', '微信群邀请', 'QQ群邀请', '群NPC', '群npc',
     '后台消息时间', '后台提醒时间',
     '群聊发言', '微信群聊', '开启监控', '关闭监控',
-    '震动屏幕', '拍一拍', '旁白'
+    '震动屏幕', '拍一拍', '收藏表情', '撤回', '旁白'
 ];
+
+// Directives that may also be written without arguments, e.g. [微信撤回].
+const WECHAT_AI_BARE_DIRECTIVE_COMMANDS = ['微信撤回', '撤回', '微信拍一拍', '拍一拍'];
 
 function getWechatAiDirectiveStartAt(text, index) {
     const opener = text[index];
@@ -257,6 +260,17 @@ function getWechatAiDirectiveStartAt(text, index) {
                 opener,
                 preferredCloser,
                 standaloneNarration: false
+            };
+        }
+        if ((sep === ']' || sep === '】') && WECHAT_AI_BARE_DIRECTIVE_COMMANDS.includes(command)) {
+            return {
+                command,
+                argsStart: index + 1 + command.length,
+                opener,
+                preferredCloser,
+                standaloneNarration: false,
+                bare: true,
+                end: index + 1 + command.length + 1
             };
         }
         if ((sep === ']' || sep === '】') && (command === '旁白' || command === '微信旁白')) {
@@ -276,6 +290,9 @@ function getWechatAiDirectiveStartAt(text, index) {
 function readWechatAiDirectiveAt(text, index) {
     const start = getWechatAiDirectiveStartAt(text, index);
     if (!start) return null;
+    if (start.bare) {
+        return { type: 'directive', start: index, end: start.end, command: start.command, args: '', standaloneNarration: false };
+    }
     if (start.standaloneNarration) {
         return {
             type: 'directive',
@@ -316,7 +333,7 @@ function readWechatAiDirectiveAt(text, index) {
 }
 
 function hasWechatUnclosedDirectiveTail(text) {
-    return /[\[【](?:微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信图片|微信照片|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信后台消息时间|微信后台时间|微信改群头衔|微信改群昵称|微信改群名|微信拉黑|微信监控|开启监控|关闭监控|微信拍一拍|拍一拍|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|后台消息时间|后台提醒时间|QQ群头衔|群头衔|QQ群昵称|微信群昵称|群昵称|QQ群名|微信群名|群聊名称|群名称|群名|QQ改群名|群邀请|群拉人|微信群邀请|QQ群邀请|群NPC|群npc|群聊发言|微信群聊|微信旁白|旁白)[：:][^\]】]*$/i.test(String(text || '').trim());
+    return /[\[【](?:微信转账|微信红包|微信礼物|微信送礼物|微信亲密付|微信表情|微信图片|微信照片|微信语音电话|微信视频电话|微信语音|微信引用|微信记忆|微信改用户备注|微信改备注|微信后台消息时间|微信后台时间|微信改群头衔|微信改群昵称|微信改群名|微信拉黑|微信监控|开启监控|关闭监控|微信拍一拍|拍一拍|微信收藏表情|收藏表情|微信撤回|撤回|微信震动|震动屏幕|微信音乐|音乐卡片|微信链接|链接卡片|微信朋友圈|微信删除联系人|后台消息时间|后台提醒时间|QQ群头衔|群头衔|QQ群昵称|微信群昵称|群昵称|QQ群名|微信群名|群聊名称|群名称|群名|QQ改群名|群邀请|群拉人|微信群邀请|QQ群邀请|群NPC|群npc|群聊发言|微信群聊|微信旁白|旁白)[：:][^\]】]*$/i.test(String(text || '').trim());
 }
 
 function isWechatStandaloneRichOrRegexSource(text, char) {
@@ -601,7 +618,7 @@ function buildWechatHistoryMessageFromParsedPart(part, baseMsg, char) {
     if (baseMsg && baseMsg.replyTo) base.replyTo = baseMsg.replyTo;
     if (part.kind === 'special') {
         const msg = part.msg ? { ...part.msg } : null;
-        if (!msg) return null;
+        if (!msg || msg.type === 'wechat_recall_action') return null;
         if (baseMsg && baseMsg.timestamp) msg.timestamp = timestamp;
         else if (!msg.timestamp) msg.timestamp = timestamp;
         return syncWechatMessageDescription(attachWechatGroupSpeaker(msg, char, 0));

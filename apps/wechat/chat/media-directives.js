@@ -182,6 +182,15 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
         });
     }
 
+    if (command === '微信收藏表情' || command === '收藏表情') {
+        return applyWechatCharStickerSaveDirective(rawArgs, char);
+    }
+
+    // Recall is applied when the reply is appended, after the message it targets is in history.
+    if (command === '微信撤回' || command === '撤回') {
+        return { type: 'wechat_recall_action', isMe: false, query: args.join('|').trim(), timestamp: createMessageTimestamp() };
+    }
+
     if (command === '微信震动' || command === '震动屏幕') {
         const content = args.join('|').trim() || '发来一次屏幕震动';
         return syncWechatMessageDescription({
