@@ -452,10 +452,12 @@
     }
     function instructions(char) {
         const kinds = enabledKinds(char);
-        if (!kinds.length) return '';
+        // The phone-usage tool follows its own 角色台 consent, not 「允许使用现实工具」.
+        const phoneLine = window.ByndPhoneUsage?.toolLine?.(char) || '';
+        if (!kinds.length && !phoneLine) return '';
         const config = readConfig();
         const name = displayName(char);
-        const lines = [];
+        const lines = phoneLine ? [phoneLine] : [];
         if (kinds.includes('weather')) lines.push(`{"name":"weather.get","city":"城市，可省略${config.city ? `，默认${config.city}` : ''}"}：看今明两天的天气`);
         if (kinds.includes('places')) lines.push('{"name":"places.search","keyword":"要找的店或地方","city":"可选","near":"可选，某个地标附近"}：在地图上找店、找地方');
         if (kinds.includes('movies')) lines.push('{"name":"movies.nowPlaying"}：看最近在上映的电影；{"name":"movies.search","query":"片名"}：查某部电影');
@@ -507,6 +509,10 @@
     });
 
     async function execute(char, call, event = {}) {
+        if (call?.name === 'phone.usage') {
+            if (!window.ByndPhoneUsage) return { ok: false, message: '手机使用情况模块尚未准备好' };
+            return window.ByndPhoneUsage.execute(char, call, event);
+        }
         const kind = KIND_BY_NAME[call?.name];
         if (!kind) return { ok: false, message: '不支持这个工具，未执行操作' };
         const action = describe(call);
@@ -804,7 +810,7 @@
     window.ByndCharacterTools = {
         secretStorageKey: SECRET_KEY, configStorageKey: CONFIG_KEY, weatherCacheKey: WEATHER_CACHE_KEY,
         taobaoCharacterTools: TAOBAO_CHARACTER_TOOLS.slice(),
-        handles: name => Object.prototype.hasOwnProperty.call(KIND_BY_NAME, String(name || '')),
+        handles: name => Object.prototype.hasOwnProperty.call(KIND_BY_NAME, String(name || '')) || String(name || '') === 'phone.usage',
         readConfig, writeConfig, readKeys, writeKeys, availability, enabledKinds, instructions, execute, deliver, followUp,
         weatherAnchor, parseWeather, getWeather, searchPlaces, movies, shopSearchCard, extractProducts, classifyMcpTool, mcpCatalog, allowedMcpTools,
         renderCard, openFromCard, renderAgentToolRows, setCharacterMcpTool, renderSettings, saveSettings, testSettings

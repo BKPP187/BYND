@@ -934,6 +934,21 @@ public class MainActivity extends Activity {
             return captureFrameDataUrl();
         }
 
+        // ---- 手机使用情况 (usage access is opened through openCompanionSetting("usage")) ----
+        @JavascriptInterface
+        public boolean phoneUsageGranted() { return CompanionPermissions.usage(MainActivity.this); }
+
+        @JavascriptInterface
+        public String phoneUsageRead(int days) {
+            // WebView.getUrl() must run on the UI thread; the read itself stays on this bridge thread.
+            final boolean[] trusted = { false };
+            final java.util.concurrent.CountDownLatch checked = new java.util.concurrent.CountDownLatch(1);
+            runOnUiThread(() -> { trusted[0] = isHealthPage(); checked.countDown(); });
+            try { checked.await(2, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
+            if (!trusted[0]) return "{\"version\":1,\"ok\":false,\"error\":\"untrusted-page\"}";
+            return PhoneUsageReader.read(MainActivity.this, days);
+        }
+
         @JavascriptInterface
         public String companionStatus() {
             return CompanionPermissions.status(MainActivity.this).toString();

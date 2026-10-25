@@ -31,6 +31,7 @@ function openApp(appName) {
             win.classList.remove('hidden'); 
             setTimeout(() => win.classList.add('active'), 10); 
             if (typeof loadSavedSettings === 'function') loadSavedSettings();
+            if (typeof openThemeSection === 'function') openThemeSection('');
         }
     }
     // 2. 微信 App

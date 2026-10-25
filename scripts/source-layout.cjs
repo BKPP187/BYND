@@ -44,6 +44,7 @@ const scriptParts = [
     'apps/coreading/toc-stats.js',
     'apps/coreading/reviews.js',
     'apps/coreading/reader.js',
+    'apps/coreading/highlights.js',
     'apps/coreading/discovery.js',
     'apps/album/album.js',
     'apps/home3d/home3d.js',
@@ -56,6 +57,7 @@ const scriptParts = [
     'ui/components/desktop-edit.js',
     'systems/life-state/life-state.js',
     'systems/life-state/native-health.js',
+    'systems/phone-usage/phone-usage.js',
     'apps/role-tools/role-tools.js',
     'apps/moon/moon.js',
     'ui/components/desktop-migrations.js'
@@ -127,7 +129,9 @@ const wechatParts = [
     'apps/char-phone/screens.js',
     'apps/char-phone/reactions.js',
     'systems/memory/wechat-memory.js',
-    'apps/wechat/chat/stickers.js'
+    'apps/wechat/chat/stickers.js',
+    'apps/wechat/character/chat-windows.js',
+    'apps/wechat/character/card-export.js'
 ];
 
 // CSS files are imported in this exact order because later rules intentionally

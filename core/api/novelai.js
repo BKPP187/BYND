@@ -142,7 +142,7 @@ function randomNovelAiSeed() {
     return Math.floor(Math.random() * 4294967295);
 }
 
-// input: { prompt, negative, characters: [{ prompt, negative, x, y }], width, height, seed, dropNegative }
+// input: { prompt, negative, characters: [{ prompt, negative, x, y }], width, height, seed, dropNegative, referenceImage, vibeStrength, vibeInfoExtracted }
 function buildNovelAiImagePayload(input = {}, rawSettings = {}) {
     const settings = normalizeNovelAiImageSettings(rawSettings);
     const model = getNovelAiModelMeta(settings.model);
@@ -210,6 +210,19 @@ function buildNovelAiImagePayload(input = {}, rawSettings = {}) {
                 legacy_uc: false
             }
         });
+    }
+    // Vibe Transfer: inject reference image so it influences the generation.
+    // Only V4.5 and earlier support it — V5 does not yet have Vibe Transfer.
+    if (input.referenceImage && model.version < 5) {
+        const raw = String(input.referenceImage);
+        const b64 = raw.replace(/^data:image\/[^;]+;base64,/, '');
+        if (b64.length > 100) {
+            const strength = Number.isFinite(Number(input.vibeStrength)) ? Math.min(1, Math.max(0, Number(input.vibeStrength))) : 0.6;
+            const extracted = Number.isFinite(Number(input.vibeInfoExtracted)) ? Math.min(1, Math.max(0, Number(input.vibeInfoExtracted))) : 1;
+            parameters.reference_image_multiple = [b64];
+            parameters.reference_strength_multiple = [strength];
+            parameters.reference_information_extracted_multiple = [extracted];
+        }
     }
     return { input: base, model: model.id, action: 'generate', parameters };
 }
@@ -474,7 +487,7 @@ async function convertTextToNovelAiPrompt(text, options = {}) {
             ? [{ type: 'text', text: String(text || '').slice(0, 7000) }, { type: 'image_url', image_url: { url: options.referenceImage } }]
             : String(text || '').slice(0, 7000) }
     ], {
-        max_tokens: 900,
+        max_tokens: 1800,
         temperature: 0.4,
         background: true,
         usageFeature: options.usageFeature || 'image-prompt',
@@ -482,15 +495,44 @@ async function convertTextToNovelAiPrompt(text, options = {}) {
     });
     if (!result?.ok) return conversionFailure(result?.error || '无法把画面描述转换为 NovelAI 标签', result?.finishReason || '');
     const clean = String(result.content || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    const parseLoose = text => {
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        let body = text.slice(start, end + 1)
+            // Weak relay models answer with curly quotes / trailing commas around the JSON.
+            .replace(/[“”｛｝]/g, ch => ({ '“': '"', '”': '"', '｛': '{', '｝': '}' }[ch]))
+            .replace(/,\s*([}\]])/g, '$1');
+        try { return JSON.parse(body); } catch (_) {}
+        // Strip a prose or fence prefix such as `你好，```json` before the object.
+        const fenced = body.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        if (fenced) {
+            try { return JSON.parse(fenced[1].replace(/,\s*([}\]])/g, '$1')); } catch (_) {}
+        }
+        return null;
+    };
     let parsed = null;
-    try { parsed = JSON.parse(clean); } catch (_) {
-        const start = clean.indexOf('{');
-        const end = clean.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            try { parsed = JSON.parse(clean.slice(start, end + 1)); } catch (_) {}
+    try { parsed = JSON.parse(clean); } catch (_) { parsed = parseLoose(clean); }
+    // Truncated JSON (finishReason=length): salvage the base prompt so the image
+    // can still generate instead of failing the whole request.
+    if (!parsed) {
+        const promptMatch = clean.match(/"prompt"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        if (promptMatch) {
+            try {
+                const negativeMatch = clean.match(/"negative"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+                parsed = {
+                    prompt: JSON.parse('"' + promptMatch[1] + '"'),
+                    negative: negativeMatch ? JSON.parse('"' + negativeMatch[1] + '"') : ''
+                };
+            } catch (_) {}
         }
     }
-    if (!parsed || !String(parsed.prompt || '').trim()) return conversionFailure('模型没有返回可用的 NovelAI 标签', result.finishReason || '');
+    if (!parsed || !String(parsed.prompt || '').trim()) {
+        const truncated = /length|token|truncat/i.test(result.finishReason || '');
+        return conversionFailure(truncated
+            ? `模型输出被长度限制截断（${result.finishReason}），没拿到完整标签 JSON；请重试或换输出更长的聊天模型`
+            : `模型没有返回可用的 NovelAI 标签${result.finishReason ? `（${result.finishReason}）` : ''}，它实际回复的开头是：${clean.slice(0, 80) || '（空回复）'}`);
+    }
     return {
         ok: true,
         prompt: String(parsed.prompt).slice(0, 1600),

@@ -1,6 +1,6 @@
 // ========== 数据管理（导出 / 导入 / 清理缓存） ==========
 
-const APP_VERSION = 'v1.1.1018';
+const APP_VERSION = 'v1.1.1022';
 const MONITOR_PET_BACKUP_DB_NAME = 'bynd_monitor_pet_assets_v1';
 const MONITOR_PET_BACKUP_DB_STORE = 'assets';
 const DREAM_IMAGE_BACKUP_DB_NAME = 'bynd_dream_images_v1';
@@ -120,7 +120,7 @@ function getBackupLocalStorageKeys() {
     // Character tool keys (AMap / TMDB) remain device-local secrets.
     const toolSecretStorageKey = window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1';
     const tripoSecretStorageKey = window.ByndTripo?.storageKey || 'bynd_tripo_private_v1';
-    const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1', 'bynd_vivix_private_v1', 'bynd_proactive_notify_client_secret_v1']);
+    const lifePrivateStorageKeys = new Set(['bynd_life_state_private_v1', 'bynd_phone_usage_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1', 'bynd_vivix_private_v1', 'bynd_proactive_notify_client_secret_v1']);
     const keys = new Set(ALL_DATA_KEYS);
     for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
@@ -421,7 +421,7 @@ async function exportAllData() {
 }
 
 function isByndBackupImportableKey(key) {
-    return isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== 'bynd_proactive_notify_client_secret_v1' && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1');
+    return isByndStorageKey(key) && !['bynd_life_state_private_v1', 'bynd_phone_usage_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'].includes(key) && key !== 'bynd_proactive_notify_client_secret_v1' && key !== 'bynd_vivix_private_v1' && key !== (window.ByndCharacterTools?.secretStorageKey || 'bynd_tool_keys_v1') && key !== (window.ByndTripo?.storageKey || 'bynd_tripo_private_v1');
 }
 
 // 导入数据。先完整校验，再写入；任何一步失败都按快照回滚，不留下半新半旧的数据。
@@ -451,6 +451,7 @@ async function importAllData(input) {
             if (typeof saveWechatImportedCharactersData !== 'function') throw new Error('角色存储模块尚未准备好');
             if (localStorage.getItem('bynd_life_state_private_v1') && !window.ByndLifeState?.revokeAll) throw new Error('生活授权模块尚未准备好，无法安全导入角色');
             if (localStorage.getItem('bynd_moon_private_v1') && !window.ByndMoon?.revokeAll) throw new Error('月伴授权模块尚未准备好，无法安全导入角色');
+            if (localStorage.getItem('bynd_phone_usage_private_v1') && !window.ByndPhoneUsage?.revokeAll) throw new Error('手机使用授权模块尚未准备好，无法安全导入角色');
         }
         if (data._fontBlobs && typeof data._fontBlobs === 'object' && Object.keys(data._fontBlobs).length && typeof saveFontBlob !== 'function') {
             throw new Error('字体模块尚未准备好');
@@ -484,6 +485,7 @@ async function importAllData(input) {
             // Imported characters can reuse an existing ID. Local health consent must be renewed.
             if (localStorage.getItem('bynd_life_state_private_v1')) window.ByndLifeState.revokeAll();
             if (localStorage.getItem('bynd_moon_private_v1')) window.ByndMoon.revokeAll();
+            if (localStorage.getItem('bynd_phone_usage_private_v1')) window.ByndPhoneUsage.revokeAll();
             await saveWechatImportedCharactersData(data.my_characters_data);
             if (previousCharacters && Array.isArray(previousCharacters.characters)) {
                 undo.push(() => saveWechatImportedCharactersData(previousCharacters.characters));

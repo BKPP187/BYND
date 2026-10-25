@@ -9,7 +9,7 @@ const COREAD_PROGRESS_KEY = 'bynd_coread_progress_v1';
 const COREAD_SHELF_SETTINGS_KEY = 'bynd_coread_shelf_settings_v1';
 const COREAD_SHELF_META_KEY = 'bynd_coread_shelf_meta_v1';
 const COREAD_BUILTIN_SOURCE_VERSION = 'moxing-7.1-web-20260608';
-const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.1018';
+const COREAD_BUILTIN_SOURCE_URL = 'assets/coread-book-sources.json?v=1.1.1022';
 const COREAD_DEFAULT_SOURCE_URLS = [
     'https://lifves.com/api/v2/booksource/list',
     'https://someok.github.io/booksources/data.json'
@@ -125,7 +125,7 @@ const COREAD_CHAPTER_VERSION = 1;
 
 function getCoReadCharacters() {
     return Array.isArray(window.myCharacters)
-        ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat)
+        ? window.myCharacters.filter(char => char && char.id && !char.isGroupChat && !(typeof isWechatChatWindow === 'function' && isWechatChatWindow(char)))
         : [];
 }
 

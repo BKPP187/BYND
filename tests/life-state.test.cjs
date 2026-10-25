@@ -157,7 +157,7 @@ test('untrusted persisted values fail closed and sensitive data never enters ord
     vm.runInContext(`const ALL_DATA_KEYS = []; const APP_STORAGE_KEY_PREFIXES = ['bynd_'];
         ${sourceSection('core/storage/backup.js', 'function isByndStorageKey(', 'function parseBackupLocalStorageValue(')}`, context);
     assert.equal(context.getBackupLocalStorageKeys().includes(life.storageKey), false);
-    assert.match(fs.readFileSync('core/storage/backup.js', 'utf8'), /!\['bynd_life_state_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'\]\.includes\(key\)/);
+    assert.match(fs.readFileSync('core/storage/backup.js', 'utf8'), /!\['bynd_life_state_private_v1', 'bynd_phone_usage_private_v1', 'bynd_moon_private_v1', 'bynd_health_connection_private_v1'\]\.includes\(key\)/);
 });
 
 test('desktop route and prompt integration use life consent and keep tools out of user settings', () => {

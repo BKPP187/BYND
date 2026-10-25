@@ -1346,6 +1346,9 @@ function buildSystemPrompt(char) {
     // Only authorized, fresh life summaries; never attach the raw device records.
     const lifeState = !isGroupChat && typeof window !== 'undefined' ? window.ByndLifeState?.prompt?.(char) : '';
     if (lifeState) prompt += `- ${lifeState}\n`;
+    // Phone usage: one consented summary line; details only through the get-app-usage tool.
+    const phoneUsage = !isGroupChat && typeof window !== 'undefined' ? window.ByndPhoneUsage?.prompt?.(char) : '';
+    if (phoneUsage) prompt += `- ${phoneUsage}\n`;
     const channelContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndDiscoverStory?.chatPrompt?.(char) : '';
     if (channelContext) prompt += channelContext;
     const cycleContext = !isGroupChat && typeof window !== 'undefined' ? window.ByndMoon?.prompt?.(char) : '';

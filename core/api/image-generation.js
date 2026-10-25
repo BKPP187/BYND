@@ -58,7 +58,12 @@ async function callWechatNovelAiImage(prompt, options, settings) {
         input = converted;
     }
     const size = options.novelAiSize || getWechatNovelAiSizeFromOption(options.size);
-    const result = await callNovelAiImageGeneration({ ...input, width: input.width || size.width, height: input.height || size.height }, {
+    const result = await callNovelAiImageGeneration({
+        ...input,
+        width: input.width || size.width,
+        height: input.height || size.height,
+        referenceImage: options.referenceImage || null
+    }, {
         settings,
         signal: options.signal,
         onProgress: options.onProgress,
@@ -177,6 +182,14 @@ async function callWechatImageGenerationApi(prompt, options = {}) {
             body.reference_image_url = referenceImage;
             body.reference_images = [referenceImage];
             body.images = [referenceImage];
+        }
+        if (novelAiRelay && referenceImage) {
+            const naiMeta = typeof getNovelAiModelMeta === 'function' ? getNovelAiModelMeta(imageModel) : null;
+            const naiVersion = naiMeta?.version ?? (/nai-diffusion-5/i.test(imageModel) ? 5 : 4);
+            if (naiVersion < 5) {
+                body.reference_image = referenceImage;
+                body.vibe_transfer = [{ image: referenceImage, strength: 0.6, information_extracted: 1 }];
+            }
         }
         return body;
     };

@@ -6,6 +6,8 @@
     const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
     const el = id => document.getElementById(id);
     const life = () => window.ByndLifeState;
+    const usage = () => window.ByndPhoneUsage;
+    const minutesText = minutes => minutes >= 60 ? `${Math.floor(minutes / 60)} 小时${minutes % 60 ? ` ${minutes % 60} 分` : ''}` : `${minutes} 分钟`;
     const chars = () => (window.myCharacters || []).filter(char => char?.id && !char.isGroupChat);
     const selected = () => chars().find(char => String(char.id) === selectedId);
     const name = char => window.getWechatCharDisplayName?.(char) || char.name || '角色';
@@ -27,11 +29,91 @@
         const state = life().read();
         el('role-life-panel').innerHTML = `<section class="role-life-control"><label class="role-toggle role-pause-control"><span><strong>暂停所有角色读取</strong><small>保留记录和授权，需要时再恢复</small></span><input type="checkbox" id="role-life-paused" ${state.paused ? 'checked' : ''} onchange="ByndRoleTools.pause(this)"></label></section>
         <section class="role-card role-source-card"><div class="role-section-heading"><span>DATA SOURCES</span><h3>数据来源</h3></div><div class="role-source-grid"><div><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="3"/><path d="M9 18h6M10 5.5h4"/></svg><strong>Android / 手表</strong><span>Health Connect · Android 14+ 可读取经期</span></div><div><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6l.7 3H8.3L9 3Zm-.7 15h7.4L15 21H9l-.7-3Z"/><rect x="5" y="6" width="14" height="12" rx="4"/><path d="M10 12h4"/></svg><strong>iPhone / Apple Watch</strong><span>Apple 健康 · 原生版本可连接</span></div></div><div id="role-native-health"></div><details><summary>三星 Galaxy Watch 怎么同步？</summary><p>先把手表同步到手机 Samsung Health，在 Samsung Health 设置 → Health Connect → 应用权限中允许 Samsung Health 写入；BYND 还需独立的读取权限。Android 14 及以上原生版可独立授权读取经期日期；其他生活汇总可用手动记录或 JSON 文件导入。月经记录是否导出取决于来源和版本，月伴可独立记录。</p></details><div class="role-actions"><label class="role-file-button">导入汇总 JSON<input type="file" id="role-life-import" accept=".json,application/json" onchange="ByndRoleTools.importFile(this)"></label><button type="button" onclick="ByndRoleTools.template()">下载格式示例</button></div><details><summary>iPhone 快捷指令怎么准备文件？</summary><p>在快捷指令中查找睡眠与步数的健康样本，先按天汇总，再按示例字段生成 JSON 并保存到“文件”。睡眠阶段只累计实际睡着的时间，排除卧床与清醒阶段；有多个设备记录时先去重。这里接收处理后的汇总，不接收 Apple 健康完整 XML 导出。</p></details></section>
+        <section class="role-card" id="role-usage-card"></section>
         <details class="role-card role-form-card"><summary class="role-expand-summary"><span class="role-expand-symbol" aria-hidden="true">+</span><span><strong>手动记录</strong><small>睡眠、活动与自述感受</small></span></summary><div class="role-expand-body"><p>只填你想记录的项。心情和精力由你自己填写。</p><form id="role-life-form" onsubmit="event.preventDefault();ByndRoleTools.saveRecord()"><div class="role-form-grid"><label>记录日期<input type="date" id="role-life-date" value="${life().localDate()}" max="${life().localDate()}" required></label><label>睡眠时长（分钟）<input id="role-life-sleepMinutes" type="number" min="0" max="1440" step="1" placeholder="例如 420"></label><label>入睡时间<input id="role-life-bedtime" type="datetime-local"></label><label>起床时间<input id="role-life-wakeTime" type="datetime-local"></label><label>夜间醒来（次）<input id="role-life-awakenings" type="number" min="0" max="100" step="1" placeholder="未记录可留空"></label><label>累计步数<input id="role-life-steps" type="number" min="0" max="200000" step="1"></label><label>运动时长（分钟）<input id="role-life-exerciseMinutes" type="number" min="0" max="1440" step="1"></label>${['energy', 'mood'].map(key => `<label>${life().fields[key].label}<select id="role-life-${key}"><option value="">不记录</option>${Object.entries(life().fields[key].choices).map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select></label>`).join('')}</div><p>睡眠填醒来那天的日期。更早的记录请通过汇总文件导入，保留当时的汇总时间。</p><button class="role-primary" type="submit">保存生活记录</button></form></div></details>
         <section class="role-card"><div class="role-section-heading"><span>03 / PERSONAL</span><h3>我的睡眠目标</h3></div><p>只用于比较你自己设定的目标，不使用医学诊断阈值。</p><div class="role-actions"><label>小时<input type="number" id="role-life-goal" min="3" max="15" step="0.5" value="${(state.sleepGoal || 480) / 60}"></label><button type="button" onclick="ByndRoleTools.saveGoal()">保存目标</button></div></section>
         <section class="role-card"><div class="role-section-heading"><span>04 / HISTORY</span><h3>本机最近的汇总</h3></div><div id="role-life-records"></div><p>记录与生活授权只留在本机，不包含在普通应用备份中。授权后的文字会随聊天请求发给你配置的模型；撤销只阻止后续读取，不能撤回已发送的内容。</p><button type="button" class="role-danger" onclick="ByndRoleTools.clearRecords()">清除生活记录与全部生活授权</button></section>`;
         renderNative();
         renderRecords();
+        renderUsage();
+    }
+    function renderUsage() {
+        const root = el('role-usage-card');
+        if (!root || !usage()) return;
+        let days = [];
+        let broken = '';
+        try { days = usage().history().slice(0, 7); } catch (error) { broken = error.message; }
+        const state = broken ? { paused: false } : usage().read();
+        const native = usage().android();
+        const granted = native && usage().androidGranted();
+        const today = usage().localDate();
+        const yesterday = usage().localDate(Date.now() - 86400000);
+        root.innerHTML = `<div class="role-section-heading"><span>PHONE</span><h3>手机使用情况</h3></div>
+            ${broken ? `<p class="role-empty">${escape(broken)}</p>` : ''}
+            ${native ? `<div class="role-actions">${granted ? '<button type="button" class="role-primary" data-usage-action onclick="ByndRoleTools.usageAction(\'sync\')">读取最近 10 天</button>' : '<button type="button" class="role-primary" data-usage-action onclick="ByndRoleTools.usageAction(\'grant\')">打开「使用情况访问权限」</button><button type="button" data-usage-action onclick="ByndRoleTools.usageAction(\'sync\')">已打开，读取</button>'}</div><p>${granted ? '已获得系统授权。聊天时每 15 分钟内最多自动刷新一次。' : '在系统设置里找到 BYND 并允许访问使用情况。'}</p>` : ''}
+            <div class="role-actions"><label>截图日期<select id="role-usage-date"><option value="${today}">今天</option><option value="${yesterday}">昨天</option></select></label><label class="role-file-button">上传屏幕使用时间截图<input type="file" id="role-usage-shot" accept="image/png,image/jpeg,image/webp" onchange="ByndRoleTools.usageImport(this)"></label></div>
+            <details><summary>截图会怎么处理？</summary><p>截图只发给你在「设置 → API」配置的聊天模型，用来读出总时长和各应用时长，图片本身不保存。模型需要支持看图。iPhone 在「设置 → 屏幕使用时间 → 查看所有活动」截图，Android 在「数字健康」截图。</p></details>
+            <label class="role-toggle"><span><strong>暂停所有角色查看</strong><small>保留记录和授权</small></span><input type="checkbox" ${state.paused ? 'checked' : ''} onchange="ByndRoleTools.usagePause(this)"></label>
+            <div id="role-usage-days">${days.length ? days.map(day => `<details><summary>${escape(day.date)} · ${escape(minutesText(day.totalMinutes))}${day.partial ? '（当天未结束）' : ''}</summary>${day.apps.slice(0, 10).map(app => `<div class="role-record"><strong>${escape(app.label)}</strong><span>${escape(minutesText(app.minutes))}${app.opens ? ` · 打开 ${app.opens} 次` : ''}</span></div>`).join('')}<small>${escape(usage().SOURCES[day.source] || '')} · ${escape(new Date(day.observedAt).toLocaleString('zh-CN'))}</small></details>`).join('') : '<p class="role-empty">还没有使用记录。</p>'}</div>
+            <p>记录只留在本机，最多保留 30 天，不进入应用备份。只有你授权的角色会在聊天里收到一句概况。</p>
+            ${days.length || broken ? '<button type="button" class="role-danger" onclick="ByndRoleTools.usageClear()">清除手机使用记录与授权</button>' : ''}`;
+    }
+    async function usageAction(action) {
+        const buttons = [...document.querySelectorAll('[data-usage-action]')];
+        buttons.forEach(button => { button.disabled = true; });
+        try {
+            if (action === 'grant') { usage().openAndroidSettings(); status('请在系统设置里允许 BYND 访问使用情况，回来后点「已打开，读取」。'); return true; }
+            const count = usage().syncAndroid();
+            renderUsage(); renderUsagePreview();
+            status(count ? `已读取 ${count} 天的手机使用情况。角色授权保持原样。` : '系统没有返回使用记录。');
+            return true;
+        } catch (error) { status(`未读取：${error.message}`, true); return false; }
+        finally { renderUsage(); }
+    }
+    async function usageImport(input) {
+        const file = input.files?.[0];
+        if (!file) return false;
+        input.disabled = true;
+        status('正在让模型读取截图…');
+        try {
+            const day = await usage().importScreenshot(file, el('role-usage-date')?.value || usage().localDate());
+            renderUsage(); renderUsagePreview();
+            status(`已记录 ${day.date}：共 ${minutesText(day.totalMinutes)}，${day.apps.length} 个应用。请核对数字，读错可以重新上传。`);
+            return true;
+        } catch (error) { status(`截图未导入：${error.message}`, true); return false; }
+        finally { input.value = ''; input.disabled = false; }
+    }
+    function usagePause(input) {
+        try { usage().setPaused(input.checked); renderUsagePreview(); status(input.checked ? '已暂停所有角色查看手机使用情况。' : '已恢复按角色授权查看。'); }
+        catch (error) { input.checked = !input.checked; status(`操作失败：${error.message}`, true); }
+    }
+    function usageClear() {
+        if (!window.confirm('清除本机全部手机使用记录和相关授权？')) return;
+        try { usage().clear(); renderUsage(); renderRoles(); status('手机使用记录与授权已清除。'); }
+        catch (error) { status(`清除失败：${error.message}`, true); }
+    }
+    function renderUsageGrant(char) {
+        if (!usage()) return '';
+        let grant = { level: 'off', exclude: [] };
+        try { grant = usage().grantFor(usage().read(), char); } catch (_) {}
+        return `<section class="role-card"><h3>手机使用授权</h3><label class="role-select">${escape(name(char))} 能看到<select id="role-usage-level">${Object.entries(usage().LEVELS).map(([value, text]) => `<option value="${value}" ${grant.level === value ? 'selected' : ''}>${text}</option>`).join('')}</select></label><label class="role-select">不让 TA 看到的应用<textarea id="role-usage-exclude" rows="2" placeholder="每行一个，例如：小红书">${escape(grant.exclude.join('\n'))}</textarea></label><details><summary>隐藏的应用会怎样？</summary><p>隐藏的应用不会出现在列表里，它的时长也会从总时长中扣掉。凌晨还在用手机只说时刻，不说是哪个应用。</p></details><div class="role-actions"><button type="button" class="role-primary" onclick="ByndRoleTools.saveUsageGrant()">保存手机使用授权</button></div><div class="role-preview"><h4>TA 在聊天里会看到</h4><div id="role-usage-preview"></div></div></section>`;
+    }
+    function renderUsagePreview() {
+        const char = selected();
+        const root = el('role-usage-preview');
+        if (!root || !char || !usage()) return;
+        let state;
+        try { state = usage().read(); } catch (error) { root.innerHTML = `<p>${escape(error.message)}</p>`; return; }
+        const grant = usage().grantFor(state, char);
+        const line = usage().summary(char);
+        root.innerHTML = `<p>${escape(state.paused ? '所有角色的查看已暂停。' : grant.level === 'off' ? '未授权，TA 看不到你的手机使用情况。' : line || '没有今天或昨天的记录，TA 暂时看不到内容。')}</p>`;
+    }
+    function saveUsageGrant() {
+        try {
+            const char = selected();
+            usage().setGrant(char, { level: el('role-usage-level').value, exclude: usage().parseExclude(el('role-usage-exclude').value) });
+            renderUsagePreview(); status(`${name(char)} 的手机使用授权已保存。`); return true;
+        } catch (error) { status(`授权未保存：${error.message}`, true); return false; }
     }
     function renderRecords() {
         const state = life().read();
@@ -75,8 +157,10 @@
         const picked = char.chatConfig?.agentMcpTools?.[catalog?.key] || [];
         root.innerHTML = `<section class="role-card"><label class="role-select">当前角色<select id="role-selected-char" onchange="ByndRoleTools.select(this.value)">${list.map(item => `<option value="${escape(item.id)}" ${String(item.id) === selectedId ? 'selected' : ''}>${escape(name(item))}</option>`).join('')}</select></label><p>下面的改动仅对 ${escape(name(char))} 生效。</p></section>
         <section class="role-card"><h3>生活状态授权</h3><label class="role-toggle"><span><strong>在聊天时提供生活状态</strong><small>仅分享下方授权的状态</small></span><input id="role-grant-enabled" type="checkbox" ${grant.enabled ? 'checked' : ''}></label><details><summary>概况与具体数据有什么区别？</summary><p>「生活概况」只提供解释；「具体数据」可见数值或具体时间。未授权项不会进入这个角色的解释结果或聊天请求。</p></details><label class="role-select">只使用多久内的汇总<select id="role-grant-age">${[12,24,36].map(hours => `<option value="${hours}" ${grant.maxAgeHours === hours ? 'selected' : ''}>${hours} 小时</option>`).join('')}</select></label><div class="role-grant-fields">${Object.entries(life().fields).map(([key, spec]) => `<label>${spec.label}<select id="role-grant-${key}">${Object.entries({ off: '不允许', summary: '生活概况', detail: '具体数据' }).map(([value, text]) => `<option value="${value}" ${grant.fields[key] === value ? 'selected' : ''}>${text}</option>`).join('')}</select></label>`).join('')}</div><div class="role-actions"><button type="button" class="role-primary" onclick="ByndRoleTools.saveGrant()">保存 ${escape(name(char))} 的授权</button><button type="button" onclick="ByndRoleTools.revoke()">撤销 TA 的生活授权</button></div><div class="role-preview"><h4>TA 实际能看到什么</h4><div id="role-life-preview"></div></div></section>
+        ${renderUsageGrant(char)}
         <section class="role-card"><h3>现实工具权限</h3><p>和聊天设置中的权限同步。生活状态独立授权，不随「允许使用现实工具」自动开启。</p>${Object.entries(toolFields).map(([key, text]) => `<label class="role-toggle"><span><strong>${text}</strong></span><input type="checkbox" data-role-tool="${key}" ${prefs[key] ? 'checked' : ''}></label>`).join('')}${catalog ? `<h4>${escape(catalog.name)} · 可用 MCP 工具</h4>${catalog.tools.map(tool => `<label class="role-toggle"><span><strong>${escape(tool.name)}</strong><small>${escape(tool.blocked ? '已拦截：可能修改数据或涉及隐私' : tool.description || '只读工具')}</small></span><input type="checkbox" data-role-mcp="${escape(tool.name)}" ${!tool.blocked && picked.includes(tool.name) ? 'checked' : ''} ${tool.blocked ? 'disabled' : ''}></label>`).join('')}` : '<p>如需 MCP 工具，请先在 MCP 应用连接服务。</p>'}<button type="button" onclick="ByndRoleTools.saveTools(this)">保存工具权限</button></section>`;
         renderPreview();
+        renderUsagePreview();
     }
     function renderPreview() {
         const char = selected();
@@ -176,5 +260,5 @@
         } catch (error) { status(`无法下载：${error.message}`, true); }
         finally { if (url) setTimeout(() => URL.revokeObjectURL(url), 2000); }
     }
-    window.ByndRoleTools = { open, tab, select: id => { if (writing) return; selectedId = String(id); renderRoles(); }, saveRecord, importFile, saveGrant, revoke, pause, saveGoal, saveTools, clearRecords, template, healthAction };
+    window.ByndRoleTools = { open, tab, select: id => { if (writing) return; selectedId = String(id); renderRoles(); }, saveRecord, importFile, saveGrant, revoke, pause, saveGoal, saveTools, clearRecords, template, healthAction, usageAction, usageImport, usagePause, usageClear, saveUsageGrant };
 })();
