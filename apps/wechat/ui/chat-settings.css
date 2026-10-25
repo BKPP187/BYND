@@ -118,7 +118,8 @@
 .wcs-qq-member-mini span b { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: inherit; }
 .wcs-qq-member-badge { max-width: 52px; height: 16px; border-radius: 5px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; color: #fff; font-size: 9px; line-height: 16px; font-style: normal; font-weight: 850; white-space: nowrap; vertical-align: middle; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
 .wcs-qq-member-badge.owner { background: linear-gradient(135deg, #ffcf4a, #f59e0b); color: #603600; }
-.wcs-qq-member-badge.admin, .wcs-qq-member-badge.title { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; }
+.wcs-qq-member-badge.admin { background: linear-gradient(135deg, #34d399, #10b981); color: #fff; }
+.wcs-qq-member-badge.title { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; }
 .msg-sender-name .wcs-qq-member-badge { max-width: 74px; height: 17px; margin-left: 0; padding: 0 5px; border-radius: 5px; font-size: 9px; line-height: 17px; transform: none; flex: 0 0 auto; }
 .wcs-qq-field { min-height: 49px; padding: 0 16px; display: grid; grid-template-columns: 92px minmax(0,1fr); align-items: center; gap: 8px; border-bottom: 1px solid rgba(15,23,42,0.055); }
 .wcs-qq-field:last-child { border-bottom: 0; }

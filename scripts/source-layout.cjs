@@ -69,6 +69,7 @@ const wechatParts = [
     'apps/music/wechat-music.js',
     'apps/wechat/chat/composer.js',
     'apps/wechat/contacts/group-directives.js',
+    'apps/wechat/contacts/qq-group-features.js',
     'apps/wechat/chat/media-directives.js',
     'apps/wechat/chat/reply-parser.js',
     'apps/wechat/moments/reply-actions.js',

@@ -28,6 +28,14 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         return;
     }
 
+    if (msg.type === 'group_announcement') {
+        row.className = 'msg-row time msg-group-announcement-row';
+        row.innerHTML = renderWechatQQGroupAnnouncementCard(msg, charObj);
+        container.appendChild(row);
+        bindWechatMessageRowActions(row, msg, msgIndex);
+        return;
+    }
+
     if (msg.type === 'poke' || msg.type === 'screen_shake') {
         row.className = `msg-row time msg-poke-row${msg.type === 'screen_shake' ? ' msg-shake-row' : ''}`;
         row.innerHTML = msg.type === 'poke' ? renderWechatPokeNotice(msg, charObj) : renderWechatScreenShakeNotice(msg, charObj);
@@ -68,7 +76,10 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
             }
         }
     }
-    if (groupMember) row.classList.add('group-member');
+    if (groupMember) {
+        row.classList.add('group-member');
+        row.dataset.memberId = groupMember.id;
+    }
 
     const currentAvatar = msg.isMe
         ? myAvatar
@@ -148,6 +159,7 @@ function renderMessageBubble(container, msg, avatarUrl, charObj, msgIndex, optio
         if (isDouyinTheme && quoteHtml) row.classList.add('has-douyin-quote-row');
         if (isQqTheme && !msg.isMe && !isRich && isWechatQqNumericLinkText(visibleText)) rawContent = `<span class="msg-qq-numeric-link">${rawContent}</span>`;
         if (isRednoteTheme && !isRich) rawContent = highlightWechatRednoteMentions(rawContent);
+        if (isQqTheme && !isRich && charObj?.isGroupChat) rawContent = highlightWechatQQGroupMentions(rawContent, charObj);
         if (isDouyinTheme && quoteHtml && !isRich && displayMsg.replyTo) {
             const mentionName = getWechatDouyinReplyMentionName(displayMsg.replyTo, charObj);
             const visible = String(visibleText || '').trim();
@@ -289,6 +301,11 @@ function bindWechatAiAvatarInteractions(row, charObj) {
         event.preventDefault();
         event.stopPropagation();
         clearTimeout(clickTimer);
+        // QQ groups: double-tapping a member's avatar 戳一戳 that member.
+        if (row.dataset.memberId && isWechatQQGroupChatTheme(getCurrentChatChar())) {
+            pokeWechatQQGroupMember(row.dataset.memberId);
+            return;
+        }
         openWechatAiPhone(charObj.id);
     });
 }

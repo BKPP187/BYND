@@ -1090,6 +1090,7 @@ function getWechatCallDescription(msg, char = null) {
 function getWechatMessageSummary(msg) {
     if (!msg) return '[消息]';
     if (msg.recalled) return msg.isMe ? '你撤回了一条消息' : '对方撤回了一条消息';
+    if (msg.type === 'group_announcement') return `[群公告] ${msg.content || ''}`;
     if (isWechatRegexPayloadMessage(msg)) return '[状态更新]';
     if (msg.description && msg.type !== 'voiceCall' && msg.type !== 'videoCall') return msg.description;
     if (msg.type === 'sticker') {
@@ -1209,7 +1210,7 @@ function isWechatGroupSystemActionEchoContent(text, group) {
 function isWechatRenderableMessage(msg, charObj = null) {
     if (!msg) return false;
     if (msg.hiddenFromChat || msg.internalEvent) return false;
-    if (msg.type === 'system_notice') return true;
+    if (msg.type === 'system_notice' || msg.type === 'group_announcement') return true;
     if (isWechatSpecialMessage(msg.type) || msg.type === 'image' || msg.type === 'image_stack' || msg.type === 'sticker') return true;
     return !!getWechatTextMessageVisibleText(msg, charObj);
 }

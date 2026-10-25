@@ -1221,7 +1221,7 @@ function buildChatApiGroupPrompt(group) {
         const details = [description, worldBook ? `世界书：${worldBook}` : ''].filter(Boolean).join('；');
         return `${index + 1}. ${displayName}${realName}${roleLine}${details ? `：${details}` : ''}`;
     });
-    return `\n【微信群聊成员】\n当前对话是群聊「${group.name || '群聊'}」，不是单人私聊。用户「${userName}」就是这个群的群主/创建者；群主不是你要扮演的 AI 成员，不要询问“群主是谁”、不要质疑用户的群主身份。你需要同时扮演群内 AI 成员，所有成员都必须按各自人设、世界书和关系状态发言：\n${lines.join('\n')}\n\n【群聊输出规则】\n- 你不是群聊本身，不能以群名作为说话人。\n- 每条成员发言必须单独输出为：[群聊发言:成员名|消息内容]\n- 成员名必须使用上方列表中的名字或备注，系统会用这个成员自己的头像和名字渲染，不要把“成员名：”写进气泡正文。\n- 上方列出的“当前群头衔/身份”就是成员自己能看见的群头衔；如果某个成员按自己人设不喜欢用户设置的群头衔，可以把 [QQ群头衔:成员名|新头衔|原因] 作为独立消息段输出，只能改自己的头衔，不能替其他成员或用户改。\n- 如果某个成员按人设想改自己的群昵称，可以把 [群昵称:成员名|新昵称|原因] 作为独立消息段输出；只能改自己，不能替其他成员或用户改。\n- 群主或管理员如果按剧情自然需要修改整个群聊名称，可以把 [群名:成员名|新群名|原因] 作为独立消息段输出；普通成员没有权限改群名，不要假装已经改成功。\n- 群管理指令执行结果会由系统灰色提示显示；不要再用成员普通气泡复述“已设置管理员、已修改群名、已改群昵称”等系统动作。\n- 如果某个成员按剧情自然想邀请新成员，可以把 [群邀请:邀请人|成员名|人设/备注|头像URL] 作为独立消息段输出；邀请人必须是自己。系统会优先邀请已有联系人，找不到才按“人设/备注”创建隐藏 NPC 群成员。不要无理由频繁拉人，也不要编造与当前剧情无关的人。\n- 用户每次在群里发言后，群内每个成员都要至少给一条短反应；可以有先后和情绪差异，但不要漏掉任何成员。\n- 不要让所有人说同一句话，每个人要按自己的人设、关系和当下心情说不同内容。\n- 严禁替用户发言或替用户行动。\n`;
+    return `\n【微信群聊成员】\n当前对话是群聊「${group.name || '群聊'}」，不是单人私聊。用户「${userName}」就是这个群的群主/创建者；群主不是你要扮演的 AI 成员，不要询问“群主是谁”、不要质疑用户的群主身份。你需要同时扮演群内 AI 成员，所有成员都必须按各自人设、世界书和关系状态发言：\n${lines.join('\n')}\n\n【群聊输出规则】\n- 你不是群聊本身，不能以群名作为说话人。\n- 每条成员发言必须单独输出为：[群聊发言:成员名|消息内容]\n- 成员名必须使用上方列表中的名字或备注，系统会用这个成员自己的头像和名字渲染，不要把“成员名：”写进气泡正文。\n- 上方列出的“当前群头衔/身份”就是成员自己能看见的群头衔；如果某个成员按自己人设不喜欢用户设置的群头衔，可以把 [QQ群头衔:成员名|新头衔|原因] 作为独立消息段输出，只能改自己的头衔，不能替其他成员或用户改。\n- 如果某个成员按人设想改自己的群昵称，可以把 [群昵称:成员名|新昵称|原因] 作为独立消息段输出；只能改自己，不能替其他成员或用户改。\n- 群主或管理员如果按剧情自然需要修改整个群聊名称，可以把 [群名:成员名|新群名|原因] 作为独立消息段输出；普通成员没有权限改群名，不要假装已经改成功。\n- 群管理指令执行结果会由系统灰色提示显示；不要再用成员普通气泡复述“已设置管理员、已修改群名、已改群昵称”等系统动作。\n- 如果某个成员按剧情自然想邀请新成员，可以把 [群邀请:邀请人|成员名|人设/备注|头像URL] 作为独立消息段输出；邀请人必须是自己。系统会优先邀请已有联系人，找不到才按“人设/备注”创建隐藏 NPC 群成员。不要无理由频繁拉人，也不要编造与当前剧情无关的人。\n- 用户每次在群里发言后，群内每个成员都要至少给一条短反应；可以有先后和情绪差异，但不要漏掉任何成员。\n- 不要让所有人说同一句话，每个人要按自己的人设、关系和当下心情说不同内容。\n- 严禁替用户发言或替用户行动。\n${typeof buildWechatQQGroupPromptExtras === 'function' ? `${buildWechatQQGroupPromptExtras(group)}\n` : ''}`;
 }
 
 function getChatApiGroupHistorySender(group, msg, content) {
@@ -1577,6 +1577,8 @@ function buildMessages(char, history, maxMessages) {
             content = buildChatApiImageContent(msg);
         } else if (msg.type === 'image' || msg.type === 'image_stack') {
             content = msg.description || '[图片]';
+        } else if (msg.type === 'group_announcement') {
+            content = `[群公告·${msg.isMe ? '用户' : (msg.senderName || '管理员')}发布] ${msg.content || ''}`;
         } else if (msg.type === 'sticker') {
             content = '[发送了表情: ' + (msg.stickerName || msg.name || '贴纸') + ']';
         } else if (msg.type === 'poke') {
@@ -1640,7 +1642,7 @@ function buildMessages(char, history, maxMessages) {
 
         messages.push({
             // A tool card reaches the model only as its short [工具结果] summary, never as the character's own words.
-            role: isInternalContext || msg.type === 'tool_result' ? 'system' : (msg.isMe ? 'user' : 'assistant'),
+            role: isInternalContext || msg.type === 'group_announcement' || msg.type === 'tool_result' ? 'system' : (msg.isMe ? 'user' : 'assistant'),
             content: content
         });
         if (ownImages.has(msg)) {

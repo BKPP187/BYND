@@ -24,6 +24,7 @@ function showMsgActionMenu(msgIdx, isMe, rowEl) {
     if (isMe && isWechatRecallableMessage(msg)) html += `<div class="msg-action-item" onclick="recallWechatUserMessage(${msgIdx})"><i class="ri-arrow-go-back-line"></i> 撤回</div>`;
     html += `<div class="msg-action-item" onclick="deleteSingleMsg(${msgIdx})"><i class="ri-delete-bin-line"></i> 删除</div>`;
     if (!isMe && !isNarration) {
+        if (msg?.senderId && isWechatQQGroupChatTheme(char)) html += `<div class="msg-action-item" onclick="mentionWechatQQGroupMemberFromMessage(${msgIdx})"><i class="ri-at-line"></i> @TA</div>`;
         html += `<div class="msg-action-item" onclick="collectWechatMessage(${msgIdx})"><i class="ri-star-line"></i> 收藏</div>`;
         html += `<div class="msg-action-item" onclick="rerollMsg(${msgIdx})"><i class="ri-refresh-line"></i> 重新roll</div>`;
     }
@@ -297,6 +298,7 @@ function refreshChatView(char) {
     requestAnimationFrame(() => { contentEl.scrollTop = contentEl.scrollHeight; });
     setTimeout(() => { contentEl.scrollTop = contentEl.scrollHeight; }, 180);
     if (migratedMixedAi || migratedNarration || migratedStickerDirectives || prunedLeakedCallSummary || repairedSplitPipeStatus || repairedQuoteDirectives || prunedEmptyAiText) saveCharactersToStorage();
+    if (typeof syncWechatQQGroupChatChrome === 'function') syncWechatQQGroupChatChrome(char);
 }
 
 function getWechatPaymentReceiptId(msg, index) {
@@ -672,6 +674,8 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
                 options.groupFallbackMembers
             );
             aiMsg = attachWechatGroupSpeaker(aiMsg, char, fallbackStart + speakerFallbackOffset, fallbackMembers);
+            // A muted member's speech is dropped, like QQ refusing to send it.
+            if (aiMsg && aiMsg.type !== 'system_notice' && isWechatQQGroupMemberMuted(char, aiMsg.senderId)) return;
         }
         if (aiMsg && !aiMsg.isMe && !isWechatRenderableMessage(aiMsg, char)) return;
         if (!aiMsg || (!aiMsg.content && !isWechatSpecialMessage(aiMsg.type) && !(aiMsg.type === 'image' && aiMsg.imagePending) && !isWechatImageStackMessage(aiMsg))) return;
@@ -707,7 +711,7 @@ function appendWechatAiMessageParts(char, contentEl, text, options = {}) {
         if (aiMsg.type === 'voice' && !aiMsg.isMe) {
             queueWechatCharacterVoiceAudio(char, aiMsg);
         }
-        if (aiMsg.type === 'poke' && !aiMsg.isMe) vibrateWechatPoke();
+        if (shouldVibrateWechatPoke(aiMsg)) vibrateWechatPoke();
         if (shouldRefreshActiveChat && aiMsg.type === 'poke') {
             triggerWechatScreenFeedback('poke', aiMsg);
         } else if (shouldRefreshActiveChat && aiMsg.type === 'screen_shake') {

@@ -144,15 +144,21 @@ function getWechatPokeSuffix(msg, charObj = null) {
 }
 
 function getWechatPokeText(msg, charObj = null) {
-    const userName = getWechatChatUserProfile(charObj).name || getWechatDisplayUserName();
+    const userName = (charObj?.isGroupChat && typeof getWechatQQGroupUserDisplayName === 'function' ? getWechatQQGroupUserDisplayName(charObj) : '')
+        || getWechatChatUserProfile(charObj).name || getWechatDisplayUserName();
     const member = !msg.isMe && charObj?.isGroupChat
         ? findWechatGroupMember(charObj, msg.senderId || msg.speakerId || msg.senderName || msg.speakerName)
         : null;
     const charName = member ? getWechatGroupMemberName(member) : getWechatCharDisplayName(charObj);
     const sender = msg.isMe ? userName : charName;
-    const target = msg.isMe ? charName : userName;
+    let target = msg.isMe ? charName : userName;
+    if (charObj?.isGroupChat && msg.pokeTargetId && typeof getWechatQQGroupNameById === 'function') {
+        target = msg.pokeTargetId === WECHAT_QQ_GROUP_USER_ID ? userName : getWechatQQGroupNameById(charObj, msg.pokeTargetId);
+    }
     const suffix = getWechatPokeSuffix(msg, charObj);
-    return `${sender}拍了拍“${target}”${suffix ? `的${suffix}` : ''}`;
+    // QQ calls it 戳一戳.
+    const verb = typeof getWechatUiThemeId === 'function' && getWechatUiThemeId() === 'qq' ? '戳了戳' : '拍了拍';
+    return `${sender}${verb}“${target}”${suffix ? `的${suffix}` : ''}`;
 }
 
 function renderWechatPokeNotice(msg, charObj = null) {

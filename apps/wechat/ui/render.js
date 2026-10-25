@@ -374,6 +374,10 @@ function renderWechatQQGroupMessageSenderLabel(group, member) {
     if (!group?.isGroupChat || !member) return '';
     const badgeHtml = renderWechatQQGroupMemberBadge(group, member.id);
     const name = getWechatQQGroupMemberDisplayName(group, member);
+    // QQ groups lead with the level and title badges; other themes keep the name first.
+    if (typeof isWechatQQGroupChatTheme === 'function' && isWechatQQGroupChatTheme(group)) {
+        return `<div class="msg-sender-name qq-group-sender"><span class="msg-sender-name-line">${renderWechatQQGroupLevelBadge(group, member.id)}${badgeHtml}<b>${wcEscapeHtml(name)}</b></span></div>`;
+    }
     return `<div class="msg-sender-name"><span class="msg-sender-name-line"><b>${wcEscapeHtml(name)}</b>${badgeHtml}</span></div>`;
 }
 
@@ -402,6 +406,8 @@ function normalizeWechatGroupSpeechText(text, group) {
 
 function attachWechatGroupSpeaker(msg, group, fallbackIndex = 0, fallbackMembers = null) {
     if (!msg || !group?.isGroupChat || msg.isMe || msg.type === 'system_notice') return msg;
+    // Management actions were permission-checked for their named actor; never hand them to someone else.
+    if (msg.senderId && (msg.type === 'group_announcement' || msg.type === 'poke')) return msg;
     const scopedMembers = Array.isArray(fallbackMembers) ? fallbackMembers.filter(Boolean) : [];
     const members = scopedMembers.length ? scopedMembers : getWechatGroupMembers(group);
     const scopedIds = scopedMembers.length ? new Set(scopedMembers.map(member => member && member.id).filter(Boolean)) : null;
@@ -410,6 +416,10 @@ function attachWechatGroupSpeaker(msg, group, fallbackIndex = 0, fallbackMembers
     let speaker = null;
     if (msg.senderId || msg.speakerId || msg.senderName || msg.speakerName) {
         speaker = findWechatGroupMember(group, msg.senderId || msg.speakerId || msg.senderName || msg.speakerName);
+        // A muted member keeps authorship so the caller drops the line instead of giving it to someone else.
+        if (speaker && typeof isWechatQQGroupMemberMuted === 'function' && isWechatQQGroupMemberMuted(group, speaker.id)) {
+            return { ...msg, senderId: speaker.id, senderName: getWechatQQGroupMemberDisplayName(group, speaker) };
+        }
         if (speaker && scopedIds && !scopedIds.has(speaker.id)) speaker = null;
     }
     if (!speaker && msg.type === 'text') {
@@ -451,14 +461,19 @@ function getWechatGroupMissingReplyMembers(group, startIndex) {
         const member = getWechatGroupMessageSpeakerMember(group, msg);
         if (member && member.id) spokenIds.add(member.id);
     });
-    return getWechatGroupMembers(group).filter(member => member && member.id && !spokenIds.has(member.id));
+    // Muted members are not owed a reply this round.
+    const muted = id => typeof isWechatQQGroupMemberMuted === 'function' && isWechatQQGroupMemberMuted(group, id);
+    return getWechatGroupMembers(group).filter(member => member && member.id && !spokenIds.has(member.id) && !muted(member.id));
 }
 
 function getWechatGroupNextFallbackMembers(group, startIndex, preferredMembers = null) {
     if (!group?.isGroupChat) return [];
-    const base = Array.isArray(preferredMembers) && preferredMembers.length
+    const candidates = Array.isArray(preferredMembers) && preferredMembers.length
         ? preferredMembers.filter(Boolean)
         : getWechatGroupMembers(group);
+    // Never hand someone else's line to a muted member: it would be dropped.
+    const speaking = candidates.filter(member => !(typeof isWechatQQGroupMemberMuted === 'function' && isWechatQQGroupMemberMuted(group, member?.id)));
+    const base = speaking.length ? speaking : candidates;
     if (!base.length) return [];
     const spokenIds = new Set();
     if (Array.isArray(group.history)) {
@@ -976,12 +991,29 @@ function openWechatQQGroupEditField(kind) {
 }
 window.openWechatQQGroupEditField = openWechatQQGroupEditField;
 
-function saveWechatQQGroupEditField(kind) {
+async function saveWechatQQGroupEditField(kind) {
     const group = getCurrentChatChar();
     if (!group || !group.isGroupChat) return;
     const settings = getWechatQQGroupSettings(group);
     const value = (document.getElementById('wcs-qq-edit-value')?.value || '').trim();
     const prevName = group.name || '';
+    if (kind === 'announcement') {
+        const before = { announcement: settings.announcement, announcementAt: settings.announcementAt, announcementBy: settings.announcementBy };
+        let card = null;
+        if (value && value !== String(settings.announcement || '').trim()) card = publishWechatQQGroupAnnouncement(group, value, WECHAT_QQ_GROUP_USER_ID);
+        else if (!value) settings.announcement = '';
+        group.history = Array.isArray(group.history) ? group.history : [];
+        if (card) group.history.push(card);
+        const ok = await persistWechatQQGroupChange(group, () => {
+            Object.assign(settings, before);
+            if (card) group.history.splice(group.history.indexOf(card), 1);
+        });
+        if (!ok) return;
+        closeWechatQQGroupResource();
+        openWechatQQGroupSettings();
+        showWechatToast(card ? '群公告已发布' : '已保存');
+        return;
+    }
     if (kind === 'name') {
         group.name = value || prevName || '群聊';
         if (prevName && prevName !== group.name) {
@@ -990,8 +1022,6 @@ function saveWechatQQGroupEditField(kind) {
         }
     } else if (kind === 'remark') {
         settings.groupRemark = value;
-    } else if (kind === 'announcement') {
-        settings.announcement = value;
     } else if (kind === 'myNickname') {
         settings.myNickname = value;
     } else if (kind === 'personality') {
@@ -1220,6 +1250,12 @@ function openWechatQQGroupMemberSettings(charId) {
                     <option value="admin" ${role === 'admin' ? 'selected' : ''}>管理员</option>
                 </select></label>
                 <label><span>群头衔</span><input id="wcs-qq-member-title" maxlength="16" value="${wcEscapeAttr(profile.title || '')}" placeholder="${isOwner ? '群主' : (role === 'admin' ? '管理员' : '例如 学霸、摸鱼王')}"></label>
+                <label><span>群等级</span><input id="wcs-qq-member-level" type="number" min="1" max="100" inputmode="numeric" value="${wcEscapeAttr(profile.level || '')}" placeholder="按活跃度 LV${getWechatQQGroupMemberLevel(group, charId)}"></label>
+                ${isUser || isOwner ? '' : `<label><span>禁言</span><select id="wcs-qq-member-mute">
+                    <option value="">${isWechatQQGroupMemberMuted(group, charId) ? '保持禁言' : '不禁言'}</option>
+                    ${isWechatQQGroupMemberMuted(group, charId) ? '<option value="0">解除禁言</option>' : ''}
+                    <option value="10">10分钟</option><option value="60">1小时</option><option value="720">12小时</option><option value="1440">1天</option>
+                </select></label>`}
             </div>
             <button type="button" class="wcs-qq-save" onclick="saveWechatQQGroupMemberSettings(${quoteWechatJsString(charId)})">保存成员设置</button>
         </div>
@@ -1227,16 +1263,34 @@ function openWechatQQGroupMemberSettings(charId) {
 }
 window.openWechatQQGroupMemberSettings = openWechatQQGroupMemberSettings;
 
-function saveWechatQQGroupMemberSettings(charId) {
+async function saveWechatQQGroupMemberSettings(charId) {
     const group = getCurrentChatChar();
     const isUser = charId === WECHAT_QQ_GROUP_USER_ID;
     const member = isUser ? getWechatQQGroupUserMember(group) : getWechatGroupContacts({ includeGroupNpc: true }).find(char => char.id === charId);
     if (!group || !group.isGroupChat || !member) return;
     const profile = getWechatQQGroupMemberProfile(group, charId);
     const role = getWechatQQGroupMemberRole(group, charId);
+    const settingsBefore = JSON.parse(JSON.stringify(getWechatQQGroupSettings(group)));
+    const before = { ...profile };
     profile.remark = (document.getElementById('wcs-qq-member-remark')?.value || '').trim();
     profile.title = (document.getElementById('wcs-qq-member-title')?.value || '').trim();
     profile.role = isUser || role === 'owner' ? 'owner' : (document.getElementById('wcs-qq-member-role')?.value === 'admin' ? 'admin' : 'member');
+    const level = Number(document.getElementById('wcs-qq-member-level')?.value);
+    if (Number.isInteger(level) && level >= 1 && level <= 100) profile.level = level;
+    else delete profile.level;
+    // QQ-style grey lines for the owner's management actions.
+    const notices = [];
+    const name = getWechatQQGroupMemberDisplayName(group, member);
+    if (!isUser && role !== 'owner' && profile.role !== role) notices.push(profile.role === 'admin' ? `你已将 ${name} 设为管理员` : `你取消了 ${name} 的管理员身份`);
+    if (profile.title && profile.title !== (before.title || '')) notices.push(`你为 ${name} 设置了专属头衔「${profile.title}」`);
+    const muteValue = document.getElementById('wcs-qq-member-mute')?.value;
+    if (!isUser && muteValue !== undefined && muteValue !== '') {
+        const muteText = setWechatQQGroupMemberMute(group, charId, Number(muteValue));
+        if (muteText) notices.push(muteText);
+    }
+    group.history = Array.isArray(group.history) ? group.history : [];
+    const noticeMsgs = notices.map(text => buildWechatQQGroupNotice(text));
+    group.history.push(...noticeMsgs);
     if (isUser) {
         const settingsForNick = getWechatQQGroupSettings(group);
         settingsForNick.myNickname = profile.remark;
@@ -1249,9 +1303,11 @@ function saveWechatQQGroupMemberSettings(charId) {
     settings.memberProfiles = getWechatQQGroupMemberProfiles(group);
     group.chatConfig = group.chatConfig || {};
     group.chatConfig.qqGroupSettings = settings;
-    saveCharactersToStorage();
-    refreshChatView(group);
-    renderChatList();
+    const ok = await persistWechatQQGroupChange(group, () => {
+        group.chatConfig.qqGroupSettings = settingsBefore;
+        group.history = group.history.filter(msg => !noticeMsgs.includes(msg));
+    });
+    if (!ok) return;
     syncWechatQQGroupSettingsEntry(group);
     openWechatQQGroupMemberPicker('manage');
     showWechatToast('成员设置已保存');

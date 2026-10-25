@@ -67,6 +67,18 @@ function buildWechatMessageFromAiDirective(command, rawArgs, char) {
         return applyWechatGroupNameDirective(rawArgs, char);
     }
 
+    if (command === '群公告' || command === 'QQ群公告' || command === '微信群公告') {
+        return applyWechatQQGroupAnnouncementDirective(rawArgs, char);
+    }
+
+    if (command === '群禁言' || command === 'QQ群禁言') {
+        return applyWechatQQGroupMuteDirective(rawArgs, char);
+    }
+
+    if (command === '群拍一拍' || command === '群戳一戳' || command === '戳一戳') {
+        return applyWechatQQGroupPokeDirective(rawArgs, char);
+    }
+
     if (isWechatGroupInviteDirectiveCommand(command)) {
         return applyWechatGroupInviteDirective(rawArgs, char);
     }

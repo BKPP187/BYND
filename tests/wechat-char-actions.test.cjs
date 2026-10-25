@@ -10,6 +10,7 @@ const WECHAT_FILES = [
     'apps/wechat/chat/message-core.js',
     'apps/wechat/ui/message-cards.js',
     'apps/wechat/contacts/group-directives.js',
+    'apps/wechat/contacts/qq-group-features.js',
     'apps/wechat/chat/media-directives.js',
     'apps/wechat/chat/reply-parser.js',
     'apps/wechat/moments/reply-actions.js',
