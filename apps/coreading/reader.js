@@ -10,7 +10,7 @@ function bindCoReadReaderTapZones(body) {
 }
 
 function handleCoReadReaderPointerDown(event) {
-    if (event.target?.closest('button') || coreadReviewAnchor) {
+    if (event.target?.closest('button, .coread-hl') || coreadReviewAnchor) {
         coreadReaderTapState = null;
         return;
     }
@@ -31,7 +31,7 @@ function handleCoReadReaderPointerDown(event) {
 function handleCoReadReaderPointerUp(event) {
     const state = coreadReaderTapState;
     coreadReaderTapState = null;
-    if (event.target?.closest('button') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
+    if (event.target?.closest('button, .coread-hl') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
     if (!state || state.pointerId !== event.pointerId) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     if (event.button != null && event.button !== 0) return;
@@ -49,7 +49,7 @@ function handleCoReadReaderPointerUp(event) {
 }
 
 function handleCoReadReaderClick(event) {
-    if (event.target?.closest('button') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
+    if (event.target?.closest('button, .coread-hl') || coreadReviewAnchor || String(window.getSelection?.() || '').trim()) return;
     if (Date.now() - coreadReaderTapHandledAt < 350) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     const body = event.currentTarget;
@@ -63,7 +63,7 @@ function handleCoReadReaderClick(event) {
 }
 
 function handleCoReadReaderKeydown(event) {
-    if (event.target?.closest('button') || coreadReviewAnchor) return;
+    if (event.target?.closest('button, .coread-hl') || coreadReviewAnchor) return;
     if (coreadActiveTab !== 'reader' || coreadTocOpen || coreadSettingsOpen) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
         event.preventDefault();
@@ -196,7 +196,7 @@ function jumpCoReadBookmark(page) {
 window.jumpCoReadBookmark = jumpCoReadBookmark;
 
 function setCoReadReaderPanelTab(tab) {
-    const next = ['chapters', 'notes', 'bookmarks'].includes(tab) ? tab : 'chapters';
+    const next = ['chapters', 'notes', 'highlights', 'bookmarks'].includes(tab) ? tab : 'chapters';
     if (coreadReaderPanelOpen && coreadReaderPanelTab === next) {
         coreadReaderPanelOpen = false;
         renderCoReadReaderOverview();
@@ -239,7 +239,7 @@ window.selectCoReadReaderChapterGroup = selectCoReadReaderChapterGroup;
 
 function runCoReadReaderToolAction(action) {
     const tool = String(action || '');
-    if (tool === 'chapters' || tool === 'notes' || tool === 'bookmarks') {
+    if (tool === 'chapters' || tool === 'notes' || tool === 'highlights' || tool === 'bookmarks') {
         setCoReadReaderPanelTab(tool);
         return;
     }
@@ -384,10 +384,13 @@ function renderCoReadReaderOverview() {
     const tabs = [
         { id: 'chapters', label: '章节', count: chapters.length },
         { id: 'notes', label: '笔记', count: notes.length },
+        { id: 'highlights', label: '划线', count: typeof getCoReadHighlights === 'function' ? getCoReadHighlights(book.id).length : 0 },
         { id: 'bookmarks', label: '书签', count: bookmarks.length }
     ];
     const panel = coreadReaderPanelTab === 'notes'
         ? renderCoReadReaderNoteRows(book)
+        : coreadReaderPanelTab === 'highlights' && typeof renderCoReadHighlightRows === 'function'
+            ? renderCoReadHighlightRows(book)
         : coreadReaderPanelTab === 'bookmarks'
             ? renderCoReadReaderBookmarkRows(book)
             : renderCoReadReaderChapterRows(book, chapterGroupSize, chapterGroupStart - 1);

@@ -716,7 +716,9 @@ function renderCoReadParagraphText(book, start, end) {
         const anchor = { offset: match.index, quote: match[0].trim().slice(0, 600) };
         const count = counts.get(coReadReviewKey(book.id, anchor)) || 0;
         const text = content.slice(Math.max(start, match.index), Math.min(end, match.index + match[0].length));
-        rows.push(`<p class="coread-reader-paragraph"><span>${musicEscapeHtml(text)}</span><button type="button" class="coread-paragraph-count" data-paragraph-offset="${match.index}" aria-label="查看段评，${count} 条" onclick="event.stopPropagation();openCoReadParagraphReviews(${match.index},this)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v13H9l-5 4V4Z"/></svg>${count || '+'}</button></p>`);
+        const textStart = Math.max(start, match.index);
+        const textHtml = typeof renderCoReadHighlightedText === 'function' ? renderCoReadHighlightedText(book, textStart, text) : musicEscapeHtml(text);
+        rows.push(`<p class="coread-reader-paragraph"><span data-coread-offset="${textStart}">${textHtml}</span><button type="button" class="coread-paragraph-count" data-paragraph-offset="${match.index}" aria-label="查看段评，${count} 条" onclick="event.stopPropagation();openCoReadParagraphReviews(${match.index},this)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v13H9l-5 4V4Z"/></svg>${count || '+'}</button></p>`);
     }
     return rows.join('');
 }

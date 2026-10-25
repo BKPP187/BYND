@@ -53,6 +53,8 @@ const CoReadJournal = (() => {
         } while (cursor < to);
         data.days.sort((a, b) => a.date.localeCompare(b.date));
         localStorage.setItem(key, JSON.stringify(data)); // No in-memory success before this write.
+        // The chosen reading companion reads along with the user for the same stretch.
+        if (to > from && typeof window.creditCoReadCompanionReading === 'function') window.creditCoReadCompanionReading(book, (to - from) / 1000);
     }
     function report(exception) {
         error = `阅读记录未保存：${exception.message || exception}`;
@@ -63,6 +65,7 @@ const CoReadJournal = (() => {
         return document.visibilityState !== 'hidden' && document.getElementById('app-coread-window')?.classList.contains('active')
             && coreadActiveTab === 'reader' && !coreadReaderPanelOpen && !coreadSettingsOpen && !coreadTocOpen && !coreadCommentPanelOpen
             && !(typeof coreadReviewAnchor !== 'undefined' && coreadReviewAnchor)
+            && !(typeof coreadHighlightOpenId !== 'undefined' && coreadHighlightOpenId)
             && !(typeof coreadAuthorSupport !== 'undefined' && coreadAuthorSupport);
     }
     function flush(now = Date.now()) {
