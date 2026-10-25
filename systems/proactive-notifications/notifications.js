@@ -169,7 +169,7 @@ function cleanupByndServiceWorkerIfIdle() {
 function ensureByndServiceWorker() {
     if (isByndAndroidAppRuntime() || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
     if (_byndServiceWorkerReady) return _byndServiceWorkerReady;
-    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.1015').then(() => {
+    _byndServiceWorkerReady = navigator.serviceWorker.register('sw.js?v=1.1.1016').then(() => {
         syncProactiveServiceWorkerConfig();
         return navigator.serviceWorker.ready;
     }).catch(err => {

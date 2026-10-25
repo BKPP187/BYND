@@ -854,11 +854,7 @@ function renderBoardGameCompanionSetup(el, type) {
     const charName = selectedChar ? getMusicCharName(selectedChar) : '角色';
     el.innerHTML = `
         <section class="mini-game-panel board-companion-setup">
-            <div class="board-companion-hero" style="--game-accent:${musicEscapeAttr(meta.accent || '#171a22')}">
-                <span>${musicEscapeHtml(meta.genre || 'BOARD DUEL')}</span>
-                <strong>${musicEscapeHtml(meta.title)}</strong>
-                <p>先选择一位角色陪你玩。进入棋局后，对方会根据角色卡和最近聊天，用文字气泡回应你的落子。</p>
-            </div>
+            <p class="board-companion-lead">选一位角色陪你下。对方会按角色卡和最近聊天，用气泡回应你的落子。</p>
             <div class="board-companion-list">
                 ${chars.length ? chars.map(char => {
                     const active = char.id === selectedId;
@@ -1008,7 +1004,7 @@ function renderGomokuGame(el) {
     el.innerHTML = `
         <section class="mini-game-panel board-panel gomoku-panel">
             ${renderBoardGameCompanionBar('gomoku')}
-            <div class="board-game-top"><div><span>GOMOKU</span><strong>${label}</strong><p>先连成五子的一方获胜。</p></div><button type="button" onclick="resetGomokuGame()">重开</button></div>
+            ${renderMiniHud({ stats: [{ label: '对局', value: label }], actions: [{ label: '重开', text: '重开', icon: 'ri-refresh-line', onclick: 'resetGomokuGame()' }], note: '横竖斜任意方向先连成五子获胜。' })}
             <div class="gomoku-board">
                 ${state.board.map((row, r) => row.map((stone, c) => `
                     <button type="button" class="${stone || ''}" onclick="placeGomokuStone(${r},${c})">${stone ? '<i></i>' : ''}</button>
@@ -1185,7 +1181,7 @@ function renderBoardGame(el, type) {
     el.innerHTML = `
         <section class="mini-game-panel board-panel ${isXiangqi ? 'xiangqi-panel' : 'chess-panel'}">
             ${renderBoardGameCompanionBar(type)}
-            <div class="board-game-top"><div><span>${isXiangqi ? 'XIANGQI' : 'CHESS'}</span><strong>${title}</strong><p>${musicEscapeHtml(turnLabel)}。${isXiangqi ? '点击棋子选中，再点击目标格移动。' : '点棋子会亮出能走的位置，绿色可走，红色可吃。'}</p></div><button type="button" onclick="resetBoardGame('${type}')">重开</button></div>
+            ${renderMiniHud({ stats: [{ label: '对局', value: turnLabel }], actions: [{ label: '重开', text: '重开', icon: 'ri-refresh-line', onclick: `resetBoardGame('${type}')` }], note: isXiangqi ? '点棋子选中，再点目标格移动。' : '点棋子会亮出能走的位置：绿色可走，红色可吃。' })}
             ${chessHelp}
             <div class="classic-board ${isXiangqi ? 'xiangqi' : 'chess'}" style="--cols:${cols}" aria-label="${title}棋盘${isXiangqi ? `，你的${getBoardGameSideLabel(type, state.userSide)}在下方` : ''}">
                 ${state.board.map((_, viewRow) => Array.from({ length: cols }, (_, viewCol) => {

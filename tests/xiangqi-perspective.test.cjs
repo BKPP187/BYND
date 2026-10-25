@@ -18,6 +18,7 @@ function createXiangqiHarness(firstPlayer) {
         getBoardGameSideLabel: (_, side) => side === 'red' ? '红方' : '黑方',
         getBoardGameTurnText: (_, state) => state.turn === 'red' ? '你 · 红方' : '角色 · 红方',
         renderBoardGameCompanionBar: () => '',
+        renderMiniHud: () => '',
         musicEscapeHtml: value => value,
         getBoardLegalMoves: () => []
     });

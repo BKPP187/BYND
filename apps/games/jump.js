@@ -317,11 +317,12 @@ function renderJumpGame(el) {
     ].join(';');
     el.innerHTML = `
         <section class="mini-game-panel jump-panel">
-            <div class="jump-top">
-                <div><span>JUMP</span><strong>${state.over ? '本局结束' : '跳一跳'}</strong><p>${musicEscapeHtml(state.message || '按住屏幕蓄力。')}</p></div>
-                <button type="button" onclick="resetJumpGame()"><i class="ri-refresh-line"></i> 新局</button>
-            </div>
-            <div class="jump-stats"><span>分数 <b>${state.score || 0}</b></span><span>最高 <b>${state.best || 0}</b></span><span id="jump-power-value">${Math.round(state.power || 0)}%</span></div>
+            ${renderMiniHud({
+                stats: [{ label: '分数', value: state.score || 0 }, { label: '最高', value: state.best || 0 }, { label: '力度', value: `${Math.round(state.power || 0)}%`, valueId: 'jump-power-value' }],
+                actions: [{ label: '新局', text: '新局', icon: 'ri-refresh-line', onclick: 'resetJumpGame()' }],
+                note: state.message || '按住场地蓄力，松手起跳。',
+                alert: !!state.over
+            })}
             <div id="jump-field" class="jump-field ${state.over ? 'is-over' : ''}" style="${fieldStyle}">
                 <div class="jump-sun"></div>
                 <div class="jump-cloud c1"></div>

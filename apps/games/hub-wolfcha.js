@@ -4,6 +4,7 @@ const GAME_ACTIVE_KEY = 'bynd_game_active_v1';
 const WOLFCHA_SETUP_KEY = 'bynd_game_wolfcha_setup_v1';
 const WOLFCHA_ENTRY_KEY = 'bynd_game_wolfcha_entry_v1';
 const GAME_HUB_FILTER_KEY = 'bynd_game_hub_filter_v1';
+const GAME_RECENT_KEY = 'bynd_game_recent_v1';
 const SYNC_GAME_CHAR_KEY = 'bynd_game_sync_char_v1';
 const SYNC_GAME_STATE_KEY = 'bynd_game_sync_state_v2';
 const CARDMATCH_RULES_SKIP_KEY = 'bynd_game_cardmatch_rules_skip_date_v1';
@@ -181,6 +182,7 @@ function openMiniGame(gameId) {
         return;
     }
     setActiveGame(gameId);
+    rememberRecentGame(gameId);
     if (gameId === 'wolfcha') {
         localStorage.removeItem(GAME_STATE_KEY);
         localStorage.setItem(WOLFCHA_ENTRY_KEY, 'opening');
@@ -628,54 +630,74 @@ function renderGameApp() {
 }
 window.renderGameApp = renderGameApp;
 
+// Compact status row shared by the arcade and board games: numbers first, one action, one status line.
+function renderMiniHud({ stats = [], actions = [], note = '', alert = false } = {}) {
+    return `
+        <div class="mini-hud">
+            <div class="mini-hud-stats">
+                ${stats.map(stat => `<span><small>${musicEscapeHtml(stat.label)}</small><b${stat.valueId ? ` id="${musicEscapeAttr(stat.valueId)}"` : ''}>${musicEscapeHtml(String(stat.value))}</b></span>`).join('')}
+            </div>
+            ${actions.map(action => `<button type="button" class="mini-hud-btn ${action.primary ? 'primary' : ''} ${action.text ? 'labelled' : ''}" onclick="${musicEscapeAttr(action.onclick)}" ${action.disabled ? 'disabled' : ''} aria-label="${musicEscapeAttr(action.label)}"><i class="${musicEscapeAttr(action.icon)}" aria-hidden="true"></i>${action.text ? `<span>${musicEscapeHtml(action.text)}</span>` : ''}</button>`).join('')}
+        </div>
+        ${note ? `<p class="mini-hud-note ${alert ? 'alert' : ''}" role="status">${musicEscapeHtml(note)}</p>` : ''}
+    `;
+}
+
+function getRecentGameIds() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(GAME_RECENT_KEY) || '[]');
+        return Array.isArray(saved) ? saved.filter(id => GAME_LIBRARY.some(game => game.id === id && !game.comingSoon)).slice(0, 4) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function rememberRecentGame(gameId) {
+    try {
+        localStorage.setItem(GAME_RECENT_KEY, JSON.stringify([gameId, ...getRecentGameIds().filter(id => id !== gameId)].slice(0, 4)));
+    } catch (_) {}
+}
+
+function renderGameTile(game) {
+    return `
+        <button type="button" class="gh-tile ${game.comingSoon ? 'coming' : ''}" style="--game-accent:${musicEscapeAttr(game.accent || '#111318')}" onclick="openMiniGame('${musicEscapeAttr(game.id)}')" aria-label="${musicEscapeAttr(game.title + (game.comingSoon ? '，即将开放' : ''))}">
+            <span class="gh-tile-icon"><i class="${musicEscapeAttr(game.icon)}"></i></span>
+            <strong>${musicEscapeHtml(game.title)}</strong>
+            <span class="gh-tile-tag">${game.comingSoon ? '<i class="ri-lock-2-line"></i> ' : ''}${musicEscapeHtml(game.tag)}</span>
+            <p>${musicEscapeHtml(game.desc)}</p>
+        </button>
+    `;
+}
+
 function renderGameHub(el) {
-    const chars = window.myCharacters || [];
-    const featured = GAME_LIBRARY[0];
-    const playableCount = GAME_LIBRARY.filter(game => !game.comingSoon).length;
     const filter = getGameHubFilter();
-    const tabs = [
-        { id: 'all', label: '全部' },
-        { id: 'role', label: '角色联机' },
-        { id: 'study', label: '学习联动' },
+    const sections = [
+        { id: 'role', label: '和角色一起玩' },
         { id: 'arcade', label: '街机' },
-        { id: 'board', label: '棋盘' }
+        { id: 'board', label: '棋盘与益智' },
+        { id: 'study', label: '学习联动' }
     ];
-    const games = GAME_LIBRARY.filter(game => filter === 'all' || game.category === filter);
+    const tabs = [{ id: 'all', label: '全部' }, ...sections.map(section => ({ id: section.id, label: { role: '角色联机', arcade: '街机', board: '棋盘', study: '学习' }[section.id] }))];
+    const recent = getRecentGameIds().map(id => GAME_LIBRARY.find(game => game.id === id)).filter(Boolean);
+    const grid = games => `<div class="gh-grid">${games.map(renderGameTile).join('')}</div>`;
+    const body = filter === 'all'
+        ? sections.map(section => {
+            const games = GAME_LIBRARY.filter(game => game.category === section.id);
+            return games.length ? `<div class="gh-section"><h3>${musicEscapeHtml(section.label)}<span>${games.filter(game => !game.comingSoon).length}</span></h3>${grid(games)}</div>` : '';
+        }).join('')
+        : grid(GAME_LIBRARY.filter(game => game.category === filter));
     el.innerHTML = `
-        <section class="game-hub">
-            <div class="game-hub-hero appstore-hero" onclick="openMiniGame('${musicEscapeAttr(featured.id)}')">
-                <div class="appstore-hero-copy">
-                    <span>BYND GAME LIBRARY</span>
-                    <strong>${musicEscapeHtml(featured.title)}</strong>
-                    <p>${musicEscapeHtml(featured.desc)}</p>
-                    <button type="button"><i class="ri-play-fill"></i> 开始游戏</button>
+        <section class="gh">
+            <div class="gh-tabs" role="tablist" aria-label="游戏分类">
+                ${tabs.map(tab => `<button type="button" role="tab" aria-selected="${filter === tab.id}" class="${filter === tab.id ? 'active' : ''}" onclick="setGameHubFilter('${musicEscapeAttr(tab.id)}')">${musicEscapeHtml(tab.label)}</button>`).join('')}
+            </div>
+            ${recent.length && filter === 'all' ? `
+                <div class="gh-recent" aria-label="最近玩过">
+                    <span>最近</span>
+                    ${recent.map(game => `<button type="button" style="--game-accent:${musicEscapeAttr(game.accent || '#111318')}" onclick="openMiniGame('${musicEscapeAttr(game.id)}')"><i class="${musicEscapeAttr(game.icon)}"></i>${musicEscapeHtml(game.title)}</button>`).join('')}
                 </div>
-                <div class="appstore-hero-art" style="--game-accent:${musicEscapeAttr(featured.accent || '#0a84ff')}">
-                    <i class="${musicEscapeAttr(featured.icon)}"></i>
-                    <em>${chars.length || 0} CHARS</em>
-                </div>
-            </div>
-            <div class="game-hub-tabs">
-                ${tabs.map(tab => `<button type="button" class="${filter === tab.id ? 'active' : ''}" onclick="setGameHubFilter('${musicEscapeAttr(tab.id)}')">${musicEscapeHtml(tab.label)}</button>`).join('')}
-            </div>
-            <div class="game-section-title">
-                <strong>游戏库</strong>
-                <span>${playableCount} playable · ${GAME_LIBRARY.length} slots</span>
-            </div>
-            <div class="game-library">
-                ${games.map(game => `
-                    <button type="button" class="game-library-card ${game.comingSoon ? 'coming' : ''}" style="--game-accent:${musicEscapeAttr(game.accent || '#0a84ff')}" onclick="openMiniGame('${musicEscapeAttr(game.id)}')">
-                        <div class="game-card-cover"><i class="${musicEscapeAttr(game.icon)}"></i></div>
-                        <div>
-                            <span>${musicEscapeHtml(game.tag)}</span>
-                            <strong>${musicEscapeHtml(game.title)}</strong>
-                            <p>${musicEscapeHtml(game.desc)}</p>
-                            <small>${musicEscapeHtml(game.genre || '')}</small>
-                        </div>
-                        <em class="${game.comingSoon ? 'ri-lock-2-line' : 'ri-arrow-right-s-line'}"></em>
-                    </button>
-                `).join('')}
-            </div>
+            ` : ''}
+            ${body}
         </section>
     `;
 }

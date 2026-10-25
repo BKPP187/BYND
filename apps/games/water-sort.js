@@ -154,16 +154,17 @@ function renderWaterSortGame(el) {
     const columns = Math.min(4, Math.max(3, Math.ceil(Math.sqrt(state.tubes.length))));
     el.innerHTML = `
         <section class="mini-game-panel water-panel">
-            <div class="water-top">
-                <div><span>WATER SORT</span><strong>${state.won ? `第 ${state.level || 1} 关完成` : `倒水排序 Lv.${state.level || 1}`}</strong><p>${musicEscapeHtml(state.message || '把同色水倒在一起。')}</p></div>
-                <button type="button" onclick="resetWaterSortGame()"><i class="ri-refresh-line"></i> 重开</button>
-            </div>
-            <div class="water-meta"><span>关卡 <b>${state.level || 1}</b></span><span>杯子 <b>${state.tubes.length}</b></span><span>步数 <b>${state.moves || 0}</b></span></div>
-            <div class="water-level-actions">
-                <button type="button" onclick="startWaterSortLevel(${Math.max(1, (state.level || 1) - 1)})" ${(state.level || 1) <= 1 ? 'disabled' : ''}>上一关</button>
-                <span>${state.selected === null || state.selected === undefined ? `已解锁到 ${bestLevel}` : `已选 ${state.selected + 1}`}</span>
-                ${state.won ? `<button type="button" class="primary" onclick="nextWaterSortLevel()">下一关</button>` : `<button type="button" onclick="startWaterSortLevel(${Math.min(bestLevel, (state.level || 1) + 1)})" ${bestLevel <= (state.level || 1) ? 'disabled' : ''}>下一关</button>`}
-            </div>
+            ${renderMiniHud({
+                stats: [{ label: '关卡', value: state.level || 1 }, { label: '已解锁', value: Math.max(bestLevel, state.level || 1) }, { label: '步数', value: state.moves || 0 }],
+                actions: [
+                    { label: '上一关', icon: 'ri-arrow-left-s-line', onclick: `startWaterSortLevel(${Math.max(1, (state.level || 1) - 1)})`, disabled: (state.level || 1) <= 1 },
+                    state.won
+                        ? { label: '下一关', icon: 'ri-arrow-right-s-line', onclick: 'nextWaterSortLevel()', primary: true }
+                        : { label: '下一关', icon: 'ri-arrow-right-s-line', onclick: `startWaterSortLevel(${Math.min(bestLevel, (state.level || 1) + 1)})`, disabled: bestLevel <= (state.level || 1) },
+                    { label: '重开', icon: 'ri-refresh-line', onclick: 'resetWaterSortGame()' }
+                ],
+                note: state.message || '点一个瓶子，再点目标瓶子倒水。'
+            })}
             <div class="water-rack" style="--tube-cols:${columns};--tube-count:${state.tubes.length};">
                 ${state.tubes.map((tube, index) => `
                     <button type="button" class="water-tube ${state.selected === index ? 'selected' : ''}" onclick="selectWaterTube(${index})">
@@ -176,8 +177,5 @@ function renderWaterSortGame(el) {
             </div>
         </section>
     `;
-    if (waitingUserSpeech) {
-        requestAnimationFrame(() => document.getElementById('wolfcha-user-speech-input')?.focus());
-    }
 }
 

@@ -125,11 +125,12 @@ function render2048Game(el) {
     const maxTile = Math.max(...state.board.flat(), 0);
     el.innerHTML = `
         <section class="mini-game-panel game2048-panel">
-            <div class="game2048-top">
-                <div><span>2048</span><strong>${state.over ? '本局结束' : '合成更高数字'}</strong><p>滑动棋盘或点方向键移动。</p></div>
-                <button type="button" onclick="reset2048Game()"><i class="ri-refresh-line"></i> 新局</button>
-            </div>
-            <div class="game2048-stats"><span>分数 <b>${state.score || 0}</b></span><span>最高 <b>${maxTile}</b></span><span>步数 <b>${state.moves || 0}</b></span></div>
+            ${renderMiniHud({
+                stats: [{ label: '分数', value: state.score || 0 }, { label: '最大块', value: maxTile }, { label: '步数', value: state.moves || 0 }],
+                actions: [{ label: '新局', text: '新局', icon: 'ri-refresh-line', onclick: 'reset2048Game()' }],
+                note: state.over ? '没有可以合并的方块了，点新局再来一次。' : '滑动棋盘或点下方方向键。',
+                alert: !!state.over
+            })}
             <div id="game-2048-board" class="game2048-board">
                 ${state.board.flat().map(value => `<div class="tile-${value || 0}">${value || ''}</div>`).join('')}
             </div>

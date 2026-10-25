@@ -1,0 +1,123 @@
+/* Game app refresh: compact hub tiles, a shared status row for the mini games and the cat breakfast pot.
+   Loaded after the older game layers; new class names keep these rules free of the legacy overrides. */
+
+/* ---- Hub ---- */
+.game-window.game-mode-hub .game-content { background: #f4f5f7; }
+.gh { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 14px calc(24px + env(safe-area-inset-bottom, 0px)); color: #121317; }
+.gh-tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; margin: 0 -14px; padding: 12px 14px 10px; overflow-x: auto; scrollbar-width: none; background: linear-gradient(#f4f5f7 78%, rgba(244,245,247,0)); }
+.gh-tabs::-webkit-scrollbar { display: none; }
+.gh-tabs button { flex: 0 0 auto; height: 32px; padding: 0 14px; border: 1px solid rgba(18,19,23,.08); border-radius: 16px; background: #fff; color: #5d6069; font-size: 13px; font-weight: 700; cursor: pointer; }
+.gh-tabs button.active { background: #121317; border-color: #121317; color: #fff; }
+.gh-recent { display: flex; align-items: center; gap: 6px; margin: 2px -14px 4px; padding: 0 14px 2px; overflow-x: auto; scrollbar-width: none; }
+.gh-recent::-webkit-scrollbar { display: none; }
+.gh-recent > span { flex: none; margin-right: 2px; font-size: 12px; font-weight: 700; color: #9a9da5; }
+.gh-recent button { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px 0 9px; border: 1px solid rgba(18,19,23,.06); border-radius: 15px; background: #fff; color: #2a2c33; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.gh-recent button i { font-size: 15px; color: var(--game-accent, #121317); }
+.gh-section { margin-top: 14px; }
+.gh-section h3 { display: flex; align-items: baseline; gap: 6px; margin: 0 2px 8px; font-size: 14px; font-weight: 800; color: #121317; }
+.gh-section h3 span { font-size: 12px; font-weight: 700; color: #a3a6ad; font-variant-numeric: tabular-nums; }
+.gh > .gh-grid { margin-top: 4px; }
+.gh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gh-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 12px 12px 13px; border: 1px solid rgba(18,19,23,.05); border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(18,19,23,.04), 0 6px 16px rgba(18,19,23,.04); color: inherit; text-align: left; cursor: pointer; transition: transform .15s ease; }
+.gh-tile:active { transform: scale(.97); }
+.gh-tile:focus-visible { outline: 2px solid #121317; outline-offset: 2px; }
+.gh-tile-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--game-accent, #121317) 13%, #fff); color: var(--game-accent, #121317); font-size: 21px; }
+.gh-tile strong { display: block; max-width: 100%; margin-top: 10px; overflow: hidden; font-size: 15px; font-weight: 800; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; color: #121317; }
+.gh-tile-tag { margin-top: 2px; font-size: 11.5px; font-weight: 700; color: #8a8d96; }
+.gh-tile p { display: -webkit-box; margin: 6px 0 0; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.5; color: #6b6e76; }
+.gh-tile.coming { border-style: dashed; border-color: rgba(18,19,23,.14); background: transparent; box-shadow: none; }
+.gh-tile.coming .gh-tile-icon { background: #eceef1; color: #9a9da5; }
+.gh-tile.coming strong, .gh-tile.coming p { color: #9a9da5; }
+
+/* ---- Shared mini game status row ---- */
+.game-window :is(.game2048-panel, .jump-panel, .water-panel, .board-panel, .board-companion-setup).mini-game-panel { padding: 12px 14px calc(18px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
+.mini-hud { display: flex; align-items: stretch; gap: 8px; }
+.mini-hud-stats { flex: 1; min-width: 0; display: flex; padding: 7px 2px; border: 1px solid rgba(18,19,23,.06); border-radius: 16px; background: #fff; }
+.mini-hud-stats span { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 6px; }
+.mini-hud-stats span + span { border-left: 1px solid rgba(18,19,23,.07); }
+.mini-hud-stats small { font-size: 11px; font-weight: 600; line-height: 1.3; color: #8a8d96; }
+.mini-hud-stats b { max-width: 100%; overflow: hidden; font-size: 17px; font-weight: 800; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; color: #121317; font-variant-numeric: tabular-nums; }
+.mini-hud-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 46px; padding: 0 10px; border: 1px solid rgba(18,19,23,.06); border-radius: 16px; background: #fff; color: #121317; font-size: 14px; font-weight: 700; cursor: pointer; }
+.mini-hud-btn i { font-size: 20px; }
+.mini-hud-btn.labelled { padding: 0 14px 0 12px; border-color: #121317; background: #121317; color: #fff; }
+.mini-hud-btn.labelled i { font-size: 17px; }
+.mini-hud-btn.primary { border-color: #121317; background: #121317; color: #fff; }
+.mini-hud-btn:disabled { opacity: .35; cursor: default; }
+.mini-hud-btn:not(:disabled):active { transform: scale(.95); }
+.mini-hud-btn:focus-visible { outline: 2px solid #121317; outline-offset: 2px; }
+.mini-hud-note { margin: -2px 4px 0; font-size: 12.5px; line-height: 1.5; color: #6b6e76; }
+.mini-hud-note.alert { font-weight: 700; color: #c2410c; }
+.board-companion-lead { margin: 0 2px; font-size: 13px; line-height: 1.6; color: #6b6e76; }
+
+/* ---- Cat breakfast pot ---- */
+.game-window.game-mode-catpot .game-content { padding: 0; background: #fff1df; }
+.catpot-game { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); overflow: hidden; background: linear-gradient(rgba(255,246,232,.5), rgba(255,240,236,.62)), url("../../assets/cat-breakfast-pot/ui/kitchen-bg.png") center / cover no-repeat; color: #6e472a; }
+.catpot-game button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.catpot-hud { display: flex; justify-content: center; gap: 6px; }
+.catpot-hud span { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 11px; border: 1.5px solid #f1d7b5; border-radius: 15px; background: rgba(255,252,245,.94); box-shadow: 0 2px 0 #ecc9a0; font-size: 12px; font-weight: 700; color: #8a5a33; white-space: nowrap; }
+.catpot-hud i { font-size: 14px; color: #e0884f; }
+.catpot-hud b { color: #e0662b; font-variant-numeric: tabular-nums; }
+.catpot-hud span.warn { border-color: #f6a985; background: #ffe6da; }
+.catpot-order-card { display: flex; align-items: center; gap: 10px; padding: 8px 12px 10px 8px; border: 2px solid #f0d2a8; border-radius: 20px; background: #fffaf0; box-shadow: 0 3px 0 #ecc9a0, 0 10px 22px rgba(150,95,45,.12); }
+.catpot-cat-art { flex: none; width: 70px; height: 66px; object-fit: contain; }
+.catpot-ticket { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.catpot-current-guest { display: flex; align-items: baseline; gap: 6px; }
+.catpot-current-guest strong { font-size: 15px; font-weight: 800; color: #6e472a; }
+.catpot-current-guest span { font-size: 12px; color: #b08560; }
+.catpot-current-guest b { margin-left: auto; font-size: 12px; color: #e0662b; font-variant-numeric: tabular-nums; }
+.catpot-patience { height: 6px; overflow: hidden; border-radius: 3px; background: #f6e3c8; }
+.catpot-patience i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff8a5b, #ffc65c); transition: width 1s linear; }
+.catpot-main-order-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.catpot-order-sticker { display: flex; align-items: center; gap: 3px; padding: 2px 8px 2px 2px; border: 1.5px dashed #f0cfa5; border-radius: 14px; background: #fff; }
+.catpot-order-sticker .catpot-food-img { width: 30px; height: 30px; object-fit: contain; }
+.catpot-order-sticker b { font-size: 12px; color: #8a5a33; font-variant-numeric: tabular-nums; }
+.catpot-order-sticker.done { border-style: solid; border-color: #8ccf86; background: #effbe9; }
+.catpot-order-sticker.done b { color: #3f8f45; }
+.catpot-order-sticker.over { border-style: solid; border-color: #f2a088; background: #fff0ea; }
+.catpot-order-sticker.over b { color: #d4483b; }
+.catpot-queue-strip { display: flex; justify-content: center; gap: 6px; min-height: 22px; }
+.catpot-queue-strip span { display: inline-flex; align-items: center; gap: 3px; padding: 0 9px; border-radius: 11px; background: rgba(255,250,240,.85); font-size: 11px; font-weight: 700; line-height: 22px; color: #a07650; }
+.catpot-queue-strip i { font-size: 12px; }
+.catpot-pot-wrap { flex: 1 1 auto; min-height: 130px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.catpot-pot-stage { flex: 1 1 0; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.catpot-pot { position: relative; height: 100%; max-height: 280px; max-width: 100%; aspect-ratio: 618 / 482; }
+.catpot-pot-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.catpot-pot-items { position: absolute; z-index: 2; left: 23%; right: 23%; top: 30%; bottom: 19%; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 0; }
+.catpot-placed { width: 31%; aspect-ratio: 1; padding: 0; border: 0; background: none; animation: catpot-pop .28s ease-out; }
+.catpot-placed .catpot-food-img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(120,70,30,.25)); }
+.catpot-empty { align-self: center; padding: 5px 10px; border-radius: 12px; background: rgba(255,250,240,.78); font-size: 12px; font-weight: 700; line-height: 1.4; text-align: center; color: #b0855c; }
+.catpot-sparkles { position: absolute; z-index: 3; top: -4%; right: 0; width: 28%; opacity: 0; pointer-events: none; }
+.catpot-pot-wrap.complete .catpot-sparkles { opacity: 1; animation: catpot-spark 1.2s ease-in-out infinite; }
+.catpot-pot-wrap.complete .catpot-pot-art { filter: drop-shadow(0 0 12px rgba(255,196,90,.85)); }
+.catpot-pot-wrap.shake .catpot-pot { animation: catpot-shake .42s ease-in-out; }
+.catpot-pot-wrap.rush .catpot-pot-art { animation: catpot-busy-pot 1s ease-in-out infinite; }
+.catpot-feedback { max-width: 100%; min-height: 26px; padding: 4px 12px; border-radius: 13px; background: rgba(255,252,245,.94); font-size: 12px; font-weight: 700; line-height: 18px; text-align: center; color: #8a5a33; }
+.catpot-feedback:empty { visibility: hidden; }
+.catpot-feedback.wrong { color: #d4483b; }
+.catpot-feedback:is(.served, .complete, .ready) { color: #3f8f45; }
+.catpot-basket { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 9px; border: 4px solid #d99a52; border-radius: 20px; background-color: #ffe9ec; background-image: linear-gradient(90deg, rgba(255,150,170,.22) 50%, transparent 50%), linear-gradient(rgba(255,150,170,.22) 50%, transparent 50%); background-size: 16px 16px; box-shadow: inset 0 0 0 2px #f3c27f, 0 4px 0 #b9762f, 0 10px 18px rgba(150,95,45,.18); }
+.catpot-food-btn { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px 4px; border: 0; border-radius: 14px; background: rgba(255,255,255,.94); box-shadow: 0 2px 0 rgba(217,154,82,.45); color: #7a5232; font-size: 10.5px; font-weight: 700; line-height: 1.3; letter-spacing: -.2px; }
+.catpot-food-btn .catpot-food-img { width: 44px; height: 34px; object-fit: contain; }
+.catpot-food-btn span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.catpot-food-btn:active { transform: translateY(1px) scale(.95); }
+.catpot-food-btn.muted { opacity: .5; }
+.catpot-actions { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
+.catpot-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border: 2px solid #f0d2a8; border-radius: 24px; background: #fffaf0; box-shadow: 0 3px 0 #ecc9a0; font-size: 15px; font-weight: 800; color: #8a5a33; }
+.catpot-actions .catpot-serve { border-color: #f2702c; background: linear-gradient(#ff9d57, #f2742f); box-shadow: 0 4px 0 #c9541b; color: #fff; }
+.catpot-actions .catpot-serve.ready { animation: catpot-serve-ready 1s ease-in-out infinite; }
+.catpot-actions button:active { transform: translateY(2px); box-shadow: none; }
+.catpot-game button:focus-visible { outline: 3px solid #f2742f; outline-offset: 2px; }
+@keyframes catpot-pop { from { opacity: 0; transform: translateY(-14px) scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes catpot-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+@keyframes catpot-spark { 0%, 100% { opacity: .4; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes catpot-serve-ready { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes catpot-busy-pot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@media (max-height: 700px) {
+    .catpot-cat-art { width: 54px; height: 52px; }
+    .catpot-queue-strip { display: none; }
+    .catpot-food-btn .catpot-food-img { height: 28px; }
+    .catpot-actions button { height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .catpot-placed, .catpot-pot-wrap.complete .catpot-sparkles, .catpot-pot-wrap.shake .catpot-pot, .catpot-pot-wrap.rush .catpot-pot-art, .catpot-actions .catpot-serve.ready { animation: none; }
+}

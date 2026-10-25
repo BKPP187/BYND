@@ -231,26 +231,20 @@ function renderCatPotGame(el) {
     }).join('');
     el.innerHTML = `
         <section class="catpot-game" data-catpot-order="${musicEscapeAttr(String(order.bornAt || ''))}" data-catpot-finished="${state.finished ? '1' : '0'}">
-            <div class="catpot-bg"></div>
+            <div class="catpot-hud">
+                <span class="${timeLeft <= 15 && !state.finished ? 'warn' : ''}"><i class="ri-timer-flash-line" aria-hidden="true"></i><b data-catpot-time>${timeLeft}s</b></span>
+                <span><i class="ri-restaurant-line" aria-hidden="true"></i>营业 <b data-catpot-score>${state.served || 0}/${state.target || CATPOT_TARGET_CUSTOMERS}</b></span>
+                <span><i class="ri-group-line" aria-hidden="true"></i>待客 <b data-catpot-queue>${queueCount}</b></span>
+            </div>
             <div class="catpot-order-card">
-                <div class="catpot-cat">
-                    <img class="catpot-cat-art" src="assets/cat-breakfast-pot/ui/cat-customer.png" alt="猫猫客人">
-                    <div>
-                        <span>早餐高峰</span>
-                        <strong>按订单配餐</strong>
-                    </div>
-                </div>
-                <div class="catpot-stats">
-                    <span>时间 <b data-catpot-time>${timeLeft}s</b></span>
-                    <span>营业 <b data-catpot-score>${state.served || 0}/${state.target || CATPOT_TARGET_CUSTOMERS}</b></span>
-                    <span>待客 <b data-catpot-queue>${queueCount}</b></span>
-                </div>
-                <div class="catpot-patience"><i data-catpot-patience style="width:${patienceLeft}%"></i></div>
+                <img class="catpot-cat-art" src="assets/cat-breakfast-pot/ui/cat-customer.png" alt="猫猫客人">
                 <div class="catpot-ticket">
                     <div class="catpot-current-guest">
-                        <span>当前 ${musicEscapeHtml(order.cat)}</span>
-                        <b>${patienceLeft}%</b>
+                        <strong>${musicEscapeHtml(order.cat)}</strong>
+                        <span>想吃</span>
+                        <b data-catpot-patience-text>${patienceLeft}%</b>
                     </div>
+                    <div class="catpot-patience" aria-label="耐心"><i data-catpot-patience style="width:${patienceLeft}%"></i></div>
                     <div class="catpot-main-order-grid">
                         ${Object.entries(order.wants).map(([id, need]) => {
                             const item = getCatPotIngredient(id);
@@ -263,27 +257,28 @@ function renderCatPotGame(el) {
                             `;
                         }).join('')}
                     </div>
-                    <div class="catpot-queue-strip">
-                        ${(state.orders || []).slice(1).map(guest => `
-                            <span>${musicEscapeHtml(guest.cat)} 候餐</span>
-                        `).join('')}
-                    </div>
                 </div>
+            </div>
+            <div class="catpot-queue-strip">
+                ${(state.orders || []).slice(1).map(guest => `<span><i class="ri-hourglass-2-line" aria-hidden="true"></i>${musicEscapeHtml(guest.cat)}</span>`).join('')}
             </div>
             <div class="catpot-pot-wrap ${complete ? 'complete' : ''} ${state.feedbackType === 'wrong' ? 'shake' : ''} ${state.rush >= 3 ? 'rush' : ''}">
-                <div class="catpot-pot">
-                    <img class="catpot-pot-art" src="assets/cat-breakfast-pot/ui/pot-empty.png" alt="空猫耳早餐锅">
-                    ${placed || '<div class="catpot-empty">把食材放进猫耳早餐锅</div>'}
-                    <img class="catpot-sparkles" src="assets/cat-breakfast-pot/ui/sparkles.png" alt="">
+                <div class="catpot-pot-stage">
+                    <div class="catpot-pot">
+                        <img class="catpot-pot-art" src="assets/cat-breakfast-pot/ui/pot-empty.png" alt="猫耳早餐锅">
+                        <div class="catpot-pot-items">
+                            ${placed || '<div class="catpot-empty">点下面的食材放进锅里</div>'}
+                        </div>
+                        <img class="catpot-sparkles" src="assets/cat-breakfast-pot/ui/sparkles.png" alt="">
+                    </div>
                 </div>
-                <div class="catpot-feedback ${state.feedbackType}">${musicEscapeHtml(state.feedback)}</div>
+                <div class="catpot-feedback ${musicEscapeAttr(state.feedbackType || '')}" role="status">${musicEscapeHtml(state.feedback)}</div>
             </div>
             <div class="catpot-basket">
-                <img class="catpot-basket-art" src="assets/cat-breakfast-pot/ui/basket.png" alt="">
                 ${CATPOT_INGREDIENTS.map(item => {
                     const disabled = state.placed.length >= 7;
                     return `
-                        <button type="button" class="catpot-food-btn ${disabled ? 'muted' : ''}" onclick="catPotAddIngredient('${musicEscapeAttr(item.id)}')">
+                        <button type="button" class="catpot-food-btn ${disabled ? 'muted' : ''}" onclick="catPotAddIngredient('${musicEscapeAttr(item.id)}')" style="--food-color:${musicEscapeAttr(item.color || '#ffd9b8')}">
                             ${renderCatPotFoodIcon(item)}
                             <span>${musicEscapeHtml(item.name)}</span>
                         </button>
@@ -307,7 +302,10 @@ function renderCatPotGame(el) {
             if (timeNode) timeNode.textContent = `${getCatPotTimeLeft(current)}s`;
             if (scoreNode) scoreNode.textContent = `${current.served || 0}/${current.target || CATPOT_TARGET_CUSTOMERS}`;
             if (queueNode) queueNode.textContent = String(Math.max(0, (current.target || CATPOT_TARGET_CUSTOMERS) - (current.served || 0)));
-            if (patienceNode) patienceNode.style.width = `${getCatPotPatienceLeft(getCatPotOrder(current))}%`;
+            const patience = getCatPotPatienceLeft(getCatPotOrder(current));
+            if (patienceNode) patienceNode.style.width = `${patience}%`;
+            const patienceText = document.querySelector('[data-catpot-patience-text]');
+            if (patienceText) patienceText.textContent = `${patience}%`;
             const root = document.querySelector('.catpot-game');
             const renderedOrder = root ? root.getAttribute('data-catpot-order') : '';
             const currentOrder = String(getCatPotOrder(current).bornAt || '');

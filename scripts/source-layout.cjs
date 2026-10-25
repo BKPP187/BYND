@@ -163,6 +163,7 @@ const styleParts = [
     'apps/wechat/ui/group-chat.css',
     'apps/games/board-games.css',
     'apps/games/acting.css',
+    'apps/games/game-refresh.css',
     'apps/wechat/chat/tools.css',
     'apps/char-phone/phone.css',
     'apps/char-phone/music.css',
