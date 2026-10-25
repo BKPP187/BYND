@@ -42,8 +42,11 @@ function getMonitorCharacters() {
 }
 
 function getMonitorCharName(char) {
-    if (typeof getWechatCharDisplayName === 'function') return getWechatCharDisplayName(char);
-    return (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
+    const name = typeof getWechatCharDisplayName === 'function' ? getWechatCharDisplayName(char)
+        : (char && char.chatConfig && char.chatConfig.nickname) || (char && char.name) || '未命名';
+    // Monitoring sees every chat window, so each window is named apart.
+    const family = typeof getWechatChatWindowFamily === 'function' ? getWechatChatWindowFamily(char) : [];
+    return family.length > 1 ? `${name} · ${getWechatChatWindowLabel(char)}` : name;
 }
 
 function getMonitorPetBoundChar() {

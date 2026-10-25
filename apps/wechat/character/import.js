@@ -2,7 +2,7 @@
 
 function testAddCharacter() {
     showWechatActionSheet(`
-        <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG)</span><input type="file" id="import-card-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)"></div>
+        <div class="wc-sheet-item" onclick="triggerImport()"><i class="ri-file-upload-line" style="color: #07c160;"></i><span>导入角色卡 (PNG / JSON / 群聊卡)</span><input type="file" id="import-card-file" accept="image/png,.png,.json,application/json" style="display:none" onchange="handleFileSelect(this)"></div>
         <div class="wc-sheet-item" onclick="openCreateModal()"><i class="ri-user-add-line" style="color: #2b2b2b;"></i><span>手动新建角色</span></div>
         <div class="wc-sheet-item" onclick="hideActionSheet();ByndBuiltinLibrary?.open()"><i class="ri-star-smile-line" style="color: #e0a800;"></i><span>内置角色库</span></div>
     `);
@@ -62,9 +62,48 @@ function previewModalAvatar(input) {
     }
 }
 
+function showParsedCharacterCard(charData, avatarSource = '') {
+    document.getElementById('modal-char-name').value = charData.name || "";
+    document.getElementById('modal-char-intro').value = charData.first_mes || "";
+    document.getElementById('modal-avatar-preview').src = "";
+    document.getElementById('modal-title').innerText = "解析成功";
+    window.TEMP_PARSED_DATA = {
+        worldBook: charData.worldBook || [],
+        regex: charData.regex || [],
+        alternates: charData.alternates || [],
+        first_mes_original: charData.first_mes,
+        description: charData.description || '',
+        chatConfig: charData.chatConfig && typeof charData.chatConfig === 'object' ? charData.chatConfig : null
+    };
+    const altCount = window.TEMP_PARSED_DATA.alternates.length;
+    const infoBox = document.getElementById('parse-extra-info');
+    if (infoBox) infoBox.innerHTML = `
+        <div style="color:#07c160; font-size:14px; margin-bottom:8px; font-weight:bold; display:flex; align-items:center; gap:5px;">
+            <i class="ri-check-double-line"></i> 数据提取成功
+        </div>
+        <div class="detected-tags">
+            ${altCount > 0 ? `<div class="d-tag" style="background:#e8eaf6; color:#3f51b5;"><i class="ri-chat-history-line"></i> 备选开场: ${altCount}</div>` : ''}
+        </div>
+    `;
+    document.getElementById('wc-char-modal').classList.remove('hidden');
+    if (avatarSource) openWechatAvatarCropper(avatarSource, cropped => {
+        document.getElementById('modal-avatar-preview').src = cropped;
+    }, { outputSize: 200, quality: 0.72 });
+}
+
 function handleFileSelect(input) {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
+    if (/\.json$/i.test(file.name || '') || /json/i.test(file.type || '')) {
+        input.value = '';
+        file.text().then(text => importByndCardJsonText(text)).then(result => {
+            if (result && result.type === 'single') showParsedCharacterCard(result.data);
+        }).catch(err => {
+            console.error(err);
+            alert("导入失败：" + (err.message || err));
+        });
+        return;
+    }
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -78,36 +117,7 @@ function handleFileSelect(input) {
 
             const imgReader = new FileReader();
             imgReader.onload = function(evt) {
-                const origSrc = evt.target.result;
-                document.getElementById('modal-char-name').value = charData.name || "";
-                document.getElementById('modal-char-intro').value = charData.first_mes || "";
-                document.getElementById('modal-avatar-preview').src = "";
-                document.getElementById('modal-title').innerText = "解析成功";
-                
-                window.TEMP_PARSED_DATA = {
-                    worldBook: charData.worldBook || [],
-                    regex: charData.regex || [],
-                    alternates: charData.alternates || [],
-                    first_mes_original: charData.first_mes,
-                    description: charData.description || ''
-                };
-
-                const altCount = window.TEMP_PARSED_DATA.alternates.length;
-                const infoHtml = `
-                    <div style="color:#07c160; font-size:14px; margin-bottom:8px; font-weight:bold; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-check-double-line"></i> 数据提取成功
-                    </div>
-                    <div class="detected-tags">
-                        ${altCount > 0 ? `<div class="d-tag" style="background:#e8eaf6; color:#3f51b5;"><i class="ri-chat-history-line"></i> 备选开场: ${altCount}</div>` : ''}
-                    </div>
-                `;
-                const infoBox = document.getElementById('parse-extra-info');
-                if(infoBox) infoBox.innerHTML = infoHtml;
-
-                document.getElementById('wc-char-modal').classList.remove('hidden');
-                openWechatAvatarCropper(origSrc, cropped => {
-                    document.getElementById('modal-avatar-preview').src = cropped;
-                }, { outputSize: 200, quality: 0.72 });
+                showParsedCharacterCard(charData, evt.target.result);
                 input.value = '';
             };
             imgReader.readAsDataURL(file);
@@ -133,6 +143,7 @@ function confirmSaveCharacter() {
     let alts = [];
     let originalFirst = "";
     let desc = "";
+    let importedConfig = {};
 
     if (window.TEMP_PARSED_DATA) {
         wb = window.TEMP_PARSED_DATA.worldBook || [];
@@ -140,6 +151,7 @@ function confirmSaveCharacter() {
         alts = window.TEMP_PARSED_DATA.alternates || [];
         originalFirst = window.TEMP_PARSED_DATA.first_mes_original || intro;
         desc = window.TEMP_PARSED_DATA.description || "";
+        if (window.TEMP_PARSED_DATA.chatConfig) importedConfig = { ...window.TEMP_PARSED_DATA.chatConfig };
     }
 
     const newChar = {
@@ -154,7 +166,7 @@ function confirmSaveCharacter() {
         first_mes_original: originalFirst,
         currentGreetingIndex: 0,
         first_mes: intro,
-        chatConfig: {},
+        chatConfig: importedConfig,
         history: []
     };
     if (typeof seedWechatCharacterGreeting === 'function') seedWechatCharacterGreeting(newChar);

@@ -88,7 +88,7 @@ function isWechatXTheme() {
 }
 
 function getWechatXPeople() {
-    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat && !isWechatGroupNpcContact(char));
+    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat && !isWechatGroupNpcContact(char) && !(typeof isWechatChatWindow === 'function' && isWechatChatWindow(char)));
 }
 
 function renderWechatDiscoverTab() {
@@ -811,7 +811,7 @@ function refreshWechatXRealtimeNews() {
 window.refreshWechatXRealtimeNews = refreshWechatXRealtimeNews;
 
 function getLineThemePeople() {
-    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat && !isWechatGroupNpcContact(char));
+    return (window.myCharacters || []).filter(char => char && char.id && !char.isGroupChat && !isWechatGroupNpcContact(char) && !(typeof isWechatChatWindow === 'function' && isWechatChatWindow(char)));
 }
 
 function getLineBirthdayValues(char) {

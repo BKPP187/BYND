@@ -453,3 +453,15 @@
 .chat-config-pill { margin: 10px auto 0; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; font-size: 10px; color: #999; display: flex; gap: 10px; }
 .chat-config-pill span { display: flex; align-items: center; gap: 3px; }
 .chat-config-pill i { font-size: 12px; }
+
+/* --- 聊天窗口与角色卡导出（颜色取自当前主题的文字色，随主题切换） --- */
+.wc-window-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 700; line-height: 16px; vertical-align: 2px; opacity: .62; white-space: nowrap; }
+#chat-room-title .wc-window-badge { vertical-align: 3px; }
+.wcs-window-note { margin: 0; padding: 12px 15px 4px; color: inherit; opacity: .6; font-size: 11px; line-height: 1.5; }
+.wcs-window-row.is-current { cursor: default; }
+.wcs-window-row.is-current > i { color: inherit; opacity: .7; }
+.wcs-window-row em, .wcs-window-new em { max-width: 170px; }
+.wcs-export-row strong { color: inherit; }
+.wcs-export-row button { background: rgba(127,127,127,0.14); color: inherit; }
+#wcs-chat-windows-wrap[hidden] { display: none; }
+#app-wechat-window.wc-ui-theme-pixel .wc-window-badge { border-radius: 1px; }
