@@ -49,13 +49,14 @@ test('with Jev one request answers every turn question and a confident mood swit
             status: { type: 'noul', noul: 0.82 },
             memory: { type: 'noul', noul: 0.1 },
             moment: { type: 'noul', noul: 0.5 },
+            forum: { type: 'noul', noul: 0.3 },
             avatar: { type: 'choice', choice: '吃醋', probabilities: { '冷淡': 0.3, '吃醋': 0.7 } }
         })();
     });
     jev.write({ enabled: true, apiKey: 'test-key', scopes: {} });
     assert.match(decider.replyInstructions(char()), /<bynd_decide>/, 'the reply still carries verdicts so unsure Jev answers have a fallback');
     const turn = await decider.afterReply(char(), { replyDecisions: { status: false } });
-    assert.deepEqual(Object.keys(body.questions).sort(), ['avatar', 'memory', 'moment', 'status']);
+    assert.deepEqual(Object.keys(body.questions).sort(), ['avatar', 'forum', 'memory', 'moment', 'status']);
     assert.deepEqual(Object.keys(body.questions.avatar.criteria).sort(), ['冷淡', '吃醋'].sort());
     assert.equal(turn.route, 'jev');
     assert.equal(turn.status, true);
@@ -185,7 +186,7 @@ test('without Jev the reply can switch the avatar mood, but only to a labelled, 
 test('where Jev is unsure the reply verdict fills in, and the turn request uses a short timeout', async () => {
     let timeoutSeen = null;
     const realSetTimeout = setTimeout;
-    const { decider, jev } = harness(jevAnswer({ status: { type: 'noul', noul: 0.9 }, memory: { type: 'noul', noul: 0.5 }, moment: { type: 'noul', noul: 0.5 }, avatar: { type: 'choice', choice: '吃醋', probabilities: { '吃醋': 0.5, '冷淡': 0.5 } } }));
+    const { decider, jev } = harness(jevAnswer({ status: { type: 'noul', noul: 0.9 }, memory: { type: 'noul', noul: 0.5 }, moment: { type: 'noul', noul: 0.5 }, forum: { type: 'noul', noul: 0.5 }, avatar: { type: 'choice', choice: '吃醋', probabilities: { '吃醋': 0.5, '冷淡': 0.5 } } }));
     jev.write({ enabled: true, apiKey: 'k', scopes: {}, minProbability: 0.7 });
     const ask = jev.ask;
     jev.ask = (scope, state, questions, meta) => { timeoutSeen = meta.timeoutMs; return ask(scope, state, questions, meta); };

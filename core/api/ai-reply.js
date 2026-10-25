@@ -70,5 +70,6 @@ async function runWechatTurnFollowUps(char, context = {}) {
         scheduleWechatMemoryExtraction(char, context.webSearched && turn?.memory === true ? 'web_search' : 'after_reply');
     }
     if (!context.textOnly && !char.isGroupChat && turn?.moment !== false) void considerWechatCharMomentAfterReply(char);
+    if (!context.textOnly && !char.isGroupChat && turn?.forum === true) void considerWechatCharForumPostAfterReply(char);
 }
 

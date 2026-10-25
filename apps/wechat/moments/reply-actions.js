@@ -186,6 +186,33 @@ function approveWechatContactDeleteRequest(charId, requestId) {
 }
 window.approveWechatContactDeleteRequest = approveWechatContactDeleteRequest;
 window.rejectWechatContactDeleteRequest = rejectWechatContactDeleteRequest;
+const pendingWechatCharForumPosts = new Set();
+const WECHAT_CHAR_FORUM_ACTIVITY_KEY = 'bynd_char_forum_activity';
+async function considerWechatCharForumPostAfterReply(char) {
+    if (!char?.id || char.isGroupChat || pendingWechatCharForumPosts.has(char.id)) return false;
+    if (typeof window.LivingWorld?.advanceWorld !== 'function') return false;
+    const charAccountId = 'char:' + char.id;
+    const current = Date.now();
+    try {
+        const posts = window.LivingWorld.getState?.()?.posts || [];
+        const lastPostAt = Math.max(0, ...posts.filter(p => p.authorId === charAccountId).map(p => Number(p.createdAt || 0)));
+        if (current - lastPostAt < 12 * 3600000) return false;
+    } catch (_) {}
+    const recent = (char.history || []).slice(-20);
+    if (recent.filter(msg => msg?.isMe && msg.type !== 'system_notice').length < 4) return false;
+    const savedActivity = typeof readWechatStore === 'function' ? readWechatStore(WECHAT_CHAR_FORUM_ACTIVITY_KEY, {}) : {};
+    const activity = savedActivity && typeof savedActivity === 'object' && !Array.isArray(savedActivity) ? savedActivity : {};
+    if (current - Number(activity[char.id] || 0) < 10 * 3600000) return false;
+    try { writeWechatStore(WECHAT_CHAR_FORUM_ACTIVITY_KEY, { ...activity, [char.id]: current }); }
+    catch (error) { console.warn('论坛决策时间未保存', error); return false; }
+    pendingWechatCharForumPosts.add(char.id);
+    try {
+        await window.LivingWorld.advanceWorld({ actorId: charAccountId });
+        return true;
+    } catch (error) { console.warn('角色论坛动态未发布', error); return false; }
+    finally { pendingWechatCharForumPosts.delete(char.id); }
+}
+
 window.applyWechatCharMomentDirective = applyWechatCharMomentDirective;
 
 function applyWechatCharBlacklistDirective(rawArgs, char) {
