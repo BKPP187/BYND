@@ -130,7 +130,7 @@ function getWechatMediaFrameStyle(frame) {
                 isWatch ? '和 interactionActor 所标明的身份一起看作品，自然回应当前场景和对方的话，结束时回顾共同经历。严格按参与人身份说话，不把其他角色当成用户。'
                 : '在视频号里自然互动。interactionActor 是本次实际操作的身份：user 才是用户，charId 对应角色本人。本次发言已保存，不要让同一个身份重复回应自己；其他角色或世界NPC可以接话，也可以沉默。新作品的作者可能是角色本人或用户。评论回复要接住 replyTo 指定的对象。不要替用户发言，不要所有人围着用户。只有操作人是user时才可选择私聊该用户，角色之间互动时privateMessage留空。',
                 { action: event.kind, interactionActor: speaker, userText: event.text, replyTo: event.replyTo || null, work: { author: actorOf(video), title: video.title, description: video.description, scenes: sceneList(video) }, sceneIndex: event.sceneIndex, discussion: watch?.messages?.slice(-12) || [], publicComments: [...(video.comments || []), ...(state().comments[video.id] || [])].slice(-18) },
-                isWatch ? '{"reply":"受邀角色的回应","privateMessage":"结束时的私聊回顾，其他时候为空"}' : '{"replies":[{"actor":{"charId":"联系人id"},"text":"公开回复"}],"likes":[{"charId":"联系人id"}],"privateMessage":"仅操作人是user时可提供私聊，其他时候为空"}', isWatch && !!speaker.user);
+                isWatch ? '{"reply":"受邀角色的回应","privateMessage":"结束时的私聊回顾，像微信消息一样用|||分成2~4条，每条一句完整的话，不要在句子中间断开；太短就一条不分隔，其他时候为空"}' : '{"replies":[{"actor":{"charId":"联系人id"},"text":"公开回复"}],"likes":[{"charId":"联系人id"}],"privateMessage":"仅操作人是user时可提供私聊，像微信消息一样用|||分成2~4条，每条一句完整的话，不要在句子中间断开；太短就一条不分隔，其他时候为空"}', isWatch && !!speaker.user);
             if (!speaker.user && !D().character(speaker.charId)) throw new Error('发言身份已删除，本次回应未保存。');
             const replies = isWatch ? [] : D().lines(result.replies || [], char).filter(reply => reply.actor.key !== speaker.key);
             if (isWatch && !partner?.user && !D().clip(result.reply, 1500)) throw new Error('角色还没有给出一起看的回应。');
@@ -150,13 +150,13 @@ function getWechatMediaFrameStyle(frame) {
                     const peers = participants(current), host = peers.find(person => !person.user);
                     trace(currentState, event.kind, video, event.text + (result.reply ? '\n' + partner.name + '：' + result.reply : ''), { actor: speaker, knownBy: peers.map(person => person.charId).filter(Boolean) });
                     if (event.kind === 'watch-start' && peers.some(person => person.user)) {
-                        const messages = speaker.user ? [privateCard(video), { type: 'text', isMe: false, content: D().clip(result.reply, 1500) }] : [{ ...privateCard(video), isMe: false }];
+                        const messages = speaker.user ? [privateCard(video), ...D().privateMessages(result.reply, char)] : [{ ...privateCard(video), isMe: false }];
                         D().outbox(currentState, id, host.charId, messages);
                     }
                     if (event.kind === 'watch-end') {
                         current.status = 'ended'; current.endedAt = Date.now();
                         if (peers.some(person => person.user)) D().outbox(currentState, id, host.charId, speaker.user
-                            ? [{ type: 'text', isMe: true, content: '刚才一起看了《' + video.title + '》。\n' + current.messages.filter(item => item.actor?.user || (!item.actor && item.isMe)).map(item => item.text).slice(-8).join('\n') }, { type: 'text', isMe: false, content: privateMessage || D().clip(result.reply, 1500) }]
+                            ? [{ type: 'text', isMe: true, content: '刚才一起看了《' + video.title + '》。\n' + current.messages.filter(item => item.actor?.user || (!item.actor && item.isMe)).map(item => item.text).slice(-8).join('\n') }, ...D().privateMessages(privateMessage || D().clip(result.reply, 1500), char)]
                             : [{ type: 'text', isMe: false, content: '刚才和你一起看了《' + video.title + '》。\n' + event.text }]);
                     }
                 } else {
@@ -167,7 +167,13 @@ function getWechatMediaFrameStyle(frame) {
                     if (currentVideo && reactions.length) currentVideo.reactions = [...new Map([...(currentVideo.reactions || []), ...reactions].map(actor => [actor.key, actor])).values()];
                     for (const actor of reactions) prefs(currentState, actor, true).likes[video.id] = true;
                     trace(currentState, 'public-replies', video, replies.map(reply => reply.actor.name + '：' + reply.text).join('\n'), { actor: speaker, knownBy: [...new Set([speaker.charId, char.id, ...replies.map(reply => reply.actor.charId)].filter(Boolean))] });
-                    if (speaker.user && privateMessage) D().outbox(currentState, id, actorOf(video).charId || char.id, [{ type: 'text', isMe: false, content: '关于视频号《' + video.title + '》：\n' + privateMessage }]);
+                    if (speaker.user && privateMessage) {
+                        const dms = D().privateMessages(privateMessage, char);
+                        if (dms.length) {
+                            dms[0].content = '关于视频号《' + video.title + '》：\n' + dms[0].content;
+                            D().outbox(currentState, id, actorOf(video).charId || char.id, dms);
+                        }
+                    }
                 }
                 row.status = 'done'; row.completedAt = Date.now(); delete row.error;
             });

@@ -2096,3 +2096,50 @@ function updateWidgetClock(slot) {
         dateEl.textContent = `${now.getMonth()+1}月${now.getDate()}日 周${days[now.getDay()]}`;
     }
 }
+
+// --- 个性化设置：宫格首页 + 二级页 ---
+const THEME_SECTION_TITLES = { wallpaper: '壁纸', lock: '锁屏', desktop: '桌面组件', icons: '图标', effects: '触碰特效', library: '主题库' };
+let themeActiveSection = '';
+
+function openThemeSection(section) {
+    const win = document.getElementById('app-theme-window');
+    if (!win) return false;
+    const key = Object.prototype.hasOwnProperty.call(THEME_SECTION_TITLES, section) ? section : '';
+    themeActiveSection = key;
+    win.classList.toggle('theme-section-open', !!key);
+    win.querySelectorAll('[data-theme-section]').forEach(card => { card.hidden = card.dataset.themeSection !== key; });
+    const home = document.getElementById('theme-home');
+    if (home) home.hidden = !!key;
+    const title = document.getElementById('theme-header-title');
+    if (title) title.textContent = key ? THEME_SECTION_TITLES[key] : '个性化设置';
+    const back = document.getElementById('theme-header-back');
+    if (back) {
+        back.innerHTML = key ? '<i class="ri-arrow-left-s-line" aria-hidden="true"></i>返回' : '取消';
+        back.setAttribute('role', 'button');
+        back.setAttribute('aria-label', key ? '返回个性化设置' : '取消并关闭');
+    }
+    const content = win.querySelector('.window-content');
+    if (content) content.scrollTop = 0;
+    if (!key) updateThemeHomeSummaries();
+    return true;
+}
+window.openThemeSection = openThemeSection;
+
+function handleThemeHeaderBack() {
+    if (themeActiveSection) { openThemeSection(''); return; }
+    if (typeof closeApp === 'function') closeApp('theme');
+}
+window.handleThemeHeaderBack = handleThemeHeaderBack;
+
+// Short live summaries on the tiles; each read is optional and never blocks the home grid.
+function updateThemeHomeSummaries() {
+    const set = (key, text) => { const node = document.querySelector(`[data-theme-summary="${key}"]`); if (node && text) node.textContent = text; };
+    const checked = id => document.getElementById(id)?.checked;
+    try {
+        const lockOn = checked('lock-enabled');
+        set('wallpaper', `${lockOn === false ? '锁屏已关' : '锁屏 · 桌面'} · 时间颜色`);
+    } catch (_) {}
+    if (typeof getThemeLibraryStore === 'function') Promise.resolve().then(getThemeLibraryStore).then(list => {
+        if (Array.isArray(list)) set('library', list.length ? `已保存 ${list.length} 套主题` : '保存与套用整套主题');
+    }).catch(() => {});
+}

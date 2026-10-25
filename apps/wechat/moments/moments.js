@@ -62,7 +62,7 @@ function migrateWechatMomentTemplateComments(store) {
 }
 
 function scheduleWechatMomentEngagement(post) {
-    const chars = (window.myCharacters || []).filter(char => char && !char.isGroupChat).slice(0, 6);
+    const chars = (window.myCharacters || []).filter(char => char && !char.isGroupChat && !(typeof isWechatChatWindow === 'function' && isWechatChatWindow(char))).slice(0, 6);
     const needsAsk = /[?？]|怎么|为什么|为啥|怎么办|不懂|纠结/.test(post.text || '');
     post.pending = chars.map((char, index) => ({
         id: 'mqt_' + (post.id || Date.now()) + '_' + char.id + '_' + index,
@@ -382,7 +382,7 @@ function processWechatMomentQueue() {
 }
 
 function openWechatMoments(focusPostId = '') {
-    (window.myCharacters || []).filter(char => char && !char.isGroupChat).forEach(char => getWechatCharMomentPosts(char));
+    (window.myCharacters || []).filter(char => char && !char.isGroupChat && !(typeof isWechatChatWindow === 'function' && isWechatChatWindow(char))).forEach(char => getWechatCharMomentPosts(char));
     processWechatMomentQueue();
     window._wechatMomentDraftImages = window._wechatMomentDraftImages || [];
     renderWechatMoments(focusPostId);

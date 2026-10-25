@@ -144,6 +144,43 @@
     function outbox(state, id, charId, messages) {
         if (!state.outbox.some(item => item.id === id)) state.outbox.push({ id, charId, messages, status: 'pending', createdAt: Date.now() });
     }
+    // Discover private replies skip the chat reply pipeline, so split them here:
+    // first on the chat ||| separators, then long segments into sentence bubbles.
+    function privateMessages(text, char) {
+        const source = clip(text, 4000);
+        if (!source) return [];
+        const segments = typeof splitWechatAiResponseSegments === 'function'
+            ? splitWechatAiResponseSegments(source, char)
+            : [source];
+        const collected = [];
+        for (const segment of segments) {
+            const parts = typeof splitWechatOfflinePlainText === 'function'
+                ? splitWechatOfflinePlainText(segment, char)
+                : [{ kind: 'text', content: segment }];
+            for (const part of parts) {
+                const content = clip(part?.content, 2000);
+                if (!content) continue;
+                collected.push(part.kind === 'narration'
+                    ? { type: 'offline_narration', isMe: false, content, description: '' }
+                    : { type: 'text', isMe: false, content, description: '' });
+            }
+        }
+        // Merge fragments the model broke mid-sentence back into chat-sized bubbles.
+        const MIN = 12, MAX = 64;
+        const merged = [];
+        for (const part of collected) {
+            const last = merged[merged.length - 1];
+            if (last && last.type === 'text' && part.type === 'text'
+                && (last.content.length < MIN || part.content.length < MIN)
+                && last.content.length + part.content.length + 1 <= MAX
+                && (last.content.length < MIN || !/[？！…]\s*$/.test(last.content))) {
+                last.content += (/[？！…：，、]\s*$/.test(last.content) ? '' : '，') + part.content;
+                continue;
+            }
+            merged.push(part);
+        }
+        return merged;
+    }
     async function deliver(kind) {
         return run('delivery:' + kind, () => {
             const work = deliveryQueue.catch(() => {}).then(async () => {
@@ -243,5 +280,5 @@
             if (button && !button.disabled && root.contains(button)) callback(button.dataset.dsAction, button.dataset, event);
         };
     }
-    window.ByndDiscoverStory = { clip, uid, characters, character, name, context, userName, userActor, characterActor, account, remember, channelFacts, chatPrompt, actor, lines, read, save, change, ask, run, busy, failure, event, execute, pendingHtml, outbox, deliver, capture, canPublish, decisionContext, canAttempt, consider, escape, avatar, sourceSelect, mount, refresh, deliveryHtml, errorHtml, bind };
+    window.ByndDiscoverStory = { clip, uid, characters, character, name, context, userName, userActor, characterActor, account, remember, channelFacts, chatPrompt, actor, lines, read, save, change, ask, run, busy, failure, event, execute, pendingHtml, outbox, privateMessages, deliver, capture, canPublish, decisionContext, canAttempt, consider, escape, avatar, sourceSelect, mount, refresh, deliveryHtml, errorHtml, bind };
 })();

@@ -41,7 +41,7 @@
             const char = D().character(room.hostId || room.sourceCharId);
             if (!char) throw new Error('主播已删除或被拉黑。');
             const ending = event.kind === 'end';
-            const result = await D().ask(char, ending ? '结束这场直播：自然收尾，回顾用户真实参与的内容，并写一条角色收播后发给用户的私聊，不复述与此次直播无关的秘密' : '继续这场可参与的直播。明确回应用户刚刚的弹幕、点歌或选择，让其影响眼前场景；NPC 发言按各自身份和可知信息生成，不替用户做决定', { title: room.title, category: room.category, caption: room.caption, host: room.host, recentLines: room.lines.slice(-12), actions: room.log.slice(-12), action: event.kind, userText: event.text, previousChoices: room.choices }, '{"caption":"新的直播场景或收尾","lines":[{"actor":{"charId":"联系人id"},"text":"回应或NPC弹幕"}],"choices":["接下来可选择的方向"],"privateMessage":"收播时必须提供给用户的私聊回访，其他时候为空"}', ending);
+            const result = await D().ask(char, ending ? '结束这场直播：自然收尾，回顾用户真实参与的内容，并写一条角色收播后发给用户的私聊，不复述与此次直播无关的秘密' : '继续这场可参与的直播。明确回应用户刚刚的弹幕、点歌或选择，让其影响眼前场景；NPC 发言按各自身份和可知信息生成，不替用户做决定', { title: room.title, category: room.category, caption: room.caption, host: room.host, recentLines: room.lines.slice(-12), actions: room.log.slice(-12), action: event.kind, userText: event.text, previousChoices: room.choices }, '{"caption":"新的直播场景或收尾","lines":[{"actor":{"charId":"联系人id"},"text":"回应或NPC弹幕"}],"choices":["接下来可选择的方向"],"privateMessage":"收播时必须提供给用户的私聊回访，像微信消息一样用|||分成2~4条，每条一句完整的话，不要在句子中间断开；太短就一条不分隔，其他时候为空"}', ending);
             const lines = D().lines(result.lines, char);
             if (!lines.length || !D().clip(result.caption)) throw new Error('直播回应不完整，请重试。');
             const nextChoices = ending ? [] : choices(result.choices);
@@ -57,7 +57,11 @@
                 current.caption = D().clip(result.caption, 1600); current.choices = nextChoices; current.version = event.version + 1;
                 if (ending) {
                     current.status = 'ended'; current.endedAt = Date.now(); current.recap = privateMessage;
-                    D().outbox(s, id, char.id, [{ type: 'text', isMe: false, content: '刚才那场直播《' + room.title + '》结束了。\n' + privateMessage }]);
+                    const dms = D().privateMessages(privateMessage, char);
+                    if (dms.length) {
+                        dms[0].content = '刚才那场直播《' + room.title + '》结束了。\n' + dms[0].content;
+                        D().outbox(s, id, char.id, dms);
+                    }
                 }
                 row.status = 'done'; row.completedAt = Date.now(); delete row.error;
             });

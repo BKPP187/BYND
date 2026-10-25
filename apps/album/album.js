@@ -11,6 +11,9 @@ function getLegacyChatAlbumStore() {
 }
 
 function getWechatAlbumMessageRows(char, msg) {
+    // Photos from every chat window of a character belong to that one character.
+    const base = char?.chatConfig?.windowOf && (window.myCharacters || []).find(item => item && item.id === char.chatConfig.windowOf);
+    if (base) char = base;
     if (!char?.id || !msg || msg.isMe || msg.imagePending || msg.imageError || !['image', 'image_stack'].includes(msg.type)) return [];
     const sources = msg.type === 'image_stack' ? (msg.images || msg.imageUrls || []) : [msg.imageUrl || msg.content || msg.url];
     return (Array.isArray(sources) ? sources : []).filter(url => typeof url === 'string' && /^(?:https?:\/\/|data:image\/)/i.test(url)).map((url, index) => ({
@@ -147,7 +150,7 @@ function renderAlbumApp() {
     grid.innerHTML = rows.map(item => `
         <figure class="album-photo">
             <button type="button" class="album-delete" data-remove-photo="${musicEscapeAttr(item.id || '')}" aria-label="移除照片">×</button>
-            <img src="${musicEscapeAttr(item.url)}" alt="${musicEscapeAttr(item.description || item.charName || '聊天图片')}" loading="lazy">
+            <button type="button" class="album-photo-open" data-open-photo="${musicEscapeAttr(item.id || '')}" aria-label="查看大图"><img src="${musicEscapeAttr(item.url)}" alt="${musicEscapeAttr(item.description || item.charName || '聊天图片')}" loading="lazy"></button>
             <figcaption>
                 <strong>${musicEscapeHtml(item.charName || '角色')}</strong>
                 <span>${musicEscapeHtml(item.description || '聊天生成图片')}</span>
@@ -155,10 +158,12 @@ function renderAlbumApp() {
         </figure>
     `).join('') || '<div class="album-empty">这里还没有我们的照片<br><small>TA 发来的生成图，会一张张留在这里。</small></div>';
     grid.querySelectorAll('[data-remove-photo]').forEach(button => { button.onclick = () => removeAlbumPhoto(button.dataset.removePhoto); });
+    grid.querySelectorAll('[data-open-photo]').forEach(button => { button.onclick = () => openAlbumViewer(button.dataset.openPhoto, rows); });
     if (status) status.innerHTML = window._chatAlbumSaveError ? `${store.length} 张 · <button type="button" onclick="initAlbumApp()">重试保存</button>` : `已收录 ${store.length} 张聊天生成图`;
 }
 
 async function initAlbumApp() {
+    if (typeof closeAlbumViewer === 'function') closeAlbumViewer();
     const status = document.getElementById('album-status');
     if (status) status.textContent = '读取照片中';
     try {
@@ -176,6 +181,247 @@ function selectAlbumChar(charId) {
     renderAlbumApp();
 }
 window.selectAlbumChar = selectAlbumChar;
+
+// --- 大图查看器：全屏、左右滑动切换、双指/双击/滚轮缩放、拖动平移 ---
+const ALBUM_VIEWER_MAX_SCALE = 4;
+const ALBUM_VIEWER_DOUBLE_TAP_SCALE = 2.5;
+let albumViewer = null;
+
+function albumViewerClampScale(scale) {
+    return Math.min(ALBUM_VIEWER_MAX_SCALE, Math.max(1, Number(scale) || 1));
+}
+
+// Keeps a zoomed image covering its frame: at scale s the image may move (s - 1) * size / 2 each way.
+function albumViewerClampPan(x, y, scale, box) {
+    const maxX = Math.max(0, (scale - 1) * (Number(box?.width) || 0) / 2);
+    const maxY = Math.max(0, (scale - 1) * (Number(box?.height) || 0) / 2);
+    return { x: Math.min(maxX, Math.max(-maxX, Number(x) || 0)), y: Math.min(maxY, Math.max(-maxY, Number(y) || 0)) };
+}
+
+// A horizontal drag past 18% of the width (or a quick flick) moves one photo; edges stay put.
+function albumViewerSwipeTarget(index, count, dx, width, velocity = 0) {
+    const passed = Math.abs(dx) > Math.max(40, (Number(width) || 0) * 0.18) || (Math.abs(dx) > 24 && Math.abs(velocity) > 0.45);
+    if (!passed) return index;
+    return Math.min(count - 1, Math.max(0, index + (dx < 0 ? 1 : -1)));
+}
+
+function openAlbumViewer(id, rows = null) {
+    const list = (Array.isArray(rows) && rows.length ? rows : getChatAlbumStore()).filter(row => row?.url);
+    const index = list.findIndex(row => row.id === id);
+    if (index < 0) return false;
+    closeAlbumViewer();
+    const host = document.getElementById('app-album-window') || document.body;
+    const node = document.createElement('div');
+    node.className = 'album-viewer';
+    node.setAttribute('role', 'dialog');
+    node.setAttribute('aria-modal', 'true');
+    node.setAttribute('aria-label', '查看照片');
+    node.tabIndex = -1;
+    node.innerHTML = `
+        <div class="album-viewer-top">
+            <button type="button" class="album-viewer-close" aria-label="关闭"><i class="ri-close-line"></i></button>
+            <span class="album-viewer-count" aria-live="polite"></span>
+            <button type="button" class="album-viewer-reset" aria-label="还原大小"><i class="ri-fullscreen-exit-line"></i></button>
+        </div>
+        <div class="album-viewer-stage"><div class="album-viewer-track"></div></div>
+        <button type="button" class="album-viewer-nav prev" aria-label="上一张"><i class="ri-arrow-left-s-line"></i></button>
+        <button type="button" class="album-viewer-nav next" aria-label="下一张"><i class="ri-arrow-right-s-line"></i></button>
+        <div class="album-viewer-caption"></div>`;
+    host.appendChild(node);
+    albumViewer = { node, rows: list, index, scale: 1, x: 0, y: 0, pointers: new Map(), gesture: null, lastTap: null, tapTimer: 0, chromeHidden: false };
+    node.querySelector('.album-viewer-close').onclick = closeAlbumViewer;
+    node.querySelector('.album-viewer-reset').onclick = () => setAlbumViewerZoom(1);
+    node.querySelector('.album-viewer-nav.prev').onclick = () => showAlbumViewerPhoto(albumViewer.index - 1);
+    node.querySelector('.album-viewer-nav.next').onclick = () => showAlbumViewerPhoto(albumViewer.index + 1);
+    node.addEventListener('keydown', handleAlbumViewerKey);
+    const stage = node.querySelector('.album-viewer-stage');
+    stage.addEventListener('pointerdown', handleAlbumViewerPointerDown);
+    stage.addEventListener('pointermove', handleAlbumViewerPointerMove);
+    stage.addEventListener('pointerup', handleAlbumViewerPointerUp);
+    stage.addEventListener('pointercancel', handleAlbumViewerPointerUp);
+    stage.addEventListener('wheel', handleAlbumViewerWheel, { passive: false });
+    renderAlbumViewer();
+    node.focus({ preventScroll: true });
+    return true;
+}
+window.openAlbumViewer = openAlbumViewer;
+
+function closeAlbumViewer() {
+    if (!albumViewer) return;
+    clearTimeout(albumViewer.tapTimer);
+    albumViewer.node.remove();
+    albumViewer = null;
+}
+window.closeAlbumViewer = closeAlbumViewer;
+
+function renderAlbumViewer() {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    const { rows, index, node } = viewer;
+    const item = rows[index];
+    const slide = (row, offset) => row ? `<figure class="album-viewer-slide" data-offset="${offset}" style="transform:translateX(${offset * 100}%)"><img src="${musicEscapeAttr(row.url)}" alt="${musicEscapeAttr(row.description || row.charName || '照片')}" draggable="false"></figure>` : '';
+    node.querySelector('.album-viewer-track').innerHTML = slide(rows[index - 1], -1) + slide(item, 0) + slide(rows[index + 1], 1);
+    node.querySelector('.album-viewer-count').textContent = `${index + 1} / ${rows.length}`;
+    const date = item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    node.querySelector('.album-viewer-caption').innerHTML = `<strong>${musicEscapeHtml(item.charName || '角色')}</strong>${date ? `<time>${musicEscapeHtml(date)}</time>` : ''}${item.description ? `<p>${musicEscapeHtml(item.description)}</p>` : ''}`;
+    node.querySelector('.album-viewer-nav.prev').disabled = index <= 0;
+    node.querySelector('.album-viewer-nav.next').disabled = index >= rows.length - 1;
+    node.classList.toggle('chrome-hidden', viewer.chromeHidden);
+    applyAlbumViewerTransform();
+}
+
+function applyAlbumViewerTransform(dragX = 0, animate = false) {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    const track = viewer.node.querySelector('.album-viewer-track');
+    track.style.transition = animate ? 'transform .24s ease' : 'none';
+    track.style.transform = `translateX(${dragX}px)`;
+    const img = viewer.node.querySelector('.album-viewer-slide[data-offset="0"] img');
+    if (img) {
+        img.style.transition = animate ? 'transform .2s ease' : 'none';
+        img.style.transform = `translate(${viewer.x}px, ${viewer.y}px) scale(${viewer.scale})`;
+    }
+    viewer.node.classList.toggle('is-zoomed', viewer.scale > 1.01);
+}
+
+function getAlbumViewerBox() {
+    const stage = albumViewer?.node.querySelector('.album-viewer-stage');
+    const rect = stage ? stage.getBoundingClientRect() : { width: 0, height: 0, left: 0, top: 0 };
+    return { width: rect.width, height: rect.height, left: rect.left, top: rect.top };
+}
+
+function showAlbumViewerPhoto(index) {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    const next = Math.min(viewer.rows.length - 1, Math.max(0, index));
+    Object.assign(viewer, { index: next, scale: 1, x: 0, y: 0 });
+    renderAlbumViewer();
+}
+window.showAlbumViewerPhoto = showAlbumViewerPhoto;
+
+// Zooms around a stage point (client coordinates) so the spot under the finger stays put.
+function setAlbumViewerZoom(scale, clientX = null, clientY = null, animate = true) {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    const box = getAlbumViewerBox();
+    const nextScale = albumViewerClampScale(scale);
+    let { x, y } = viewer;
+    if (clientX != null && clientY != null && viewer.scale > 0) {
+        const px = clientX - box.left - box.width / 2, py = clientY - box.top - box.height / 2;
+        const ratio = nextScale / viewer.scale;
+        x = px - (px - x) * ratio;
+        y = py - (py - y) * ratio;
+    }
+    const pan = nextScale <= 1 ? { x: 0, y: 0 } : albumViewerClampPan(x, y, nextScale, box);
+    Object.assign(viewer, { scale: nextScale, x: pan.x, y: pan.y });
+    applyAlbumViewerTransform(0, animate);
+}
+window.setAlbumViewerZoom = setAlbumViewerZoom;
+
+function handleAlbumViewerKey(event) {
+    if (!albumViewer) return;
+    if (event.key === 'Escape') { event.preventDefault(); closeAlbumViewer(); }
+    else if (event.key === 'ArrowLeft') { event.preventDefault(); showAlbumViewerPhoto(albumViewer.index - 1); }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); showAlbumViewerPhoto(albumViewer.index + 1); }
+}
+
+function handleAlbumViewerWheel(event) {
+    if (!albumViewer) return;
+    event.preventDefault();
+    setAlbumViewerZoom(albumViewer.scale * (event.deltaY < 0 ? 1.18 : 1 / 1.18), event.clientX, event.clientY, false);
+}
+
+function handleAlbumViewerPointerDown(event) {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch (_) {}
+    viewer.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = [...viewer.pointers.values()];
+    if (points.length >= 2) {
+        const [a, b] = points;
+        viewer.gesture = { type: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: viewer.scale, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, x: viewer.x, y: viewer.y };
+    } else {
+        viewer.gesture = { type: viewer.scale > 1.01 ? 'pan' : 'swipe', startX: event.clientX, startY: event.clientY, x: viewer.x, y: viewer.y, at: Date.now(), moved: 0 };
+    }
+}
+
+function handleAlbumViewerPointerMove(event) {
+    const viewer = albumViewer;
+    if (!viewer || !viewer.pointers.has(event.pointerId)) return;
+    viewer.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const gesture = viewer.gesture;
+    if (!gesture) return;
+    const box = getAlbumViewerBox();
+    if (gesture.type === 'pinch') {
+        const [a, b] = [...viewer.pointers.values()];
+        if (!b) return;
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const scale = albumViewerClampScale(gesture.scale * Math.hypot(a.x - b.x, a.y - b.y) / gesture.dist);
+        const px = gesture.mid.x - box.left - box.width / 2, py = gesture.mid.y - box.top - box.height / 2;
+        const ratio = scale / gesture.scale;
+        const pan = albumViewerClampPan(px - (px - gesture.x) * ratio + mid.x - gesture.mid.x, py - (py - gesture.y) * ratio + mid.y - gesture.mid.y, scale, box);
+        Object.assign(viewer, { scale, x: scale <= 1 ? 0 : pan.x, y: scale <= 1 ? 0 : pan.y });
+        applyAlbumViewerTransform();
+        return;
+    }
+    const dx = event.clientX - gesture.startX, dy = event.clientY - gesture.startY;
+    gesture.moved = Math.max(gesture.moved, Math.hypot(dx, dy));
+    if (gesture.type === 'pan') {
+        Object.assign(viewer, albumViewerClampPan(gesture.x + dx, gesture.y + dy, viewer.scale, box));
+        applyAlbumViewerTransform();
+    } else {
+        const atEdge = (dx > 0 && viewer.index === 0) || (dx < 0 && viewer.index === viewer.rows.length - 1);
+        applyAlbumViewerTransform(atEdge ? dx * 0.3 : dx);
+    }
+}
+
+function handleAlbumViewerPointerUp(event) {
+    const viewer = albumViewer;
+    if (!viewer) return;
+    const gesture = viewer.gesture;
+    viewer.pointers.delete(event.pointerId);
+    if (gesture?.type === 'pinch') {
+        // Lifting one finger of a pinch continues as a pan from where the other finger is.
+        const rest = [...viewer.pointers.values()][0];
+        viewer.gesture = rest ? { type: 'pan', startX: rest.x, startY: rest.y, x: viewer.x, y: viewer.y, at: Date.now(), moved: 99 } : null;
+        if (viewer.scale <= 1.01) setAlbumViewerZoom(1);
+        return;
+    }
+    if (viewer.pointers.size || !gesture) return;
+    viewer.gesture = null;
+    const dx = event.clientX - gesture.startX;
+    const elapsed = Math.max(1, Date.now() - gesture.at);
+    if (gesture.moved < 10 && elapsed < 320) {
+        if (gesture.type === 'swipe') applyAlbumViewerTransform(0);
+        handleAlbumViewerTap(event);
+        return;
+    }
+    if (gesture.type !== 'swipe') return;
+    const box = getAlbumViewerBox();
+    const target = albumViewerSwipeTarget(viewer.index, viewer.rows.length, dx, box.width, dx / elapsed);
+    if (target === viewer.index) { applyAlbumViewerTransform(0, true); return; }
+    applyAlbumViewerTransform(target > viewer.index ? -box.width : box.width, true);
+    setTimeout(() => { if (albumViewer === viewer) showAlbumViewerPhoto(target); }, 240);
+}
+
+function handleAlbumViewerTap(event) {
+    const viewer = albumViewer;
+    const now = Date.now();
+    const last = viewer.lastTap;
+    if (last && now - last.at < 300 && Math.hypot(event.clientX - last.x, event.clientY - last.y) < 30) {
+        clearTimeout(viewer.tapTimer);
+        viewer.lastTap = null;
+        setAlbumViewerZoom(viewer.scale > 1.01 ? 1 : ALBUM_VIEWER_DOUBLE_TAP_SCALE, event.clientX, event.clientY);
+        return;
+    }
+    viewer.lastTap = { at: now, x: event.clientX, y: event.clientY };
+    clearTimeout(viewer.tapTimer);
+    viewer.tapTimer = setTimeout(() => {
+        if (albumViewer !== viewer) return;
+        viewer.chromeHidden = !viewer.chromeHidden;
+        viewer.node.classList.toggle('chrome-hidden', viewer.chromeHidden);
+    }, 300);
+}
 
 const DESKTOP_DOCK_APP_DEFINITIONS = [
     { id: 'music', name: '音乐', icon: 'ri-music-2-fill' },
