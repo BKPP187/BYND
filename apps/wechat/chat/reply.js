@@ -1,5 +1,6 @@
 // --- ✨ AI 回复按钮（点击才触发AI回复） ---
 async function triggerAiReply() {
+    if (typeof dismissWechatReplyHint === 'function') dismissWechatReplyHint();
     if (window._wechatAiBusy) return;
     const charId = window.currentChatCharId;
     if (!charId) return;

@@ -169,3 +169,15 @@ const CharacterCardParser = {
     }
 };
 
+// 新角色的空聊天以角色卡的开场白开始，和角色卡生成器一致。
+function seedWechatCharacterGreeting(char) {
+    if (!char || char.isGroupChat || !Array.isArray(char.history) || char.history.length) return false;
+    const raw = String(char.first_mes || '').trim();
+    if (!raw) return false;
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : null;
+    const content = raw
+        .replace(/\{\{char\}\}/gi, char.name || '')
+        .replace(/\{\{user\}\}/gi, (profile && profile.name) || '我');
+    char.history.push({ type: 'text', isMe: false, content, timestamp: Date.now() });
+    return true;
+}

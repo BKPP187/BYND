@@ -1305,3 +1305,21 @@
 .sticker-import-preview img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 4px; background: #f5f5f5; }
 .pack-sticker-cell { position: relative; cursor: pointer; }
 .pack-sticker-cell.selected { outline: 2px solid #ff3b30; border-radius: 6px; }
+
+/* 第一次发送：提示点 ✨ 让 Ta 回复 */
+.wc-reply-hint { position: absolute; z-index: 40; display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; max-width: 260px; padding: 10px 12px; border-radius: 14px; background: #1f1f1f; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.2); animation: wc-reply-hint-in .2s ease-out; }
+.wc-reply-hint::after { content: ''; position: absolute; right: 14px; bottom: -6px; width: 12px; height: 12px; background: inherit; transform: rotate(45deg); }
+.wc-reply-hint b { font-size: 14px; }
+.wc-reply-hint span { grid-column: 1; font-size: 12px; opacity: .75; }
+.wc-reply-hint button { grid-row: 1 / span 2; grid-column: 2; min-height: 36px; padding: 0 10px; border: 0; border-radius: 999px; background: rgba(255,255,255,.16); color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+@keyframes wc-reply-hint-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .wc-reply-hint { animation: none; } }
+
+/* 还没设置 API 时的引导 */
+.wc-api-guide { position: absolute; inset: 0; z-index: 60; display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box; background: rgba(0,0,0,.36); }
+.wc-api-guide-card { width: 100%; box-sizing: border-box; padding: 20px; border-radius: 18px; background: var(--bynd-surface-solid, #fff); color: var(--bynd-text, #222); box-shadow: 0 12px 40px rgba(0,0,0,.18); }
+.wc-api-guide-card h3 { margin: 0 0 8px; font-size: 17px; }
+.wc-api-guide-card p { margin: 0 0 8px; color: var(--bynd-muted, #666); font-size: 14px; line-height: 1.6; }
+.wc-api-guide-actions { display: flex; gap: 10px; margin-top: 14px; }
+.wc-api-guide-actions button { flex: 1; min-height: 46px; border: 1px solid var(--bynd-border, #e5e5e5); border-radius: 12px; background: none; color: inherit; font: inherit; font-size: 15px; cursor: pointer; }
+.wc-api-guide-actions [data-api-guide="setup"] { border-color: transparent; background: #07c160; color: #fff; font-weight: 600; }

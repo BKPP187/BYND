@@ -146,9 +146,48 @@ function buildWechatPostCallReplyMessages(char, callId, retry = false) {
     return messages;
 }
 
+// 还没接 AI 时给出去设置的路，而不是把报错当成角色说的话存进聊天记录。
+function isWechatChatApiMissing() {
+    return typeof getDefaultApi === 'function' && !getDefaultApi();
+}
+
+function showWechatMissingApiGuide() {
+    const room = document.getElementById('wechat-chat-room');
+    if (!room) return;
+    room.querySelector('.wc-api-guide')?.remove();
+    const sheet = document.createElement('div');
+    sheet.className = 'wc-api-guide';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-labelledby', 'wc-api-guide-title');
+    sheet.innerHTML = '<div class="wc-api-guide-card"><h3 id="wc-api-guide-title">先接上 AI，Ta 才能回复你</h3>'
+        + '<p>BYND 用你自己的 AI 接口（API）生成回复。选一个常用服务，注册后复制密钥粘贴进来，大约两分钟就能设好，费用由服务商按用量收取。</p>'
+        + '<p>设好后回到这里点 ✨，Ta 就会回复。</p>'
+        + '<div class="wc-api-guide-actions"><button type="button" data-api-guide="later">稍后</button><button type="button" data-api-guide="setup">去设置 API</button></div></div>';
+    const close = () => { sheet.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = event => { if (event.key === 'Escape') close(); };
+    sheet.addEventListener('click', event => {
+        const action = event.target.closest('[data-api-guide]')?.dataset.apiGuide;
+        if (!action && event.target !== sheet) return;
+        close();
+        if (action !== 'setup') return;
+        openApp('settings');
+        window.openSettingsTab?.('api');
+        const apis = typeof getApiData === 'function' ? getApiData().apis || [] : [];
+        if (!apis.length && typeof openApiModal === 'function') openApiModal();
+    });
+    document.addEventListener('keydown', onKey, true);
+    room.appendChild(sheet);
+    sheet.querySelector('[data-api-guide="setup"]')?.focus();
+}
+
 async function triggerAiAfterMessage(char, contentEl, options = {}) {
     if (!char || !Array.isArray(char.history)) return;
     if (window._wechatAiBusy) return;
+    if (isWechatChatApiMissing()) {
+        if (!options.background && window.currentChatCharId === char.id) showWechatMissingApiGuide();
+        return;
+    }
     if (options.background && isWechatAiRateLimitPaused() && !options.force) return;
     window._wechatAiBusy = true;
     window.ByndCharacterPet?.beginReply(char);

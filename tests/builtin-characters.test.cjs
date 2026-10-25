@@ -256,7 +256,8 @@ test('the picker marks added characters and adds the rest in one go', async () =
     for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
     const finalHtml = h.nodes.get('bynd-builtin-library').innerHTML;
     assert.doesNotMatch(finalHtml, /补齐素材/, 'the background repair completed and the add was not blocked by it');
-    assert.equal((finalHtml.match(/头像 (?:6\/6|5\/5) · 封面 ✓ · 参考图 ✓/g) || []).length, 2);
+    assert.equal((finalHtml.match(/>去聊天</g) || []).length, 2, 'complete characters offer to start chatting');
+    assert.doesNotMatch(finalHtml, /头像 \d+\/\d+|封面 [✓缺]/, 'asset counters are not shown to users');
     assert.equal(h.characters.length, 2);
     assert.equal(h.characters[1].builtinId, 'shanghuan');
     assert.deepEqual(JSON.parse(JSON.stringify(h.state.toasts)), ['已添加 商桓'], 'the add itself reported success; the later repair re-render replaced the status line');
@@ -326,7 +327,7 @@ test('the picker reports missing artwork per character and a manual repair surfa
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     const overlay = () => h.nodes.get('bynd-builtin-library').innerHTML;
-    assert.match(overlay(), /头像 6\/6 · 封面 ✓ · 参考图 ✓/, 'opening the picker repairs a reachable character first');
+    assert.match(overlay(), />去聊天</, 'opening the picker repairs a reachable character first');
     assert.equal(legacy.avatarGallery.length, 6);
     const broken = harness({ characters: [{ id: 'old2', name: '商桓', description: '【角色描述】\n商桓', avatar: 'data:image/png;base64,MAIN', avatarGallery: ['data:image/png;base64,MAIN'], chatConfig: {}, history: [] }] });
     broken.context.fetch = async () => ({ ok: false, status: 404 });
@@ -335,7 +336,7 @@ test('the picker reports missing artwork per character and a manual repair surfa
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     const html = broken.nodes.get('bynd-builtin-library').innerHTML;
-    assert.match(html, /头像 1\/5 · 封面 缺 · 参考图 缺/);
+    assert.match(html, /有些图片还没下载完/);
     assert.match(html, /备用头像：HTTP 404/);
     assert.match(html, /补齐素材/);
     await broken.L.fix('shanghuan');
@@ -384,4 +385,20 @@ test('adding a built-in character seeds its user persona once and applies it onl
     assert.equal(JSON.parse(k.context.localStorage.getItem('wechat_user_persona_library_v1')).length, 1, 'the persona is still offered in the library');
     assert.equal(mine.chatConfig.chatBgGallery.length, 3, '商桓 ships three chat backgrounds');
     assert.match(k.L.backgroundOptions(mine).join(';'), /1：正装商桓（当前）;2：居家商桓;3：商桓肖像/);
+});
+
+test('a newly added built-in character opens with its card greeting and offers to start chatting', async () => {
+    const h = harness();
+    vm.runInContext(fs.readFileSync(path.join(root, 'core/character/card-parser.js'), 'utf8'), h.context);
+    const opened = [];
+    h.context.openChat = id => opened.push(id);
+    const char = await h.L.add('wenjinbei');
+    const card = h.context.window.ByndBuiltinCharacters.characters.find(item => item.id === 'wenjinbei');
+    assert.equal(char.history.length, 1);
+    assert.equal(char.history[0].isMe, false);
+    assert.equal(char.history[0].content, card.first_mes.trim());
+    await h.L.add('wenjinbei');
+    assert.equal(char.history.length, 1, 'adding again does not repeat the greeting');
+    h.L.chat('wenjinbei');
+    assert.deepEqual(opened, [char.id]);
 });

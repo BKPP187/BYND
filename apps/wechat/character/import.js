@@ -157,6 +157,7 @@ function confirmSaveCharacter() {
         chatConfig: {},
         history: []
     };
+    if (typeof seedWechatCharacterGreeting === 'function') seedWechatCharacterGreeting(newChar);
     
     window.myCharacters.push(newChar);
     window.TEMP_PARSED_DATA = null;

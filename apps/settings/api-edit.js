@@ -78,8 +78,56 @@ function openApiModal(editId) {
         if (imageHintEl2) imageHintEl2.textContent = '测试后从下拉列表选择';
     }
 
+    renderSettingsApiPresets(!editId);
     modal.classList.remove('hidden');
     refreshApiModelPickers();
+}
+
+// 常用服务：一键填好接口地址，并告诉第一次使用的人去哪里拿密钥。
+const SETTINGS_API_PRESETS = [
+    { id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com', keyUrl: 'https://platform.deepseek.com/api_keys', note: '国内可直连，按用量付费。' },
+    { id: 'siliconflow', name: '硅基流动', baseUrl: 'https://api.siliconflow.cn/v1', keyUrl: 'https://cloud.siliconflow.cn/account/ak', note: '国内可直连，一个密钥可选多家模型。' },
+    { id: 'moonshot', name: 'Kimi', baseUrl: 'https://api.moonshot.cn/v1', keyUrl: 'https://platform.moonshot.cn/console/api-keys', note: '国内可直连，按用量付费。' },
+    { id: 'zhipu', name: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys', note: '国内可直连，按用量付费。' },
+    { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/keys', note: '海外服务，模型多，需要能访问外网。' }
+];
+const SETTINGS_API_PRESET_GUIDE = '还没有密钥？选一个服务，按提示注册并创建 API Key，复制后粘贴到「密钥」。费用由服务商按用量收取。';
+
+function renderSettingsApiPresets(show) {
+    const nameInput = document.getElementById('api-edit-name');
+    const group = nameInput && typeof nameInput.closest === 'function' ? nameInput.closest('.wc-form-group') : null;
+    if (!group || typeof document.createElement !== 'function') return;
+    let box = document.getElementById('api-edit-presets');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'api-edit-presets';
+        box.className = 'api-editor-presets';
+        group.parentNode.insertBefore(box, group);
+        box.addEventListener('click', event => {
+            const button = event.target.closest('[data-api-preset]');
+            if (button) applySettingsApiPreset(button.dataset.apiPreset);
+        });
+    }
+    box.hidden = !show;
+    box.innerHTML = '<p class="api-editor-presets-title">选择常用服务<span>中转站请在下方手动填写</span></p>'
+        + '<div class="api-editor-preset-list" role="group" aria-label="常用服务">'
+        + SETTINGS_API_PRESETS.map(preset => `<button type="button" data-api-preset="${preset.id}" aria-pressed="false">${escapeHtml(preset.name)}</button>`).join('')
+        + '</div><p class="api-editor-preset-guide" aria-live="polite">' + SETTINGS_API_PRESET_GUIDE + '</p>';
+}
+
+function applySettingsApiPreset(id) {
+    const preset = SETTINGS_API_PRESETS.find(item => item.id === id);
+    const box = document.getElementById('api-edit-presets');
+    const nameInput = document.getElementById('api-edit-name');
+    const urlInput = document.getElementById('api-edit-url');
+    if (!preset || !box || !nameInput || !urlInput) return;
+    const currentName = nameInput.value.trim();
+    if (!currentName || SETTINGS_API_PRESETS.some(item => item.name === currentName)) nameInput.value = preset.name;
+    urlInput.value = preset.baseUrl;
+    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+    box.querySelectorAll('[data-api-preset]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.apiPreset === id)));
+    box.querySelector('.api-editor-preset-guide').innerHTML = `${escapeHtml(preset.note)}<a href="${preset.keyUrl}" target="_blank" rel="noopener noreferrer">去 ${escapeHtml(preset.name)} 获取密钥 ↗</a><span>拿到后粘贴到下方「密钥」，再点「测试连接」选择模型。</span>`;
+    document.getElementById('api-edit-key')?.focus();
 }
 
 function closeApiModal() {

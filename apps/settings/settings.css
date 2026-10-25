@@ -81,6 +81,15 @@
 #api-edit-modal .api-model-option em { color: var(--api-muted); }
 #api-edit-modal .api-model-option.active { background: var(--bynd-accent-faint, #f2f2f2); }
 #api-edit-modal .api-editor-help { color: var(--api-muted); font-size: 12px; }
+#api-edit-modal .api-editor-presets { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--api-border); border-radius: 12px; background: var(--bynd-accent-faint, #f7f7f7); }
+#api-edit-modal .api-editor-presets[hidden] { display: none; }
+#api-edit-modal .api-editor-presets-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0; color: var(--api-text); font-size: 13px; font-weight: 600; }
+#api-edit-modal .api-editor-presets-title span { color: var(--api-muted); font-size: 11px; font-weight: 400; }
+#api-edit-modal .api-editor-preset-list { display: flex; flex-wrap: wrap; gap: 6px; }
+#api-edit-modal .api-editor-preset-list button { min-height: 36px; padding: 0 12px; border: 1px solid var(--api-border); border-radius: 999px; background: var(--api-surface); color: var(--api-text); font: inherit; font-size: 13px; cursor: pointer; }
+#api-edit-modal .api-editor-preset-list button[aria-pressed="true"] { border-color: var(--api-text); background: var(--api-text); color: var(--api-surface); }
+#api-edit-modal .api-editor-preset-guide { display: grid; gap: 4px; margin: 0; color: var(--api-muted); font-size: 12px; line-height: 1.6; }
+#api-edit-modal .api-editor-preset-guide a { justify-self: start; min-height: 32px; display: inline-flex; align-items: center; color: var(--api-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 #api-edit-modal .api-editor-help summary { min-height: 36px; display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; }
 #api-edit-modal .api-editor-help summary::before { content: '+'; font-size: 16px; }
 #api-edit-modal .api-editor-help[open] summary::before { content: '−'; }

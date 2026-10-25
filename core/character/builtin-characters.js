@@ -211,6 +211,7 @@
         const char = build(item, avatar, gallery, extras);
         ensureUserPersona(item);
         applyUserPersona(item, char);
+        if (typeof seedWechatCharacterGreeting === 'function') seedWechatCharacterGreeting(char);
         roster().push(char);
         let saved = true;
         try {
@@ -371,8 +372,8 @@
                                 <p>${escape(item.tagline)}</p>
                                 <div class="bynd-builtin-tags">${(item.tags || []).map(tag => `<span>${escape(tag)}</span>`).join('')}</div>
                             </div>
-                            ${item.added ? `<button type="button" class="is-repair" ${item.complete ? 'disabled' : ''} onclick="ByndBuiltinLibrary.fix('${escape(item.id)}')">${item.complete ? '已添加' : '补齐素材'}</button>` : `<button type="button" onclick="ByndBuiltinLibrary.pick('${escape(item.id)}')">添加</button>`}
-                            ${item.added ? `<p class="bynd-builtin-state${item.complete ? ' is-ok' : ''}">头像 ${item.status.gallery}/${item.status.galleryWanted} · 封面 ${item.status.cover ? '✓' : '缺'} · 参考图 ${item.status.reference ? '✓' : '缺'}${item.status.backgroundsWanted ? ` · 背景 ${item.status.backgrounds}/${item.status.backgroundsWanted}` : ''}${lastError(item.id) ? `<br>${escape(lastError(item.id))}` : ''}</p>` : ''}
+                            ${item.added ? (item.complete ? `<button type="button" class="is-chat" onclick="ByndBuiltinLibrary.chat('${escape(item.id)}')">去聊天</button>` : `<button type="button" class="is-repair" onclick="ByndBuiltinLibrary.fix('${escape(item.id)}')">补齐素材</button>`) : `<button type="button" onclick="ByndBuiltinLibrary.pick('${escape(item.id)}')">添加</button>`}
+                            ${item.added && !item.complete ? `<p class="bynd-builtin-state" title="${escape(lastError(item.id) || '')}">有些图片还没下载完，点「补齐素材」再试一次。</p>` : ''}
                         </article>`).join('')}
                     ${items.length ? '' : '<p class="bynd-builtin-empty">内置角色文件没有加载，请刷新后重试。</p>'}
                     <p class="bynd-builtin-status" role="status">${escape(status)}</p>
@@ -441,5 +442,11 @@
         open();
         return true;
     }
-    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, maybePrompt, repair, artwork, monogram, avatarOptions, backgroundOptions };
+    function chat(id) {
+        const char = findAdded(id);
+        if (!char || typeof openChat !== 'function') return;
+        close();
+        openChat(char.id);
+    }
+    window.ByndBuiltinLibrary = { list, isAdded, add, open, close, pick, pickAll, fix, chat, maybePrompt, repair, artwork, monogram, avatarOptions, backgroundOptions };
 })();
