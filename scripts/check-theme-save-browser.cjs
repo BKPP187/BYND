@@ -14,6 +14,7 @@ fs.mkdirSync(output, { recursive: true });
     let nativeDialogs = 0;
     page.on('dialog', async dialog => { nativeDialogs++; await dialog.dismiss(); });
     try {
+        await page.addInitScript(() => localStorage.setItem('bynd_onboarding_v1', JSON.stringify({ status: 'skipped' })));
         await page.goto(pathToFileURL(path.join(root, 'index.html')).href);
         await page.waitForFunction(() => typeof saveTheme === 'function' && typeof unlockPhone === 'function');
         await page.evaluate(async () => {

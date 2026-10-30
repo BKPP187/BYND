@@ -2114,7 +2114,7 @@ function openThemeSection(section) {
     if (title) title.textContent = key ? THEME_SECTION_TITLES[key] : '个性化设置';
     const back = document.getElementById('theme-header-back');
     if (back) {
-        back.innerHTML = key ? '<i class="ri-arrow-left-s-line" aria-hidden="true"></i>返回' : '取消';
+        back.innerHTML = key ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>返回' : '取消';
         back.setAttribute('role', 'button');
         back.setAttribute('aria-label', key ? '返回个性化设置' : '取消并关闭');
     }
@@ -2132,13 +2132,25 @@ function handleThemeHeaderBack() {
 window.handleThemeHeaderBack = handleThemeHeaderBack;
 
 // Short live summaries on the tiles; each read is optional and never blocks the home grid.
+// Refresh previews on return so unsaved wallpaper choices are visible, without reading storage.
 function updateThemeHomeSummaries() {
     const set = (key, text) => { const node = document.querySelector(`[data-theme-summary="${key}"]`); if (node && text) node.textContent = text; };
     const checked = id => document.getElementById(id)?.checked;
     try {
         const lockOn = checked('lock-enabled');
-        set('wallpaper', `${lockOn === false ? '锁屏已关' : '锁屏 · 桌面'} · 时间颜色`);
+        set('wallpaper', lockOn === false ? '锁屏已关闭 · 桌面背景' : '锁屏与桌面背景');
     } catch (_) {}
+    for (const [key, screenId, inputId] of [['lock', 'lock-screen', 'input-wp-lock'], ['home', 'home-screen', 'input-wp-home']]) {
+        const preview = document.querySelector(`[data-theme-preview="${key}"]`);
+        const screen = document.getElementById(screenId);
+        if (!preview || !screen) continue;
+        const source = document.getElementById(inputId)?.value;
+        const style = getComputedStyle(screen);
+        preview.style.backgroundImage = source ? `url(${JSON.stringify(source)})` : style.backgroundImage;
+        preview.style.backgroundColor = style.backgroundColor;
+    }
+    const clock = document.querySelector('.theme-mini-clock');
+    if (clock) clock.textContent = document.querySelector('.ls-clock')?.textContent || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
     if (typeof getThemeLibraryStore === 'function') Promise.resolve().then(getThemeLibraryStore).then(list => {
         if (Array.isArray(list)) set('library', list.length ? `已保存 ${list.length} 套主题` : '保存与套用整套主题');
     }).catch(() => {});

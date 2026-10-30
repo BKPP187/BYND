@@ -64,7 +64,7 @@ fs.mkdirSync(output, { recursive: true });
             const layout = await page.evaluate(() => {
                 const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width }; };
                 const card = document.querySelector('.tripo-settings');
-                return { close: rect('#app-settings-window .close-btn'), key: rect('#tripo-key'), card: rect('.tripo-settings'), scrollWidth: card.scrollWidth };
+                return { close: rect('#app-settings-window .set-back-btn'), key: rect('#tripo-key'), card: rect('.tripo-settings'), scrollWidth: card.scrollWidth };
             });
             assert.ok(layout.close.top >= safe, JSON.stringify({ width, safe, owner, layout }));
             assert.ok(layout.key.left >= 0 && layout.key.right <= width + 1, JSON.stringify(layout));

@@ -200,6 +200,7 @@ const styleParts = [
     'apps/wechat/moments/live-room.css',
     'apps/settings/vivix.css',
     'apps/settings/settings-layout.css',
+    'ui/theme/ice-atelier.css',
     'apps/wechat/ui/pay-cards.css'
 ];
 

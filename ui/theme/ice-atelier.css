@@ -1,0 +1,280 @@
+/* Ice Atelier — shared porcelain, silver linework and editorial type.
+   Tokens live on the phone so settings editors and select sheets outside app windows inherit them. */
+.phone-container {
+    --atelier-paper: #f7f8f8;
+    --atelier-glass: rgba(255, 255, 255, .8);
+    --atelier-solid: #ffffff;
+    --atelier-ink: #1b1e23;
+    --atelier-sub: #626c77;
+    --atelier-faint: #9aa6b1;
+    --atelier-line: rgba(44, 58, 73, .24);
+    --atelier-wash: #e7eef3;
+    --atelier-accent: #516b80;
+    --atelier-button: linear-gradient(135deg, #536677, #1f2e3a);
+    --atelier-shadow: 0 6px 20px #263c4c09, inset 0 1px #ffffff;
+    --atelier-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', Georgia, serif;
+    --atelier-ease: cubic-bezier(.23, 1, .32, 1);
+}
+html[data-bynd-tone="dark"] .phone-container {
+    --atelier-paper: #101f2b;
+    --atelier-glass: rgba(24, 44, 59, .84);
+    --atelier-solid: #172e3e;
+    --atelier-ink: #e0eef8;
+    --atelier-sub: #abc5d7;
+    --atelier-faint: #7f9fb6;
+    --atelier-line: rgba(153, 191, 216, .28);
+    --atelier-wash: #203f54;
+    --atelier-accent: #b2d7ee;
+    --atelier-button: linear-gradient(135deg, #527f9d, #335d7a);
+    --atelier-shadow: 0 8px 24px #0000001c, inset 0 1px #c6e6ff18;
+}
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window {
+    --set-bg: var(--atelier-paper);
+    --set-card: var(--atelier-glass);
+    --set-line: var(--atelier-line);
+    --set-text: var(--atelier-ink);
+    --set-sub: var(--atelier-sub);
+    --set-faint: var(--atelier-faint);
+    --set-ink: var(--atelier-accent);
+    --set-tile: var(--atelier-wash);
+    --set-radius: 14px;
+    --bynd-text: var(--atelier-ink);
+    --bynd-muted: var(--atelier-sub);
+    --bynd-faint: var(--atelier-faint);
+    --bynd-border: var(--atelier-line);
+    --bynd-surface: var(--atelier-glass);
+    --bynd-surface-solid: var(--atelier-solid);
+    --bynd-control-bg: var(--atelier-wash);
+    --bynd-accent: var(--atelier-accent);
+    --bynd-accent-soft: var(--atelier-line);
+    --bynd-accent-faint: var(--atelier-wash);
+    background: var(--atelier-paper) !important;
+    color: var(--atelier-ink) !important;
+    transition: transform 340ms cubic-bezier(.32,.72,0,1);
+    isolation: isolate;
+}
+.atelier-ornament { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; background: url('../../assets/ui/ice-atelier/celestial-lines.svg') center top / 100% auto no-repeat, radial-gradient(ellipse at 100% 15%, #bed2e128, transparent 45%); }
+.atelier-orbit { position: absolute; top: 100px; right: -90px; width: 260px; height: 260px; border: 1px solid var(--atelier-line); border-radius: 50%; }
+.atelier-orbit::before { content: ''; position: absolute; inset: -13px; border: 1px dashed var(--atelier-line); border-radius: inherit; }
+.atelier-orbit::after { content: ''; position: absolute; top: 20px; left: 22px; width: 9px; height: 9px; border: 1px solid #fff; border-radius: 50%; background: #97c6e5; box-shadow: 0 0 12px #a8d9fa; }
+.atelier-illustration { position: absolute; top: auto; bottom: -30px; right: -35px; width: 180px; height: 270px; background: url('../../assets/ui/ice-atelier/hydrangea-swallow.png') center / contain no-repeat; opacity: .22; }
+.atelier-star { position: absolute; top: 165px; left: 22px; width: 14px; height: 14px; background: var(--atelier-accent); clip-path: polygon(50% 0,59% 41%,100% 50%,59% 59%,50% 100%,41% 59%,0 50%,41% 41%); opacity: .5; }
+/* Preserve the existing parent/header safe-area contract and its 55px toolbar. */
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header {
+    position: relative;
+    padding-left: 18px; padding-right: 18px;
+    background: color-mix(in srgb, var(--atelier-paper) 83%, transparent) !important;
+    color: var(--atelier-ink) !important;
+    border-bottom: 1px solid var(--atelier-line) !important;
+    backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;
+}
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3 { color: var(--atelier-ink) !important; font: 500 18px/1.4 var(--atelier-display); letter-spacing: 2px; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3::before,
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3::after { content: '✧'; display: inline-block; padding: 0 8px; font: 12px Georgia, serif; color: var(--atelier-faint); vertical-align: 2px; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header :is(.close-btn, .set-back-btn, .save-btn, .bynd-settings-search) { min-height: 44px; border: 0; background: transparent; color: var(--atelier-sub) !important; font-family: inherit; font-size: 13px; cursor: pointer; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header .close-btn { min-width: 44px; padding: 0; text-align: left; }
+.atelier-surface > .window-header svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header .bynd-settings-search { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--atelier-line); border-radius: 50%; box-shadow: inset 0 0 0 4px var(--atelier-paper); background: var(--atelier-glass); }
+html #app-theme-window.atelier-surface.app-window > .window-header .save-btn { color: #fff !important; letter-spacing: 1px; }
+html #app-theme-window.atelier-surface > .window-header .save-btn::before { border: 1px solid #b4cedc; border-radius: 4px 10px 4px 10px; background: var(--atelier-button); box-shadow: inset 0 1px #ffffff66, 0 3px 9px #416f8a20; }
+/* The navigation is a set of numbered paper tickets, not an iOS grouped table. */
+html #app-settings-window.atelier-surface .set-nav { position: relative; padding: 10px 20px 32px; background: transparent !important; counter-reset: atelier-group; }
+#app-settings-window.atelier-surface .set-home-group { counter-increment: atelier-group; position: relative; margin-top: 25px; }
+#app-settings-window.atelier-surface .set-home-label { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--atelier-ink); font: 500 14px/1.5 var(--atelier-display); letter-spacing: 2px; }
+#app-settings-window.atelier-surface .set-home-label::before { content: '0' counter(atelier-group); color: var(--atelier-accent); font: italic 24px/1 Georgia, serif; letter-spacing: -1px; margin-right: 3px; }
+#app-settings-window.atelier-surface .set-home-label::after { content: '✧'; flex: 1; color: var(--atelier-faint); font: 13px/1 Georgia, serif; text-align: right; background: linear-gradient(var(--atelier-line), var(--atelier-line)) left center / calc(100% - 22px) 1px no-repeat; }
+html #app-settings-window.atelier-surface .set-nav-tab,
+html #app-settings-window.atelier-surface .set-nav-tab.active {
+    min-height: 64px; margin: 8px 0; padding: 13px 14px; gap: 12px;
+    border: 1px solid var(--atelier-line) !important;
+    border-radius: 0 !important;
+    background: var(--atelier-glass) !important;
+    box-shadow: none !important; overflow: hidden;
+    transition: transform 160ms var(--atelier-ease), border-color 160ms ease;
+}
+#app-settings-window.atelier-surface .set-nav-tab + .set-nav-tab::before { display: none; }
+#app-settings-window.atelier-surface .set-home-group > .set-nav-tab:first-of-type,
+#app-settings-window.atelier-surface .set-home-group > .set-nav-tab:last-of-type { border-radius: 0 !important; }
+#app-settings-window.atelier-surface .set-row-title { color: var(--atelier-ink); font: 500 16px/1.4 var(--atelier-display); letter-spacing: .4px; }
+#app-settings-window.atelier-surface .set-row-value { font-size: 11px; line-height: 1.5; color: var(--atelier-sub); }
+#app-settings-window.atelier-surface .set-row-chevron { width: 6px; height: 6px; margin: 0 0 0 2px; border-right: 1px solid var(--atelier-accent); border-top: 1px solid var(--atelier-accent); transform: rotate(45deg); }
+#app-settings-window.atelier-surface .set-row-chevron::before { content: none; }
+#app-settings-window.atelier-surface .set-nav-icon { flex: none; box-sizing: content-box; width: 21px; height: 21px; padding: 8px; border: 1px solid var(--atelier-line); border-radius: 0; background: transparent; fill: none; stroke: var(--atelier-ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+/* The model connection is the first point of entry; give it one editorial feature treatment. */
+html #app-settings-window.atelier-surface #settings-nav-api { display: grid; grid-template-columns: 46px minmax(0, 1fr) 10px; column-gap: 14px; row-gap: 4px; min-height: 90px; padding: 18px; background: #25333e !important; border-color: #25333e !important; }
+#app-settings-window.atelier-surface #settings-nav-api .set-nav-icon { grid-row: 1 / 3; width: 25px; height: 25px; padding: 9px; border-radius: 50% 50% 4px 4px; }
+#app-settings-window.atelier-surface #settings-nav-api .set-row-title { color: #fff; font: 400 27px/1 Georgia, var(--atelier-display); letter-spacing: 2px; }
+#app-settings-window.atelier-surface #settings-nav-api .set-row-value { color: #d0dce5; grid-row: 2; grid-column: 2; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+#app-settings-window.atelier-surface #settings-nav-api .set-nav-icon { stroke: #e4eef5; border-color: #b7c9d055; border-radius: 0; }
+#app-settings-window.atelier-surface #settings-nav-api .set-row-chevron { border-color: #d0dce5; }
+#app-settings-window.atelier-surface #settings-nav-api .set-row-chevron { grid-row: 1 / 3; grid-column: 3; }
+#app-settings-window.atelier-surface .set-version { color: var(--atelier-sub); font: 11px Georgia, serif; letter-spacing: 3px; }
+/* Personalization uses the same ticket, medallion and star-divider vocabulary. */
+html #app-theme-window.atelier-surface > .window-content { position: relative; padding: 22px 20px 32px; background: transparent !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#app-theme-window.atelier-surface .theme-home { gap: 25px; }
+#app-theme-window.atelier-surface .theme-home-group h4 { display: flex; align-items: center; gap: 10px; margin: 0 1px 12px; color: var(--atelier-ink); font: 500 14px/1.4 var(--atelier-display); letter-spacing: 2px; }
+#app-theme-window.atelier-surface .theme-home-group h4::after { content: '✧'; flex: 1; background: linear-gradient(var(--atelier-line), var(--atelier-line)) left center / calc(100% - 22px) 1px no-repeat; color: var(--atelier-faint); text-align: right; font: 13px Georgia, serif; }
+#app-theme-window.atelier-surface .theme-home-tile { color: var(--atelier-ink); min-height: 79px; padding: 15px; gap: 13px; }
+#app-theme-window.atelier-surface .theme-home-tile strong { color: var(--atelier-ink); font: 500 17px/1.4 var(--atelier-display); letter-spacing: .7px; }
+#app-theme-window.atelier-surface .theme-home-tile small { color: var(--atelier-sub); font-size: 11px; line-height: 1.65; }
+#app-theme-window.atelier-surface :is(.theme-home-list, .theme-wallpaper-entry, .theme-library-entry) { border: 1px solid var(--atelier-line); border-radius: 4px 19px 4px 19px; background: var(--atelier-glass); box-shadow: var(--atelier-shadow); }
+#app-theme-window.atelier-surface .theme-entry-icon { width: 37px; height: 37px; border-radius: 50%; border-color: var(--atelier-line); color: var(--atelier-accent); background: linear-gradient(135deg, var(--atelier-solid), var(--atelier-wash)); box-shadow: inset 0 0 0 3px var(--atelier-solid); }
+#app-theme-window.atelier-surface .theme-entry-chevron { border-color: var(--atelier-accent); }
+#app-theme-window.atelier-surface .theme-home-list .theme-home-tile + .theme-home-tile::before { left: 65px; right: 14px; background: var(--atelier-line); }
+#app-theme-window.atelier-surface .theme-wallpaper-entry { position: relative; min-height: 188px; padding: 24px 21px; overflow: visible; background: linear-gradient(120deg, var(--atelier-glass) 25%, color-mix(in srgb, var(--atelier-wash) 55%, var(--atelier-glass))); }
+#app-theme-window.atelier-surface .theme-wallpaper-entry::before { content: '01 / WALLPAPER'; position: absolute; top: 13px; left: 22px; color: var(--atelier-sub); font: 8px Georgia, serif; letter-spacing: 2px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry::after { content: '✧'; position: absolute; right: 13px; top: -13px; color: var(--atelier-accent); font: 30px Georgia, serif; text-shadow: 0 0 9px var(--atelier-solid); }
+#app-theme-window.atelier-surface .theme-wallpaper-entry strong { font-size: 27px; letter-spacing: 3px; margin-top: 10px; }
+#app-theme-window.atelier-surface .theme-entry-link { color: var(--atelier-accent); font-size: 11px; letter-spacing: .7px; margin-top: 13px; }
+#app-theme-window.atelier-surface .theme-wallpaper-previews { gap: 10px; transform: rotate(-5deg); }
+#app-theme-window.atelier-surface .theme-mini-phone { width: 59px; height: 120px; border-color: #f7fbff; outline-color: #a4bed0; box-shadow: 5px 9px 13px #4e79952a, inset 0 0 0 1px #fff; }
+#app-theme-window.atelier-surface .theme-mini-home { transform: translateY(12px) rotate(8deg); }
+#app-theme-window.atelier-surface .theme-mini-lock { transform: translateY(-5px); }
+#app-theme-window.atelier-surface .theme-library-entry { position: relative; border-radius: 15px 4px 15px 4px; background: linear-gradient(110deg, var(--atelier-wash), var(--atelier-glass)); }
+#app-theme-window.atelier-surface .theme-library-entry::after { content: ''; position: absolute; right: 22px; top: -5px; width: 9px; height: 18px; background: var(--atelier-accent); clip-path: polygon(0 0,100% 0,100% 100%,50% 73%,0 100%); opacity: .65; }
+/* Shared detail-page surfaces and fields. Existing validation colours and status text remain semantic. */
+html #app-settings-window.atelier-surface.app-window .window-content,
+html #app-settings-window.atelier-surface .window-content:has(#settings-tab-api:not([hidden])) { background: transparent !important; color: var(--atelier-ink) !important; }
+.atelier-surface.settings-detail .atelier-illustration,
+.atelier-surface.theme-section-open .atelier-illustration { opacity: .16; }
+html #app-settings-window.atelier-surface :is(.tripo-settings, .vivix-settings, .bynd-jev-card, .notify-card, .font-batch-box, .font-preview-box, .set-diagnostics, .set-data-btn, .bynd-about-card, .api-route-grid, .api-image-options, .api-image-usage, .call-voice-settings),
+html #app-theme-window.atelier-surface .setting-card { border: 1px solid var(--atelier-line) !important; border-radius: 4px 18px 4px 18px !important; background: var(--atelier-glass) !important; box-shadow: var(--atelier-shadow) !important; color: var(--atelier-ink) !important; }
+html #app-theme-window.atelier-surface .card-header { color: var(--atelier-ink) !important; font-family: var(--atelier-display); font-weight: 500; letter-spacing: .8px; }
+html #app-theme-window.atelier-surface .card-icon { color: var(--atelier-accent) !important; background: var(--atelier-wash) !important; border: 1px solid var(--atelier-line); border-radius: 50%; }
+html #app-theme-window.atelier-surface :is(.theme-section-note, .lock-clock-color-head span) { color: var(--atelier-sub) !important; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window :is(input:not([type="checkbox"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, select, .bynd-sheet-trigger, .input-bubble, .upload-box, .ls-shortcut-select, .widget-text-input) { background: var(--atelier-solid) !important; border-color: var(--atelier-line) !important; color: var(--atelier-ink) !important; border-radius: 8px; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window :is(input, textarea)::placeholder { color: var(--atelier-faint) !important; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window :is(input, textarea, button, select):focus-visible { outline: 2px solid var(--atelier-accent); outline-offset: 3px; }
+html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window :is(.set-add-btn, .tripo-save, .vivix-actions button:last-child, .theme-library-save button, .theme-library-item .apply, .desktop-layout-entry button, .desktop-edit-actions .primary) { color: #fff !important; background: var(--atelier-button) !important; border: 1px solid #aac7d8 !important; border-radius: 5px 12px 5px 12px !important; box-shadow: inset 0 1px #ffffff55; }
+html #app-theme-window.atelier-surface :is(.theme-check-card, .lockscreen-mode-card, .pretty-icon-item, .widget-config-item) { color: var(--atelier-ink) !important; background: var(--atelier-solid) !important; border-color: var(--atelier-line) !important; }
+html #app-theme-window.atelier-surface :is(.theme-check-card, .lockscreen-mode-card) input { accent-color: var(--atelier-accent); }
+html #app-theme-window.atelier-surface .theme-check-card input:checked ~ span::after { color: var(--atelier-accent); }
+/* All settings editors are siblings of their app window. Keep them on the same inherited tokens. */
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal).wc-modal-overlay,
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card { background: var(--atelier-paper) !important; color: var(--atelier-ink) !important; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) { --api-text: var(--atelier-ink); --api-muted: var(--atelier-sub); --api-border: var(--atelier-line); --api-surface: var(--atelier-solid); --bynd-accent-faint: var(--atelier-wash); }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card { background-image: url('../../assets/ui/ice-atelier/celestial-lines.svg') !important; background-position: center top !important; background-size: 100% auto !important; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) > .wc-char-card > :is(.wc-card-header, .wc-card-footer) { background: var(--atelier-paper) !important; color: var(--atelier-ink) !important; border-color: var(--atelier-line) !important; }
+.phone-container .bynd-sheet-layer { --sheet-text: var(--atelier-ink); --sheet-sub: var(--atelier-sub); --sheet-faint: var(--atelier-faint); --sheet-line: var(--atelier-line); --sheet-ink: var(--atelier-accent); background: #18344955; }
+.phone-container .bynd-sheet { background: var(--atelier-solid); border: 1px solid var(--atelier-line); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 48px #315f7a22, inset 0 3px var(--atelier-wash); }
+.phone-container .bynd-sheet-head strong { font-family: var(--atelier-display); letter-spacing: 1px; }
+.phone-container .bynd-sheet-option[aria-selected="true"] { background: var(--atelier-wash); color: var(--atelier-ink); }
+.phone-container .bynd-sheet-option > i::before { content: '✓'; font: 17px Georgia, serif; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) :is(input:not([type="checkbox"]), textarea, select, .bynd-sheet-trigger) { color: var(--atelier-ink) !important; background: var(--atelier-solid) !important; border-color: var(--atelier-line) !important; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) :is(.wc-card-header > span, .wc-form-group > label, .wc-card-header .ri-close-line) { color: var(--atelier-ink) !important; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) .wc-card-header .ri-close-line::before { content: '×'; font: 26px Georgia, serif; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) .wc-card-footer button { border: 1px solid var(--atelier-line) !important; background: var(--atelier-solid) !important; color: var(--atelier-ink) !important; border-radius: 5px 12px 5px 12px !important; }
+:is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) .wc-card-footer button:last-child { background: var(--atelier-button) !important; color: #fff !important; }
+.phone-container .theme-save-feedback { color: var(--atelier-ink); background: var(--atelier-solid); border: 1px solid var(--atelier-line); border-radius: 4px 24px 4px 24px; box-shadow: 0 20px 80px #234f6e33, inset 0 0 0 5px var(--atelier-paper); }
+.phone-container .theme-save-feedback::backdrop { background: #193c5555; }
+.phone-container .theme-save-feedback h2 { font: 500 22px/1.5 var(--atelier-display); letter-spacing: 2px; }
+.phone-container .theme-save-feedback p { color: var(--atelier-sub); }
+.phone-container .theme-save-feedback-mark { background: var(--atelier-wash); border-color: var(--atelier-line); color: var(--atelier-accent); }
+.phone-container .theme-save-feedback button { border-radius: 4px 12px 4px 12px; background: var(--atelier-button); border-color: var(--atelier-line); }
+/* Editorial covers: original figure, oversized letterforms and geometric layers.
+   The personalization cover is itself the wallpaper action; settings keeps its first action directly below. */
+.atelier-cover { position: relative; isolation: isolate; }
+.atelier-cover-composition { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
+.atelier-settings-cover { height: 292px; margin: 3px -20px -7px; }
+.atelier-cover-kicker { position: absolute; top: 3px; left: 20px; z-index: 4; padding-top: 7px; border-top: 1px solid var(--atelier-ink); color: var(--atelier-sub); font: 8px/1.4 Georgia, serif; letter-spacing: 2px; }
+.atelier-cover-index { position: absolute; z-index: 4; top: 0; right: 20px; color: var(--atelier-ink); font: 400 32px/.9 'Bodoni MT', 'Times New Roman', serif; letter-spacing: -2px; }
+.atelier-cover-word, .atelier-cover-reflection { position: absolute; z-index: 3; left: -4px; right: 0; top: 66px; color: var(--atelier-ink); font: 400 clamp(57px, 20vw, 91px)/1 'Bodoni MT', Didot, 'Times New Roman', serif; letter-spacing: -5px; text-align: center; white-space: nowrap; }
+.atelier-cover-reflection { z-index: 1; top: 123px; transform: scaleY(-.85) skewX(-8deg); opacity: .1; filter: blur(1px); }
+/* Fit the complete word to the phone's cover, including after a global font change.
+   SVG textLength bounds the glyphs; the inner margin also clears the reflection's skew. */
+html :is(#app-settings-window, #app-theme-window).atelier-surface .atelier-cover-composition > :is(.atelier-cover-word, .atelier-cover-reflection) {
+    display: block;
+    left: 12px;
+    right: auto;
+    width: calc(100% - 24px);
+    height: auto;
+    aspect-ratio: 1000 / 240;
+    fill: currentColor;
+    stroke: none;
+    overflow: visible;
+}
+.atelier-cover-composition > :is(.atelier-cover-word, .atelier-cover-reflection) > text { font-size: 200px; letter-spacing: 0; fill: currentColor; stroke: none; }
+.atelier-cover-figure { position: absolute; z-index: 2; left: 50%; top: -5px; width: 255px; height: 298px; transform: translateX(-50%); background: url('../../assets/ui/ice-atelier/silver-muse.png') center / contain no-repeat; }
+.atelier-cover-orbit { position: absolute; left: 50%; top: 10px; width: 265px; height: 265px; margin-left: -132px; border: 1px solid var(--atelier-line); border-radius: 50%; }
+.atelier-cover-orbit::before { content: ''; position: absolute; inset: 22px -38px; border: 1px solid var(--atelier-line); border-radius: 50%; transform: rotate(-32deg); }
+.atelier-cover-orbit::after { content: ''; position: absolute; inset: 14px; border: 1px dashed var(--atelier-line); border-radius: 50%; }
+.atelier-cover-side { position: absolute; z-index: 4; bottom: 20px; left: 22px; color: var(--atelier-sub); font: 7px/1.4 Georgia, serif; letter-spacing: 1.4px; writing-mode: vertical-rl; }
+#app-settings-window.atelier-surface .atelier-settings-cover + .set-home-group { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 0; }
+#app-settings-window.atelier-surface .atelier-settings-cover + .set-home-group .set-home-label { grid-column: 1 / -1; margin: 0 0 2px; }
+html #app-settings-window.atelier-surface .atelier-settings-cover + .set-home-group .set-nav-tab { min-width: 0; margin: 0; }
+#app-settings-window.atelier-surface .atelier-settings-cover + .set-home-group #settings-nav-api,
+#app-settings-window.atelier-surface .atelier-settings-cover + .set-home-group #settings-nav-3d { grid-column: 1 / -1; }
+html #app-settings-window.atelier-surface :is(#settings-nav-voice, #settings-nav-video) { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 8px; min-height: 90px; padding: 12px; }
+#app-settings-window.atelier-surface :is(#settings-nav-voice, #settings-nav-video) .set-nav-icon { grid-row: 1 / 3; padding: 5px; width: 18px; height: 18px; }
+#app-settings-window.atelier-surface :is(#settings-nav-voice, #settings-nav-video) .set-row-title { align-self: end; font-size: 15px; }
+#app-settings-window.atelier-surface :is(#settings-nav-voice, #settings-nav-video) .set-row-value { grid-column: 2; text-align: left; align-self: start; }
+#app-settings-window.atelier-surface :is(#settings-nav-voice, #settings-nav-video) .set-row-chevron { display: none; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry.atelier-cover { min-height: 380px; padding: 0; border: 0; border-bottom: 1px solid var(--atelier-ink); border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry.atelier-cover::before { content: none; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry.atelier-cover::after { top: auto; bottom: -10px; right: 0; font-size: 20px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .atelier-cover-kicker { left: 0; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .atelier-cover-index { right: 0; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .atelier-cover-word { top: 75px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .atelier-cover-reflection { top: 131px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .atelier-cover-figure { height: 307px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry > .theme-entry-copy { position: absolute; z-index: 4; bottom: 16px; left: 0; max-width: 52%; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry strong { font-size: 25px; letter-spacing: 2px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-entry-link { margin-top: 7px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-wallpaper-previews { position: absolute; z-index: 4; right: 8px; bottom: 23px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-mini-phone { width: 43px; height: 86px; border-width: 2px; border-radius: 7px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-mini-clock { font-size: 11px; margin-top: 15px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-mini-apps { grid-template-columns: repeat(3, 7px); gap: 4px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-mini-apps i { width: 7px; height: 7px; border-radius: 2px; }
+#app-theme-window.atelier-surface .theme-wallpaper-entry .theme-mini-widgets { margin-top: 14px; height: 17px; }
+#app-theme-window.atelier-surface .theme-home-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+#app-theme-window.atelier-surface .theme-home-list .theme-home-tile { position: relative; min-height: 122px; flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px 13px; background: var(--atelier-glass); border: 1px solid var(--atelier-line); }
+#app-theme-window.atelier-surface .theme-home-list .theme-home-tile::before { display: none; }
+#app-theme-window.atelier-surface .theme-home-list .theme-entry-chevron { position: absolute; top: 20px; right: 12px; }
+#app-theme-window.atelier-surface .theme-entry-icon { width: 30px; height: 30px; border-radius: 0; background: transparent; box-shadow: none; color: var(--atelier-ink); }
+#app-theme-window.atelier-surface .theme-library-entry { border-radius: 0; background: var(--atelier-glass); box-shadow: none; }
+/* Motion: groups enter like sheets, phones float, the orbit turns, stars breathe.
+   Infinite decoration runs only while its app is active. No animated blur or layout properties. */
+.atelier-surface.active:not(.settings-detail) .set-home-group,
+.atelier-surface.active .theme-home > :is(button, section),
+.atelier-surface.settings-detail .set-nav-panel:not([hidden]),
+.atelier-surface.theme-section-open .setting-card:not([hidden]) { animation: atelier-arrive 280ms var(--atelier-ease) backwards; }
+.atelier-surface.active .set-home-group:nth-child(2), .atelier-surface.active .theme-home > :nth-child(2) { animation-delay: 45ms; }
+.atelier-surface.active .set-home-group:nth-child(3), .atelier-surface.active .theme-home > :nth-child(3) { animation-delay: 90ms; }
+.atelier-surface.active .set-home-group:nth-child(n+4), .atelier-surface.active .theme-home > :nth-child(4) { animation-delay: 130ms; }
+.atelier-surface.active .atelier-orbit { animation: atelier-orbit 48s linear infinite; }
+.atelier-surface.active .atelier-star { animation: atelier-star 4s ease-in-out infinite; }
+.atelier-surface.active .atelier-illustration { animation: atelier-botanical 9s ease-in-out infinite; }
+.atelier-surface.active .atelier-cover-figure { animation: atelier-muse 8s ease-in-out infinite; }
+.atelier-surface.active .atelier-cover-orbit { animation: atelier-orbit 40s linear infinite; }
+#app-theme-window.atelier-surface.active:not(.theme-section-open) .theme-mini-lock { animation: atelier-phone 6s ease-in-out infinite; }
+html #app-settings-window.atelier-surface .set-nav-tab:active,
+#app-theme-window.atelier-surface .theme-home-tile:active { transform: scale(.975); border-color: var(--atelier-accent) !important; }
+@media (hover: hover) and (pointer: fine) {
+    html #app-settings-window.atelier-surface .set-nav-tab:hover,
+    #app-theme-window.atelier-surface .theme-home-tile:hover { border-color: var(--atelier-accent) !important; transform: translateY(-2px); }
+}
+@keyframes atelier-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes atelier-orbit { to { transform: rotate(360deg); } }
+@keyframes atelier-star { 0%,100% { opacity: .25; transform: scale(.8); } 50% { opacity: .85; transform: scale(1.1) rotate(12deg); } }
+@keyframes atelier-phone { 0%,100% { transform: translateY(-5px) rotate(-2deg); } 50% { transform: translateY(1px) rotate(1deg); } }
+@keyframes atelier-botanical { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(5px) rotate(1deg); } }
+@keyframes atelier-muse { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(5px); } }
+@media (max-width: 350px) {
+    html #app-settings-window.atelier-surface .set-nav,
+    html #app-theme-window.atelier-surface > .window-content { padding-left: 14px; padding-right: 14px; }
+    #app-theme-window.atelier-surface .theme-wallpaper-entry { padding-left: 16px; padding-right: 16px; }
+    #app-theme-window.atelier-surface .theme-mini-phone { width: 49px; height: 106px; }
+    #app-settings-window.atelier-surface .set-row-title { font-size: 15px; }
+    #app-settings-window.atelier-surface .set-row-value { font-size: 10px; }
+    .atelier-settings-cover { margin-left: -14px; margin-right: -14px; }
+    html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3 { font-size: 16px; letter-spacing: 1px; }
+    html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3::before,
+    html :is(#app-settings-window, #app-theme-window).atelier-surface.app-window > .window-header h3::after { padding: 0 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .atelier-surface.app-window, .atelier-surface *, .atelier-surface *::before, .atelier-surface *::after { animation: none !important; transition: none !important; }
+    html #app-settings-window.atelier-surface .set-nav-tab:hover,
+    html #app-settings-window.atelier-surface .set-nav-tab:active,
+    #app-theme-window.atelier-surface .theme-home-tile:hover,
+    #app-theme-window.atelier-surface .theme-home-tile:active { transform: none; }
+}
