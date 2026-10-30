@@ -394,11 +394,14 @@ test('a newly added built-in character opens with its card greeting and offers t
     h.context.openChat = id => opened.push(id);
     const char = await h.L.add('wenjinbei');
     const card = h.context.window.ByndBuiltinCharacters.characters.find(item => item.id === 'wenjinbei');
-    assert.equal(char.history.length, 1);
-    assert.equal(char.history[0].isMe, false);
-    assert.equal(char.history[0].content, card.first_mes.trim());
+    assert.ok(char.history.length >= 2, 'scene and dialogue use separate bubbles');
+    assert.ok(char.history.every(msg => !msg.isMe));
+    assert.equal(char.history[0].type, 'offline_narration');
+    assert.equal(char.history.at(-1).type, 'text');
+    assert.equal(char.history.map(msg => msg.content).join(''), card.first_mes.trim());
+    const greetingCount = char.history.length;
     await h.L.add('wenjinbei');
-    assert.equal(char.history.length, 1, 'adding again does not repeat the greeting');
+    assert.equal(char.history.length, greetingCount, 'adding again does not repeat the greeting');
     h.L.chat('wenjinbei');
     assert.deepEqual(opened, [char.id]);
 });

@@ -103,6 +103,43 @@ async function createWechatChatWindow(baseId = window.currentChatCharId) {
 }
 window.createWechatChatWindow = createWechatChatWindow;
 
+// Repair only an untouched, legacy window opening. Edited messages and windows
+// with an ongoing conversation keep their existing history and references.
+async function repairWechatChatWindowGreeting(char) {
+    if (!isWechatChatWindow(char) || !char.history?.length) return false;
+    const originals = char.history.slice();
+    if (originals.some(msg => !msg || msg.isMe || !['text', 'offline_narration'].includes(msg.type) || msg.isSystem || msg.hiddenFromChat)) return false;
+    const content = getWechatCharacterGreetingContent(char);
+    const parts = splitWechatCharacterGreeting(content, char);
+    if (!parts.length) return false;
+    const unsplit = originals.length === 1 && String(originals[0].content || '').trim() === content;
+    const split = originals.length === parts.length && originals.every((msg, index) => msg.content === parts[index].content);
+    if (!unsplit && !split) return false;
+    if (split && originals.every((msg, index) => msg.type === parts[index].type)) return false;
+    // Rendering normalizes narration by cloning messages. An enumerable symbol
+    // survives that clone but is omitted from JSON, so rollback still finds the
+    // inserted bubbles without persisting a repair marker.
+    const repairMarker = Symbol('wechatGreetingRepair');
+    const messages = parts.map((part, index) => ({ ...(split ? originals[index] : originals[0]), ...part, [repairMarker]: true }));
+    char.history.splice(0, originals.length, ...messages);
+    try {
+        if (await saveCharactersToStorage() === false) throw new Error('Greeting save failed');
+        return true;
+    } catch (error) {
+        const at = char.history.findIndex(msg => msg?.[repairMarker]);
+        if (at >= 0) {
+            char.history = char.history.filter(msg => !msg?.[repairMarker]);
+            char.history.splice(at, 0, ...originals);
+            if (window.currentChatCharId === char.id && typeof refreshChatView === 'function') refreshChatView(char);
+        }
+        showWechatToast?.('开场白分段没有保存成功，请重新打开窗口重试');
+        return false;
+    } finally {
+        messages.forEach(msg => { delete msg[repairMarker]; });
+        char.history.forEach(msg => { if (msg) delete msg[repairMarker]; });
+    }
+}
+
 async function createAndOpenWechatChatWindow() {
     const char = await createWechatChatWindow(window.currentChatCharId);
     if (!char) return false;
@@ -181,6 +218,7 @@ function decorateWechatChatWindowTitle(char) {
             if (char && syncWechatChatWindowPersona(char)) {
                 try { Promise.resolve(saveCharactersToStorage()).catch(() => {}); } catch (_) {}
             }
+            if (char) void repairWechatChatWindowGreeting(char);
             const result = baseOpenChat.call(this, charId, ...rest);
             decorateWechatChatWindowTitle(char);
             return result;

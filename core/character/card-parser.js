@@ -187,15 +187,61 @@ const CharacterCardParser = {
     }
 };
 
+function getWechatCharacterGreetingContent(char) {
+    const raw = String(char.first_mes || '').trim();
+    const profile = typeof getUserProfile === 'function' ? getUserProfile() : null;
+    return raw
+        .replace(/\{\{char\}\}/gi, char.name || '')
+        .replace(/\{\{user\}\}/gi, (profile && profile.name) || '我');
+}
+
+// Card text is authored content: split it without running AI directives or
+// rewriting narration. Keep rich/regex cards intact for their own renderer.
+function splitWechatCharacterGreeting(content, char) {
+    const source = String(content || '').trim();
+    if (!source) return [];
+    if ((typeof isWechatStandaloneRichOrRegexSource === 'function' && isWechatStandaloneRichOrRegexSource(source, char))
+        || (typeof getWechatRichCandidateRanges === 'function' && getWechatRichCandidateRanges(source).length)) {
+        return [{ type: 'text', content: source }];
+    }
+    const sections = [];
+    let rest = source;
+    // Classify the whole parenthesized scene before splitting it, so subsequent
+    // chunks and paragraphs retain the same narration type as the first one.
+    while (/^[（(]/.test(rest)) {
+        const closers = [];
+        let end = -1;
+        for (let i = 0; i < rest.length; i += 1) {
+            if (rest[i] === '（') closers.push('）');
+            else if (rest[i] === '(') closers.push(')');
+            else if (rest[i] === closers[closers.length - 1]) closers.pop();
+            if (!closers.length) { end = i + 1; break; }
+        }
+        if (end < 0) break;
+        sections.push({ type: 'offline_narration', content: rest.slice(0, end) });
+        rest = rest.slice(end).trim();
+    }
+    if (rest) sections.push({ type: 'text', content: rest });
+    return sections.flatMap(section => {
+        const segments = typeof splitWechatAiResponseSegments === 'function'
+            ? splitWechatAiResponseSegments(section.content, char) : [section.content];
+        return segments.flatMap(segment => segment.split(/\r?\n+/).flatMap(paragraph => {
+            const chunks = typeof splitWechatSentenceChunks === 'function'
+                ? splitWechatSentenceChunks(paragraph, 92) : [paragraph.trim()];
+            return chunks.filter(Boolean).map(chunk => ({ type: section.type, content: chunk }));
+        }));
+    });
+}
+
 // 新角色的空聊天以角色卡的开场白开始，和角色卡生成器一致。
 function seedWechatCharacterGreeting(char) {
     if (!char || char.isGroupChat || !Array.isArray(char.history) || char.history.length) return false;
-    const raw = String(char.first_mes || '').trim();
-    if (!raw) return false;
-    const profile = typeof getUserProfile === 'function' ? getUserProfile() : null;
-    const content = raw
-        .replace(/\{\{char\}\}/gi, char.name || '')
-        .replace(/\{\{user\}\}/gi, (profile && profile.name) || '我');
-    char.history.push({ type: 'text', isMe: false, content, timestamp: Date.now() });
+    const content = getWechatCharacterGreetingContent(char);
+    if (!content) return false;
+    const timestamp = Date.now();
+    const messages = splitWechatCharacterGreeting(content, char)
+        .map(part => ({ ...part, isMe: false, timestamp }));
+    if (!messages.length) return false;
+    char.history.push(...messages);
     return true;
 }
