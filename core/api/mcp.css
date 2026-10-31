@@ -645,6 +645,144 @@
     .mcp-route > b::before { animation: none; opacity: .75; left: 50%; }
     .mcp-scroll { scroll-behavior: auto; }
 }
+
+/* Atelier connection folio: a compact working console, not a decorative cover. */
+html #app-mcp-window.mcp-window {
+    --mcp-bg: var(--atelier-paper, #f7f8f8);
+    --mcp-card: var(--atelier-glass, #ffffffcc);
+    --mcp-card-soft: var(--atelier-wash, #e7eef3);
+    --mcp-border: var(--atelier-line, #34495e38);
+    --mcp-line: var(--mcp-border);
+    --mcp-line-strong: var(--atelier-accent, #516b80);
+    --mcp-text: var(--atelier-ink, #1b1e23);
+    --mcp-muted: var(--atelier-sub, #626c77);
+    --mcp-dim: var(--atelier-faint, #9aa6b1);
+    --mcp-accent: #334bb1;
+    --mcp-accent-strong: #334bb1;
+    --mcp-accent-soft: #334bb112;
+    --mcp-blue: var(--atelier-accent, #516b80);
+    --mcp-green: #32755b;
+    --mcp-green-soft: #32755b15;
+    --mcp-danger: #a33d44;
+    background: var(--mcp-bg);
+    color: var(--mcp-text);
+}
+html[data-bynd-tone="dark"] #app-mcp-window.mcp-window { --mcp-accent: #a7baff; --mcp-accent-strong: #a7baff; --mcp-accent-soft: #a7baff16; --mcp-green: #8cd5b3; --mcp-green-soft: #8cd5b315; --mcp-danger: #ffaaa9; }
+#app-mcp-window.mcp-window .mcp-shell { position: relative; isolation: isolate; background: var(--mcp-bg); }
+#app-mcp-window.mcp-window .mcp-shell::before { display: block; z-index: -1; opacity: .56; background: url('../../assets/ui/ice-atelier/celestial-lines.svg') center top / 100% auto no-repeat; mask-image: none; -webkit-mask-image: none; }
+#app-mcp-window.mcp-window .mcp-shell::after { content: ''; position: absolute; z-index: -1; top: 142px; right: -58px; width: 190px; height: 190px; border: 1px solid var(--mcp-border); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 13px color-mix(in srgb, var(--mcp-accent) 3%, transparent); }
+#app-mcp-window.mcp-window .mcp-topbar { box-sizing: border-box; min-height: calc(66px + var(--bynd-header-safe-top, 0px)); padding: calc(9px + var(--bynd-header-safe-top, 0px)) 16px 9px; grid-template-columns: 38px minmax(0,1fr) auto; gap: 9px; background: color-mix(in srgb, var(--mcp-bg) 90%, transparent); border-color: var(--mcp-border); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+#app-mcp-window.mcp-window .mcp-topbar button { color: var(--mcp-text); }
+#app-mcp-window.mcp-window .mcp-back { width: 38px; min-height: 44px; height: 44px; border: 0; border-radius: 0 !important; background: transparent; color: var(--mcp-text) !important; font-size: 24px; }
+#app-mcp-window.mcp-window .mcp-topbar-title { gap: 10px; }
+#app-mcp-window.mcp-window .mcp-topbar-title strong { color: var(--mcp-text); font: 500 17px/1.35 var(--atelier-display, Georgia, serif); letter-spacing: 1px; }
+#app-mcp-window.mcp-window .mcp-topbar-title small { max-width: 195px; margin-top: 3px; color: var(--mcp-muted); font-size: 11px; line-height: 1.4; }
+#app-mcp-window.mcp-window #mcp-header-status::before { content: ''; display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; vertical-align: 2px; background: currentColor; }
+#app-mcp-window.mcp-window #mcp-header-status[data-state="connected"] { color: var(--mcp-green); }
+#app-mcp-window.mcp-window #mcp-header-status[data-state="error"] { color: var(--mcp-danger); }
+#app-mcp-window.mcp-window.active #mcp-header-status[data-state="connecting"]::before { animation: mcpAtelierSignal 1.4s ease-in-out infinite; }
+#app-mcp-window.mcp-window .mcp-mini-mark { width: 28px; height: 28px; flex: 0 0 28px; border: 1px solid var(--mcp-border); border-radius: 50%; box-shadow: none; background: var(--mcp-card); color: var(--mcp-accent); font-size: 16px; }
+#app-mcp-window.mcp-window .mcp-disconnect { min-height: 44px; height: 44px; padding: 0 8px; border: 0 !important; border-radius: 0 !important; color: var(--mcp-danger) !important; background: transparent !important; font-size: 12px; letter-spacing: 0; }
+#app-mcp-window.mcp-window .mcp-disconnect:disabled { color: var(--mcp-dim) !important; }
+#app-mcp-window.mcp-window .mcp-scroll { position: relative; padding: 20px 17px calc(32px + env(safe-area-inset-bottom, 0px)); scroll-behavior: auto; }
+#app-mcp-window.mcp-window .mcp-panel { position: relative; min-width: 0; margin-top: 23px; padding: 17px 15px; border: 1px solid var(--mcp-border); border-radius: 0 18px 0 18px; background: var(--mcp-card); box-shadow: 0 6px 20px #243a4b08; }
+#app-mcp-window.mcp-window .mcp-connect-panel { margin-top: 0; border-top: 2px solid var(--mcp-accent); }
+#app-mcp-window.mcp-window .mcp-panel::before { content: none; }
+#app-mcp-window.mcp-window .mcp-panel-heading { display: grid; grid-template-columns: 33px minmax(0,1fr) 24px; align-items: center; gap: 9px; margin-bottom: 17px; }
+#app-mcp-window.mcp-window .mcp-panel-heading::before { content: '01'; color: var(--mcp-accent); font: italic 27px/1 Georgia,serif; letter-spacing: -2px; }
+#app-mcp-window.mcp-window .mcp-tools-panel .mcp-panel-heading::before { content: '02'; }
+#app-mcp-window.mcp-window .mcp-panel-heading > div { min-width: 0; gap: 5px; }
+#app-mcp-window.mcp-window .mcp-panel-heading strong { font: 500 19px/1.4 var(--atelier-display, Georgia, serif); letter-spacing: .5px; color: var(--mcp-text); }
+#app-mcp-window.mcp-window .mcp-panel-heading span { max-width: none; font-size: 11px; line-height: 1.45; color: var(--mcp-muted); overflow-wrap: anywhere; }
+#app-mcp-window.mcp-window .mcp-panel-heading > i { width: 23px; height: 23px; border: 0; border-radius: 0; background: transparent; color: var(--mcp-accent); font-size: 19px; }
+#app-mcp-window.mcp-window .mcp-control-stack { overflow: hidden; border: 1px solid var(--mcp-border); border-radius: 0; background: transparent; }
+#app-mcp-window.mcp-window .mcp-control-stack > .mcp-field,
+#app-mcp-window.mcp-window .mcp-github-options > .mcp-field { margin: 0; padding: 14px 11px; border: 0; border-bottom: 1px solid var(--mcp-border); background: transparent; }
+#app-mcp-window.mcp-window .mcp-field > span { align-items: baseline; gap: 8px; margin: 0 0 8px; color: var(--mcp-text); font-size: 12px; line-height: 1.5; font-weight: 600; }
+#app-mcp-window.mcp-window .mcp-field > span small { margin-left: auto; flex: none; color: var(--mcp-muted); font-size: 10px; font-weight: 400; }
+#app-mcp-window.mcp-window .mcp-field :is(input,select,textarea),
+#app-mcp-window.mcp-window .mcp-field .bynd-sheet-trigger { box-sizing: border-box; width: 100%; min-width: 0; color: var(--mcp-text); background: var(--atelier-solid, #fff); border: 1px solid var(--mcp-border); border-radius: 6px; box-shadow: none; font-size: 14px; }
+#app-mcp-window.mcp-window .mcp-field :is(input,select),
+#app-mcp-window.mcp-window .mcp-field .bynd-sheet-trigger { min-height: 46px; height: 46px; padding: 0 11px; }
+#app-mcp-window.mcp-window .mcp-field textarea { min-height: 156px; padding: 12px; font-size: 13px; line-height: 1.7; }
+#app-mcp-window.mcp-window .mcp-field :is(input,textarea)::placeholder { color: var(--mcp-dim); }
+#app-mcp-window.mcp-window .mcp-field :is(input,select,textarea):focus { border-color: var(--mcp-accent); box-shadow: 0 0 0 2px var(--mcp-accent-soft); }
+#app-mcp-window.mcp-window :is(button,summary,input,textarea,select):focus-visible { outline: 2px solid var(--mcp-accent); outline-offset: 3px; }
+#app-mcp-window.mcp-window .mcp-address-hint { padding: 11px; color: var(--mcp-muted); background: var(--mcp-accent-soft); border-color: var(--mcp-border); font-size: 11px; line-height: 1.6; }
+#app-mcp-window.mcp-window .mcp-address-hint i { color: var(--mcp-accent); }
+#app-mcp-window.mcp-window .mcp-advanced-auth { background: transparent; }
+#app-mcp-window.mcp-window .mcp-advanced-auth > summary { min-height: 60px; padding: 11px; color: var(--mcp-text); gap: 10px; }
+#app-mcp-window.mcp-window .mcp-auth-summary-icon { width: 29px; height: 29px; border-color: var(--mcp-border); border-radius: 0; color: var(--mcp-accent); background: var(--mcp-card-soft); }
+#app-mcp-window.mcp-window .mcp-auth-summary-copy strong { color: var(--mcp-text); font-size: 12px; line-height: 1.4; font-weight: 500; }
+#app-mcp-window.mcp-window .mcp-auth-summary-copy small { color: var(--mcp-muted); font-size: 11px; line-height: 1.45; }
+#app-mcp-window.mcp-window .mcp-auth-chevron { color: var(--mcp-accent); }
+#app-mcp-window.mcp-window .mcp-advanced-auth[open] > summary,
+#app-mcp-window.mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-advanced-auth > summary { background: var(--mcp-accent-soft); border-color: var(--mcp-border); }
+#app-mcp-window.mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-icon { border-color: var(--mcp-border); color: var(--mcp-accent); background: var(--mcp-card-soft); }
+#app-mcp-window.mcp-window .mcp-control-stack:not(:has(#mcp-preset-select option[value="custom"]:checked)) .mcp-auth-summary-copy small { color: var(--mcp-muted); }
+#app-mcp-window.mcp-window .mcp-advanced-auth.is-error { box-shadow: inset 0 0 0 1px var(--mcp-danger); }
+#app-mcp-window.mcp-window .mcp-advanced-auth.is-error :is(.mcp-auth-summary-icon,.mcp-auth-chevron,.mcp-auth-summary-copy small) { color: var(--mcp-danger); }
+#app-mcp-window.mcp-window .mcp-secret-field input { padding-right: 48px; }
+#app-mcp-window.mcp-window .mcp-secret-field button { width: 38px; height: 38px; top: 4px; right: 4px; color: var(--mcp-muted); border-radius: 0; }
+#app-mcp-window.mcp-window .mcp-github-options { border-color: var(--mcp-border); background: var(--mcp-accent-soft); }
+#app-mcp-window.mcp-window .mcp-switch-row { padding: 11px; gap: 9px; }
+#app-mcp-window.mcp-window .mcp-switch-row label { min-height: 54px; height: auto; padding: 10px 8px; border: 1px solid var(--mcp-border); border-radius: 0; color: var(--mcp-text); background: var(--atelier-solid, #fff); }
+#app-mcp-window.mcp-window .mcp-switch-row label > span { background: var(--mcp-dim); }
+#app-mcp-window.mcp-window .mcp-switch-row b { white-space: normal; }
+#app-mcp-window.mcp-window .mcp-switch-row b strong { color: var(--mcp-text); font-size: 12px; line-height: 1.2; }
+#app-mcp-window.mcp-window .mcp-switch-row b small { color: var(--mcp-muted); font-size: 10px; line-height: 1.4; white-space: normal; }
+#app-mcp-window.mcp-window .mcp-switch-row input:checked + span::after { background: var(--atelier-solid, #fff); }
+#app-mcp-window.mcp-window .mcp-primary-btn { min-height: 49px; margin-top: 16px; padding: 0 42px 0 12px; border: 1px solid var(--mcp-accent); border-radius: 0 12px 0 12px; color: #fff; background: #334bb1; font-size: 13px; font-weight: 600; letter-spacing: .5px; box-shadow: inset 0 1px #ffffff44; transition: transform 160ms var(--atelier-ease, ease-out), opacity 160ms ease; }
+#app-mcp-window.mcp-window .mcp-primary-btn > b { width: 31px; height: 31px; right: 7px; border: 1px solid #ffffff44; border-radius: 50%; color: #fff; background: transparent; }
+#app-mcp-window.mcp-window .mcp-primary-btn:active { transform: scale(.98); background: #334bb1; box-shadow: none; }
+#app-mcp-window.mcp-window .mcp-primary-btn:disabled { color: #fff; background: #334bb1; opacity: .5; }
+#app-mcp-window.mcp-window .mcp-security-note { margin: 12px 0 0; color: var(--mcp-muted); font-size: 11px; line-height: 1.6; }
+#app-mcp-window.mcp-window .mcp-security-note i { color: var(--mcp-accent); }
+#app-mcp-window.mcp-window .mcp-search { min-height: 44px; height: 44px; border-color: var(--mcp-border); border-radius: 5px; color: var(--mcp-accent); background: var(--atelier-solid, #fff); }
+#app-mcp-window.mcp-window .mcp-search input { color: var(--mcp-text); font-size: 13px; }
+#app-mcp-window.mcp-window .mcp-tool-list { gap: 0; margin-top: 14px; border-top: 1px solid var(--mcp-border); counter-reset: mcp-tool; }
+#app-mcp-window.mcp-window .mcp-tool-item { min-height: 94px; grid-template-columns: 31px minmax(0,1fr) 14px; padding: 14px 2px; gap: 12px; border: 0; border-bottom: 1px solid var(--mcp-border); border-radius: 0; background: transparent; transition: background-color 150ms ease, transform 150ms var(--atelier-ease, ease-out); }
+#app-mcp-window.mcp-window .mcp-tool-item:active { transform: scale(.985); background: var(--mcp-accent-soft); }
+#app-mcp-window.mcp-window .mcp-tool-item > .mcp-tool-index { width: 30px; height: auto; align-self: start; margin-top: 2px; border-radius: 0; color: var(--mcp-accent); background: none; font: italic 25px/1 Georgia,serif; letter-spacing: -1px; }
+#app-mcp-window.mcp-window .mcp-tool-item strong { color: var(--mcp-text); font-size: 13px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; white-space: normal; }
+#app-mcp-window.mcp-window .mcp-tool-item p { margin: 5px 0; color: var(--mcp-muted); font-size: 12px; line-height: 1.55; }
+#app-mcp-window.mcp-window .mcp-tool-item em { color: var(--mcp-accent); font-size: 10px; }
+#app-mcp-window.mcp-window .mcp-tool-item > i { color: var(--mcp-dim); }
+#app-mcp-window.mcp-window .mcp-empty-tools { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 25px 8px; color: var(--mcp-muted); font-size: 12px; line-height: 1.5; }
+#app-mcp-window.mcp-window .mcp-empty-tools > i { color: var(--mcp-accent); font-size: 24px; }
+#app-mcp-window.mcp-window .mcp-empty-tools strong { color: var(--mcp-text); font-weight: 500; }
+#app-mcp-window.mcp-window .mcp-runner { border-top: 2px solid var(--mcp-accent); }
+#app-mcp-window.mcp-window .mcp-runner-head { align-items: center; gap: 11px; }
+#app-mcp-window.mcp-window .mcp-runner-head button { width: 38px; height: 44px; border: 1px solid var(--mcp-border); border-radius: 0; color: var(--mcp-muted); background: transparent; }
+#app-mcp-window.mcp-window .mcp-runner-head strong { color: var(--mcp-text); font-size: 15px; line-height: 1.5; }
+#app-mcp-window.mcp-window .mcp-runner-head span { color: var(--mcp-muted); font-size: 12px; line-height: 1.6; }
+#app-mcp-window.mcp-window .mcp-result { border-color: var(--mcp-border); border-radius: 0; background: var(--atelier-solid, #fff); }
+#app-mcp-window.mcp-window .mcp-result > div { min-height: 44px; height: auto; padding: 8px 12px; gap: 8px; border-color: var(--mcp-border); background: var(--mcp-card-soft); color: var(--mcp-text); }
+#app-mcp-window.mcp-window .mcp-result > div strong { color: var(--mcp-text); font-size: 12px; }
+#app-mcp-window.mcp-window .mcp-result > div button { min-height: 32px; padding: 0 8px; border-color: var(--mcp-border); border-radius: 0; color: var(--mcp-text); background: var(--atelier-solid, #fff); }
+#app-mcp-window.mcp-window .mcp-result pre { color: var(--mcp-text); background: var(--atelier-solid, #fff); padding: 13px; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-wrap; }
+#app-mcp-window.mcp-window .mcp-note { color: var(--mcp-muted); }
+#app-mcp-window.mcp-window.active .mcp-connect-panel { animation: mcpAtelierEnter 240ms var(--atelier-ease, ease-out) backwards; }
+@keyframes mcpAtelierEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mcpAtelierSignal { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+@media (hover:hover) and (pointer:fine) { #app-mcp-window.mcp-window .mcp-tool-item:hover { background: var(--mcp-accent-soft); } }
+@media (max-width:350px) {
+    #app-mcp-window.mcp-window .mcp-scroll { padding-inline: 12px; }
+    #app-mcp-window.mcp-window .mcp-panel { padding: 16px 12px; }
+    #app-mcp-window.mcp-window .mcp-topbar { padding-inline: 12px; gap: 7px; }
+    #app-mcp-window.mcp-window .mcp-topbar-title { gap: 7px; }
+    #app-mcp-window.mcp-window .mcp-topbar-title strong { font-size: 16px; }
+    #app-mcp-window.mcp-window .mcp-topbar-title small { max-width: 156px; }
+    #app-mcp-window.mcp-window .mcp-panel-heading { grid-template-columns: 27px minmax(0,1fr) 20px; gap: 7px; }
+    #app-mcp-window.mcp-window .mcp-panel-heading strong { font-size: 18px; }
+    #app-mcp-window.mcp-window .mcp-field > span { flex-wrap: wrap; }
+    #app-mcp-window.mcp-window .mcp-field > span small { margin-left: 0; }
+}
+@media (prefers-reduced-motion:reduce) {
+    #app-mcp-window.mcp-window *, #app-mcp-window.mcp-window *::before, #app-mcp-window.mcp-window *::after { animation: none !important; transition: none !important; scroll-behavior: auto; }
+    #app-mcp-window.mcp-window :is(.mcp-primary-btn,.mcp-tool-item):active { transform: none; }
+}
+
 /* === End MCP app === */
 
 /* Rich role cards are self-contained layouts, so they must not inherit a chat bubble. */

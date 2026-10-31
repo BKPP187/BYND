@@ -159,6 +159,24 @@ html #app-theme-window.atelier-surface .theme-check-card input:checked ~ span::a
 .phone-container .bynd-sheet { background: var(--atelier-solid); border: 1px solid var(--atelier-line); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 48px #315f7a22, inset 0 3px var(--atelier-wash); }
 .phone-container .bynd-sheet-head strong { font-family: var(--atelier-display); letter-spacing: 1px; }
 .phone-container .bynd-sheet-option[aria-selected="true"] { background: var(--atelier-wash); color: var(--atelier-ink); }
+.phone-container .bynd-sheet-trigger { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--atelier-line); border-radius: 4px 11px 4px 11px; background: var(--atelier-solid); color: var(--atelier-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.phone-container .bynd-sheet-trigger-label { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.phone-container .bynd-sheet-trigger > i { flex: none; color: var(--atelier-accent); font-size: 18px; }
+.phone-container .bynd-sheet-trigger:disabled { cursor: not-allowed; opacity: .45; }
+.phone-container .bynd-sheet-trigger:focus-visible { outline: 2px solid var(--atelier-accent); outline-offset: 3px; }
+.phone-container .bynd-sheet-layer { box-sizing: border-box; padding-top: calc(var(--bynd-header-safe-top, 0px) + 12px); background: #152d4559; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.phone-container .bynd-sheet { align-self: center; width: calc(100% - 20px); max-width: 520px; max-height: min(76%, 620px); border-radius: 4px 19px 0 0; }
+.phone-container .bynd-sheet-head { position: relative; padding: 22px 18px 15px; border-bottom: 1px solid var(--atelier-line); }
+.phone-container .bynd-sheet-head::before { content: 'SELECTION / BYND'; position: absolute; top: 8px; left: 18px; color: var(--atelier-faint); font: 8px Georgia, serif; letter-spacing: 2px; }
+.phone-container .bynd-sheet-head strong { flex: 1; min-width: 0; font-size: 18px; overflow-wrap: anywhere; }
+.phone-container .bynd-sheet-close { min-height: 44px; min-width: 44px; padding: 4px 0 4px 8px; }
+.phone-container .bynd-sheet-list { counter-reset: sheet-option; padding: 6px 12px max(18px, env(safe-area-inset-bottom, 0px)); }
+.phone-container .bynd-sheet-option { counter-increment: sheet-option; min-height: 56px; padding: 12px 6px; gap: 12px; border-bottom: 1px solid var(--atelier-line); border-radius: 0; font-size: 15px; }
+.phone-container .bynd-sheet-option::before { content: counter(sheet-option, decimal-leading-zero); position: static; inset: auto; flex: none; width: 24px; height: auto; border: 0; background: transparent; color: var(--atelier-faint); font: italic 16px Georgia, serif; }
+.phone-container .bynd-sheet-option > span { min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.5; }
+.phone-container .bynd-sheet-option[aria-selected="true"] { color: var(--atelier-ink); background: var(--atelier-wash); box-shadow: inset 2px 0 var(--atelier-accent); }
+.phone-container .bynd-sheet-option:disabled { opacity: .45; }
+.phone-container .bynd-sheet-option:focus-visible { outline: 2px solid var(--atelier-accent); outline-offset: -2px; }
 .phone-container .bynd-sheet-option > i::before { content: '✓'; font: 17px Georgia, serif; }
 :is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) :is(input:not([type="checkbox"]), textarea, select, .bynd-sheet-trigger) { color: var(--atelier-ink) !important; background: var(--atelier-solid) !important; border-color: var(--atelier-line) !important; }
 :is(#api-edit-modal, #api-voice-modal, #api-openai-voice-modal, #api-novelai-image-modal, #api-fish-voice-modal, #api-elevenlabs-voice-modal, #api-local-voice-modal) :is(.wc-card-header > span, .wc-form-group > label, .wc-card-header .ri-close-line) { color: var(--atelier-ink) !important; }

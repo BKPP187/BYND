@@ -269,7 +269,11 @@ function setMcpStatus(state, text) {
         pill.dataset.state = state;
         pill.innerHTML = `<i></i>${desktopEscapeHtml(text)}`;
     }
-    if (header) header.textContent = text;
+    if (header) {
+        header.textContent = text;
+        header.title = text;
+        if (header.dataset) header.dataset.state = state;
+    }
 }
 
 function renderMcpConnectionState() {
@@ -454,7 +458,7 @@ async function connectGitHubMcp() {
         const initialized = await callGitHubMcpRpc('initialize', {
             protocolVersion: GITHUB_MCP_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'BYND MCP', version: '1.1.1048' }
+            clientInfo: { name: 'BYND MCP', version: '1.1.1050' }
         }, { includeSession: false, includeProtocol: false });
         githubMcpState.protocolVersion = initialized?.protocolVersion || GITHUB_MCP_PROTOCOL_VERSION;
         githubMcpState.serverInfo = initialized?.serverInfo || { name: config.isGitHub ? 'GitHub MCP' : 'MCP Server' };
@@ -509,18 +513,18 @@ function renderMcpTools(filterText = '') {
     const rows = githubMcpState.tools.filter(tool => !query || `${tool.name} ${tool.description || ''}`.toLocaleLowerCase().includes(query));
     if (count) count.textContent = `${rows.length} / ${githubMcpState.tools.length} 个工具`;
     list.innerHTML = '';
-    rows.forEach(tool => {
+    rows.forEach((tool, index) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'mcp-tool-item';
         const required = Array.isArray(tool.inputSchema?.required) ? tool.inputSchema.required.length : 0;
-        button.innerHTML = `<span><i class="ri-terminal-box-line"></i></span><div><strong></strong><p></p><em>${required ? `${required} 个必填参数` : '无需必填参数'}</em></div><i class="ri-arrow-right-s-line"></i>`;
+        button.innerHTML = `<span class="mcp-tool-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><div><strong></strong><p></p><em>${required ? `${required} 个必填参数` : '无需必填参数'}</em></div><i class="ri-arrow-right-s-line" aria-hidden="true"></i>`;
         button.querySelector('strong').textContent = tool.name;
         button.querySelector('p').textContent = tool.description || '未提供工具说明';
         button.addEventListener('click', () => selectMcpTool(tool.name));
         list.appendChild(button);
     });
-    if (!rows.length) list.innerHTML = '<div class="mcp-empty-tools">没有匹配的工具</div>';
+    if (!rows.length) list.innerHTML = '<div class="mcp-empty-tools"><i class="ri-search-line" aria-hidden="true"></i><strong>没有匹配的工具</strong><span>试试其他关键词，或重新载入工具。</span></div>';
 }
 
 function filterMcpTools(value) {
