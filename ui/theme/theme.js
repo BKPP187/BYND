@@ -980,8 +980,93 @@ function applyLockscreenOptions(data) {
 }
 window.applyLockscreenOptions = applyLockscreenOptions;
 
+function syncDesktopWidgetPhotoPreview(slot) {
+    const input = document.getElementById('input-desk-img-' + slot);
+    const picker = document.getElementById('widget-photo-picker-' + slot);
+    if (!input || !picker) return;
+    const image = picker.querySelector('.widget-photo-preview img');
+    const icon = picker.querySelector('.widget-photo-preview i');
+    const status = picker.querySelector('[role="status"]');
+    const source = input.value;
+    const show = (state, text) => {
+        picker.dataset.state = state;
+        image.hidden = state !== 'ready';
+        icon.hidden = state === 'ready';
+        status.textContent = text;
+    };
+    image.onload = () => show('ready', '已选择图片');
+    image.onerror = () => show('error', '图片加载失败，请更换');
+    if (!source) {
+        image.removeAttribute('src');
+        show('empty', '尚未选择图片');
+    } else if (image.getAttribute('src') !== source) {
+        show('loading', '图片加载中…');
+        image.src = source;
+    } else if (image.complete) {
+        show(image.naturalWidth ? 'ready' : 'error', image.naturalWidth ? '已选择图片' : '图片加载失败，请更换');
+    }
+}
+
+function loadDesktopWidgetPhotoPreviews(data) {
+    for (const slot of [1, 2]) {
+        const input = document.getElementById('input-desk-img-' + slot);
+        if (input) input.value = typeof data['d' + slot] === 'string' ? data['d' + slot] : '';
+        syncDesktopWidgetPhotoPreview(slot);
+    }
+}
+
+function convertDesktopWidgetPhoto(input, targetInputId) {
+    const file = input.files?.[0];
+    if (!file || input.disabled) return;
+    const slot = targetInputId.slice(-1);
+    const target = document.getElementById(targetInputId);
+    const picker = document.getElementById('widget-photo-picker-' + slot);
+    if (!target || !picker) return;
+    const button = picker.querySelector('.widget-photo-change');
+    const status = picker.querySelector('[role="status"]');
+    const finish = () => { input.disabled = false; button.disabled = false; input.value = ''; };
+    const fail = () => {
+        picker.dataset.state = 'error';
+        status.textContent = target.value ? '更换失败，已保留原图' : '图片读取失败，请重试';
+        finish();
+    };
+    input.disabled = true;
+    button.disabled = true;
+    picker.dataset.state = 'loading';
+    status.textContent = '正在处理图片…';
+    if (file.type && !file.type.startsWith('image/')) { fail(); return; }
+    const reader = new FileReader();
+    reader.onerror = reader.onabort = fail;
+    reader.onload = () => {
+        const image = new Image();
+        image.onerror = fail;
+        image.onload = () => {
+            try {
+                if (!image.width || !image.height) throw new Error('Invalid image');
+                const scale = Math.min(1, 720 / image.width);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(image.width * scale));
+                canvas.height = Math.max(1, Math.round(image.height * scale));
+                const context = canvas.getContext('2d');
+                if (!context) throw new Error('Canvas unavailable');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const result = canvas.toDataURL('image/jpeg', 0.5);
+                if (!result.startsWith('data:image/jpeg')) throw new Error('Image conversion failed');
+                target.value = result;
+                syncDesktopWidgetPhotoPreview(slot);
+                finish();
+            } catch (error) { fail(); }
+        };
+        image.src = reader.result;
+    };
+    try { reader.readAsDataURL(file); } catch (error) { fail(); }
+}
+
 // 2. 🔧 强力压缩函数
 function convertFile(input, targetInputId) {
+    if (/^input-desk-img-[12]$/.test(targetInputId)) return convertDesktopWidgetPhoto(input, targetInputId);
     if (input.files && input.files[0]) {
         const file = input.files[0];
         const reader = new FileReader();
@@ -1058,6 +1143,7 @@ function loadSavedSettings() {
         bindPhoneStatusBarSettingControl();
         const phoneStatusBarEnabled = applyPhoneStatusBarEnabled(data.phoneStatusBarEnabled);
         setThemeCheckbox('phone-status-bar-enabled', phoneStatusBarEnabled);
+        loadDesktopWidgetPhotoPreviews(data);
         if (Object.keys(data).length === 0) return;
 
         if (data.wpLock) document.getElementById('input-wp-lock').value = data.wpLock;
@@ -1066,8 +1152,6 @@ function loadSavedSettings() {
         if (data.vibe) document.getElementById('input-vibe-text').value = data.vibe;
         if (data.l1) document.getElementById('input-lock-img-1').value = data.l1;
         if (data.l2) document.getElementById('input-lock-img-2').value = data.l2;
-        if (data.d1) document.getElementById('input-desk-img-1').value = data.d1;
-        if (data.d2) document.getElementById('input-desk-img-2').value = data.d2;
         setThemeCheckbox('lock-enabled', data.lockEnabled);
         setThemeCheckbox('phone-status-bar-enabled', phoneStatusBarEnabled);
         setThemeCheckbox('lock-show-left', data.lockShowLeft);
@@ -1666,6 +1750,7 @@ function saveTheme() {
 function initTheme() {
     try {
         const data = JSON.parse(localStorage.getItem('my_theme_data') || '{}') || {};
+        loadDesktopWidgetPhotoPreviews(data);
         if (typeof applyBuiltinThemeAppearance === 'function') applyBuiltinThemeAppearance(data);
         const saveBtn = getThemeLibrarySaveButton();
         if (saveBtn) saveBtn.onclick = saveCurrentThemeLibraryItem;

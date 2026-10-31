@@ -11,7 +11,7 @@ const themeWindow = html.slice(html.indexOf('<div id="app-theme-window"'), html.
 
 test('personalization home tiles cover every settings card exactly', () => {
     const tiles = [...themeWindow.matchAll(/data-theme-open="([a-z]+)"/g)].map(match => match[1]);
-    const cards = [...themeWindow.matchAll(/<div class="setting-card"( data-theme-section="([a-z]+)")?>/g)];
+    const cards = [...themeWindow.matchAll(/<div class="setting-card(?: [^"]+)?"( data-theme-section="([a-z]+)")?>/g)];
     assert.equal(cards.length, 9);
     assert.ok(cards.every(card => card[2]), 'every card belongs to a section');
     assert.deepEqual([...new Set(cards.map(card => card[2]))].sort(), [...tiles].sort());
